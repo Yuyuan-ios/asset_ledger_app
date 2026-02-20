@@ -1,0 +1,43 @@
+{
+  "colors": {
+    "scaffoldBg": "#FFF8F1EC",
+    "cardFill": "#FFFFF9F2",
+    "divider": "#FFD9D2CC",
+    "textPrimary": "#FF111111",
+    "textSecondary": "#FF666666",
+    "legendGreen": "#FF86C8A0",
+    "legendBlack": "#FF111111",
+    "income": "#FF86CFA1",
+    "expense": "#FF1F1F1F"
+  },
+  "space": {},
+  "text": {
+    "pageTitle": {
+      "fontSize": 34,
+      "fontWeight": 900,
+      "height": 1.1,
+      "color": "colors.textPrimary"
+    },
+    "sectionTitle": {
+      "fontSize": 22,
+      "fontWeight": 900,
+      "height": 1.1,
+      "color": "colors.textPrimary"
+    },
+    "cardTitle": {
+      "fontSize": 18,
+      "fontWeight": 900,
+      "color": "colors.textPrimary"
+    },
+    "body": {
+      "fontSize": 14,
+      "fontWeight": 600,
+      "color": "colors.textPrimary"
+    },
+    "caption": {
+      "fontSize": 12,
+      "fontWeight": 600,
+      "color": "colors.textSecondary"
+    }
+  }
+}
