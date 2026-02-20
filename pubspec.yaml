@@ -1,0 +1,43 @@
+name: asset_ledger
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 状态管理
+  provider: ^6.1.2
+
+  # DB
+  sqflite: ^2.3.3+1
+
+  # 路径工具
+  path: ^1.9.0
+
+  # ✅ Step 10-6 需要：获取 App 私有目录（保存头像）
+  path_provider: ^2.1.4
+
+  # ✅ Step 10-6 需要：选择相册/拍照获取头像图片
+  image_picker: ^1.1.2
+
+  # iOS 风格图标
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # ✅ 品牌头像 assets
+  assets:
+    - assets/brands/
