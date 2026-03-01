@@ -118,7 +118,16 @@ class DeviceService {
   }) {
     // ① 空值：当作“清空”，不需要订阅也允许
     if (customAvatarPath == null || customAvatarPath.trim().isEmpty) {
-      return device.copyWith(customAvatarPath: null);
+      return Device(
+        id: device.id,
+        name: device.name,
+        brand: device.brand,
+        model: device.model,
+        defaultUnitPrice: device.defaultUnitPrice,
+        baseMeterHours: device.baseMeterHours,
+        isActive: device.isActive,
+        customAvatarPath: null,
+      );
     }
 
     // ② 有值：必须订阅允许
