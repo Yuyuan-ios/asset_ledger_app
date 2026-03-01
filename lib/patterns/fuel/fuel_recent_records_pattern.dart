@@ -1,0 +1,331 @@
+import 'package:flutter/material.dart';
+
+import '../../core/foundation/spacing.dart';
+import '../../data/models/fuel_log.dart';
+import '../../tokens/mapper/core_tokens.dart';
+import '../../tokens/mapper/timing_tokens.dart';
+import '../../core/utils/format_utils.dart';
+import '../timing/records_title_pattern.dart';
+
+typedef DeleteFuelRecordCallback = Future<bool> Function(FuelLog log);
+
+class FuelRecentRecordsSection extends StatefulWidget {
+  final List<FuelLog> logs;
+  final Widget Function(FuelLog log) leadingBuilder;
+  final String Function(FuelLog log) titleBuilder;
+  final String Function(FuelLog log) subtitleBuilder;
+  final ValueChanged<FuelLog> onTap;
+  final Future<bool> Function(FuelLog log)? onConfirmDelete;
+  final DeleteFuelRecordCallback? onDelete;
+
+  const FuelRecentRecordsSection({
+    super.key,
+    required this.logs,
+    required this.leadingBuilder,
+    required this.titleBuilder,
+    required this.subtitleBuilder,
+    required this.onTap,
+    this.onConfirmDelete,
+    this.onDelete,
+  });
+
+  @override
+  State<FuelRecentRecordsSection> createState() =>
+      _FuelRecentRecordsSectionState();
+}
+
+class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
+  final Set<String> _locallyRemovedKeys = <String>{};
+
+  String _recordKey(FuelLog r) {
+    return 'fuel-${r.id ?? '${r.date}-${r.deviceId}-${r.supplier}-${r.liters}-${r.cost}'}';
+  }
+
+  @override
+  void didUpdateWidget(covariant FuelRecentRecordsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentKeys = widget.logs.map(_recordKey).toSet();
+    _locallyRemovedKeys.removeWhere((k) => !currentKeys.contains(k));
+  }
+
+  Future<void> _deleteWithOptimisticRemove(FuelLog log) async {
+    if (widget.onDelete == null) return;
+    final key = _recordKey(log);
+    setState(() => _locallyRemovedKeys.add(key));
+    final ok = await widget.onDelete!(log);
+    if (!ok && mounted) {
+      setState(() => _locallyRemovedKeys.remove(key));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleLogs = widget.logs
+        .where((r) => !_locallyRemovedKeys.contains(_recordKey(r)))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RecordsTitle(count: visibleLogs.length),
+        const SizedBox(height: TimingTokens.homeRecordsTitleTopGap),
+        _FuelGroupedList(
+          logs: visibleLogs,
+          leadingBuilder: widget.leadingBuilder,
+          titleBuilder: widget.titleBuilder,
+          subtitleBuilder: widget.subtitleBuilder,
+          onTap: widget.onTap,
+          onConfirmDelete: widget.onConfirmDelete,
+          onDelete: _deleteWithOptimisticRemove,
+        ),
+      ],
+    );
+  }
+}
+
+class _FuelGroupedList extends StatelessWidget {
+  final List<FuelLog> logs;
+  final Widget Function(FuelLog log) leadingBuilder;
+  final String Function(FuelLog log) titleBuilder;
+  final String Function(FuelLog log) subtitleBuilder;
+  final ValueChanged<FuelLog> onTap;
+  final Future<bool> Function(FuelLog log)? onConfirmDelete;
+  final Future<void> Function(FuelLog log)? onDelete;
+
+  const _FuelGroupedList({
+    required this.logs,
+    required this.leadingBuilder,
+    required this.titleBuilder,
+    required this.subtitleBuilder,
+    required this.onTap,
+    required this.onConfirmDelete,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (logs.isEmpty) {
+      return const SizedBox(
+        height: TimingTokens.emptyStateHeight,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '暂无记录',
+                style: TextStyle(
+                  fontSize: TimingTokens.emptyStateTitleFontSize,
+                  color: AppColors.timingTextSecondary,
+                ),
+              ),
+              SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
+              Text(
+                '点击右上角 + 新建',
+                style: TextStyle(
+                  fontSize: TimingTokens.emptyStateSubtitleFontSize,
+                  color: AppColors.timingTextTertiary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final grouped = <int, List<FuelLog>>{};
+    for (final log in logs) {
+      grouped.putIfAbsent(log.date, () => <FuelLog>[]).add(log);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: grouped.entries.map((entry) {
+        return _FuelDateGroup(
+          ymd: entry.key,
+          items: entry.value,
+          leadingBuilder: leadingBuilder,
+          titleBuilder: titleBuilder,
+          subtitleBuilder: subtitleBuilder,
+          onTap: onTap,
+          onConfirmDelete: onConfirmDelete,
+          onDelete: onDelete,
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _FuelDateGroup extends StatelessWidget {
+  final int ymd;
+  final List<FuelLog> items;
+  final Widget Function(FuelLog log) leadingBuilder;
+  final String Function(FuelLog log) titleBuilder;
+  final String Function(FuelLog log) subtitleBuilder;
+  final ValueChanged<FuelLog> onTap;
+  final Future<bool> Function(FuelLog log)? onConfirmDelete;
+  final Future<void> Function(FuelLog log)? onDelete;
+
+  const _FuelDateGroup({
+    required this.ymd,
+    required this.items,
+    required this.leadingBuilder,
+    required this.titleBuilder,
+    required this.subtitleBuilder,
+    required this.onTap,
+    required this.onConfirmDelete,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+            left: TimingTokens.dateHeaderLeftInset,
+          ),
+          child: Text(
+            FormatUtils.date(ymd),
+            style: const TextStyle(
+              fontSize: TimingTokens.dateHeaderFontSize,
+              color: AppColors.textPrimary,
+              height: TimingTokens.dateHeaderLineHeight,
+            ),
+          ),
+        ),
+        const Divider(
+          height: TimingTokens.recordDividerThickness,
+          thickness: TimingTokens.recordDividerThickness,
+          color: AppColors.timingDivider,
+        ),
+        ...items.map(
+          (log) => _FuelRecordRow(
+            log: log,
+            leadingBuilder: leadingBuilder,
+            titleBuilder: titleBuilder,
+            subtitleBuilder: subtitleBuilder,
+            onTap: () => onTap(log),
+            onConfirmDelete: onConfirmDelete == null
+                ? null
+                : () => onConfirmDelete!(log),
+            onDelete: onDelete == null ? null : () => onDelete!(log),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FuelRecordRow extends StatelessWidget {
+  final FuelLog log;
+  final Widget Function(FuelLog log) leadingBuilder;
+  final String Function(FuelLog log) titleBuilder;
+  final String Function(FuelLog log) subtitleBuilder;
+  final VoidCallback onTap;
+  final Future<bool> Function()? onConfirmDelete;
+  final Future<void> Function()? onDelete;
+
+  const _FuelRecordRow({
+    required this.log,
+    required this.leadingBuilder,
+    required this.titleBuilder,
+    required this.subtitleBuilder,
+    required this.onTap,
+    this.onConfirmDelete,
+    this.onDelete,
+  });
+
+  TextStyle get _valueStyle => const TextStyle(
+    fontSize: TimingTokens.recordValueFontSize,
+    color: AppColors.textPrimary,
+    height: 1,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Material(
+      color: AppColors.sheetBackground,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: TimingTokens.recordRowHeight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              TimingTokens.recordRowPaddingLeft,
+              0,
+              TimingTokens.recordRowPaddingRight,
+              0,
+            ),
+            child: Row(
+              children: [
+                leadingBuilder(log),
+                const SizedBox(width: TimingTokens.recordAvatarRightGap),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titleBuilder(log),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: TimingTokens.recordTitleFontSize,
+                          color: AppColors.textPrimary,
+                          height: TimingTokens.recordTitleLineHeight,
+                        ),
+                      ),
+                      const SizedBox(height: TimingTokens.recordSubTitleTopGap),
+                      Text(
+                        subtitleBuilder(log),
+                        style: const TextStyle(
+                          fontSize: TimingTokens.recordSubTitleFontSize,
+                          color: AppColors.textPrimary,
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: TimingTokens.recordValueLeftGap),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${FormatUtils.liters(log.liters)} L',
+                      style: _valueStyle,
+                    ),
+                    const SizedBox(height: TimingTokens.recordValueBottomGap),
+                    Text(FormatUtils.money(log.cost), style: _valueStyle),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (onConfirmDelete == null || onDelete == null) return content;
+
+    return Dismissible(
+      key: ValueKey(
+        'fuel-${log.id ?? '${log.date}-${log.deviceId}-${log.supplier}-${log.liters}-${log.cost}'}',
+      ),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Colors.red.shade500,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      confirmDismiss: (_) => onConfirmDelete!(),
+      onDismissed: (_) {
+        onDelete!();
+      },
+      child: content,
+    );
+  }
+}

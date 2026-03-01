@@ -1,6 +1,13 @@
-# excavator_ledger
+# asset_ledger
 
 A new Flutter project.
+
+## Architecture Rules
+
+- `components/`: Pure visual, reusable UI. No business semantics. Must not read Store.
+- `patterns/`: Layout/structure composition. May contain business semantics but must not read Store.
+- `features/*/view`: Page assembly only. Responsible for `context.watch/read`, routing params, callbacks.
+- `data/*`, `features/*/controller`: Must not import `components/`, `patterns/`, or `features/*/view`.
 
 ## Getting Started
 

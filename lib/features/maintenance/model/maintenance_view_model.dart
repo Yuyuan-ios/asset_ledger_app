@@ -1,0 +1,3 @@
+class MaintenanceViewModel {
+  const MaintenanceViewModel();
+}

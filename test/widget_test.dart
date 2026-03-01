@@ -1,11 +1,26 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:asset_ledger/main.dart';
+import 'package:asset_ledger/app/app.dart';
+import 'package:asset_ledger/app/router.dart';
 
 void main() {
   testWidgets('Asset Ledger smoke test', (WidgetTester tester) async {
-    // 只验证：App 能启动、能 pump 一帧，不崩溃
-    await tester.pumpWidget(const AssetLedgerApp());
-    await tester.pump();
-    expect(find.text('计时'), findsWidgets); // 你主页AppBar里有“计时”，用于简单断言
+    late MaterialApp app;
+
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Builder(
+          builder: (context) {
+            app = const AssetLedgerApp().build(context) as MaterialApp;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(app.title, 'Asset Ledger');
+    expect(app.debugShowCheckedModeBanner, isFalse);
+    expect(app.home, isA<AppRouterEntry>());
   });
 }

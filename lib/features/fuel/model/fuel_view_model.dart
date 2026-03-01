@@ -1,0 +1,3 @@
+class FuelViewModel {
+  const FuelViewModel();
+}
