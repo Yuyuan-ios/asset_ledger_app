@@ -1,0 +1,3 @@
+class TimingViewModel {
+  const TimingViewModel();
+}
