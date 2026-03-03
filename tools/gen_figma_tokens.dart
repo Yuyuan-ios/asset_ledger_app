@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 /// Usage:
-///   dart run tools/gen_figma_tokens.dart <tokens.json> <out_dart>
+///   dart run tools/gen_figma_tokens.dart [tokens.json] [out_dart]
 /// Example:
 ///   dart run tools/gen_figma_tokens.dart assets/tokens/tokens.json lib/presentation/theme/tokens/generated/figma_tokens.g.dart
 ///
 /// Supports:
 /// - Tokens Studio / W3C tokens: leaf nodes with {"$value": ..., "$type": ...}
-/// - Simple flat tokens: {"colors": {...}, "radii": {...}, "space": {...}, "text": {...}}
+/// - Simple flat tokens: "colors"/"radii"/"space"/"text"
 void main(List<String> args) async {
   if (args.length < 2) {
     stderr.writeln(

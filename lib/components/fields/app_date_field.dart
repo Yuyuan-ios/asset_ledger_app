@@ -26,22 +26,22 @@ class SheetDateField extends StatelessWidget {
       onTap: onPickDate,
       style: const TextStyle(
         fontSize: SheetTokens.fieldTextSize,
-        color: AppColors.sheetTextPrimary,
+        color: SheetColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label ?? FormatUtils.ymdInputLabel,
         hintText: hint ?? FormatUtils.ymdInputHint,
         hintStyle: const TextStyle(
           fontSize: SheetTokens.fieldTextSize,
-          color: AppColors.sheetHint,
+          color: SheetColors.hint,
         ),
         labelStyle: const TextStyle(
           fontSize: SheetTokens.fieldLabelSize,
-          color: AppColors.sheetTextPrimary,
+          color: SheetColors.textPrimary,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         filled: true,
-        fillColor: AppColors.sheetFieldBackground,
+        fillColor: SheetColors.fieldBackground,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: SheetTokens.fieldContentHPadding,
           vertical: SheetTokens.fieldContentVPadding,
@@ -51,27 +51,27 @@ class SheetDateField extends StatelessWidget {
           padding: EdgeInsets.zero,
           icon: const Icon(
             Icons.calendar_month_outlined,
-            color: AppColors.sheetMuted,
+            color: SheetColors.muted,
           ),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
           borderSide: const BorderSide(
-            color: AppColors.sheetFieldBorder,
+            color: SheetColors.fieldBorder,
             width: SheetTokens.fieldBorderWidth,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
           borderSide: const BorderSide(
-            color: AppColors.sheetFieldBorder,
+            color: SheetColors.fieldBorder,
             width: SheetTokens.fieldBorderWidth,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
           borderSide: const BorderSide(
-            color: AppColors.sheetFieldBorder,
+            color: SheetColors.fieldBorder,
             width: SheetTokens.fieldBorderWidth,
           ),
         ),

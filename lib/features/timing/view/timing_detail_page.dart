@@ -3,18 +3,18 @@ import 'package:provider/provider.dart';
 
 import '../../../data/models/device.dart';
 import '../../../data/models/timing_record.dart';
+import '../../../data/services/timing_suggest_service.dart';
 import '../../../data/services/timing_service.dart';
 import '../../../core/utils/format_utils.dart';
-import '../../device/state/device_controller.dart';
-import '../state/timing_controller.dart';
+import '../../../components/feedback/app_toast.dart';
+import '../../device/state/device_store.dart';
+import '../state/timing_store.dart';
+import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/timing/timing_detail_content_pattern.dart';
 import '../../../patterns/device/device_picker_pattern.dart';
 
 class TimingDetailPage extends StatelessWidget {
-  const TimingDetailPage({
-    super.key,
-    this.editing,
-  });
+  const TimingDetailPage({super.key, this.editing});
 
   final TimingRecord? editing;
 
@@ -93,6 +93,7 @@ class TimingDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
+    final formKey = GlobalKey<TimingDetailContentState>();
     final deviceById = <int, Device>{};
     for (final d in deviceStore.allDevices) {
       final id = d.id;
@@ -107,22 +108,36 @@ class TimingDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      body: TimingDetailContent(
-        editing: editing,
-        records: timingStore.records,
-        activeDevices: deviceStore.activeDevices,
-        deviceById: deviceById,
-        deviceItems: deviceItems,
-        contactSuggestions: timingStore.contactSuggestions,
-        siteSuggestions: timingStore.siteSuggestions,
+      backgroundColor: Colors.transparent,
+      body: AppBottomSheetShell(
+        title: editing == null ? '新建计时' : '编辑计时',
+        scrollable: false,
+        contentPadding: EdgeInsets.zero,
         onCancel: () => Navigator.of(context).maybePop(),
-        onSubmit: (record) async {
-          await timingStore.save(record);
-          if (context.mounted) Navigator.of(context).maybePop();
-        },
-        onToast: (msg) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-        },
+        onConfirm: () => formKey.currentState?.submit(),
+        child: TimingDetailContent(
+          key: formKey,
+          editing: editing,
+          records: timingStore.records,
+          activeDevices: deviceStore.activeDevices,
+          deviceById: deviceById,
+          deviceItems: deviceItems,
+          contactSuggestions:
+              (query) => TimingSuggestService.contactSuggestions(
+                timingStore.records,
+                query,
+              ),
+          siteSuggestions:
+              (query) =>
+                  TimingSuggestService.siteSuggestions(timingStore.records, query),
+          onSubmit: (record) async {
+            await timingStore.save(record);
+            if (context.mounted) Navigator.of(context).maybePop();
+          },
+          onToast: (msg) {
+            AppToast.show(context, msg);
+          },
+        ),
       ),
     );
   }

@@ -40,6 +40,13 @@ class AppDatabase {
     return _db!;
   }
 
+  static Future<T> inTransaction<T>(
+    Future<T> Function(Transaction txn) action,
+  ) async {
+    final db = await database;
+    return db.transaction(action);
+  }
+
   // =====================================================================
   // ============================== 三、初始化数据库 ==============================
   // =====================================================================
@@ -157,26 +164,6 @@ class AppDatabase {
       ON project_device_rates(project_key);
     ''');
 
-    // ----------------------------- 演示数据 -----------------------------
-    await db.insert('devices', {
-      'name': 'SANY 1#',
-      'brand': 'SANY',
-      'model': null,
-      'default_unit_price': 350.0,
-      'base_meter_hours': 0.0,
-      'is_active': 1,
-      'custom_avatar_path': null,
-    });
-
-    await db.insert('devices', {
-      'name': 'SANY 2#',
-      'brand': 'SANY',
-      'model': null,
-      'default_unit_price': 360.0,
-      'base_meter_hours': 120.0,
-      'is_active': 1,
-      'custom_avatar_path': null,
-    });
   }
 
   // =====================================================================
@@ -255,5 +242,37 @@ class AppDatabase {
         ADD COLUMN exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0;
       ''');
     }
+  }
+
+  /// 显式演示数据入口：仅在开发/演示模式下由上层主动调用
+  static Future<void> seedDemoData() async {
+    final db = await database;
+
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM devices'),
+    ) ?? 0;
+    if (count > 0) return;
+
+    await inTransaction((txn) async {
+      await txn.insert('devices', {
+        'name': 'SANY 1#',
+        'brand': 'SANY',
+        'model': null,
+        'default_unit_price': 350.0,
+        'base_meter_hours': 0.0,
+        'is_active': 1,
+        'custom_avatar_path': null,
+      });
+
+      await txn.insert('devices', {
+        'name': 'SANY 2#',
+        'brand': 'SANY',
+        'model': null,
+        'default_unit_price': 360.0,
+        'base_meter_hours': 120.0,
+        'is_active': 1,
+        'custom_avatar_path': null,
+      });
+    });
   }
 }

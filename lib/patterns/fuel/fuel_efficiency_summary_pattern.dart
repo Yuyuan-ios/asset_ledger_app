@@ -53,7 +53,7 @@ class FuelEfficiencySummary extends StatelessWidget {
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: FuelTokens.summaryCardMetricSize,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
@@ -65,7 +65,7 @@ class FuelEfficiencySummary extends StatelessWidget {
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: FuelTokens.summaryCardMetricSize,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),

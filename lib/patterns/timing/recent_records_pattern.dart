@@ -58,12 +58,13 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     final visibleRecords = widget.records
         .where((r) => !_locallyRemovedKeys.contains(_recordKey(r)))
         .toList();
 
     if (visibleRecords.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: TimingTokens.emptyStateHeight,
         child: Center(
           child: Column(
@@ -71,17 +72,17 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
             children: [
               Text(
                 '暂无记录',
-                style: TextStyle(
+                style: textTheme.bodyMedium?.copyWith(
                   fontSize: TimingTokens.emptyStateTitleFontSize,
-                  color: AppColors.timingTextSecondary,
+                  color: TimingColors.textSecondary,
                 ),
               ),
-              SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
+              const SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
               Text(
                 '点击右上角 + 新建',
-                style: TextStyle(
+                style: textTheme.bodySmall?.copyWith(
                   fontSize: TimingTokens.emptyStateSubtitleFontSize,
-                  color: AppColors.timingTextTertiary,
+                  color: TimingColors.textTertiary,
                 ),
               ),
             ],
@@ -133,6 +134,7 @@ class _DateGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -142,7 +144,7 @@ class _DateGroup extends StatelessWidget {
           ),
           child: Text(
             FormatUtils.date(ymd),
-            style: const TextStyle(
+            style: textTheme.bodySmall?.copyWith(
               fontSize: TimingTokens.dateHeaderFontSize,
               color: AppColors.textPrimary,
               height: TimingTokens.dateHeaderLineHeight,
@@ -152,7 +154,7 @@ class _DateGroup extends StatelessWidget {
         const Divider(
           height: TimingTokens.recordDividerThickness,
           thickness: TimingTokens.recordDividerThickness,
-          color: AppColors.timingDivider,
+          color: TimingColors.divider,
         ),
         ...items.map(
           (record) => _RecordRow(
@@ -190,16 +192,26 @@ class _RecordRow extends StatelessWidget {
     this.onDelete,
   });
 
-  TextStyle get _valueStyle => const TextStyle(
-    fontSize: TimingTokens.recordValueFontSize,
-    color: AppColors.textPrimary,
-    height: 1,
-  );
-
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final titleStyle = textTheme.bodyMedium?.copyWith(
+      fontSize: TimingTokens.recordTitleFontSize,
+      color: AppColors.textPrimary,
+      height: TimingTokens.recordTitleLineHeight,
+    );
+    final subTitleStyle = textTheme.bodyMedium?.copyWith(
+      fontSize: TimingTokens.recordSubTitleFontSize,
+      color: AppColors.textPrimary,
+      height: 1,
+    );
+    final valueStyle = textTheme.bodyMedium?.copyWith(
+      fontSize: TimingTokens.recordValueFontSize,
+      color: AppColors.textPrimary,
+      height: 1,
+    );
     final content = Material(
-      color: AppColors.sheetBackground,
+      color: SheetColors.background,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
@@ -214,22 +226,28 @@ class _RecordRow extends StatelessWidget {
             child: Row(
               children: [
                 if (device != null)
-                  SizedBox(
-                    width: TimingTokens.recordAvatarSize,
-                    height: TimingTokens.recordAvatarSize,
-                    child: DeviceAvatar(
-                      brand: device!.brand,
-                      customAvatarPath: device!.customAvatarPath,
-                      radius: TimingTokens.recordAvatarSize / 2,
+                  Transform.translate(
+                    offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
+                    child: SizedBox(
+                      width: TimingTokens.recordAvatarSize,
+                      height: TimingTokens.recordAvatarSize,
+                      child: DeviceAvatar(
+                        brand: device!.brand,
+                        customAvatarPath: device!.customAvatarPath,
+                        radius: TimingTokens.recordAvatarSize / 2,
+                      ),
                     ),
                   )
                 else
-                  Container(
-                    width: TimingTokens.recordAvatarSize,
-                    height: TimingTokens.recordAvatarSize,
-                    decoration: const BoxDecoration(
-                      color: AppColors.timingAvatar,
-                      shape: BoxShape.circle,
+                  Transform.translate(
+                    offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
+                    child: Container(
+                      width: TimingTokens.recordAvatarSize,
+                      height: TimingTokens.recordAvatarSize,
+                      decoration: const BoxDecoration(
+                        color: TimingColors.avatar,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 const SizedBox(width: TimingTokens.recordAvatarRightGap),
@@ -242,21 +260,10 @@ class _RecordRow extends StatelessWidget {
                         '${record.contact}·${record.site}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: TimingTokens.recordTitleFontSize,
-                          color: AppColors.textPrimary,
-                          height: TimingTokens.recordTitleLineHeight,
-                        ),
+                        style: titleStyle,
                       ),
                       const SizedBox(height: TimingTokens.recordSubTitleTopGap),
-                      Text(
-                        deviceIndexText,
-                        style: TextStyle(
-                          fontSize: TimingTokens.recordSubTitleFontSize,
-                          color: AppColors.textPrimary,
-                          height: 1,
-                        ),
-                      ),
+                      Text(deviceIndexText, style: subTitleStyle),
                     ],
                   ),
                 ),
@@ -265,9 +272,27 @@ class _RecordRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '${FormatUtils.meter(record.startMeter)} \u2192 ${FormatUtils.meter(record.endMeter)}',
-                      style: _valueStyle,
+                    RichText(
+                      text: TextSpan(
+                        style: valueStyle,
+                        children: [
+                          TextSpan(text: FormatUtils.meter(record.startMeter)),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                              ),
+                              child: Icon(
+                                Icons.arrow_right_alt,
+                                size: TimingTokens.recordValueFontSize + 2,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          TextSpan(text: FormatUtils.meter(record.endMeter)),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: TimingTokens.recordValueBottomGap),
                     Row(
@@ -275,7 +300,7 @@ class _RecordRow extends StatelessWidget {
                       children: [
                         Text(
                           FormatUtils.hours(record.hours),
-                          style: _valueStyle,
+                          style: valueStyle,
                         ),
                         if (record.type == TimingType.rent) ...[
                           const SizedBox(
@@ -283,7 +308,7 @@ class _RecordRow extends StatelessWidget {
                           ),
                           Text(
                             FormatUtils.money(record.income),
-                            style: _valueStyle,
+                            style: valueStyle,
                           ),
                         ],
                       ],

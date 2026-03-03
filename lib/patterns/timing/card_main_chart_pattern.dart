@@ -54,10 +54,10 @@ class CardMainChart extends StatelessWidget {
       height: TimingTokens.chartCardHeight,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.sheetBackground,
+        color: SheetColors.background,
         borderRadius: BorderRadius.circular(TimingTokens.chartCardRadius),
         border: Border.all(
-          color: AppColors.timingCardBorder,
+          color: TimingColors.cardBorder,
           width: TimingTokens.chartCardBorderWidth,
         ),
       ),
@@ -80,7 +80,7 @@ class CardMainChart extends StatelessWidget {
                     style: TextStyle(
                       fontSize: TimingTokens.chartArrowFontSize,
                       height: 1,
-                      color: AppColors.timingArrow,
+                      color: TimingColors.arrow,
                     ),
                   ),
                   Text(
@@ -105,7 +105,7 @@ class CardMainChart extends StatelessWidget {
             const Divider(
               height: TimingTokens.chartDividerThickness,
               thickness: TimingTokens.chartDividerThickness,
-              color: AppColors.timingDivider,
+              color: TimingColors.divider,
             ),
             Expanded(
               child: Padding(
@@ -129,7 +129,7 @@ class CardMainChart extends StatelessWidget {
                                     Container(
                                       width: TimingTokens.chartBarWidth,
                                       height: incomeBars[index],
-                                      color: AppColors.timingChartIncome,
+                                      color: TimingColors.chartIncome,
                                     ),
                                     const SizedBox(
                                       width: TimingTokens.chartBarPairGap,
@@ -137,7 +137,7 @@ class CardMainChart extends StatelessWidget {
                                     Container(
                                       width: TimingTokens.chartBarWidth,
                                       height: expenseBars[index],
-                                      color: AppColors.expense,
+                                      color: TimingColors.expense,
                                     ),
                                   ],
                                 ),
@@ -167,13 +167,13 @@ class CardMainChart extends StatelessWidget {
                         children: [
                           _Legend(
                             label: '收入',
-                            swatchColor: AppColors.timingChartIncome,
+                            swatchColor: TimingColors.chartIncome,
                             value: '￥1000000',
                           ),
                           SizedBox(width: TimingTokens.chartLegendGap),
                           _Legend(
                             label: '支出',
-                            swatchColor: AppColors.expense,
+                            swatchColor: TimingColors.expense,
                             value: '￥500000',
                           ),
                         ],

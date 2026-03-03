@@ -3,15 +3,16 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/store_feedback.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/timing_record.dart';
+import '../../../data/services/timing_suggest_service.dart';
 import '../../../data/services/timing_service.dart';
-import '../../../features/device/state/device_controller.dart';
-import '../../../features/timing/state/timing_controller.dart';
+import '../../../features/device/state/device_store.dart';
+import '../../../features/timing/state/timing_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
-import '../../../tokens/mapper/sheet_tokens.dart';
-import '../../../tokens/mapper/core_tokens.dart';
+import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../patterns/timing/timing_detail_content_pattern.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
@@ -99,27 +100,24 @@ class _TimingPageState extends State<TimingPage> {
     return items;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final deviceStore = context.read<DeviceStore>();
-      final timingStore = context.read<TimingStore>();
-      await deviceStore.loadAll();
-      await timingStore.loadAll();
-    });
-  }
-
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: AppDurations.snackBar),
-    );
+    AppToast.show(context, msg);
+  }
+
+  Future<void> _retryLoad() async {
+    final timingStore = context.read<TimingStore>();
+    final deviceStore = context.read<DeviceStore>();
+    await Future.wait([
+      timingStore.loadAll(),
+      deviceStore.loadAll(),
+    ]);
   }
 
   Future<void> _openTimingEditor({TimingRecord? editing}) async {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
+    final formKey = GlobalKey<TimingDetailContentState>();
     final deviceById = <int, Device>{};
     for (final d in deviceStore.allDevices) {
       final id = d.id;
@@ -141,30 +139,35 @@ class _TimingPageState extends State<TimingPage> {
       builder: (_) {
         return AppBottomSheetShell(
           title: editing == null ? '新建计时' : '编辑计时',
-          initialHeightFactor: SheetTokens.heightFactor,
-          radius: SheetTokens.radius,
           scrollable: false,
           contentPadding: EdgeInsets.zero,
+          onCancel: () => Navigator.of(context).pop(),
+          onConfirm: () => formKey.currentState?.submit(),
           child: TimingDetailContent(
+            key: formKey,
             editing: editing,
             records: timingStore.records,
             activeDevices: deviceStore.activeDevices,
             deviceById: deviceById,
             deviceItems: deviceItems,
-            contactSuggestions: timingStore.contactSuggestions,
-            siteSuggestions: timingStore.siteSuggestions,
-            onCancel: () => Navigator.of(context).pop(),
+            contactSuggestions:
+                (query) => TimingSuggestService.contactSuggestions(
+                  timingStore.records,
+                  query,
+                ),
+            siteSuggestions:
+                (query) =>
+                    TimingSuggestService.siteSuggestions(timingStore.records, query),
             onToast: _toast,
             onSubmit: (record) async {
               await timingStore.save(record);
               if (!mounted) return;
 
-              if (timingStore.error != null) {
-                _toast('保存失败：${timingStore.error}');
+              final feedback = storeActionFeedback(timingStore, action: '保存');
+              _toast(feedback.message);
+              if (!feedback.isSuccess) {
                 return;
               }
-
-              _toast('已保存');
               Navigator.of(context).pop();
             },
           ),
@@ -195,13 +198,12 @@ class _TimingPageState extends State<TimingPage> {
     final store = context.read<TimingStore>();
     await store.deleteById(record.id!);
     if (!mounted) return false;
-    if (store.error != null) {
-      _toast('删除失败：${store.error}');
+    final feedback = storeActionFeedback(store, action: '删除');
+    _toast(feedback.message);
+    if (!feedback.isSuccess) {
       return false;
-    } else {
-      _toast('已删除');
-      return true;
     }
+    return true;
   }
 
   @override
@@ -210,7 +212,10 @@ class _TimingPageState extends State<TimingPage> {
     final deviceStore = context.watch<DeviceStore>();
 
     final loading = timingStore.loading || deviceStore.loading;
-    final error = timingStore.error ?? deviceStore.error;
+    final error = firstStoreErrorMessage(
+      [timingStore, deviceStore],
+      action: '读取',
+    );
     final deviceById = <int, Device>{};
     for (final d in deviceStore.allDevices) {
       final id = d.id;
@@ -233,6 +238,7 @@ class _TimingPageState extends State<TimingPage> {
       ),
       loading: loading,
       error: error,
+      onRetry: () => _retryLoad(),
     );
   }
 }

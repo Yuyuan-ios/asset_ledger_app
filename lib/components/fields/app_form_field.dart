@@ -42,15 +42,15 @@ class AppFormField extends StatelessWidget {
       hintText: hint,
       hintStyle: const TextStyle(
         fontSize: SheetTokens.fieldTextSize,
-        color: AppColors.sheetHint,
+        color: SheetColors.hint,
       ),
       labelStyle: const TextStyle(
         fontSize: SheetTokens.fieldLabelSize,
-        color: AppColors.sheetTextDim,
+        color: SheetColors.textDim,
       ),
       floatingLabelBehavior: floatingLabelBehavior,
       filled: true,
-      fillColor: AppColors.sheetFieldBackground,
+      fillColor: SheetColors.fieldBackground,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: SheetTokens.fieldContentHPadding,
         vertical: SheetTokens.fieldContentVPadding,
@@ -59,21 +59,21 @@ class AppFormField extends StatelessWidget {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
         borderSide: const BorderSide(
-          color: AppColors.sheetFieldBorder,
+          color: SheetColors.fieldBorder,
           width: SheetTokens.fieldBorderWidth,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
         borderSide: const BorderSide(
-          color: AppColors.sheetFieldBorder,
+          color: SheetColors.fieldBorder,
           width: SheetTokens.fieldBorderWidth,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
         borderSide: const BorderSide(
-          color: AppColors.sheetFieldBorder,
+          color: SheetColors.fieldBorder,
           width: SheetTokens.fieldBorderWidth,
         ),
       ),
@@ -99,7 +99,7 @@ class AppFormField extends StatelessWidget {
           textStyle ??
           const TextStyle(
             fontSize: SheetTokens.fieldTextSize,
-            color: AppColors.sheetTextPrimary,
+            color: SheetColors.textPrimary,
           ),
       decoration: resolved,
     );

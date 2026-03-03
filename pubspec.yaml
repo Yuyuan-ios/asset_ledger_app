@@ -30,12 +30,14 @@ dependencies:
 
   # iOS 风格图标
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.3.4+4
 
 flutter:
   uses-material-design: true
@@ -43,3 +45,4 @@ flutter:
   # ✅ 品牌头像 assets
   assets:
     - assets/brands/
+    - assets/navigation/

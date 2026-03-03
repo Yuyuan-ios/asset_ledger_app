@@ -16,9 +16,9 @@ class FuelSummaryCard extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.all(FuelTokens.summaryCardPadding),
       decoration: BoxDecoration(
-        color: AppColors.sheetBackground,
+        color: SheetColors.background,
         border: Border.all(
-          color: AppColors.timingCardBorder,
+          color: TimingColors.cardBorder,
           width: FuelTokens.summaryCardBorderWidth,
         ),
         borderRadius: BorderRadius.circular(FuelTokens.summaryCardRadius),

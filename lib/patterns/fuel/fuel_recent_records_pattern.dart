@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/spacing.dart';
 import '../../data/models/fuel_log.dart';
 import '../../tokens/mapper/core_tokens.dart';
+import '../../tokens/mapper/fuel_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 import '../../core/utils/format_utils.dart';
 import '../timing/records_title_pattern.dart';
@@ -68,7 +69,7 @@ class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RecordsTitle(count: visibleLogs.length),
-        const SizedBox(height: TimingTokens.homeRecordsTitleTopGap),
+        SizedBox(height: FuelTokens.recordsTitleTopGap),
         _FuelGroupedList(
           logs: visibleLogs,
           leadingBuilder: widget.leadingBuilder,
@@ -115,7 +116,7 @@ class _FuelGroupedList extends StatelessWidget {
                 '暂无记录',
                 style: TextStyle(
                   fontSize: TimingTokens.emptyStateTitleFontSize,
-                  color: AppColors.timingTextSecondary,
+                  color: TimingColors.textSecondary,
                 ),
               ),
               SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
@@ -123,7 +124,7 @@ class _FuelGroupedList extends StatelessWidget {
                 '点击右上角 + 新建',
                 style: TextStyle(
                   fontSize: TimingTokens.emptyStateSubtitleFontSize,
-                  color: AppColors.timingTextTertiary,
+                  color: TimingColors.textTertiary,
                 ),
               ),
             ],
@@ -137,85 +138,39 @@ class _FuelGroupedList extends StatelessWidget {
       grouped.putIfAbsent(log.date, () => <FuelLog>[]).add(log);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: grouped.entries.map((entry) {
-        return _FuelDateGroup(
-          ymd: entry.key,
-          items: entry.value,
-          leadingBuilder: leadingBuilder,
-          titleBuilder: titleBuilder,
-          subtitleBuilder: subtitleBuilder,
-          onTap: onTap,
-          onConfirmDelete: onConfirmDelete,
-          onDelete: onDelete,
-        );
-      }).toList(),
-    );
-  }
-}
+    final flat = <FuelLog>[];
+    for (final entry in grouped.entries) {
+      flat.addAll(entry.value);
+    }
 
-class _FuelDateGroup extends StatelessWidget {
-  final int ymd;
-  final List<FuelLog> items;
-  final Widget Function(FuelLog log) leadingBuilder;
-  final String Function(FuelLog log) titleBuilder;
-  final String Function(FuelLog log) subtitleBuilder;
-  final ValueChanged<FuelLog> onTap;
-  final Future<bool> Function(FuelLog log)? onConfirmDelete;
-  final Future<void> Function(FuelLog log)? onDelete;
-
-  const _FuelDateGroup({
-    required this.ymd,
-    required this.items,
-    required this.leadingBuilder,
-    required this.titleBuilder,
-    required this.subtitleBuilder,
-    required this.onTap,
-    required this.onConfirmDelete,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(
-            left: TimingTokens.dateHeaderLeftInset,
-          ),
-          child: Text(
-            FormatUtils.date(ymd),
-            style: const TextStyle(
-              fontSize: TimingTokens.dateHeaderFontSize,
-              color: AppColors.textPrimary,
-              height: TimingTokens.dateHeaderLineHeight,
+        for (var i = 0; i < flat.length; i++) ...[
+          if (i == 0 || flat[i].date != flat[i - 1].date)
+            const Divider(
+              height: TimingTokens.recordDividerThickness,
+              thickness: TimingTokens.recordDividerThickness,
+              color: TimingColors.divider,
             ),
-          ),
-        ),
-        const Divider(
-          height: TimingTokens.recordDividerThickness,
-          thickness: TimingTokens.recordDividerThickness,
-          color: AppColors.timingDivider,
-        ),
-        ...items.map(
-          (log) => _FuelRecordRow(
-            log: log,
+          _FuelRecordRow(
+            log: flat[i],
             leadingBuilder: leadingBuilder,
-            titleBuilder: titleBuilder,
+            titleBuilder: (l) => '${titleBuilder(l)}•${FormatUtils.date(l.date)}',
             subtitleBuilder: subtitleBuilder,
-            onTap: () => onTap(log),
+            onTap: () => onTap(flat[i]),
             onConfirmDelete: onConfirmDelete == null
                 ? null
-                : () => onConfirmDelete!(log),
-            onDelete: onDelete == null ? null : () => onDelete!(log),
+                : () => onConfirmDelete!(flat[i]),
+            onDelete: onDelete == null ? null : () => onDelete!(flat[i]),
           ),
-        ),
+        ],
       ],
     );
   }
 }
+
+// 日期分组已移除：日期显示在每行标题中
 
 class _FuelRecordRow extends StatelessWidget {
   final FuelLog log;
@@ -245,7 +200,7 @@ class _FuelRecordRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = Material(
-      color: AppColors.sheetBackground,
+      color: SheetColors.background,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(

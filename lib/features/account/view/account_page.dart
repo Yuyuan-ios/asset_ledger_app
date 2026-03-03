@@ -11,8 +11,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/foundation/radius.dart' as foundation_radius;
-import '../../../core/foundation/spacing.dart';
 
 // ------------------------------ Models ------------------------------
 import '../../../data/models/account_payment.dart';
@@ -20,19 +18,29 @@ import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
 
 // ------------------------------ UI / Utils ------------------------------
+import '../../../core/utils/form_feedback.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/interaction_feedback.dart';
+import '../../../core/utils/store_feedback.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/account/project_account_detail_content_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../../../tokens/mapper/account_tokens.dart';
+import '../../../patterns/account/account_overview_card_pattern.dart';
+import '../../../patterns/account/account_project_list_pattern.dart';
+import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
+import '../../../components/feedback/store_error_banner.dart';
+import '../../../components/fields/app_auto_suggest_field.dart';
 import '../../../data/services/account_service.dart';
 
 // ------------------------------ Stores ------------------------------
-import '../../../features/account/state/account_payment_controller.dart';
-import '../../../features/account/state/account_controller.dart';
-import '../../../features/device/state/device_controller.dart';
-import '../../../features/account/state/project_rate_controller.dart';
-import '../../../features/timing/state/timing_controller.dart';
+import '../../../features/account/state/account_payment_store.dart';
+import '../../../features/account/state/account_filter_store.dart';
+import '../../../features/account/state/account_store.dart';
+import '../../../features/device/state/device_store.dart';
+import '../../../features/account/state/project_rate_store.dart';
+import '../../../features/timing/state/timing_store.dart';
 
 // =====================================================================
 // 重要：BottomSheet/Dialog 返回值类型必须放文件顶层（不能放进 State）
@@ -79,58 +87,20 @@ class _AccountPageState extends State<AccountPage> {
   // -------------------------------------------------------------------
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: AppDurations.snackBar),
-    );
+    AppToast.show(context, msg);
   }
 
-  // -------------------------------------------------------------------
-  // UI：通用 KV 行（左标签/右值）
-  // -------------------------------------------------------------------
-  Widget _kv(String k, String v, {bool bold = false}) {
-    return Row(
-      children: [
-        Expanded(child: Text(k, style: const TextStyle(fontSize: 13))),
-        Text(
-          v,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // UI：总览卡片
-  // -------------------------------------------------------------------
-  Widget _buildOverview(AccountComputed c) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpace.md),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '总览',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          _kv('总应收', FormatUtils.money(c.totalReceivable)),
-          const SizedBox(height: 6),
-          _kv('已实收', FormatUtils.money(c.totalReceived)),
-          const SizedBox(height: 6),
-          _kv('剩余应收', FormatUtils.money(c.totalRemaining), bold: true),
-          const SizedBox(height: 6),
-          _kv('回款率', FormatUtils.percent1(c.totalRatio)),
-        ],
-      ),
-    );
+  Future<void> _retryLoad() async {
+    final timingStore = context.read<TimingStore>();
+    final deviceStore = context.read<DeviceStore>();
+    final paymentStore = context.read<AccountPaymentStore>();
+    final rateStore = context.read<ProjectRateStore>();
+    await Future.wait([
+      timingStore.loadAll(),
+      deviceStore.loadAll(),
+      paymentStore.loadAll(),
+      rateStore.loadAll(),
+    ]);
   }
 
   // =====================================================================
@@ -166,11 +136,8 @@ class _AccountPageState extends State<AccountPage> {
 
       if (!mounted) return;
 
-      if (store.error != null) {
-        _toast('保存失败：${store.error}');
-      } else {
-        _toast('已保存');
-      }
+      final feedback = storeActionFeedback(store, action: '保存');
+      _toast(feedback.message);
     });
   }
 
@@ -186,7 +153,7 @@ class _AccountPageState extends State<AccountPage> {
         .toList();
 
     if (usedDevices.isEmpty) {
-      _toast('该项目暂无设备可修改');
+      _toast(noEditableDevicesMessage());
       return;
     }
 
@@ -226,13 +193,14 @@ class _AccountPageState extends State<AccountPage> {
           );
         }
 
-        if (rateStore.error != null) {
-          _toast('保存失败：${rateStore.error}');
+        final error = storeErrorMessage(rateStore, action: '保存');
+        if (error != null) {
+          _toast(error);
           return;
         }
       }
 
-      _toast('已更新');
+      _toast(storeActionFeedback(rateStore, action: '更新').message);
     });
   }
 
@@ -247,7 +215,7 @@ class _AccountPageState extends State<AccountPage> {
   ) async {
     final hit = devices.where((e) => e.id == deviceId).toList();
     if (hit.isEmpty) {
-      _toast('设备不存在');
+      _toast(missingEntityMessage('设备'));
       return;
     }
     final device = hit.first;
@@ -293,11 +261,12 @@ class _AccountPageState extends State<AccountPage> {
         );
       }
 
-      if (rateStore.error != null) {
-        _toast('保存失败：${rateStore.error}');
-      } else {
-        _toast('已更新');
-      }
+      final feedback = storeActionFeedback(
+        rateStore,
+        action: '保存',
+        successMessage: '已更新',
+      );
+      _toast(feedback.message);
     });
   }
 
@@ -321,27 +290,30 @@ class _AccountPageState extends State<AccountPage> {
     final store = context.read<AccountPaymentStore>();
     await store.deleteById(p.id!);
 
-    if (store.error != null) {
-      _toast('删除失败：${store.error}');
+    final feedback = storeActionFeedback(store, action: '删除');
+    _toast(feedback.message);
+    if (!feedback.isSuccess) {
       return;
     }
-
-    _toast('已删除');
   }
 
   // =====================================================================
   // ============================== E) 项目筛选 BottomSheet ==============================
   // =====================================================================
-  Future<void> _openProjectFilterSheet() async {
-    final store = context.read<AccountStore>();
+  Future<void> _openProjectFilterSheet({
+    required List<String> suggestions,
+  }) async {
+    final filterStore = context.read<AccountFilterStore>();
 
     final result = await showModalBottomSheet<_ProjectFilterResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          _ProjectFilterSheet(initialKeyword: store.projectFilterKeyword),
+      builder: (_) => _ProjectFilterSheet(
+        initialKeyword: filterStore.projectFilterKeyword,
+        suggestions: suggestions,
+      ),
     );
 
     if (!mounted || result == null) return;
@@ -354,16 +326,21 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   void _applyProjectFilterResult(_ProjectFilterResult result) {
-    final store = context.read<AccountStore>();
+    final filterStore = context.read<AccountFilterStore>();
 
     switch (result.type) {
       case _ProjectFilterResultType.clear:
-        store.clearProjectFilter();
-        _toast('已清空筛选');
+        filterStore.clearProjectFilter();
+        _toast(filterStatusMessage(cleared: true, hasActiveFilter: false));
         break;
       case _ProjectFilterResultType.ok:
-        store.setProjectFilterKeyword(result.keyword);
-        _toast(store.projectFilterKeyword.isEmpty ? '未筛选' : '已筛选');
+        filterStore.setProjectFilterKeyword(result.keyword);
+        _toast(
+          filterStatusMessage(
+            cleared: false,
+            hasActiveFilter: filterStore.projectFilterKeyword.isNotEmpty,
+          ),
+        );
         break;
       case _ProjectFilterResultType.cancel:
         // 取消：不修改 store
@@ -392,7 +369,7 @@ class _AccountPageState extends State<AccountPage> {
         final deviceStore = sheetCtx.watch<DeviceStore>();
         final paymentStore = sheetCtx.watch<AccountPaymentStore>();
         final rateStore = sheetCtx.watch<ProjectRateStore>();
-        final accountStore = sheetCtx.watch<AccountStore>();
+        final accountStore = sheetCtx.read<AccountStore>();
 
         final timing = timingStore.records;
         final devicesAll = deviceStore.allDevices;
@@ -414,7 +391,7 @@ class _AccountPageState extends State<AccountPage> {
           return const AppBottomSheetShell(
             title: '项目详情',
             child: Padding(
-              padding: EdgeInsets.all(AppSpacing.pagePadding),
+              padding: EdgeInsets.all(SpaceTokens.pagePadding),
               child: Text('项目不存在或已被清理'),
             ),
           );
@@ -436,6 +413,7 @@ class _AccountPageState extends State<AccountPage> {
 
         return AppBottomSheetShell(
           title: '项目详情',
+          contentPadding: EdgeInsets.zero,
           child: ProjectAccountDetailContent(
             title: pNow.displayName,
             minYmd: pNow.minYmd,
@@ -466,130 +444,17 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   // =====================================================================
-  // ============================== G) 项目列表 UI ==============================
-  // =====================================================================
-  Widget _buildProjectList(AccountComputed c) {
-    if (c.projects.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: AppSpace.xl),
-        child: Center(child: Text('暂无项目（计时页有记录后将自动出现）')),
-      );
-    }
-
-    String priceText(AccountProjectVM p) {
-      final rate = p.minRate;
-      if (rate == null) return '单价：—';
-      return p.isMultiDevice
-          ? '单价：${FormatUtils.money(rate)}（多设备）'
-          : '单价：${FormatUtils.money(rate)}';
-    }
-
-    return Column(
-      children: [
-        for (final p in c.projects) ...[
-          Container(
-            margin: const EdgeInsets.only(bottom: AppSpace.md),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(
-                foundation_radius.AppRadius.xxl,
-              ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(
-                foundation_radius.AppRadius.xxl,
-              ),
-              onTap: () => _openProjectDetail(p),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            p.displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          FormatUtils.date(p.minYmd),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sectionGap),
-                    Text(
-                      priceText(p),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sectionGap),
-                    Row(
-                      children: [
-                        Text(
-                          '${FormatUtils.percent1(p.ratio)} 实收',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '余:${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        foundation_radius.AppRadius.pill,
-                      ),
-                      child: LinearProgressIndicator(
-                        minHeight: 10,
-                        value: (p.ratio ?? 0).clamp(0, 1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // =====================================================================
   // ============================== H) 页面 build ==============================
   // =====================================================================
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     final timingStore = context.watch<TimingStore>();
     final deviceStore = context.watch<DeviceStore>();
     final paymentStore = context.watch<AccountPaymentStore>();
     final rateStore = context.watch<ProjectRateStore>();
-    final accountStore = context.watch<AccountStore>();
+    final accountStore = context.read<AccountStore>();
+    final filterStore = context.watch<AccountFilterStore>();
 
     final timing = timingStore.records;
     final devices = deviceStore.allDevices;
@@ -603,69 +468,172 @@ class _AccountPageState extends State<AccountPage> {
       payments: payments,
     );
 
-    final filteredProjects = accountStore.filterProjects(computed.projects);
+    final filteredProjects = filterStore.filterProjects(computed.projects);
+    final projectSuggestions =
+        timing
+            .map((t) => t.contact.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     final loading =
         timingStore.loading ||
         deviceStore.loading ||
         paymentStore.loading ||
         rateStore.loading;
+    final hasActiveFilter =
+        filterStore.projectFilterKeyword.isNotEmpty &&
+        filteredProjects.length < computed.projects.length;
 
-    final err =
-        timingStore.error ??
-        deviceStore.error ??
-        paymentStore.error ??
-        rateStore.error;
+    final err = firstStoreErrorMessage([
+      timingStore,
+      deviceStore,
+      paymentStore,
+      rateStore,
+    ], action: '读取');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('账户')),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.pagePadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (loading) ...[
-                const LinearProgressIndicator(),
-                const SizedBox(height: 10),
-              ],
-              if (err != null) ...[
-                Text(err, style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 10),
-              ],
-              _buildOverview(computed),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Text(
-                    '项目（${filteredProjects.length}）',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
+      backgroundColor: AppColors.scaffoldBg,
+      body: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final contentWidth =
+                constraints.maxWidth >
+                    AccountTokens.homeMaxContainerWidthTrigger
+                ? AccountTokens.homeFixedContentWidth
+                : constraints.maxWidth;
+
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: contentWidth,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AccountTokens.homePageHorizontalPadding,
+                    0,
+                    AccountTokens.homePageHorizontalPadding,
+                    0,
                   ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _openProjectFilterSheet,
-                    child: Text(
-                      accountStore.projectFilterKeyword.isEmpty ? '筛选' : '已筛选',
-                    ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: AccountTokens.homeTopGap),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (loading) ...[
+                                const LinearProgressIndicator(),
+                                const SizedBox(height: 10),
+                              ],
+                              if (err != null) ...[
+                                StoreErrorBanner(
+                                  message: err,
+                                  onRetry: loading ? null : () => _retryLoad(),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              AccountOverviewCard(
+                                vm: AccountOverviewVm(
+                                  totalReceivable: computed.totalReceivable,
+                                  totalReceived: computed.totalReceived,
+                                  totalRemaining: computed.totalRemaining,
+                                  totalRatio: computed.totalRatio,
+                                  deviceReceivables: computed.deviceReceivables,
+                                ),
+                              ),
+                              const SizedBox(
+                                height: AccountTokens.projectTitleTopGap,
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '项目(${filteredProjects.length})',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontSize:
+                                          AccountTokens.projectTitleFontSize,
+                                      fontWeight:
+                                          AccountTokens.projectTitleWeight,
+                                      height:
+                                          AccountTokens.projectTitleLineHeight,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (hasActiveFilter)
+                                    TextButton(
+                                      onPressed: () =>
+                                          _applyProjectFilterResult(
+                                            const _ProjectFilterResult.clear(),
+                                          ),
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.only(
+                                          right: AccountTokens
+                                              .projectFilterRightInset,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        foregroundColor: AppColors.brand
+                                            .withValues(alpha: 0.8),
+                                      ),
+                                      child: const Text(
+                                        '取消筛选',
+                                        style: TextStyle(
+                                          fontSize: AccountTokens
+                                              .projectFilterFontSize,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ),
+                                  if (!hasActiveFilter)
+                                    TextButton(
+                                      onPressed: () => _openProjectFilterSheet(
+                                        suggestions: projectSuggestions,
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.only(
+                                          right: AccountTokens
+                                              .projectFilterRightInset,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        foregroundColor: AppColors.brand
+                                            .withValues(alpha: 0.8),
+                                      ),
+                                      child: const Text(
+                                        '筛选',
+                                        style: TextStyle(
+                                          fontSize: AccountTokens
+                                              .projectFilterFontSize,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(
+                                height: AccountTokens.projectListTopGap,
+                              ),
+                              AccountProjectList(
+                                projects: filteredProjects,
+                                onTap: _openProjectDetail,
+                              ),
+                              const SizedBox(
+                                height: AccountTokens.homeBottomGap,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _buildProjectList(
-                AccountComputed(
-                  projects: filteredProjects,
-                  totalReceivable: computed.totalReceivable,
-                  totalReceived: computed.totalReceived,
-                  totalRemaining: computed.totalRemaining,
-                  totalRatio: computed.totalRatio,
                 ),
               ),
-              const SizedBox(height: 60),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -679,9 +647,13 @@ class _AccountPageState extends State<AccountPage> {
 // 关键：controller 在 State 内创建/释放，不要在 open 方法里 new+dispose
 //
 class _ProjectFilterSheet extends StatefulWidget {
-  const _ProjectFilterSheet({required this.initialKeyword});
+  const _ProjectFilterSheet({
+    required this.initialKeyword,
+    required this.suggestions,
+  });
 
   final String initialKeyword;
+  final List<String> suggestions;
 
   @override
   State<_ProjectFilterSheet> createState() => _ProjectFilterSheetState();
@@ -709,48 +681,47 @@ class _ProjectFilterSheetState extends State<_ProjectFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    List<String> buildSuggestions(String q) {
+      final query = q.trim();
+      if (query.isEmpty) return widget.suggestions;
+      return widget.suggestions
+          .where((s) => s.contains(query))
+          .toList(growable: false);
+    }
+
     return AppBottomSheetShell(
       title: '筛选项目',
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 12,
-          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _ctrl,
-              decoration: const InputDecoration(
-                labelText: '关键词（联系人 / 工地）',
-                hintText: '例如：王涛 / 修文 / 地铁站',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
+      scrollable: false,
+      contentPadding: EdgeInsets.zero,
+      onCancel: () => _close(const _ProjectFilterResult.cancel()),
+      onConfirm: () => _close(_ProjectFilterResult.ok(_ctrl.text)),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 0),
+            child: Column(
               children: [
-                TextButton(
-                  onPressed: () => _close(const _ProjectFilterResult.clear()),
-                  child: const Text('清空'),
+                AutoSuggestField(
+                  controller: _ctrl,
+                  label: '关键词（联系人 / 工地）',
+                  hint: '例如：王涛 / 修文 / 地铁站',
+                  suggestionsBuilder: buildSuggestions,
+                  onSelected: (v) => _ctrl.text = v,
                 ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => _close(const _ProjectFilterResult.cancel()),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 12),
-                FilledButton(
-                  onPressed: () => _close(_ProjectFilterResult.ok(_ctrl.text)),
-                  child: const Text('确定'),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => _close(const _ProjectFilterResult.clear()),
+                    child: const Text('清空'),
+                  ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const Spacer(),
+        ],
       ),
     );
   }
@@ -821,9 +792,7 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
   }
 
   void _toastInDialog(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: AppDurations.snackBar),
-    );
+    AppToast.show(context, msg);
   }
 
   /// 计算：当前项目应收
@@ -846,6 +815,7 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     final project = widget.project;
     final editing = widget.editing;
 
@@ -859,10 +829,7 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
               alignment: Alignment.centerLeft,
               child: Text(
                 '项目：${project.displayName}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: textTheme.labelLarge,
               ),
             ),
             const SizedBox(height: 10),
@@ -876,7 +843,7 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: AppSpacing.sectionGap),
+            const SizedBox(height: SpaceTokens.sectionGap),
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
@@ -886,7 +853,7 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: AppSpacing.sectionGap),
+            const SizedBox(height: SpaceTokens.sectionGap),
             TextField(
               controller: _noteCtrl,
               decoration: const InputDecoration(
@@ -902,33 +869,41 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
               child: Text(
                 '应收：${FormatUtils.money(_receivable)}'
                 '，已收：${FormatUtils.money(_received(excludePaymentId: editing?.id))}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade700,
+                ),
               ),
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => _close(null), child: const Text('取消')),
+        TextButton(
+          onPressed: () => _close(null),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+          ),
+          child: const Text('取消'),
+        ),
         FilledButton(
           onPressed: () {
             // 1) 约束：编辑态必须属于当前项目（防止误调用）
             if (editing != null && editing.projectKey != project.projectKey) {
-              _toastInDialog('保存失败：编辑记录不属于当前项目');
+              _toastInDialog(formValidationMessage('编辑记录不属于当前项目'));
               return;
             }
 
             // 2) 日期校验
             final ymd = FormatUtils.parseDate(_dateCtrl.text);
             if (ymd == null) {
-              _toastInDialog(FormatUtils.ymdInvalidMsg);
+              _toastInDialog(formValidationMessage(FormatUtils.ymdInvalidMsg));
               return;
             }
 
             // 3) 金额校验
             final amtInt = int.tryParse(_amountCtrl.text.trim());
             if (amtInt == null || amtInt <= 0) {
-              _toastInDialog('保存失败：金额必须是 > 0 的整数');
+              _toastInDialog(formValidationMessage('金额必须是 > 0 的整数'));
               return;
             }
             final amt = amtInt.toDouble();
@@ -940,7 +915,11 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
             const eps = 0.05;
             if (after > _receivable + eps) {
               final remain = _receivable - receivedExcluding;
-              _toastInDialog('保存失败：超出剩余应收（剩余约 ${FormatUtils.money(remain)}）');
+              _toastInDialog(
+                formValidationMessage(
+                  '超出剩余应收（剩余约 ${FormatUtils.money(remain)}）',
+                ),
+              );
               return;
             }
 
@@ -1005,6 +984,7 @@ class _RateBatchDialogState extends State<_RateBatchDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return AlertDialog(
       title: Text(widget.title),
       content: Column(
@@ -1026,12 +1006,18 @@ class _RateBatchDialogState extends State<_RateBatchDialog> {
           Text(
             '保存后：该项目下所有设备单价将统一为此值（仅影响本项目）。\n'
             '若等于设备默认单价，将自动清理覆盖记录（减少冗余）。',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => _close(null), child: const Text('取消')),
+        TextButton(
+          onPressed: () => _close(null),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+          ),
+          child: const Text('取消'),
+        ),
         FilledButton(
           onPressed: () {
             final vInt = int.tryParse(_ctrl.text.trim());
@@ -1086,6 +1072,7 @@ class _RateSingleDialogState extends State<_RateSingleDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return AlertDialog(
       title: Text(widget.title),
       content: Column(
@@ -1118,12 +1105,18 @@ class _RateSingleDialogState extends State<_RateSingleDialog> {
           const SizedBox(height: 10),
           Text(
             '提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => _close(null), child: const Text('取消')),
+        TextButton(
+          onPressed: () => _close(null),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+          ),
+          child: const Text('取消'),
+        ),
         FilledButton(
           onPressed: () {
             final vInt = int.tryParse(_ctrl.text.trim());

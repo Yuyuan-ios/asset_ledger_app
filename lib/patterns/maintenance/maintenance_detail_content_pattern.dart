@@ -15,10 +15,13 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/device.dart';
 import '../../data/models/maintenance_record.dart';
+import '../../core/utils/form_feedback.dart';
+import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../patterns/device/device_picker_pattern.dart';
 import '../../components/fields/app_date_field.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
+import '../../tokens/mapper/core_tokens.dart';
 
 // =====================================================================
 // ============================== 二、Content Widget ==============================
@@ -139,25 +142,25 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
     // 1) 日期
     final ymd = FormatUtils.parseDate(_dateCtrl.text);
     if (ymd == null || ymd <= 0) {
-      widget.onToast(FormatUtils.ymdInvalidMsg);
+      widget.onToast(formValidationMessage(FormatUtils.ymdInvalidMsg));
       return;
     }
 
     // 2) 事项
     final item = _itemCtrl.text.trim();
     if (item.isEmpty) {
-      widget.onToast('保存失败：事项必填');
+      widget.onToast(formValidationMessage('事项必填'));
       return;
     }
 
     // 3) 金额
     final amount = _parseAmount(_amountCtrl.text);
     if (amount == null) {
-      widget.onToast('保存失败：金额格式不正确');
+      widget.onToast(formValidationMessage('金额格式不正确'));
       return;
     }
     if (amount <= 0) {
-      widget.onToast('保存失败：金额应大于 0');
+      widget.onToast(formValidationMessage('金额应大于 0'));
       return;
     }
 
@@ -168,18 +171,22 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
     } else {
       deviceId = _selectedDeviceId;
       if (deviceId == null) {
-        widget.onToast('保存失败：请选择设备，或切换为“公共支出”');
+        widget.onToast(formValidationMessage('请选择设备，或切换为“公共支出”'));
         return;
       }
 
       // 新建态：不允许选停用设备（编辑态允许回显历史）
       final device = widget.deviceById[deviceId];
       if (device == null) {
-        widget.onToast('设备不存在（id=$deviceId），请先去设备页检查');
+        widget.onToast(
+          missingEntityMessage('设备', id: deviceId, suffix: '请先去设备页检查'),
+        );
         return;
       }
       if (widget.editing == null && !device.isActive) {
-        widget.onToast('该设备已停用，不能用于新建维保记录');
+        widget.onToast(
+          inactiveEntityCreateMessage('该设备', recordLabel: '维保记录'),
+        );
         return;
       }
     }
@@ -288,6 +295,9 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
           children: [
             TextButton(
               onPressed: _submitting ? null : widget.onCancel,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+              ),
               child: const Text('取消'),
             ),
             const Spacer(),

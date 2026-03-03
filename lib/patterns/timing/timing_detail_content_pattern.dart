@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import '../../data/models/device.dart';
 import '../../data/models/timing_record.dart';
 import '../../data/services/timing_service.dart';
-import '../../patterns/layout/bottom_action_bar.dart';
-import '../../patterns/timing/timing_time_block.dart';
+import '../../components/fields/timing_time_block.dart';
 import 'exclude_fuel_switch_card_pattern.dart';
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
+import '../../core/utils/form_feedback.dart';
+import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../patterns/device/device_picker_pattern.dart';
@@ -29,7 +31,7 @@ class TimingDetailContent extends StatefulWidget {
     required this.deviceItems,
     required this.contactSuggestions,
     required this.siteSuggestions,
-    required this.onCancel,
+    this.onCancel,
     required this.onSubmit,
     required this.onToast,
   });
@@ -41,15 +43,15 @@ class TimingDetailContent extends StatefulWidget {
   final List<DevicePickerItemVm> deviceItems;
   final List<String> Function(String) contactSuggestions;
   final List<String> Function(String) siteSuggestions;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
   final Future<void> Function(TimingRecord record) onSubmit;
   final void Function(String msg) onToast;
 
   @override
-  State<TimingDetailContent> createState() => _TimingDetailContentState();
+  State<TimingDetailContent> createState() => TimingDetailContentState();
 }
 
-class _TimingDetailContentState extends State<TimingDetailContent> {
+class TimingDetailContentState extends State<TimingDetailContent> {
   final _contactCtrl = TextEditingController();
   final _siteCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
@@ -152,7 +154,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
       setState(() => _bottomTip = msg);
     }
     widget.onToast(msg);
-    _bottomTipTimer = Timer(AppDurations.snackBar, () {
+    _bottomTipTimer = Timer(DurationTokens.snackBar, () {
       if (!mounted) return;
       setState(() => _bottomTip = null);
     });
@@ -178,7 +180,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
         final corrected = !_enforceMeterOrder();
         _recalcHoursFromMeters();
         if (corrected) {
-          _toastInSheet('结束码表不能小于开始码表，已自动回滚');
+          _toastInSheet(autoCorrectedMessage('结束码表不能小于开始码表，已自动回滚'));
         }
       },
     );
@@ -226,18 +228,18 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
       hintText: hint,
       hintStyle: const TextStyle(
         fontSize: SheetTokens.fieldTextSize,
-        color: AppColors.sheetHint,
+        color: SheetColors.hint,
       ),
       labelText: label,
       labelStyle: const TextStyle(
         fontSize: SheetTokens.fieldLabelSize,
-        color: AppColors.sheetTextPrimary,
+        color: SheetColors.textPrimary,
       ),
       floatingLabelBehavior: label == null
           ? FloatingLabelBehavior.never
           : FloatingLabelBehavior.always,
       filled: true,
-      fillColor: AppColors.sheetFieldBackground,
+      fillColor: SheetColors.fieldBackground,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: SheetTokens.fieldContentHPadding,
         vertical: SheetTokens.fieldContentVPadding,
@@ -245,21 +247,21 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
         borderSide: const BorderSide(
-          color: AppColors.sheetFieldBorder,
+          color: SheetColors.fieldBorder,
           width: SheetTokens.fieldBorderWidth,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
         borderSide: const BorderSide(
-          color: AppColors.sheetFieldBorder,
+          color: SheetColors.fieldBorder,
           width: SheetTokens.fieldBorderWidth,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
         borderSide: const BorderSide(
-          color: AppColors.sheetFieldBorder,
+          color: SheetColors.fieldBorder,
           width: SheetTokens.fieldBorderWidth,
         ),
       ),
@@ -283,7 +285,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
       onChanged: onChanged,
       style: const TextStyle(
         fontSize: SheetTokens.fieldTextSize,
-        color: AppColors.sheetTextPrimary,
+        color: SheetColors.textPrimary,
       ),
       decoration: _sheetDecoration(
         hint: hint,
@@ -299,13 +301,13 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
 
     final device = widget.deviceById[id];
     if (device == null) {
-      widget.onToast('设备不存在（id=$id）');
+      widget.onToast(missingEntityMessage('设备', id: id));
       setState(() => _selectedDeviceId = null);
       return;
     }
 
     if (widget.editing == null && !device.isActive) {
-      widget.onToast('该设备已停用，不能用于新建');
+      widget.onToast(inactiveEntityCreateMessage('该设备'));
       setState(() => _selectedDeviceId = null);
       return;
     }
@@ -323,7 +325,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
     setState(() {});
   }
 
-  Future<void> _submit() async {
+  Future<void> submit() async {
     if (_submitting) return;
     _meterValidateTimer?.cancel();
     _enforceMeterOrder();
@@ -332,7 +334,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
 
     final deviceId = _selectedDeviceId;
     if (deviceId == null) {
-      _toastInSheet('请选择设备');
+      _toastInSheet(formValidationMessage('请选择设备'));
       return;
     }
 
@@ -341,7 +343,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
     final contact = _contactCtrl.text.trim();
     final site = _siteCtrl.text.trim();
     if (contact.isEmpty || site.isEmpty) {
-      _toastInSheet('联系人和工地不能为空');
+      _toastInSheet(formValidationMessage('联系人和工地不能为空'));
       return;
     }
 
@@ -350,18 +352,18 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
     final hours = _d(_hoursCtrl.text);
 
     if (endMeter < startMeter) {
-      _toastInSheet('结束码表不能小于开始码表');
+      _toastInSheet(formValidationMessage('结束码表不能小于开始码表'));
       return;
     }
     if (hours < 0) {
-      _toastInSheet('工时不能为负数');
+      _toastInSheet(formValidationMessage('工时不能为负数'));
       return;
     }
 
     final isRent = _mode == WorkMode.rent;
     final income = isRent ? _d(_incomeCtrl.text) : 0.0;
     if (isRent && income <= 0) {
-      _toastInSheet('租金模式请填写金额（元）');
+      _toastInSheet(formValidationMessage('租金模式请填写金额（元）'));
       return;
     }
 
@@ -383,11 +385,15 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
       );
 
       if (endMeter < lower) {
-        _toastInSheet('保存失败：结束码表($endMeter) < 下界($lower)');
+        _toastInSheet(
+          formValidationMessage('结束码表($endMeter) < 下界($lower)'),
+        );
         return;
       }
       if (upper != double.infinity && endMeter > upper) {
-        _toastInSheet('保存失败：结束码表($endMeter) > 上界($upper)');
+        _toastInSheet(
+          formValidationMessage('结束码表($endMeter) > 上界($upper)'),
+        );
         return;
       }
     }
@@ -429,9 +435,9 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
               physics: const BouncingScrollPhysics(),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  SheetTokens.outerHPadding,
+                  BottomSheetTokens.outerHPadding,
                   0,
-                  SheetTokens.outerHPadding,
+                  BottomSheetTokens.outerHPadding,
                   0,
                 ),
                 child: Column(
@@ -572,13 +578,6 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
                     ),
                   ),
           ),
-          const SizedBox(height: SheetTokens.footerTopGap),
-          BottomActionBar(
-            onCancel: widget.onCancel,
-            onConfirm: _submit,
-            confirmText: _submitting ? '保存中' : '确定',
-            enabled: !_submitting,
-          ),
         ],
       ),
     );
@@ -601,7 +600,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
             height: TimingTokens.segmentItemHeight,
             decoration: BoxDecoration(
               color: selected
-                  ? AppColors.sheetSegmentSelected
+                  ? SheetColors.segmentSelected
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(TimingTokens.segmentRadius),
             ),
@@ -623,7 +622,7 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
                   text,
                   style: const TextStyle(
                     fontSize: TimingTokens.segmentTextSize,
-                    color: AppColors.sheetTextPrimary,
+                    color: SheetColors.textPrimary,
                   ),
                 ),
               ],
@@ -638,9 +637,9 @@ class _TimingDetailContentState extends State<TimingDetailContent> {
       height: TimingTokens.segmentHeight,
       padding: const EdgeInsets.all(TimingTokens.segmentInset),
       decoration: BoxDecoration(
-        color: AppColors.sheetSegmentBackground,
+        color: SheetColors.segmentBackground,
         borderRadius: BorderRadius.circular(TimingTokens.segmentRadius),
-        border: Border.all(color: AppColors.sheetSegmentBorder),
+        border: Border.all(color: SheetColors.segmentBorder),
       ),
       child: Row(
         children: [item(WorkMode.hours, '工时'), item(WorkMode.rent, '租金')],

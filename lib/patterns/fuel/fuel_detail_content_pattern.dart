@@ -13,12 +13,13 @@
 
 import 'package:flutter/material.dart';
 
-import '../../core/foundation/spacing.dart';
 import '../../data/models/device.dart';
 import '../../data/models/fuel_log.dart';
-import '../../patterns/layout/bottom_action_bar.dart';
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
+import '../../core/utils/form_feedback.dart';
+import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../patterns/device/device_picker_pattern.dart';
@@ -38,7 +39,6 @@ class FuelDetailContent extends StatefulWidget {
     required this.deviceById,
     required this.deviceItems,
     required this.supplierSuggestions,
-    required this.onCancel,
     required this.onToast,
     required this.onSubmit,
   });
@@ -52,9 +52,6 @@ class FuelDetailContent extends StatefulWidget {
   final List<DevicePickerItemVm> deviceItems;
   final List<String> Function(String) supplierSuggestions;
 
-  /// 取消（由 Page 负责 pop）
-  final VoidCallback onCancel;
-
   /// toast（统一走 Page 的 toast 体系）
   final void Function(String msg) onToast;
 
@@ -62,14 +59,14 @@ class FuelDetailContent extends StatefulWidget {
   final Future<void> Function(FuelLog log) onSubmit;
 
   @override
-  State<FuelDetailContent> createState() => _FuelDetailContentState();
+  State<FuelDetailContent> createState() => FuelDetailContentState();
 }
 
 // =====================================================================
 // 三、State：表单 + 校验 + 组装
 // =====================================================================
 
-class _FuelDetailContentState extends State<FuelDetailContent> {
+class FuelDetailContentState extends State<FuelDetailContent> {
   // -------------------------------------------------------------------
   // 3.1 表单控制器
   // -------------------------------------------------------------------
@@ -176,51 +173,55 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
   // 六、提交：只组装 FuelLog + 调回调
   // =====================================================================
 
-  Future<void> _submit() async {
+  Future<void> submit() async {
     if (_submitting) return;
 
     // 6.1 device 必选
     final deviceId = _selectedDeviceId;
     if (deviceId == null) {
-      widget.onToast('保存失败：请先选择设备');
+      widget.onToast(formValidationMessage('请先选择设备'));
       return;
     }
 
     // 6.2 新建态：不允许选停用设备（编辑态允许回显历史）
     final device = widget.deviceById[deviceId];
     if (device == null) {
-      widget.onToast('设备不存在（id=$deviceId），请先去设备页检查');
+      widget.onToast(
+        missingEntityMessage('设备', id: deviceId, suffix: '请先去设备页检查'),
+      );
       return;
     }
     if (widget.editing == null && !device.isActive) {
-      widget.onToast('该设备已停用，不能用于新建燃油记录');
+      widget.onToast(
+        inactiveEntityCreateMessage('该设备', recordLabel: '燃油记录'),
+      );
       return;
     }
 
     // 6.3 日期
     final date = FormatUtils.parseDate(_dateCtrl.text);
     if (date == null || date <= 0) {
-      widget.onToast(FormatUtils.ymdInvalidMsg);
+      widget.onToast(formValidationMessage(FormatUtils.ymdInvalidMsg));
       return;
     }
 
     // 6.4 供应人必填
     final supplier = _supplierCtrl.text.trim();
     if (supplier.isEmpty) {
-      widget.onToast('保存失败：供应人必填');
+      widget.onToast(formValidationMessage('供应人必填'));
       return;
     }
 
     // 6.5 liters / cost
     final liters = _parseDouble(_litersCtrl.text);
     if (liters == null || liters <= 0) {
-      widget.onToast('保存失败：加油量必须是 > 0 的数字');
+      widget.onToast(formValidationMessage('加油量必须是 > 0 的数字'));
       return;
     }
 
     final cost = _parseDouble(_costCtrl.text);
     if (cost == null || cost < 0) {
-      widget.onToast('保存失败：金额必须是 >= 0 的数字');
+      widget.onToast(formValidationMessage('金额必须是 >= 0 的数字'));
       return;
     }
 
@@ -254,22 +255,22 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
       keyboardType: keyboardType,
       style: const TextStyle(
         fontSize: SheetTokens.fieldTextSize,
-        color: AppColors.sheetTextPrimary,
+        color: SheetColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: SheetTokens.fieldLabelSize,
-          color: AppColors.sheetHint,
+          color: SheetColors.textPrimary,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         hintText: hint,
         hintStyle: const TextStyle(
           fontSize: SheetTokens.fieldTextSize,
-          color: AppColors.sheetHint,
+          color: SheetColors.hint,
         ),
         filled: true,
-        fillColor: AppColors.sheetFieldBackground,
+        fillColor: SheetColors.fieldBackground,
         constraints: const BoxConstraints(minHeight: SheetTokens.fieldHeight),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: SheetTokens.fieldContentHPadding,
@@ -278,21 +279,21 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
           borderSide: const BorderSide(
-            color: AppColors.sheetFieldBorder,
+            color: SheetColors.fieldBorder,
             width: SheetTokens.fieldBorderWidth,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
           borderSide: const BorderSide(
-            color: AppColors.sheetFieldBorder,
+            color: SheetColors.fieldBorder,
             width: SheetTokens.fieldBorderWidth,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
           borderSide: const BorderSide(
-            color: AppColors.sheetFieldBorder,
+            color: SheetColors.fieldBorder,
             width: SheetTokens.fieldBorderWidth,
           ),
         ),
@@ -316,9 +317,9 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
               physics: const BouncingScrollPhysics(),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  SheetTokens.outerHPadding,
+                  BottomSheetTokens.outerHPadding,
                   0,
-                  SheetTokens.outerHPadding,
+                  BottomSheetTokens.outerHPadding,
                   0,
                 ),
                 child: Column(
@@ -332,14 +333,14 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
                         onChanged: (id) => setState(() => _selectedDeviceId = id),
                       ),
                     ),
-                    const SizedBox(height: AppSpace.md),
+                    const SizedBox(height: SheetTokens.formFieldGap),
 
                     // 2) 日期
                     SheetDateField(
                       controller: _dateCtrl,
                       onPickDate: _pickDate,
                     ),
-                    const SizedBox(height: AppSpace.md),
+                    const SizedBox(height: SheetTokens.formFieldGap),
 
                     // 3) 供应人（必填，联想）
                     AutoSuggestField(
@@ -349,7 +350,7 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
                       suggestionsBuilder: widget.supplierSuggestions,
                       onSelected: (v) => _supplierCtrl.text = v,
                     ),
-                    const SizedBox(height: AppSpace.md),
+                    const SizedBox(height: SheetTokens.formFieldGap),
 
                     // 4) 加油量
                     _field(
@@ -360,7 +361,7 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
                         decimal: true,
                       ),
                     ),
-                    const SizedBox(height: AppSpace.md),
+                    const SizedBox(height: SheetTokens.formFieldGap),
 
                     // 5) 金额
                     _field(
@@ -375,13 +376,6 @@ class _FuelDetailContentState extends State<FuelDetailContent> {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: SheetTokens.footerTopGap),
-          BottomActionBar(
-            onCancel: widget.onCancel,
-            onConfirm: _submit,
-            confirmText: _submitting ? '保存中...' : '确定',
-            enabled: !_submitting,
           ),
         ],
       ),

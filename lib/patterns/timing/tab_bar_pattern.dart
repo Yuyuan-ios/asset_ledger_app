@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../tokens/mapper/core_tokens.dart';
-import '../../tokens/mapper/timing_tokens.dart';
 
 /// Figma: Component_TabBar
 /// - 固定底部
@@ -19,84 +20,112 @@ class ComponentTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
-
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.sheetBackground,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: TimingTokens.tabBarShadowBlur,
-            offset: const Offset(0, TimingTokens.tabBarShadowOffsetY),
+            color: Colors.black.withValues(
+              alpha: NavigationTokens.shadowOpacity,
+            ),
+            blurRadius: NavigationTokens.shadowBlur,
+            offset: const Offset(0, NavigationTokens.shadowOffsetY),
           ),
         ],
-        border: const Border(
-          top: BorderSide(
-            color: AppColors.timingCardBorder,
-            width: TimingTokens.tabBarBorderThickness,
-          ),
+      ),
+      child: SizedBox(
+        height: NavigationTokens.barHeight,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: Transform.scale(
+                    scale: NavigationTokens.contentScale,
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: NavigationTokens.assetViewportWidth,
+                      height: NavigationTokens.assetViewportHeight,
+                      child: ClipRect(
+                        child: OverflowBox(
+                          alignment: Alignment.topLeft,
+                          minWidth: NavigationTokens.assetWidth,
+                          maxWidth: NavigationTokens.assetWidth,
+                          minHeight: NavigationTokens.assetHeight,
+                          maxHeight: NavigationTokens.assetHeight,
+                          child: Transform.translate(
+                            offset: Offset(
+                              -NavigationTokens.assetOffsetX,
+                              -(NavigationTokens.assetOffsetY +
+                                  currentIndex *
+                                      NavigationTokens.assetVariantStride),
+                            ),
+                            child: SizedBox(
+                              width: NavigationTokens.assetWidth,
+                              height: NavigationTokens.assetHeight,
+                              child: SvgPicture.asset(
+                                NavigationTokens.assetPath,
+                                fit: BoxFit.fill,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(
+                  5,
+                  (index) => Expanded(
+                    child: _tapTarget(index: index, label: _labelFor(index)),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        TimingTokens.tabBarHorizontalPadding,
-        TimingTokens.tabBarTopPadding,
-        TimingTokens.tabBarHorizontalPadding,
-        bottomInset,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _item(index: 0, icon: Icons.timer, label: '计时'),
-          _item(index: 1, icon: Icons.local_gas_station, label: '燃油'),
-          _item(index: 2, icon: Icons.account_balance_wallet, label: '账户'),
-          _item(index: 3, icon: Icons.build, label: '维保'),
-          _item(index: 4, icon: Icons.settings, label: '设备'),
-        ],
       ),
     );
   }
 
-  Widget _item({
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final selected = index == currentIndex;
-    final color = selected
-        ? AppColors.sheetAction
-        : AppColors.timingTextSecondary;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => onTap(index),
-        borderRadius: BorderRadius.circular(TimingTokens.tabItemRadius),
-        child: Padding(
-          padding: const EdgeInsets.only(top: TimingTokens.tabItemTopPadding),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: index == 3
-                    ? TimingTokens.tabIconBuildSize
-                    : TimingTokens.tabIconDefaultSize,
-                color: color,
-              ),
-              const SizedBox(height: TimingTokens.tabLabelTopGap),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: TimingTokens.tabLabelFontSize,
-                  height: TimingTokens.tabLabelLineHeight,
-                  color: color,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
+  Widget _tapTarget({required int index, required String label}) {
+    return Semantics(
+      button: true,
+      selected: index == currentIndex,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onTap(index),
+          borderRadius: BorderRadius.circular(NavigationTokens.itemRadius),
+          splashColor: NavigationTokens.interactionOverlay,
+          highlightColor: NavigationTokens.interactionOverlay,
+          hoverColor: NavigationTokens.interactionOverlay,
+          child: const SizedBox.expand(),
         ),
       ),
     );
+  }
+
+  String _labelFor(int index) {
+    switch (index) {
+      case 0:
+        return '计时';
+      case 1:
+        return '燃油';
+      case 2:
+        return '账户';
+      case 3:
+        return '维保';
+      case 4:
+        return '设备';
+      default:
+        return '';
+    }
   }
 }

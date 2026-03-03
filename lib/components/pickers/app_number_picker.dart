@@ -16,6 +16,10 @@ class AppNumberPicker extends StatefulWidget {
     this.width = TimingTokens.meterCellSize,
     this.itemExtent = TimingTokens.meterItemExtent,
     this.diameterRatio = TimingTokens.meterWheelDiameterRatio,
+    this.backgroundColor = SheetColors.meterBackground,
+    this.textColor = SheetColors.meterText,
+    this.backgroundMargin = EdgeInsets.zero,
+    this.backgroundRadius = TimingTokens.digitCellRadius,
   }) : assert(min <= max),
        assert(value >= min && value <= max);
 
@@ -27,6 +31,10 @@ class AppNumberPicker extends StatefulWidget {
   final double width;
   final double itemExtent;
   final double diameterRatio;
+  final Color backgroundColor;
+  final Color textColor;
+  final EdgeInsets backgroundMargin;
+  final double backgroundRadius;
 
   @override
   State<AppNumberPicker> createState() => _AppNumberPickerState();
@@ -85,13 +93,10 @@ class _AppNumberPickerState extends State<AppNumberPicker> {
       child: Stack(
         children: [
           Container(
+            margin: widget.backgroundMargin,
             decoration: BoxDecoration(
-              color: AppColors.sheetBackground,
-              borderRadius: BorderRadius.circular(TimingTokens.digitCellRadius),
-              border: Border.all(
-                color: AppColors.sheetFieldBorder,
-                width: TimingTokens.digitCellBorderWidth,
-              ),
+              color: widget.backgroundColor,
+              borderRadius: BorderRadius.circular(widget.backgroundRadius),
             ),
             child: ListWheelScrollView.useDelegate(
               controller: _controller,
@@ -116,7 +121,7 @@ class _AppNumberPickerState extends State<AppNumberPicker> {
                             ? TimingTokens.meterSelectedTextSize
                             : TimingTokens.meterUnselectedTextSize,
                         height: 1,
-                        color: AppColors.sheetTextPrimary,
+                        color: widget.textColor,
                       ),
                     ),
                   );
@@ -134,7 +139,7 @@ class _AppNumberPickerState extends State<AppNumberPicker> {
                     TimingTokens.digitOverlayRadius,
                   ),
                   border: Border.all(
-                    color: AppColors.sheetDigitHighlight.withValues(alpha: 0.7),
+                    color: SheetColors.digitHighlight.withValues(alpha: 0.7),
                     width: TimingTokens.digitHighlightBorderWidth,
                   ),
                 ),

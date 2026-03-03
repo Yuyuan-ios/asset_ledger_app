@@ -106,15 +106,15 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
               hintText: widget.hint,
               hintStyle: const TextStyle(
                 fontSize: SheetTokens.fieldTextSize,
-                color: AppColors.sheetHint,
+                color: SheetColors.hint,
               ),
               labelStyle: const TextStyle(
                 fontSize: SheetTokens.fieldLabelSize,
-                color: AppColors.sheetTextPrimary,
+                color: SheetColors.textPrimary,
               ),
               floatingLabelBehavior: FloatingLabelBehavior.never,
               filled: true,
-              fillColor: AppColors.sheetFieldBackground,
+              fillColor: SheetColors.fieldBackground,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: SheetTokens.fieldContentHPadding,
                 vertical: SheetTokens.fieldContentVPadding,
@@ -123,26 +123,26 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
                 padding: EdgeInsets.only(
                   right: SheetTokens.fieldSuffixRightPadding,
                 ),
-                child: Icon(Icons.arrow_drop_down, color: AppColors.sheetMuted),
+                child: Icon(Icons.arrow_drop_down, color: SheetColors.muted),
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
                 borderSide: const BorderSide(
-                  color: AppColors.sheetFieldBorder,
+                  color: SheetColors.fieldBorder,
                   width: SheetTokens.fieldBorderWidth,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
                 borderSide: const BorderSide(
-                  color: AppColors.sheetFieldBorder,
+                  color: SheetColors.fieldBorder,
                   width: SheetTokens.fieldBorderWidth,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
                 borderSide: const BorderSide(
-                  color: AppColors.sheetFieldBorder,
+                  color: SheetColors.fieldBorder,
                   width: SheetTokens.fieldBorderWidth,
                 ),
               ),
@@ -158,7 +158,7 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
               widget.textStyle ??
               const TextStyle(
                 fontSize: SheetTokens.fieldTextSize,
-                color: AppColors.sheetTextPrimary,
+                color: SheetColors.textPrimary,
               ),
           decoration: widget.decorationBuilder != null
               ? widget.decorationBuilder!(baseDecoration)
