@@ -9,6 +9,7 @@ class FuelTokens {
   static const double homeContentPadding = 0; // 内容区四周内边距（与计时页首卡对齐）
   static const double homeSectionGap = 12; // 分区之间间距
   static const double homeListBottomGap = 24; // 列表底部留白
+  static const double recordsTitleTopGap = 8; // 最近记录标题与列表间距
 
   // ===== 燃油页：反馈提示 =====
   static const double homeLoadingBottomGap = 10; // 加载条下方间距
@@ -35,10 +36,4 @@ class FuelTokens {
   static const double efficiencySingleItemTitleGap = 30; // 单设备时：标题到内容行的垂直间距
   static const double efficiencyRowLeftInset = 16; // 效率内容行左侧内边距（SANY 起始位置）
   static const double efficiencyListBottomPadding = 4; // 设备效率区滚动列表底部留白
-
-  // ===== 燃油页：最近记录 =====
-  static const double recordsTrailingGap = 8; // 右侧数值与删除按钮间距
-  static const double recordsValueSize = 12; // 列表右侧数值字号
-  static const double recordsDeleteIconSize = 20; // 删除图标尺寸
-  static const double recordsEmptyVerticalPadding = 20; // 空态上下内边距
 }

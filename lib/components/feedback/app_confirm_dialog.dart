@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../tokens/mapper/core_tokens.dart';
 
 Future<bool> showAppConfirmDialog({
   required BuildContext context,
@@ -47,6 +48,9 @@ class AppConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+          ),
           child: Text(cancelText),
         ),
         FilledButton(

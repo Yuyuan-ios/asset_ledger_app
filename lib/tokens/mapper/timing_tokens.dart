@@ -32,7 +32,7 @@ class TimingTokens {
   static const double chartPaddingBottom = 6; // 图表卡片下内边距
   static const double chartHeaderHeight = 28; // 图表标题栏高度
   static const double chartArrowFontSize = 20; // 年份左右箭头字号
-  static const double chartYearFontSize = 16; // 年份字号
+  static const double chartYearFontSize = 18; // 年份字号
   static const double chartPlotTopPadding = 4; // 图表区域上内边距
   static const double chartBarWidth = 6; // 单柱宽度
   static const double chartBarPairGap = 1; // 收入/支出柱间距
@@ -60,14 +60,15 @@ class TimingTokens {
   static const double recordRowHeight = 60; // 单条记录行高
   static const double recordRowPaddingLeft = 10; // 单条记录左内边距
   static const double recordRowPaddingRight = 2; // 单条记录右内边距
-  static const double recordAvatarSize = 38; // 记录头像占位圆尺寸
+  static const double recordAvatarSize = 43; // 记录头像占位圆尺寸
+  static const double recordAvatarOffsetY = -1; // 记录头像纵向微调
   static const double recordAvatarRightGap = 10; // 头像与文本间距
-  static const double recordTitleFontSize = 13; // 联系人·地址字号
+  static const double recordTitleFontSize = 14; // 联系人·地址字号
   static const double recordTitleLineHeight = 1.1; // 联系人·地址行高
   static const double recordSubTitleTopGap = 6; // 主副标题间距
-  static const double recordSubTitleFontSize = 13; // 副标题字号
+  static const double recordSubTitleFontSize = 14; // 副标题字号
   static const double recordValueLeftGap = 8; // 左右信息区间距
-  static const double recordValueFontSize = 13; // 右侧数值字号
+  static const double recordValueFontSize = 14; // 右侧数值字号
   static const double recordValueBottomGap = 8; // 右侧两行数值间距
   static const double recordHoursIncomeGap = 8; // 工时与金额之间间距（租金模式）
   static const double recordDividerThickness = 1; // 记录分组分割线粗细
@@ -125,7 +126,8 @@ class TimingTokens {
   // ===== 计时弹窗：开始/结束工作时间码表 =====
   static const double meterLabelSize = 12; // 码表标题字号（开始/结束工作时间）
   static const double meterLabelHeight = 16; // 码表标题区域固定高度
-  static const double meterLabelBottomGap = 0; // 码表标题与数字滚轮容器之间间距
+  static const double meterLabelLeftShift = 12; // 码表标题整体向左微调
+  static const double meterLabelBottomGap = 6; // 码表标题与数字滚轮容器之间间距
   static const double meterDotSize = 20; // 小数点字号
   static const double meterDotSlotWidth = 10; // 小数点占位宽度（用于整体宽度对齐计算）
   static const double meterCellSize = 40; // 单个数字位容器尺寸（宽高）
@@ -139,14 +141,16 @@ class TimingTokens {
   static const double meterContainerVPadding = 8; // 码表整体输入框垂直内边距
   static const double meterGap = 10; // 数字位之间标准间距
   static const double meterDecimalGap = 8; // 小数点两侧额外间距
+  static const double meterUnitLeftGap = 20; // 码表单位与数字滚轮的左间距
+  static const double meterUnitDownShift = 10; // 码表单位向下偏移
   static const double meterWheelDiameterRatio = 2.4; // 滚轮直径比例（影响透视弧度）
   static const int meterRollbackDebounceMs = 1000; // 结束码表停止滑动后回滚校验延迟
   static const int meterRollbackAnimMs = 420; // 码表自动回滚动画时长（毫秒）
 
   // ===== 计时弹窗：底部包油/包电开关设计 =====
-  static const double switchCardMinHeight = 52; // “包油/包电”卡片最小高度
+  static const double switchCardMinHeight = 40; // “包油/包电”卡片最小高度
   static const double switchRowRightInset = 8; // 开关组到父容器右侧内边距
-  static const double switchCardVPadding = 8; // “包油/包电”行垂直内边距
+  static const double switchCardVPadding = 0; // “包油/包电”行垂直内边距
   static const double switchTitleSize = 13; // “包油/包电”主标题字号
   static const double switchDescSize = 11; // “包油/包电”说明小字字号
   static const double switchInlineGap = 6; // “包油/包电”图标、标题、开关之间间距
@@ -162,7 +166,6 @@ class TimingTokens {
   // ===== 计时弹窗：数字滚轮单元格描边 =====
   static const double digitCellRadius = 2; // 数字滚轮单格边角半径
   static const double digitOverlayRadius = 8; // 数字滚轮选中覆盖层圆角
-  static const double digitCellBorderWidth = 0.8; // 数字滚轮单格边框宽度（弱化边框感）
   static const double digitHighlightBorderWidth = 0.9; // 数字滚轮高亮线宽（弱化边框感）
 
   // ===== 计时弹窗：底部小提示（校验失败反馈）=====

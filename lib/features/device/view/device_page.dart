@@ -6,13 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/device.dart';
-import '../../../features/device/state/device_controller.dart';
+import '../../../features/device/state/device_store.dart';
 
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../components/avatars/app_device_avatar.dart';
+import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
+import '../../../components/feedback/store_error_banner.dart';
 import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/store_feedback.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 
 // =====================================================================
@@ -36,9 +39,7 @@ class _DevicePageState extends State<DevicePage> {
   // -------------------------------------------------------------------
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: AppDurations.snackBar),
-    );
+    AppToast.show(context, msg);
   }
 
   // -------------------------------------------------------------------
@@ -83,12 +84,18 @@ class _DevicePageState extends State<DevicePage> {
         await store.update(edited);
       }
 
-      if (store.error != null) {
-        _toast('保存失败：${store.error}');
-      } else {
-        _toast(device == null ? '已新增设备' : '已更新设备');
-      }
+      final feedback = storeActionFeedback(
+        store,
+        action: '保存',
+        successMessage: device == null ? '已新增设备' : '已更新设备',
+      );
+      _toast(feedback.message);
     });
+  }
+
+  Future<void> _retryLoad() async {
+    final store = context.read<DeviceStore>();
+    await store.loadAll();
   }
 
   // =====================================================================
@@ -106,20 +113,20 @@ class _DevicePageState extends State<DevicePage> {
         child: const Icon(Icons.add),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.pagePadding),
+        padding: const EdgeInsets.all(SpaceTokens.pagePadding),
         children: [
           Text(
             '设备（${devices.length}）${store.loading ? " 读取中..." : ""}',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
-          if (store.error != null) ...[
+          if (store.failure != null) ...[
             const SizedBox(height: 8),
-            Text(
-              '读取失败：${store.error}',
-              style: const TextStyle(color: Colors.red),
+            StoreErrorBanner(
+              message: storeErrorMessage(store, action: '读取')!,
+              onRetry: store.loading ? null : () => _retryLoad(),
             ),
           ],
-          const SizedBox(height: AppSpacing.sectionGap),
+          const SizedBox(height: SpaceTokens.sectionGap),
           const Divider(),
           if (devices.isEmpty) ...[
             const SizedBox(height: 24),
@@ -164,13 +171,15 @@ class _DevicePageState extends State<DevicePage> {
 
                               await deviceStore.deactivateById(d.id!);
 
-                              final err = deviceStore.error;
-                              if (err != null) {
-                                _toast('停用失败：$err');
+                              final feedback = storeActionFeedback(
+                                deviceStore,
+                                action: '停用',
+                                successMessage: '已停用（历史记录不受影响）',
+                              );
+                              _toast(feedback.message);
+                              if (!feedback.isSuccess) {
                                 return;
                               }
-
-                              _toast('已停用（历史记录不受影响）');
                             },
                     ),
                   ],
@@ -341,7 +350,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
               ),
             ],
 
-            const SizedBox(height: AppSpacing.sectionGap),
+            const SizedBox(height: SpaceTokens.sectionGap),
 
             TextField(
               controller: _modelCtrl,
@@ -352,7 +361,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
               ),
             ),
 
-            const SizedBox(height: AppSpacing.sectionGap),
+            const SizedBox(height: SpaceTokens.sectionGap),
 
             TextField(
               controller: _unitPriceCtrl,
@@ -364,7 +373,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
               ),
             ),
 
-            const SizedBox(height: AppSpacing.sectionGap),
+            const SizedBox(height: SpaceTokens.sectionGap),
 
             TextField(
               controller: _baseMeterCtrl,

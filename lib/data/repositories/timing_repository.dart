@@ -8,15 +8,27 @@ import '../db/database.dart';
 // 1.2 项目内：计时记录模型（TimingRecord / TimingType）
 import '../models/timing_record.dart';
 
+abstract class TimingRepository {
+  Future<List<TimingRecord>> listAll();
+
+  Future<int> insert(TimingRecord record);
+
+  Future<int> update(TimingRecord record);
+
+  Future<int> deleteById(int id);
+
+  Future<int> deleteByDeviceId(int deviceId);
+}
+
 // =====================================================================
-// ============================== 二、数据仓库 TimingRepo ==============================
+// ============================== 二、数据仓库 SqfliteTimingRepository ==============================
 // =====================================================================
 //
 // 设计目标：
 // - Repo 只做“DB CRUD”（不做业务判断、不做 UI 逻辑）
 // - 对上层（Store/Service）提供稳定接口：listAll/insert/update/delete...
 //
-class TimingRepo {
+class SqfliteTimingRepository implements TimingRepository {
   static const _table = 'timing_records';
 
   // =====================================================================
@@ -24,7 +36,8 @@ class TimingRepo {
   // =====================================================================
 
   /// 读全部记录（按 start_date 降序，其次 id 降序）
-  static Future<List<TimingRecord>> listAll() async {
+  @override
+  Future<List<TimingRecord>> listAll() async {
     final db = await AppDatabase.database;
     final rows = await db.query(_table, orderBy: 'start_date DESC, id DESC');
     return rows.map(_fromRow).toList();
@@ -35,7 +48,8 @@ class TimingRepo {
   // =====================================================================
 
   /// 新增记录：返回新行 id
-  static Future<int> insert(TimingRecord r) async {
+  @override
+  Future<int> insert(TimingRecord r) async {
     final db = await AppDatabase.database;
     return db.insert(_table, _toRow(r));
   }
@@ -45,9 +59,10 @@ class TimingRepo {
   // =====================================================================
 
   /// 更新记录：按 id 更新
-  static Future<int> update(TimingRecord r) async {
+  @override
+  Future<int> update(TimingRecord r) async {
     if (r.id == null) {
-      throw Exception('TimingRepo.update: TimingRecord.id is null');
+      throw Exception('SqfliteTimingRepository.update: TimingRecord.id is null');
     }
 
     final db = await AppDatabase.database;
@@ -59,13 +74,15 @@ class TimingRepo {
   // =====================================================================
 
   /// 删除记录：按记录 id 删除一条
-  static Future<int> deleteById(int id) async {
+  @override
+  Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
     return db.delete(_table, where: 'id = ?', whereArgs: [id]);
   }
 
   /// 删除记录：按设备 id 删除该设备所有记录
-  static Future<int> deleteByDeviceId(int deviceId) async {
+  @override
+  Future<int> deleteByDeviceId(int deviceId) async {
     final db = await AppDatabase.database;
     return db.delete(_table, where: 'device_id = ?', whereArgs: [deviceId]);
   }

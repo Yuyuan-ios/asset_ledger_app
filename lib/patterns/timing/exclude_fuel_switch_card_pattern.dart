@@ -38,7 +38,7 @@ class ExcludeFuelSwitchCard extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: TimingTokens.switchTitleSize,
-                    color: AppColors.sheetTextPrimary,
+                    color: SheetColors.textPrimary,
                   ),
                 ),
               ],
@@ -48,7 +48,7 @@ class ExcludeFuelSwitchCard extends StatelessWidget {
               '开启后：本条工时不参与油耗效率统计。',
               style: TextStyle(
                 fontSize: TimingTokens.switchDescSize,
-                color: AppColors.sheetHint,
+                color: SheetColors.hint,
               ),
             ),
           ],
@@ -79,12 +79,12 @@ class _FigmaSwitch extends StatelessWidget {
           height: TimingTokens.switchTrackHeight,
           padding: const EdgeInsets.all(TimingTokens.switchTrackInset),
           decoration: BoxDecoration(
-            color: value ? AppColors.sheetAction : Colors.white,
+            color: value ? SheetColors.action : SheetColors.switchTrackOff,
             borderRadius: BorderRadius.circular(
               TimingTokens.switchTrackHeight / 2,
             ),
             border: Border.all(
-              color: AppColors.sheetSwitchThumb,
+              color: SheetColors.switchThumb,
               width: TimingTokens.switchTrackBorderWidth,
             ),
           ),
@@ -93,9 +93,13 @@ class _FigmaSwitch extends StatelessWidget {
             child: Container(
               width: TimingTokens.switchThumbSize,
               height: TimingTokens.switchThumbSize,
-              decoration: const BoxDecoration(
-                color: AppColors.sheetSegmentBackground,
+              decoration: BoxDecoration(
+                color: SheetColors.switchThumbFill,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: SheetColors.switchThumbBorder,
+                  width: 1,
+                ),
               ),
             ),
           ),

@@ -1,6 +1,16 @@
 import '../db/database.dart';
 import '../models/project_device_rate.dart';
 
+abstract class ProjectRateRepository {
+  Future<List<ProjectDeviceRate>> listAll();
+
+  Future<int> upsert(ProjectDeviceRate rate);
+
+  Future<int> delete(String projectKey, int deviceId);
+
+  Future<int> deleteByProjectKey(String projectKey);
+}
+
 // =====================================================================
 // ============================== ProjectRateRepo ==============================
 // =====================================================================
@@ -8,18 +18,19 @@ import '../models/project_device_rate.dart';
 // 纯 CRUD：不写业务口径
 // =====================================================================
 
-class ProjectRateRepo {
-  const ProjectRateRepo._();
+class SqfliteProjectRateRepository implements ProjectRateRepository {
 
   static const String table = 'project_device_rates';
 
-  static Future<List<ProjectDeviceRate>> listAll() async {
+  @override
+  Future<List<ProjectDeviceRate>> listAll() async {
     final db = await AppDatabase.database;
     final rows = await db.query(table);
     return rows.map((e) => ProjectDeviceRate.fromMap(e)).toList();
   }
 
-  static Future<int> upsert(ProjectDeviceRate r) async {
+  @override
+  Future<int> upsert(ProjectDeviceRate r) async {
     final db = await AppDatabase.database;
 
     // sqflite 不统一支持 INSERT OR REPLACE 的 helper，我们直接 rawInsert
@@ -32,7 +43,8 @@ class ProjectRateRepo {
     );
   }
 
-  static Future<int> delete(String projectKey, int deviceId) async {
+  @override
+  Future<int> delete(String projectKey, int deviceId) async {
     final db = await AppDatabase.database;
     return db.delete(
       table,
@@ -41,7 +53,8 @@ class ProjectRateRepo {
     );
   }
 
-  static Future<int> deleteByProjectKey(String projectKey) async {
+  @override
+  Future<int> deleteByProjectKey(String projectKey) async {
     final db = await AppDatabase.database;
     return db.delete(table, where: 'project_key = ?', whereArgs: [projectKey]);
   }

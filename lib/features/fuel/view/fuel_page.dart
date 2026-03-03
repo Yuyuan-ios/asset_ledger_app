@@ -3,18 +3,20 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/store_feedback.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
 import '../../../data/models/timing_record.dart';
+import '../../../data/services/fuel_suggest_service.dart';
 import '../../../data/services/timing_service.dart';
-import '../../../features/device/state/device_controller.dart';
-import '../../../features/fuel/state/fuel_controller.dart';
+import '../../../features/device/state/device_store.dart';
+import '../../../features/fuel/state/fuel_store.dart';
 import '../../../patterns/fuel/fuel_home_pattern.dart';
-import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
-import '../../timing/state/timing_controller.dart';
+import '../../timing/state/timing_store.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../components/avatars/app_device_avatar.dart';
 import '../../../patterns/fuel/fuel_detail_content_pattern.dart';
@@ -107,19 +109,6 @@ class _FuelPageState extends State<FuelPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final deviceStore = context.read<DeviceStore>();
-      final timingStore = context.read<TimingStore>();
-      final fuelStore = context.read<FuelStore>();
-      await deviceStore.loadAll();
-      await timingStore.loadAll();
-      await fuelStore.loadAll();
-    });
-  }
-
-  @override
   void dispose() {
     _supplierFilterCtrl.dispose();
     super.dispose();
@@ -127,15 +116,25 @@ class _FuelPageState extends State<FuelPage> {
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: AppDurations.snackBar),
-    );
+    AppToast.show(context, msg);
+  }
+
+  Future<void> _retryLoad() async {
+    final fuelStore = context.read<FuelStore>();
+    final deviceStore = context.read<DeviceStore>();
+    final timingStore = context.read<TimingStore>();
+    await Future.wait([
+      fuelStore.loadAll(),
+      deviceStore.loadAll(),
+      timingStore.loadAll(),
+    ]);
   }
 
   Future<void> _openFuelEditor({FuelLog? editing}) async {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
     final fuelStore = context.read<FuelStore>();
+    final formKey = GlobalKey<FuelDetailContentState>();
     final deviceById = <int, Device>{};
     for (final d in deviceStore.allDevices) {
       final id = d.id;
@@ -158,17 +157,21 @@ class _FuelPageState extends State<FuelPage> {
         return AppBottomSheetShell(
           title: editing == null ? '新增燃油' : '编辑燃油',
           scrollable: false,
+          contentPadding: EdgeInsets.zero,
+          onCancel: () => Navigator.of(ctx).pop(),
+          onConfirm: () => formKey.currentState?.submit(),
           child: FuelDetailContent(
+            key: formKey,
             editing: editing,
             logs: fuelStore.logs,
             activeDevices: deviceStore.activeDevices,
             deviceById: deviceById,
             deviceItems: deviceItems,
-            supplierSuggestions: (q) => fuelStore.supplierSuggestions(
+            supplierSuggestions: (q) => FuelSuggestService.supplierSuggestions(
+              fuelStore.logs,
               q,
               limit: 9999,
             ),
-            onCancel: () => Navigator.of(ctx).pop(),
             onToast: _toast,
             onSubmit: (log) async {
               if (log.id == null) {
@@ -178,12 +181,11 @@ class _FuelPageState extends State<FuelPage> {
               }
 
               if (!mounted) return;
-              if (fuelStore.error != null) {
-                _toast('保存失败：${fuelStore.error}');
+              final feedback = storeActionFeedback(fuelStore, action: '保存');
+              _toast(feedback.message);
+              if (!feedback.isSuccess) {
                 return;
               }
-
-              _toast('已保存');
               if (!ctx.mounted) return;
               Navigator.of(ctx).pop();
             },
@@ -212,13 +214,12 @@ class _FuelPageState extends State<FuelPage> {
     await store.deleteById(log.id!);
 
     if (!mounted) return false;
-    if (store.error != null) {
-      _toast('删除失败：${store.error}');
+    final feedback = storeActionFeedback(store, action: '删除');
+    _toast(feedback.message);
+    if (!feedback.isSuccess) {
       return false;
-    } else {
-      _toast('已删除');
-      return true;
     }
+    return true;
   }
 
   List<FuelLog> _filteredLogs(List<FuelLog> logs) {
@@ -234,7 +235,10 @@ class _FuelPageState extends State<FuelPage> {
 
     final loading =
         fuelStore.loading || deviceStore.loading || timingStore.loading;
-    final err = fuelStore.error ?? deviceStore.error ?? timingStore.error;
+    final err = firstStoreErrorMessage(
+      [fuelStore, deviceStore, timingStore],
+      action: '读取',
+    );
 
     final nowYmd = FormatUtils.ymdFromDate(DateTime.now());
     final supplier = _supplierFilter.trim().isEmpty
@@ -261,7 +265,7 @@ class _FuelPageState extends State<FuelPage> {
               child: FuelEfficiencySummary(
                 byDevice: byDevice,
                 deviceNameOf: (id) {
-                  final d = deviceStore.findById(id);
+                  final d = deviceStore.tryFindById(id);
                   return d?.name ?? '设备$id（已停用/不存在）';
                 },
               ),
@@ -296,7 +300,10 @@ class _FuelPageState extends State<FuelPage> {
 
     final filter = FuelSupplierFilter(
       controller: _supplierFilterCtrl,
-      suggestionsBuilder: fuelStore.supplierSuggestions,
+      suggestionsBuilder: (query) => FuelSuggestService.supplierSuggestions(
+        fuelStore.logs,
+        query,
+      ),
       onChanged: (v) => setState(() => _supplierFilter = v.trim()),
       onSelected: (v) {
         _supplierFilterCtrl.text = v;
@@ -307,13 +314,22 @@ class _FuelPageState extends State<FuelPage> {
     final records = FuelRecentRecordsSection(
       logs: filteredLogs,
       leadingBuilder: (log) {
-        final d = deviceStore.findById(log.deviceId);
+        final d = deviceStore.tryFindById(log.deviceId);
         if (d == null) {
-          return const CircleAvatar(radius: 18, child: Text('?'));
+          return const SizedBox(
+            width: 45,
+            height: 45,
+            child: CircleAvatar(radius: 22.5, child: Text('?')),
+          );
         }
-        return DeviceAvatar(
-          brand: d.brand,
-          customAvatarPath: d.customAvatarPath,
+        return SizedBox(
+          width: 45,
+          height: 45,
+          child: DeviceAvatar(
+            brand: d.brand,
+            customAvatarPath: d.customAvatarPath,
+            radius: 22.5,
+          ),
         );
       },
       titleBuilder: (log) => log.supplier,
@@ -330,6 +346,7 @@ class _FuelPageState extends State<FuelPage> {
       records: records,
       loading: loading,
       error: err,
+      onRetry: () => _retryLoad(),
     );
   }
 }

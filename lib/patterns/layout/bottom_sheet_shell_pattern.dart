@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/radius.dart' as foundation;
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
-import '../../tokens/mapper/sheet_tokens.dart';
 
 /// 通用 BottomSheet 壳（Shell）
 ///
@@ -21,23 +21,11 @@ import '../../tokens/mapper/sheet_tokens.dart';
 ///   ),
 /// );
 class AppBottomSheetShell extends StatelessWidget {
-  /// 顶部标题（可选；不传就不显示标题区）
   final String? title;
-
-  /// 内容区域（必填）
   final Widget child;
-
-  /// 默认高度比例（相对屏幕高度）
-  /// 例如 0.88 表示占屏幕高度 88%
   final double initialHeightFactor;
-
-  /// 是否允许内容滚动（通常需要：列表/表单）
   final bool scrollable;
-
-  /// 内容内边距（默认 16）
   final EdgeInsetsGeometry contentPadding;
-
-  /// 圆角（默认 20）
   final double radius;
   final TextStyle? titleStyle;
   final Widget? headerTrailing;
@@ -47,28 +35,38 @@ class AppBottomSheetShell extends StatelessWidget {
   final double dividerSideInset;
   final double headerToDividerGap;
   final double dividerToContentGap;
+  final VoidCallback? onCancel;
+  final VoidCallback? onConfirm;
+  final String cancelText;
+  final String confirmText;
+  final bool footerEnabled;
 
   const AppBottomSheetShell({
     super.key,
     required this.child,
     this.title,
-    this.initialHeightFactor = SheetTokens.heightFactor,
+    this.initialHeightFactor = BottomSheetTokens.heightFactor,
     this.scrollable = true,
     this.contentPadding = const EdgeInsets.fromLTRB(
-      SheetTokens.outerHPadding,
-      SheetTokens.outerTopPadding,
-      SheetTokens.outerHPadding,
-      SheetTokens.shellContentBottomPadding,
+      BottomSheetTokens.outerHPadding,
+      BottomSheetTokens.outerTopPadding,
+      BottomSheetTokens.outerHPadding,
+      BottomSheetTokens.shellContentBottomPadding,
     ),
-    this.radius = SheetTokens.radius,
+    this.radius = BottomSheetTokens.radius,
     this.titleStyle,
     this.headerTrailing,
-    this.handleWidth = SheetTokens.handleWidth,
+    this.handleWidth = BottomSheetTokens.handleWidth,
     this.handleColor,
     this.headerSideInset = 0,
     this.dividerSideInset = 0,
-    this.headerToDividerGap = SheetTokens.headerToDividerGap,
-    this.dividerToContentGap = SheetTokens.dividerToContentGap,
+    this.headerToDividerGap = BottomSheetTokens.headerToDividerGap,
+    this.dividerToContentGap = BottomSheetTokens.dividerToContentGap,
+    this.onCancel,
+    this.onConfirm,
+    this.cancelText = '取消',
+    this.confirmText = '确定',
+    this.footerEnabled = true,
   });
 
   @override
@@ -77,16 +75,16 @@ class AppBottomSheetShell extends StatelessWidget {
     final h = media.size.height;
     final keyboardInset = media.viewInsets.bottom;
     final keyboardVisible = keyboardInset > 0;
+    final hasFooter = footerEnabled && (onCancel != null || onConfirm != null);
 
-    // 防御：高度比例限制到合理范围（与 token 上限保持一致，避免“改 token 无效”）
     final factor = initialHeightFactor.clamp(
-      SheetTokens.minHeightFactor,
-      SheetTokens.maxHeightFactor,
+      BottomSheetTokens.minHeightFactor,
+      BottomSheetTokens.maxHeightFactor,
     );
     final sheetHeight = h * factor;
 
     final sheet = Material(
-      color: AppColors.sheetBackground,
+      color: SheetColors.background,
       borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
@@ -97,16 +95,15 @@ class AppBottomSheetShell extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
-              // ───────────────────── 顶部拖拽把手 ─────────────────────
-              const SizedBox(height: SheetTokens.shellTopGap),
+              const SizedBox(height: BottomSheetTokens.shellTopGap),
               _DragHandle(width: handleWidth, color: handleColor),
-              const SizedBox(height: SheetTokens.shellHandleBottomGap),
+              const SizedBox(height: BottomSheetTokens.shellHandleBottomGap),
 
-              // ───────────────────── 可选标题栏 ─────────────────────
               if (title != null && title!.trim().isNotEmpty) ...[
                 Padding(
                   padding: EdgeInsets.symmetric(
-                    horizontal: SheetTokens.outerHPadding + headerSideInset,
+                    horizontal:
+                        BottomSheetTokens.outerHPadding + headerSideInset,
                   ),
                   child: Row(
                     children: [
@@ -118,7 +115,7 @@ class AppBottomSheetShell extends StatelessWidget {
                           style:
                               titleStyle ??
                               const TextStyle(
-                                fontSize: SheetTokens.titleSize,
+                                fontSize: BottomSheetTokens.titleSize,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -138,14 +135,13 @@ class AppBottomSheetShell extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: dividerSideInset),
                   child: const Divider(
-                    height: SheetTokens.dividerThickness,
-                    thickness: SheetTokens.dividerThickness,
+                    height: BottomSheetTokens.dividerThickness,
+                    thickness: BottomSheetTokens.dividerThickness,
                   ),
                 ),
                 SizedBox(height: dividerToContentGap),
               ],
 
-              // ───────────────────── 内容区域 ─────────────────────
               Expanded(
                 child: Padding(
                   padding: contentPadding,
@@ -158,18 +154,26 @@ class AppBottomSheetShell extends StatelessWidget {
                       : child,
                 ),
               ),
+              if (hasFooter) ...[
+                const SizedBox(height: BottomSheetTokens.footerContentGap),
+                _BottomSheetFooter(
+                  onCancel: onCancel,
+                  onConfirm: onConfirm,
+                  cancelText: cancelText,
+                  confirmText: confirmText,
+                ),
+                _FooterKeyboardCompensation(),
+              ],
             ],
           ),
         ),
       ),
     );
 
-    // 外层透明遮罩 + 顶部留空，保证圆角露出来
     return Padding(
       padding: EdgeInsets.only(
-        // 键盘弹起时轻微覆盖键盘顶部，减少 iOS 顶部圆角的突兀感
         bottom: keyboardVisible
-            ? (keyboardInset - SheetTokens.keyboardTopOverlap).clamp(
+            ? (keyboardInset - BottomSheetTokens.keyboardTopOverlap).clamp(
                 0.0,
                 keyboardInset,
               )
@@ -185,17 +189,92 @@ class _DragHandle extends StatelessWidget {
   final double width;
   final Color? color;
 
-  const _DragHandle({this.width = SheetTokens.handleWidth, this.color});
+  const _DragHandle({this.width = BottomSheetTokens.handleWidth, this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      height: SheetTokens.handleHeight,
+      height: BottomSheetTokens.handleHeight,
       decoration: BoxDecoration(
-        color: color ?? AppColors.sheetHandle,
+        color: color ?? SheetColors.handle,
         borderRadius: BorderRadius.circular(foundation.AppRadius.pill),
       ),
+    );
+  }
+}
+
+class _BottomSheetFooter extends StatelessWidget {
+  const _BottomSheetFooter({
+    required this.onCancel,
+    required this.onConfirm,
+    required this.cancelText,
+    required this.confirmText,
+  });
+
+  final VoidCallback? onCancel;
+  final VoidCallback? onConfirm;
+  final String cancelText;
+  final String confirmText;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboardVisible = media.viewInsets.bottom > 0;
+    final bottomPadding = keyboardVisible
+        ? 0.0
+        : BottomSheetTokens.footerBottom + media.viewPadding.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        BottomSheetTokens.footerHorizontal,
+        0,
+        BottomSheetTokens.footerHorizontal,
+        bottomPadding,
+      ),
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: onCancel,
+            style: TextButton.styleFrom(
+              textStyle: const TextStyle(
+                fontSize: BottomSheetTokens.actionTextSize,
+              ),
+              foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+            ),
+            child: Text(cancelText),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: BottomSheetTokens.actionButtonWidth,
+            height: BottomSheetTokens.actionButtonHeight,
+            child: FilledButton(
+              onPressed: onConfirm,
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    BottomSheetTokens.actionButtonRadius,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: BottomSheetTokens.actionTextSize,
+                ),
+              ),
+              child: Text(confirmText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FooterKeyboardCompensation extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    return SizedBox(
+      height: keyboardVisible ? BottomSheetTokens.keyboardTopOverlap : 0.0,
     );
   }
 }

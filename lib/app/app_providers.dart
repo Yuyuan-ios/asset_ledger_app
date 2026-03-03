@@ -1,28 +1,79 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
-import '../features/account/state/account_controller.dart';
-import '../features/account/state/account_payment_controller.dart';
-import '../features/account/state/project_rate_controller.dart';
-import '../features/device/state/device_controller.dart';
-import '../features/fuel/state/fuel_controller.dart';
-import '../features/maintenance/state/maintenance_controller.dart';
-import '../features/timing/state/timing_controller.dart';
+import '../data/repositories/account_payment_repository.dart';
+import '../data/repositories/device_repository.dart';
+import '../data/repositories/fuel_repository.dart';
+import '../data/repositories/maintenance_repository.dart';
+import '../data/repositories/project_rate_repository.dart';
+import '../data/repositories/timing_repository.dart';
+import '../features/account/state/account_store.dart';
+import '../features/account/state/account_filter_store.dart';
+import '../features/account/state/account_payment_store.dart';
+import '../features/account/state/project_rate_store.dart';
+import '../features/device/state/device_store.dart';
+import '../features/fuel/state/fuel_store.dart';
+import '../features/maintenance/state/maintenance_store.dart';
+import '../features/timing/state/timing_store.dart';
 
 class AppProviders {
-  static List<SingleChildWidget> build() {
-    return [
-      ChangeNotifierProvider<DeviceStore>(create: (_) => DeviceStore()),
-      ChangeNotifierProvider<TimingStore>(create: (_) => TimingStore()),
-      ChangeNotifierProvider<FuelStore>(create: (_) => FuelStore()),
-      ChangeNotifierProvider<MaintenanceStore>(
-        create: (_) => MaintenanceStore(),
-      ),
-      ChangeNotifierProvider<AccountPaymentStore>(
-        create: (_) => AccountPaymentStore(),
-      ),
-      ChangeNotifierProvider<AccountStore>(create: (_) => AccountStore()),
-      ChangeNotifierProvider<ProjectRateStore>(create: (_) => ProjectRateStore()),
-    ];
+  static AppProviderBundle build() {
+    final deviceRepository = SqfliteDeviceRepository();
+    final timingRepository = SqfliteTimingRepository();
+    final fuelRepository = SqfliteFuelRepository();
+    final maintenanceRepository = SqfliteMaintenanceRepository();
+    final accountPaymentRepository = SqfliteAccountPaymentRepository();
+    final projectRateRepository = SqfliteProjectRateRepository();
+
+    final deviceStore = DeviceStore(deviceRepository);
+    final timingStore = TimingStore(timingRepository);
+    final fuelStore = FuelStore(fuelRepository);
+
+    return AppProviderBundle(
+      deviceStore: deviceStore,
+      timingStore: timingStore,
+      fuelStore: fuelStore,
+      providers: [
+        Provider<DeviceRepository>.value(value: deviceRepository),
+        Provider<TimingRepository>.value(value: timingRepository),
+        Provider<FuelRepository>.value(value: fuelRepository),
+        Provider<MaintenanceRepository>.value(value: maintenanceRepository),
+        Provider<AccountPaymentRepository>.value(value: accountPaymentRepository),
+        Provider<ProjectRateRepository>.value(value: projectRateRepository),
+        ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+        ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+        ChangeNotifierProvider<FuelStore>.value(value: fuelStore),
+        ChangeNotifierProvider<MaintenanceStore>(
+          create: (context) =>
+              MaintenanceStore(context.read<MaintenanceRepository>()),
+        ),
+        ChangeNotifierProvider<AccountPaymentStore>(
+          create: (context) =>
+              AccountPaymentStore(context.read<AccountPaymentRepository>()),
+        ),
+        Provider<AccountStore>(create: (_) => AccountStore()),
+        ChangeNotifierProvider<AccountFilterStore>(
+          create: (_) => AccountFilterStore(),
+        ),
+        ChangeNotifierProvider<ProjectRateStore>(
+          create: (context) =>
+              ProjectRateStore(context.read<ProjectRateRepository>()),
+        ),
+      ],
+    );
   }
+}
+
+class AppProviderBundle {
+  final DeviceStore deviceStore;
+  final TimingStore timingStore;
+  final FuelStore fuelStore;
+  final List<SingleChildWidget> providers;
+
+  const AppProviderBundle({
+    required this.deviceStore,
+    required this.timingStore,
+    required this.fuelStore,
+    required this.providers,
+  });
 }

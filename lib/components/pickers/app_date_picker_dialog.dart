@@ -29,7 +29,7 @@ Future<DateTime?> showSheetDatePickerDialog({
           final slotCount = rowCount * 7;
 
           return Dialog(
-            backgroundColor: AppColors.sheetBackground,
+            backgroundColor: SheetColors.background,
             surfaceTintColor: Colors.transparent,
             insetPadding: const EdgeInsets.symmetric(
               horizontal: TimingTokens.dateDialogInsetH,
@@ -60,14 +60,14 @@ Future<DateTime?> showSheetDatePickerDialog({
                           '${shownMonth.year}年${shownMonth.month}月',
                           style: const TextStyle(
                             fontSize: TimingTokens.dateDialogMonthFontSize,
-                            color: AppColors.sheetMuted,
+                            color: SheetColors.muted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 4),
                         const Icon(
                           Icons.arrow_drop_down,
-                          color: AppColors.sheetMuted,
+                          color: SheetColors.muted,
                         ),
                         const Spacer(),
                         IconButton(
@@ -79,7 +79,7 @@ Future<DateTime?> showSheetDatePickerDialog({
                           ),
                           icon: const Icon(
                             Icons.chevron_left,
-                            color: AppColors.sheetMuted,
+                            color: SheetColors.muted,
                           ),
                         ),
                         IconButton(
@@ -91,7 +91,7 @@ Future<DateTime?> showSheetDatePickerDialog({
                           ),
                           icon: const Icon(
                             Icons.chevron_right,
-                            color: AppColors.sheetMuted,
+                            color: SheetColors.muted,
                           ),
                         ),
                       ],
@@ -219,7 +219,7 @@ Future<DateTime?> showSheetDatePickerDialog({
                               height: TimingTokens.dateDialogDayCellSize,
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? AppColors.sheetAction
+                                    ? SheetColors.action
                                     : Colors.transparent,
                                 shape: BoxShape.circle,
                               ),
@@ -229,7 +229,7 @@ Future<DateTime?> showSheetDatePickerDialog({
                                 style: TextStyle(
                                   fontSize: TimingTokens.dateDialogDayFontSize,
                                   color: selected
-                                      ? AppColors.sheetActionOn
+                                      ? SheetColors.actionOn
                                       : AppColors.textPrimary,
                                 ),
                               ),
@@ -244,6 +244,11 @@ Future<DateTime?> showSheetDatePickerDialog({
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.brand.withValues(
+                              alpha: 0.8,
+                            ),
+                          ),
                           child: const Text('取消'),
                         ),
                         const SizedBox(width: TimingTokens.dateDialogActionGap),

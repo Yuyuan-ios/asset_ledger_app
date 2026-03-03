@@ -23,7 +23,25 @@ import '../models/device.dart';
 // 这些业务都应当放在 Store / Service / UI
 // =====================================================================
 
-class DeviceRepo {
+abstract class DeviceRepository {
+  Future<List<Device>> listAll();
+
+  Future<List<Device>> listActive();
+
+  Future<Device?> getByIdOrNull(int id);
+
+  Future<Device?> findById(int id) => getByIdOrNull(id);
+
+  Future<int> insert(Device device);
+
+  Future<int> update(Device device);
+
+  Future<int> setActive(int id, bool active);
+
+  Future<int> deleteById(int id);
+}
+
+class SqfliteDeviceRepository implements DeviceRepository {
   // -------------------------------------------------------------------
   // 2.1 表名常量
   // -------------------------------------------------------------------
@@ -40,7 +58,8 @@ class DeviceRepo {
   // - TimingPage 渲染历史记录时，需要通过 device_id 找到旧设备名/品牌等信息
   // - 即便设备停用了（is_active=0），也必须查得到（保证历史记录可回显）
   // -------------------------------------------------------------------
-  static Future<List<Device>> listAll() async {
+  @override
+  Future<List<Device>> listAll() async {
     final db = await AppDatabase.database;
 
     final rows = await db.query(_table, orderBy: 'id ASC');
@@ -55,7 +74,8 @@ class DeviceRepo {
   // - 设备页列表（只展示在用）
   // - 计时页下拉框（只允许选择在用设备）
   // -------------------------------------------------------------------
-  static Future<List<Device>> listActive() async {
+  @override
+  Future<List<Device>> listActive() async {
     final db = await AppDatabase.database;
 
     final rows = await db.query(
@@ -70,7 +90,8 @@ class DeviceRepo {
   // -------------------------------------------------------------------
   // 3.3 按 id 查一台设备（包含停用）
   // -------------------------------------------------------------------
-  static Future<Device?> findById(int id) async {
+  @override
+  Future<Device?> getByIdOrNull(int id) async {
     final db = await AppDatabase.database;
 
     final rows = await db.query(
@@ -84,6 +105,9 @@ class DeviceRepo {
     return Device.fromMap(rows.first);
   }
 
+  @override
+  Future<Device?> findById(int id) => getByIdOrNull(id);
+
   // =====================================================================
   // ============================== 四、新增/更新（Create/Update） ==============================
   // =====================================================================
@@ -95,7 +119,8 @@ class DeviceRepo {
   // - insert 时永远不传 id
   // - 让 SQLite AUTOINCREMENT 分配
   // -------------------------------------------------------------------
-  static Future<int> insert(Device device) async {
+  @override
+  Future<int> insert(Device device) async {
     final db = await AppDatabase.database;
 
     final row = device.toMap()..remove('id');
@@ -106,11 +131,12 @@ class DeviceRepo {
   // -------------------------------------------------------------------
   // 4.2 更新设备（按 id）
   // -------------------------------------------------------------------
-  static Future<int> update(Device device) async {
+  @override
+  Future<int> update(Device device) async {
     final db = await AppDatabase.database;
 
     if (device.id == null) {
-      throw Exception('DeviceRepo.update: device.id 不能为空');
+      throw Exception('SqfliteDeviceRepository.update: device.id 不能为空');
     }
 
     final row = device.toMap()..remove('id');
@@ -124,7 +150,8 @@ class DeviceRepo {
   // ✅ 当前策略：删设备不删任何记录（计时/燃油/收入）
   // - 设备页“删除”按钮应该调用这里 setActive(id, false)
   // -------------------------------------------------------------------
-  static Future<int> setActive(int id, bool active) async {
+  @override
+  Future<int> setActive(int id, bool active) async {
     final db = await AppDatabase.database;
 
     return db.update(
@@ -138,7 +165,8 @@ class DeviceRepo {
   // -------------------------------------------------------------------
   // 4.4 ❌ 硬删除（调试用，不建议业务使用）
   // -------------------------------------------------------------------
-  static Future<int> deleteById(int id) async {
+  @override
+  Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
 
     return db.delete(_table, where: 'id = ?', whereArgs: [id]);

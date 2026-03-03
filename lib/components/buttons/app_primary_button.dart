@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/spacing.dart';
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
-import '../../tokens/mapper/sheet_tokens.dart';
 
 /// 纯展示主按钮：不感知 store，仅通过参数驱动。
 class AppPrimaryButton extends StatelessWidget {
@@ -10,11 +10,11 @@ class AppPrimaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
-    this.height = SheetTokens.actionButtonHeight,
+    this.height = BottomSheetTokens.actionButtonHeight,
     this.horizontalPadding = AppSpace.xxl,
-    this.backgroundColor = AppColors.sheetAction,
-    this.foregroundColor = AppColors.sheetActionOn,
-    this.borderRadius = SheetTokens.actionButtonRadius,
+    this.backgroundColor = SheetColors.action,
+    this.foregroundColor = SheetColors.actionOn,
+    this.borderRadius = BottomSheetTokens.actionButtonRadius,
     this.textStyle,
   });
 
@@ -50,7 +50,7 @@ class AppPrimaryButton extends StatelessWidget {
           style:
               textStyle ??
               const TextStyle(
-                fontSize: SheetTokens.actionTextSize,
+                fontSize: BottomSheetTokens.actionTextSize,
                 fontWeight: FontWeight.w600,
               ),
         ),

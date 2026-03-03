@@ -44,7 +44,7 @@ void main() {
       expect(FormatUtils.ymdInputHint, '例如：2026.02.08');
       expect(
         FormatUtils.ymdInvalidMsg,
-        '保存失败：日期格式应为 YYYY.MM.DD（例如 2026.02.08）',
+        '日期格式应为 YYYY.MM.DD（例如 2026.02.08）',
       );
     });
   });

@@ -43,7 +43,7 @@ class FormatUtils {
     }
   }
 
-  static String get ymdInvalidMsg => '保存失败：日期格式应为 ${_datePatternText()}';
+  static String get ymdInvalidMsg => '日期格式应为 ${_datePatternText()}';
 
   // -------------------------------------------------------------------
   // 1. 金额：¥1,234.5（当前简化版：不做千分位）

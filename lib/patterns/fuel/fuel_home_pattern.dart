@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../components/feedback/store_error_banner.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
 
@@ -12,6 +13,7 @@ class FuelHomePattern extends StatelessWidget {
     required this.records,
     required this.loading,
     this.error,
+    this.onRetry,
   });
 
   final Widget header;
@@ -20,6 +22,7 @@ class FuelHomePattern extends StatelessWidget {
   final Widget records;
   final bool loading;
   final String? error;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -68,9 +71,9 @@ class FuelHomePattern extends StatelessWidget {
                                     ),
                                   ],
                                   if (error != null && error!.trim().isNotEmpty) ...[
-                                    Text(
-                                      error!,
-                                      style: const TextStyle(color: Colors.red),
+                                    StoreErrorBanner(
+                                      message: error!,
+                                      onRetry: loading ? null : onRetry,
                                     ),
                                     const SizedBox(
                                       height: FuelTokens.homeErrorBottomGap,

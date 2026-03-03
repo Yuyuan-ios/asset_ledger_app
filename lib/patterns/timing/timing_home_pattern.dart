@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../components/feedback/store_error_banner.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -12,6 +13,7 @@ class TimingHomePattern extends StatelessWidget {
     required this.records,
     required this.loading,
     this.error,
+    this.onRetry,
   });
 
   final Widget header;
@@ -20,6 +22,7 @@ class TimingHomePattern extends StatelessWidget {
   final Widget records;
   final bool loading;
   final String? error;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -66,12 +69,9 @@ class TimingHomePattern extends StatelessWidget {
                                   padding: const EdgeInsets.only(
                                     bottom: TimingTokens.homeErrorBottomGap,
                                   ),
-                                  child: Text(
-                                    error!,
-                                    style: const TextStyle(
-                                      color: Colors.red,
-                                      fontSize: TimingTokens.homeErrorFontSize,
-                                    ),
+                                  child: StoreErrorBanner(
+                                    message: error!,
+                                    onRetry: loading ? null : onRetry,
                                   ),
                                 ),
                               chart,

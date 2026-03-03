@@ -170,6 +170,30 @@ class AccountService {
     );
   }
 
+  static Map<int, double> calcReceivableByDevice({
+    required List<TimingRecord> timingRecords,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+  }) {
+    final projects = buildProjects(timingRecords: timingRecords);
+    final totals = <int, double>{};
+
+    for (final agg in projects.values) {
+      final effectiveRate = buildEffectiveRateMap(
+        projectKey: agg.projectKey,
+        devices: devices,
+        rates: rates,
+      );
+      for (final entry in agg.hoursByDevice.entries) {
+        final deviceId = entry.key;
+        final hours = entry.value;
+        final rate = effectiveRate[deviceId] ?? 0.0;
+        totals[deviceId] = (totals[deviceId] ?? 0.0) + hours * rate;
+      }
+    }
+    return totals;
+  }
+
   static Map<int, double> buildEffectiveRateMap({
     required String projectKey,
     required List<Device> devices,

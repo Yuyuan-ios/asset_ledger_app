@@ -20,18 +20,21 @@ import '../../../data/models/device.dart';
 import '../../../data/models/timing_record.dart';
 
 import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/store_feedback.dart';
 import '../../../data/services/timing_service.dart';
 import '../../../components/avatars/app_device_avatar.dart';
 import '../../../components/list/app_record_list_tile.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
+import '../../../components/feedback/store_error_banner.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/maintenance/maintenance_detail_content_pattern.dart';
+import '../../../components/feedback/app_toast.dart';
 
-import '../../../features/device/state/device_controller.dart';
-import '../../../features/maintenance/state/maintenance_controller.dart';
-import '../../timing/state/timing_controller.dart';
+import '../../../features/device/state/device_store.dart';
+import '../../../features/maintenance/state/maintenance_store.dart';
+import '../../timing/state/timing_store.dart';
 import '../../../patterns/device/device_picker_pattern.dart';
 
 // =====================================================================
@@ -121,36 +124,25 @@ class _MaintenancePageState extends State<MaintenancePage> {
     return items;
   }
   // =====================================================================
-  // ============================== 五、生命周期：兜底加载 ==============================
-  // =====================================================================
-
-  @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final deviceStore = context.read<DeviceStore>();
-      final maintenanceStore = context.read<MaintenanceStore>();
-
-      // 兜底加载（即使 MainPage 已 loadAll，也不影响功能）
-      await deviceStore.loadAll();
-      await maintenanceStore.loadAll();
-    });
-  }
-
-  // =====================================================================
-  // ============================== 六、通用 toast ==============================
+  // ============================== 五、通用 toast ==============================
   // =====================================================================
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: AppDurations.snackBar),
-    );
+    AppToast.show(context, msg);
+  }
+
+  Future<void> _retryLoad() async {
+    final store = context.read<MaintenanceStore>();
+    final deviceStore = context.read<DeviceStore>();
+    await Future.wait([
+      store.loadAll(),
+      deviceStore.loadAll(),
+    ]);
   }
 
   // =====================================================================
-  // ============================== 七、BottomSheet：新建/编辑 ==============================
+  // ============================== 六、BottomSheet：新建/编辑 ==============================
   // =====================================================================
 
   Future<void> _openMaintenanceEditor({MaintenanceRecord? editing}) async {
@@ -202,12 +194,14 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
                 if (!mounted) return;
 
-                if (maintenanceStore.error != null) {
-                  _toast('保存失败：${maintenanceStore.error}');
+                final feedback = storeActionFeedback(
+                  maintenanceStore,
+                  action: '保存',
+                );
+                _toast(feedback.message);
+                if (!feedback.isSuccess) {
                   return;
                 }
-
-                _toast('已保存');
                 if (!ctx.mounted) return;
                 Navigator.of(ctx).pop();
               },
@@ -243,11 +237,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
     if (!mounted) return;
 
-    if (store.error != null) {
-      _toast('删除失败：${store.error}');
-    } else {
-      _toast('已删除');
-    }
+    final feedback = storeActionFeedback(store, action: '删除');
+    _toast(feedback.message);
   }
 
   // =====================================================================
@@ -270,7 +261,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
         padding: const EdgeInsets.all(AppSpace.md),
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(AppRadius.card),
+          borderRadius: BorderRadius.circular(RadiusTokens.card),
         ),
         child: const Text('当年维保费：暂无数据'),
       );
@@ -289,7 +280,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       padding: const EdgeInsets.all(AppSpace.md),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        borderRadius: BorderRadius.circular(RadiusTokens.card),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,7 +299,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
                 children: [
                   Expanded(
                     child: Text(
-                      deviceStore.findById(id)?.name ?? '设备$id（已停用/不存在）',
+                      deviceStore.tryFindById(id)?.name ?? '设备$id（已停用/不存在）',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13),
@@ -405,7 +396,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
           );
           deviceName = '公共支出';
         } else {
-          final device = deviceStore.findById(r.deviceId!);
+          final device = deviceStore.tryFindById(r.deviceId!);
           if (device == null) {
             leading = const CircleAvatar(radius: 18, child: Text('?'));
             deviceName = '设备#${r.deviceId}（已停用/不存在）';
@@ -463,7 +454,10 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final deviceStore = context.watch<DeviceStore>();
 
     final loading = store.loading || deviceStore.loading;
-    final err = store.error ?? deviceStore.error;
+    final err = firstStoreErrorMessage(
+      [store, deviceStore],
+      action: '读取',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -481,7 +475,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.pagePadding),
+          padding: const EdgeInsets.all(SpaceTokens.pagePadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -490,16 +484,19 @@ class _MaintenancePageState extends State<MaintenancePage> {
                 const SizedBox(height: 10),
               ],
               if (err != null) ...[
-                Text(err, style: const TextStyle(color: Colors.red)),
+                StoreErrorBanner(
+                  message: err,
+                  onRetry: loading ? null : () => _retryLoad(),
+                ),
                 const SizedBox(height: 10),
               ],
 
               // ① 顶部统计卡
               _buildSummaryCard(),
-              const SizedBox(height: AppSpacing.sectionGap),
+              const SizedBox(height: SpaceTokens.sectionGap),
 
               const Divider(),
-              const SizedBox(height: AppSpacing.sectionGap),
+              const SizedBox(height: SpaceTokens.sectionGap),
 
               // ② 列表标题
               Text(

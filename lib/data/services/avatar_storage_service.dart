@@ -4,6 +4,8 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 // 1.1 path_provider：拿到 App 私有目录（iOS/Android/macOS 都可）
 import 'package:path_provider/path_provider.dart';
 
@@ -30,6 +32,8 @@ class AvatarStorageService {
   // 2.1 头像目录名（放在 App Support 目录下）
   // -------------------------------------------------------------------
   static const String _dirName = 'device_avatars';
+  static Future<Directory> Function()? _supportDirectoryResolver;
+  static String Function()? _filenameResolver;
 
   // -------------------------------------------------------------------
   // 2.2 保存：把用户选的图片拷贝进 App 私有目录，返回新路径
@@ -39,8 +43,18 @@ class AvatarStorageService {
   // - 文件名用时间戳，避免冲突
   // -------------------------------------------------------------------
   static Future<String> saveXFile(XFile file) async {
+    final sourcePath = file.path.trim();
+    if (sourcePath.isEmpty) {
+      throw ArgumentError('图片路径不能为空');
+    }
+
+    final src = File(sourcePath);
+    if (!await src.exists()) {
+      throw FileSystemException('图片文件不存在', sourcePath);
+    }
+
     // ① 拿到 App 私有目录（macOS/桌面也稳定）
-    final baseDir = await getApplicationSupportDirectory();
+    final baseDir = await _resolveSupportDirectory();
 
     // ② 确保子目录存在
     final avatarDir = Directory(p.join(baseDir.path, _dirName));
@@ -49,16 +63,19 @@ class AvatarStorageService {
     }
 
     // ③ 生成目标文件名（保留原扩展名；没有就用 .jpg）
-    final ext = p.extension(file.path).isNotEmpty
-        ? p.extension(file.path)
+    final ext = p.extension(sourcePath).isNotEmpty
+        ? p.extension(sourcePath)
         : '.jpg';
-    final filename = 'avatar_${DateTime.now().millisecondsSinceEpoch}$ext';
+    final filename = _resolveFilename(ext);
 
     final targetPath = p.join(avatarDir.path, filename);
 
     // ④ 拷贝进私有目录（用 copy 保证原文件即便被系统清理，我们仍有备份）
-    final src = File(file.path);
-    await src.copy(targetPath);
+    try {
+      await src.copy(targetPath);
+    } on FileSystemException catch (e) {
+      throw FileSystemException('头像保存失败', targetPath, e.osError);
+    }
 
     return targetPath;
   }
@@ -73,9 +90,47 @@ class AvatarStorageService {
   static Future<void> deleteIfExists(String? path) async {
     if (path == null || path.trim().isEmpty) return;
 
-    final f = File(path.trim());
-    if (await f.exists()) {
-      await f.delete();
+    final normalizedPath = path.trim();
+    final entityType = await FileSystemEntity.type(normalizedPath);
+    if (entityType == FileSystemEntityType.notFound) return;
+    if (entityType != FileSystemEntityType.file) {
+      throw FileSystemException('头像路径不是文件', normalizedPath);
     }
+
+    final f = File(normalizedPath);
+    try {
+      await f.delete();
+    } on FileSystemException catch (e) {
+      throw FileSystemException('头像删除失败', normalizedPath, e.osError);
+    }
+  }
+
+  @visibleForTesting
+  static void setTestOverrides({
+    Future<Directory> Function()? supportDirectoryResolver,
+    String Function()? filenameResolver,
+  }) {
+    _supportDirectoryResolver = supportDirectoryResolver;
+    _filenameResolver = filenameResolver;
+  }
+
+  @visibleForTesting
+  static void resetTestOverrides() {
+    _supportDirectoryResolver = null;
+    _filenameResolver = null;
+  }
+
+  static Future<Directory> _resolveSupportDirectory() async {
+    if (_supportDirectoryResolver != null) {
+      return _supportDirectoryResolver!();
+    }
+    return getApplicationSupportDirectory();
+  }
+
+  static String _resolveFilename(String ext) {
+    if (_filenameResolver != null) {
+      return _filenameResolver!();
+    }
+    return 'avatar_${DateTime.now().millisecondsSinceEpoch}$ext';
   }
 }
