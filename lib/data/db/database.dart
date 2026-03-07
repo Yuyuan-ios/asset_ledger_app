@@ -27,9 +27,12 @@ class AppDatabase {
   // - v4：新增 maintenance_records（维保）
   // - v5：新增 account_payments（收款） + project_device_rates（项目×设备单价覆盖）
   // - v6：timing_records 增加 exclude_from_fuel_eff（包油：不计入燃油效率）
+  // - v7：timing_records 增加 is_breaking（破碎模式）
+  // - v8：devices 增加 breaking_unit_price；project_device_rates 增加 is_breaking
+  // - v9：devices 增加 equipment_type（excavator/loader）
   // -------------------------------------------------------------------
   static const String _dbName = 'excavator_ledger.db';
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 9;
 
   // -------------------------------------------------------------------
   // 2.3 对外唯一入口：获取 Database 实例
@@ -69,6 +72,11 @@ class AppDatabase {
 
       // 3.3 版本升级
       onUpgrade: _onUpgrade,
+
+      // 3.4 打开后兜底校验：避免历史库结构漂移导致新字段不生效
+      onOpen: (db) async {
+        await _ensureSchemaCompat(db);
+      },
     );
   }
 
@@ -85,14 +93,16 @@ class AppDatabase {
         brand TEXT NOT NULL,
         model TEXT,
         default_unit_price REAL NOT NULL,
+        breaking_unit_price REAL,
         base_meter_hours REAL NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
-        custom_avatar_path TEXT
+        custom_avatar_path TEXT,
+        equipment_type TEXT NOT NULL DEFAULT 'excavator'
       );
     ''');
 
     // -------------------------- timing_records --------------------------
-    // ✅ v6：增加 exclude_from_fuel_eff
+    // ✅ v7：增加 exclude_from_fuel_eff / is_breaking
     await db.execute('''
       CREATE TABLE timing_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,7 +115,8 @@ class AppDatabase {
         end_meter REAL NOT NULL,
         hours REAL NOT NULL,
         income REAL NOT NULL,
-        exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0
+        exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0,
+        is_breaking INTEGER NOT NULL DEFAULT 0
       );
     ''');
 
@@ -154,8 +165,9 @@ class AppDatabase {
       CREATE TABLE project_device_rates (
         project_key TEXT NOT NULL,
         device_id INTEGER NOT NULL,
+        is_breaking INTEGER NOT NULL DEFAULT 0,
         rate REAL NOT NULL,
-        PRIMARY KEY (project_key, device_id)
+        PRIMARY KEY (project_key, device_id, is_breaking)
       );
     ''');
 
@@ -224,8 +236,9 @@ class AppDatabase {
         CREATE TABLE IF NOT EXISTS project_device_rates (
           project_key TEXT NOT NULL,
           device_id INTEGER NOT NULL,
+          is_breaking INTEGER NOT NULL DEFAULT 0,
           rate REAL NOT NULL,
-          PRIMARY KEY (project_key, device_id)
+          PRIMARY KEY (project_key, device_id, is_breaking)
         );
       ''');
 
@@ -240,6 +253,121 @@ class AppDatabase {
       await db.execute('''
         ALTER TABLE timing_records
         ADD COLUMN exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0;
+      ''');
+    }
+
+    // ✅ v6 -> v7：timing_records 增加 is_breaking
+    if (oldVersion < 7) {
+      await db.execute('''
+        ALTER TABLE timing_records
+        ADD COLUMN is_breaking INTEGER NOT NULL DEFAULT 0;
+      ''');
+    }
+
+    // ✅ v7 -> v8：设备增加破碎默认单价；项目设备单价覆盖按模式拆分
+    if (oldVersion < 8) {
+      await db.execute('''
+        ALTER TABLE devices
+        ADD COLUMN breaking_unit_price REAL;
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS project_device_rates_v2 (
+          project_key TEXT NOT NULL,
+          device_id INTEGER NOT NULL,
+          is_breaking INTEGER NOT NULL DEFAULT 0,
+          rate REAL NOT NULL,
+          PRIMARY KEY (project_key, device_id, is_breaking)
+        );
+      ''');
+
+      await db.execute('''
+        INSERT OR REPLACE INTO project_device_rates_v2 (
+          project_key, device_id, is_breaking, rate
+        )
+        SELECT project_key, device_id, 0, rate
+        FROM project_device_rates;
+      ''');
+
+      await db.execute('DROP TABLE IF EXISTS project_device_rates;');
+      await db.execute(
+        'ALTER TABLE project_device_rates_v2 RENAME TO project_device_rates;',
+      );
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_device_rates_project
+        ON project_device_rates(project_key);
+      ''');
+    }
+
+    // ✅ v8 -> v9：设备增加 equipment_type
+    if (oldVersion < 9) {
+      await db.execute('''
+        ALTER TABLE devices
+        ADD COLUMN equipment_type TEXT NOT NULL DEFAULT 'excavator';
+      ''');
+    }
+  }
+
+  static Future<void> _ensureSchemaCompat(Database db) async {
+    // devices.breaking_unit_price 兜底
+    final deviceCols = await db.rawQuery('PRAGMA table_info(devices);');
+    final hasBreakingUnitPrice = deviceCols.any(
+      (row) => row['name'] == 'breaking_unit_price',
+    );
+    if (!hasBreakingUnitPrice) {
+      await db.execute(
+        'ALTER TABLE devices ADD COLUMN breaking_unit_price REAL;',
+      );
+    }
+
+    final hasEquipmentType = deviceCols.any(
+      (row) => row['name'] == 'equipment_type',
+    );
+    if (!hasEquipmentType) {
+      await db.execute(
+        "ALTER TABLE devices ADD COLUMN equipment_type TEXT NOT NULL DEFAULT 'excavator';",
+      );
+    }
+
+    // project_device_rates 兜底：必须含 is_breaking 且主键为 3 列
+    final rateCols = await db.rawQuery(
+      'PRAGMA table_info(project_device_rates);',
+    );
+    final hasIsBreaking = rateCols.any((row) => row['name'] == 'is_breaking');
+    final pkCols = rateCols
+        .where((row) => ((row['pk'] as int?) ?? 0) > 0)
+        .map((row) => row['name'] as String)
+        .toList();
+    final has3Key =
+        pkCols.length == 3 &&
+        pkCols.contains('project_key') &&
+        pkCols.contains('device_id') &&
+        pkCols.contains('is_breaking');
+
+    if (!hasIsBreaking || !has3Key) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS project_device_rates_v8_fix (
+          project_key TEXT NOT NULL,
+          device_id INTEGER NOT NULL,
+          is_breaking INTEGER NOT NULL DEFAULT 0,
+          rate REAL NOT NULL,
+          PRIMARY KEY (project_key, device_id, is_breaking)
+        );
+      ''');
+      await db.execute('''
+        INSERT OR REPLACE INTO project_device_rates_v8_fix (
+          project_key, device_id, is_breaking, rate
+        )
+        SELECT project_key, device_id, 0, rate
+        FROM project_device_rates;
+      ''');
+      await db.execute('DROP TABLE IF EXISTS project_device_rates;');
+      await db.execute(
+        'ALTER TABLE project_device_rates_v8_fix RENAME TO project_device_rates;',
+      );
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_device_rates_project
+        ON project_device_rates(project_key);
       ''');
     }
   }
@@ -259,9 +387,11 @@ class AppDatabase {
         'brand': 'SANY',
         'model': null,
         'default_unit_price': 350.0,
+        'breaking_unit_price': null,
         'base_meter_hours': 0.0,
         'is_active': 1,
         'custom_avatar_path': null,
+        'equipment_type': 'excavator',
       });
 
       await txn.insert('devices', {
@@ -269,9 +399,11 @@ class AppDatabase {
         'brand': 'SANY',
         'model': null,
         'default_unit_price': 360.0,
+        'breaking_unit_price': null,
         'base_meter_hours': 120.0,
         'is_active': 1,
         'custom_avatar_path': null,
+        'equipment_type': 'excavator',
       });
     });
   }

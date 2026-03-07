@@ -13,6 +13,8 @@ void main() {
         minYmd: 20260301,
         deviceIds: [99],
         hoursByDevice: {99: 5},
+        normalHoursByDevice: {99: 5},
+        breakingHoursByDevice: {},
         rentIncomeTotal: 0,
       );
 
@@ -74,6 +76,8 @@ void main() {
         minYmd: 20260301,
         deviceIds: [1],
         hoursByDevice: {1: 5},
+        normalHoursByDevice: {1: 5},
+        breakingHoursByDevice: {},
         rentIncomeTotal: 0,
       );
 

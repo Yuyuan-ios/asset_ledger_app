@@ -57,6 +57,7 @@ class ComputeAccountSummaryUseCase {
           rentIncomeTotal: agg.rentIncomeTotal,
           minRate: rateInfo.minRate,
           isMultiDevice: rateInfo.isMultiDevice,
+          isMultiMode: rateInfo.isMultiMode,
           receivable: money.receivable,
           received: money.received,
           remaining: money.remaining,

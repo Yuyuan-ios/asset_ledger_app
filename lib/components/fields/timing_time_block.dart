@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/spacing.dart';
+import '../../core/foundation/typography.dart';
 import '../pickers/app_number_picker.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
@@ -108,6 +109,23 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
         TimingTokens.meterGap * 4 +
         TimingTokens.meterDecimalGap * 2 +
         TimingTokens.meterDotSlotWidth;
+    final labelStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.meterLabelSize,
+      color: SheetColors.textPrimary,
+    );
+    final dotStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.meterDotSize,
+      fontWeight: FontWeight.w700,
+      color: SheetColors.meterText,
+    );
+    final unitStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.meterDotSize,
+      fontWeight: FontWeight.w600,
+      color: SheetColors.meterText,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,13 +137,7 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
               width: groupWidth,
               child: SizedBox(
                 height: TimingTokens.meterLabelHeight,
-                child: Text(
-                  widget.title,
-                  style: const TextStyle(
-                    fontSize: TimingTokens.meterLabelSize,
-                    color: SheetColors.textPrimary,
-                  ),
-                ),
+                child: Text(widget.title, style: labelStyle),
               ),
             ),
           ),
@@ -156,18 +168,9 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
                   if (i < 4) const SizedBox(width: TimingTokens.meterGap),
                 ],
                 const SizedBox(width: TimingTokens.meterDecimalGap),
-                const SizedBox(
+                SizedBox(
                   width: TimingTokens.meterDotSlotWidth,
-                  child: Center(
-                    child: Text(
-                      '.',
-                      style: TextStyle(
-                        fontSize: TimingTokens.meterDotSize,
-                        fontWeight: FontWeight.w700,
-                        color: SheetColors.meterText,
-                      ),
-                    ),
-                  ),
+                  child: Center(child: Text('.', style: dotStyle)),
                 ),
                 const SizedBox(width: TimingTokens.meterDecimalGap),
                 AppNumberPicker(
@@ -179,18 +182,11 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
                   backgroundRadius: TimingTokens.digitOverlayRadius,
                 ),
                 const SizedBox(width: TimingTokens.meterUnitLeftGap),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(
                     top: TimingTokens.meterUnitDownShift,
                   ),
-                  child: Text(
-                    'h',
-                    style: TextStyle(
-                      fontSize: TimingTokens.meterDotSize,
-                      fontWeight: FontWeight.w600,
-                      color: SheetColors.meterText,
-                    ),
-                  ),
+                  child: Text('h', style: unitStyle),
                 ),
               ],
             ),

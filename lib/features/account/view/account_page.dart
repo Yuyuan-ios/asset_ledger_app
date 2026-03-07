@@ -16,12 +16,15 @@ import 'package:provider/provider.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_key.dart';
+import '../../../data/models/timing_record.dart';
 
 // ------------------------------ UI / Utils ------------------------------
 import '../../../core/utils/form_feedback.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/interaction_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
+import '../../../core/foundation/typography.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/account/project_account_detail_content_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
@@ -82,6 +85,19 @@ class AccountPage extends StatefulWidget {
 // =====================================================================
 
 class _AccountPageState extends State<AccountPage> {
+  @override
+  void initState() {
+    super.initState();
+    // 账户页依赖 payment/rate 两个 store，应用启动阶段未预加载，
+    // 在这里主动拉取，避免重启后短暂回落到默认单价。
+    Future.microtask(() async {
+      if (!mounted) return;
+      final paymentStore = context.read<AccountPaymentStore>();
+      final rateStore = context.read<ProjectRateStore>();
+      await Future.wait([paymentStore.loadAll(), rateStore.loadAll()]);
+    });
+  }
+
   // -------------------------------------------------------------------
   // 通用：提示消息（SnackBar）
   // -------------------------------------------------------------------
@@ -147,6 +163,7 @@ class _AccountPageState extends State<AccountPage> {
   Future<void> _openBatchRateEditor(
     AccountProjectVM p,
     List<Device> devices,
+    List<ProjectDeviceRate> rates,
   ) async {
     final usedDevices = devices
         .where((d) => d.id != null && p.deviceIds.contains(d.id!))
@@ -157,15 +174,33 @@ class _AccountPageState extends State<AccountPage> {
       return;
     }
 
-    final init = (p.minRate ?? usedDevices.first.defaultUnitPrice).round();
+    final first = usedDevices.first;
+    final firstId = first.id!;
+    double? initDiggingOverride;
+    double? initBreakingOverride;
+    for (final r in rates) {
+      if (r.projectKey != p.projectKey || r.deviceId != firstId) continue;
+      if (r.isBreaking) {
+        initBreakingOverride = r.rate;
+      } else {
+        initDiggingOverride = r.rate;
+      }
+    }
+    final initDigging = (initDiggingOverride ?? first.defaultUnitPrice).round();
+    final initBreaking =
+        (initBreakingOverride ??
+                first.breakingUnitPrice ??
+                first.defaultUnitPrice)
+            .round();
 
-    final newRate = await showDialog<double>(
+    final newRate = await showDialog<_BatchRateUpdate>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _RateBatchDialog(
         title: '批量修改单价：${p.displayName}',
         deviceCount: usedDevices.length,
-        initialRateInt: init,
+        initialDiggingRateInt: initDigging,
+        initialBreakingRateInt: initBreaking,
       ),
     );
 
@@ -179,16 +214,31 @@ class _AccountPageState extends State<AccountPage> {
       for (final d in usedDevices) {
         final id = d.id!;
         const eps = 0.05;
+        final defaultDigging = d.defaultUnitPrice;
+        final defaultBreaking = d.breakingUnitPrice ?? d.defaultUnitPrice;
 
-        // 如果新值≈设备默认值 -> 清理覆盖记录，减少冗余
-        if ((newRate - d.defaultUnitPrice).abs() <= eps) {
-          await rateStore.delete(p.projectKey, id);
+        if ((newRate.diggingRate - defaultDigging).abs() <= eps) {
+          await rateStore.delete(p.projectKey, id, isBreaking: false);
         } else {
           await rateStore.upsert(
             ProjectDeviceRate(
               projectKey: p.projectKey,
               deviceId: id,
-              rate: newRate,
+              isBreaking: false,
+              rate: newRate.diggingRate,
+            ),
+          );
+        }
+
+        if ((newRate.breakingRate - defaultBreaking).abs() <= eps) {
+          await rateStore.delete(p.projectKey, id, isBreaking: true);
+        } else {
+          await rateStore.upsert(
+            ProjectDeviceRate(
+              projectKey: p.projectKey,
+              deviceId: id,
+              isBreaking: true,
+              rate: newRate.breakingRate,
             ),
           );
         }
@@ -210,6 +260,7 @@ class _AccountPageState extends State<AccountPage> {
   Future<void> _openSingleRateEditor(
     AccountProjectVM p,
     int deviceId,
+    bool isBreaking,
     List<Device> devices,
     List<ProjectDeviceRate> rates,
   ) async {
@@ -223,20 +274,25 @@ class _AccountPageState extends State<AccountPage> {
     // 当前项目覆盖单价（如果有）
     double? currentOverride;
     for (final r in rates) {
-      if (r.projectKey == p.projectKey && r.deviceId == deviceId) {
+      if (r.projectKey == p.projectKey &&
+          r.deviceId == deviceId &&
+          r.isBreaking == isBreaking) {
         currentOverride = r.rate;
         break;
       }
     }
 
-    final current = (currentOverride ?? device.defaultUnitPrice).round();
+    final modeDefaultRate = isBreaking
+        ? (device.breakingUnitPrice ?? device.defaultUnitPrice)
+        : device.defaultUnitPrice;
+    final current = (currentOverride ?? modeDefaultRate).round();
 
     final newRate = await showDialog<double>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _RateSingleDialog(
-        title: '编辑单价：${p.displayName}',
-        deviceName: device.name,
+        title: isBreaking ? '编辑破碎单价：${p.displayName}' : '编辑单价：${p.displayName}',
+        deviceName: isBreaking ? '${device.name} · 破碎' : device.name,
         initialRateInt: current,
       ),
     );
@@ -249,13 +305,18 @@ class _AccountPageState extends State<AccountPage> {
       final rateStore = context.read<ProjectRateStore>();
 
       const eps = 0.05;
-      if ((newRate - device.defaultUnitPrice).abs() <= eps) {
-        await rateStore.delete(p.projectKey, deviceId);
+      if ((newRate - modeDefaultRate).abs() <= eps) {
+        await rateStore.delete(
+          p.projectKey,
+          deviceId,
+          isBreaking: isBreaking,
+        );
       } else {
         await rateStore.upsert(
           ProjectDeviceRate(
             projectKey: p.projectKey,
             deviceId: deviceId,
+            isBreaking: isBreaking,
             rate: newRate,
           ),
         );
@@ -404,29 +465,65 @@ class _AccountPageState extends State<AccountPage> {
             .where((d) => d.id != null && pNow.deviceIds.contains(d.id!))
             .toList();
 
+        // 项目设备工时拆分（普通/破碎）
+        final normalHoursByDevice = <int, double>{};
+        final breakingHoursByDevice = <int, double>{};
+        for (final r in timing) {
+          if (r.type != TimingType.hours) continue;
+          final key = ProjectKey.buildKey(
+            contact: r.contact.trim(),
+            site: r.site.trim(),
+          );
+          if (key != pNow.projectKey) continue;
+
+          final target = r.isBreaking
+              ? breakingHoursByDevice
+              : normalHoursByDevice;
+          target[r.deviceId] = (target[r.deviceId] ?? 0.0) + r.hours;
+        }
+
         // 项目覆盖单价：只取该项目
         final deviceRates = <int, double>{};
+        final breakingDeviceRates = <int, double>{};
         for (final r in ratesAll) {
           if (r.projectKey != pNow.projectKey) continue;
-          deviceRates[r.deviceId] = r.rate;
+          if (r.isBreaking) {
+            breakingDeviceRates[r.deviceId] = r.rate;
+          } else {
+            deviceRates[r.deviceId] = r.rate;
+          }
         }
 
         return AppBottomSheetShell(
           title: '项目详情',
-          contentPadding: EdgeInsets.zero,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AccountTokens.projectDetailContentInset,
+          ),
           child: ProjectAccountDetailContent(
             title: pNow.displayName,
             minYmd: pNow.minYmd,
             devices: usedDevices,
             deviceRates: deviceRates,
+            breakingDeviceRates: breakingDeviceRates,
+            normalHoursByDevice: normalHoursByDevice,
+            breakingHoursByDevice: breakingHoursByDevice,
             receivable: pNow.receivable,
             remaining: pNow.remaining,
             payments: pNow.payments,
 
             // 单价
-            onBatchEditRate: () => _openBatchRateEditor(pNow, devicesAll),
-            onEditDeviceRate: (deviceId) =>
-                _openSingleRateEditor(pNow, deviceId, devicesAll, ratesAll),
+            onBatchEditRate: () => _openBatchRateEditor(
+              pNow,
+              devicesAll,
+              ratesAll,
+            ),
+            onEditDeviceRate: (deviceId, isBreaking) => _openSingleRateEditor(
+              pNow,
+              deviceId,
+              isBreaking,
+              devicesAll,
+              ratesAll,
+            ),
 
             // 收款（项目内模式：不再让用户选项目）
             onAddPayment: () =>
@@ -448,7 +545,6 @@ class _AccountPageState extends State<AccountPage> {
   // =====================================================================
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final timingStore = context.watch<TimingStore>();
     final deviceStore = context.watch<DeviceStore>();
     final paymentStore = context.watch<AccountPaymentStore>();
@@ -551,7 +647,8 @@ class _AccountPageState extends State<AccountPage> {
                                 children: [
                                   Text(
                                     '项目(${filteredProjects.length})',
-                                    style: textTheme.titleMedium?.copyWith(
+                                    style: AppTypography.sectionTitle(
+                                      context,
                                       fontSize:
                                           AccountTokens.projectTitleFontSize,
                                       fontWeight:
@@ -578,9 +675,10 @@ class _AccountPageState extends State<AccountPage> {
                                         foregroundColor: AppColors.brand
                                             .withValues(alpha: 0.8),
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         '取消筛选',
-                                        style: TextStyle(
+                                        style: AppTypography.actionText(
+                                          context,
                                           fontSize: AccountTokens
                                               .projectFilterFontSize,
                                           fontWeight: FontWeight.w400,
@@ -603,9 +701,10 @@ class _AccountPageState extends State<AccountPage> {
                                         foregroundColor: AppColors.brand
                                             .withValues(alpha: 0.8),
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         '筛选',
-                                        style: TextStyle(
+                                        style: AppTypography.actionText(
+                                          context,
                                           fontSize: AccountTokens
                                               .projectFilterFontSize,
                                           fontWeight: FontWeight.w400,
@@ -815,22 +914,33 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final project = widget.project;
     final editing = widget.editing;
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontSize: AccountTokens.projectDetailSectionTitleSize,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+    );
+    final labelStyle = AppTypography.body(
+      context,
+      fontWeight: FontWeight.w500,
+      color: AppColors.textPrimary,
+    );
+    final helperStyle = AppTypography.caption(
+      context,
+      color: Colors.grey.shade700,
+    );
 
     return AlertDialog(
-      title: Text(editing == null ? '新增收款' : '编辑收款'),
+      title: Text(editing == null ? '新增收款' : '编辑收款', style: titleStyle),
       content: SingleChildScrollView(
         child: Column(
           children: [
             // ✅ 项目固定：只展示，不可编辑
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                '项目：${project.displayName}',
-                style: textTheme.labelLarge,
-              ),
+              child: Text('项目：${project.displayName}', style: labelStyle),
             ),
             const SizedBox(height: 10),
 
@@ -869,9 +979,7 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
               child: Text(
                 '应收：${FormatUtils.money(_receivable)}'
                 '，已收：${FormatUtils.money(_received(excludePaymentId: editing?.id))}',
-                style: textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade700,
-                ),
+                style: helperStyle,
               ),
             ),
           ],
@@ -947,66 +1055,105 @@ class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
 // ============================== K) 批量单价弹窗（controller 归属组件） ==============================
 // =====================================================================
 
+class _BatchRateUpdate {
+  final double diggingRate;
+  final double breakingRate;
+
+  const _BatchRateUpdate({
+    required this.diggingRate,
+    required this.breakingRate,
+  });
+}
+
 class _RateBatchDialog extends StatefulWidget {
   const _RateBatchDialog({
     required this.title,
     required this.deviceCount,
-    required this.initialRateInt,
+    required this.initialDiggingRateInt,
+    required this.initialBreakingRateInt,
   });
 
   final String title;
   final int deviceCount;
-  final int initialRateInt;
+  final int initialDiggingRateInt;
+  final int initialBreakingRateInt;
 
   @override
   State<_RateBatchDialog> createState() => _RateBatchDialogState();
 }
 
 class _RateBatchDialogState extends State<_RateBatchDialog> {
-  late final TextEditingController _ctrl;
+  late final TextEditingController _diggingCtrl;
+  late final TextEditingController _breakingCtrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.initialRateInt.toString());
+    _diggingCtrl = TextEditingController(
+      text: widget.initialDiggingRateInt.toString(),
+    );
+    _breakingCtrl = TextEditingController(
+      text: widget.initialBreakingRateInt.toString(),
+    );
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _diggingCtrl.dispose();
+    _breakingCtrl.dispose();
     super.dispose();
   }
 
-  void _close(double? r) {
+  void _close(_BatchRateUpdate? r) {
     FocusScope.of(context).unfocus();
     Navigator.of(context).pop(r);
   }
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontSize: AccountTokens.projectDetailSectionTitleSize,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+    );
+    final bodyStyle = AppTypography.body(context, color: AppColors.textPrimary);
+    final helperStyle = AppTypography.caption(
+      context,
+      color: Colors.grey.shade700,
+    );
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(widget.title, style: titleStyle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('设备数：${widget.deviceCount} 台'),
+          Text('设备数：${widget.deviceCount} 台', style: bodyStyle),
           const SizedBox(height: 10),
           TextField(
-            controller: _ctrl,
+            controller: _diggingCtrl,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-              labelText: '统一单价（整数）',
+              labelText: '挖斗统一单价（整数）',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _breakingCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '破碎统一单价（整数）',
               isDense: true,
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 10),
           Text(
-            '保存后：该项目下所有设备单价将统一为此值（仅影响本项目）。\n'
-            '若等于设备默认单价，将自动清理覆盖记录（减少冗余）。',
-            style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+            '保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n'
+            '若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。',
+            style: helperStyle,
           ),
         ],
       ),
@@ -1020,9 +1167,16 @@ class _RateBatchDialogState extends State<_RateBatchDialog> {
         ),
         FilledButton(
           onPressed: () {
-            final vInt = int.tryParse(_ctrl.text.trim());
-            if (vInt == null || vInt <= 0) return;
-            _close(vInt.toDouble());
+            final diggingInt = int.tryParse(_diggingCtrl.text.trim());
+            final breakingInt = int.tryParse(_breakingCtrl.text.trim());
+            if (diggingInt == null || diggingInt <= 0) return;
+            if (breakingInt == null || breakingInt <= 0) return;
+            _close(
+              _BatchRateUpdate(
+                diggingRate: diggingInt.toDouble(),
+                breakingRate: breakingInt.toDouble(),
+              ),
+            );
           },
           child: const Text('确定'),
         ),
@@ -1072,9 +1226,19 @@ class _RateSingleDialogState extends State<_RateSingleDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontSize: AccountTokens.projectDetailSectionTitleSize,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+    );
+    final bodyStyle = AppTypography.body(context, color: AppColors.textPrimary);
+    final helperStyle = AppTypography.caption(
+      context,
+      color: Colors.grey.shade700,
+    );
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(widget.title, style: titleStyle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1085,6 +1249,7 @@ class _RateSingleDialogState extends State<_RateSingleDialog> {
                   widget.deviceName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: bodyStyle,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1103,10 +1268,7 @@ class _RateSingleDialogState extends State<_RateSingleDialog> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            '提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。',
-            style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
-          ),
+          Text('提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。', style: helperStyle),
         ],
       ),
       actions: [

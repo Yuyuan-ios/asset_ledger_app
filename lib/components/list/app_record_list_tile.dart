@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/spacing.dart';
+import '../../core/foundation/typography.dart';
 
 // =====================================================================
 // ============================== 通用列表项组件 ==============================
@@ -41,6 +42,18 @@ class RecordListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = AppTypography.body(
+      context,
+      fontWeight: FontWeight.w500,
+      fontSize: 14,
+      color: Colors.black,
+    );
+    final subtitleStyle = AppTypography.caption(
+      context,
+      fontSize: 12,
+      color: Colors.grey.shade600,
+    );
+
     return ListTile(
       dense: dense,
       leading: leading,
@@ -50,7 +63,7 @@ class RecordListTile extends StatelessWidget {
         title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        style: titleStyle,
       ),
 
       // ✅ 统一：副标题强制单行省略（避免某些 contact/site 太长导致换行）
@@ -60,7 +73,7 @@ class RecordListTile extends StatelessWidget {
           subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          style: subtitleStyle,
         ),
       ),
 

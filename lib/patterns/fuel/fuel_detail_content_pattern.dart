@@ -18,6 +18,7 @@ import '../../data/models/fuel_log.dart';
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
+import '../../core/foundation/typography.dart';
 import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
@@ -192,9 +193,7 @@ class FuelDetailContentState extends State<FuelDetailContent> {
       return;
     }
     if (widget.editing == null && !device.isActive) {
-      widget.onToast(
-        inactiveEntityCreateMessage('该设备', recordLabel: '燃油记录'),
-      );
+      widget.onToast(inactiveEntityCreateMessage('该设备', recordLabel: '燃油记录'));
       return;
     }
 
@@ -250,25 +249,32 @@ class FuelDetailContentState extends State<FuelDetailContent> {
     TextInputType? keyboardType,
     String? hint,
   }) {
+    final fieldTextStyle = AppTypography.body(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.textPrimary,
+    );
+    final labelStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldLabelSize,
+      color: SheetColors.textPrimary,
+    );
+    final hintStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.hint,
+    );
+
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(
-        fontSize: SheetTokens.fieldTextSize,
-        color: SheetColors.textPrimary,
-      ),
+      style: fieldTextStyle,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(
-          fontSize: SheetTokens.fieldLabelSize,
-          color: SheetColors.textPrimary,
-        ),
+        labelStyle: labelStyle,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         hintText: hint,
-        hintStyle: const TextStyle(
-          fontSize: SheetTokens.fieldTextSize,
-          color: SheetColors.hint,
-        ),
+        hintStyle: hintStyle,
         filled: true,
         fillColor: SheetColors.fieldBackground,
         constraints: const BoxConstraints(minHeight: SheetTokens.fieldHeight),
@@ -330,7 +336,8 @@ class FuelDetailContentState extends State<FuelDetailContent> {
                       vm: DevicePickerVm(
                         selectedId: _selectedDeviceId,
                         items: widget.deviceItems,
-                        onChanged: (id) => setState(() => _selectedDeviceId = id),
+                        onChanged: (id) =>
+                            setState(() => _selectedDeviceId = id),
                       ),
                     ),
                     const SizedBox(height: SheetTokens.formFieldGap),

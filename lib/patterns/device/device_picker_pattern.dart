@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 
@@ -48,6 +49,24 @@ class DevicePickerPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldLabelSize,
+      color: SheetColors.textPrimary,
+    );
+    final hintStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.hint,
+    );
+    final valueStyle =
+        vm.style ??
+        AppTypography.body(
+          context,
+          fontSize: SheetTokens.fieldTextSize,
+          color: SheetColors.textPrimary,
+        );
+
     if (vm.items.isEmpty) {
       return DropdownButtonFormField<int>(
         initialValue: null,
@@ -56,15 +75,9 @@ class DevicePickerPattern extends StatelessWidget {
         decoration: InputDecoration(
           labelText: vm.emptyLabelText,
           floatingLabelBehavior: FloatingLabelBehavior.always,
-          labelStyle: const TextStyle(
-            fontSize: SheetTokens.fieldLabelSize,
-            color: SheetColors.textPrimary,
-          ),
+          labelStyle: labelStyle,
           hintText: vm.emptyHintText,
-          hintStyle: const TextStyle(
-            fontSize: SheetTokens.fieldTextSize,
-            color: SheetColors.hint,
-          ),
+          hintStyle: hintStyle,
           filled: true,
           fillColor: SheetColors.fieldBackground,
           contentPadding: const EdgeInsets.symmetric(
@@ -84,13 +97,10 @@ class DevicePickerPattern extends StatelessWidget {
 
     return DropdownButtonFormField<int>(
       initialValue: vm.selectedId,
-      icon: vm.icon ?? const Icon(Icons.arrow_drop_down, color: SheetColors.muted),
-      style:
-          vm.style ??
-          const TextStyle(
-            fontSize: SheetTokens.fieldTextSize,
-            color: SheetColors.textPrimary,
-          ),
+      icon:
+          vm.icon ??
+          const Icon(Icons.arrow_drop_down, color: SheetColors.muted),
+      style: valueStyle,
       items: vm.items.map((item) {
         return DropdownMenuItem<int>(
           value: item.id,
@@ -104,15 +114,9 @@ class DevicePickerPattern extends StatelessWidget {
           InputDecoration(
             labelText: vm.labelText,
             floatingLabelBehavior: FloatingLabelBehavior.always,
-            labelStyle: const TextStyle(
-              fontSize: SheetTokens.fieldLabelSize,
-              color: SheetColors.textPrimary,
-            ),
+            labelStyle: labelStyle,
             hintText: vm.hintText,
-            hintStyle: const TextStyle(
-              fontSize: SheetTokens.fieldTextSize,
-              color: SheetColors.hint,
-            ),
+            hintStyle: hintStyle,
             filled: true,
             fillColor: SheetColors.fieldBackground,
             contentPadding: const EdgeInsets.symmetric(

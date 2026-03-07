@@ -1,0 +1,10 @@
+name: asset_ledger_architecture_lints
+description: Custom lint rules for asset_ledger architecture boundaries.
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  analyzer: ^8.4.0
+  custom_lint_builder: ^0.8.1

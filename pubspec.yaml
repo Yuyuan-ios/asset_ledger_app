@@ -27,6 +27,7 @@ dependencies:
 
   # ✅ Step 10-6 需要：选择相册/拍照获取头像图片
   image_picker: ^1.1.2
+  in_app_review: ^2.0.10
 
   # iOS 风格图标
   cupertino_icons: ^1.0.8
@@ -35,9 +36,15 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
 
   flutter_lints: ^6.0.0
   sqflite_common_ffi: ^2.3.4+4
+  custom_lint: ^0.8.1
+  asset_ledger_architecture_lints:
+    path: tools/asset_ledger_architecture_lints
+  patrol: ^4.1.1
 
 flutter:
   uses-material-design: true
@@ -46,3 +53,7 @@ flutter:
   assets:
     - assets/brands/
     - assets/navigation/
+    - assets/images/
+
+patrol:
+  test_directory: integration_test

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/state/account_store.dart';
 import '../../tokens/mapper/account_tokens.dart';
@@ -33,18 +34,20 @@ class AccountOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = _buildItems(vm.deviceReceivables);
-    final textTheme = Theme.of(context).textTheme;
-    final titleStyle = textTheme.titleMedium?.copyWith(
+    final titleStyle = AppTypography.sectionTitle(
+      context,
       fontSize: AccountTokens.overviewTitleFontSize,
       fontWeight: AccountTokens.overviewTitleWeight,
       letterSpacing: AccountTokens.overviewTitleLetterSpacing,
-      color: Colors.black87,
+      color: Colors.black,
     );
-    final bodyStyle = textTheme.bodyMedium?.copyWith(
+    final bodyStyle = AppTypography.body(
+      context,
       fontSize: AccountTokens.overviewLegendValueSize,
-      color: Colors.black87,
+      color: Colors.black,
     );
-    final emptyStyle = textTheme.bodySmall?.copyWith(
+    final emptyStyle = AppTypography.caption(
+      context,
       fontSize: 12,
       color: SheetColors.hint,
     );
@@ -288,27 +291,29 @@ class _OverviewLegendRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final nameStyle = textTheme.bodyMedium?.copyWith(
+    final nameStyle = AppTypography.body(
+      context,
       fontSize: AccountTokens.overviewLegendNameSize,
-      color: Colors.black87,
+      color: Colors.black,
     );
-    final valueStyle = textTheme.bodyMedium?.copyWith(
+    final valueStyle = AppTypography.body(
+      context,
       fontSize: AccountTokens.overviewLegendValueSize,
-      color: Colors.black87,
+      color: Colors.black,
     );
 
     return Row(
       children: [
+        const SizedBox(width: AccountTokens.overviewLegendLeftInset),
         Container(
-          width: AccountTokens.overviewLegendDotSize,
-          height: AccountTokens.overviewLegendDotSize,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: item.color,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: AccountTokens.overviewLegendDotGap),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             item.name,

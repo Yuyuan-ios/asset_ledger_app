@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -31,6 +32,20 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = AppTypography.pageTitle(
+      context,
+      fontSize: titleSize,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+      height: titleLineHeight,
+    );
+    final addButtonStyle = AppTypography.actionText(
+      context,
+      fontSize: addButtonTextSize,
+      fontWeight: FontWeight.w700,
+      height: addButtonTextLineHeight,
+    );
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
@@ -41,15 +56,7 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: titleSize,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-              height: titleLineHeight,
-            ),
-          ),
+          Text(title, style: titleStyle),
           SizedBox(
             height: addButtonHeight,
             child: FilledButton(
@@ -60,11 +67,7 @@ class SectionHeader extends StatelessWidget {
                 padding: EdgeInsets.symmetric(
                   horizontal: addButtonHorizontalPadding,
                 ),
-                textStyle: TextStyle(
-                  fontSize: addButtonTextSize,
-                  fontWeight: FontWeight.w700,
-                  height: addButtonTextLineHeight,
-                ),
+                textStyle: addButtonStyle,
               ),
               child: const Text('+ 新建'),
             ),

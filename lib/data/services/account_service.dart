@@ -35,6 +35,8 @@ class ProjectAgg {
 
   /// 每台设备的总工时
   final Map<int, double> hoursByDevice;
+  final Map<int, double> normalHoursByDevice;
+  final Map<int, double> breakingHoursByDevice;
 
   /// 租金模式汇总（若你后续要展示 rent 部分，可以用）
   final double rentIncomeTotal;
@@ -46,6 +48,8 @@ class ProjectAgg {
     required this.minYmd,
     required this.deviceIds,
     required this.hoursByDevice,
+    required this.normalHoursByDevice,
+    required this.breakingHoursByDevice,
     required this.rentIncomeTotal,
   });
 
@@ -71,8 +75,13 @@ class ProjectMoney {
 class ProjectRateInfo {
   final double? minRate;
   final bool isMultiDevice;
+  final bool isMultiMode;
 
-  const ProjectRateInfo({required this.minRate, required this.isMultiDevice});
+  const ProjectRateInfo({
+    required this.minRate,
+    required this.isMultiDevice,
+    required this.isMultiMode,
+  });
 }
 
 class AccountService {
@@ -102,7 +111,13 @@ class AccountService {
         continue;
       }
 
-      // hours：累计到 device
+      // hours：按模式累计
+      final target = t.isBreaking
+          ? mut.breakingHoursByDevice
+          : mut.normalHoursByDevice;
+      target[t.deviceId] = (target[t.deviceId] ?? 0.0) + t.hours;
+
+      // 兼容旧口径：总工时
       mut.hoursByDevice[t.deviceId] =
           (mut.hoursByDevice[t.deviceId] ?? 0.0) + t.hours;
     }
@@ -120,6 +135,8 @@ class AccountService {
         minYmd: mut.minYmd,
         deviceIds: deviceIds,
         hoursByDevice: Map.unmodifiable(mut.hoursByDevice),
+        normalHoursByDevice: Map.unmodifiable(mut.normalHoursByDevice),
+        breakingHoursByDevice: Map.unmodifiable(mut.breakingHoursByDevice),
         rentIncomeTotal: mut.rentIncomeTotal,
       );
     }
@@ -136,16 +153,29 @@ class AccountService {
       projectKey: agg.projectKey,
       devices: devices,
       rates: rates,
+      isBreaking: false,
+    );
+    final effectiveBreakingRate = buildEffectiveRateMap(
+      projectKey: agg.projectKey,
+      devices: devices,
+      rates: rates,
+      isBreaking: true,
     );
 
     // 1) 应收：sum(hours * effectiveRate)
     double receivable = 0.0;
 
-    for (final entry in agg.hoursByDevice.entries) {
+    for (final entry in agg.normalHoursByDevice.entries) {
       final deviceId = entry.key;
       final hours = entry.value;
 
       final effRate = effectiveRate[deviceId] ?? 0.0;
+      receivable += hours * effRate;
+    }
+    for (final entry in agg.breakingHoursByDevice.entries) {
+      final deviceId = entry.key;
+      final hours = entry.value;
+      final effRate = effectiveBreakingRate[deviceId] ?? 0.0;
       receivable += hours * effRate;
     }
 
@@ -183,11 +213,24 @@ class AccountService {
         projectKey: agg.projectKey,
         devices: devices,
         rates: rates,
+        isBreaking: false,
       );
-      for (final entry in agg.hoursByDevice.entries) {
+      final effectiveBreakingRate = buildEffectiveRateMap(
+        projectKey: agg.projectKey,
+        devices: devices,
+        rates: rates,
+        isBreaking: true,
+      );
+      for (final entry in agg.normalHoursByDevice.entries) {
         final deviceId = entry.key;
         final hours = entry.value;
         final rate = effectiveRate[deviceId] ?? 0.0;
+        totals[deviceId] = (totals[deviceId] ?? 0.0) + hours * rate;
+      }
+      for (final entry in agg.breakingHoursByDevice.entries) {
+        final deviceId = entry.key;
+        final hours = entry.value;
+        final rate = effectiveBreakingRate[deviceId] ?? 0.0;
         totals[deviceId] = (totals[deviceId] ?? 0.0) + hours * rate;
       }
     }
@@ -198,15 +241,22 @@ class AccountService {
     required String projectKey,
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
+    bool isBreaking = false,
   }) {
     final defaultRate = <int, double>{};
     for (final d in devices) {
-      if (d.id != null) defaultRate[d.id!] = d.defaultUnitPrice;
+      if (d.id == null) continue;
+      if (isBreaking) {
+        defaultRate[d.id!] = d.breakingUnitPrice ?? d.defaultUnitPrice;
+      } else {
+        defaultRate[d.id!] = d.defaultUnitPrice;
+      }
     }
 
     final override = <int, double>{};
     for (final r in rates) {
       if (r.projectKey != projectKey) continue;
+      if (r.isBreaking != isBreaking) continue;
       override[r.deviceId] = r.rate;
     }
 
@@ -239,13 +289,41 @@ class AccountService {
     }
 
     if (used.isEmpty) {
-      return const ProjectRateInfo(minRate: null, isMultiDevice: false);
+      return const ProjectRateInfo(
+        minRate: null,
+        isMultiDevice: false,
+        isMultiMode: false,
+      );
+    }
+
+    // 同一项目下若同一设备同时出现普通/破碎工时，则视为多模式
+    var multiMode = false;
+    for (final id in agg.deviceIds) {
+      final normal = (agg.normalHoursByDevice[id] ?? 0) > 0;
+      final breaking = (agg.breakingHoursByDevice[id] ?? 0) > 0;
+      if (normal && breaking) {
+        multiMode = true;
+        break;
+      }
+    }
+
+    final effectiveBreakingRate = buildEffectiveRateMap(
+      projectKey: agg.projectKey,
+      devices: devices,
+      rates: rates,
+      isBreaking: true,
+    );
+    for (final entry in agg.breakingHoursByDevice.entries) {
+      if (entry.value <= 0) continue;
+      final rate = effectiveBreakingRate[entry.key] ?? 0.0;
+      if (rate > 0) used.add(rate);
     }
 
     used.sort();
     return ProjectRateInfo(
       minRate: used.first,
       isMultiDevice: agg.deviceIds.length > 1,
+      isMultiMode: multiMode,
     );
   }
 
@@ -273,6 +351,8 @@ class _MutAgg {
   int minYmd = 99991231;
 
   final Map<int, double> hoursByDevice = {};
+  final Map<int, double> normalHoursByDevice = {};
+  final Map<int, double> breakingHoursByDevice = {};
   double rentIncomeTotal = 0.0;
 
   _MutAgg(this.projectKey, this.contact, this.site);

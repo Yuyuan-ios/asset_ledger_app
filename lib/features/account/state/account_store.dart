@@ -84,6 +84,7 @@ class AccountProjectVM {
 
   final double? minRate;
   final bool isMultiDevice;
+  final bool isMultiMode;
 
   final double receivable;
   final double received;
@@ -101,6 +102,7 @@ class AccountProjectVM {
     required this.rentIncomeTotal,
     required this.minRate,
     required this.isMultiDevice,
+    required this.isMultiMode,
     required this.receivable,
     required this.received,
     required this.remaining,

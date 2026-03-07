@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -49,6 +50,25 @@ class CardMainChart extends StatelessWidget {
       0.0,
       0.0,
     ];
+    final arrowStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.chartArrowFontSize,
+      color: TimingColors.arrow,
+      height: 1,
+    );
+    final yearStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.chartYearFontSize,
+      fontWeight: FontWeight.w400,
+      color: AppColors.textPrimary,
+    );
+    final monthStyle = AppTypography.caption(
+      context,
+      fontSize: TimingTokens.chartMonthFontSize,
+      fontWeight: FontWeight.w300,
+      color: AppColors.textPrimary,
+      height: 1,
+    );
 
     return Container(
       height: TimingTokens.chartCardHeight,
@@ -70,30 +90,17 @@ class CardMainChart extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const SizedBox(
+            SizedBox(
               height: TimingTokens.chartHeaderHeight,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '<',
-                    style: TextStyle(
-                      fontSize: TimingTokens.chartArrowFontSize,
-                      height: 1,
-                      color: TimingColors.arrow,
-                    ),
-                  ),
-                  Text(
-                    '2026年',
-                    style: TextStyle(
-                      fontSize: TimingTokens.chartYearFontSize,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  Text('<', style: arrowStyle),
+                  Text('2026年', style: yearStyle),
                   Text(
                     '>',
-                    style: TextStyle(
+                    style: AppTypography.body(
+                      context,
                       fontSize: TimingTokens.chartArrowFontSize,
                       height: 1,
                       color: AppColors.textPrimary,
@@ -144,15 +151,7 @@ class CardMainChart extends StatelessWidget {
                                 const SizedBox(
                                   height: TimingTokens.chartMonthTopGap,
                                 ),
-                                Text(
-                                  months[index],
-                                  style: const TextStyle(
-                                    fontSize: TimingTokens.chartMonthFontSize,
-                                    height: 1,
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
+                                Text(months[index], style: monthStyle),
                               ],
                             ),
                           );
@@ -160,7 +159,7 @@ class CardMainChart extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: TimingTokens.chartLegendTopGap),
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -170,7 +169,7 @@ class CardMainChart extends StatelessWidget {
                             swatchColor: TimingColors.chartIncome,
                             value: '￥1000000',
                           ),
-                          SizedBox(width: TimingTokens.chartLegendGap),
+                          const SizedBox(width: TimingTokens.chartLegendGap),
                           _Legend(
                             label: '支出',
                             swatchColor: TimingColors.expense,
@@ -203,6 +202,19 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = AppTypography.caption(
+      context,
+      fontSize: TimingTokens.chartLegendLabelFontSize,
+      color: AppColors.textPrimary,
+      height: 1,
+    );
+    final valueStyle = AppTypography.caption(
+      context,
+      fontSize: TimingTokens.chartLegendValueFontSize,
+      color: AppColors.textPrimary,
+      height: 1,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -216,25 +228,11 @@ class _Legend extends StatelessWidget {
               color: swatchColor,
             ),
             const SizedBox(width: TimingTokens.chartLegendLabelGap),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: TimingTokens.chartLegendLabelFontSize,
-                color: AppColors.textPrimary,
-                height: 1,
-              ),
-            ),
+            Text(label, style: labelStyle),
           ],
         ),
         const SizedBox(height: TimingTokens.chartLegendValueTopGap),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: TimingTokens.chartLegendValueFontSize,
-            color: AppColors.textPrimary,
-            height: 1,
-          ),
-        ),
+        Text(value, style: valueStyle),
       ],
     );
   }

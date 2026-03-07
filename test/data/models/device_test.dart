@@ -46,9 +46,11 @@ void main() {
         'brand': 'CAT',
         'model': null,
         'default_unit_price': 99.5,
+        'breaking_unit_price': null,
         'base_meter_hours': 10.0,
         'is_active': 1,
         'custom_avatar_path': null,
+        'equipment_type': 'excavator',
       });
 
       final rebuilt = Device.fromMap({
@@ -68,6 +70,7 @@ void main() {
       expect(rebuilt.baseMeterHours, 22);
       expect(rebuilt.isActive, isFalse);
       expect(rebuilt.customAvatarPath, isNull);
+      expect(rebuilt.equipmentType, EquipmentType.excavator);
     });
   });
 }

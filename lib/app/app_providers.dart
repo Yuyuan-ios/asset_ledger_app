@@ -28,11 +28,15 @@ class AppProviders {
     final deviceStore = DeviceStore(deviceRepository);
     final timingStore = TimingStore(timingRepository);
     final fuelStore = FuelStore(fuelRepository);
+    final paymentStore = AccountPaymentStore(accountPaymentRepository);
+    final projectRateStore = ProjectRateStore(projectRateRepository);
 
     return AppProviderBundle(
       deviceStore: deviceStore,
       timingStore: timingStore,
       fuelStore: fuelStore,
+      paymentStore: paymentStore,
+      projectRateStore: projectRateStore,
       providers: [
         Provider<DeviceRepository>.value(value: deviceRepository),
         Provider<TimingRepository>.value(value: timingRepository),
@@ -47,17 +51,13 @@ class AppProviders {
           create: (context) =>
               MaintenanceStore(context.read<MaintenanceRepository>()),
         ),
-        ChangeNotifierProvider<AccountPaymentStore>(
-          create: (context) =>
-              AccountPaymentStore(context.read<AccountPaymentRepository>()),
-        ),
+        ChangeNotifierProvider<AccountPaymentStore>.value(value: paymentStore),
         Provider<AccountStore>(create: (_) => AccountStore()),
         ChangeNotifierProvider<AccountFilterStore>(
           create: (_) => AccountFilterStore(),
         ),
-        ChangeNotifierProvider<ProjectRateStore>(
-          create: (context) =>
-              ProjectRateStore(context.read<ProjectRateRepository>()),
+        ChangeNotifierProvider<ProjectRateStore>.value(
+          value: projectRateStore,
         ),
       ],
     );
@@ -68,12 +68,16 @@ class AppProviderBundle {
   final DeviceStore deviceStore;
   final TimingStore timingStore;
   final FuelStore fuelStore;
+  final AccountPaymentStore paymentStore;
+  final ProjectRateStore projectRateStore;
   final List<SingleChildWidget> providers;
 
   const AppProviderBundle({
     required this.deviceStore,
     required this.timingStore,
     required this.fuelStore,
+    required this.paymentStore,
+    required this.projectRateStore,
     required this.providers,
   });
 }

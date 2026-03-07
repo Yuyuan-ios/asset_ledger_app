@@ -27,5 +27,11 @@ jobs:
       - name: Static analysis
         run: flutter analyze
 
+      - name: Architecture lint
+        run: dart run custom_lint
+
+      - name: Architecture boundary check
+        run: ./tools/check_architecture.sh
+
       - name: Test
         run: flutter test

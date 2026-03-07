@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 import '../../core/utils/format_utils.dart';
@@ -20,25 +21,32 @@ class SheetDateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldStyle = AppTypography.body(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.textPrimary,
+    );
+    final hintStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.hint,
+    );
+    final labelStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldLabelSize,
+      color: SheetColors.textPrimary,
+    );
+
     return TextField(
       controller: controller,
       readOnly: true,
       onTap: onPickDate,
-      style: const TextStyle(
-        fontSize: SheetTokens.fieldTextSize,
-        color: SheetColors.textPrimary,
-      ),
+      style: fieldStyle,
       decoration: InputDecoration(
         labelText: label ?? FormatUtils.ymdInputLabel,
         hintText: hint ?? FormatUtils.ymdInputHint,
-        hintStyle: const TextStyle(
-          fontSize: SheetTokens.fieldTextSize,
-          color: SheetColors.hint,
-        ),
-        labelStyle: const TextStyle(
-          fontSize: SheetTokens.fieldLabelSize,
-          color: SheetColors.textPrimary,
-        ),
+        hintStyle: hintStyle,
+        labelStyle: labelStyle,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         filled: true,
         fillColor: SheetColors.fieldBackground,

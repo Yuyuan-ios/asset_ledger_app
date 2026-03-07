@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 
@@ -99,19 +100,31 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
       },
 
       fieldViewBuilder: (context, textEditingController, focusNode, _) {
+        final hintStyle = AppTypography.bodySecondary(
+          context,
+          fontSize: SheetTokens.fieldTextSize,
+          color: SheetColors.hint,
+        );
+        final labelStyle = AppTypography.bodySecondary(
+          context,
+          fontSize: SheetTokens.fieldLabelSize,
+          color: SheetColors.textPrimary,
+        );
+        final inputStyle =
+            widget.textStyle ??
+            AppTypography.body(
+              context,
+              fontSize: SheetTokens.fieldTextSize,
+              color: SheetColors.textPrimary,
+            );
+
         final baseDecoration =
             widget.decoration ??
             InputDecoration(
               labelText: widget.label,
               hintText: widget.hint,
-              hintStyle: const TextStyle(
-                fontSize: SheetTokens.fieldTextSize,
-                color: SheetColors.hint,
-              ),
-              labelStyle: const TextStyle(
-                fontSize: SheetTokens.fieldLabelSize,
-                color: SheetColors.textPrimary,
-              ),
+              hintStyle: hintStyle,
+              labelStyle: labelStyle,
               floatingLabelBehavior: FloatingLabelBehavior.never,
               filled: true,
               fillColor: SheetColors.fieldBackground,
@@ -154,12 +167,7 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
           focusNode: focusNode,
           keyboardType: widget.keyboardType,
           onChanged: widget.onChanged,
-          style:
-              widget.textStyle ??
-              const TextStyle(
-                fontSize: SheetTokens.fieldTextSize,
-                color: SheetColors.textPrimary,
-              ),
+          style: inputStyle,
           decoration: widget.decorationBuilder != null
               ? widget.decorationBuilder!(baseDecoration)
               : baseDecoration,

@@ -68,6 +68,8 @@ void main() {
         minYmd: 20260301,
         deviceIds: [1, 2],
         hoursByDevice: {1: 2, 2: 3},
+        normalHoursByDevice: {1: 2, 2: 3},
+        breakingHoursByDevice: {},
         rentIncomeTotal: 500,
       );
 
