@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/models/device.dart';
 import '../../core/foundation/radius.dart';
 import '../../core/foundation/spacing.dart';
 
@@ -66,11 +67,15 @@ class BrandItem {
   /// - 约定都放在 assets/brands 下
   final String asset;
 
+  /// 设备类别：挖掘机 / 装载机
+  final Set<EquipmentType> equipmentTypes;
+
   const BrandItem({
     required this.value,
     required this.name,
     required this.country,
     required this.asset,
+    this.equipmentTypes = const {EquipmentType.excavator},
   });
 }
 
@@ -94,42 +99,49 @@ const List<BrandItem> kBrandItems = [
     name: '三一 SANY',
     country: BrandCountry.cn,
     asset: 'assets/brands/sany.png',
+    equipmentTypes: {EquipmentType.excavator, EquipmentType.loader},
   ),
   BrandItem(
     value: 'XCMG',
     name: '徐工 XCMG',
     country: BrandCountry.cn,
     asset: 'assets/brands/xcmg.png',
+    equipmentTypes: {EquipmentType.excavator, EquipmentType.loader},
   ),
   BrandItem(
     value: 'LiuGong',
     name: '柳工 LiuGong',
     country: BrandCountry.cn,
     asset: 'assets/brands/liugong.png',
+    equipmentTypes: {EquipmentType.excavator, EquipmentType.loader},
   ),
   BrandItem(
     value: 'Zoomlion',
     name: '中联 Zoomlion',
     country: BrandCountry.cn,
     asset: 'assets/brands/zoomlion.png',
+    equipmentTypes: {EquipmentType.excavator, EquipmentType.loader},
   ),
   BrandItem(
     value: 'Sunward',
     name: '山河智能 Sunward',
     country: BrandCountry.cn,
     asset: 'assets/brands/sunward.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'SDLG',
     name: '临工 SDLG',
     country: BrandCountry.cn,
     asset: 'assets/brands/sdlg.png',
+    equipmentTypes: {EquipmentType.loader},
   ),
   BrandItem(
     value: 'Shantui',
     name: '山推 Shantui',
     country: BrandCountry.cn,
     asset: 'assets/brands/shantui.png',
+    equipmentTypes: {EquipmentType.excavator, EquipmentType.loader},
   ),
 
   // 🇯🇵 日本
@@ -138,42 +150,49 @@ const List<BrandItem> kBrandItems = [
     name: 'Komatsu 小松',
     country: BrandCountry.jp,
     asset: 'assets/brands/komatsu.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Hitachi',
     name: 'Hitachi 日立建机',
     country: BrandCountry.jp,
     asset: 'assets/brands/hitachi.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Kobelco',
     name: 'Kobelco 神钢',
     country: BrandCountry.jp,
     asset: 'assets/brands/kobelco.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Kubota',
     name: 'Kubota 久保田',
     country: BrandCountry.jp,
     asset: 'assets/brands/kubota.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Yanmar',
     name: 'Yanmar 洋马',
     country: BrandCountry.jp,
     asset: 'assets/brands/yanmar.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Sumitomo',
     name: 'Sumitomo 住友建机',
     country: BrandCountry.jp,
     asset: 'assets/brands/sumitomo.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Takeuchi',
     name: 'Takeuchi 竹内',
     country: BrandCountry.jp,
     asset: 'assets/brands/takeuchi.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
 
   // 🇺🇸 美国
@@ -182,24 +201,28 @@ const List<BrandItem> kBrandItems = [
     name: 'Caterpillar 卡特 CAT',
     country: BrandCountry.us,
     asset: 'assets/brands/cat.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'John Deere',
     name: 'John Deere 迪尔',
     country: BrandCountry.us,
     asset: 'assets/brands/john_deere.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'CASE',
     name: 'CASE 凯斯',
     country: BrandCountry.us,
     asset: 'assets/brands/case.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'Bobcat',
     name: 'Bobcat 山猫',
     country: BrandCountry.us,
     asset: 'assets/brands/bobcat.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
 
   // 🇰🇷 韩国
@@ -208,12 +231,14 @@ const List<BrandItem> kBrandItems = [
     name: 'HYUNDAI 现代工程机械',
     country: BrandCountry.kr,
     asset: 'assets/brands/hyundai.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
   BrandItem(
     value: 'DEVELON',
     name: 'DEVELON（原斗山 Doosan）',
     country: BrandCountry.kr,
     asset: 'assets/brands/develon.png',
+    equipmentTypes: {EquipmentType.excavator},
   ),
 ];
 
@@ -257,12 +282,17 @@ class BrandCatalog {
   /// - 这里每次调用都会构建一个新的 map（品牌数量很小，没必要做缓存）
   /// - 如果未来品牌很多，可以改为缓存/预计算
   /// -------------------------------------------------------------------
-  static Map<BrandCountry, List<BrandItem>> groups() {
+  static Map<BrandCountry, List<BrandItem>> groups({
+    EquipmentType? equipmentType,
+  }) {
     // 先保证每个国家都有一个 list，避免 later 取 map[c] 时出现 null
     final map = {for (final c in BrandCountry.values) c: <BrandItem>[]};
 
     // 按 country 分类塞进去
     for (final b in kBrandItems) {
+      if (equipmentType != null && !b.equipmentTypes.contains(equipmentType)) {
+        continue;
+      }
       map[b.country]!.add(b);
     }
     return map;
@@ -301,6 +331,7 @@ class BrandPickerGrouped extends StatelessWidget {
   /// Grid 的间距
   /// - 同时用于 crossAxisSpacing / mainAxisSpacing
   final double spacing;
+  final EquipmentType? equipmentTypeFilter;
 
   const BrandPickerGrouped({
     super.key,
@@ -309,13 +340,14 @@ class BrandPickerGrouped extends StatelessWidget {
     this.crossAxisCount = 5,
     this.avatarRadius = 22,
     this.spacing = 10,
+    this.equipmentTypeFilter,
   });
 
   @override
   Widget build(BuildContext context) {
     // 先按国家拿到分组数据（map）
     // - {cn: [...], jp: [...], ...}
-    final groups = BrandCatalog.groups();
+    final groups = BrandCatalog.groups(equipmentType: equipmentTypeFilter);
 
     return ListView(
       // ListView 自己滚动，所以内部 GridView 必须禁用滚动（见 _BrandGrid）
@@ -325,7 +357,8 @@ class BrandPickerGrouped extends StatelessWidget {
       ),
       children: [
         // 按枚举顺序输出分组：国家标题 + grid
-        for (final c in BrandCountry.values) ...[
+        for (final c in BrandCountry.values)
+          if (groups[c]!.isNotEmpty) ...[
           _CountryHeader(title: c.label),
           const SizedBox(height: 8),
 

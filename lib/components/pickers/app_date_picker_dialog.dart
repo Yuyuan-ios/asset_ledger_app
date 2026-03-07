@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -27,6 +28,17 @@ Future<DateTime?> showSheetDatePickerDialog({
           final leadingBlank = firstDay.weekday % 7; // 周日=0
           final rowCount = ((leadingBlank + daysInMonth + 6) ~/ 7).clamp(4, 6);
           final slotCount = rowCount * 7;
+          final monthStyle = AppTypography.body(
+            context,
+            fontSize: TimingTokens.dateDialogMonthFontSize,
+            color: SheetColors.muted,
+            fontWeight: FontWeight.w500,
+          );
+          final weekDayStyle = AppTypography.caption(
+            context,
+            fontSize: TimingTokens.dateDialogWeekdayFontSize,
+            color: AppColors.textPrimary,
+          );
 
           return Dialog(
             backgroundColor: SheetColors.background,
@@ -58,11 +70,7 @@ Future<DateTime?> showSheetDatePickerDialog({
                       children: [
                         Text(
                           '${shownMonth.year}年${shownMonth.month}月',
-                          style: const TextStyle(
-                            fontSize: TimingTokens.dateDialogMonthFontSize,
-                            color: SheetColors.muted,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: monthStyle,
                         ),
                         const SizedBox(width: 4),
                         const Icon(
@@ -98,90 +106,27 @@ Future<DateTime?> showSheetDatePickerDialog({
                     ),
                     const SizedBox(height: TimingTokens.dateDialogSectionGap),
                     Row(
-                      children: const [
+                      children: [
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '日',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('日', style: weekDayStyle)),
                         ),
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '一',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('一', style: weekDayStyle)),
                         ),
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '二',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('二', style: weekDayStyle)),
                         ),
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '三',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('三', style: weekDayStyle)),
                         ),
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '四',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('四', style: weekDayStyle)),
                         ),
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '五',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('五', style: weekDayStyle)),
                         ),
                         Expanded(
-                          child: Center(
-                            child: Text(
-                              '六',
-                              style: TextStyle(
-                                fontSize:
-                                    TimingTokens.dateDialogWeekdayFontSize,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
+                          child: Center(child: Text('六', style: weekDayStyle)),
                         ),
                       ],
                     ),
@@ -226,7 +171,8 @@ Future<DateTime?> showSheetDatePickerDialog({
                               alignment: Alignment.center,
                               child: Text(
                                 '$day',
-                                style: TextStyle(
+                                style: AppTypography.body(
+                                  context,
                                   fontSize: TimingTokens.dateDialogDayFontSize,
                                   color: selected
                                       ? SheetColors.actionOn

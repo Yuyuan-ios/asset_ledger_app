@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 Future<bool> showAppConfirmDialog({
@@ -38,12 +39,18 @@ class AppConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const contentStyle = TextStyle(
-      fontFamilyFallback: ['Apple Color Emoji', 'Noto Color Emoji'],
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
     );
+    final contentStyle =
+        AppTypography.body(context, color: AppColors.textPrimary)?.copyWith(
+          fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji'],
+        );
 
     return AlertDialog(
-      title: Text(title),
+      title: Text(title, style: titleStyle),
       content: Text(content, style: contentStyle),
       actions: [
         TextButton(

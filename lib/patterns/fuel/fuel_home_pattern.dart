@@ -12,6 +12,7 @@ class FuelHomePattern extends StatelessWidget {
     required this.filter,
     required this.records,
     required this.loading,
+    this.hasFilter = true,
     this.error,
     this.onRetry,
   });
@@ -21,6 +22,7 @@ class FuelHomePattern extends StatelessWidget {
   final Widget filter;
   final Widget records;
   final bool loading;
+  final bool hasFilter;
   final String? error;
   final VoidCallback? onRetry;
 
@@ -80,8 +82,10 @@ class FuelHomePattern extends StatelessWidget {
                                     ),
                                   ],
                                   summary,
-                                  const SizedBox(height: FuelTokens.homeSectionGap),
-                                  filter,
+                                  if (hasFilter) ...[
+                                    const SizedBox(height: FuelTokens.homeSectionGap),
+                                    filter,
+                                  ],
                                   const SizedBox(height: FuelTokens.homeSectionGap),
                                   records,
                                   const SizedBox(

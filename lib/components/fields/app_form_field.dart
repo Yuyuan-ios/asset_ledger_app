@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 
@@ -36,18 +37,23 @@ class AppFormField extends StatelessWidget {
   final InputDecoration Function(InputDecoration base)? decorationBuilder;
   final FloatingLabelBehavior floatingLabelBehavior;
 
-  InputDecoration _baseDecoration() {
+  InputDecoration _baseDecoration(BuildContext context) {
+    final hintStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.hint,
+    );
+    final labelStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldLabelSize,
+      color: SheetColors.textDim,
+    );
+
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      hintStyle: const TextStyle(
-        fontSize: SheetTokens.fieldTextSize,
-        color: SheetColors.hint,
-      ),
-      labelStyle: const TextStyle(
-        fontSize: SheetTokens.fieldLabelSize,
-        color: SheetColors.textDim,
-      ),
+      hintStyle: hintStyle,
+      labelStyle: labelStyle,
       floatingLabelBehavior: floatingLabelBehavior,
       filled: true,
       fillColor: SheetColors.fieldBackground,
@@ -83,7 +89,14 @@ class AppFormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = decoration ?? _baseDecoration();
+    final fieldStyle =
+        textStyle ??
+        AppTypography.body(
+          context,
+          fontSize: SheetTokens.fieldTextSize,
+          color: SheetColors.textPrimary,
+        );
+    final base = decoration ?? _baseDecoration(context);
     final resolved = decorationBuilder != null
         ? decorationBuilder!(base)
         : base;
@@ -95,12 +108,7 @@ class AppFormField extends StatelessWidget {
       keyboardType: keyboardType,
       readOnly: readOnly,
       enabled: enabled,
-      style:
-          textStyle ??
-          const TextStyle(
-            fontSize: SheetTokens.fieldTextSize,
-            color: SheetColors.textPrimary,
-          ),
+      style: fieldStyle,
       decoration: resolved,
     );
   }

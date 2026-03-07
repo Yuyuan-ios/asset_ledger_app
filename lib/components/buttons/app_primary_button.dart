@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/spacing.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
@@ -49,7 +50,8 @@ class AppPrimaryButton extends StatelessWidget {
           label,
           style:
               textStyle ??
-              const TextStyle(
+              AppTypography.actionText(
+                context,
                 fontSize: BottomSheetTokens.actionTextSize,
                 fontWeight: FontWeight.w600,
               ),

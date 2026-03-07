@@ -298,6 +298,12 @@ class _RecordRow extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (record.isBreaking) ...[
+                          Text('破碎', style: valueStyle),
+                          const SizedBox(
+                            width: TimingTokens.recordHoursIncomeGap,
+                          ),
+                        ],
                         Text(
                           FormatUtils.hours(record.hours),
                           style: valueStyle,

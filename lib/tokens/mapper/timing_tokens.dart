@@ -60,7 +60,7 @@ class TimingTokens {
   static const double recordRowHeight = 60; // 单条记录行高
   static const double recordRowPaddingLeft = 10; // 单条记录左内边距
   static const double recordRowPaddingRight = 2; // 单条记录右内边距
-  static const double recordAvatarSize = 43; // 记录头像占位圆尺寸
+  static const double recordAvatarSize = 45; // 记录头像占位圆尺寸
   static const double recordAvatarOffsetY = -1; // 记录头像纵向微调
   static const double recordAvatarRightGap = 10; // 头像与文本间距
   static const double recordTitleFontSize = 14; // 联系人·地址字号

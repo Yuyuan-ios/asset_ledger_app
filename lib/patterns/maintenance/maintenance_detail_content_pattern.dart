@@ -13,15 +13,16 @@
 
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
 import '../../data/models/maintenance_record.dart';
 import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../patterns/device/device_picker_pattern.dart';
+import '../../components/fields/app_auto_suggest_field.dart';
 import '../../components/fields/app_date_field.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
-import '../../tokens/mapper/core_tokens.dart';
 
 // =====================================================================
 // ============================== 二、Content Widget ==============================
@@ -33,6 +34,7 @@ class MaintenanceDetailContent extends StatefulWidget {
     this.editing,
     required this.deviceById,
     required this.deviceItems,
+    required this.itemSuggestions,
     required this.onCancel,
     required this.onToast,
     required this.onSubmit,
@@ -42,6 +44,7 @@ class MaintenanceDetailContent extends StatefulWidget {
   final MaintenanceRecord? editing;
   final Map<int, Device> deviceById;
   final List<DevicePickerItemVm> deviceItems;
+  final List<String> Function(String query) itemSuggestions;
 
   /// 取消（由 Page 负责 pop）
   final VoidCallback onCancel;
@@ -54,10 +57,10 @@ class MaintenanceDetailContent extends StatefulWidget {
 
   @override
   State<MaintenanceDetailContent> createState() =>
-      _MaintenanceDetailContentState();
+      MaintenanceDetailContentState();
 }
 
-class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
+class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
   // -------------------------------------------------------------------
   // 2.1 表单控制器
   // -------------------------------------------------------------------
@@ -184,9 +187,7 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
         return;
       }
       if (widget.editing == null && !device.isActive) {
-        widget.onToast(
-          inactiveEntityCreateMessage('该设备', recordLabel: '维保记录'),
-        );
+        widget.onToast(inactiveEntityCreateMessage('该设备', recordLabel: '维保记录'));
         return;
       }
     }
@@ -208,6 +209,8 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
     if (mounted) setState(() => _submitting = false);
   }
 
+  Future<void> submit() => _submit();
+
   // =====================================================================
   // ============================== 五、UI 小组件 ==============================
   // =====================================================================
@@ -218,12 +221,24 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
     TextInputType? keyboardType,
     String? hint,
   }) {
+    final fieldTextStyle = AppTypography.body(context, color: Colors.black);
+    final labelStyle = AppTypography.bodySecondary(
+      context,
+      color: Colors.black,
+    );
+    final hintStyle = AppTypography.caption(
+      context,
+      color: Colors.grey.shade600,
+    );
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      style: fieldTextStyle,
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: labelStyle,
         hintText: hint,
+        hintStyle: hintStyle,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -236,78 +251,91 @@ class _MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 1) 公共支出开关（置顶）
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('公共支出（不属于任何设备）'),
-          value: _isPublicExpense,
-          onChanged: (v) {
-            setState(() {
-              _isPublicExpense = v;
-              if (v) _selectedDeviceId = null;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
+    final switchTitleStyle = AppTypography.body(
+      context,
+      fontWeight: FontWeight.w500,
+      color: Colors.black,
+    );
 
-        // 2) 设备（公共支出时灰掉）
-        IgnorePointer(
-          ignoring: _isPublicExpense,
-          child: Opacity(
-            opacity: _isPublicExpense ? 0.5 : 1.0,
-            child: DevicePickerPattern(
-              vm: DevicePickerVm(
-                selectedId: _selectedDeviceId,
-                items: widget.deviceItems,
-                onChanged: (id) => setState(() => _selectedDeviceId = id),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1) 公共支出开关（置顶）
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('公共支出（不属于任何设备）', style: switchTitleStyle),
+                    value: _isPublicExpense,
+                    onChanged: (v) {
+                      setState(() {
+                        _isPublicExpense = v;
+                        if (v) _selectedDeviceId = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 2) 设备（公共支出时灰掉）
+                  IgnorePointer(
+                    ignoring: _isPublicExpense,
+                    child: Opacity(
+                      opacity: _isPublicExpense ? 0.5 : 1.0,
+                      child: DevicePickerPattern(
+                        vm: DevicePickerVm(
+                          selectedId: _selectedDeviceId,
+                          items: widget.deviceItems,
+                          onChanged: (id) =>
+                              setState(() => _selectedDeviceId = id),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3) 日期
+                  SheetDateField(controller: _dateCtrl, onPickDate: _pickDate),
+                  const SizedBox(height: 12),
+
+                  // 4) 事项
+                  AutoSuggestField(
+                    controller: _itemCtrl,
+                    label: '事项（必填）',
+                    hint: '例如：更换机油/保养/维修',
+                    suggestionsBuilder: widget.itemSuggestions,
+                    onSelected: (v) => _itemCtrl.text = v,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 5) 金额
+                  _field(
+                    controller: _amountCtrl,
+                    label: '金额（元）',
+                    hint: '例如：980.0',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 6) 备注
+                  _field(
+                    controller: _noteCtrl,
+                    label: '备注（可填）',
+                    hint: '例如：含工时/含配件',
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-
-        // 3) 日期
-        SheetDateField(controller: _dateCtrl, onPickDate: _pickDate),
-        const SizedBox(height: 12),
-
-        // 4) 事项
-        _field(controller: _itemCtrl, label: '事项（必填）', hint: '例如：更换机油/保养/维修'),
-        const SizedBox(height: 12),
-
-        // 5) 金额
-        _field(
-          controller: _amountCtrl,
-          label: '金额（元）',
-          hint: '例如：980.0',
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        ),
-        const SizedBox(height: 12),
-
-        // 6) 备注
-        _field(controller: _noteCtrl, label: '备注（可填）', hint: '例如：含工时/含配件'),
-        const SizedBox(height: 14),
-
-        // 7) 底部按钮（与 Timing/Fuel/Account 统一）
-        Row(
-          children: [
-            TextButton(
-              onPressed: _submitting ? null : widget.onCancel,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.brand.withValues(alpha: 0.8),
-              ),
-              child: const Text('取消'),
-            ),
-            const Spacer(),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              child: Text(_submitting ? '保存中...' : '确定'),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

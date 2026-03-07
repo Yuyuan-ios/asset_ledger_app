@@ -6,7 +6,7 @@ abstract class ProjectRateRepository {
 
   Future<int> upsert(ProjectDeviceRate rate);
 
-  Future<int> delete(String projectKey, int deviceId);
+  Future<int> delete(String projectKey, int deviceId, {bool isBreaking = false});
 
   Future<int> deleteByProjectKey(String projectKey);
 }
@@ -36,20 +36,24 @@ class SqfliteProjectRateRepository implements ProjectRateRepository {
     // sqflite 不统一支持 INSERT OR REPLACE 的 helper，我们直接 rawInsert
     return db.rawInsert(
       '''
-      INSERT OR REPLACE INTO $table (project_key, device_id, rate)
-      VALUES (?, ?, ?)
+      INSERT OR REPLACE INTO $table (project_key, device_id, is_breaking, rate)
+      VALUES (?, ?, ?, ?)
     ''',
-      [r.projectKey, r.deviceId, r.rate],
+      [r.projectKey, r.deviceId, r.isBreaking ? 1 : 0, r.rate],
     );
   }
 
   @override
-  Future<int> delete(String projectKey, int deviceId) async {
+  Future<int> delete(
+    String projectKey,
+    int deviceId, {
+    bool isBreaking = false,
+  }) async {
     final db = await AppDatabase.database;
     return db.delete(
       table,
-      where: 'project_key = ? AND device_id = ?',
-      whereArgs: [projectKey, deviceId],
+      where: 'project_key = ? AND device_id = ? AND is_breaking = ?',
+      whereArgs: [projectKey, deviceId, isBreaking ? 1 : 0],
     );
   }
 

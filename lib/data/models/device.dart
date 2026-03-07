@@ -40,6 +40,12 @@ class Device {
   final double defaultUnitPrice;
 
   // -------------------------------------------------------------------
+  // 1.5.1 破碎默认单价（选填）
+  // - null：未单独配置，计算时回落到 defaultUnitPrice
+  // -------------------------------------------------------------------
+  final double? breakingUnitPrice;
+
+  // -------------------------------------------------------------------
   // 1.6 基准码表（必填，默认 0.0）
   // -------------------------------------------------------------------
   final double baseMeterHours;
@@ -56,15 +62,22 @@ class Device {
   // -------------------------------------------------------------------
   final String? customAvatarPath;
 
+  // -------------------------------------------------------------------
+  // 1.9 设备类型：用于区分挖掘机/装载机
+  // -------------------------------------------------------------------
+  final EquipmentType equipmentType;
+
   const Device({
     this.id,
     required this.name,
     required this.brand,
     this.model,
     required this.defaultUnitPrice,
+    this.breakingUnitPrice,
     required this.baseMeterHours,
     this.isActive = true,
     this.customAvatarPath,
+    this.equipmentType = EquipmentType.excavator,
   });
 
   Device copyWith({
@@ -73,9 +86,11 @@ class Device {
     String? brand,
     String? model,
     double? defaultUnitPrice,
+    Object? breakingUnitPrice = _sentinel,
     double? baseMeterHours,
     bool? isActive,
     String? customAvatarPath,
+    EquipmentType? equipmentType,
   }) {
     return Device(
       id: id ?? this.id,
@@ -83,9 +98,13 @@ class Device {
       brand: brand ?? this.brand,
       model: model ?? this.model,
       defaultUnitPrice: defaultUnitPrice ?? this.defaultUnitPrice,
+      breakingUnitPrice: identical(breakingUnitPrice, _sentinel)
+          ? this.breakingUnitPrice
+          : breakingUnitPrice as double?,
       baseMeterHours: baseMeterHours ?? this.baseMeterHours,
       isActive: isActive ?? this.isActive,
       customAvatarPath: customAvatarPath ?? this.customAvatarPath,
+      equipmentType: equipmentType ?? this.equipmentType,
     );
   }
 
@@ -99,9 +118,11 @@ class Device {
       'brand': brand,
       'model': model,
       'default_unit_price': defaultUnitPrice,
+      'breaking_unit_price': breakingUnitPrice,
       'base_meter_hours': baseMeterHours,
       'is_active': isActive ? 1 : 0,
       'custom_avatar_path': customAvatarPath,
+      'equipment_type': equipmentType.dbValue,
     };
   }
 
@@ -112,9 +133,47 @@ class Device {
       brand: (map['brand'] as String?) ?? '',
       model: map['model'] as String?,
       defaultUnitPrice: (map['default_unit_price'] as num?)?.toDouble() ?? 0.0,
+      breakingUnitPrice: (map['breaking_unit_price'] as num?)?.toDouble(),
       baseMeterHours: (map['base_meter_hours'] as num?)?.toDouble() ?? 0.0,
       isActive: ((map['is_active'] as int?) ?? 1) == 1,
       customAvatarPath: map['custom_avatar_path'] as String?,
+      equipmentType: EquipmentTypeX.fromDbValue(
+        map['equipment_type'] as String?,
+      ),
     );
+  }
+}
+
+const _sentinel = Object();
+
+enum EquipmentType { excavator, loader }
+
+extension EquipmentTypeX on EquipmentType {
+  String get dbValue {
+    switch (this) {
+      case EquipmentType.excavator:
+        return 'excavator';
+      case EquipmentType.loader:
+        return 'loader';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case EquipmentType.excavator:
+        return '挖掘机';
+      case EquipmentType.loader:
+        return '装载机';
+    }
+  }
+
+  static EquipmentType fromDbValue(String? raw) {
+    switch (raw) {
+      case 'loader':
+        return EquipmentType.loader;
+      case 'excavator':
+      default:
+        return EquipmentType.excavator;
+    }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -8,14 +9,14 @@ class RecordsTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '最近记录($count)',
-      style: const TextStyle(
-        fontSize: TimingTokens.recordsTitleFontSize,
-        fontWeight: FontWeight.w400,
-        color: AppColors.textPrimary,
-        height: TimingTokens.recordsTitleLineHeight,
-      ),
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontSize: TimingTokens.recordsTitleFontSize,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+      height: TimingTokens.recordsTitleLineHeight,
     );
+
+    return Text('最近记录($count)', style: titleStyle);
   }
 }

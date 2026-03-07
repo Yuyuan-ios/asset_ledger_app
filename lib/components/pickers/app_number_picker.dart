@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/spacing.dart';
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -113,18 +114,15 @@ class _AppNumberPickerState extends State<AppNumberPicker> {
                 builder: (context, index) {
                   final value = widget.min + index;
                   final selected = value == widget.value;
-                  return Center(
-                    child: Text(
-                      '$value',
-                      style: TextStyle(
-                        fontSize: selected
-                            ? TimingTokens.meterSelectedTextSize
-                            : TimingTokens.meterUnselectedTextSize,
-                        height: 1,
-                        color: widget.textColor,
-                      ),
-                    ),
+                  final textStyle = AppTypography.body(
+                    context,
+                    fontSize: selected
+                        ? TimingTokens.meterSelectedTextSize
+                        : TimingTokens.meterUnselectedTextSize,
+                    height: 1,
+                    color: widget.textColor,
                   );
+                  return Center(child: Text('$value', style: textStyle));
                 },
               ),
             ),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
+import '../../../core/foundation/typography.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
 import '../../../data/models/timing_record.dart';
@@ -235,10 +236,11 @@ class _FuelPageState extends State<FuelPage> {
 
     final loading =
         fuelStore.loading || deviceStore.loading || timingStore.loading;
-    final err = firstStoreErrorMessage(
-      [fuelStore, deviceStore, timingStore],
-      action: '读取',
-    );
+    final err = firstStoreErrorMessage([
+      fuelStore,
+      deviceStore,
+      timingStore,
+    ], action: '读取');
 
     final nowYmd = FormatUtils.ymdFromDate(DateTime.now());
     final supplier = _supplierFilter.trim().isEmpty
@@ -253,6 +255,18 @@ class _FuelPageState extends State<FuelPage> {
     final byDevice = fuelStore.efficiencyByDeviceAllTime(timingStore.records);
     final filteredLogs = _filteredLogs(fuelStore.logs);
     final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
+    final summaryLabelStyle = AppTypography.body(
+      context,
+      fontSize: FuelTokens.summaryTotalLabelSize,
+      fontWeight: FontWeight.w800,
+      color: Colors.black,
+    );
+    final summaryValueStyle = AppTypography.body(
+      context,
+      fontSize: FuelTokens.summaryTotalValueSize,
+      fontWeight: FontWeight.w800,
+      color: Colors.black,
+    );
 
     final summary = FuelSummaryCard(
       height: FuelTokens.efficiencyCardHeight,
@@ -273,22 +287,13 @@ class _FuelPageState extends State<FuelPage> {
             const SizedBox(height: FuelTokens.summaryInnerGap),
             Row(
               children: [
-                Text(
-                  yearSummaryTitle,
-                  style: const TextStyle(
-                    fontSize: FuelTokens.summaryTotalLabelSize,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                Text(yearSummaryTitle, style: summaryLabelStyle),
                 const SizedBox(width: FuelTokens.summaryTotalValueLeftGap),
                 Expanded(
                   child: Text(
                     '${FormatUtils.liters(yearSummary.liters)} L / ${FormatUtils.money(yearSummary.cost)}',
                     textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: FuelTokens.summaryTotalValueSize,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: summaryValueStyle,
                   ),
                 ),
               ],
@@ -300,10 +305,8 @@ class _FuelPageState extends State<FuelPage> {
 
     final filter = FuelSupplierFilter(
       controller: _supplierFilterCtrl,
-      suggestionsBuilder: (query) => FuelSuggestService.supplierSuggestions(
-        fuelStore.logs,
-        query,
-      ),
+      suggestionsBuilder: (query) =>
+          FuelSuggestService.supplierSuggestions(fuelStore.logs, query),
       onChanged: (v) => setState(() => _supplierFilter = v.trim()),
       onSelected: (v) {
         _supplierFilterCtrl.text = v;

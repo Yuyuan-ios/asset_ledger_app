@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 class AppToast {
@@ -24,7 +25,8 @@ class AppToast {
               child: Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: AppTypography.body(
+                  context,
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

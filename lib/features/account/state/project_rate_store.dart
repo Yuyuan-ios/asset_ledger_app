@@ -46,10 +46,18 @@ class ProjectRateStore extends BaseStore {
   /// 根据项目标识和设备ID删除单价配置
   /// [projectKey] 项目唯一标识（联系人+工地）
   /// [deviceId] 设备ID
-  Future<void> delete(String projectKey, int deviceId) async {
+  Future<void> delete(
+    String projectKey,
+    int deviceId, {
+    bool isBreaking = false,
+  }) async {
     await run(() async {
       // 调用仓库层删除指定维度的单价配置
-      await _repository.delete(projectKey, deviceId);
+      await _repository.delete(
+        projectKey,
+        deviceId,
+        isBreaking: isBreaking,
+      );
       // 删除后重新加载最新列表，同步状态
       await _reload();
     });

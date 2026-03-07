@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
+
 class StoreErrorBanner extends StatelessWidget {
-  const StoreErrorBanner({
-    super.key,
-    required this.message,
-    this.onRetry,
-  });
+  const StoreErrorBanner({super.key, required this.message, this.onRetry});
 
   final String message;
   final VoidCallback? onRetry;
@@ -27,7 +25,7 @@ class StoreErrorBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.red),
+                style: AppTypography.body(context, color: Colors.red),
               ),
             ),
             if (onRetry != null) ...[

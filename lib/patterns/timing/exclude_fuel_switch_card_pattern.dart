@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -8,13 +9,27 @@ class ExcludeFuelSwitchCard extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.trailing,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = AppTypography.body(
+      context,
+      fontWeight: FontWeight.w700,
+      fontSize: TimingTokens.switchTitleSize,
+      color: SheetColors.textPrimary,
+    );
+    final descStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: TimingTokens.switchDescSize,
+      color: SheetColors.hint,
+    );
+
     return ConstrainedBox(
       constraints: const BoxConstraints(
         minHeight: TimingTokens.switchCardMinHeight,
@@ -33,24 +48,12 @@ class ExcludeFuelSwitchCard extends StatelessWidget {
               children: [
                 _FigmaSwitch(value: value, onChanged: onChanged),
                 const SizedBox(width: TimingTokens.switchInlineGap),
-                const Text(
-                  '包油/包电',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: TimingTokens.switchTitleSize,
-                    color: SheetColors.textPrimary,
-                  ),
-                ),
+                Text('包油/包电', style: titleStyle),
+                if (trailing != null) ...[const Spacer(), trailing!],
               ],
             ),
             const SizedBox(height: TimingTokens.switchDescTopGap),
-            const Text(
-              '开启后：本条工时不参与油耗效率统计。',
-              style: TextStyle(
-                fontSize: TimingTokens.switchDescSize,
-                color: SheetColors.hint,
-              ),
-            ),
+            Text('开启后：本条工时不参与油耗效率统计。', style: descStyle),
           ],
         ),
       ),

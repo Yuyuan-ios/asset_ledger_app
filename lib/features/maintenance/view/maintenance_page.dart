@@ -14,6 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/foundation/spacing.dart';
+import '../../../core/foundation/typography.dart';
 
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/models/device.dart';
@@ -22,14 +23,17 @@ import '../../../data/models/timing_record.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../data/services/timing_service.dart';
-import '../../../components/avatars/app_device_avatar.dart';
-import '../../../components/list/app_record_list_tile.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
-import '../../../components/feedback/store_error_banner.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../../../tokens/mapper/fuel_tokens.dart';
+import '../../../tokens/mapper/timing_tokens.dart';
 
+import '../../../patterns/fuel/fuel_home_pattern.dart';
+import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/maintenance/maintenance_detail_content_pattern.dart';
+import '../../../patterns/timing/records_title_pattern.dart';
+import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
 
 import '../../../features/device/state/device_store.dart';
@@ -135,10 +139,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
   Future<void> _retryLoad() async {
     final store = context.read<MaintenanceStore>();
     final deviceStore = context.read<DeviceStore>();
-    await Future.wait([
-      store.loadAll(),
-      deviceStore.loadAll(),
-    ]);
+    await Future.wait([store.loadAll(), deviceStore.loadAll()]);
   }
 
   // =====================================================================
@@ -149,6 +150,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
     final maintenanceStore = context.read<MaintenanceStore>();
+    final formKey = GlobalKey<MaintenanceDetailContentState>();
     final deviceById = <int, Device>{};
     for (final d in deviceStore.allDevices) {
       final id = d.id;
@@ -161,6 +163,21 @@ class _MaintenancePageState extends State<MaintenancePage> {
       records: timingStore.records,
       selectedId: editing?.deviceId,
     );
+    List<String> itemSuggestions(String query) {
+      final normalized = query.trim();
+      final seen = <String>{};
+      final results = <String>[];
+
+      for (final record in maintenanceStore.records) {
+        final item = record.item.trim();
+        if (item.isEmpty) continue;
+        if (normalized.isNotEmpty && !item.contains(normalized)) continue;
+        if (!seen.add(item)) continue;
+        results.add(item);
+      }
+
+      return results;
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -170,17 +187,19 @@ class _MaintenancePageState extends State<MaintenancePage> {
       builder: (ctx) {
         return AppBottomSheetShell(
           title: editing == null ? '新建维保' : '编辑维保',
+          scrollable: false,
+          contentPadding: EdgeInsets.zero,
+          dividerToContentGap: 8,
+          onCancel: () => Navigator.of(ctx).pop(),
+          onConfirm: () => formKey.currentState?.submit(),
           child: Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: MaintenanceDetailContent(
+              key: formKey,
               editing: editing,
               deviceById: deviceById,
               deviceItems: deviceItems,
+              itemSuggestions: itemSuggestions,
 
               // 取消：Page 负责 pop
               onCancel: () => Navigator.of(ctx).pop(),
@@ -216,9 +235,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
   // ============================== 八、删除：确认 + Store.deleteById ==============================
   // =====================================================================
 
-  Future<void> _delete(MaintenanceRecord r) async {
-    if (r.id == null) return;
-    final store = context.read<MaintenanceStore>();
+  Future<bool> _confirmDelete(MaintenanceRecord r) async {
+    if (r.id == null) return false;
 
     final ok = await showAppConfirmDialog(
       context: context,
@@ -231,7 +249,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
       confirmText: '删除',
     );
 
-    if (ok != true) return;
+    return ok == true;
+  }
+
+  Future<void> _delete(MaintenanceRecord r) async {
+    if (r.id == null) return;
+    final store = context.read<MaintenanceStore>();
 
     await store.deleteById(r.id!);
 
@@ -248,6 +271,39 @@ class _MaintenancePageState extends State<MaintenancePage> {
   Widget _buildSummaryCard() {
     final store = context.watch<MaintenanceStore>();
     final deviceStore = context.watch<DeviceStore>();
+    final titleStyle = AppTypography.body(
+      context,
+      fontSize: 14,
+      fontWeight: FontWeight.w800,
+      color: Colors.black,
+    );
+    final nameStyle = AppTypography.body(
+      context,
+      fontSize: 13,
+      color: Colors.black,
+    );
+    final valueStyle = AppTypography.caption(
+      context,
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      color: Colors.black,
+    );
+    final totalLabelStyle = AppTypography.body(
+      context,
+      fontSize: 13,
+      fontWeight: FontWeight.w800,
+      color: Colors.black,
+    );
+    final totalStyle = AppTypography.caption(
+      context,
+      fontSize: 12,
+      fontWeight: FontWeight.w900,
+      color: Colors.black,
+    );
+    final emptyStyle = AppTypography.bodySecondary(
+      context,
+      color: TimingColors.textSecondary,
+    );
 
     // 口径：当年（你 Store.currentYearSummary 的口径）
     final nowYmd = FormatUtils.ymdFromDate(DateTime.now());
@@ -256,14 +312,11 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final map = store.currentYearSummary(nowYmd: nowYmd);
 
     if (map.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpace.md),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(RadiusTokens.card),
+      return FuelSummaryCard(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text('当年维保费：暂无数据', style: emptyStyle),
         ),
-        child: const Text('当年维保费：暂无数据'),
       );
     }
 
@@ -275,20 +328,11 @@ class _MaintenancePageState extends State<MaintenancePage> {
       allTotal += (map[id] ?? 0.0);
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpace.md),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(RadiusTokens.card),
-      ),
+    return FuelSummaryCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '当年维保费用（按设备 & 公共）',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-          ),
+          Text('当年维保费用（按设备 & 公共）', style: titleStyle),
           const SizedBox(height: 10),
 
           // 设备分摊
@@ -302,57 +346,34 @@ class _MaintenancePageState extends State<MaintenancePage> {
                       deviceStore.tryFindById(id)?.name ?? '设备$id（已停用/不存在）',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
+                      style: nameStyle,
                     ),
                   ),
-                  Text(
-                    FormatUtils.money(map[id] ?? 0.0),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  Text(FormatUtils.money(map[id] ?? 0.0), style: valueStyle),
                 ],
               ),
             ),
 
           // 公共支出
           if (publicTotal > 0) ...[
-            const Divider(height: 16),
+            const SizedBox(height: 4),
+            const Divider(height: 1, thickness: 1, color: TimingColors.divider),
+            const SizedBox(height: 4),
             Row(
               children: [
-                const Expanded(
-                  child: Text('公共支出', style: TextStyle(fontSize: 13)),
-                ),
-                Text(
-                  FormatUtils.money(publicTotal),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Expanded(child: Text('公共支出', style: nameStyle)),
+                Text(FormatUtils.money(publicTotal), style: valueStyle),
               ],
             ),
           ],
 
-          const Divider(height: 16),
+          const Divider(height: 16, color: TimingColors.divider),
 
           // 合计
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  '合计',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-                ),
-              ),
-              Text(
-                FormatUtils.money(allTotal),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+              Expanded(child: Text('合计', style: totalLabelStyle)),
+              Text(FormatUtils.money(allTotal), style: totalStyle),
             ],
           ),
         ],
@@ -367,12 +388,56 @@ class _MaintenancePageState extends State<MaintenancePage> {
   Widget _buildList() {
     final store = context.watch<MaintenanceStore>();
     final deviceStore = context.watch<DeviceStore>();
+    final emptyTitleStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: TimingTokens.emptyStateTitleFontSize,
+      color: TimingColors.textSecondary,
+    );
+    final emptySubtitleStyle = AppTypography.caption(
+      context,
+      fontSize: TimingTokens.emptyStateSubtitleFontSize,
+      color: TimingColors.textTertiary,
+    );
+    final rowTitleStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordTitleFontSize,
+      height: TimingTokens.recordTitleLineHeight,
+      color: AppColors.textPrimary,
+    );
+    final rowSubtitleStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordSubTitleFontSize,
+      height: 1,
+      color: AppColors.textPrimary,
+    );
+    final rowValueStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordValueFontSize,
+      height: 1,
+      color: AppColors.textPrimary,
+    );
+    final rowAmountStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordValueFontSize,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: AppColors.textPrimary,
+    );
 
     final records = store.records;
     if (records.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpace.xxl),
-        child: Center(child: Text('暂无记录（点击右上角 + 新建）')),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('暂无记录', style: emptyTitleStyle),
+              const SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
+              Text('点击右上角 + 新建', style: emptySubtitleStyle),
+            ],
+          ),
+        ),
       );
     }
 
@@ -380,65 +445,108 @@ class _MaintenancePageState extends State<MaintenancePage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: records.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, thickness: 1, color: TimingColors.divider),
       itemBuilder: (context, index) {
         final r = records[index];
         final isPublic = (r.deviceId == null);
 
-        // leading：公共=“公”，设备=头像
-        Widget leading;
         String deviceName;
 
         if (isPublic) {
-          leading = const CircleAvatar(
-            radius: 18,
-            child: Text('公', style: TextStyle(fontWeight: FontWeight.w800)),
-          );
           deviceName = '公共支出';
         } else {
           final device = deviceStore.tryFindById(r.deviceId!);
           if (device == null) {
-            leading = const CircleAvatar(radius: 18, child: Text('?'));
             deviceName = '设备#${r.deviceId}（已停用/不存在）';
           } else {
-            leading = DeviceAvatar(
-              brand: device.brand,
-              customAvatarPath: device.customAvatarPath,
-              radius: 18,
-            );
             deviceName = device.name;
           }
         }
 
-        final title = '$deviceName · ${FormatUtils.date(r.ymd)}';
+        final title = deviceName;
+        final dateText = FormatUtils.date(r.ymd);
 
         final subtitle = (r.note == null || r.note!.trim().isEmpty)
             ? r.item
             : '${r.item} · ${r.note!.trim()}';
 
-        final trailing = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              FormatUtils.money(r.amount),
-              style: const TextStyle(fontWeight: FontWeight.w800),
+        final content = Material(
+          color: SheetColors.background,
+          child: InkWell(
+            onTap: () => _openMaintenanceEditor(editing: r),
+            child: SizedBox(
+              height: TimingTokens.recordRowHeight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  TimingTokens.recordRowPaddingLeft,
+                  0,
+                  TimingTokens.recordRowPaddingRight,
+                  0,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: rowTitleStyle,
+                          ),
+                          const SizedBox(
+                            height: TimingTokens.recordSubTitleTopGap,
+                          ),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: rowSubtitleStyle,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: TimingTokens.recordValueLeftGap),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(dateText, style: rowValueStyle),
+                        const SizedBox(
+                          height: TimingTokens.recordValueBottomGap,
+                        ),
+                        Text(
+                          FormatUtils.money(r.amount),
+                          style: rowAmountStyle,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: '删除',
-              icon: const Icon(Icons.delete_outline, size: 18),
-              onPressed: (r.id == null) ? null : () => _delete(r),
-            ),
-          ],
+          ),
         );
 
-        return RecordListTile(
-          dense: true,
-          leading: leading,
-          title: title,
-          subtitle: subtitle,
-          trailing: trailing,
-          onTap: () => _openMaintenanceEditor(editing: r),
+        return Dismissible(
+          key: ValueKey(
+            'maintenance-${r.id ?? '${r.ymd}-${r.deviceId}-${r.item}-${r.amount}'}',
+          ),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            color: Colors.red.shade500,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+            child: const Icon(Icons.delete_outline, color: Colors.white),
+          ),
+          confirmDismiss: (_) => _confirmDelete(r),
+          onDismissed: (_) {
+            _delete(r);
+          },
+          child: content,
         );
       },
     );
@@ -454,68 +562,26 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final deviceStore = context.watch<DeviceStore>();
 
     final loading = store.loading || deviceStore.loading;
-    final err = firstStoreErrorMessage(
-      [store, deviceStore],
-      action: '读取',
+    final err = firstStoreErrorMessage([store, deviceStore], action: '读取');
+
+    final recordsSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RecordsTitle(count: store.records.length),
+        const SizedBox(height: FuelTokens.recordsTitleTopGap),
+        _buildList(),
+      ],
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('维保'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpace.sm + AppSpace.xxs),
-            child: FilledButton.icon(
-              onPressed: () => _openMaintenanceEditor(),
-              icon: const Icon(Icons.add),
-              label: const Text('新建'),
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(SpaceTokens.pagePadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (loading) ...[
-                const LinearProgressIndicator(),
-                const SizedBox(height: 10),
-              ],
-              if (err != null) ...[
-                StoreErrorBanner(
-                  message: err,
-                  onRetry: loading ? null : () => _retryLoad(),
-                ),
-                const SizedBox(height: 10),
-              ],
-
-              // ① 顶部统计卡
-              _buildSummaryCard(),
-              const SizedBox(height: SpaceTokens.sectionGap),
-
-              const Divider(),
-              const SizedBox(height: SpaceTokens.sectionGap),
-
-              // ② 列表标题
-              Text(
-                '最近记录（${store.records.length}）',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // ③ 列表
-              _buildList(),
-
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
+    return FuelHomePattern(
+      header: SectionHeader(title: '维保', onAdd: () => _openMaintenanceEditor()),
+      summary: _buildSummaryCard(),
+      filter: const SizedBox.shrink(),
+      records: recordsSection,
+      loading: loading,
+      hasFilter: false,
+      error: err,
+      onRetry: _retryLoad,
     );
   }
 }

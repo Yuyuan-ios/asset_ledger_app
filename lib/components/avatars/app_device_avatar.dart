@@ -5,7 +5,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-
+import '../../core/foundation/typography.dart';
 
 // =====================================================================
 // ============================== 二、BrandAvatar（品牌头像渲染） ==============================
@@ -60,14 +60,18 @@ class BrandAvatar extends StatelessWidget {
   // -------------------------------------------------------------------
   // fallback：首字母占位
   // -------------------------------------------------------------------
-  Widget _fallback() {
+  Widget _fallback(BuildContext context) {
     final text = brand.trim().isEmpty ? '?' : brand.trim().characters.first;
 
     return CircleAvatar(
       radius: radius,
       child: Text(
         text.toUpperCase(),
-        style: const TextStyle(fontWeight: FontWeight.w700),
+        style: AppTypography.body(
+          context,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
       ),
     );
   }
@@ -75,7 +79,7 @@ class BrandAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final asset = _brandAssetPath(brand);
-    if (asset == null) return _fallback();
+    if (asset == null) return _fallback(context);
 
     // ✅ 用 Image.asset + errorBuilder，避免 CircleAvatar.backgroundImage 失败时空白
     return CircleAvatar(
@@ -87,7 +91,7 @@ class BrandAvatar extends StatelessWidget {
           width: radius * 2,
           height: radius * 2,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _fallback(),
+          errorBuilder: (context, error, stackTrace) => _fallback(context),
         ),
       ),
     );

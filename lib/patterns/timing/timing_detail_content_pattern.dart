@@ -11,6 +11,7 @@ import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
+import '../../core/foundation/typography.dart';
 import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
@@ -20,6 +21,8 @@ import '../../components/fields/app_date_field.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
 
 enum WorkMode { hours, rent }
+
+enum AttachmentMode { digging, breaking }
 
 class TimingDetailContent extends StatefulWidget {
   const TimingDetailContent({
@@ -66,12 +69,21 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   int? _selectedDeviceId;
   late DateTime _selectedDate;
   WorkMode _mode = WorkMode.hours;
+  AttachmentMode _attachmentMode = AttachmentMode.digging;
   bool _excludeFromFuelEfficiency = false;
   bool _submitting = false;
   bool _syncingFromHours = false;
   String? _bottomTip;
   Timer? _bottomTipTimer;
   Timer? _meterValidateTimer;
+
+  bool get _isSelectedLoader {
+    final id = _selectedDeviceId;
+    if (id == null) return false;
+    final device = widget.deviceById[id];
+    if (device == null) return false;
+    return device.equipmentType == EquipmentType.loader;
+  }
   @override
   void initState() {
     super.initState();
@@ -90,6 +102,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _contactCtrl.text = editing.contact;
     _siteCtrl.text = editing.site;
     _mode = editing.type == TimingType.hours ? WorkMode.hours : WorkMode.rent;
+    _attachmentMode = editing.isBreaking
+        ? AttachmentMode.breaking
+        : AttachmentMode.digging;
     _startMeterCtrl.text = FormatUtils.meter(editing.startMeter);
     _endMeterCtrl.text = FormatUtils.meter(editing.endMeter);
     _hoursCtrl.text = FormatUtils.meter(editing.hours);
@@ -224,17 +239,21 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     String? label,
     Widget? suffixIcon,
   }) {
+    final hintStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.hint,
+    );
+    final labelStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: SheetTokens.fieldLabelSize,
+      color: SheetColors.textPrimary,
+    );
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(
-        fontSize: SheetTokens.fieldTextSize,
-        color: SheetColors.hint,
-      ),
+      hintStyle: hintStyle,
       labelText: label,
-      labelStyle: const TextStyle(
-        fontSize: SheetTokens.fieldLabelSize,
-        color: SheetColors.textPrimary,
-      ),
+      labelStyle: labelStyle,
       floatingLabelBehavior: label == null
           ? FloatingLabelBehavior.never
           : FloatingLabelBehavior.always,
@@ -278,15 +297,17 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     Widget? suffixIcon,
     bool readOnly = false,
   }) {
+    final fieldStyle = AppTypography.body(
+      context,
+      fontSize: SheetTokens.fieldTextSize,
+      color: SheetColors.textPrimary,
+    );
     return TextField(
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
       onChanged: onChanged,
-      style: const TextStyle(
-        fontSize: SheetTokens.fieldTextSize,
-        color: SheetColors.textPrimary,
-      ),
+      style: fieldStyle,
       decoration: _sheetDecoration(
         hint: hint,
         label: label,
@@ -323,6 +344,12 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _hoursCtrl.text = '0.0';
 
     setState(() {});
+
+    if (_isSelectedLoader &&
+        _mode == WorkMode.hours &&
+        _attachmentMode != AttachmentMode.digging) {
+      setState(() => _attachmentMode = AttachmentMode.digging);
+    }
   }
 
   Future<void> submit() async {
@@ -385,21 +412,21 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       );
 
       if (endMeter < lower) {
-        _toastInSheet(
-          formValidationMessage('结束码表($endMeter) < 下界($lower)'),
-        );
+        _toastInSheet(formValidationMessage('结束码表($endMeter) < 下界($lower)'));
         return;
       }
       if (upper != double.infinity && endMeter > upper) {
-        _toastInSheet(
-          formValidationMessage('结束码表($endMeter) > 上界($upper)'),
-        );
+        _toastInSheet(formValidationMessage('结束码表($endMeter) > 上界($upper)'));
         return;
       }
     }
 
     final type = isRent ? TimingType.rent : TimingType.hours;
     final excludeFuel = !isRent && _excludeFromFuelEfficiency;
+    final isBreaking =
+        !isRent &&
+        !_isSelectedLoader &&
+        _attachmentMode == AttachmentMode.breaking;
 
     final record = TimingRecord(
       id: widget.editing?.id,
@@ -413,6 +440,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       hours: hours,
       income: income,
       excludeFromFuelEfficiency: excludeFuel,
+      isBreaking: isBreaking,
     );
 
     setState(() => _submitting = true);
@@ -507,14 +535,26 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     ),
                     const SizedBox(height: TimingTokens.contentGap),
                     if (_mode == WorkMode.hours) ...[
-                      _field(
-                        controller: _hoursCtrl,
-                        hint: _hoursCtrl.text,
-                        label: '工时（小时）',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        onChanged: (_) => _recalcEndFromHours(),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!_isSelectedLoader) ...[
+                            _buildAttachmentSelector(compact: true),
+                            const SizedBox(width: TimingTokens.twoColumnGap),
+                          ],
+                          Expanded(
+                            child: _field(
+                              controller: _hoursCtrl,
+                              hint: _hoursCtrl.text,
+                              label: '工时（小时）',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              onChanged: (_) => _recalcEndFromHours(),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: TimingTokens.contentGap),
                       ExcludeFuelSwitchCard(
@@ -569,7 +609,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                       ),
                       child: Text(
                         _bottomTip!,
-                        style: const TextStyle(
+                        style: AppTypography.caption(
+                          context,
                           color: Colors.white,
                           fontSize: TimingTokens.tipTextSize,
                           fontWeight: FontWeight.w500,
@@ -583,48 +624,63 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     );
   }
 
-  Widget _buildModeSelector() {
-    Widget item(WorkMode mode, String text) {
-      final selected = _mode == mode;
+  Widget _buildTwoOptionSegment({
+    required int selectedIndex,
+    required void Function(int index) onTap,
+    required String leftText,
+    required String rightText,
+    double? width,
+    double? height,
+    double? inset,
+    double? radius,
+    double? itemHeight,
+    double? checkRightGap,
+    double? checkSize,
+    double? textSize,
+  }) {
+    final resolvedRadius = radius ?? TimingTokens.segmentRadius;
+    final resolvedHeight = height ?? TimingTokens.segmentHeight;
+    final resolvedInset = inset ?? TimingTokens.segmentInset;
+    final resolvedItemHeight = itemHeight ?? TimingTokens.segmentItemHeight;
+    final resolvedCheckRightGap =
+        checkRightGap ?? TimingTokens.segmentCheckRightGap;
+    final resolvedCheckSize = checkSize ?? TimingTokens.segmentCheckSize;
+    final resolvedTextSize = textSize ?? TimingTokens.segmentTextSize;
+    final checkStyle = AppTypography.caption(
+      context,
+      fontSize: resolvedCheckSize,
+      color: SheetColors.textPrimary,
+    );
+    final segmentTextStyle = AppTypography.body(
+      context,
+      fontSize: resolvedTextSize,
+      color: SheetColors.textPrimary,
+    );
+
+    Widget buildSegmentItem(int index, String text) {
+      final selected = selectedIndex == index;
       return Expanded(
         child: InkWell(
-          borderRadius: BorderRadius.circular(TimingTokens.segmentRadius),
-          onTap: () {
-            setState(() {
-              _mode = mode;
-              if (_mode == WorkMode.hours) _incomeCtrl.text = '0.0';
-              if (_mode == WorkMode.rent) _excludeFromFuelEfficiency = false;
-            });
-          },
+          borderRadius: BorderRadius.circular(resolvedRadius),
+          onTap: () => onTap(index),
           child: Container(
-            height: TimingTokens.segmentItemHeight,
+            height: resolvedItemHeight,
             decoration: BoxDecoration(
               color: selected
                   ? SheetColors.segmentSelected
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(TimingTokens.segmentRadius),
+              borderRadius: BorderRadius.circular(resolvedRadius),
             ),
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (selected)
-                  const Padding(
-                    padding: EdgeInsets.only(
-                      right: TimingTokens.segmentCheckRightGap,
-                    ),
-                    child: Text(
-                      '✓',
-                      style: TextStyle(fontSize: TimingTokens.segmentCheckSize),
-                    ),
+                  Padding(
+                    padding: EdgeInsets.only(right: resolvedCheckRightGap),
+                    child: Text('✓', style: checkStyle),
                   ),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: TimingTokens.segmentTextSize,
-                    color: SheetColors.textPrimary,
-                  ),
-                ),
+                Text(text, style: segmentTextStyle),
               ],
             ),
           ),
@@ -633,17 +689,61 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     }
 
     return Container(
-      width: double.infinity,
-      height: TimingTokens.segmentHeight,
-      padding: const EdgeInsets.all(TimingTokens.segmentInset),
+      width: width ?? double.infinity,
+      height: resolvedHeight,
+      padding: EdgeInsets.all(resolvedInset),
       decoration: BoxDecoration(
         color: SheetColors.segmentBackground,
-        borderRadius: BorderRadius.circular(TimingTokens.segmentRadius),
+        borderRadius: BorderRadius.circular(resolvedRadius),
         border: Border.all(color: SheetColors.segmentBorder),
       ),
       child: Row(
-        children: [item(WorkMode.hours, '工时'), item(WorkMode.rent, '租金')],
+        children: [
+          buildSegmentItem(0, leftText),
+          buildSegmentItem(1, rightText),
+        ],
       ),
+    );
+  }
+
+  Widget _buildModeSelector() {
+    return _buildTwoOptionSegment(
+      selectedIndex: _mode == WorkMode.hours ? 0 : 1,
+      onTap: (index) {
+        setState(() {
+          _mode = index == 0 ? WorkMode.hours : WorkMode.rent;
+          if (_mode == WorkMode.hours) _incomeCtrl.text = '0.0';
+          if (_mode == WorkMode.rent) {
+            _excludeFromFuelEfficiency = false;
+            _attachmentMode = AttachmentMode.digging;
+          }
+        });
+      },
+      leftText: '工时',
+      rightText: '租金',
+    );
+  }
+
+  Widget _buildAttachmentSelector({bool compact = false}) {
+    return _buildTwoOptionSegment(
+      selectedIndex: _attachmentMode == AttachmentMode.digging ? 0 : 1,
+      onTap: (index) {
+        setState(() {
+          _attachmentMode = index == 0
+              ? AttachmentMode.digging
+              : AttachmentMode.breaking;
+        });
+      },
+      leftText: '挖斗',
+      rightText: '破碎',
+      width: compact ? 148 : null,
+      height: compact ? SheetTokens.fieldHeight : null,
+      inset: compact ? 2 : null,
+      radius: compact ? SheetTokens.fieldRadius : null,
+      itemHeight: compact ? SheetTokens.fieldHeight - 4 : null,
+      checkRightGap: compact ? 2 : null,
+      checkSize: compact ? 10 : null,
+      textSize: compact ? 12 : null,
     );
   }
 }

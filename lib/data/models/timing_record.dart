@@ -47,6 +47,11 @@ class TimingRecord {
   /// false = 正常计入（默认）
   final bool excludeFromFuelEfficiency;
 
+  /// 是否为破碎模式
+  /// true  = 破碎
+  /// false = 挖斗（默认）
+  final bool isBreaking;
+
   const TimingRecord({
     this.id,
     required this.deviceId,
@@ -59,6 +64,7 @@ class TimingRecord {
     required this.hours,
     required this.income,
     this.excludeFromFuelEfficiency = false,
+    this.isBreaking = false,
   });
 
   // ---------------------------------------------------------------------------
@@ -76,6 +82,7 @@ class TimingRecord {
     double? hours,
     double? income,
     bool? excludeFromFuelEfficiency,
+    bool? isBreaking,
   }) {
     return TimingRecord(
       id: id ?? this.id,
@@ -90,6 +97,7 @@ class TimingRecord {
       income: income ?? this.income,
       excludeFromFuelEfficiency:
           excludeFromFuelEfficiency ?? this.excludeFromFuelEfficiency,
+      isBreaking: isBreaking ?? this.isBreaking,
     );
   }
 
@@ -110,6 +118,7 @@ class TimingRecord {
       'income': income,
       // SQLite 不支持 bool，这里统一用 0 / 1
       'exclude_from_fuel_eff': excludeFromFuelEfficiency ? 1 : 0,
+      'is_breaking': isBreaking ? 1 : 0,
     };
   }
 
@@ -131,11 +140,13 @@ class TimingRecord {
       income: (m['income'] as num).toDouble(),
       excludeFromFuelEfficiency:
           ((m['exclude_from_fuel_eff'] as int?) ?? 0) == 1,
+      isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
     );
   }
 
   @override
   String toString() =>
       'TimingRecord(id:$id deviceId:$deviceId date:$startDate '
-      'hours:$hours excludeFuel:$excludeFromFuelEfficiency)';
+      'hours:$hours excludeFuel:$excludeFromFuelEfficiency '
+      'isBreaking:$isBreaking)';
 }

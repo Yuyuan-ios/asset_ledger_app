@@ -108,6 +108,7 @@ class SqfliteTimingRepository implements TimingRepository {
       'income': r.income,
       // ✅ v6：包油规则（不计入燃油效率）
       'exclude_from_fuel_eff': r.excludeFromFuelEfficiency ? 1 : 0,
+      'is_breaking': r.isBreaking ? 1 : 0,
     };
   }
 
@@ -128,6 +129,7 @@ class SqfliteTimingRepository implements TimingRepository {
       income: (row['income'] as num).toDouble(),
       excludeFromFuelEfficiency:
           ((row['exclude_from_fuel_eff'] as int?) ?? 0) == 1,
+      isBreaking: ((row['is_breaking'] as int?) ?? 0) == 1,
     );
   }
 }

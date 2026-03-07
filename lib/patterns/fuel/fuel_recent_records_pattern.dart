@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/spacing.dart';
+import '../../core/foundation/typography.dart';
 import '../../data/models/fuel_log.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
@@ -105,28 +106,27 @@ class _FuelGroupedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final emptyTitleStyle = AppTypography.bodySecondary(
+      context,
+      fontSize: TimingTokens.emptyStateTitleFontSize,
+      color: TimingColors.textSecondary,
+    );
+    final emptySubtitleStyle = AppTypography.caption(
+      context,
+      fontSize: TimingTokens.emptyStateSubtitleFontSize,
+      color: TimingColors.textTertiary,
+    );
+
     if (logs.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: TimingTokens.emptyStateHeight,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '暂无记录',
-                style: TextStyle(
-                  fontSize: TimingTokens.emptyStateTitleFontSize,
-                  color: TimingColors.textSecondary,
-                ),
-              ),
-              SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
-              Text(
-                '点击右上角 + 新建',
-                style: TextStyle(
-                  fontSize: TimingTokens.emptyStateSubtitleFontSize,
-                  color: TimingColors.textTertiary,
-                ),
-              ),
+              Text('暂无记录', style: emptyTitleStyle),
+              const SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
+              Text('点击右上角 + 新建', style: emptySubtitleStyle),
             ],
           ),
         ),
@@ -156,7 +156,8 @@ class _FuelGroupedList extends StatelessWidget {
           _FuelRecordRow(
             log: flat[i],
             leadingBuilder: leadingBuilder,
-            titleBuilder: (l) => '${titleBuilder(l)}•${FormatUtils.date(l.date)}',
+            titleBuilder: (l) =>
+                '${titleBuilder(l)}•${FormatUtils.date(l.date)}',
             subtitleBuilder: subtitleBuilder,
             onTap: () => onTap(flat[i]),
             onConfirmDelete: onConfirmDelete == null
@@ -191,14 +192,31 @@ class _FuelRecordRow extends StatelessWidget {
     this.onDelete,
   });
 
-  TextStyle get _valueStyle => const TextStyle(
-    fontSize: TimingTokens.recordValueFontSize,
-    color: AppColors.textPrimary,
-    height: 1,
-  );
+  TextStyle? _valueStyle(BuildContext context, {FontWeight? fontWeight}) {
+    return AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordValueFontSize,
+      fontWeight: fontWeight,
+      height: 1,
+      color: AppColors.textPrimary,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordTitleFontSize,
+      height: TimingTokens.recordTitleLineHeight,
+      color: AppColors.textPrimary,
+    );
+    final subTitleStyle = AppTypography.body(
+      context,
+      fontSize: TimingTokens.recordSubTitleFontSize,
+      height: 1,
+      color: AppColors.textPrimary,
+    );
+
     final content = Material(
       color: SheetColors.background,
       child: InkWell(
@@ -225,21 +243,10 @@ class _FuelRecordRow extends StatelessWidget {
                         titleBuilder(log),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: TimingTokens.recordTitleFontSize,
-                          color: AppColors.textPrimary,
-                          height: TimingTokens.recordTitleLineHeight,
-                        ),
+                        style: titleStyle,
                       ),
                       const SizedBox(height: TimingTokens.recordSubTitleTopGap),
-                      Text(
-                        subtitleBuilder(log),
-                        style: const TextStyle(
-                          fontSize: TimingTokens.recordSubTitleFontSize,
-                          color: AppColors.textPrimary,
-                          height: 1,
-                        ),
-                      ),
+                      Text(subtitleBuilder(log), style: subTitleStyle),
                     ],
                   ),
                 ),
@@ -250,10 +257,13 @@ class _FuelRecordRow extends StatelessWidget {
                   children: [
                     Text(
                       '${FormatUtils.liters(log.liters)} L',
-                      style: _valueStyle,
+                      style: _valueStyle(context),
                     ),
                     const SizedBox(height: TimingTokens.recordValueBottomGap),
-                    Text(FormatUtils.money(log.cost), style: _valueStyle),
+                    Text(
+                      FormatUtils.money(log.cost),
+                      style: _valueStyle(context, fontWeight: FontWeight.w700),
+                    ),
                   ],
                 ),
               ],
