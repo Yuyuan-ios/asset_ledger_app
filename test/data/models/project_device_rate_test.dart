@@ -13,6 +13,7 @@ void main() {
       expect(rate.toMap(), {
         'project_key': 'Alice||Yard A',
         'device_id': 2,
+        'is_breaking': 0,
         'rate': 150.5,
       });
     });

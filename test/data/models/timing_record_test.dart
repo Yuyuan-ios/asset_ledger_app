@@ -58,6 +58,7 @@ void main() {
         'hours': 0.0,
         'income': 1200.0,
         'exclude_from_fuel_eff': 1,
+        'is_breaking': 0,
       });
 
       final rebuilt = TimingRecord.fromMap({
