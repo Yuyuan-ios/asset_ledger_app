@@ -12,7 +12,7 @@ class RecordsTitle extends StatelessWidget {
     final titleStyle = AppTypography.sectionTitle(
       context,
       fontSize: TimingTokens.recordsTitleFontSize,
-      fontWeight: FontWeight.w700,
+      fontWeight: TimingTokens.recordsTitleFontWeight,
       color: AppColors.textPrimary,
       height: TimingTokens.recordsTitleLineHeight,
     );

@@ -20,6 +20,7 @@ import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../patterns/device/device_picker_pattern.dart';
+import '../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../components/fields/app_date_field.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
@@ -215,36 +216,6 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
   // ============================== 五、UI 小组件 ==============================
   // =====================================================================
 
-  Widget _field({
-    required TextEditingController controller,
-    required String label,
-    TextInputType? keyboardType,
-    String? hint,
-  }) {
-    final fieldTextStyle = AppTypography.body(context, color: Colors.black);
-    final labelStyle = AppTypography.bodySecondary(
-      context,
-      color: Colors.black,
-    );
-    final hintStyle = AppTypography.caption(
-      context,
-      color: Colors.grey.shade600,
-    );
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: fieldTextStyle,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: labelStyle,
-        hintText: hint,
-        hintStyle: hintStyle,
-        border: const OutlineInputBorder(),
-        isDense: true,
-      ),
-    );
-  }
-
   // =====================================================================
   // ============================== 六、build：表单内容 ==============================
   // =====================================================================
@@ -314,10 +285,10 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                   const SizedBox(height: 12),
 
                   // 5) 金额
-                  _field(
+                  SheetTextFieldPattern(
                     controller: _amountCtrl,
-                    label: '金额（元）',
-                    hint: '例如：980.0',
+                    labelText: '金额（元）',
+                    hintText: '例如：980.0',
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -325,10 +296,10 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                   const SizedBox(height: 12),
 
                   // 6) 备注
-                  _field(
+                  SheetTextFieldPattern(
                     controller: _noteCtrl,
-                    label: '备注（可填）',
-                    hint: '例如：含工时/含配件',
+                    labelText: '备注（可填）',
+                    hintText: '例如：含工时/含配件',
                   ),
                 ],
               ),

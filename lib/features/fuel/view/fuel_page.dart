@@ -5,11 +5,8 @@ import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../core/foundation/typography.dart';
-import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
-import '../../../data/models/timing_record.dart';
 import '../../../data/services/fuel_suggest_service.dart';
-import '../../../data/services/timing_service.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../patterns/fuel/fuel_home_pattern.dart';
@@ -25,7 +22,7 @@ import '../../../patterns/fuel/fuel_efficiency_summary_pattern.dart';
 import '../../../patterns/fuel/fuel_recent_records_pattern.dart';
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/fuel/fuel_supplier_filter_pattern.dart';
-import '../../../patterns/device/device_picker_pattern.dart';
+import '../../../patterns/device/device_picker_items_builder.dart';
 
 class FuelPage extends StatefulWidget {
   const FuelPage({super.key});
@@ -37,77 +34,6 @@ class FuelPage extends StatefulWidget {
 class _FuelPageState extends State<FuelPage> {
   final _supplierFilterCtrl = TextEditingController();
   String _supplierFilter = '';
-
-  List<DevicePickerItemVm> _buildDevicePickerItems({
-    required List<Device> activeDevices,
-    required List<Device> allDevices,
-    required List<TimingRecord> records,
-    int? selectedId,
-  }) {
-    final items = <DevicePickerItemVm>[];
-    final activeIds = <int>{};
-
-    for (final d in activeDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      activeIds.add(id);
-      final meter = TimingService.currentMeter(
-        records,
-        id,
-        baseMeterHours: d.baseMeterHours,
-      );
-      final meterText = FormatUtils.meter(meter);
-      items.add(
-        DevicePickerItemVm(
-          id: id,
-          label: '${d.name}（码表 $meterText h）',
-          enabled: true,
-        ),
-      );
-    }
-
-    if (selectedId != null && !activeIds.contains(selectedId)) {
-      final selected = allDevices.firstWhere(
-        (d) => d.id == selectedId,
-        orElse: () => const Device(
-          id: -1,
-          name: '未知设备',
-          brand: '',
-          defaultUnitPrice: 0,
-          baseMeterHours: 0,
-          isActive: false,
-        ),
-      );
-      final labelId = selected.id ?? selectedId;
-      if (labelId >= 0) {
-        final meter = TimingService.currentMeter(
-          records,
-          labelId,
-          baseMeterHours: selected.baseMeterHours,
-        );
-        final meterText = FormatUtils.meter(meter);
-        items.insert(
-          0,
-          DevicePickerItemVm(
-            id: labelId,
-            label: '${selected.name}（已停用 · 码表 $meterText h）',
-            enabled: false,
-          ),
-        );
-      } else {
-        items.insert(
-          0,
-          DevicePickerItemVm(
-            id: selectedId,
-            label: '未知设备（已停用）',
-            enabled: false,
-          ),
-        );
-      }
-    }
-
-    return items;
-  }
 
   @override
   void dispose() {
@@ -136,61 +62,48 @@ class _FuelPageState extends State<FuelPage> {
     final timingStore = context.read<TimingStore>();
     final fuelStore = context.read<FuelStore>();
     final formKey = GlobalKey<FuelDetailContentState>();
-    final deviceById = <int, Device>{};
-    for (final d in deviceStore.allDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      deviceById[id] = d;
-    }
-    final deviceItems = _buildDevicePickerItems(
+    final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       records: timingStore.records,
       selectedId: editing?.deviceId,
     );
 
-    await showModalBottomSheet<void>(
+    await openEditorSheet<void>(
       context: context,
-      isScrollControlled: true,
+      title: editing == null ? '新增燃油' : '编辑燃油',
       useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return AppBottomSheetShell(
-          title: editing == null ? '新增燃油' : '编辑燃油',
-          scrollable: false,
-          contentPadding: EdgeInsets.zero,
-          onCancel: () => Navigator.of(ctx).pop(),
-          onConfirm: () => formKey.currentState?.submit(),
-          child: FuelDetailContent(
-            key: formKey,
-            editing: editing,
-            logs: fuelStore.logs,
-            activeDevices: deviceStore.activeDevices,
-            deviceById: deviceById,
-            deviceItems: deviceItems,
-            supplierSuggestions: (q) => FuelSuggestService.supplierSuggestions(
-              fuelStore.logs,
-              q,
-              limit: 9999,
-            ),
-            onToast: _toast,
-            onSubmit: (log) async {
-              if (log.id == null) {
-                await fuelStore.insert(log);
-              } else {
-                await fuelStore.update(log);
-              }
-
-              if (!mounted) return;
-              final feedback = storeActionFeedback(fuelStore, action: '保存');
-              _toast(feedback.message);
-              if (!feedback.isSuccess) {
-                return;
-              }
-              if (!ctx.mounted) return;
-              Navigator.of(ctx).pop();
-            },
+      onConfirm: () => formKey.currentState?.submit(),
+      childBuilder: (ctx) {
+        return FuelDetailContent(
+          key: formKey,
+          editing: editing,
+          logs: fuelStore.logs,
+          activeDevices: deviceStore.activeDevices,
+          deviceById: editorContext.deviceById,
+          deviceItems: editorContext.deviceItems,
+          supplierSuggestions: (q) => FuelSuggestService.supplierSuggestions(
+            fuelStore.logs,
+            q,
+            limit: 9999,
           ),
+          onToast: _toast,
+          onSubmit: (log) async {
+            if (log.id == null) {
+              await fuelStore.insert(log);
+            } else {
+              await fuelStore.update(log);
+            }
+
+            if (!mounted) return;
+            final feedback = storeActionFeedback(fuelStore, action: '保存');
+            _toast(feedback.message);
+            if (!feedback.isSuccess) {
+              return;
+            }
+            if (!ctx.mounted) return;
+            Navigator.of(ctx).pop();
+          },
         );
       },
     );

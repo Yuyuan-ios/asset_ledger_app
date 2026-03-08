@@ -17,12 +17,9 @@ import '../../../core/foundation/spacing.dart';
 import '../../../core/foundation/typography.dart';
 
 import '../../../data/models/maintenance_record.dart';
-import '../../../data/models/device.dart';
-import '../../../data/models/timing_record.dart';
 
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/services/timing_service.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
@@ -35,11 +32,12 @@ import '../../../patterns/maintenance/maintenance_detail_content_pattern.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
+import '../../../components/feedback/app_records_empty_hint.dart';
 
 import '../../../features/device/state/device_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../timing/state/timing_store.dart';
-import '../../../patterns/device/device_picker_pattern.dart';
+import '../../../patterns/device/device_picker_items_builder.dart';
 
 // =====================================================================
 // ============================== 二、页面入口 ==============================
@@ -57,76 +55,6 @@ class MaintenancePage extends StatefulWidget {
 // =====================================================================
 
 class _MaintenancePageState extends State<MaintenancePage> {
-  List<DevicePickerItemVm> _buildDevicePickerItems({
-    required List<Device> activeDevices,
-    required List<Device> allDevices,
-    required List<TimingRecord> records,
-    int? selectedId,
-  }) {
-    final items = <DevicePickerItemVm>[];
-    final activeIds = <int>{};
-
-    for (final d in activeDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      activeIds.add(id);
-      final meter = TimingService.currentMeter(
-        records,
-        id,
-        baseMeterHours: d.baseMeterHours,
-      );
-      final meterText = FormatUtils.meter(meter);
-      items.add(
-        DevicePickerItemVm(
-          id: id,
-          label: '${d.name}（码表 $meterText h）',
-          enabled: true,
-        ),
-      );
-    }
-
-    if (selectedId != null && !activeIds.contains(selectedId)) {
-      final selected = allDevices.firstWhere(
-        (d) => d.id == selectedId,
-        orElse: () => const Device(
-          id: -1,
-          name: '未知设备',
-          brand: '',
-          defaultUnitPrice: 0,
-          baseMeterHours: 0,
-          isActive: false,
-        ),
-      );
-      final labelId = selected.id ?? selectedId;
-      if (labelId >= 0) {
-        final meter = TimingService.currentMeter(
-          records,
-          labelId,
-          baseMeterHours: selected.baseMeterHours,
-        );
-        final meterText = FormatUtils.meter(meter);
-        items.insert(
-          0,
-          DevicePickerItemVm(
-            id: labelId,
-            label: '${selected.name}（已停用 · 码表 $meterText h）',
-            enabled: false,
-          ),
-        );
-      } else {
-        items.insert(
-          0,
-          DevicePickerItemVm(
-            id: selectedId,
-            label: '未知设备（已停用）',
-            enabled: false,
-          ),
-        );
-      }
-    }
-
-    return items;
-  }
   // =====================================================================
   // ============================== 五、通用 toast ==============================
   // =====================================================================
@@ -151,13 +79,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final timingStore = context.read<TimingStore>();
     final maintenanceStore = context.read<MaintenanceStore>();
     final formKey = GlobalKey<MaintenanceDetailContentState>();
-    final deviceById = <int, Device>{};
-    for (final d in deviceStore.allDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      deviceById[id] = d;
-    }
-    final deviceItems = _buildDevicePickerItems(
+    final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       records: timingStore.records,
@@ -179,52 +101,45 @@ class _MaintenancePageState extends State<MaintenancePage> {
       return results;
     }
 
-    await showModalBottomSheet<void>(
+    await openEditorSheet<void>(
       context: context,
-      isScrollControlled: true,
+      title: editing == null ? '新建维保' : '编辑维保',
       useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return AppBottomSheetShell(
-          title: editing == null ? '新建维保' : '编辑维保',
-          scrollable: false,
-          contentPadding: EdgeInsets.zero,
-          dividerToContentGap: 8,
-          onCancel: () => Navigator.of(ctx).pop(),
-          onConfirm: () => formKey.currentState?.submit(),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: MaintenanceDetailContent(
-              key: formKey,
-              editing: editing,
-              deviceById: deviceById,
-              deviceItems: deviceItems,
-              itemSuggestions: itemSuggestions,
+      dividerToContentGap: 8,
+      onConfirm: () => formKey.currentState?.submit(),
+      childBuilder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: MaintenanceDetailContent(
+            key: formKey,
+            editing: editing,
+            deviceById: editorContext.deviceById,
+            deviceItems: editorContext.deviceItems,
+            itemSuggestions: itemSuggestions,
 
-              // 取消：Page 负责 pop
-              onCancel: () => Navigator.of(ctx).pop(),
+            // 取消：Page 负责 pop
+            onCancel: () => Navigator.of(ctx).pop(),
 
-              // toast：统一走 Page
-              onToast: _toast,
+            // toast：统一走 Page
+            onToast: _toast,
 
-              // ✅ 保存：Page 负责落库 + toast + pop（与 Account/Fuel/Timing 统一）
-              onSubmit: (record) async {
-                await maintenanceStore.save(record);
+            // ✅ 保存：Page 负责落库 + toast + pop（与 Account/Fuel/Timing 统一）
+            onSubmit: (record) async {
+              await maintenanceStore.save(record);
 
-                if (!mounted) return;
+              if (!mounted) return;
 
-                final feedback = storeActionFeedback(
-                  maintenanceStore,
-                  action: '保存',
-                );
-                _toast(feedback.message);
-                if (!feedback.isSuccess) {
-                  return;
-                }
-                if (!ctx.mounted) return;
-                Navigator.of(ctx).pop();
-              },
-            ),
+              final feedback = storeActionFeedback(
+                maintenanceStore,
+                action: '保存',
+              );
+              _toast(feedback.message);
+              if (!feedback.isSuccess) {
+                return;
+              }
+              if (!ctx.mounted) return;
+              Navigator.of(ctx).pop();
+            },
           ),
         );
       },
@@ -388,16 +303,6 @@ class _MaintenancePageState extends State<MaintenancePage> {
   Widget _buildList() {
     final store = context.watch<MaintenanceStore>();
     final deviceStore = context.watch<DeviceStore>();
-    final emptyTitleStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: TimingTokens.emptyStateTitleFontSize,
-      color: TimingColors.textSecondary,
-    );
-    final emptySubtitleStyle = AppTypography.caption(
-      context,
-      fontSize: TimingTokens.emptyStateSubtitleFontSize,
-      color: TimingColors.textTertiary,
-    );
     final rowTitleStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.recordTitleFontSize,
@@ -428,16 +333,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     if (records.isEmpty) {
       return Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpace.xxl),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('暂无记录', style: emptyTitleStyle),
-              const SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
-              Text('点击右上角 + 新建', style: emptySubtitleStyle),
-            ],
-          ),
-        ),
+        child: const AppRecentRecordsEmptyState(),
       );
     }
 

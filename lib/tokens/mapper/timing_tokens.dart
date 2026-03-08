@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// Timing 弹窗专用 token（仅放业务特有，不放通用 sheet/field）
 class TimingTokens {
   // ===== 计时主页：页面容器与整体间距 =====
@@ -49,6 +51,7 @@ class TimingTokens {
 
   // ===== 计时主页：最近记录标题与列表 =====
   static const double recordsTitleFontSize = 18; // 最近记录标题字号
+  static const FontWeight recordsTitleFontWeight = FontWeight.w700; // 最近记录标题字重
   static const double recordsTitleLineHeight = 1; // 最近记录标题行高
   static const double emptyStateHeight = 180; // 空态区域高度
   static const double emptyStateTitleFontSize = 13; // 空态主文案字号
