@@ -13,6 +13,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../tokens/mapper/spacing_tokens.dart';
+
 import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
 import '../../data/models/maintenance_record.dart';
@@ -251,7 +253,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                       });
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: SpaceTokens.md),
 
                   // 2) 设备（公共支出时灰掉）
                   IgnorePointer(
@@ -268,11 +270,11 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: SpaceTokens.md),
 
                   // 3) 日期
                   SheetDateField(controller: _dateCtrl, onPickDate: _pickDate),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: SpaceTokens.md),
 
                   // 4) 事项
                   AutoSuggestField(
@@ -282,7 +284,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                     suggestionsBuilder: widget.itemSuggestions,
                     onSelected: (v) => _itemCtrl.text = v,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: SpaceTokens.md),
 
                   // 5) 金额
                   SheetTextFieldPattern(
@@ -293,7 +295,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                       decimal: true,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: SpaceTokens.md),
 
                   // 6) 备注
                   SheetTextFieldPattern(

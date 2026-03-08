@@ -7,6 +7,7 @@ import '../../core/utils/format_utils.dart';
 import '../../features/account/state/account_store.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
+import '../../tokens/mapper/spacing_tokens.dart';
 
 const Offset _overviewChartShadowOffset = Offset(3, 4);
 
@@ -189,21 +190,21 @@ class AccountOverviewCard extends StatelessWidget {
                           FormatUtils.money(vm.totalReceivable),
                           bodyStyle,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: SpaceTokens.sm),
                         _kv(
                           context,
                           '已收',
                           FormatUtils.money(vm.totalReceived),
                           bodyStyle,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: SpaceTokens.sm),
                         _kv(
                           context,
                           '剩余',
                           FormatUtils.money(vm.totalRemaining),
                           bodyStyle,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: SpaceTokens.sm),
                         _kv(
                           context,
                           '回款',
