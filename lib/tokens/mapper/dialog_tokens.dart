@@ -7,4 +7,8 @@ class DialogTokens {
   static const double deviceEditorInsetHorizontal = 8;
   static const double deviceEditorInsetVertical = 24;
   static const double deviceEditorMaxHeightRatio = 0.74;
+  static const double deviceEditorContentPadLeft = 24;
+  static const double deviceEditorContentPadTop = 8;
+  static const double deviceEditorContentPadRight = 24;
+  static const double deviceEditorContentPadBottom = 0;
 }

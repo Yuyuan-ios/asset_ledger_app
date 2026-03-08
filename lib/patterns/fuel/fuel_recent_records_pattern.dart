@@ -7,6 +7,7 @@ import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 import '../../core/utils/format_utils.dart';
+import '../../components/feedback/app_records_empty_hint.dart';
 import '../timing/records_title_pattern.dart';
 
 typedef DeleteFuelRecordCallback = Future<bool> Function(FuelLog log);
@@ -106,31 +107,8 @@ class _FuelGroupedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final emptyTitleStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: TimingTokens.emptyStateTitleFontSize,
-      color: TimingColors.textSecondary,
-    );
-    final emptySubtitleStyle = AppTypography.caption(
-      context,
-      fontSize: TimingTokens.emptyStateSubtitleFontSize,
-      color: TimingColors.textTertiary,
-    );
-
     if (logs.isEmpty) {
-      return SizedBox(
-        height: TimingTokens.emptyStateHeight,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('暂无记录', style: emptyTitleStyle),
-              const SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
-              Text('点击右上角 + 新建', style: emptySubtitleStyle),
-            ],
-          ),
-        ),
-      );
+      return const AppRecentRecordsEmptyState();
     }
 
     final grouped = <int, List<FuelLog>>{};

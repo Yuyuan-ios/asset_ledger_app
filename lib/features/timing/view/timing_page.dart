@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/utils/device_maps.dart';
 import '../../../core/utils/device_label.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/models/device.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/timing_suggest_service.dart';
-import '../../../data/services/timing_service.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
@@ -19,7 +17,7 @@ import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/timing/recent_records_pattern.dart';
-import '../../../patterns/device/device_picker_pattern.dart';
+import '../../../patterns/device/device_picker_items_builder.dart';
 
 class TimingPage extends StatefulWidget {
   const TimingPage({super.key});
@@ -29,77 +27,6 @@ class TimingPage extends StatefulWidget {
 }
 
 class _TimingPageState extends State<TimingPage> {
-  List<DevicePickerItemVm> _buildDevicePickerItems({
-    required List<Device> activeDevices,
-    required List<Device> allDevices,
-    required List<TimingRecord> records,
-    int? selectedId,
-  }) {
-    final items = <DevicePickerItemVm>[];
-    final activeIds = <int>{};
-
-    for (final d in activeDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      activeIds.add(id);
-      final meter = TimingService.currentMeter(
-        records,
-        id,
-        baseMeterHours: d.baseMeterHours,
-      );
-      final meterText = FormatUtils.meter(meter);
-      items.add(
-        DevicePickerItemVm(
-          id: id,
-          label: '${d.name}（码表 $meterText h）',
-          enabled: true,
-        ),
-      );
-    }
-
-    if (selectedId != null && !activeIds.contains(selectedId)) {
-      final selected = allDevices.firstWhere(
-        (d) => d.id == selectedId,
-        orElse: () => const Device(
-          id: -1,
-          name: '未知设备',
-          brand: '',
-          defaultUnitPrice: 0,
-          baseMeterHours: 0,
-          isActive: false,
-        ),
-      );
-      final labelId = selected.id ?? selectedId;
-      if (labelId >= 0) {
-        final meter = TimingService.currentMeter(
-          records,
-          labelId,
-          baseMeterHours: selected.baseMeterHours,
-        );
-        final meterText = FormatUtils.meter(meter);
-        items.insert(
-          0,
-          DevicePickerItemVm(
-            id: labelId,
-            label: '${selected.name}（已停用 · 码表 $meterText h）',
-            enabled: false,
-          ),
-        );
-      } else {
-        items.insert(
-          0,
-          DevicePickerItemVm(
-            id: selectedId,
-            label: '未知设备（已停用）',
-            enabled: false,
-          ),
-        );
-      }
-    }
-
-    return items;
-  }
-
   void _toast(String msg) {
     if (!mounted) return;
     AppToast.show(context, msg);
@@ -108,69 +35,53 @@ class _TimingPageState extends State<TimingPage> {
   Future<void> _retryLoad() async {
     final timingStore = context.read<TimingStore>();
     final deviceStore = context.read<DeviceStore>();
-    await Future.wait([
-      timingStore.loadAll(),
-      deviceStore.loadAll(),
-    ]);
+    await Future.wait([timingStore.loadAll(), deviceStore.loadAll()]);
   }
 
   Future<void> _openTimingEditor({TimingRecord? editing}) async {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
     final formKey = GlobalKey<TimingDetailContentState>();
-    final deviceById = <int, Device>{};
-    for (final d in deviceStore.allDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      deviceById[id] = d;
-    }
-    final deviceItems = _buildDevicePickerItems(
+    final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       records: timingStore.records,
       selectedId: editing?.deviceId,
     );
 
-    await showModalBottomSheet<void>(
+    await openEditorSheet<void>(
       context: context,
-      isScrollControlled: true,
+      title: editing == null ? '新建计时' : '编辑计时',
       useSafeArea: false,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return AppBottomSheetShell(
-          title: editing == null ? '新建计时' : '编辑计时',
-          scrollable: false,
-          contentPadding: EdgeInsets.zero,
-          onCancel: () => Navigator.of(context).pop(),
-          onConfirm: () => formKey.currentState?.submit(),
-          child: TimingDetailContent(
-            key: formKey,
-            editing: editing,
-            records: timingStore.records,
-            activeDevices: deviceStore.activeDevices,
-            deviceById: deviceById,
-            deviceItems: deviceItems,
-            contactSuggestions:
-                (query) => TimingSuggestService.contactSuggestions(
-                  timingStore.records,
-                  query,
-                ),
-            siteSuggestions:
-                (query) =>
-                    TimingSuggestService.siteSuggestions(timingStore.records, query),
-            onToast: _toast,
-            onSubmit: (record) async {
-              await timingStore.save(record);
-              if (!mounted) return;
+      onConfirm: () => formKey.currentState?.submit(),
+      childBuilder: (sheetContext) {
+        return TimingDetailContent(
+          key: formKey,
+          editing: editing,
+          records: timingStore.records,
+          activeDevices: deviceStore.activeDevices,
+          deviceById: editorContext.deviceById,
+          deviceItems: editorContext.deviceItems,
+          contactSuggestions: (query) =>
+              TimingSuggestService.contactSuggestions(
+                timingStore.records,
+                query,
+              ),
+          siteSuggestions: (query) =>
+              TimingSuggestService.siteSuggestions(timingStore.records, query),
+          onToast: _toast,
+          onSubmit: (record) async {
+            await timingStore.save(record);
+            if (!mounted) return;
 
-              final feedback = storeActionFeedback(timingStore, action: '保存');
-              _toast(feedback.message);
-              if (!feedback.isSuccess) {
-                return;
-              }
-              Navigator.of(context).pop();
-            },
-          ),
+            final feedback = storeActionFeedback(timingStore, action: '保存');
+            _toast(feedback.message);
+            if (!feedback.isSuccess) {
+              return;
+            }
+            if (!sheetContext.mounted) return;
+            Navigator.of(sheetContext).pop();
+          },
         );
       },
     );
@@ -212,16 +123,11 @@ class _TimingPageState extends State<TimingPage> {
     final deviceStore = context.watch<DeviceStore>();
 
     final loading = timingStore.loading || deviceStore.loading;
-    final error = firstStoreErrorMessage(
-      [timingStore, deviceStore],
-      action: '读取',
-    );
-    final deviceById = <int, Device>{};
-    for (final d in deviceStore.allDevices) {
-      final id = d.id;
-      if (id == null) continue;
-      deviceById[id] = d;
-    }
+    final error = firstStoreErrorMessage([
+      timingStore,
+      deviceStore,
+    ], action: '读取');
+    final deviceById = buildDeviceByIdMap(deviceStore.allDevices);
     final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
 
     return TimingHomePattern(

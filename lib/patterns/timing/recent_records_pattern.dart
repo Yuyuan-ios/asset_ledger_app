@@ -7,6 +7,7 @@ import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 import '../../core/utils/format_utils.dart';
 import '../../components/avatars/app_device_avatar.dart';
+import '../../components/feedback/app_records_empty_hint.dart';
 
 typedef DeleteRecordCallback = Future<bool> Function(TimingRecord record);
 
@@ -58,37 +59,12 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final visibleRecords = widget.records
         .where((r) => !_locallyRemovedKeys.contains(_recordKey(r)))
         .toList();
 
     if (visibleRecords.isEmpty) {
-      return SizedBox(
-        height: TimingTokens.emptyStateHeight,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '暂无记录',
-                style: textTheme.bodyMedium?.copyWith(
-                  fontSize: TimingTokens.emptyStateTitleFontSize,
-                  color: TimingColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: TimingTokens.emptyStateSubtitleTopGap),
-              Text(
-                '点击右上角 + 新建',
-                style: textTheme.bodySmall?.copyWith(
-                  fontSize: TimingTokens.emptyStateSubtitleFontSize,
-                  color: TimingColors.textTertiary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const AppRecentRecordsEmptyState();
     }
 
     final grouped = <int, List<TimingRecord>>{};

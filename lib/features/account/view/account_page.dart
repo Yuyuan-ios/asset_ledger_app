@@ -16,26 +16,20 @@ import 'package:provider/provider.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
-import '../../../data/models/project_key.dart';
-import '../../../data/models/timing_record.dart';
 
 // ------------------------------ UI / Utils ------------------------------
-import '../../../core/utils/form_feedback.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/interaction_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../core/foundation/typography.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
-import '../../../patterns/account/project_account_detail_content_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/account_tokens.dart';
 import '../../../patterns/account/account_overview_card_pattern.dart';
-import '../../../patterns/account/account_project_list_pattern.dart';
+import '../../../patterns/account/account_project_detail_sheet_pattern.dart';
+import '../../../patterns/account/account_project_section_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../components/feedback/store_error_banner.dart';
-import '../../../components/fields/app_auto_suggest_field.dart';
-import '../../../data/services/account_service.dart';
 
 // ------------------------------ Stores ------------------------------
 import '../../../features/account/state/account_payment_store.dart';
@@ -44,30 +38,9 @@ import '../../../features/account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
 import '../../../features/timing/state/timing_store.dart';
-
-// =====================================================================
-// 重要：BottomSheet/Dialog 返回值类型必须放文件顶层（不能放进 State）
-// =====================================================================
-
-/// 项目筛选结果的类型
-enum _ProjectFilterResultType { ok, clear, cancel }
-
-/// 项目筛选弹窗返回值
-class _ProjectFilterResult {
-  final _ProjectFilterResultType type;
-  final String keyword;
-
-  const _ProjectFilterResult._(this.type, this.keyword);
-
-  const _ProjectFilterResult.clear()
-    : this._(_ProjectFilterResultType.clear, '');
-
-  const _ProjectFilterResult.cancel()
-    : this._(_ProjectFilterResultType.cancel, '');
-
-  _ProjectFilterResult.ok(String k)
-    : this._(_ProjectFilterResultType.ok, k.trim());
-}
+import 'dialogs/account_payment_editor_dialog.dart';
+import 'dialogs/account_project_filter_sheet.dart';
+import 'dialogs/account_rate_dialogs.dart';
 
 // =====================================================================
 // ============================== 页面入口 ==============================
@@ -134,7 +107,7 @@ class _AccountPageState extends State<AccountPage> {
     final payment = await showDialog<AccountPayment>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _PaymentEditorDialog(
+      builder: (_) => AccountPaymentEditorDialog(
         project: project,
         allPayments: allPayments,
         editing: editing,
@@ -193,10 +166,10 @@ class _AccountPageState extends State<AccountPage> {
                 first.defaultUnitPrice)
             .round();
 
-    final newRate = await showDialog<_BatchRateUpdate>(
+    final newRate = await showDialog<AccountBatchRateUpdate>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _RateBatchDialog(
+      builder: (_) => AccountRateBatchDialog(
         title: '批量修改单价：${p.displayName}',
         deviceCount: usedDevices.length,
         initialDiggingRateInt: initDigging,
@@ -290,7 +263,7 @@ class _AccountPageState extends State<AccountPage> {
     final newRate = await showDialog<double>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _RateSingleDialog(
+      builder: (_) => AccountRateSingleDialog(
         title: isBreaking ? '编辑破碎单价：${p.displayName}' : '编辑单价：${p.displayName}',
         deviceName: isBreaking ? '${device.name} · 破碎' : device.name,
         initialRateInt: current,
@@ -306,11 +279,7 @@ class _AccountPageState extends State<AccountPage> {
 
       const eps = 0.05;
       if ((newRate - modeDefaultRate).abs() <= eps) {
-        await rateStore.delete(
-          p.projectKey,
-          deviceId,
-          isBreaking: isBreaking,
-        );
+        await rateStore.delete(p.projectKey, deviceId, isBreaking: isBreaking);
       } else {
         await rateStore.upsert(
           ProjectDeviceRate(
@@ -366,15 +335,10 @@ class _AccountPageState extends State<AccountPage> {
   }) async {
     final filterStore = context.read<AccountFilterStore>();
 
-    final result = await showModalBottomSheet<_ProjectFilterResult>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ProjectFilterSheet(
-        initialKeyword: filterStore.projectFilterKeyword,
-        suggestions: suggestions,
-      ),
+    final result = await showAccountProjectFilterSheet(
+      context,
+      initialKeyword: filterStore.projectFilterKeyword,
+      suggestions: suggestions,
     );
 
     if (!mounted || result == null) return;
@@ -386,15 +350,15 @@ class _AccountPageState extends State<AccountPage> {
     });
   }
 
-  void _applyProjectFilterResult(_ProjectFilterResult result) {
+  void _applyProjectFilterResult(AccountProjectFilterResult result) {
     final filterStore = context.read<AccountFilterStore>();
 
     switch (result.type) {
-      case _ProjectFilterResultType.clear:
+      case AccountProjectFilterResultType.clear:
         filterStore.clearProjectFilter();
         _toast(filterStatusMessage(cleared: true, hasActiveFilter: false));
         break;
-      case _ProjectFilterResultType.ok:
+      case AccountProjectFilterResultType.ok:
         filterStore.setProjectFilterKeyword(result.keyword);
         _toast(
           filterStatusMessage(
@@ -403,7 +367,7 @@ class _AccountPageState extends State<AccountPage> {
           ),
         );
         break;
-      case _ProjectFilterResultType.cancel:
+      case AccountProjectFilterResultType.cancel:
         // 取消：不修改 store
         break;
     }
@@ -418,125 +382,20 @@ class _AccountPageState extends State<AccountPage> {
   // - 同时把“新增收款”限定为项目内模式：传 pNow 给 _openPaymentEditor
   //
   void _openProjectDetail(AccountProjectVM p) {
-    final projectKey = p.projectKey;
-
-    showModalBottomSheet<void>(
+    openEditorSheet<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) {
-        final timingStore = sheetCtx.watch<TimingStore>();
-        final deviceStore = sheetCtx.watch<DeviceStore>();
-        final paymentStore = sheetCtx.watch<AccountPaymentStore>();
-        final rateStore = sheetCtx.watch<ProjectRateStore>();
-        final accountStore = sheetCtx.read<AccountStore>();
-
-        final timing = timingStore.records;
-        final devicesAll = deviceStore.allDevices;
-        final paymentsAll = paymentStore.records;
-        final ratesAll = rateStore.rates;
-
-        final computed = accountStore.compute(
-          timingRecords: timing,
-          devices: devicesAll,
-          rates: ratesAll,
-          payments: paymentsAll,
-        );
-
-        final hit = computed.projects
-            .where((e) => e.projectKey == projectKey)
-            .toList();
-
-        if (hit.isEmpty) {
-          return const AppBottomSheetShell(
-            title: '项目详情',
-            child: Padding(
-              padding: EdgeInsets.all(SpaceTokens.pagePadding),
-              child: Text('项目不存在或已被清理'),
-            ),
-          );
-        }
-
-        final pNow = hit.first;
-
-        // 设备：只取项目涉及的设备
-        final usedDevices = devicesAll
-            .where((d) => d.id != null && pNow.deviceIds.contains(d.id!))
-            .toList();
-
-        // 项目设备工时拆分（普通/破碎）
-        final normalHoursByDevice = <int, double>{};
-        final breakingHoursByDevice = <int, double>{};
-        for (final r in timing) {
-          if (r.type != TimingType.hours) continue;
-          final key = ProjectKey.buildKey(
-            contact: r.contact.trim(),
-            site: r.site.trim(),
-          );
-          if (key != pNow.projectKey) continue;
-
-          final target = r.isBreaking
-              ? breakingHoursByDevice
-              : normalHoursByDevice;
-          target[r.deviceId] = (target[r.deviceId] ?? 0.0) + r.hours;
-        }
-
-        // 项目覆盖单价：只取该项目
-        final deviceRates = <int, double>{};
-        final breakingDeviceRates = <int, double>{};
-        for (final r in ratesAll) {
-          if (r.projectKey != pNow.projectKey) continue;
-          if (r.isBreaking) {
-            breakingDeviceRates[r.deviceId] = r.rate;
-          } else {
-            deviceRates[r.deviceId] = r.rate;
-          }
-        }
-
-        return AppBottomSheetShell(
-          title: '项目详情',
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AccountTokens.projectDetailContentInset,
-          ),
-          child: ProjectAccountDetailContent(
-            title: pNow.displayName,
-            minYmd: pNow.minYmd,
-            devices: usedDevices,
-            deviceRates: deviceRates,
-            breakingDeviceRates: breakingDeviceRates,
-            normalHoursByDevice: normalHoursByDevice,
-            breakingHoursByDevice: breakingHoursByDevice,
-            receivable: pNow.receivable,
-            remaining: pNow.remaining,
-            payments: pNow.payments,
-
-            // 单价
-            onBatchEditRate: () => _openBatchRateEditor(
-              pNow,
-              devicesAll,
-              ratesAll,
-            ),
-            onEditDeviceRate: (deviceId, isBreaking) => _openSingleRateEditor(
-              pNow,
-              deviceId,
-              isBreaking,
-              devicesAll,
-              ratesAll,
-            ),
-
-            // 收款（项目内模式：不再让用户选项目）
-            onAddPayment: () =>
-                _openPaymentEditor(project: pNow, allPayments: paymentsAll),
-            onEditPayment: (pay) => _openPaymentEditor(
-              project: pNow,
-              allPayments: paymentsAll,
-              editing: pay,
-            ),
-            onDeletePayment: (pay) => _deletePayment(pay),
-          ),
-        );
-      },
+      title: '项目详情',
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AccountTokens.projectDetailContentInset,
+      ),
+      childBuilder: (_) => AccountProjectDetailSheet(
+        projectKey: p.projectKey,
+        onBatchEditRate: _openBatchRateEditor,
+        onEditDeviceRate: _openSingleRateEditor,
+        onAddPayment: _openPaymentEditor,
+        onEditPayment: _openPaymentEditor,
+        onDeletePayment: _deletePayment,
+      ),
     );
   }
 
@@ -643,85 +502,16 @@ class _AccountPageState extends State<AccountPage> {
                               const SizedBox(
                                 height: AccountTokens.projectTitleTopGap,
                               ),
-                              Row(
-                                children: [
-                                  Text(
-                                    '项目(${filteredProjects.length})',
-                                    style: AppTypography.sectionTitle(
-                                      context,
-                                      fontSize:
-                                          AccountTokens.projectTitleFontSize,
-                                      fontWeight:
-                                          AccountTokens.projectTitleWeight,
-                                      height:
-                                          AccountTokens.projectTitleLineHeight,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  if (hasActiveFilter)
-                                    TextButton(
-                                      onPressed: () =>
-                                          _applyProjectFilterResult(
-                                            const _ProjectFilterResult.clear(),
-                                          ),
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.only(
-                                          right: AccountTokens
-                                              .projectFilterRightInset,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        foregroundColor: AppColors.brand
-                                            .withValues(alpha: 0.8),
-                                      ),
-                                      child: Text(
-                                        '取消筛选',
-                                        style: AppTypography.actionText(
-                                          context,
-                                          fontSize: AccountTokens
-                                              .projectFilterFontSize,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ),
-                                  if (!hasActiveFilter)
-                                    TextButton(
-                                      onPressed: () => _openProjectFilterSheet(
-                                        suggestions: projectSuggestions,
-                                      ),
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.only(
-                                          right: AccountTokens
-                                              .projectFilterRightInset,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        foregroundColor: AppColors.brand
-                                            .withValues(alpha: 0.8),
-                                      ),
-                                      child: Text(
-                                        '筛选',
-                                        style: AppTypography.actionText(
-                                          context,
-                                          fontSize: AccountTokens
-                                              .projectFilterFontSize,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(
-                                height: AccountTokens.projectListTopGap,
-                              ),
-                              AccountProjectList(
+                              AccountProjectSection(
                                 projects: filteredProjects,
-                                onTap: _openProjectDetail,
-                              ),
-                              const SizedBox(
-                                height: AccountTokens.homeBottomGap,
+                                hasActiveFilter: hasActiveFilter,
+                                onOpenFilter: () => _openProjectFilterSheet(
+                                  suggestions: projectSuggestions,
+                                ),
+                                onClearFilter: () => _applyProjectFilterResult(
+                                  const AccountProjectFilterResult.clear(),
+                                ),
+                                onTapProject: _openProjectDetail,
                               ),
                             ],
                           ),
@@ -735,559 +525,6 @@ class _AccountPageState extends State<AccountPage> {
           },
         ),
       ),
-    );
-  }
-}
-
-// =====================================================================
-// ============================== I) 项目筛选 Sheet（controller 归属组件） ==============================
-// =====================================================================
-//
-// 关键：controller 在 State 内创建/释放，不要在 open 方法里 new+dispose
-//
-class _ProjectFilterSheet extends StatefulWidget {
-  const _ProjectFilterSheet({
-    required this.initialKeyword,
-    required this.suggestions,
-  });
-
-  final String initialKeyword;
-  final List<String> suggestions;
-
-  @override
-  State<_ProjectFilterSheet> createState() => _ProjectFilterSheetState();
-}
-
-class _ProjectFilterSheetState extends State<_ProjectFilterSheet> {
-  late final TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.initialKeyword);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _close(_ProjectFilterResult r) {
-    FocusScope.of(context).unfocus();
-    Navigator.of(context).pop(r);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    List<String> buildSuggestions(String q) {
-      final query = q.trim();
-      if (query.isEmpty) return widget.suggestions;
-      return widget.suggestions
-          .where((s) => s.contains(query))
-          .toList(growable: false);
-    }
-
-    return AppBottomSheetShell(
-      title: '筛选项目',
-      scrollable: false,
-      contentPadding: EdgeInsets.zero,
-      onCancel: () => _close(const _ProjectFilterResult.cancel()),
-      onConfirm: () => _close(_ProjectFilterResult.ok(_ctrl.text)),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, top: 0),
-            child: Column(
-              children: [
-                AutoSuggestField(
-                  controller: _ctrl,
-                  label: '关键词（联系人 / 工地）',
-                  hint: '例如：王涛 / 修文 / 地铁站',
-                  suggestionsBuilder: buildSuggestions,
-                  onSelected: (v) => _ctrl.text = v,
-                ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => _close(const _ProjectFilterResult.clear()),
-                    child: const Text('清空'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-        ],
-      ),
-    );
-  }
-}
-
-// =====================================================================
-// ============================== J) 收款弹窗（项目内模式：无项目选择） ==============================
-// =====================================================================
-//
-// 本弹窗只用于【某个项目详情】里新增/编辑收款。
-// - 项目固定：project.projectKey
-// - UI 不展示项目输入框，避免误选/多项目歧义
-// - 校验：不允许“累计实收 > 应收”
-//
-class _PaymentEditorDialog extends StatefulWidget {
-  const _PaymentEditorDialog({
-    required this.project,
-    required this.allPayments,
-    this.editing,
-  });
-
-  /// 当前项目（由项目详情页传入）
-  final AccountProjectVM project;
-
-  /// 全部收款记录（用于计算“已实收”并做超额校验）
-  final List<AccountPayment> allPayments;
-
-  /// 编辑态（null 表示新增）
-  final AccountPayment? editing;
-
-  @override
-  State<_PaymentEditorDialog> createState() => _PaymentEditorDialogState();
-}
-
-class _PaymentEditorDialogState extends State<_PaymentEditorDialog> {
-  late final TextEditingController _dateCtrl;
-  late final TextEditingController _amountCtrl;
-  late final TextEditingController _noteCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-
-    final editing = widget.editing;
-
-    // 日期：新增默认今天；编辑回显原值
-    _dateCtrl = TextEditingController(
-      text: editing == null
-          ? FormatUtils.todayDisplayDate()
-          : FormatUtils.date(editing.ymd),
-    );
-
-    // 金额：编辑回显整数；新增空
-    _amountCtrl = TextEditingController(
-      text: editing == null ? '' : editing.amount.round().toString(),
-    );
-
-    // 备注：编辑回显；新增空
-    _noteCtrl = TextEditingController(text: editing?.note ?? '');
-  }
-
-  @override
-  void dispose() {
-    _dateCtrl.dispose();
-    _amountCtrl.dispose();
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  void _toastInDialog(String msg) {
-    AppToast.show(context, msg);
-  }
-
-  /// 计算：当前项目应收
-  double get _receivable => widget.project.receivable;
-
-  /// 计算：当前项目已实收（可排除正在编辑的那条）
-  double _received({int? excludePaymentId}) {
-    return AccountService.sumReceivedByProject(
-      projectKey: widget.project.projectKey,
-      payments: widget.allPayments,
-      excludePaymentId: excludePaymentId,
-    );
-  }
-
-  void _close(AccountPayment? r) {
-    // 关闭前收起键盘/输入法，减少 route 退场期间的状态抖动
-    FocusScope.of(context).unfocus();
-    Navigator.of(context).pop(r);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final project = widget.project;
-    final editing = widget.editing;
-    final titleStyle = AppTypography.sectionTitle(
-      context,
-      fontSize: AccountTokens.projectDetailSectionTitleSize,
-      fontWeight: FontWeight.w700,
-      color: AppColors.textPrimary,
-    );
-    final labelStyle = AppTypography.body(
-      context,
-      fontWeight: FontWeight.w500,
-      color: AppColors.textPrimary,
-    );
-    final helperStyle = AppTypography.caption(
-      context,
-      color: Colors.grey.shade700,
-    );
-
-    return AlertDialog(
-      title: Text(editing == null ? '新增收款' : '编辑收款', style: titleStyle),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            // ✅ 项目固定：只展示，不可编辑
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('项目：${project.displayName}', style: labelStyle),
-            ),
-            const SizedBox(height: 10),
-
-            TextField(
-              controller: _dateCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: FormatUtils.ymdInputLabel,
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            TextField(
-              controller: _amountCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '金额（整数）',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            TextField(
-              controller: _noteCtrl,
-              decoration: const InputDecoration(
-                labelText: '备注（可填）',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '应收：${FormatUtils.money(_receivable)}'
-                '，已收：${FormatUtils.money(_received(excludePaymentId: editing?.id))}',
-                style: helperStyle,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => _close(null),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
-          ),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            // 1) 约束：编辑态必须属于当前项目（防止误调用）
-            if (editing != null && editing.projectKey != project.projectKey) {
-              _toastInDialog(formValidationMessage('编辑记录不属于当前项目'));
-              return;
-            }
-
-            // 2) 日期校验
-            final ymd = FormatUtils.parseDate(_dateCtrl.text);
-            if (ymd == null) {
-              _toastInDialog(formValidationMessage(FormatUtils.ymdInvalidMsg));
-              return;
-            }
-
-            // 3) 金额校验
-            final amtInt = int.tryParse(_amountCtrl.text.trim());
-            if (amtInt == null || amtInt <= 0) {
-              _toastInDialog(formValidationMessage('金额必须是 > 0 的整数'));
-              return;
-            }
-            final amt = amtInt.toDouble();
-
-            // 4) 超额校验：累计实收 <= 应收
-            final receivedExcluding = _received(excludePaymentId: editing?.id);
-            final after = receivedExcluding + amt;
-
-            const eps = 0.05;
-            if (after > _receivable + eps) {
-              final remain = _receivable - receivedExcluding;
-              _toastInDialog(
-                formValidationMessage(
-                  '超出剩余应收（剩余约 ${FormatUtils.money(remain)}）',
-                ),
-              );
-              return;
-            }
-
-            // 5) 构建 Payment（项目固定，不可更改）
-            final pay = AccountPayment(
-              id: editing?.id,
-              projectKey: project.projectKey,
-              ymd: ymd,
-              amount: amt,
-              note: _noteCtrl.text.trim().isEmpty
-                  ? null
-                  : _noteCtrl.text.trim(),
-            );
-
-            _close(pay);
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    );
-  }
-}
-
-// =====================================================================
-// ============================== K) 批量单价弹窗（controller 归属组件） ==============================
-// =====================================================================
-
-class _BatchRateUpdate {
-  final double diggingRate;
-  final double breakingRate;
-
-  const _BatchRateUpdate({
-    required this.diggingRate,
-    required this.breakingRate,
-  });
-}
-
-class _RateBatchDialog extends StatefulWidget {
-  const _RateBatchDialog({
-    required this.title,
-    required this.deviceCount,
-    required this.initialDiggingRateInt,
-    required this.initialBreakingRateInt,
-  });
-
-  final String title;
-  final int deviceCount;
-  final int initialDiggingRateInt;
-  final int initialBreakingRateInt;
-
-  @override
-  State<_RateBatchDialog> createState() => _RateBatchDialogState();
-}
-
-class _RateBatchDialogState extends State<_RateBatchDialog> {
-  late final TextEditingController _diggingCtrl;
-  late final TextEditingController _breakingCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _diggingCtrl = TextEditingController(
-      text: widget.initialDiggingRateInt.toString(),
-    );
-    _breakingCtrl = TextEditingController(
-      text: widget.initialBreakingRateInt.toString(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _diggingCtrl.dispose();
-    _breakingCtrl.dispose();
-    super.dispose();
-  }
-
-  void _close(_BatchRateUpdate? r) {
-    FocusScope.of(context).unfocus();
-    Navigator.of(context).pop(r);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final titleStyle = AppTypography.sectionTitle(
-      context,
-      fontSize: AccountTokens.projectDetailSectionTitleSize,
-      fontWeight: FontWeight.w700,
-      color: AppColors.textPrimary,
-    );
-    final bodyStyle = AppTypography.body(context, color: AppColors.textPrimary);
-    final helperStyle = AppTypography.caption(
-      context,
-      color: Colors.grey.shade700,
-    );
-    return AlertDialog(
-      title: Text(widget.title, style: titleStyle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('设备数：${widget.deviceCount} 台', style: bodyStyle),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _diggingCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '挖斗统一单价（整数）',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _breakingCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '破碎统一单价（整数）',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n'
-            '若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。',
-            style: helperStyle,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => _close(null),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
-          ),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final diggingInt = int.tryParse(_diggingCtrl.text.trim());
-            final breakingInt = int.tryParse(_breakingCtrl.text.trim());
-            if (diggingInt == null || diggingInt <= 0) return;
-            if (breakingInt == null || breakingInt <= 0) return;
-            _close(
-              _BatchRateUpdate(
-                diggingRate: diggingInt.toDouble(),
-                breakingRate: breakingInt.toDouble(),
-              ),
-            );
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    );
-  }
-}
-
-// =====================================================================
-// ============================== L) 单台单价弹窗（controller 归属组件） ==============================
-// =====================================================================
-
-class _RateSingleDialog extends StatefulWidget {
-  const _RateSingleDialog({
-    required this.title,
-    required this.deviceName,
-    required this.initialRateInt,
-  });
-
-  final String title;
-  final String deviceName;
-  final int initialRateInt;
-
-  @override
-  State<_RateSingleDialog> createState() => _RateSingleDialogState();
-}
-
-class _RateSingleDialogState extends State<_RateSingleDialog> {
-  late final TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.initialRateInt.toString());
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _close(double? r) {
-    FocusScope.of(context).unfocus();
-    Navigator.of(context).pop(r);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final titleStyle = AppTypography.sectionTitle(
-      context,
-      fontSize: AccountTokens.projectDetailSectionTitleSize,
-      fontWeight: FontWeight.w700,
-      color: AppColors.textPrimary,
-    );
-    final bodyStyle = AppTypography.body(context, color: AppColors.textPrimary);
-    final helperStyle = AppTypography.caption(
-      context,
-      color: Colors.grey.shade700,
-    );
-    return AlertDialog(
-      title: Text(widget.title, style: titleStyle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.deviceName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: bodyStyle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 140,
-                child: TextField(
-                  controller: _ctrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '单价',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text('提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。', style: helperStyle),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => _close(null),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
-          ),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final vInt = int.tryParse(_ctrl.text.trim());
-            if (vInt == null || vInt <= 0) return;
-            _close(vInt.toDouble());
-          },
-          child: const Text('确定'),
-        ),
-      ],
     );
   }
 }

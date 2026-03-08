@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/device.dart';
-import '../../core/foundation/radius.dart';
-import '../../core/foundation/spacing.dart';
+import '../../tokens/mapper/core_tokens.dart';
 
 /// ================================================================
 /// 品牌选择器：国家分组 + ListView + GridView + CircleAvatar
@@ -337,9 +336,9 @@ class BrandPickerGrouped extends StatelessWidget {
     super.key,
     required this.selectedBrandValue,
     required this.onSelected,
-    this.crossAxisCount = 5,
-    this.avatarRadius = 22,
-    this.spacing = 10,
+    this.crossAxisCount = DeviceTokens.brandPickerDefaultCrossAxisCount,
+    this.avatarRadius = DeviceTokens.brandPickerDefaultAvatarRadius,
+    this.spacing = DeviceTokens.brandPickerDefaultGridSpacing,
     this.equipmentTypeFilter,
   });
 
@@ -352,30 +351,34 @@ class BrandPickerGrouped extends StatelessWidget {
     return ListView(
       // ListView 自己滚动，所以内部 GridView 必须禁用滚动（见 _BrandGrid）
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.md,
-        vertical: AppSpace.sm,
+        horizontal: DeviceTokens.brandPickerListPadHorizontal,
+        vertical: DeviceTokens.brandPickerListPadVertical,
       ),
       children: [
         // 按枚举顺序输出分组：国家标题 + grid
         for (final c in BrandCountry.values)
           if (groups[c]!.isNotEmpty) ...[
-          _CountryHeader(title: c.label),
-          const SizedBox(height: 8),
+            _CountryHeader(title: c.label),
+            const SizedBox(
+              height: DeviceTokens.brandPickerCountryHeaderBottomGap,
+            ),
 
-          // 每个国家分组的网格
-          // - items: 该国家下的品牌
-          _BrandGrid(
-            items: groups[c]!,
-            selectedBrandValue: selectedBrandValue,
-            onSelected: onSelected,
-            crossAxisCount: crossAxisCount,
-            avatarRadius: avatarRadius,
-            spacing: spacing,
-          ),
+            // 每个国家分组的网格
+            // - items: 该国家下的品牌
+            _BrandGrid(
+              items: groups[c]!,
+              selectedBrandValue: selectedBrandValue,
+              onSelected: onSelected,
+              crossAxisCount: crossAxisCount,
+              avatarRadius: avatarRadius,
+              spacing: spacing,
+            ),
 
-          // 分组之间的间距
-          const SizedBox(height: 16),
-        ],
+            // 分组之间的间距
+            const SizedBox(
+              height: DeviceTokens.brandPickerCountryGroupBottomGap,
+            ),
+          ],
       ],
     );
   }
@@ -396,21 +399,23 @@ class _CountryHeader extends StatelessWidget {
       children: [
         // 左侧颜色条：用 primary 色，和你的主题一致
         Container(
-          width: 4,
-          height: 16,
+          width: DeviceTokens.brandPickerCountryMarkerWidth,
+          height: DeviceTokens.brandPickerCountryMarkerHeight,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.chip),
+            borderRadius: BorderRadius.circular(
+              DeviceTokens.brandPickerCountryMarkerRadius,
+            ),
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: DeviceTokens.brandPickerCountryMarkerToTitleGap),
 
         // 分组标题：例如“中国 / 日本 / 美国 / 韩国”
         Text(
           title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: DeviceTokens.brandPickerCountryTitleWeight,
+          ),
         ),
       ],
     );
@@ -476,7 +481,9 @@ class _BrandGrid extends StatelessWidget {
 
         return InkWell(
           // InkWell 的水波纹也要跟卡片圆角一致
-          borderRadius: BorderRadius.circular(AppRadius.xl),
+          borderRadius: BorderRadius.circular(
+            DeviceTokens.brandPickerItemInkRadius,
+          ),
 
           // 点击把 BrandItem 回传给外部
           // - 外部通常会：setState(() => selectedBrand = item.value)
@@ -488,14 +495,18 @@ class _BrandGrid extends StatelessWidget {
             children: [
               // 外层 circle：用于画“选中态边框”
               Container(
-                padding: const EdgeInsets.all(AppSpace.xxs),
+                padding: const EdgeInsets.all(
+                  DeviceTokens.brandPickerItemOuterPad,
+                ),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
 
                   // 选中态：加粗 + primary
                   // 未选中：细边 + dividerColor
                   border: Border.all(
-                    width: selected ? 2.2 : 1,
+                    width: selected
+                        ? DeviceTokens.brandPickerItemSelectedBorderWidth
+                        : DeviceTokens.brandPickerItemUnselectedBorderWidth,
                     color: selected
                         ? Theme.of(context).colorScheme.primary
                         : Theme.of(context).dividerColor,
@@ -514,9 +525,10 @@ class _BrandGrid extends StatelessWidget {
               ),
 
               // 品牌显示名：支持两行，超出用省略号
-              const SizedBox(height: 6),
+              const SizedBox(height: DeviceTokens.brandPickerItemLabelTopGap),
               SizedBox(
-                height: 34, // 固定文字区高度（两行）
+                height:
+                    DeviceTokens.brandPickerItemLabelBoxHeight, // 固定文字区高度（两行）
                 child: Center(
                   child: Text(
                     item.name,
@@ -525,8 +537,10 @@ class _BrandGrid extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      height: 1.1,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      height: DeviceTokens.brandPickerItemLabelLineHeight,
+                      fontWeight: selected
+                          ? DeviceTokens.brandPickerItemLabelSelectedWeight
+                          : DeviceTokens.brandPickerItemLabelUnselectedWeight,
                     ),
                   ),
                 ),

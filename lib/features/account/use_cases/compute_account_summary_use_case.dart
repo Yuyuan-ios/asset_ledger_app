@@ -3,6 +3,7 @@ import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/account_service.dart';
+import '../../../core/utils/device_maps.dart';
 import '../state/account_store.dart';
 
 class ComputeAccountSummaryUseCase {
@@ -63,7 +64,9 @@ class ComputeAccountSummaryUseCase {
           remaining: money.remaining,
           ratio: money.ratio,
           payments:
-              payments.where((payment) => payment.projectKey == agg.projectKey).toList()
+              payments
+                  .where((payment) => payment.projectKey == agg.projectKey)
+                  .toList()
                 ..sort((a, b) => b.ymd.compareTo(a.ymd)),
         ),
       );
@@ -74,39 +77,32 @@ class ComputeAccountSummaryUseCase {
         ? null
         : (totalReceived / totalReceivable);
 
-    final deviceById = <int, Device>{};
-    for (final device in devices) {
-      final id = device.id;
-      if (id == null) continue;
-      deviceById[id] = device;
-    }
+    final deviceById = buildDeviceByIdMap(devices);
 
     final deviceReceivables =
-        receivableByDevice.entries
-            .where((entry) => entry.value > 0)
-            .map((entry) {
-              final device =
-                  deviceById[entry.key] ??
-                  Device(
-                    id: entry.key,
-                    name: '设备#${entry.key}',
-                    brand: '',
-                    defaultUnitPrice: 0,
-                    baseMeterHours: 0,
-                    isActive: false,
-                  );
-              return AccountDeviceReceivable(
-                deviceId: entry.key,
-                name: device.name,
-                amount: entry.value,
+        receivableByDevice.entries.where((entry) => entry.value > 0).map((
+          entry,
+        ) {
+          final device =
+              deviceById[entry.key] ??
+              Device(
+                id: entry.key,
+                name: '设备#${entry.key}',
+                brand: '',
+                defaultUnitPrice: 0,
+                baseMeterHours: 0,
+                isActive: false,
               );
-            })
-            .toList()
-          ..sort((a, b) {
-            final byLength = a.name.length.compareTo(b.name.length);
-            if (byLength != 0) return byLength;
-            return a.name.compareTo(b.name);
-          });
+          return AccountDeviceReceivable(
+            deviceId: entry.key,
+            name: device.name,
+            amount: entry.value,
+          );
+        }).toList()..sort((a, b) {
+          final byLength = a.name.length.compareTo(b.name.length);
+          if (byLength != 0) return byLength;
+          return a.name.compareTo(b.name);
+        });
 
     return AccountComputed(
       projects: items,

@@ -3,6 +3,61 @@ import '../../core/foundation/radius.dart' as foundation;
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
+Future<T?> showAppBottomSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = true,
+  bool useSafeArea = true,
+  Color backgroundColor = Colors.transparent,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: isScrollControlled,
+    useSafeArea: useSafeArea,
+    backgroundColor: backgroundColor,
+    builder: builder,
+  );
+}
+
+/// 编辑类 BottomSheet 的统一打开入口。
+///
+/// 目的：
+/// 1) 统一 `showAppBottomSheet + AppBottomSheetShell` 调用样板代码
+/// 2) 页面仅关注业务 child 与 onConfirm 提交逻辑
+Future<T?> openEditorSheet<T>({
+  required BuildContext context,
+  required String title,
+  required WidgetBuilder childBuilder,
+  VoidCallback? onConfirm,
+  void Function(BuildContext sheetContext)? onCancel,
+  bool useSafeArea = true,
+  bool scrollable = false,
+  EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
+  double dividerToContentGap = BottomSheetTokens.dividerToContentGap,
+}) {
+  return showAppBottomSheet<T>(
+    context: context,
+    useSafeArea: useSafeArea,
+    builder: (sheetContext) {
+      return AppBottomSheetShell(
+        title: title,
+        scrollable: scrollable,
+        contentPadding: contentPadding,
+        dividerToContentGap: dividerToContentGap,
+        onCancel: () {
+          if (onCancel != null) {
+            onCancel(sheetContext);
+            return;
+          }
+          Navigator.of(sheetContext).pop();
+        },
+        onConfirm: onConfirm,
+        child: childBuilder(sheetContext),
+      );
+    },
+  );
+}
+
 /// 通用 BottomSheet 壳（Shell）
 ///
 /// 设计目标：
