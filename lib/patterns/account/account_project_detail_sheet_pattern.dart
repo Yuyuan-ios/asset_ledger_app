@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/project_key.dart';
 import '../../data/models/timing_record.dart';
-import '../../features/account/state/account_payment_store.dart';
 import '../../features/account/state/account_store.dart';
-import '../../features/account/state/project_rate_store.dart';
-import '../../features/device/state/device_store.dart';
-import '../../features/timing/state/timing_store.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'project_account_detail_content_pattern.dart';
 
@@ -43,6 +38,11 @@ class AccountProjectDetailSheet extends StatelessWidget {
   const AccountProjectDetailSheet({
     super.key,
     required this.projectKey,
+    required this.timingRecords,
+    required this.allDevices,
+    required this.allPayments,
+    required this.allRates,
+    required this.computed,
     required this.onBatchEditRate,
     required this.onEditDeviceRate,
     required this.onAddPayment,
@@ -51,6 +51,11 @@ class AccountProjectDetailSheet extends StatelessWidget {
   });
 
   final String projectKey;
+  final List<TimingRecord> timingRecords;
+  final List<Device> allDevices;
+  final List<AccountPayment> allPayments;
+  final List<ProjectDeviceRate> allRates;
+  final AccountComputed computed;
   final AccountOpenBatchRateEditor onBatchEditRate;
   final AccountOpenSingleRateEditor onEditDeviceRate;
   final AccountOpenPaymentEditor onAddPayment;
@@ -59,24 +64,6 @@ class AccountProjectDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timingStore = context.watch<TimingStore>();
-    final deviceStore = context.watch<DeviceStore>();
-    final paymentStore = context.watch<AccountPaymentStore>();
-    final rateStore = context.watch<ProjectRateStore>();
-    final accountStore = context.read<AccountStore>();
-
-    final timing = timingStore.records;
-    final devicesAll = deviceStore.allDevices;
-    final paymentsAll = paymentStore.records;
-    final ratesAll = rateStore.rates;
-
-    final computed = accountStore.compute(
-      timingRecords: timing,
-      devices: devicesAll,
-      rates: ratesAll,
-      payments: paymentsAll,
-    );
-
     final hit = computed.projects
         .where((project) => project.projectKey == projectKey)
         .toList();
@@ -89,7 +76,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     }
 
     final project = hit.first;
-    final usedDevices = devicesAll
+    final usedDevices = allDevices
         .where(
           (device) =>
               device.id != null && project.deviceIds.contains(device.id!),
@@ -98,7 +85,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
 
     final normalHoursByDevice = <int, double>{};
     final breakingHoursByDevice = <int, double>{};
-    for (final record in timing) {
+    for (final record in timingRecords) {
       if (record.type != TimingType.hours) continue;
       final key = ProjectKey.buildKey(
         contact: record.contact.trim(),
@@ -113,7 +100,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
 
     final deviceRates = <int, double>{};
     final breakingDeviceRates = <int, double>{};
-    for (final rate in ratesAll) {
+    for (final rate in allRates) {
       if (rate.projectKey != project.projectKey) continue;
       if (rate.isBreaking) {
         breakingDeviceRates[rate.deviceId] = rate.rate;
@@ -133,14 +120,14 @@ class AccountProjectDetailSheet extends StatelessWidget {
       receivable: project.receivable,
       remaining: project.remaining,
       payments: project.payments,
-      onBatchEditRate: () => onBatchEditRate(project, devicesAll, ratesAll),
+      onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
       onEditDeviceRate: (deviceId, isBreaking) =>
-          onEditDeviceRate(project, deviceId, isBreaking, devicesAll, ratesAll),
+          onEditDeviceRate(project, deviceId, isBreaking, allDevices, allRates),
       onAddPayment: () =>
-          onAddPayment(project: project, allPayments: paymentsAll),
+          onAddPayment(project: project, allPayments: allPayments),
       onEditPayment: (payment) => onEditPayment(
         project: project,
-        allPayments: paymentsAll,
+        allPayments: allPayments,
         editing: payment,
       ),
       onDeletePayment: onDeletePayment,

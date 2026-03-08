@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/timing_record.dart';
 
 // ------------------------------ UI / Utils ------------------------------
 import '../../../core/utils/format_utils.dart';
@@ -381,7 +382,14 @@ class _AccountPageState extends State<AccountPage> {
   // - 这里用 sheetCtx.watch(...)：保证详情里“保存/删除/改单价”后自动刷新 UI
   // - 同时把“新增收款”限定为项目内模式：传 pNow 给 _openPaymentEditor
   //
-  void _openProjectDetail(AccountProjectVM p) {
+  void _openProjectDetail(
+    AccountProjectVM p,
+    List<TimingRecord> timing,
+    List<Device> devices,
+    List<AccountPayment> payments,
+    List<ProjectDeviceRate> rates,
+    AccountComputed computed,
+  ) {
     openEditorSheet<void>(
       context: context,
       title: '项目详情',
@@ -390,6 +398,11 @@ class _AccountPageState extends State<AccountPage> {
       ),
       childBuilder: (_) => AccountProjectDetailSheet(
         projectKey: p.projectKey,
+        timingRecords: timing,
+        allDevices: devices,
+        allPayments: payments,
+        allRates: rates,
+        computed: computed,
         onBatchEditRate: _openBatchRateEditor,
         onEditDeviceRate: _openSingleRateEditor,
         onAddPayment: _openPaymentEditor,
@@ -511,7 +524,14 @@ class _AccountPageState extends State<AccountPage> {
                                 onClearFilter: () => _applyProjectFilterResult(
                                   const AccountProjectFilterResult.clear(),
                                 ),
-                                onTapProject: _openProjectDetail,
+                                onTapProject: (p) => _openProjectDetail(
+                                  p,
+                                  timing,
+                                  devices,
+                                  payments,
+                                  rates,
+                                  computed,
+                                ),
                               ),
                             ],
                           ),
