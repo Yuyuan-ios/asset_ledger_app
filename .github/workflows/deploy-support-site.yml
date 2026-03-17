@@ -1,42 +1,30 @@
-name: Deploy Support Site
+name: Flutter CI
 
 on:
   push:
-    branches:
-      - main
-      - master
-    paths:
-      - 'support-site/**'
-      - '.github/workflows/deploy-support-site.yml'
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: support-site-pages
-  cancel-in-progress: true
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload support site artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          path: support-site
+          flutter-version: '3.38.5'
+          channel: stable
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      # - name: Test
+      #   run: flutter test
