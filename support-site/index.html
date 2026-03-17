@@ -112,6 +112,11 @@
         padding-left: 20px;
       }
 
+      .card p + p,
+      .card p + ul {
+        margin-top: 12px;
+      }
+
       .channel-list,
       .related-links {
         display: grid;
@@ -203,7 +208,13 @@
         <article class="card">
           <h2>产品简介</h2>
           <p>
-            机账通是一款面向工程机械经营场景的记录与管理工具，帮助用户集中管理设备工时、燃油消耗、项目收支、维保明细与设备信息。
+            机账通，是我这个天天跟挖机打交道的老司机，专门为咱们工程机械人打磨的随身账本与应收款管理工具。
+          </p>
+          <p>
+            干咱们这行的，谁没在行业寒冬里熬得不容易？年底对账时一边发愁收款，一边还要反复核对油钱、工时、项目款，生怕漏记错记；家里老婆等着开销，哪笔钱还没收回来，还要不停去翻历史记录。就连每台车维修花了多少、是否影响效率、值不值得继续折腾，也常常心里没数。
+          </p>
+          <p>
+            所以我做了这款机账通，就是想帮大家把账算明白、把应收款理清楚。工时、油费随手记录，项目收支与未收款项一目了然，再也不用为了对账翻遍笔记；多台设备维修费用清晰可查，每台车成本与效率心中有数。在不容易的日子里，让大家更专注、更高效地面对项目应收款，把精力用在真正重要的地方。
           </p>
         </article>
 
@@ -213,9 +224,9 @@
             <div class="channel-item">
               <div>
                 <strong>开发者邮箱</strong>
-                <span id="support-email-text">support@example.com</span>
+                <span id="support-email-text">582748196@qq.com</span>
               </div>
-              <a class="link-button" id="support-email-link" href="mailto:support@example.com">
+              <a class="link-button" id="support-email-link" href="mailto:582748196@qq.com">
                 发送邮件
               </a>
             </div>
@@ -245,7 +256,7 @@
             <div class="channel-item" id="douyin-row">
               <div>
                 <strong>抖音账号</strong>
-                <span id="douyin-text">@你的抖音账号</span>
+                <span id="douyin-text">@开挖机的coder</span>
               </div>
               <a class="link-button" id="douyin-link" href="#" target="_blank" rel="noreferrer">
                 查看账号
@@ -266,12 +277,12 @@
             <div class="related-link">
               <div>
                 <strong>隐私政策</strong>
-                <span>建议替换为正式公开地址，用于用户查看数据处理与隐私说明。</span>
+                <span>公开说明机账通在 iOS 与 Android 平台上的数据处理方式、权限用途、保留与删除规则。</span>
               </div>
               <a
                 class="link-button"
                 id="privacy-link"
-                href="https://example.com/privacy-policy"
+                href="./privacy.html"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -281,12 +292,12 @@
             <div class="related-link">
               <div>
                 <strong>使用条款</strong>
-                <span>建议替换为正式公开地址，用于展示产品使用规则与服务说明。</span>
+                <span>公开说明产品功能边界、用户责任、付费能力、免责范围与联系信息。</span>
               </div>
               <a
                 class="link-button"
                 id="terms-link"
-                href="https://example.com/terms-of-service"
+                href="./terms.html"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -311,13 +322,13 @@
         const description =
           config.description ||
           '机账通技术支持页面，提供产品简介、联系方式、反馈说明、响应说明及相关链接。';
-        const supportEmail = config.supportEmail || 'support@example.com';
+        const supportEmail = config.supportEmail || '582748196@qq.com';
         const supportEmailSubject = config.supportEmailSubject || '机账通｜支持与反馈';
         const privacyPolicyUrl =
-          config.privacyPolicyUrl || 'https://example.com/privacy-policy';
+          config.privacyPolicyUrl || './privacy.html';
         const termsOfServiceUrl =
-          config.termsOfServiceUrl || 'https://example.com/terms-of-service';
-        const douyinHandle = config.douyinHandle || '@你的抖音账号';
+          config.termsOfServiceUrl || './terms.html';
+        const douyinHandle = config.douyinHandle || '@开挖机的coder';
         const douyinUrl = config.douyinUrl || '';
         const wechatLabel = (config.wechatLabel || '').trim();
 

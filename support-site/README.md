@@ -41,7 +41,15 @@ python3 -m http.server 8080
 https://yuyuan-ios.github.io/asset_ledger_app/
 ```
 
-5. 部署成功后，这个地址即可填入 App Store Connect 的 `Support URL`
+5. 部署成功后，以下地址即可直接使用：
+
+```text
+支持页：https://yuyuan-ios.github.io/asset_ledger_app/
+隐私政策：https://yuyuan-ios.github.io/asset_ledger_app/privacy.html
+使用条款：https://yuyuan-ios.github.io/asset_ledger_app/terms.html
+```
+
+6. 其中“支持页”地址可填入 App Store Connect 的 `Support URL`
 
 ### Vercel / Netlify
 

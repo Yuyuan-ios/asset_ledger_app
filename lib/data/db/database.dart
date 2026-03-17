@@ -3,6 +3,8 @@
 // =====================================================================
 
 // 1.1 SQLite 插件：sqflite
+import 'dart:io';
+
 import 'package:sqflite/sqflite.dart';
 
 // 1.2 路径拼接：path
@@ -50,7 +52,8 @@ class AppDatabase {
   // - v8：devices 增加 breaking_unit_price；project_device_rates 增加 is_breaking
   // - v9：devices 增加 equipment_type（excavator/loader）
   // -------------------------------------------------------------------
-  static const String _dbName = 'excavator_ledger.db';
+  static const String _dbName = 'asset_ledger.db';
+  static const List<String> _legacyDbNames = ['excavator_ledger.db'];
   static const int _dbVersion = 9;
 
   // -------------------------------------------------------------------
@@ -101,6 +104,7 @@ class AppDatabase {
 
   static Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
+    await _migrateLegacyDbFileIfNeeded(dbPath);
     final path = join(dbPath, _dbName);
 
     return openDatabase(
@@ -159,6 +163,18 @@ class AppDatabase {
     debugInitDbOverride = null;
     if (db != null) {
       await db.close();
+    }
+  }
+
+  static Future<void> _migrateLegacyDbFileIfNeeded(String dbPath) async {
+    final newDbFile = File(join(dbPath, _dbName));
+    if (await newDbFile.exists()) return;
+
+    for (final legacyDbName in _legacyDbNames) {
+      final legacyDbFile = File(join(dbPath, legacyDbName));
+      if (!await legacyDbFile.exists()) continue;
+      await legacyDbFile.rename(newDbFile.path);
+      return;
     }
   }
 }

@@ -1,4 +1,4 @@
-package com.example.excavator_ledger
+package com.example.asset_ledger
 
 import io.flutter.embedding.android.FlutterActivity
 
