@@ -97,6 +97,28 @@ void main() {
       expect(updated.customAvatarPath, isNull);
     });
 
+    test('preserves breaking price and equipment type when clearing avatar', () {
+      final updated = DeviceService.applyCustomAvatar(
+        device: const Device(
+          id: 2,
+          name: 'HITACHI 1#',
+          brand: 'HITACHI',
+          model: 'ZX60',
+          defaultUnitPrice: 120,
+          breakingUnitPrice: 180,
+          baseMeterHours: 2000,
+          equipmentType: EquipmentType.loader,
+          customAvatarPath: '/tmp/custom.png',
+        ),
+        customAvatarPath: '   ',
+      );
+
+      expect(updated.breakingUnitPrice, 180);
+      expect(updated.equipmentType, EquipmentType.loader);
+      expect(updated.model, 'ZX60');
+      expect(updated.customAvatarPath, isNull);
+    });
+
     test('writes a trimmed avatar path when the plan is pro', () {
       SubscriptionService.setPlanForDebug(Plan.pro);
 

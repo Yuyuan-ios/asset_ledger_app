@@ -15,6 +15,10 @@ Future<T?> showAppBottomSheet<T>({
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
     backgroundColor: backgroundColor,
+    sheetAnimationStyle: const AnimationStyle(
+      duration: BottomSheetTokens.animationDuration,
+      reverseDuration: BottomSheetTokens.reverseAnimationDuration,
+    ),
     builder: builder,
   );
 }

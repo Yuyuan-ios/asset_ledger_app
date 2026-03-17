@@ -1,39 +1,64 @@
-import 'package:asset_ledger/app/app.dart';
-import 'package:asset_ledger/app/app_providers.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
-import 'package:provider/provider.dart';
+
+import 'support/asset_ledger_robot.dart';
+import 'support/patrol_app_harness.dart';
 
 void main() {
   patrolTest(
-    'opens device page and device editor',
+    'adds a device and shows it in device management',
     ($) async {
-      final bundle = AppProviders.build();
+      await PatrolAppHarness.pumpFreshApp($);
+      final robot = AssetLedgerRobot($);
 
-      await $.pumpWidget(
-        MultiProvider(
-          providers: bundle.providers,
-          child: const AssetLedgerApp(),
-        ),
-      );
-      await $.pumpAndSettle();
-
-      await $.tester.tap(find.bySemanticsLabel('设备'));
-      await $.pumpAndSettle();
-
-      expect(find.textContaining('设备（'), findsOneWidget);
-      expect(find.text('暂无设备，点右下角 + 新增'), findsOneWidget);
-
-      await $.tester.tap(find.byIcon(Icons.add));
-      await $.pumpAndSettle();
-
-      expect(find.text('新增设备'), findsOneWidget);
-      expect(find.text('未选择品牌（头像）'), findsOneWidget);
-      expect(find.text('取消'), findsOneWidget);
+      await robot.addDevice();
+      expect(find.text('已新增设备'), findsOneWidget);
+      expect(find.text('1#挖掘机'), findsOneWidget);
     },
-    config: const PatrolTesterConfig(
-      visibleTimeout: Duration(seconds: 10),
-    ),
+    config: PatrolAppHarness.config,
+  );
+
+  patrolTest(
+    'adds a rent timing record and shows it in the timing list',
+    ($) async {
+      await PatrolAppHarness.pumpFreshApp($);
+      final robot = AssetLedgerRobot($);
+      await robot.addDefaultDevice();
+
+      const contact = 'Beta计时联系人';
+      const site = 'Beta测试工地';
+
+      await robot.addRentTimingRecord(
+        contact: contact,
+        site: site,
+        amount: '980',
+      );
+      expect(find.text('已保存'), findsOneWidget);
+      expect(find.text('$contact·$site'), findsOneWidget);
+      expect(find.text('¥980'), findsOneWidget);
+    },
+    config: PatrolAppHarness.config,
+  );
+
+  patrolTest(
+    'adds a fuel record and shows it in the recent records list',
+    ($) async {
+      await PatrolAppHarness.pumpFreshApp($);
+      final robot = AssetLedgerRobot($);
+      await robot.addDefaultDevice();
+
+      const supplier = 'BetaFuel供应商';
+
+      await robot.addFuelRecord(
+        supplier: supplier,
+        liters: '120',
+        amount: '980',
+      );
+      expect(find.text('已保存'), findsOneWidget);
+      expect(find.textContaining(supplier), findsOneWidget);
+      expect(find.text('120.0 L'), findsOneWidget);
+      expect(find.text('¥980'), findsOneWidget);
+    },
+    config: PatrolAppHarness.config,
   );
 }

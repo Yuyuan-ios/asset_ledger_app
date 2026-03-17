@@ -16,14 +16,13 @@ import 'package:flutter/material.dart';
 import '../../data/models/device.dart';
 import '../../data/models/fuel_log.dart';
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
-import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
-import '../../core/foundation/typography.dart';
 import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../patterns/device/device_picker_pattern.dart';
+import '../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../components/fields/app_date_field.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
 
@@ -240,75 +239,7 @@ class FuelDetailContentState extends State<FuelDetailContent> {
   }
 
   // =====================================================================
-  // 七、UI 小组件
-  // =====================================================================
-
-  Widget _field({
-    required TextEditingController controller,
-    required String label,
-    TextInputType? keyboardType,
-    String? hint,
-  }) {
-    final fieldTextStyle = AppTypography.body(
-      context,
-      fontSize: SheetTokens.fieldTextSize,
-      color: SheetColors.textPrimary,
-    );
-    final labelStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: SheetTokens.fieldLabelSize,
-      color: SheetColors.textPrimary,
-    );
-    final hintStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: SheetTokens.fieldTextSize,
-      color: SheetColors.hint,
-    );
-
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: fieldTextStyle,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: labelStyle,
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        hintText: hint,
-        hintStyle: hintStyle,
-        filled: true,
-        fillColor: SheetColors.fieldBackground,
-        constraints: const BoxConstraints(minHeight: SheetTokens.fieldHeight),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: SheetTokens.fieldContentHPadding,
-          vertical: SheetTokens.fieldContentVPadding,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-          borderSide: const BorderSide(
-            color: SheetColors.fieldBorder,
-            width: SheetTokens.fieldBorderWidth,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-          borderSide: const BorderSide(
-            color: SheetColors.fieldBorder,
-            width: SheetTokens.fieldBorderWidth,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-          borderSide: const BorderSide(
-            color: SheetColors.fieldBorder,
-            width: SheetTokens.fieldBorderWidth,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // =====================================================================
-  // 八、build：表单内容
+  // 七、build：表单内容
   // =====================================================================
 
   @override
@@ -360,24 +291,26 @@ class FuelDetailContentState extends State<FuelDetailContent> {
                     const SizedBox(height: SheetTokens.formFieldGap),
 
                     // 4) 加油量
-                    _field(
+                    SheetTextFieldPattern(
                       controller: _litersCtrl,
-                      label: '加油量（升）',
-                      hint: '例如：120.0',
+                      labelText: '加油量（升）',
+                      hintText: '例如：120.0',
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
                     const SizedBox(height: SheetTokens.formFieldGap),
 
                     // 5) 金额
-                    _field(
+                    SheetTextFieldPattern(
                       controller: _costCtrl,
-                      label: '金额（元）',
-                      hint: '例如：980.0',
+                      labelText: '金额（元）',
+                      hintText: '例如：980.0',
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
                   ],
                 ),

@@ -23,6 +23,11 @@ class UpgradePlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const compactBadgePadH = DeviceTokens.upgradeBadgePadH - 4;
+    const compactBadgePadV = DeviceTokens.upgradeBadgePadV - 4;
+    const compactBadgeRadius = DeviceTokens.upgradeBadgeRadius - 2;
+    const compactBadgeTextSize = DeviceTokens.upgradeBadgeTextSize - 4;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -48,12 +53,15 @@ class UpgradePlanCard extends StatelessWidget {
             DeviceTokens.upgradePlanPadBottom,
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
                           title,
@@ -64,56 +72,78 @@ class UpgradePlanCard extends StatelessWidget {
                             color: DeviceTokens.upgradeAccent,
                           ),
                         ),
-                        const SizedBox(
-                          width: DeviceTokens.upgradePlanTitleSubtitleGap,
-                        ),
-                        Text(
-                          subtitle1,
-                          style: AppTypography.body(
-                            context,
-                            fontSize: DeviceTokens.upgradePlanSubtitle1Size,
-                            color: DeviceTokens.upgradeSubText,
+                        if (subtitle1.isNotEmpty) ...[
+                          const SizedBox(
+                            width: DeviceTokens.upgradePlanTitleSubtitleGap,
                           ),
-                        ),
+                          Flexible(
+                            child: Text(
+                              subtitle1,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.body(
+                                context,
+                                fontSize: DeviceTokens.upgradePlanSubtitle1Size,
+                                color: DeviceTokens.upgradeSubText,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    if (subtitle2.isNotEmpty)
+                    if (subtitle2.isNotEmpty || badge != null)
                       const SizedBox(
                         height: DeviceTokens.upgradePlanSubtitle2TopGap,
                       ),
-                    Text(
-                      subtitle2,
-                      style: AppTypography.body(
-                        context,
-                        fontSize: DeviceTokens.upgradePlanSubtitle2Size,
-                        color: DeviceTokens.upgradeSubText,
+                    if (subtitle2.isNotEmpty || badge != null)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: subtitle2.isNotEmpty
+                                ? Text(
+                                    subtitle2,
+                                    style: AppTypography.body(
+                                      context,
+                                      fontSize:
+                                          DeviceTokens.upgradePlanSubtitle2Size,
+                                      color: DeviceTokens.upgradeSubText,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                          if (badge != null) ...[
+                            const SizedBox(
+                              width: DeviceTokens.upgradePlanTitleSubtitleGap,
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: compactBadgePadH,
+                                vertical: compactBadgePadV,
+                              ),
+                              decoration: BoxDecoration(
+                                color: DeviceTokens.upgradeBadgeBg,
+                                borderRadius: BorderRadius.circular(
+                                  compactBadgeRadius,
+                                ),
+                              ),
+                              child: Text(
+                                badge!,
+                                style: AppTypography.sectionTitle(
+                                  context,
+                                  fontSize: compactBadgeTextSize,
+                                  fontWeight:
+                                      DeviceTokens.upgradeBadgeTextWeight,
+                                  color: DeviceTokens.upgradeBadgeText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
                   ],
                 ),
               ),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: DeviceTokens.upgradeBadgePadH,
-                    vertical: DeviceTokens.upgradeBadgePadV,
-                  ),
-                  decoration: BoxDecoration(
-                    color: DeviceTokens.upgradeBadgeBg,
-                    borderRadius: BorderRadius.circular(
-                      DeviceTokens.upgradeBadgeRadius,
-                    ),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: AppTypography.sectionTitle(
-                      context,
-                      fontSize: DeviceTokens.upgradeBadgeTextSize,
-                      fontWeight: DeviceTokens.upgradeBadgeTextWeight,
-                      color: DeviceTokens.upgradeBadgeText,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

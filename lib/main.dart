@@ -19,7 +19,7 @@ Future<void> main() async {
     deviceStore: appProviderBundle.deviceStore,
     timingStore: appProviderBundle.timingStore,
     fuelStore: appProviderBundle.fuelStore,
-    paymentStore: appProviderBundle.paymentStore,
+    maintenanceStore: appProviderBundle.maintenanceStore,
     projectRateStore: appProviderBundle.projectRateStore,
   );
 

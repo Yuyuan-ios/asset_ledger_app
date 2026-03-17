@@ -294,6 +294,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                   ),
                   const SizedBox(height: SpaceTokens.md),
 

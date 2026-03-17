@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/models/device.dart';
+import '../../data/models/project_device_rate.dart';
 import '../../data/models/timing_record.dart';
 import '../../data/services/timing_service.dart';
 import '../../components/fields/timing_time_block.dart';
@@ -15,14 +16,33 @@ import '../../core/foundation/typography.dart';
 import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
+import '../../core/utils/text_field_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../patterns/device/device_picker_pattern.dart';
 import '../../components/fields/app_date_field.dart';
+import '../../components/feedback/app_toast_bubble.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
 
 enum WorkMode { hours, rent }
 
 enum AttachmentMode { digging, breaking }
+
+typedef TimingIncomeResolver =
+    double Function({
+      required int deviceId,
+      required String contact,
+      required String site,
+      required bool isBreaking,
+      required double hours,
+    });
+
+typedef TimingMeterBoundsValidator =
+    String? Function({
+      required int deviceId,
+      required int startDate,
+      required double endMeter,
+      int? excludeId,
+    });
 
 class TimingDetailContent extends StatefulWidget {
   const TimingDetailContent({
@@ -30,10 +50,14 @@ class TimingDetailContent extends StatefulWidget {
     this.editing,
     required this.records,
     required this.activeDevices,
+    required this.allDevices,
     required this.deviceById,
     required this.deviceItems,
+    required this.projectRates,
     required this.contactSuggestions,
     required this.siteSuggestions,
+    required this.resolveIncome,
+    required this.validateMeterBounds,
     this.onCancel,
     required this.onSubmit,
     required this.onToast,
@@ -42,10 +66,14 @@ class TimingDetailContent extends StatefulWidget {
   final TimingRecord? editing;
   final List<TimingRecord> records;
   final List<Device> activeDevices;
+  final List<Device> allDevices;
   final Map<int, Device> deviceById;
   final List<DevicePickerItemVm> deviceItems;
+  final List<ProjectDeviceRate> projectRates;
   final List<String> Function(String) contactSuggestions;
   final List<String> Function(String) siteSuggestions;
+  final TimingIncomeResolver resolveIncome;
+  final TimingMeterBoundsValidator validateMeterBounds;
   final VoidCallback? onCancel;
   final Future<void> Function(TimingRecord record) onSubmit;
   final void Function(String msg) onToast;
@@ -77,13 +105,18 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   Timer? _bottomTipTimer;
   Timer? _meterValidateTimer;
 
-  bool get _isSelectedLoader {
+  bool get _supportsBreakingMode {
+    if (_mode != WorkMode.hours) return false;
     final id = _selectedDeviceId;
     if (id == null) return false;
     final device = widget.deviceById[id];
     if (device == null) return false;
-    return device.equipmentType == EquipmentType.loader;
+    if (device.equipmentType == EquipmentType.loader) return false;
+    if ((device.breakingUnitPrice ?? 0) > 0) return true;
+    final editing = widget.editing;
+    return editing != null && editing.deviceId == id && editing.isBreaking;
   }
+
   @override
   void initState() {
     super.initState();
@@ -168,7 +201,6 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     if (mounted) {
       setState(() => _bottomTip = msg);
     }
-    widget.onToast(msg);
     _bottomTipTimer = Timer(DurationTokens.snackBar, () {
       if (!mounted) return;
       setState(() => _bottomTip = null);
@@ -306,6 +338,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
+      onTap: keyboardType == null ? null : () => selectAllIfZeroLike(controller),
       onChanged: onChanged,
       style: fieldStyle,
       decoration: _sheetDecoration(
@@ -345,9 +378,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     setState(() {});
 
-    if (_isSelectedLoader &&
-        _mode == WorkMode.hours &&
-        _attachmentMode != AttachmentMode.digging) {
+    if (!_supportsBreakingMode && _attachmentMode != AttachmentMode.digging) {
       setState(() => _attachmentMode = AttachmentMode.digging);
     }
   }
@@ -388,7 +419,21 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     }
 
     final isRent = _mode == WorkMode.rent;
-    final income = isRent ? _d(_incomeCtrl.text) : 0.0;
+    final isBreaking =
+        !isRent &&
+        _supportsBreakingMode &&
+        _attachmentMode == AttachmentMode.breaking;
+
+    final income = isRent
+        ? _d(_incomeCtrl.text)
+        : widget.resolveIncome(
+            deviceId: deviceId,
+            contact: contact,
+            site: site,
+            isBreaking: isBreaking,
+            hours: hours,
+          );
+
     if (isRent && income <= 0) {
       _toastInSheet(formValidationMessage('租金模式请填写金额（元）'));
       return;
@@ -396,37 +441,20 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final isClosed = (endMeter > startMeter) || (hours > 0);
     if (isClosed) {
-      final excludeId = widget.editing?.id;
-
-      final lower = TimingService.lowerBound(
-        records: widget.records,
+      final boundsError = widget.validateMeterBounds(
         deviceId: deviceId,
         startDate: ymd,
-        excludeId: excludeId,
+        endMeter: endMeter,
+        excludeId: widget.editing?.id,
       );
-      final upper = TimingService.upperBound(
-        records: widget.records,
-        deviceId: deviceId,
-        startDate: ymd,
-        excludeId: excludeId,
-      );
-
-      if (endMeter < lower) {
-        _toastInSheet(formValidationMessage('结束码表($endMeter) < 下界($lower)'));
-        return;
-      }
-      if (upper != double.infinity && endMeter > upper) {
-        _toastInSheet(formValidationMessage('结束码表($endMeter) > 上界($upper)'));
+      if (boundsError != null) {
+        _toastInSheet(formValidationMessage(boundsError));
         return;
       }
     }
 
     final type = isRent ? TimingType.rent : TimingType.hours;
     final excludeFuel = !isRent && _excludeFromFuelEfficiency;
-    final isBreaking =
-        !isRent &&
-        !_isSelectedLoader &&
-        _attachmentMode == AttachmentMode.breaking;
 
     final record = TimingRecord(
       id: widget.editing?.id,
@@ -538,7 +566,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (!_isSelectedLoader) ...[
+                          if (_supportsBreakingMode) ...[
                             _buildAttachmentSelector(compact: true),
                             const SizedBox(width: TimingTokens.twoColumnGap),
                           ],
@@ -596,27 +624,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     padding: const EdgeInsets.only(
                       bottom: TimingTokens.tipBottomGap,
                     ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: TimingTokens.tipHPadding,
-                        vertical: TimingTokens.tipVPadding,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.textPrimary,
-                        borderRadius: BorderRadius.circular(
-                          TimingTokens.tipRadius,
-                        ),
-                      ),
-                      child: Text(
-                        _bottomTip!,
-                        style: AppTypography.caption(
-                          context,
-                          color: Colors.white,
-                          fontSize: TimingTokens.tipTextSize,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
+                    child: AppToastBubble(_bottomTip!),
                   ),
           ),
         ],

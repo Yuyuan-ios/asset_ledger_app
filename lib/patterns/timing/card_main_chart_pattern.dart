@@ -1,55 +1,27 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
+import '../../features/timing/model/timing_chart_data.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
 class CardMainChart extends StatelessWidget {
-  const CardMainChart({super.key});
+  const CardMainChart({
+    super.key,
+    required this.data,
+    this.onPrevYear,
+    this.onNextYear,
+    this.canGoPrevYear = true,
+    this.canGoNextYear = true,
+  });
+
+  final TimingChartData data;
+  final VoidCallback? onPrevYear;
+  final VoidCallback? onNextYear;
+  final bool canGoPrevYear;
+  final bool canGoNextYear;
 
   @override
   Widget build(BuildContext context) {
-    const months = [
-      '1月',
-      '2月',
-      '3月',
-      '4月',
-      '5月',
-      '6月',
-      '7月',
-      '8月',
-      '9月',
-      '10月',
-      '11月',
-      '12月',
-    ];
-    const incomeBars = [
-      150.0,
-      150.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-    ];
-    const expenseBars = [
-      15.0,
-      75.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-    ];
     final arrowStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.chartArrowFontSize,
@@ -95,15 +67,23 @@ class CardMainChart extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('<', style: arrowStyle),
-                  Text('2026年', style: yearStyle),
-                  Text(
-                    '>',
-                    style: AppTypography.body(
-                      context,
-                      fontSize: TimingTokens.chartArrowFontSize,
-                      height: 1,
-                      color: AppColors.textPrimary,
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: canGoPrevYear ? onPrevYear : null,
+                    child: Text('<', style: arrowStyle),
+                  ),
+                  Text('${data.year}年', style: yearStyle),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: canGoNextYear ? onNextYear : null,
+                    child: Text(
+                      '>',
+                      style: AppTypography.body(
+                        context,
+                        fontSize: TimingTokens.chartArrowFontSize,
+                        height: 1,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -124,7 +104,9 @@ class CardMainChart extends StatelessWidget {
                     Expanded(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
-                        children: List.generate(months.length, (index) {
+                        children: List.generate(data.monthLabels.length, (
+                          index,
+                        ) {
                           return Expanded(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -135,7 +117,7 @@ class CardMainChart extends StatelessWidget {
                                   children: [
                                     Container(
                                       width: TimingTokens.chartBarWidth,
-                                      height: incomeBars[index],
+                                      height: data.incomeBars[index],
                                       color: TimingColors.chartIncome,
                                     ),
                                     const SizedBox(
@@ -143,7 +125,7 @@ class CardMainChart extends StatelessWidget {
                                     ),
                                     Container(
                                       width: TimingTokens.chartBarWidth,
-                                      height: expenseBars[index],
+                                      height: data.expenseBars[index],
                                       color: TimingColors.expense,
                                     ),
                                   ],
@@ -151,7 +133,7 @@ class CardMainChart extends StatelessWidget {
                                 const SizedBox(
                                   height: TimingTokens.chartMonthTopGap,
                                 ),
-                                Text(months[index], style: monthStyle),
+                                Text(data.monthLabels[index], style: monthStyle),
                               ],
                             ),
                           );
@@ -167,13 +149,13 @@ class CardMainChart extends StatelessWidget {
                           _Legend(
                             label: '收入',
                             swatchColor: TimingColors.chartIncome,
-                            value: '￥1000000',
+                            value: data.totalIncomeText,
                           ),
                           const SizedBox(width: TimingTokens.chartLegendGap),
                           _Legend(
                             label: '支出',
                             swatchColor: TimingColors.expense,
-                            value: '￥500000',
+                            value: data.totalExpenseText,
                           ),
                         ],
                       ),

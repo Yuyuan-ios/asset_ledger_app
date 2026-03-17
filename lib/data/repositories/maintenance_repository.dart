@@ -4,7 +4,7 @@ import '../models/maintenance_record.dart';
 abstract class MaintenanceRepository {
   Future<List<MaintenanceRecord>> listAll();
 
-  Future<void> insert(MaintenanceRecord record);
+  Future<int> insert(MaintenanceRecord record);
 
   Future<void> update(MaintenanceRecord record);
 
@@ -30,10 +30,10 @@ class SqfliteMaintenanceRepository implements MaintenanceRepository {
   // 新增
   // --------------------------------------------------
   @override
-  Future<void> insert(MaintenanceRecord record) async {
+  Future<int> insert(MaintenanceRecord record) async {
     final db = await AppDatabase.database;
 
-    await db.insert(_table, record.toMap()..remove('id'));
+    return db.insert(_table, record.toMap()..remove('id'));
   }
 
   // --------------------------------------------------

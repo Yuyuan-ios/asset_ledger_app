@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
 import '../../tokens/mapper/core_tokens.dart';
+import '../../tokens/mapper/sheet_tokens.dart';
 import '../layout/sheet_text_field_pattern.dart';
 
 class DeviceEditorFieldsGroup extends StatelessWidget {
@@ -26,13 +28,13 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
       children: [
         _editorField(
           controller: baseMeterController,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           labelText: '基准码表（>=0，必填）',
         ),
         const SizedBox(height: SpaceTokens.sectionGap),
         _editorField(
           controller: unitPriceController,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           labelText: '默认单价（>0，必填）',
         ),
         if (equipmentType == EquipmentType.excavator) ...[
@@ -41,6 +43,12 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
             controller: breakingUnitPriceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             labelText: '破碎单价（选填）',
+            hintText: '不填写默认没有破碎模式',
+            hintStyle: AppTypography.bodySecondary(
+              context,
+              fontSize: SheetTokens.fieldLabelSize,
+              color: SheetColors.hint,
+            ),
             alwaysShowLabel: true,
           ),
         ],
@@ -53,13 +61,16 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
   Widget _editorField({
     required TextEditingController controller,
     required String labelText,
+    String? hintText,
+    TextStyle? hintStyle,
     TextInputType? keyboardType,
     bool alwaysShowLabel = false,
   }) {
     return SheetTextFieldPattern(
       controller: controller,
       labelText: labelText,
-      hintText: null,
+      hintText: hintText,
+      hintStyle: hintStyle,
       keyboardType: keyboardType,
       floatingLabelBehavior: alwaysShowLabel
           ? FloatingLabelBehavior.always

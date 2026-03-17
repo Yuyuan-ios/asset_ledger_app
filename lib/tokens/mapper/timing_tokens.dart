@@ -173,8 +173,4 @@ class TimingTokens {
 
   // ===== 计时弹窗：底部小提示（校验失败反馈）=====
   static const double tipBottomGap = 8; // 弹窗底部小提示与操作栏之间间距
-  static const double tipRadius = 10; // 弹窗底部小提示圆角
-  static const double tipHPadding = 12; // 弹窗底部小提示水平内边距
-  static const double tipVPadding = 8; // 弹窗底部小提示垂直内边距
-  static const double tipTextSize = 13; // 弹窗底部小提示字号
 }

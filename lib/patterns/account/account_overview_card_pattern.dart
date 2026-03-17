@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
-import '../../features/account/state/account_store.dart';
+import '../../features/account/model/account_view_model.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 import '../../tokens/mapper/spacing_tokens.dart';

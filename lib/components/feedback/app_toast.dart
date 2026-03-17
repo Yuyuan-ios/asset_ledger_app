@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
+import '../../tokens/mapper/toast_tokens.dart';
+import 'app_toast_bubble.dart';
 
 class AppToast {
   static void show(BuildContext context, String message) {
@@ -13,27 +14,14 @@ class AppToast {
         backgroundColor: Colors.transparent,
         elevation: 0,
         duration: DurationTokens.snackBar,
-        margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+        margin: const EdgeInsets.fromLTRB(
+          ToastTokens.snackBarMarginHorizontal,
+          0,
+          ToastTokens.snackBarMarginHorizontal,
+          ToastTokens.snackBarMarginBottom,
+        ),
         content: Center(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xCC4A382C),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text(
-                message,
-                textAlign: TextAlign.center,
-                style: AppTypography.body(
-                  context,
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
+          child: AppToastBubble(message),
         ),
       ),
     );

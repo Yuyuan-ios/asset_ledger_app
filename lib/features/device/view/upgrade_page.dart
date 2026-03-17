@@ -89,7 +89,7 @@ class _UpgradePageState extends State<UpgradePage> {
                     const UpgradeBenefitItem(text: '解锁应用中的所有功能'),
                     UpgradePlanCard(
                       title: '12元 / 年',
-                      subtitle1: '仅需 1元 / 月',
+                      subtitle1: '请开发者喝两瓶红牛持续维护',
                       subtitle2: '附带 7天免费试用',
                       badge: '省50%',
                       emphasized: _selectedPlan == _UpgradePlan.annual,

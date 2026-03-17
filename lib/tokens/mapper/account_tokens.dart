@@ -36,7 +36,8 @@ class AccountTokens {
   static const double overviewLeftColumnWidth = 160; // 左侧图表列固定宽度（上下对齐）
   static const double overviewChartColumnPadding =
       10; // 左侧图表列内边距（Figma Col_Charts）
-  static const double overviewLegendLeftInset = 10; // 右侧列表每行左侧留白
+  static const double overviewLegendLeftInset =
+      0; // 右侧设备行起始与下方汇总左列对齐
   static const double overviewLegendRowGap = 8; // 设备行间距
   static const double overviewLegendNameSize = 14; // 设备名字号
   static const double overviewLegendValueSize = 14; // 金额字号
@@ -45,7 +46,8 @@ class AccountTokens {
   static const double overviewRightPaddingRight = 0; // 右侧文案区右内边距
   static const double overviewRightPaddingBottom = 0; // 右侧文案区下内边距
   static const double overviewRightPaddingLeft = 10; // 右侧文案区左内边距
-  static const double overviewSummaryTopPadding = 16; // 总应收区域距容器顶部内边距
+  static const double overviewSummaryTopPadding =
+      14; // 总应收区域距容器顶部内边距（下调 2px，避免 iOS 文本度量导致溢出）
 
   // ===== 账户页：总览卡片底部饼图 =====
   static const double overviewPieSize = 116; // 饼图直径

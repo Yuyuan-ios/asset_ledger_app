@@ -1,4 +1,8 @@
 class BottomSheetTokens {
+  // ===== 通用底部弹窗：开合动画 =====
+  static const Duration animationDuration = Duration(milliseconds: 500);
+  static const Duration reverseAnimationDuration = Duration(milliseconds: 320);
+
   // ===== 通用弹窗壳：容器尺寸与圆角 =====
   static const double heightFactor = 0.92;
   static const double minHeightFactor = 0.2;

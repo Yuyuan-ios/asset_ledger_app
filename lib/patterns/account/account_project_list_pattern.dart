@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
-import '../../features/account/state/account_store.dart';
+import '../../features/account/model/account_view_model.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 
@@ -67,6 +67,13 @@ class AccountProjectList extends StatelessWidget {
       context,
       fontSize: AccountTokens.projectCardStatusFontSize,
       fontWeight: FontWeight.w400,
+      height: 1,
+      color: Colors.black,
+    );
+    final totalHoursStyle = AppTypography.body(
+      context,
+      fontSize: AccountTokens.projectCardStatusFontSize,
+      fontWeight: FontWeight.w700,
       height: 1,
       color: Colors.black,
     );
@@ -162,7 +169,7 @@ class AccountProjectList extends StatelessWidget {
                           child: Text(_priceText(p), style: chipStyle),
                         ),
                         const Spacer(),
-                        Text(_totalHoursText(p), style: statusStyle),
+                        Text(_totalHoursText(p), style: totalHoursStyle),
                       ],
                     ),
                     const SizedBox(

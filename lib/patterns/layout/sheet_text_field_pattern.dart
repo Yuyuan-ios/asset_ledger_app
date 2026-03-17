@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../core/utils/text_field_utils.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 
@@ -10,6 +11,7 @@ class SheetTextFieldPattern extends StatelessWidget {
     required this.controller,
     required this.labelText,
     this.hintText,
+    this.hintStyle,
     this.keyboardType,
     this.floatingLabelBehavior = FloatingLabelBehavior.auto,
   });
@@ -17,6 +19,7 @@ class SheetTextFieldPattern extends StatelessWidget {
   final TextEditingController controller;
   final String labelText;
   final String? hintText;
+  final TextStyle? hintStyle;
   final TextInputType? keyboardType;
   final FloatingLabelBehavior floatingLabelBehavior;
 
@@ -32,7 +35,7 @@ class SheetTextFieldPattern extends StatelessWidget {
       fontSize: SheetTokens.fieldLabelSize,
       color: SheetColors.textPrimary,
     );
-    final hintStyle = AppTypography.bodySecondary(
+    final defaultHintStyle = AppTypography.bodySecondary(
       context,
       fontSize: SheetTokens.fieldTextSize,
       color: SheetColors.hint,
@@ -48,16 +51,17 @@ class SheetTextFieldPattern extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      onTap: keyboardType == null ? null : () => selectAllIfZeroLike(controller),
       style: textStyle,
       decoration: InputDecoration(
         labelText: labelText,
         floatingLabelBehavior: floatingLabelBehavior,
         labelStyle: labelStyle,
         hintText: hintText,
-        hintStyle: hintStyle,
-        isDense: true,
+        hintStyle: hintStyle ?? defaultHintStyle,
         filled: true,
         fillColor: SheetColors.fieldBackground,
+        constraints: const BoxConstraints(minHeight: SheetTokens.fieldHeight),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: SheetTokens.fieldContentHPadding,
           vertical: SheetTokens.fieldContentVPadding,
