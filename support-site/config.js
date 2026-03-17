@@ -9,7 +9,10 @@ window.supportSiteConfig = {
   supportSiteUrl: './',
   privacyPolicyUrl: './privacy.html',
   termsOfServiceUrl: './terms.html',
+  douyinDisplayName: '开挖机的coder',
   douyinHandle: '@开挖机的coder',
-  douyinUrl: '',
+  douyinId: '45510955119',
+  douyinUrl: 'https://v.douyin.com/si9a8NKGL8U/',
   wechatLabel: 'YuyuanAx',
+  wechatNote: '建议复制微信号后，在微信内搜索添加。',
 };

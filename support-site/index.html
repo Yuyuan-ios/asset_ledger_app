@@ -156,13 +156,30 @@
         justify-content: center;
         min-width: 112px;
         padding: 10px 16px;
+        border: 0;
         border-radius: 999px;
         background: var(--accent-soft);
         color: var(--accent);
+        cursor: pointer;
         text-decoration: none;
         font-size: 14px;
         font-weight: 600;
         white-space: nowrap;
+      }
+
+      .link-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .link-button.secondary {
+        background: #ffffff;
+        border: 1px solid var(--line);
+      }
+
+      .channel-item span + span {
+        margin-top: 4px;
       }
 
       .footer {
@@ -257,15 +274,27 @@
               <div>
                 <strong>抖音账号</strong>
                 <span id="douyin-text">@开挖机的coder</span>
+                <span id="douyin-id-text"></span>
               </div>
-              <a class="link-button" id="douyin-link" href="#" target="_blank" rel="noreferrer">
-                查看账号
-              </a>
+              <div class="link-actions">
+                <a class="link-button" id="douyin-link" href="#" target="_blank" rel="noreferrer">
+                  打开抖音主页
+                </a>
+                <button class="link-button secondary" id="douyin-copy-button" type="button">
+                  复制抖音号
+                </button>
+              </div>
             </div>
             <div class="channel-item" id="wechat-row" hidden>
               <div>
                 <strong>微信</strong>
                 <span id="wechat-text"></span>
+                <span id="wechat-note"></span>
+              </div>
+              <div class="link-actions">
+                <button class="link-button secondary" id="wechat-copy-button" type="button">
+                  复制微信号
+                </button>
               </div>
             </div>
           </div>
@@ -328,9 +357,40 @@
           config.privacyPolicyUrl || './privacy.html';
         const termsOfServiceUrl =
           config.termsOfServiceUrl || './terms.html';
+        const douyinDisplayName = config.douyinDisplayName || '开挖机的coder';
         const douyinHandle = config.douyinHandle || '@开挖机的coder';
+        const douyinId = (config.douyinId || '').trim();
         const douyinUrl = config.douyinUrl || '';
         const wechatLabel = (config.wechatLabel || '').trim();
+        const wechatNote = (config.wechatNote || '').trim();
+
+        async function copyText(text, trigger, defaultLabel, successLabel) {
+          if (!text) {
+            return;
+          }
+
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              const input = document.createElement('input');
+              input.value = text;
+              document.body.appendChild(input);
+              input.select();
+              document.execCommand('copy');
+              input.remove();
+            }
+
+            if (trigger) {
+              trigger.textContent = successLabel;
+              window.setTimeout(function resetButtonText() {
+                trigger.textContent = defaultLabel;
+              }, 1800);
+            }
+          } catch (error) {
+            window.alert('复制失败，请手动复制：' + text);
+          }
+        }
 
         document.title = pageTitle;
         document
@@ -352,21 +412,44 @@
         termsLink.href = termsOfServiceUrl;
 
         const douyinText = document.getElementById('douyin-text');
-        douyinText.textContent = douyinHandle;
+        douyinText.textContent = douyinDisplayName + '（' + douyinHandle + '）';
+        const douyinIdText = document.getElementById('douyin-id-text');
+        douyinIdText.textContent = douyinId ? '抖音号：' + douyinId : '';
         const douyinLink = document.getElementById('douyin-link');
         if (douyinUrl) {
           douyinLink.href = douyinUrl;
         } else {
           douyinLink.removeAttribute('href');
           douyinLink.removeAttribute('target');
-          douyinLink.textContent = '账号预留';
+          douyinLink.textContent = '链接待补充';
           douyinLink.style.pointerEvents = 'none';
         }
+        document
+          .getElementById('douyin-copy-button')
+          .addEventListener('click', function handleDouyinCopy() {
+            copyText(
+              douyinId || douyinHandle,
+              this,
+              '复制抖音号',
+              '已复制',
+            );
+          });
 
         const wechatRow = document.getElementById('wechat-row');
         if (wechatLabel) {
           wechatRow.hidden = false;
           document.getElementById('wechat-text').textContent = wechatLabel;
+          document.getElementById('wechat-note').textContent = wechatNote;
+          document
+            .getElementById('wechat-copy-button')
+            .addEventListener('click', function handleWechatCopy() {
+              copyText(
+                wechatLabel,
+                this,
+                '复制微信号',
+                '已复制',
+              );
+            });
         }
       })();
     </script>
