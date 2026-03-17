@@ -4,7 +4,7 @@ import 'package:asset_ledger/app/app.dart';
 import 'package:asset_ledger/app/router.dart';
 
 void main() {
-  testWidgets('Asset Ledger smoke test', (WidgetTester tester) async {
+  testWidgets('机账通 smoke test', (WidgetTester tester) async {
     late MaterialApp app;
 
     await tester.pumpWidget(
@@ -19,7 +19,7 @@ void main() {
       ),
     );
 
-    expect(app.title, 'Asset Ledger');
+    expect(app.title, '机账通');
     expect(app.debugShowCheckedModeBanner, isFalse);
     expect(app.home, isA<AppRouterEntry>());
   });

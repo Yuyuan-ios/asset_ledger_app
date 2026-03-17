@@ -1,5 +1,5 @@
 name: asset_ledger
-description: "A new Flutter project."
+description: "机账通：面向工程机械经营场景的记录与管理工具。"
 publish_to: 'none'
 
 version: 1.0.0+1

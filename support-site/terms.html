@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>机账通｜使用条款</title>
+    <meta
+      name="description"
+      content="机账通使用条款，说明 iOS 与 Android 版本的产品功能边界、用户责任、付费规则与免责范围。"
+    />
+    <meta name="theme-color" content="#f28c34" />
+    <link rel="stylesheet" href="./legal.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">公开文档</div>
+        <h1>机账通｜使用条款</h1>
+        <p class="subtitle">
+          本条款适用于机账通在 iOS 与 Android 平台提供的应用版本，用于说明产品功能边界、用户责任与服务规则。
+        </p>
+      </section>
+
+      <article class="document">
+        <div class="meta">
+          <div>生效日期：2026-03-17</div>
+          <div>联系邮箱：<a id="support-email-link" href="mailto:582748196@qq.com">582748196@qq.com</a></div>
+        </div>
+
+        <section class="section">
+          <h2>1. 适用范围与接受</h2>
+          <p>
+            本使用条款适用于“机账通”在 iOS 与 Android 平台提供的产品与服务。你在下载、安装、访问或继续使用本应用时，即表示你已阅读、理解并同意受本条款约束。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>2. 产品功能说明</h2>
+          <p>
+            机账通面向工程机械经营场景，主要用于设备信息、工时、燃油、项目收支、维保明细等内容的记录与管理。应用中的统计、汇总与展示结果用于辅助经营管理，不构成财务、税务、法律或其他专业意见。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>3. 用户责任</h2>
+          <p>
+            你应确保录入、保存、导出或分享的信息真实、准确、完整，并保证你对相关数据拥有合法权利。你不得利用本应用从事违法、侵权、欺诈、恶意破坏或其他违反适用法律法规的行为。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>4. 本地数据与备份</h2>
+          <p>
+            当前版本主要采用本地存储方式。你理解并同意：因设备损坏、系统异常、误删除、权限变更、卸载应用或其他非开发者可控原因导致的数据丢失风险，应由你自行承担。对于重要业务信息，建议你自行建立备份机制。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>5. 权限、平台能力与付费功能</h2>
+          <p>
+            当你主动使用图片选择、评分入口或未来可能上线的升级、订阅能力时，应用可能调用系统权限或 Apple App Store、Google Play 提供的平台能力。若未来提供订阅、升级或其他付费功能，价格、周期、退款、取消与续费规则以应用内展示及对应应用商店规则为准，相关支付结算由对应平台处理。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>6. 知识产权</h2>
+          <p>
+            本应用的软件代码、界面设计、文案结构与相关标识等内容，除法律另有规定或另有声明外，相关权利归开发者所有。未经许可，你不得对应用进行非法复制、反向工程、传播或商业化利用。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>7. 免责声明与责任限制</h2>
+          <p>
+            本应用按“现状”和“现有可用”状态提供。我们会持续改进产品体验，但不保证应用始终无中断、无错误或完全满足你的特定业务需求。对于因录入错误、未及时备份、设备故障、系统限制、第三方平台异常或不可抗力导致的损失，在适用法律允许范围内，开发者承担的责任以法律强制要求为限。
+          </p>
+        </section>
+
+        <section class="section">
+          <h2>8. 条款更新与联系</h2>
+          <p>
+            我们可能根据产品迭代、平台政策或法律法规变化对本条款进行更新。更新版本发布后，如你继续使用本应用，视为接受更新后的条款。如你对本条款有疑问，可通过 <a id="support-email-inline" href="mailto:582748196@qq.com">582748196@qq.com</a> 与我们联系。
+          </p>
+        </section>
+
+        <div class="actions">
+          <a class="button secondary" id="support-home-link" href="./">返回支持中心</a>
+          <a class="button" id="privacy-link" href="./privacy.html">查看隐私政策</a>
+        </div>
+      </article>
+    </main>
+
+    <script src="./config.js"></script>
+    <script>
+      (function applyLegalConfig() {
+        const config = window.supportSiteConfig || {};
+        const supportEmail = config.supportEmail || '582748196@qq.com';
+        const supportSiteUrl = config.supportSiteUrl || './';
+        const privacyPolicyUrl = config.privacyPolicyUrl || './privacy.html';
+        const emailHref = 'mailto:' + supportEmail;
+
+        document.getElementById('support-email-link').textContent = supportEmail;
+        document.getElementById('support-email-link').href = emailHref;
+        document.getElementById('support-email-inline').textContent = supportEmail;
+        document.getElementById('support-email-inline').href = emailHref;
+        document.getElementById('support-home-link').href = supportSiteUrl;
+        document.getElementById('privacy-link').href = privacyPolicyUrl;
+      })();
+    </script>
+  </body>
+</html>

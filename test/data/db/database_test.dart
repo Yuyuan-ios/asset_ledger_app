@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,9 +24,11 @@ void main() {
     'AppDatabase.seedDemoData seeds only once into an empty devices table',
     () async {
       final dbPath = await getDatabasesPath();
-      final filePath = p.join(dbPath, 'excavator_ledger.db');
+      final filePath = p.join(dbPath, 'asset_ledger.db');
+      final legacyFilePath = p.join(dbPath, 'excavator_ledger.db');
 
       await deleteDatabase(filePath);
+      await deleteDatabase(legacyFilePath);
 
       final db = await AppDatabase.database;
 
@@ -49,6 +52,36 @@ void main() {
       expect(afterSecondSeed, 2);
     },
   );
+
+  test('AppDatabase migrates the legacy excavator_ledger db file name', () async {
+    final dbPath = await getDatabasesPath();
+    final newPath = p.join(dbPath, 'asset_ledger.db');
+    final legacyPath = p.join(dbPath, 'excavator_ledger.db');
+
+    await deleteDatabase(newPath);
+    await deleteDatabase(legacyPath);
+
+    final createdDb = await AppDatabase.database;
+    expect(createdDb.isOpen, isTrue);
+    await AppDatabase.resetForTest();
+
+    await File(newPath).rename(legacyPath);
+    expect(await File(legacyPath).exists(), isTrue);
+    expect(await File(newPath).exists(), isFalse);
+
+    final migratedDb = await AppDatabase.database;
+    final tables = await migratedDb.query(
+      'sqlite_master',
+      columns: ['name'],
+      where: 'type = ? AND name = ?',
+      whereArgs: ['table', 'devices'],
+      limit: 1,
+    );
+
+    expect(tables, isNotEmpty);
+    expect(await File(newPath).exists(), isTrue);
+    expect(await File(legacyPath).exists(), isFalse);
+  });
 
   test(
     'AppDatabase.database shares one in-flight initialization across concurrent callers',
