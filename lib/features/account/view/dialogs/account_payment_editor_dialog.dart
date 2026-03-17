@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/form_feedback.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/text_field_utils.dart';
 import '../../../../data/models/account_payment.dart';
 import '../../../../data/services/account_service.dart';
-import '../../../../features/account/state/account_store.dart';
+import '../../../../features/account/model/account_view_model.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 
@@ -31,6 +32,7 @@ class _AccountPaymentEditorDialogState
   late final TextEditingController _dateController;
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -55,10 +57,10 @@ class _AccountPaymentEditorDialogState
     super.dispose();
   }
 
-  void _toast(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _showError(String message) {
+    setState(() {
+      _errorMessage = message;
+    });
   }
 
   double get _receivable => widget.project.receivable;
@@ -109,6 +111,7 @@ class _AccountPaymentEditorDialogState
             TextField(
               controller: _dateController,
               keyboardType: TextInputType.number,
+              onTap: () => selectAllIfZeroLike(_dateController),
               decoration: InputDecoration(
                 labelText: FormatUtils.ymdInputLabel,
                 border: const OutlineInputBorder(),
@@ -119,6 +122,7 @@ class _AccountPaymentEditorDialogState
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
+              onTap: () => selectAllIfZeroLike(_amountController),
               decoration: const InputDecoration(
                 labelText: '金额（整数）',
                 border: OutlineInputBorder(),
@@ -143,6 +147,20 @@ class _AccountPaymentEditorDialogState
                 style: helperStyle,
               ),
             ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _errorMessage!,
+                  style: AppTypography.caption(
+                    context,
+                    color: Colors.red.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -157,19 +175,19 @@ class _AccountPaymentEditorDialogState
         FilledButton(
           onPressed: () {
             if (editing != null && editing.projectKey != project.projectKey) {
-              _toast(formValidationMessage('编辑记录不属于当前项目'));
+              _showError(formValidationMessage('编辑记录不属于当前项目'));
               return;
             }
 
             final ymd = FormatUtils.parseDate(_dateController.text);
             if (ymd == null) {
-              _toast(formValidationMessage(FormatUtils.ymdInvalidMsg));
+              _showError(formValidationMessage(FormatUtils.ymdInvalidMsg));
               return;
             }
 
             final amountInt = int.tryParse(_amountController.text.trim());
             if (amountInt == null || amountInt <= 0) {
-              _toast(formValidationMessage('金额必须是 > 0 的整数'));
+              _showError(formValidationMessage('金额必须是 > 0 的整数'));
               return;
             }
             final amount = amountInt.toDouble();
@@ -180,12 +198,18 @@ class _AccountPaymentEditorDialogState
             const eps = 0.05;
             if (after > _receivable + eps) {
               final remain = _receivable - receivedExcluding;
-              _toast(
+              _showError(
                 formValidationMessage(
                   '超出剩余应收（剩余约 ${FormatUtils.money(remain)}）',
                 ),
               );
               return;
+            }
+
+            if (_errorMessage != null) {
+              setState(() {
+                _errorMessage = null;
+              });
             }
 
             _close(

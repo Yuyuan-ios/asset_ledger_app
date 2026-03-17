@@ -2,14 +2,23 @@ import 'dart:io';
 
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/fuel_log.dart';
+import 'package:asset_ledger/data/models/account_payment.dart';
+import 'package:asset_ledger/data/models/project_device_rate.dart';
+import 'package:asset_ledger/data/models/maintenance_record.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/core/errors/store_failure.dart';
 import 'package:asset_ledger/core/utils/base_store.dart';
+import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
+import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
+import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/features/account/state/account_payment_store.dart';
+import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
+import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -160,6 +169,170 @@ void main() {
       await store.loadAll();
 
       expect(store.hasLoaded, isTrue);
+    });
+  });
+
+  group('AccountPaymentStore write strategy', () {
+    test('patches local state for save and delete without reloading', () async {
+      final repository = _CountingAccountPaymentRepository(
+        seed: [
+          const AccountPayment(
+            id: 3,
+            projectKey: '张三||工地A',
+            ymd: 20260302,
+            amount: 500,
+            note: 'old',
+          ),
+        ],
+      );
+      final store = AccountPaymentStore(repository);
+
+      await store.loadAll();
+      expect(repository.listAllCalls, 1);
+
+      await store.save(
+        const AccountPayment(
+          projectKey: '张三||工地A',
+          ymd: 20260305,
+          amount: 800,
+          note: 'new',
+        ),
+      );
+      expect(repository.listAllCalls, 1);
+      expect(store.records.map((item) => item.id).toList(), [20, 3]);
+
+      await store.save(
+        const AccountPayment(
+          id: 3,
+          projectKey: '张三||工地A',
+          ymd: 20260306,
+          amount: 600,
+          note: 'updated',
+        ),
+      );
+      expect(repository.listAllCalls, 1);
+      expect(store.records.map((item) => item.id).toList(), [3, 20]);
+      expect(store.records.first.note, 'updated');
+
+      await store.deleteById(20);
+      expect(repository.listAllCalls, 1);
+      expect(store.records.map((item) => item.id).toList(), [3]);
+    });
+  });
+
+  group('ProjectRateStore write strategy', () {
+    test('patches local state for upsert and delete without reloading', () async {
+      final repository = _CountingProjectRateRepository(
+        seed: [
+          const ProjectDeviceRate(
+            projectKey: '张三||工地A',
+            deviceId: 1,
+            isBreaking: false,
+            rate: 350,
+          ),
+        ],
+      );
+      final store = ProjectRateStore(repository);
+
+      await store.loadAll();
+      expect(repository.listAllCalls, 1);
+
+      await store.upsert(
+        const ProjectDeviceRate(
+          projectKey: '张三||工地A',
+          deviceId: 2,
+          isBreaking: true,
+          rate: 480,
+        ),
+      );
+      expect(repository.listAllCalls, 1);
+      expect(store.rates, hasLength(2));
+      expect(
+        store.rates.any(
+          (item) =>
+              item.projectKey == '张三||工地A' &&
+              item.deviceId == 2 &&
+              item.isBreaking &&
+              item.rate == 480,
+        ),
+        isTrue,
+      );
+
+      await store.upsert(
+        const ProjectDeviceRate(
+          projectKey: '张三||工地A',
+          deviceId: 1,
+          isBreaking: false,
+          rate: 360,
+        ),
+      );
+      expect(repository.listAllCalls, 1);
+      expect(
+        store.rates
+            .singleWhere(
+              (item) =>
+                  item.projectKey == '张三||工地A' &&
+                  item.deviceId == 1 &&
+                  !item.isBreaking,
+            )
+            .rate,
+        360,
+      );
+
+      await store.delete('张三||工地A', 2, isBreaking: true);
+      expect(repository.listAllCalls, 1);
+      expect(store.rates, hasLength(1));
+    });
+  });
+
+  group('MaintenanceStore write strategy', () {
+    test('patches local state for save and delete without reloading', () async {
+      final repository = _CountingMaintenanceRepository(
+        seed: [
+          MaintenanceRecord(
+            id: 6,
+            deviceId: 1,
+            ymd: 20260302,
+            item: '换机油',
+            amount: 200,
+            note: 'old',
+          ),
+        ],
+      );
+      final store = MaintenanceStore(repository);
+
+      await store.loadAll();
+      expect(repository.listAllCalls, 1);
+
+      await store.save(
+        MaintenanceRecord(
+          deviceId: null,
+          ymd: 20260305,
+          item: '公共维修',
+          amount: 300,
+          note: 'new',
+        ),
+      );
+      expect(repository.listAllCalls, 1);
+      expect(store.records.map((item) => item.id).toList(), [30, 6]);
+
+      await store.save(
+        MaintenanceRecord(
+          id: 6,
+          deviceId: 1,
+          ymd: 20260306,
+          item: '换机油',
+          amount: 260,
+          note: 'updated',
+        ),
+      );
+      expect(repository.listAllCalls, 1);
+      expect(store.records.map((item) => item.id).toList(), [6, 30]);
+      expect(store.records.first.amount, 260);
+
+      await store.deleteById(30);
+      expect(repository.listAllCalls, 1);
+      expect(store.records.map((item) => item.id).toList(), [6]);
     });
   });
 
@@ -346,6 +519,145 @@ class _CountingDeviceRepository implements DeviceRepository {
 
   @override
   Future<int> deleteById(int id) async => 1;
+}
+
+class _CountingAccountPaymentRepository implements AccountPaymentRepository {
+  _CountingAccountPaymentRepository({required List<AccountPayment> seed})
+    : _records = List.of(seed);
+
+  final List<AccountPayment> _records;
+  int listAllCalls = 0;
+  int _nextId = 20;
+
+  @override
+  Future<List<AccountPayment>> listAll() async {
+    listAllCalls++;
+    return List.of(_records);
+  }
+
+  @override
+  Future<int> insert(AccountPayment payment) async {
+    final inserted = payment.copyWith(id: _nextId++);
+    _records.add(inserted);
+    _sort();
+    return inserted.id!;
+  }
+
+  @override
+  Future<int> update(AccountPayment payment) async {
+    final index = _records.indexWhere((item) => item.id == payment.id);
+    _records[index] = payment;
+    _sort();
+    return 1;
+  }
+
+  @override
+  Future<int> deleteById(int id) async {
+    _records.removeWhere((item) => item.id == id);
+    return 1;
+  }
+
+  void _sort() {
+    _records.sort((a, b) {
+      final byDate = b.ymd.compareTo(a.ymd);
+      if (byDate != 0) return byDate;
+      return (b.id ?? 0).compareTo(a.id ?? 0);
+    });
+  }
+}
+
+class _CountingProjectRateRepository implements ProjectRateRepository {
+  _CountingProjectRateRepository({required List<ProjectDeviceRate> seed})
+    : _rates = List.of(seed);
+
+  final List<ProjectDeviceRate> _rates;
+  int listAllCalls = 0;
+
+  @override
+  Future<List<ProjectDeviceRate>> listAll() async {
+    listAllCalls++;
+    return List.of(_rates);
+  }
+
+  @override
+  Future<int> upsert(ProjectDeviceRate rate) async {
+    final index = _rates.indexWhere(
+      (item) =>
+          item.projectKey == rate.projectKey &&
+          item.deviceId == rate.deviceId &&
+          item.isBreaking == rate.isBreaking,
+    );
+    if (index == -1) {
+      _rates.add(rate);
+    } else {
+      _rates[index] = rate;
+    }
+    return 1;
+  }
+
+  @override
+  Future<int> delete(
+    String projectKey,
+    int deviceId, {
+    bool isBreaking = false,
+  }) async {
+    _rates.removeWhere(
+      (item) =>
+          item.projectKey == projectKey &&
+          item.deviceId == deviceId &&
+          item.isBreaking == isBreaking,
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> deleteByProjectKey(String projectKey) async {
+    _rates.removeWhere((item) => item.projectKey == projectKey);
+    return 1;
+  }
+}
+
+class _CountingMaintenanceRepository implements MaintenanceRepository {
+  _CountingMaintenanceRepository({required List<MaintenanceRecord> seed})
+    : _records = List.of(seed);
+
+  final List<MaintenanceRecord> _records;
+  int listAllCalls = 0;
+  int _nextId = 30;
+
+  @override
+  Future<List<MaintenanceRecord>> listAll() async {
+    listAllCalls++;
+    return List.of(_records);
+  }
+
+  @override
+  Future<int> insert(MaintenanceRecord record) async {
+    final inserted = record.copyWith(id: _nextId++);
+    _records.add(inserted);
+    _sort();
+    return inserted.id!;
+  }
+
+  @override
+  Future<void> update(MaintenanceRecord record) async {
+    final index = _records.indexWhere((item) => item.id == record.id);
+    _records[index] = record;
+    _sort();
+  }
+
+  @override
+  Future<void> deleteById(int id) async {
+    _records.removeWhere((item) => item.id == id);
+  }
+
+  void _sort() {
+    _records.sort((a, b) {
+      final byDate = b.ymd.compareTo(a.ymd);
+      if (byDate != 0) return byDate;
+      return (b.id ?? 0).compareTo(a.id ?? 0);
+    });
+  }
 }
 
 class _HarnessStore extends BaseStore {

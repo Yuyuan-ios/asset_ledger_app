@@ -359,28 +359,29 @@ class ProjectAccountDetailContent extends StatelessWidget {
           )
         else
           ...payments.map((p) {
-            final subtitle = (p.note == null || p.note!.trim().isEmpty)
+            final note = (p.note == null || p.note!.trim().isEmpty)
                 ? null
                 : p.note!.trim();
+            final title = '${FormatUtils.date(p.ymd)} · ${FormatUtils.money(p.amount)}';
 
             return Column(
               children: [
                 Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${FormatUtils.date(p.ymd)} · ${FormatUtils.money(p.amount)}',
-                            style: paymentTitleStyle,
-                          ),
-                          if (subtitle != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: AppSpace.xxs),
-                              child: Text(subtitle, style: paymentNoteStyle),
-                            ),
-                        ],
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: title, style: paymentTitleStyle),
+                            if (note != null)
+                              TextSpan(
+                                text: '  备注:$note',
+                                style: paymentNoteStyle,
+                              ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     IconButton(

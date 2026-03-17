@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'account_store.dart';
+import '../model/account_view_model.dart';
 
 class AccountFilterStore extends ChangeNotifier {
   String _projectFilterKeyword = '';

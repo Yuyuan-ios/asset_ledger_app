@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../core/foundation/typography.dart';
@@ -23,6 +22,7 @@ import '../../../patterns/fuel/fuel_recent_records_pattern.dart';
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/fuel/fuel_supplier_filter_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import 'fuel_page_view_data.dart';
 
 class FuelPage extends StatefulWidget {
   const FuelPage({super.key});
@@ -136,38 +136,17 @@ class _FuelPageState extends State<FuelPage> {
     return true;
   }
 
-  List<FuelLog> _filteredLogs(List<FuelLog> logs) {
-    if (_supplierFilter.isEmpty) return logs;
-    return logs.where((e) => e.supplier.contains(_supplierFilter)).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final fuelStore = context.watch<FuelStore>();
     final deviceStore = context.watch<DeviceStore>();
     final timingStore = context.watch<TimingStore>();
-
-    final loading =
-        fuelStore.loading || deviceStore.loading || timingStore.loading;
-    final err = firstStoreErrorMessage([
-      fuelStore,
-      deviceStore,
-      timingStore,
-    ], action: '读取');
-
-    final nowYmd = FormatUtils.ymdFromDate(DateTime.now());
-    final supplier = _supplierFilter.trim().isEmpty
-        ? null
-        : _supplierFilter.trim();
-    final yearSummary = fuelStore.currentYearSummary(
-      nowYmd: nowYmd,
-      supplier: supplier,
+    final viewData = buildFuelPageViewData(
+      fuelStore: fuelStore,
+      deviceStore: deviceStore,
+      timingStore: timingStore,
+      supplierFilter: _supplierFilter,
     );
-    final yearSummaryTitle = supplier == null ? '本年度总消耗' : '本年度（$supplier）';
-
-    final byDevice = fuelStore.efficiencyByDeviceAllTime(timingStore.records);
-    final filteredLogs = _filteredLogs(fuelStore.logs);
-    final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
     final summaryLabelStyle = AppTypography.body(
       context,
       fontSize: FuelTokens.summaryTotalLabelSize,
@@ -190,7 +169,7 @@ class _FuelPageState extends State<FuelPage> {
           children: [
             Expanded(
               child: FuelEfficiencySummary(
-                byDevice: byDevice,
+                byDevice: viewData.byDevice,
                 deviceNameOf: (id) {
                   final d = deviceStore.tryFindById(id);
                   return d?.name ?? '设备$id（已停用/不存在）';
@@ -200,11 +179,11 @@ class _FuelPageState extends State<FuelPage> {
             const SizedBox(height: FuelTokens.summaryInnerGap),
             Row(
               children: [
-                Text(yearSummaryTitle, style: summaryLabelStyle),
+                Text(viewData.yearSummaryTitle, style: summaryLabelStyle),
                 const SizedBox(width: FuelTokens.summaryTotalValueLeftGap),
                 Expanded(
                   child: Text(
-                    '${FormatUtils.liters(yearSummary.liters)} L / ${FormatUtils.money(yearSummary.cost)}',
+                    '${FormatUtils.liters(viewData.yearSummary.liters)} L / ${FormatUtils.money(viewData.yearSummary.cost)}',
                     textAlign: TextAlign.right,
                     style: summaryValueStyle,
                   ),
@@ -228,7 +207,7 @@ class _FuelPageState extends State<FuelPage> {
     );
 
     final records = FuelRecentRecordsSection(
-      logs: filteredLogs,
+      logs: viewData.filteredLogs,
       leadingBuilder: (log) {
         final d = deviceStore.tryFindById(log.deviceId);
         if (d == null) {
@@ -249,7 +228,7 @@ class _FuelPageState extends State<FuelPage> {
         );
       },
       titleBuilder: (log) => log.supplier,
-      subtitleBuilder: (log) => deviceIndexById[log.deviceId] ?? '?',
+      subtitleBuilder: (log) => viewData.deviceIndexById[log.deviceId] ?? '?',
       onTap: (log) => _openFuelEditor(editing: log),
       onConfirmDelete: _confirmDelete,
       onDelete: _delete,
@@ -260,8 +239,8 @@ class _FuelPageState extends State<FuelPage> {
       summary: summary,
       filter: filter,
       records: records,
-      loading: loading,
-      error: err,
+      loading: viewData.loading,
+      error: viewData.error,
       onRetry: () => _retryLoad(),
     );
   }

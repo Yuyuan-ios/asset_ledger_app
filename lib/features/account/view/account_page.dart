@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
-import '../../../data/models/timing_record.dart';
+import '../../../features/account/model/account_view_model.dart';
 
 // ------------------------------ UI / Utils ------------------------------
 import '../../../core/utils/format_utils.dart';
@@ -39,9 +39,10 @@ import '../../../features/account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
 import '../../../features/timing/state/timing_store.dart';
+import 'actions/account_rate_edit_actions.dart';
+import 'account_page_view_data.dart';
 import 'dialogs/account_payment_editor_dialog.dart';
 import 'dialogs/account_project_filter_sheet.dart';
-import 'dialogs/account_rate_dialogs.dart';
 
 // =====================================================================
 // ============================== 页面入口 ==============================
@@ -59,19 +60,6 @@ class AccountPage extends StatefulWidget {
 // =====================================================================
 
 class _AccountPageState extends State<AccountPage> {
-  @override
-  void initState() {
-    super.initState();
-    // 账户页依赖 payment/rate 两个 store，应用启动阶段未预加载，
-    // 在这里主动拉取，避免重启后短暂回落到默认单价。
-    Future.microtask(() async {
-      if (!mounted) return;
-      final paymentStore = context.read<AccountPaymentStore>();
-      final rateStore = context.read<ProjectRateStore>();
-      await Future.wait([paymentStore.loadAll(), rateStore.loadAll()]);
-    });
-  }
-
   // -------------------------------------------------------------------
   // 通用：提示消息（SnackBar）
   // -------------------------------------------------------------------
@@ -139,93 +127,11 @@ class _AccountPageState extends State<AccountPage> {
     List<Device> devices,
     List<ProjectDeviceRate> rates,
   ) async {
-    final usedDevices = devices
-        .where((d) => d.id != null && p.deviceIds.contains(d.id!))
-        .toList();
-
-    if (usedDevices.isEmpty) {
-      _toast(noEditableDevicesMessage());
-      return;
-    }
-
-    final first = usedDevices.first;
-    final firstId = first.id!;
-    double? initDiggingOverride;
-    double? initBreakingOverride;
-    for (final r in rates) {
-      if (r.projectKey != p.projectKey || r.deviceId != firstId) continue;
-      if (r.isBreaking) {
-        initBreakingOverride = r.rate;
-      } else {
-        initDiggingOverride = r.rate;
-      }
-    }
-    final initDigging = (initDiggingOverride ?? first.defaultUnitPrice).round();
-    final initBreaking =
-        (initBreakingOverride ??
-                first.breakingUnitPrice ??
-                first.defaultUnitPrice)
-            .round();
-
-    final newRate = await showDialog<AccountBatchRateUpdate>(
+    await AccountRateEditActions(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AccountRateBatchDialog(
-        title: '批量修改单价：${p.displayName}',
-        deviceCount: usedDevices.length,
-        initialDiggingRateInt: initDigging,
-        initialBreakingRateInt: initBreaking,
-      ),
-    );
-
-    if (!mounted || newRate == null) return;
-
-    Future.microtask(() async {
-      if (!mounted) return;
-
-      final rateStore = context.read<ProjectRateStore>();
-
-      for (final d in usedDevices) {
-        final id = d.id!;
-        const eps = 0.05;
-        final defaultDigging = d.defaultUnitPrice;
-        final defaultBreaking = d.breakingUnitPrice ?? d.defaultUnitPrice;
-
-        if ((newRate.diggingRate - defaultDigging).abs() <= eps) {
-          await rateStore.delete(p.projectKey, id, isBreaking: false);
-        } else {
-          await rateStore.upsert(
-            ProjectDeviceRate(
-              projectKey: p.projectKey,
-              deviceId: id,
-              isBreaking: false,
-              rate: newRate.diggingRate,
-            ),
-          );
-        }
-
-        if ((newRate.breakingRate - defaultBreaking).abs() <= eps) {
-          await rateStore.delete(p.projectKey, id, isBreaking: true);
-        } else {
-          await rateStore.upsert(
-            ProjectDeviceRate(
-              projectKey: p.projectKey,
-              deviceId: id,
-              isBreaking: true,
-              rate: newRate.breakingRate,
-            ),
-          );
-        }
-
-        final error = storeErrorMessage(rateStore, action: '保存');
-        if (error != null) {
-          _toast(error);
-          return;
-        }
-      }
-
-      _toast(storeActionFeedback(rateStore, action: '更新').message);
-    });
+      isMounted: () => mounted,
+      toast: _toast,
+    ).openBatchRateEditor(p, devices, rates);
   }
 
   // =====================================================================
@@ -238,67 +144,11 @@ class _AccountPageState extends State<AccountPage> {
     List<Device> devices,
     List<ProjectDeviceRate> rates,
   ) async {
-    final hit = devices.where((e) => e.id == deviceId).toList();
-    if (hit.isEmpty) {
-      _toast(missingEntityMessage('设备'));
-      return;
-    }
-    final device = hit.first;
-
-    // 当前项目覆盖单价（如果有）
-    double? currentOverride;
-    for (final r in rates) {
-      if (r.projectKey == p.projectKey &&
-          r.deviceId == deviceId &&
-          r.isBreaking == isBreaking) {
-        currentOverride = r.rate;
-        break;
-      }
-    }
-
-    final modeDefaultRate = isBreaking
-        ? (device.breakingUnitPrice ?? device.defaultUnitPrice)
-        : device.defaultUnitPrice;
-    final current = (currentOverride ?? modeDefaultRate).round();
-
-    final newRate = await showDialog<double>(
+    await AccountRateEditActions(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AccountRateSingleDialog(
-        title: isBreaking ? '编辑破碎单价：${p.displayName}' : '编辑单价：${p.displayName}',
-        deviceName: isBreaking ? '${device.name} · 破碎' : device.name,
-        initialRateInt: current,
-      ),
-    );
-
-    if (!mounted || newRate == null) return;
-
-    Future.microtask(() async {
-      if (!mounted) return;
-
-      final rateStore = context.read<ProjectRateStore>();
-
-      const eps = 0.05;
-      if ((newRate - modeDefaultRate).abs() <= eps) {
-        await rateStore.delete(p.projectKey, deviceId, isBreaking: isBreaking);
-      } else {
-        await rateStore.upsert(
-          ProjectDeviceRate(
-            projectKey: p.projectKey,
-            deviceId: deviceId,
-            isBreaking: isBreaking,
-            rate: newRate,
-          ),
-        );
-      }
-
-      final feedback = storeActionFeedback(
-        rateStore,
-        action: '保存',
-        successMessage: '已更新',
-      );
-      _toast(feedback.message);
-    });
+      isMounted: () => mounted,
+      toast: _toast,
+    ).openSingleRateEditor(p, deviceId, isBreaking, devices, rates);
   }
 
   // =====================================================================
@@ -382,33 +232,56 @@ class _AccountPageState extends State<AccountPage> {
   // - 这里用 sheetCtx.watch(...)：保证详情里“保存/删除/改单价”后自动刷新 UI
   // - 同时把“新增收款”限定为项目内模式：传 pNow 给 _openPaymentEditor
   //
-  void _openProjectDetail(
-    AccountProjectVM p,
-    List<TimingRecord> timing,
-    List<Device> devices,
-    List<AccountPayment> payments,
-    List<ProjectDeviceRate> rates,
-    AccountComputed computed,
-  ) {
+  void _openProjectDetail(String projectKey) {
     openEditorSheet<void>(
       context: context,
       title: '项目详情',
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailContentInset,
       ),
-      childBuilder: (_) => AccountProjectDetailSheet(
-        projectKey: p.projectKey,
-        timingRecords: timing,
-        allDevices: devices,
-        allPayments: payments,
-        allRates: rates,
-        computed: computed,
-        onBatchEditRate: _openBatchRateEditor,
-        onEditDeviceRate: _openSingleRateEditor,
-        onAddPayment: _openPaymentEditor,
-        onEditPayment: _openPaymentEditor,
-        onDeletePayment: _deletePayment,
-      ),
+      childBuilder: (sheetContext) =>
+          Consumer4<
+            TimingStore,
+            DeviceStore,
+            AccountPaymentStore,
+            ProjectRateStore
+          >(
+            builder:
+                (
+                  context,
+                  timingStore,
+                  deviceStore,
+                  paymentStore,
+                  rateStore,
+                  _,
+                ) {
+                  final accountStore = context.read<AccountStore>();
+                  final timing = timingStore.records;
+                  final devices = deviceStore.allDevices;
+                  final payments = paymentStore.records;
+                  final rates = rateStore.rates;
+                  final computed = accountStore.compute(
+                    timingRecords: timing,
+                    devices: devices,
+                    rates: rates,
+                    payments: payments,
+                  );
+
+                  return AccountProjectDetailSheet(
+                    projectKey: projectKey,
+                    timingRecords: timing,
+                    allDevices: devices,
+                    allPayments: payments,
+                    allRates: rates,
+                    computed: computed,
+                    onBatchEditRate: _openBatchRateEditor,
+                    onEditDeviceRate: _openSingleRateEditor,
+                    onAddPayment: _openPaymentEditor,
+                    onEditPayment: _openPaymentEditor,
+                    onDeletePayment: _deletePayment,
+                  );
+                },
+          ),
     );
   }
 
@@ -424,42 +297,14 @@ class _AccountPageState extends State<AccountPage> {
     final accountStore = context.read<AccountStore>();
     final filterStore = context.watch<AccountFilterStore>();
 
-    final timing = timingStore.records;
-    final devices = deviceStore.allDevices;
-    final payments = paymentStore.records;
-    final rates = rateStore.rates;
-
-    final computed = accountStore.compute(
-      timingRecords: timing,
-      devices: devices,
-      rates: rates,
-      payments: payments,
+    final viewData = buildAccountPageViewData(
+      timingStore: timingStore,
+      deviceStore: deviceStore,
+      paymentStore: paymentStore,
+      rateStore: rateStore,
+      accountStore: accountStore,
+      filterStore: filterStore,
     );
-
-    final filteredProjects = filterStore.filterProjects(computed.projects);
-    final projectSuggestions =
-        timing
-            .map((t) => t.contact.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-
-    final loading =
-        timingStore.loading ||
-        deviceStore.loading ||
-        paymentStore.loading ||
-        rateStore.loading;
-    final hasActiveFilter =
-        filterStore.projectFilterKeyword.isNotEmpty &&
-        filteredProjects.length < computed.projects.length;
-
-    final err = firstStoreErrorMessage([
-      timingStore,
-      deviceStore,
-      paymentStore,
-      rateStore,
-    ], action: '读取');
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
@@ -492,46 +337,45 @@ class _AccountPageState extends State<AccountPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (loading) ...[
+                              if (viewData.loading) ...[
                                 const LinearProgressIndicator(),
                                 const SizedBox(height: 10),
                               ],
-                              if (err != null) ...[
+                              if (viewData.error != null) ...[
                                 StoreErrorBanner(
-                                  message: err,
-                                  onRetry: loading ? null : () => _retryLoad(),
+                                  message: viewData.error!,
+                                  onRetry: viewData.loading
+                                      ? null
+                                      : () => _retryLoad(),
                                 ),
                                 const SizedBox(height: 10),
                               ],
                               AccountOverviewCard(
                                 vm: AccountOverviewVm(
-                                  totalReceivable: computed.totalReceivable,
-                                  totalReceived: computed.totalReceived,
-                                  totalRemaining: computed.totalRemaining,
-                                  totalRatio: computed.totalRatio,
-                                  deviceReceivables: computed.deviceReceivables,
+                                  totalReceivable:
+                                      viewData.computed.totalReceivable,
+                                  totalReceived: viewData.computed.totalReceived,
+                                  totalRemaining:
+                                      viewData.computed.totalRemaining,
+                                  totalRatio: viewData.computed.totalRatio,
+                                  deviceReceivables:
+                                      viewData.computed.deviceReceivables,
                                 ),
                               ),
                               const SizedBox(
                                 height: AccountTokens.projectTitleTopGap,
                               ),
                               AccountProjectSection(
-                                projects: filteredProjects,
-                                hasActiveFilter: hasActiveFilter,
+                                projects: viewData.filteredProjects,
+                                hasActiveFilter: viewData.hasActiveFilter,
                                 onOpenFilter: () => _openProjectFilterSheet(
-                                  suggestions: projectSuggestions,
+                                  suggestions: viewData.projectSuggestions,
                                 ),
                                 onClearFilter: () => _applyProjectFilterResult(
                                   const AccountProjectFilterResult.clear(),
                                 ),
-                                onTapProject: (p) => _openProjectDetail(
-                                  p,
-                                  timing,
-                                  devices,
-                                  payments,
-                                  rates,
-                                  computed,
-                                ),
+                                onTapProject: (p) =>
+                                    _openProjectDetail(p.projectKey),
                               ),
                             ],
                           ),

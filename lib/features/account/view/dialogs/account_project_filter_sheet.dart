@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../components/fields/app_auto_suggest_field.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../../../../tokens/mapper/bottom_sheet_tokens.dart';
 
 enum AccountProjectFilterResultType { ok, clear, cancel }
 
@@ -31,6 +32,10 @@ Future<AccountProjectFilterResult?> showAccountProjectFilterSheet(
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
+    sheetAnimationStyle: const AnimationStyle(
+      duration: BottomSheetTokens.animationDuration,
+      reverseDuration: BottomSheetTokens.reverseAnimationDuration,
+    ),
     builder: (_) => AccountProjectFilterSheet(
       initialKeyword: initialKeyword,
       suggestions: suggestions,

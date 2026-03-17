@@ -104,7 +104,7 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
     ),
     DevicePageActionSectionConfig(
       id: DevicePageActionSectionId.contact,
-      title: '联系',
+      title: '支持与反馈',
       items: [
         DeviceActionItemConfig(
           title: '联系开发者',

@@ -133,6 +133,7 @@ class DeviceBrandPickerTokens {
   static const double itemOuterPad = 4;
   static const double itemSelectedBorderWidth = 2.2;
   static const double itemUnselectedBorderWidth = 1;
+  static const double itemAspectRatio = 0.66;
   static const double itemLabelTopGap = 6;
   static const double itemLabelBoxHeight = 34;
   static const double itemLabelLineHeight = 1.1;
@@ -338,6 +339,8 @@ class DeviceTokens {
       DeviceBrandPickerTokens.itemSelectedBorderWidth;
   static const double brandPickerItemUnselectedBorderWidth =
       DeviceBrandPickerTokens.itemUnselectedBorderWidth;
+  static const double brandPickerItemAspectRatio =
+      DeviceBrandPickerTokens.itemAspectRatio;
   static const double brandPickerItemLabelTopGap =
       DeviceBrandPickerTokens.itemLabelTopGap;
   static const double brandPickerItemLabelBoxHeight =
@@ -403,10 +406,10 @@ class DeviceTokens {
   static const double upgradePlanSubtitle2TopGap = 6;
   static const double upgradePlanSubtitle2Size = 18;
   static const double upgradePlanTitleSubtitleGap = 6;
-  static const double upgradeBadgePadH = 18;
-  static const double upgradeBadgePadV = 10;
-  static const double upgradeBadgeRadius = 12;
-  static const double upgradeBadgeTextSize = 18;
+  static const double upgradeBadgePadH = 14;
+  static const double upgradeBadgePadV = 8;
+  static const double upgradeBadgeRadius = 10;
+  static const double upgradeBadgeTextSize = 16;
   static const FontWeight upgradeBadgeTextWeight = FontWeight.w700;
   static const double upgradeFooterTextSize = 16;
 }

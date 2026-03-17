@@ -276,24 +276,16 @@ class AccountService {
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
   }) {
+    final used = <double>[];
     final effectiveRate = buildEffectiveRateMap(
       projectKey: agg.projectKey,
       devices: devices,
       rates: rates,
     );
-
-    final used = <double>[];
-    for (final id in agg.deviceIds) {
-      final eff = effectiveRate[id] ?? 0.0;
-      if (eff > 0) used.add(eff);
-    }
-
-    if (used.isEmpty) {
-      return const ProjectRateInfo(
-        minRate: null,
-        isMultiDevice: false,
-        isMultiMode: false,
-      );
+    for (final entry in agg.normalHoursByDevice.entries) {
+      if (entry.value <= 0) continue;
+      final rate = effectiveRate[entry.key] ?? 0.0;
+      if (rate > 0) used.add(rate);
     }
 
     // 同一项目下若同一设备同时出现普通/破碎工时，则视为多模式
@@ -317,6 +309,14 @@ class AccountService {
       if (entry.value <= 0) continue;
       final rate = effectiveBreakingRate[entry.key] ?? 0.0;
       if (rate > 0) used.add(rate);
+    }
+
+    if (used.isEmpty) {
+      return const ProjectRateInfo(
+        minRate: null,
+        isMultiDevice: false,
+        isMultiMode: false,
+      );
     }
 
     used.sort();

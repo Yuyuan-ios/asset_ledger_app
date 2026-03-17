@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>机账通｜技术支持</title>
+    <meta
+      name="description"
+      content="机账通技术支持页面，提供产品简介、联系方式、反馈说明、响应说明及相关链接。"
+    />
+    <meta name="theme-color" content="#f28c34" />
+    <style>
+      :root {
+        --bg: #f6f5f2;
+        --card: #ffffff;
+        --text: #1f2933;
+        --muted: #677381;
+        --line: #e7e4de;
+        --accent: #f28c34;
+        --accent-soft: #fff4ea;
+        --shadow: 0 18px 40px rgba(31, 41, 51, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+          "Noto Sans SC", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(242, 140, 52, 0.08), transparent 32%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .page {
+        width: min(880px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0 72px;
+      }
+
+      .hero {
+        margin-bottom: 24px;
+        padding: 28px;
+        border: 1px solid rgba(242, 140, 52, 0.18);
+        border-radius: 24px;
+        background: linear-gradient(180deg, rgba(255, 244, 234, 0.92), rgba(255, 255, 255, 0.98));
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(242, 140, 52, 0.12);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      h1 {
+        margin: 16px 0 8px;
+        font-size: clamp(30px, 5vw, 40px);
+        line-height: 1.18;
+      }
+
+      .subtitle {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.75;
+        color: var(--muted);
+      }
+
+      .support-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .card {
+        padding: 26px 24px;
+        border-radius: 22px;
+        background: var(--card);
+        border: 1px solid rgba(31, 41, 51, 0.06);
+        box-shadow: 0 12px 28px rgba(31, 41, 51, 0.05);
+      }
+
+      .card h2 {
+        margin: 0 0 14px;
+        font-size: 20px;
+        line-height: 1.35;
+      }
+
+      .card p,
+      .card li {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.9;
+        color: var(--muted);
+      }
+
+      .card ul {
+        margin: 10px 0 0;
+        padding-left: 20px;
+      }
+
+      .channel-list,
+      .related-links {
+        display: grid;
+        gap: 12px;
+      }
+
+      .channel-item,
+      .related-link {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        background: #fbfaf8;
+        border: 1px solid var(--line);
+      }
+
+      .channel-item strong,
+      .related-link strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 15px;
+      }
+
+      .channel-item span,
+      .related-link span {
+        display: block;
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .link-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 112px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .footer {
+        margin-top: 18px;
+        padding: 0 4px;
+        font-size: 13px;
+        line-height: 1.8;
+        color: var(--muted);
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          width: min(100% - 20px, 880px);
+          padding: 24px 0 48px;
+        }
+
+        .hero,
+        .card {
+          padding: 22px 18px;
+          border-radius: 18px;
+        }
+
+        .channel-item,
+        .related-link {
+          flex-direction: column;
+        }
+
+        .link-button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">技术支持</div>
+        <h1 id="page-title">机账通｜技术支持</h1>
+        <p class="subtitle" id="page-subtitle">面向工程机械经营场景的记录与管理工具</p>
+      </section>
+
+      <section class="support-grid">
+        <article class="card">
+          <h2>产品简介</h2>
+          <p>
+            机账通是一款面向工程机械经营场景的记录与管理工具，帮助用户集中管理设备工时、燃油消耗、项目收支、维保明细与设备信息。
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>联系方式</h2>
+          <div class="channel-list">
+            <div class="channel-item">
+              <div>
+                <strong>开发者邮箱</strong>
+                <span id="support-email-text">support@example.com</span>
+              </div>
+              <a class="link-button" id="support-email-link" href="mailto:support@example.com">
+                发送邮件
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>反馈说明</h2>
+          <p>提交问题或建议时，建议附上以下信息：</p>
+          <ul>
+            <li>问题描述</li>
+            <li>设备型号</li>
+            <li>系统版本</li>
+            <li>App 版本</li>
+            <li>相关截图</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>响应说明</h2>
+          <p>我们会尽快查看并回复你的问题与建议。</p>
+        </article>
+
+        <article class="card">
+          <h2>补充渠道</h2>
+          <div class="channel-list">
+            <div class="channel-item" id="douyin-row">
+              <div>
+                <strong>抖音账号</strong>
+                <span id="douyin-text">@你的抖音账号</span>
+              </div>
+              <a class="link-button" id="douyin-link" href="#" target="_blank" rel="noreferrer">
+                查看账号
+              </a>
+            </div>
+            <div class="channel-item" id="wechat-row" hidden>
+              <div>
+                <strong>微信</strong>
+                <span id="wechat-text"></span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>相关链接</h2>
+          <div class="related-links">
+            <div class="related-link">
+              <div>
+                <strong>隐私政策</strong>
+                <span>建议替换为正式公开地址，用于用户查看数据处理与隐私说明。</span>
+              </div>
+              <a
+                class="link-button"
+                id="privacy-link"
+                href="https://example.com/privacy-policy"
+                target="_blank"
+                rel="noreferrer"
+              >
+                查看链接
+              </a>
+            </div>
+            <div class="related-link">
+              <div>
+                <strong>使用条款</strong>
+                <span>建议替换为正式公开地址，用于展示产品使用规则与服务说明。</span>
+              </div>
+              <a
+                class="link-button"
+                id="terms-link"
+                href="https://example.com/terms-of-service"
+                target="_blank"
+                rel="noreferrer"
+              >
+                查看链接
+              </a>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <p class="footer">
+        本页面用于提供“机账通”产品支持与反馈渠道，也可作为 App Store Connect 的技术支持网址（Support URL）填写页面。
+      </p>
+    </main>
+
+    <script src="./config.js"></script>
+    <script>
+      (function applySupportConfig() {
+        const config = window.supportSiteConfig || {};
+        const pageTitle = config.pageTitle || '机账通｜技术支持';
+        const subtitle = config.subtitle || '面向工程机械经营场景的记录与管理工具';
+        const description =
+          config.description ||
+          '机账通技术支持页面，提供产品简介、联系方式、反馈说明、响应说明及相关链接。';
+        const supportEmail = config.supportEmail || 'support@example.com';
+        const supportEmailSubject = config.supportEmailSubject || '机账通｜支持与反馈';
+        const privacyPolicyUrl =
+          config.privacyPolicyUrl || 'https://example.com/privacy-policy';
+        const termsOfServiceUrl =
+          config.termsOfServiceUrl || 'https://example.com/terms-of-service';
+        const douyinHandle = config.douyinHandle || '@你的抖音账号';
+        const douyinUrl = config.douyinUrl || '';
+        const wechatLabel = (config.wechatLabel || '').trim();
+
+        document.title = pageTitle;
+        document
+          .querySelector('meta[name="description"]')
+          .setAttribute('content', description);
+        document.getElementById('page-title').textContent = pageTitle;
+        document.getElementById('page-subtitle').textContent = subtitle;
+
+        const emailLink = document.getElementById('support-email-link');
+        const emailHref =
+          'mailto:' + supportEmail + '?subject=' + encodeURIComponent(supportEmailSubject);
+        document.getElementById('support-email-text').textContent = supportEmail;
+        emailLink.href = emailHref;
+
+        const privacyLink = document.getElementById('privacy-link');
+        privacyLink.href = privacyPolicyUrl;
+
+        const termsLink = document.getElementById('terms-link');
+        termsLink.href = termsOfServiceUrl;
+
+        const douyinText = document.getElementById('douyin-text');
+        douyinText.textContent = douyinHandle;
+        const douyinLink = document.getElementById('douyin-link');
+        if (douyinUrl) {
+          douyinLink.href = douyinUrl;
+        } else {
+          douyinLink.removeAttribute('href');
+          douyinLink.removeAttribute('target');
+          douyinLink.textContent = '账号预留';
+          douyinLink.style.pointerEvents = 'none';
+        }
+
+        const wechatRow = document.getElementById('wechat-row');
+        if (wechatLabel) {
+          wechatRow.hidden = false;
+          document.getElementById('wechat-text').textContent = wechatLabel;
+        }
+      })();
+    </script>
+  </body>
+</html>

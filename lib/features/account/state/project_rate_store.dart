@@ -35,12 +35,27 @@ class ProjectRateStore extends BaseStore {
   /// 核心逻辑：存在则更新，不存在则插入，无需区分新增/编辑操作
   /// [r] 要保存的项目设备单价配置实体
   Future<void> upsert(ProjectDeviceRate r) async {
-    await run(() async {
-      // 调用仓库层的 upsert 方法执行新增/更新操作
-      await _repository.upsert(r);
-      // 操作完成后重新加载最新列表，保证内存数据与数据源一致
-      await _reload();
-    });
+    await writeAndPatchLocalState(
+      write: () async {
+        await _repository.upsert(r);
+        return r;
+      },
+      patch: (nextRate) {
+        final index = _rates.indexWhere(
+          (item) =>
+              item.projectKey == nextRate.projectKey &&
+              item.deviceId == nextRate.deviceId &&
+              item.isBreaking == nextRate.isBreaking,
+        );
+        if (index == -1) {
+          _rates = [..._rates, nextRate];
+        } else {
+          final updated = [..._rates];
+          updated[index] = nextRate;
+          _rates = updated;
+        }
+      },
+    );
   }
 
   /// 根据项目标识和设备ID删除单价配置
@@ -51,15 +66,20 @@ class ProjectRateStore extends BaseStore {
     int deviceId, {
     bool isBreaking = false,
   }) async {
-    await run(() async {
-      // 调用仓库层删除指定维度的单价配置
-      await _repository.delete(
+    await writeAndPatchLocalState(
+      write: () => _repository.delete(
         projectKey,
         deviceId,
         isBreaking: isBreaking,
-      );
-      // 删除后重新加载最新列表，同步状态
-      await _reload();
-    });
+      ),
+      patch: (_) {
+        _rates = _rates.where((item) {
+          return !(
+              item.projectKey == projectKey &&
+              item.deviceId == deviceId &&
+              item.isBreaking == isBreaking);
+        }).toList();
+      },
+    );
   }
 }

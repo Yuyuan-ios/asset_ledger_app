@@ -18,6 +18,14 @@ class AccountPaymentStore extends BaseStore {
     _records = await _repository.listAll();
   }
 
+  void _sortRecords() {
+    _records = [..._records]..sort((a, b) {
+      final byDate = b.ymd.compareTo(a.ymd);
+      if (byDate != 0) return byDate;
+      return (b.id ?? 0).compareTo(a.id ?? 0);
+    });
+  }
+
   /// 对外提供的收款记录列表（只读）
   /// 外部只能读取，不能直接修改，确保数据的安全性
   List<AccountPayment> get records => _records;
@@ -36,27 +44,37 @@ class AccountPaymentStore extends BaseStore {
   /// 根据是否有 id 来判断是新增还是编辑操作
   /// [p] 要保存的收款记录实体
   Future<void> save(AccountPayment p) async {
-    await run(() async {
-      // 无 id 表示新增记录
-      if (p.id == null) {
-        await _repository.insert(p);
-      } else {
-        // 有 id 表示编辑已有记录
+    await writeAndPatchLocalState(
+      write: () async {
+        if (p.id == null) {
+          return await _repository.insert(p);
+        }
         await _repository.update(p);
-      }
-      // 保存后重新加载最新的记录列表，保证状态同步
-      await _reload();
-    });
+        return p.id!;
+      },
+      patch: (paymentId) {
+        final next = p.copyWith(id: paymentId);
+        final index = _records.indexWhere((item) => item.id == paymentId);
+        if (index == -1) {
+          _records = [..._records, next];
+        } else {
+          final updated = [..._records];
+          updated[index] = next;
+          _records = updated;
+        }
+        _sortRecords();
+      },
+    );
   }
 
   /// 根据 ID 删除收款记录
   /// [id] 要删除的收款记录 ID
   Future<void> deleteById(int id) async {
-    await run(() async {
-      // 调用仓库层删除指定 ID 的记录
-      await _repository.deleteById(id);
-      // 删除后重新加载最新的记录列表，保证状态同步
-      await _reload();
-    });
+    await writeAndPatchLocalState(
+      write: () => _repository.deleteById(id),
+      patch: (_) {
+        _records = _records.where((item) => item.id != id).toList();
+      },
+    );
   }
 }

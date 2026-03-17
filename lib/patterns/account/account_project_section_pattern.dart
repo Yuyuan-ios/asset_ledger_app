@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
-import '../../features/account/state/account_store.dart';
+import '../../features/account/model/account_view_model.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'account_project_list_pattern.dart';

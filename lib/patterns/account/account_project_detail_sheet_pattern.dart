@@ -5,7 +5,7 @@ import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/project_key.dart';
 import '../../data/models/timing_record.dart';
-import '../../features/account/state/account_store.dart';
+import '../../features/account/model/account_view_model.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'project_account_detail_content_pattern.dart';
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/foundation/typography.dart';
+import '../../../../core/utils/text_field_utils.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 
@@ -84,6 +85,7 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
           TextField(
             controller: _diggingController,
             keyboardType: TextInputType.number,
+            onTap: () => selectAllIfZeroLike(_diggingController),
             decoration: const InputDecoration(
               labelText: '挖斗统一单价（整数）',
               isDense: true,
@@ -94,6 +96,7 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
           TextField(
             controller: _breakingController,
             keyboardType: TextInputType.number,
+            onTap: () => selectAllIfZeroLike(_breakingController),
             decoration: const InputDecoration(
               labelText: '破碎统一单价（整数）',
               isDense: true,
@@ -208,6 +211,7 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
                 child: TextField(
                   controller: _controller,
                   keyboardType: TextInputType.number,
+                  onTap: () => selectAllIfZeroLike(_controller),
                   decoration: const InputDecoration(
                     labelText: '单价',
                     isDense: true,

@@ -28,6 +28,7 @@ class AppProviders {
     final deviceStore = DeviceStore(deviceRepository);
     final timingStore = TimingStore(timingRepository);
     final fuelStore = FuelStore(fuelRepository);
+    final maintenanceStore = MaintenanceStore(maintenanceRepository);
     final paymentStore = AccountPaymentStore(accountPaymentRepository);
     final projectRateStore = ProjectRateStore(projectRateRepository);
 
@@ -35,6 +36,7 @@ class AppProviders {
       deviceStore: deviceStore,
       timingStore: timingStore,
       fuelStore: fuelStore,
+      maintenanceStore: maintenanceStore,
       paymentStore: paymentStore,
       projectRateStore: projectRateStore,
       providers: [
@@ -42,23 +44,20 @@ class AppProviders {
         Provider<TimingRepository>.value(value: timingRepository),
         Provider<FuelRepository>.value(value: fuelRepository),
         Provider<MaintenanceRepository>.value(value: maintenanceRepository),
-        Provider<AccountPaymentRepository>.value(value: accountPaymentRepository),
+        Provider<AccountPaymentRepository>.value(
+          value: accountPaymentRepository,
+        ),
         Provider<ProjectRateRepository>.value(value: projectRateRepository),
         ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
         ChangeNotifierProvider<TimingStore>.value(value: timingStore),
         ChangeNotifierProvider<FuelStore>.value(value: fuelStore),
-        ChangeNotifierProvider<MaintenanceStore>(
-          create: (context) =>
-              MaintenanceStore(context.read<MaintenanceRepository>()),
-        ),
+        ChangeNotifierProvider<MaintenanceStore>.value(value: maintenanceStore),
         ChangeNotifierProvider<AccountPaymentStore>.value(value: paymentStore),
         Provider<AccountStore>(create: (_) => AccountStore()),
         ChangeNotifierProvider<AccountFilterStore>(
           create: (_) => AccountFilterStore(),
         ),
-        ChangeNotifierProvider<ProjectRateStore>.value(
-          value: projectRateStore,
-        ),
+        ChangeNotifierProvider<ProjectRateStore>.value(value: projectRateStore),
       ],
     );
   }
@@ -68,6 +67,7 @@ class AppProviderBundle {
   final DeviceStore deviceStore;
   final TimingStore timingStore;
   final FuelStore fuelStore;
+  final MaintenanceStore maintenanceStore;
   final AccountPaymentStore paymentStore;
   final ProjectRateStore projectRateStore;
   final List<SingleChildWidget> providers;
@@ -76,6 +76,7 @@ class AppProviderBundle {
     required this.deviceStore,
     required this.timingStore,
     required this.fuelStore,
+    required this.maintenanceStore,
     required this.paymentStore,
     required this.projectRateStore,
     required this.providers,

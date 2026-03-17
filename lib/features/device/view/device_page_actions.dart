@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/support_feedback_config.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../data/models/device.dart';
 import '../../../data/services/rate_app_service.dart';
+import '../../../data/services/support_feedback_service.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import 'device_avatar_select_page.dart';
@@ -98,6 +100,26 @@ class DevicePageActions {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const PrivacyPage()));
+  }
+
+  static Future<void> openSupportPage({
+    required DevicePageMounted isMounted,
+    required DevicePageToast toast,
+  }) async {
+    final result = await SupportFeedbackService.openSupportEntry();
+    if (!isMounted()) return;
+
+    switch (result) {
+      case SupportFeedbackOpenResult.supportSite:
+        toast('已打开技术支持网页');
+        break;
+      case SupportFeedbackOpenResult.email:
+        toast('暂时无法打开支持页，已切换到邮件联系');
+        break;
+      case SupportFeedbackOpenResult.unavailable:
+        toast('暂时无法打开支持页，请稍后重试或发送邮件到 ${SupportFeedbackConfig.supportEmail}');
+        break;
+    }
   }
 
   static Future<bool> openUpgradePage(BuildContext context) async {

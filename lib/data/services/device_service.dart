@@ -124,9 +124,11 @@ class DeviceService {
         brand: device.brand,
         model: device.model,
         defaultUnitPrice: device.defaultUnitPrice,
+        breakingUnitPrice: device.breakingUnitPrice,
         baseMeterHours: device.baseMeterHours,
         isActive: device.isActive,
         customAvatarPath: null,
+        equipmentType: device.equipmentType,
       );
     }
 

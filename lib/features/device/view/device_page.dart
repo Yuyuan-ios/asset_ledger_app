@@ -71,10 +71,6 @@ class _DevicePageState extends State<DevicePage> {
     await DevicePageActions.retryLoad(context.read<DeviceStore>());
   }
 
-  void _onPlaceholderTap(String label) {
-    _toast('$label 功能下步再接入');
-  }
-
   Future<void> _openRateApp() async {
     await DevicePageActions.openRateApp(
       isMounted: () => mounted,
@@ -88,6 +84,13 @@ class _DevicePageState extends State<DevicePage> {
 
   Future<void> _openPrivacyPage() async {
     await DevicePageActions.openPrivacyPage(context);
+  }
+
+  Future<void> _openContactSupport() async {
+    await DevicePageActions.openSupportPage(
+      isMounted: () => mounted,
+      toast: _toast,
+    );
   }
 
   Future<void> _openUpgradePage() async {
@@ -142,7 +145,7 @@ class _DevicePageState extends State<DevicePage> {
                       onOpenRateApp: _openRateApp,
                       onOpenTermsPage: _openTermsPage,
                       onOpenPrivacyPage: _openPrivacyPage,
-                      onOpenContact: () => _onPlaceholderTap('联系开发者'),
+                      onOpenContact: _openContactSupport,
                       onDeviceTap: (d) => _openDeviceDialog(device: d),
                       onDeviceLongPress: (d) async {
                         await DevicePageActions.deactivateDevice(

@@ -4,6 +4,7 @@ import '../../../core/foundation/typography.dart';
 import '../../../data/models/device.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import 'device_avatar_select_view_data.dart';
 
 class AvatarSelectionResult {
   final String brandValue;
@@ -106,9 +107,7 @@ class _EquipmentTypeBrandPickerState extends State<_EquipmentTypeBrandPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final empty = BrandCatalog.groups(
-      equipmentType: _selectedType,
-    ).values.every((items) => items.isEmpty);
+    final viewData = DeviceAvatarSelectViewData.fromSelectedType(_selectedType);
     return Column(
       children: [
         Padding(
@@ -124,7 +123,7 @@ class _EquipmentTypeBrandPickerState extends State<_EquipmentTypeBrandPicker> {
           ),
         ),
         Expanded(
-          child: empty
+          child: viewData.isEmpty
               ? Center(
                   child: Text(
                     '该类别暂无品牌，先选另一类或新增自定义头像',
@@ -138,8 +137,8 @@ class _EquipmentTypeBrandPickerState extends State<_EquipmentTypeBrandPicker> {
                   ),
                 )
               : BrandPickerGrouped(
+                  groups: viewData.groups,
                   selectedBrandValue: widget.initialBrandValue,
-                  equipmentTypeFilter: _selectedType,
                   onSelected: (brand) {
                     Navigator.of(context).pop(
                       AvatarSelectionResult(

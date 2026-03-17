@@ -34,6 +34,14 @@ class MaintenanceStore extends BaseStore {
     _records = await _repository.listAll();
   }
 
+  void _sortRecords() {
+    _records = [..._records]..sort((a, b) {
+      final byDate = b.ymd.compareTo(a.ymd);
+      if (byDate != 0) return byDate;
+      return (b.id ?? 0).compareTo(a.id ?? 0);
+    });
+  }
+
   // -------------------------------------------------------------------
   // 2.2 对外只读暴露
   // -------------------------------------------------------------------
@@ -54,14 +62,27 @@ class MaintenanceStore extends BaseStore {
   // =====================================================================
 
   Future<void> save(MaintenanceRecord record) async {
-    await run(() async {
-      if (record.id == null) {
-        await _repository.insert(record);
-      } else {
+    await writeAndPatchLocalState(
+      write: () async {
+        if (record.id == null) {
+          return await _repository.insert(record);
+        }
         await _repository.update(record);
-      }
-      await _reload();
-    });
+        return record.id!;
+      },
+      patch: (recordId) {
+        final next = record.copyWith(id: recordId);
+        final index = _records.indexWhere((item) => item.id == recordId);
+        if (index == -1) {
+          _records = [..._records, next];
+        } else {
+          final updated = [..._records];
+          updated[index] = next;
+          _records = updated;
+        }
+        _sortRecords();
+      },
+    );
   }
 
   // =====================================================================
@@ -69,10 +90,15 @@ class MaintenanceStore extends BaseStore {
   // =====================================================================
 
   Future<void> deleteById(int id) async {
-    await run(() async {
-      await _repository.deleteById(id);
-      await _reload();
-    });
+    await writeAndPatchLocalState(
+      write: () async {
+        await _repository.deleteById(id);
+        return id;
+      },
+      patch: (_) {
+        _records = _records.where((item) => item.id != id).toList();
+      },
+    );
   }
 
   // =====================================================================

@@ -28,6 +28,7 @@ dependencies:
   # ✅ Step 10-6 需要：选择相册/拍照获取头像图片
   image_picker: ^1.1.2
   in_app_review: ^2.0.10
+  url_launcher: ^6.3.1
 
   # iOS 风格图标
   cupertino_icons: ^1.0.8

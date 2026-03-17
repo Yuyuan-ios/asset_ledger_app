@@ -147,5 +147,51 @@ void main() {
         isTrue,
       );
     });
+
+    test('uses breaking unit price on project cards when a project only has breaking hours', () {
+      const useCase = ComputeAccountSummaryUseCase();
+
+      final result = useCase.execute(
+        timingRecords: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260317,
+            contact: '赵六',
+            site: '尚义',
+            type: TimingType.hours,
+            startMeter: 2096,
+            endMeter: 2105,
+            hours: 9,
+            income: 0,
+            isBreaking: true,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 120,
+            breakingUnitPrice: 200,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        payments: const [
+          AccountPayment(
+            id: 1,
+            projectKey: '赵六||尚义',
+            ymd: 20260317,
+            amount: 1000,
+          ),
+        ],
+      );
+
+      expect(result.projects, hasLength(1));
+      expect(result.projects.first.displayName, '赵六 + 尚义');
+      expect(result.projects.first.minRate, 200);
+      expect(result.projects.first.isMultiMode, isFalse);
+    });
   });
 }
