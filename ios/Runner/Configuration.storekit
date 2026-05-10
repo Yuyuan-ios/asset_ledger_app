@@ -1,0 +1,89 @@
+{
+  "identifier" : "com.yuyuan.assetledger.local-storekit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "5XC2V4BF6A",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 767491200,
+    "_locale" : "zh_CN",
+    "_storefront" : "CHN"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "asset_ledger_pro",
+      "localizations" : [
+        {
+          "locale" : "zh-Hans",
+          "name" : "Asset Ledger Pro"
+        }
+      ],
+      "name" : "Asset Ledger Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "1.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "asset_ledger_pro_monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly Pro subscription",
+              "displayName" : "Monthly Pro",
+              "locale" : "zh-Hans"
+            }
+          ],
+          "productID" : "com.yuyuan.assetledger.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Pro",
+          "subscriptionGroupID" : "asset_ledger_pro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "6.00",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "asset_ledger_pro_yearly",
+          "introductoryOffer" : {
+            "internalID" : "asset_ledger_pro_yearly_trial",
+            "paymentMode" : "freeTrial",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "Annual Pro subscription",
+              "displayName" : "Annual Pro",
+              "locale" : "zh-Hans"
+            }
+          ],
+          "productID" : "com.yuyuan.assetledger.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Annual Pro",
+          "subscriptionGroupID" : "asset_ledger_pro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

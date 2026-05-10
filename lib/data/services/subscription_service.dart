@@ -1,132 +1,493 @@
-// =====================================================================
-// ============================== 一、订阅能力服务 ==============================
-// =====================================================================
-//
-// 设计目标：
-// - 让 UI/Store 不需要知道“未来怎么接 IAP”
-// - 现在先用一个开关模拟：你随时可以切换为 Pro 来测试“自定义头像”
-// - 后续接 Apple/Google IAP，只需要改这里，不动业务层
-//
-// 放置层级：Service（业务能力判断）
-//
-// 关键约束（为了避免你现在遇到的 Future 类型污染）：
-// ✅ UI/Store/其它 Service：只读同步 bool（不拿 Future）
-// ✅ 真正的异步订阅校验：集中在 refresh()/init() 内部做，并写入缓存
-// =====================================================================
+import 'dart:async';
 
-enum Plan { free, pro }
+import 'package:flutter/foundation.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+
+import 'subscription_entitlement_cache.dart';
+import 'subscription_store_gateway.dart';
+import 'subscription_verification_repository.dart';
+import 'subscription_verification_repository_factory.dart';
+
+enum SubscriptionStatus {
+  unknown,
+  free,
+  pending,
+  activeMonthly,
+  activeYearly,
+  inGracePeriod,
+  billingRetry,
+  expired,
+  revoked,
+}
+
+enum SubscriptionProductKind { monthly, yearly }
+
+class SubscriptionSnapshot {
+  const SubscriptionSnapshot({
+    required this.status,
+    required this.products,
+    this.isEntitlementVerified = false,
+    this.isLoadingProducts = false,
+    this.isPurchasing = false,
+    this.isRestoring = false,
+    this.isSyncing = false,
+    this.productId,
+    this.expiryDate,
+    this.lastSyncedAt,
+    this.errorMessage,
+  });
+
+  factory SubscriptionSnapshot.initial() {
+    return const SubscriptionSnapshot(
+      status: SubscriptionStatus.unknown,
+      products: <SubscriptionProductKind, ProductDetails>{},
+    );
+  }
+
+  final SubscriptionStatus status;
+  final Map<SubscriptionProductKind, ProductDetails> products;
+  final bool isEntitlementVerified;
+  final bool isLoadingProducts;
+  final bool isPurchasing;
+  final bool isRestoring;
+  final bool isSyncing;
+  final String? productId;
+  final DateTime? expiryDate;
+  final DateTime? lastSyncedAt;
+  final String? errorMessage;
+
+  bool get allowsProFeatures {
+    if (!isEntitlementVerified) return false;
+    return status == SubscriptionStatus.activeMonthly ||
+        status == SubscriptionStatus.activeYearly ||
+        status == SubscriptionStatus.inGracePeriod;
+  }
+
+  bool get canUseCustomAvatar => allowsProFeatures;
+
+  bool get hasProducts => products.isNotEmpty;
+
+  bool get isBusy => isLoadingProducts || isPurchasing || isRestoring;
+
+  ProductDetails? productFor(SubscriptionProductKind kind) => products[kind];
+
+  SubscriptionSnapshot copyWith({
+    SubscriptionStatus? status,
+    Map<SubscriptionProductKind, ProductDetails>? products,
+    bool? isEntitlementVerified,
+    bool? isLoadingProducts,
+    bool? isPurchasing,
+    bool? isRestoring,
+    bool? isSyncing,
+    String? productId,
+    DateTime? expiryDate,
+    DateTime? lastSyncedAt,
+    String? errorMessage,
+    bool clearProductId = false,
+    bool clearExpiryDate = false,
+    bool clearLastSyncedAt = false,
+    bool clearError = false,
+  }) {
+    return SubscriptionSnapshot(
+      status: status ?? this.status,
+      products: products ?? this.products,
+      isEntitlementVerified:
+          isEntitlementVerified ?? this.isEntitlementVerified,
+      isLoadingProducts: isLoadingProducts ?? this.isLoadingProducts,
+      isPurchasing: isPurchasing ?? this.isPurchasing,
+      isRestoring: isRestoring ?? this.isRestoring,
+      isSyncing: isSyncing ?? this.isSyncing,
+      productId: clearProductId ? null : productId ?? this.productId,
+      expiryDate: clearExpiryDate ? null : expiryDate ?? this.expiryDate,
+      lastSyncedAt: clearLastSyncedAt
+          ? null
+          : lastSyncedAt ?? this.lastSyncedAt,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+    );
+  }
+}
 
 class SubscriptionService {
-  // -------------------------------------------------------------------
-  // 1.1 当前方案（临时：手动切换）
-  //
-  // 说明：
-  // - 你现在可以在调试时手动改成 Plan.pro 来测试订阅能力
-  // - 未来接 IAP/本地持久化时：不要让 UI/Store 改调用点
-  //   只需要把 refresh()/init() 的实现替换掉即可
-  // -------------------------------------------------------------------
-  static Plan _currentPlan = Plan.free;
+  const SubscriptionService._();
 
-  // -------------------------------------------------------------------
-  // 1.2 缓存：是否 Pro（给 UI/Store 快速读）
-  //
-  // 说明：
-  // - UI/Store 绝大多数场景只需要“当前缓存值”
-  // - 真正刷新订阅状态，由 refresh() 统一触发
-  // -------------------------------------------------------------------
-  static bool _proCached = false;
+  static const String monthlyProductId = 'com.yuyuan.assetledger.pro.monthly';
+  static const String yearlyProductId = 'com.yuyuan.assetledger.pro.yearly';
 
-  // -------------------------------------------------------------------
-  // 1.3 对外读：当前缓存值（同步）
-  // -------------------------------------------------------------------
-  static bool get proCached => _proCached;
+  static final ValueNotifier<SubscriptionSnapshot> notifier =
+      ValueNotifier<SubscriptionSnapshot>(SubscriptionSnapshot.initial());
 
-  // -------------------------------------------------------------------
-  // 1.4 ✅ 同步：是否 Pro（给业务层/页面直接用）
-  //
-  // 重要：
-  // - 这里必须是 bool，而不是 Future<bool>
-  // - 任何需要 Future 的逻辑，都去 refresh()/isProAsync() 里做
-  // -------------------------------------------------------------------
-  static bool get isPro => _proCached;
+  static StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  static bool _initialized = false;
 
-  // -------------------------------------------------------------------
-  // 1.5 ✅ 同步：是否允许自定义头像（给 DeviceService 用）
-  //
-  // 你当前的套餐规则：
-  // - Pro 才允许自定义头像
-  // - 未来如果 Pro/Team/Enterprise 细分，只改这里
-  // -------------------------------------------------------------------
-  static bool get canUseCustomAvatar => isPro;
+  static SubscriptionStoreGateway _storeGateway =
+      InAppPurchaseSubscriptionStoreGateway();
+  static SubscriptionVerificationRepository _verificationRepository =
+      createDefaultSubscriptionVerificationRepository();
+  static SubscriptionEntitlementCache _entitlementCache =
+      const SharedPreferencesSubscriptionEntitlementCache();
 
-  // -------------------------------------------------------------------
-  // 1.6（开发期）快速切换套餐：只用于调试
-  //
-  // ✅ 你现在想“马上加入订阅版逻辑”，就用这个入口切换
-  // - 例如：SubscriptionService.setPlanForDebug(Plan.pro);
-  //
-  // 说明：
-  // - 这里直接同步写入缓存，保证 UI/业务立刻读到正确结果
-  // -------------------------------------------------------------------
-  static void setPlanForDebug(Plan plan) {
-    _currentPlan = plan;
-    _proCached = (plan == Plan.pro);
-  }
+  static SubscriptionSnapshot get snapshot => notifier.value;
 
-  // =====================================================================
-  // ============================== 二、异步接口（未来接 IAP 用） ==============================
-  // =====================================================================
+  static bool get canUseCustomAvatar => snapshot.canUseCustomAvatar;
 
-  // -------------------------------------------------------------------
-  // 2.1 是否 Pro（异步接口）
-  //
-  // 说明：
-  // - 当前阶段：直接返回缓存
-  // - 未来接 IAP：这里可以真正去查 StoreKit/Billing
-  // -------------------------------------------------------------------
-  static Future<bool> isProAsync() async {
-    // 当前阶段：直接用缓存
-    return _proCached;
-  }
+  static bool get allowsProFeatures => snapshot.allowsProFeatures;
 
-  // -------------------------------------------------------------------
-  // 2.2 是否允许自定义头像（异步接口）
-  //
-  // 说明：
-  // - 未来如果你做更细的套餐（Pro/Team），只改这里
-  // -------------------------------------------------------------------
-  static Future<bool> canUseCustomAvatarAsync() async {
-    return await isProAsync();
-  }
-
-  // =====================================================================
-  // ============================== 三、刷新订阅状态（未来接 IAP 用） ==============================
-  // =====================================================================
-
-  // -------------------------------------------------------------------
-  // 3.1 refresh：刷新订阅状态并更新缓存
-  //
-  // 当前阶段：
-  // - 只是把手动方案同步到缓存
-  //
-  // 未来阶段（接 IAP 时）：
-  // - 从 IAP SDK 拉取真实订阅状态
-  // - 写入 _proCached
-  // -（可选）写入本地持久化（SharedPreferences）
-  // -------------------------------------------------------------------
-  static Future<void> refresh() async {
-    // 当前阶段：以手动方案为准
-    _proCached = (_currentPlan == Plan.pro);
-  }
-
-  // -------------------------------------------------------------------
-  // 3.2 init：应用启动时调用一次（可选）
-  //
-  // 用法建议：
-  // - main.dart / MainPage.initState 首帧后调用一次 await SubscriptionService.init()
-  // - init 内部可调用 refresh()，将来接 IAP 也只改这里
-  // -------------------------------------------------------------------
   static Future<void> init() async {
-    await refresh();
+    if (!_initialized) {
+      _purchaseSubscription = _storeGateway.purchaseStream.listen(
+        handlePurchaseUpdates,
+        onError: (Object error) {
+          _setSnapshot(
+            snapshot.copyWith(
+              status: SubscriptionStatus.free,
+              isEntitlementVerified: false,
+              isPurchasing: false,
+              isRestoring: false,
+              errorMessage: '订阅交易监听失败：$error',
+            ),
+          );
+        },
+      );
+      _initialized = true;
+    }
+
+    await syncSubscriptionStatus();
+    await loadProducts();
+  }
+
+  static Future<void> loadProducts() async {
+    _setSnapshot(snapshot.copyWith(isLoadingProducts: true, clearError: true));
+
+    try {
+      final available = await _storeGateway.isAvailable();
+      if (!available) {
+        _setSnapshot(
+          snapshot.copyWith(
+            status: SubscriptionStatus.free,
+            isEntitlementVerified: false,
+            products: const <SubscriptionProductKind, ProductDetails>{},
+            isLoadingProducts: false,
+            errorMessage: 'App Store 购买服务暂不可用',
+          ),
+        );
+        return;
+      }
+
+      final response = await _storeGateway.queryProductDetails({
+        monthlyProductId,
+        yearlyProductId,
+      });
+      if (kDebugMode) {
+        debugPrint(
+          'IAP products loaded: found=${response.productDetails.map((product) => product.id).join(', ')} '
+          'notFound=${response.notFoundIDs.join(', ')}',
+        );
+      }
+
+      final products = <SubscriptionProductKind, ProductDetails>{};
+      for (final product in response.productDetails) {
+        switch (product.id) {
+          case monthlyProductId:
+            products[SubscriptionProductKind.monthly] = product;
+            break;
+          case yearlyProductId:
+            products[SubscriptionProductKind.yearly] = product;
+            break;
+        }
+      }
+
+      final notFound = response.notFoundIDs;
+      _setSnapshot(
+        snapshot.copyWith(
+          products: products,
+          isLoadingProducts: false,
+          errorMessage: notFound.isEmpty
+              ? null
+              : '订阅商品暂不可用，请确认 App Store Connect 已为当前 iOS App 配置订阅商品。',
+          clearError: notFound.isEmpty,
+        ),
+      );
+    } catch (error) {
+      _setSnapshot(
+        snapshot.copyWith(
+          status: SubscriptionStatus.free,
+          isEntitlementVerified: false,
+          isLoadingProducts: false,
+          errorMessage: '订阅商品加载失败：$error',
+        ),
+      );
+    }
+  }
+
+  static Future<void> buySelectedProduct(SubscriptionProductKind kind) async {
+    final product = snapshot.productFor(kind);
+    if (product == null) {
+      _setSnapshot(snapshot.copyWith(errorMessage: '当前订阅套餐不可购买，请稍后重试'));
+      return;
+    }
+
+    _setSnapshot(
+      snapshot.copyWith(
+        status: SubscriptionStatus.pending,
+        isEntitlementVerified: false,
+        isPurchasing: true,
+        clearError: true,
+      ),
+    );
+
+    try {
+      final purchaseParam = PurchaseParam(productDetails: product);
+      await _storeGateway.buyNonConsumable(purchaseParam: purchaseParam);
+    } catch (error) {
+      _setSnapshot(
+        snapshot.copyWith(
+          status: SubscriptionStatus.free,
+          isEntitlementVerified: false,
+          isPurchasing: false,
+          errorMessage: '无法发起订阅购买：$error',
+        ),
+      );
+    }
+  }
+
+  static Future<void> restorePurchases() async {
+    _setSnapshot(
+      snapshot.copyWith(
+        status: SubscriptionStatus.pending,
+        isEntitlementVerified: false,
+        isRestoring: true,
+        clearError: true,
+      ),
+    );
+
+    try {
+      await _storeGateway.restorePurchases();
+    } catch (error) {
+      _setSnapshot(
+        snapshot.copyWith(
+          status: SubscriptionStatus.free,
+          isEntitlementVerified: false,
+          isRestoring: false,
+          errorMessage: '恢复购买失败：$error',
+        ),
+      );
+    }
+  }
+
+  static Future<void> handlePurchaseUpdates(
+    List<PurchaseDetails> purchases,
+  ) async {
+    for (final purchase in purchases) {
+      var shouldCompletePurchase = false;
+      switch (purchase.status) {
+        case PurchaseStatus.pending:
+          _setSnapshot(
+            snapshot.copyWith(
+              status: SubscriptionStatus.pending,
+              isEntitlementVerified: false,
+              isPurchasing: false,
+              isRestoring: false,
+              clearError: true,
+            ),
+          );
+          break;
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          shouldCompletePurchase = await _handleVerifiedPurchase(purchase);
+          break;
+        case PurchaseStatus.error:
+          _setSnapshot(
+            snapshot.copyWith(
+              status: SubscriptionStatus.free,
+              isEntitlementVerified: false,
+              isPurchasing: false,
+              isRestoring: false,
+              errorMessage: purchase.error?.message ?? '订阅购买失败',
+            ),
+          );
+          shouldCompletePurchase = true;
+          break;
+        case PurchaseStatus.canceled:
+          _setSnapshot(
+            snapshot.copyWith(
+              status: SubscriptionStatus.free,
+              isEntitlementVerified: false,
+              isPurchasing: false,
+              isRestoring: false,
+              errorMessage: '已取消订阅购买',
+            ),
+          );
+          shouldCompletePurchase = true;
+          break;
+      }
+
+      if (purchase.pendingCompletePurchase && shouldCompletePurchase) {
+        await _storeGateway.completePurchase(purchase);
+      }
+    }
+  }
+
+  static Future<void> syncSubscriptionStatus() async {
+    _setSnapshot(snapshot.copyWith(isSyncing: true, clearError: true));
+
+    final cached = await _entitlementCache.read();
+    if (cached != null) {
+      _setSnapshot(_snapshotFromCachedEntitlement(cached));
+    }
+
+    final entitlement = await _verificationRepository.fetchCurrentEntitlement();
+    await _applyVerificationResult(entitlement);
+  }
+
+  static Future<bool> _handleVerifiedPurchase(PurchaseDetails purchase) async {
+    final entitlement = await _verificationRepository.verifyPurchase(purchase);
+    await _applyVerificationResult(
+      entitlement,
+      fallbackProductId: purchase.productID,
+    );
+    return _shouldCompletePurchase(entitlement);
+  }
+
+  static Future<void> _applyVerificationResult(
+    VerifiedEntitlement entitlement, {
+    String? fallbackProductId,
+  }) async {
+    final next = _snapshotFromVerifiedEntitlement(
+      entitlement,
+      fallbackProductId: fallbackProductId,
+    );
+    _setSnapshot(next);
+
+    if (entitlement.isVerified) {
+      await _entitlementCache.write(
+        SubscriptionEntitlementCacheEntry.fromVerified(entitlement),
+      );
+    }
+  }
+
+  static SubscriptionSnapshot _snapshotFromCachedEntitlement(
+    SubscriptionEntitlementCacheEntry cached,
+  ) {
+    return snapshot.copyWith(
+      status: mapVerifiedEntitlementToStatus(cached.outcome),
+      isEntitlementVerified: false,
+      isPurchasing: false,
+      isRestoring: false,
+      isSyncing: true,
+      productId: cached.productId,
+      expiryDate: cached.expiryDate,
+      lastSyncedAt: cached.lastSyncedAt,
+      clearError: true,
+    );
+  }
+
+  static SubscriptionSnapshot _snapshotFromVerifiedEntitlement(
+    VerifiedEntitlement entitlement, {
+    String? fallbackProductId,
+  }) {
+    final status = mapVerifiedEntitlementToStatus(entitlement.outcome);
+    final failed =
+        entitlement.outcome ==
+        SubscriptionVerificationOutcome.verificationFailed;
+    final unavailable =
+        entitlement.outcome ==
+        SubscriptionVerificationOutcome.verificationUnavailable;
+
+    return snapshot.copyWith(
+      status: status,
+      isEntitlementVerified: entitlement.isVerified,
+      isPurchasing: false,
+      isRestoring: false,
+      isSyncing: false,
+      productId: entitlement.productId ?? fallbackProductId,
+      expiryDate: entitlement.expiryDate,
+      lastSyncedAt: entitlement.lastSyncedAt,
+      clearProductId:
+          entitlement.productId == null && fallbackProductId == null,
+      clearExpiryDate: entitlement.expiryDate == null,
+      errorMessage: failed || unavailable ? entitlement.reason : null,
+      clearError: !(failed || unavailable),
+    );
+  }
+
+  static SubscriptionStatus mapVerifiedEntitlementToStatus(
+    SubscriptionVerificationOutcome outcome,
+  ) {
+    return switch (outcome) {
+      SubscriptionVerificationOutcome.verifiedActiveMonthly =>
+        SubscriptionStatus.activeMonthly,
+      SubscriptionVerificationOutcome.verifiedActiveYearly =>
+        SubscriptionStatus.activeYearly,
+      SubscriptionVerificationOutcome.verifiedGracePeriod =>
+        SubscriptionStatus.inGracePeriod,
+      SubscriptionVerificationOutcome.verifiedBillingRetry =>
+        SubscriptionStatus.billingRetry,
+      SubscriptionVerificationOutcome.verifiedInactive =>
+        SubscriptionStatus.free,
+      SubscriptionVerificationOutcome.verifiedExpired =>
+        SubscriptionStatus.expired,
+      SubscriptionVerificationOutcome.verifiedRevoked =>
+        SubscriptionStatus.revoked,
+      SubscriptionVerificationOutcome.verificationFailed =>
+        SubscriptionStatus.free,
+      SubscriptionVerificationOutcome.verificationUnavailable =>
+        SubscriptionStatus.free,
+    };
+  }
+
+  static bool _shouldCompletePurchase(VerifiedEntitlement entitlement) {
+    return entitlement.outcome !=
+        SubscriptionVerificationOutcome.verificationUnavailable;
+  }
+
+  static void _setSnapshot(SubscriptionSnapshot next) {
+    notifier.value = next;
+  }
+
+  @visibleForTesting
+  static void resetForTest() {
+    assert(() {
+      _purchaseSubscription?.cancel();
+      _purchaseSubscription = null;
+      _initialized = false;
+      _storeGateway = const UnavailableSubscriptionStoreGateway();
+      _verificationRepository =
+          createDefaultSubscriptionVerificationRepository();
+      _entitlementCache = const SharedPreferencesSubscriptionEntitlementCache();
+      notifier.value = SubscriptionSnapshot.initial();
+      return true;
+    }());
+  }
+
+  @visibleForTesting
+  static void configureForTest({
+    SubscriptionStoreGateway? storeGateway,
+    SubscriptionVerificationRepository? verificationRepository,
+    SubscriptionEntitlementCache? entitlementCache,
+  }) {
+    assert(() {
+      if (storeGateway != null) {
+        _storeGateway = storeGateway;
+      }
+      if (verificationRepository != null) {
+        _verificationRepository = verificationRepository;
+      }
+      if (entitlementCache != null) {
+        _entitlementCache = entitlementCache;
+      }
+      return true;
+    }());
+  }
+
+  @visibleForTesting
+  static void setStatusForTest(SubscriptionStatus status) {
+    assert(() {
+      notifier.value = snapshot.copyWith(
+        status: status,
+        isEntitlementVerified: true,
+        clearError: true,
+      );
+      return true;
+    }());
   }
 }

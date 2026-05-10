@@ -70,13 +70,13 @@ void main() {
       ),
     );
 
-    expect(find.text('不填写默认没有破碎模式'), findsOneWidget);
+    expect(find.text('不填写默认该设备没有破碎'), findsOneWidget);
 
     final fields = tester
         .widgetList<TextField>(find.byType(TextField))
         .toList();
     final decoration = fields[2].decoration!;
-    expect(decoration.hintText, '不填写默认没有破碎模式');
+    expect(decoration.hintText, '不填写默认该设备没有破碎');
     expect(decoration.hintStyle?.fontSize, SheetTokens.fieldLabelSize);
   });
 }
