@@ -53,11 +53,19 @@ app.*.map.json
 *.xcarchive
 DerivedData/
 *.p8
+*.cer
 *.p12
 *.mobileprovision
 *.keystore
 *.jks
 key.properties
+
+# Private publishing and softcopy materials
+*.docx
+*.pdf
+docs/.softcopy/
+docs/**/*.docx
+docs/**/*.pdf
 
 # Local release/export scratch
 build/ios/ipa/
