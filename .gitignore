@@ -28,6 +28,8 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+.flutter-plugins
+.packages
 .pub-cache/
 .pub/
 /build/
@@ -43,4 +45,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release artifacts and signing material
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+DerivedData/
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+key.properties
+
+# Local release/export scratch
+build/ios/ipa/
+build/ios/archive/
+
 .gitnexus
