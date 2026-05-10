@@ -1,38 +1,357 @@
+import 'dart:async';
+
+import 'package:asset_ledger/data/services/subscription_entitlement_cache.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
+import 'package:asset_ledger/data/services/subscription_store_gateway.dart';
+import 'package:asset_ledger/data/services/subscription_verification_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 void main() {
+  late FakeVerificationRepository verificationRepository;
+  late MemoryEntitlementCache entitlementCache;
+  late FakeSubscriptionStoreGateway storeGateway;
+
+  setUp(() {
+    verificationRepository = FakeVerificationRepository();
+    entitlementCache = MemoryEntitlementCache();
+    storeGateway = FakeSubscriptionStoreGateway();
+    SubscriptionService.configureForTest(
+      storeGateway: storeGateway,
+      verificationRepository: verificationRepository,
+      entitlementCache: entitlementCache,
+    );
+  });
+
   tearDown(() {
-    SubscriptionService.setPlanForDebug(Plan.free);
+    SubscriptionService.resetForTest();
   });
 
   group('SubscriptionService', () {
-    test('setPlanForDebug updates the synchronous cache and capability flags', () {
-      SubscriptionService.setPlanForDebug(Plan.pro);
+    test('status model controls capability flags', () {
+      SubscriptionService.setStatusForTest(SubscriptionStatus.activeMonthly);
 
-      expect(SubscriptionService.proCached, isTrue);
-      expect(SubscriptionService.isPro, isTrue);
       expect(SubscriptionService.canUseCustomAvatar, isTrue);
+      expect(SubscriptionService.allowsProFeatures, isTrue);
 
-      SubscriptionService.setPlanForDebug(Plan.free);
+      SubscriptionService.setStatusForTest(SubscriptionStatus.free);
 
-      expect(SubscriptionService.proCached, isFalse);
-      expect(SubscriptionService.isPro, isFalse);
+      expect(SubscriptionService.canUseCustomAvatar, isFalse);
+      expect(SubscriptionService.allowsProFeatures, isFalse);
+    });
+
+    test('pending and revoked states do not unlock pro capabilities', () {
+      SubscriptionService.setStatusForTest(SubscriptionStatus.pending);
+
+      expect(SubscriptionService.canUseCustomAvatar, isFalse);
+
+      SubscriptionService.setStatusForTest(SubscriptionStatus.revoked);
+
       expect(SubscriptionService.canUseCustomAvatar, isFalse);
     });
 
-    test('refresh and async getters reflect the current debug plan', () async {
-      SubscriptionService.setPlanForDebug(Plan.pro);
-      await SubscriptionService.refresh();
+    test(
+      'missing store products shows operator guidance without product ids',
+      () async {
+        storeGateway.productDetailsResponse = ProductDetailsResponse(
+          productDetails: const [],
+          notFoundIDs: const [
+            SubscriptionService.monthlyProductId,
+            SubscriptionService.yearlyProductId,
+          ],
+        );
 
-      expect(await SubscriptionService.isProAsync(), isTrue);
-      expect(await SubscriptionService.canUseCustomAvatarAsync(), isTrue);
+        await SubscriptionService.loadProducts();
 
-      SubscriptionService.setPlanForDebug(Plan.free);
-      await SubscriptionService.init();
+        expect(SubscriptionService.snapshot.products, isEmpty);
+        expect(
+          SubscriptionService.snapshot.errorMessage,
+          '订阅商品暂不可用，请确认 App Store Connect 已为当前 iOS App 配置订阅商品。',
+        );
+        expect(
+          SubscriptionService.snapshot.errorMessage,
+          isNot(contains('com.yuyuan')),
+        );
+      },
+    );
 
-      expect(await SubscriptionService.isProAsync(), isFalse);
-      expect(await SubscriptionService.canUseCustomAvatarAsync(), isFalse);
+    test('loaded store products are mapped by subscription kind', () async {
+      storeGateway.productDetailsResponse = ProductDetailsResponse(
+        productDetails: [
+          productDetails(
+            id: SubscriptionService.monthlyProductId,
+            price: '¥1.00',
+          ),
+          productDetails(
+            id: SubscriptionService.yearlyProductId,
+            price: '¥6.00',
+          ),
+        ],
+        notFoundIDs: const [],
+      );
+
+      await SubscriptionService.loadProducts();
+
+      expect(
+        SubscriptionService.snapshot
+            .productFor(SubscriptionProductKind.monthly)
+            ?.price,
+        '¥1.00',
+      );
+      expect(
+        SubscriptionService.snapshot
+            .productFor(SubscriptionProductKind.yearly)
+            ?.price,
+        '¥6.00',
+      );
+      expect(SubscriptionService.snapshot.errorMessage, isNull);
+    });
+
+    test('purchased but verificationFailed does not unlock pro', () async {
+      verificationRepository.purchaseResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verificationFailed,
+        productId: SubscriptionService.monthlyProductId,
+        reason: 'invalid receipt',
+      );
+
+      await SubscriptionService.handlePurchaseUpdates([
+        purchaseDetails(
+          productId: SubscriptionService.monthlyProductId,
+          status: PurchaseStatus.purchased,
+          pendingCompletePurchase: true,
+        ),
+      ]);
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.free);
+      expect(SubscriptionService.canUseCustomAvatar, isFalse);
+      expect(entitlementCache.entry, isNull);
+      expect(storeGateway.completedPurchases, hasLength(1));
+    });
+
+    test(
+      'restored but verificationUnavailable does not unlock or complete',
+      () async {
+        verificationRepository.purchaseResult = VerifiedEntitlement(
+          outcome: SubscriptionVerificationOutcome.verificationUnavailable,
+          productId: SubscriptionService.yearlyProductId,
+          reason: 'server unavailable',
+        );
+
+        await SubscriptionService.handlePurchaseUpdates([
+          purchaseDetails(
+            productId: SubscriptionService.yearlyProductId,
+            status: PurchaseStatus.restored,
+            pendingCompletePurchase: true,
+          ),
+        ]);
+
+        expect(SubscriptionService.snapshot.status, SubscriptionStatus.free);
+        expect(SubscriptionService.canUseCustomAvatar, isFalse);
+        expect(entitlementCache.entry, isNull);
+        expect(storeGateway.completedPurchases, isEmpty);
+      },
+    );
+
+    test('verifiedActiveMonthly allows custom avatar', () async {
+      verificationRepository.purchaseResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedActiveMonthly,
+        productId: SubscriptionService.monthlyProductId,
+      );
+
+      await SubscriptionService.handlePurchaseUpdates([
+        purchaseDetails(
+          productId: SubscriptionService.monthlyProductId,
+          status: PurchaseStatus.purchased,
+          pendingCompletePurchase: true,
+        ),
+      ]);
+
+      expect(
+        SubscriptionService.snapshot.status,
+        SubscriptionStatus.activeMonthly,
+      );
+      expect(SubscriptionService.snapshot.isEntitlementVerified, isTrue);
+      expect(SubscriptionService.canUseCustomAvatar, isTrue);
+      expect(
+        entitlementCache.entry?.outcome,
+        SubscriptionVerificationOutcome.verifiedActiveMonthly,
+      );
+      expect(storeGateway.completedPurchases, hasLength(1));
+    });
+
+    test('verifiedExpired forbids custom avatar', () async {
+      verificationRepository.purchaseResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedExpired,
+        productId: SubscriptionService.monthlyProductId,
+      );
+
+      await SubscriptionService.handlePurchaseUpdates([
+        purchaseDetails(
+          productId: SubscriptionService.monthlyProductId,
+          status: PurchaseStatus.purchased,
+        ),
+      ]);
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.expired);
+      expect(SubscriptionService.snapshot.isEntitlementVerified, isTrue);
+      expect(SubscriptionService.canUseCustomAvatar, isFalse);
+    });
+
+    test('startup sync revokes cached active when verified expired', () async {
+      entitlementCache.entry = SubscriptionEntitlementCacheEntry(
+        outcome: SubscriptionVerificationOutcome.verifiedActiveMonthly,
+        productId: SubscriptionService.monthlyProductId,
+        expiryDate: DateTime(2099),
+        lastSyncedAt: DateTime(2026),
+      );
+      verificationRepository.currentResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedExpired,
+        productId: SubscriptionService.monthlyProductId,
+        expiryDate: DateTime(2025),
+      );
+
+      await SubscriptionService.syncSubscriptionStatus();
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.expired);
+      expect(SubscriptionService.snapshot.isEntitlementVerified, isTrue);
+      expect(SubscriptionService.canUseCustomAvatar, isFalse);
+      expect(
+        entitlementCache.entry?.outcome,
+        SubscriptionVerificationOutcome.verifiedExpired,
+      );
+    });
+
+    test('restored and verified purchase enables entitlement', () async {
+      verificationRepository.purchaseResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedActiveYearly,
+        productId: SubscriptionService.yearlyProductId,
+      );
+
+      await SubscriptionService.handlePurchaseUpdates([
+        purchaseDetails(
+          productId: SubscriptionService.yearlyProductId,
+          status: PurchaseStatus.restored,
+        ),
+      ]);
+
+      expect(
+        SubscriptionService.snapshot.status,
+        SubscriptionStatus.activeYearly,
+      );
+      expect(SubscriptionService.canUseCustomAvatar, isTrue);
     });
   });
+}
+
+PurchaseDetails purchaseDetails({
+  required String productId,
+  required PurchaseStatus status,
+  bool pendingCompletePurchase = false,
+}) {
+  final purchase = PurchaseDetails(
+    productID: productId,
+    verificationData: PurchaseVerificationData(
+      localVerificationData: 'local-$productId',
+      serverVerificationData: 'server-$productId',
+      source: 'app_store',
+    ),
+    transactionDate: '1700000000000',
+    status: status,
+  );
+  purchase.pendingCompletePurchase = pendingCompletePurchase;
+  return purchase;
+}
+
+ProductDetails productDetails({required String id, required String price}) {
+  return ProductDetails(
+    id: id,
+    title: id,
+    description: '',
+    price: price,
+    rawPrice: double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0,
+    currencyCode: 'CNY',
+    currencySymbol: '¥',
+  );
+}
+
+class FakeVerificationRepository implements SubscriptionVerificationRepository {
+  VerifiedEntitlement purchaseResult = VerifiedEntitlement(
+    outcome: SubscriptionVerificationOutcome.verificationFailed,
+    reason: 'unset purchase result',
+  );
+
+  VerifiedEntitlement currentResult = VerifiedEntitlement(
+    outcome: SubscriptionVerificationOutcome.verificationUnavailable,
+    reason: 'unset current result',
+  );
+
+  @override
+  Future<VerifiedEntitlement> verifyPurchase(PurchaseDetails purchase) async {
+    return purchaseResult;
+  }
+
+  @override
+  Future<VerifiedEntitlement> fetchCurrentEntitlement() async {
+    return currentResult;
+  }
+}
+
+class MemoryEntitlementCache implements SubscriptionEntitlementCache {
+  SubscriptionEntitlementCacheEntry? entry;
+
+  @override
+  Future<void> clear() async {
+    entry = null;
+  }
+
+  @override
+  Future<SubscriptionEntitlementCacheEntry?> read() async => entry;
+
+  @override
+  Future<void> write(SubscriptionEntitlementCacheEntry entry) async {
+    this.entry = entry;
+  }
+}
+
+class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
+  final completedPurchases = <PurchaseDetails>[];
+  final purchaseController =
+      StreamController<List<PurchaseDetails>>.broadcast();
+
+  bool available = true;
+  ProductDetailsResponse productDetailsResponse = ProductDetailsResponse(
+    productDetails: const [],
+    notFoundIDs: const [],
+  );
+  PurchaseParam? lastPurchaseParam;
+  var restoreCallCount = 0;
+
+  @override
+  Stream<List<PurchaseDetails>> get purchaseStream => purchaseController.stream;
+
+  @override
+  Future<bool> isAvailable() async => available;
+
+  @override
+  Future<ProductDetailsResponse> queryProductDetails(
+    Set<String> identifiers,
+  ) async {
+    return productDetailsResponse;
+  }
+
+  @override
+  Future<bool> buyNonConsumable({required PurchaseParam purchaseParam}) async {
+    lastPurchaseParam = purchaseParam;
+    return true;
+  }
+
+  @override
+  Future<void> restorePurchases() async {
+    restoreCallCount++;
+  }
+
+  @override
+  Future<void> completePurchase(PurchaseDetails purchase) async {
+    completedPurchases.add(purchase);
+  }
 }

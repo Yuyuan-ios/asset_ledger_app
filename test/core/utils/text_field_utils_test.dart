@@ -27,4 +27,13 @@ void main() {
     selectAllIfZeroLike(valueController);
     expect(valueController.selection.isValid, isFalse);
   });
+
+  test('selects all text regardless of numeric value', () {
+    final controller = TextEditingController(text: '5817.1');
+    addTearDown(controller.dispose);
+
+    selectAllText(controller);
+    expect(controller.selection.baseOffset, 0);
+    expect(controller.selection.extentOffset, controller.text.length);
+  });
 }

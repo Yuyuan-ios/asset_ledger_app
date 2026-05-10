@@ -9,11 +9,7 @@ import 'data/services/subscription_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  assert(() {
-    SubscriptionService.setPlanForDebug(Plan.pro);
-    return true;
-  }());
-  await SubscriptionService.refresh();
+  await SubscriptionService.init();
   final appProviderBundle = AppProviders.build();
   await AppBootstrap.preload(
     deviceStore: appProviderBundle.deviceStore,

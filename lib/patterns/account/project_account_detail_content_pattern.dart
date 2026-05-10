@@ -284,7 +284,8 @@ class ProjectAccountDetailContent extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          foregroundColor: AccountTokens.projectDetailActionColor,
+                          foregroundColor:
+                              AccountTokens.projectDetailActionColor,
                         ),
                         child: Text('修改', style: actionStyle),
                       ),
@@ -362,7 +363,8 @@ class ProjectAccountDetailContent extends StatelessWidget {
             final note = (p.note == null || p.note!.trim().isEmpty)
                 ? null
                 : p.note!.trim();
-            final title = '${FormatUtils.date(p.ymd)} · ${FormatUtils.money(p.amount)}';
+            final title =
+                '${FormatUtils.date(p.ymd)}  —  ${FormatUtils.money(p.amount)}';
 
             return Column(
               children: [

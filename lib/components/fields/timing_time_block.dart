@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 import '../pickers/app_number_picker.dart';
+import '../../patterns/layout/phone_page_layout.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -104,11 +105,6 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
 
   @override
   Widget build(BuildContext context) {
-    final groupWidth =
-        TimingTokens.meterCellSize * 6 +
-        TimingTokens.meterGap * 4 +
-        TimingTokens.meterDecimalGap * 2 +
-        TimingTokens.meterDotSlotWidth;
     final labelStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.meterLabelSize,
@@ -130,69 +126,154 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Transform.translate(
-          offset: const Offset(-TimingTokens.meterLabelLeftShift, 0),
-          child: Center(
-            child: SizedBox(
-              width: groupWidth,
-              child: SizedBox(
-                height: TimingTokens.meterLabelHeight,
-                child: Text(widget.title, style: labelStyle),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: TimingTokens.meterLabelBottomGap),
-        Listener(
-          onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Container(
-            height: TimingTokens.meterContainerHeight,
-            padding: const EdgeInsets.symmetric(
-              horizontal: TimingTokens.meterContainerHPadding,
-              vertical: TimingTokens.meterContainerVPadding,
-            ),
-            decoration: BoxDecoration(
-              color: SheetColors.meterBackground,
-              borderRadius: BorderRadius.circular(
-                TimingTokens.meterContainerRadius,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final meterSpacing = _resolveMeterSpacing(
+              context: context,
+              availableWidth: constraints.maxWidth,
+            );
+            final groupWidth =
+                TimingTokens.meterCellSize * 6 +
+                meterSpacing.digitGap * 4 +
+                meterSpacing.decimalGap * 2 +
+                TimingTokens.meterDotSlotWidth;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (int i = 0; i < 5; i++) ...[
-                  AppNumberPicker(
-                    value: _digits[i],
-                    onChanged: (v) => _onDigitChanged(i, v),
+                Transform.translate(
+                  offset: const Offset(-TimingTokens.meterLabelLeftShift, 0),
+                  child: Center(
+                    child: SizedBox(
+                      width: groupWidth,
+                      child: SizedBox(
+                        height: TimingTokens.meterLabelHeight,
+                        child: Text(widget.title, style: labelStyle),
+                      ),
+                    ),
                   ),
-                  if (i < 4) const SizedBox(width: TimingTokens.meterGap),
-                ],
-                const SizedBox(width: TimingTokens.meterDecimalGap),
-                SizedBox(
-                  width: TimingTokens.meterDotSlotWidth,
-                  child: Center(child: Text('.', style: dotStyle)),
                 ),
-                const SizedBox(width: TimingTokens.meterDecimalGap),
-                AppNumberPicker(
-                  value: _digits[5],
-                  onChanged: (v) => _onDigitChanged(5, v),
-                  backgroundColor: Colors.white,
-                  textColor: Colors.black,
-                  backgroundMargin: const EdgeInsets.all(AppSpace.xxs),
-                  backgroundRadius: TimingTokens.digitOverlayRadius,
-                ),
-                const SizedBox(width: TimingTokens.meterUnitLeftGap),
-                Padding(
-                  padding: EdgeInsets.only(
-                    top: TimingTokens.meterUnitDownShift,
+                const SizedBox(height: TimingTokens.meterLabelBottomGap),
+                Listener(
+                  onPointerDown: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  child: Container(
+                    height: TimingTokens.meterContainerHeight,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: TimingTokens.meterContainerHPadding,
+                      vertical: TimingTokens.meterContainerVPadding,
+                    ),
+                    decoration: BoxDecoration(
+                      color: SheetColors.meterBackground,
+                      borderRadius: BorderRadius.circular(
+                        TimingTokens.meterContainerRadius,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (int i = 0; i < 5; i++) ...[
+                          AppNumberPicker(
+                            value: _digits[i],
+                            onChanged: (v) => _onDigitChanged(i, v),
+                          ),
+                          if (i < 4) SizedBox(width: meterSpacing.digitGap),
+                        ],
+                        SizedBox(width: meterSpacing.decimalGap),
+                        SizedBox(
+                          width: TimingTokens.meterDotSlotWidth,
+                          child: Center(child: Text('.', style: dotStyle)),
+                        ),
+                        SizedBox(width: meterSpacing.decimalGap),
+                        AppNumberPicker(
+                          value: _digits[5],
+                          onChanged: (v) => _onDigitChanged(5, v),
+                          backgroundColor: Colors.white,
+                          textColor: Colors.black,
+                          backgroundMargin: const EdgeInsets.all(AppSpace.xxs),
+                          backgroundRadius: TimingTokens.digitOverlayRadius,
+                        ),
+                        const SizedBox(width: TimingTokens.meterUnitLeftGap),
+                        Padding(
+                          padding: EdgeInsets.only(
+                            top: TimingTokens.meterUnitDownShift,
+                          ),
+                          child: Text('h', style: unitStyle),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Text('h', style: unitStyle),
                 ),
               ],
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
   }
+
+  _MeterSpacing _resolveMeterSpacing({
+    required BuildContext context,
+    required double availableWidth,
+  }) {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final extraViewportWidth = (viewportWidth - PhonePageLayout.designWidth)
+        .clamp(0.0, 60.0)
+        .toDouble();
+    final desiredDigitGap =
+        TimingTokens.meterGap + (extraViewportWidth * 0.12).clamp(0.0, 6.0);
+    final desiredDecimalGap =
+        TimingTokens.meterDecimalGap +
+        (extraViewportWidth * 0.08).clamp(0.0, 4.0);
+
+    final availableRowWidth =
+        availableWidth - (TimingTokens.meterContainerHPadding * 2);
+    final baseRowWidth =
+        (TimingTokens.meterCellSize * 6) +
+        (TimingTokens.meterGap * 4) +
+        (TimingTokens.meterDecimalGap * 2) +
+        TimingTokens.meterDotSlotWidth +
+        TimingTokens.meterUnitLeftGap +
+        TimingTokens.meterDotSize;
+    final desiredRowWidth =
+        (TimingTokens.meterCellSize * 6) +
+        (desiredDigitGap * 4) +
+        (desiredDecimalGap * 2) +
+        TimingTokens.meterDotSlotWidth +
+        TimingTokens.meterUnitLeftGap +
+        TimingTokens.meterDotSize;
+
+    if (desiredRowWidth <= availableRowWidth) {
+      return _MeterSpacing(
+        digitGap: desiredDigitGap.toDouble(),
+        decimalGap: desiredDecimalGap.toDouble(),
+      );
+    }
+
+    final extraBudget = (availableRowWidth - baseRowWidth).clamp(0.0, 40.0);
+    final desiredExtra = desiredRowWidth - baseRowWidth;
+    if (desiredExtra <= 0) {
+      return const _MeterSpacing(
+        digitGap: TimingTokens.meterGap,
+        decimalGap: TimingTokens.meterDecimalGap,
+      );
+    }
+
+    final ratio = (extraBudget / desiredExtra).clamp(0.0, 1.0);
+    return _MeterSpacing(
+      digitGap:
+          TimingTokens.meterGap +
+          (desiredDigitGap - TimingTokens.meterGap) * ratio,
+      decimalGap:
+          TimingTokens.meterDecimalGap +
+          (desiredDecimalGap - TimingTokens.meterDecimalGap) * ratio,
+    );
+  }
+}
+
+class _MeterSpacing {
+  const _MeterSpacing({required this.digitGap, required this.decimalGap});
+
+  final double digitGap;
+  final double decimalGap;
 }

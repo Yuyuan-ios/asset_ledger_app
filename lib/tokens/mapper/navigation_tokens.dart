@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 class NavigationTokens {
   static const double barHeight = 90;
   static const double itemRadius = 8;
+  static const double barHorizontalPadding = 10;
+  static const double contentTopPadding = 8;
+  static const double contentBottomPadding = 10;
+  static const double iconSize = 32;
+  static const double labelTopGap = 4;
+  static const double labelFontSize = 12;
+  static const double inactiveAlpha = 0.48;
 
   static const String assetPath = 'assets/navigation/component_tab_bar.svg';
   static const double assetWidth = 430;

@@ -139,13 +139,10 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
       ),
     );
     if (goUpgrade != true || !mounted) return false;
-    final upgraded = await Navigator.of(
+    await Navigator.of(
       context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => const UpgradePage()));
-    if (upgraded == true) {
-      return SubscriptionService.canUseCustomAvatar;
-    }
-    return false;
+    ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage()));
+    return SubscriptionService.canUseCustomAvatar;
   }
 
   Future<void> _pickCustomAvatarFromGallery() async {

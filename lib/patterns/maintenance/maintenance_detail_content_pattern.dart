@@ -35,6 +35,7 @@ class MaintenanceDetailContent extends StatefulWidget {
   const MaintenanceDetailContent({
     super.key,
     this.editing,
+    this.initialDeviceId,
     required this.deviceById,
     required this.deviceItems,
     required this.itemSuggestions,
@@ -45,6 +46,7 @@ class MaintenanceDetailContent extends StatefulWidget {
 
   /// editing != null：编辑；否则新建
   final MaintenanceRecord? editing;
+  final int? initialDeviceId;
   final Map<int, Device> deviceById;
   final List<DevicePickerItemVm> deviceItems;
   final List<String> Function(String query) itemSuggestions;
@@ -97,7 +99,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
     if (editing == null) {
       _dateCtrl.text = FormatUtils.todayDisplayDate();
       _isPublicExpense = false;
-      _selectedDeviceId = null;
+      _selectedDeviceId = widget.initialDeviceId;
       _itemCtrl.clear();
       _amountCtrl.text = '0.0';
       _noteCtrl.clear();
@@ -295,6 +297,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                       decimal: true,
                     ),
                     floatingLabelBehavior: FloatingLabelBehavior.always,
+                    selectAllOnTap: true,
                   ),
                   const SizedBox(height: SpaceTokens.md),
 

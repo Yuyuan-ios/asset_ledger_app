@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../features/fuel/model/fuel_efficiency_agg.dart';
-import '../../tokens/mapper/fuel_tokens.dart';
 import '../../core/utils/format_utils.dart';
 import '../../core/foundation/typography.dart';
+import '../../tokens/mapper/account_tokens.dart';
+import '../../tokens/mapper/fuel_tokens.dart';
 
 class FuelEfficiencySummary extends StatelessWidget {
   final Map<int, FuelEfficiencyAgg> byDevice;
@@ -44,9 +45,25 @@ class FuelEfficiencySummary extends StatelessWidget {
       return '${FormatUtils.meter(v)} $suffix';
     }
 
+    final ids = byDevice.keys.toList()
+      ..sort((a, b) {
+        final nameA = deviceNameOf(a);
+        final nameB = deviceNameOf(b);
+        final byLen = nameA.length.compareTo(nameB.length);
+        if (byLen != 0) return byLen;
+        return nameA.compareTo(nameB);
+      });
+    final colorById = <int, Color>{
+      for (var i = 0; i < ids.length; i++)
+        ids[i]:
+            AccountTokens.overviewChartPalette[i %
+                AccountTokens.overviewChartPalette.length],
+    };
+
     Widget buildRow(int id) {
       final agg = byDevice[id]!;
       final name = deviceNameOf(id);
+      final markerColor = colorById[id] ?? Colors.grey;
       final litersText = fmtRate(agg.litersPerHour, suffix: 'L/h');
       final costText = fmtRate(agg.costPerHour, suffix: '¥/h');
       return Padding(
@@ -57,11 +74,26 @@ class FuelEfficiencySummary extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: nameStyle,
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: markerColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: nameStyle,
+                    ),
+                  ),
+                ],
               ),
             ),
             Row(
@@ -103,15 +135,6 @@ class FuelEfficiencySummary extends StatelessWidget {
         ],
       );
     }
-
-    final ids = byDevice.keys.toList()
-      ..sort((a, b) {
-        final nameA = deviceNameOf(a);
-        final nameB = deviceNameOf(b);
-        final byLen = nameA.length.compareTo(nameB.length);
-        if (byLen != 0) return byLen;
-        return nameA.compareTo(nameB);
-      });
 
     final bodyChild = ids.length == 1
         ? Align(

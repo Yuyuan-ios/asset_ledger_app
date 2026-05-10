@@ -122,11 +122,10 @@ class DevicePageActions {
     }
   }
 
-  static Future<bool> openUpgradePage(BuildContext context) async {
-    final upgraded = await Navigator.of(
+  static Future<void> openUpgradePage(BuildContext context) async {
+    await Navigator.of(
       context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => const UpgradePage()));
-    return upgraded == true;
+    ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage()));
   }
 
   static Future<void> deactivateDevice({

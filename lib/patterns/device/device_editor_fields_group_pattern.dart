@@ -43,7 +43,7 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
             controller: breakingUnitPriceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             labelText: '破碎单价（选填）',
-            hintText: '不填写默认没有破碎模式',
+            hintText: '不填写默认该设备没有破碎',
             hintStyle: AppTypography.bodySecondary(
               context,
               fontSize: SheetTokens.fieldLabelSize,

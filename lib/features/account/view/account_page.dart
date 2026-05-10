@@ -23,6 +23,7 @@ import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/interaction_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/account_tokens.dart';
 import '../../../patterns/account/account_overview_card_pattern.dart';
@@ -312,78 +313,65 @@ class _AccountPageState extends State<AccountPage> {
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final contentWidth =
-                constraints.maxWidth >
-                    AccountTokens.homeMaxContainerWidthTrigger
-                ? AccountTokens.homeFixedContentWidth
-                : constraints.maxWidth;
+            final horizontalPadding = PhonePageLayout.resolveHorizontalPadding(
+              constraints.maxWidth,
+              basePadding: AccountTokens.homePageHorizontalPadding,
+            );
 
-            return Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: contentWidth,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AccountTokens.homePageHorizontalPadding,
-                    0,
-                    AccountTokens.homePageHorizontalPadding,
-                    0,
-                  ),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: AccountTokens.homeTopGap),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (viewData.loading) ...[
-                                const LinearProgressIndicator(),
-                                const SizedBox(height: 10),
-                              ],
-                              if (viewData.error != null) ...[
-                                StoreErrorBanner(
-                                  message: viewData.error!,
-                                  onRetry: viewData.loading
-                                      ? null
-                                      : () => _retryLoad(),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                              AccountOverviewCard(
-                                vm: AccountOverviewVm(
-                                  totalReceivable:
-                                      viewData.computed.totalReceivable,
-                                  totalReceived: viewData.computed.totalReceived,
-                                  totalRemaining:
-                                      viewData.computed.totalRemaining,
-                                  totalRatio: viewData.computed.totalRatio,
-                                  deviceReceivables:
-                                      viewData.computed.deviceReceivables,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: AccountTokens.projectTitleTopGap,
-                              ),
-                              AccountProjectSection(
-                                projects: viewData.filteredProjects,
-                                hasActiveFilter: viewData.hasActiveFilter,
-                                onOpenFilter: () => _openProjectFilterSheet(
-                                  suggestions: viewData.projectSuggestions,
-                                ),
-                                onClearFilter: () => _applyProjectFilterResult(
-                                  const AccountProjectFilterResult.clear(),
-                                ),
-                                onTapProject: (p) =>
-                                    _openProjectDetail(p.projectKey),
-                              ),
-                            ],
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Column(
+                children: [
+                  const SizedBox(height: AccountTokens.homeTopGap),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (viewData.loading) ...[
+                            const LinearProgressIndicator(),
+                            const SizedBox(height: 10),
+                          ],
+                          if (viewData.error != null) ...[
+                            StoreErrorBanner(
+                              message: viewData.error!,
+                              onRetry: viewData.loading
+                                  ? null
+                                  : () => _retryLoad(),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          AccountOverviewCard(
+                            vm: AccountOverviewVm(
+                              totalReceivable:
+                                  viewData.computed.totalReceivable,
+                              totalReceived: viewData.computed.totalReceived,
+                              totalRemaining: viewData.computed.totalRemaining,
+                              totalRatio: viewData.computed.totalRatio,
+                              deviceReceivables:
+                                  viewData.computed.deviceReceivables,
+                            ),
                           ),
-                        ),
+                          const SizedBox(
+                            height: AccountTokens.projectTitleTopGap,
+                          ),
+                          AccountProjectSection(
+                            projects: viewData.filteredProjects,
+                            hasActiveFilter: viewData.hasActiveFilter,
+                            onOpenFilter: () => _openProjectFilterSheet(
+                              suggestions: viewData.projectSuggestions,
+                            ),
+                            onClearFilter: () => _applyProjectFilterResult(
+                              const AccountProjectFilterResult.clear(),
+                            ),
+                            onTapProject: (p) =>
+                                _openProjectDetail(p.projectKey),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             );
           },

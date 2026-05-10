@@ -36,8 +36,7 @@ class AccountTokens {
   static const double overviewLeftColumnWidth = 160; // 左侧图表列固定宽度（上下对齐）
   static const double overviewChartColumnPadding =
       10; // 左侧图表列内边距（Figma Col_Charts）
-  static const double overviewLegendLeftInset =
-      0; // 右侧设备行起始与下方汇总左列对齐
+  static const double overviewLegendLeftInset = 0; // 右侧设备行起始与下方汇总左列对齐
   static const double overviewLegendRowGap = 8; // 设备行间距
   static const double overviewLegendNameSize = 14; // 设备名字号
   static const double overviewLegendValueSize = 14; // 金额字号
@@ -140,7 +139,7 @@ class AccountTokens {
   static const double projectDetailRowHeight = 40; // 单价行高度
   static const double projectDetailLabelLeft = 14; // “设备单价”x 坐标
   static const double projectDetailDeviceLeft = 94; // 设备名列 x 坐标
-  static const double projectDetailHoursLeft = 217; // 小时列 x 坐标
+  static const double projectDetailHoursLeft = 205; // 小时列 x 坐标
   static const double projectDetailAmountLeft = 291; // 金额列 x 坐标（拉大与小时列间距）
   static const double projectDetailLabelWidth = 72; // 左侧标签列有效宽度
   static const double projectDetailDeviceWidth = 122; // 设备名列有效宽度

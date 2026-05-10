@@ -4,6 +4,8 @@ import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/form_feedback.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/text_field_utils.dart';
+import '../../../../components/fields/app_date_field.dart';
+import '../../../../components/pickers/app_date_picker_dialog.dart';
 import '../../../../data/models/account_payment.dart';
 import '../../../../data/services/account_service.dart';
 import '../../../../features/account/model/account_view_model.dart';
@@ -78,6 +80,21 @@ class _AccountPaymentEditorDialogState
     Navigator.of(context).pop(result);
   }
 
+  Future<void> _pickDate() async {
+    final fallback = FormatUtils.parseDate(FormatUtils.todayDisplayDate())!;
+    final currentYmd = FormatUtils.parseDate(_dateController.text) ?? fallback;
+    final initialDate = FormatUtils.dateFromYmd(currentYmd);
+
+    final picked = await showSheetDatePickerDialog(
+      context: context,
+      initialDate: initialDate,
+    );
+
+    if (picked == null || !mounted) return;
+    final ymd = FormatUtils.ymdFromDate(picked);
+    setState(() => _dateController.text = FormatUtils.date(ymd));
+  }
+
   @override
   Widget build(BuildContext context) {
     final project = widget.project;
@@ -108,16 +125,7 @@ class _AccountPaymentEditorDialogState
               child: Text('项目：${project.displayName}', style: labelStyle),
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _dateController,
-              keyboardType: TextInputType.number,
-              onTap: () => selectAllIfZeroLike(_dateController),
-              decoration: InputDecoration(
-                labelText: FormatUtils.ymdInputLabel,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
+            SheetDateField(controller: _dateController, onPickDate: _pickDate),
             const SizedBox(height: SpaceTokens.sectionGap),
             TextField(
               controller: _amountController,
