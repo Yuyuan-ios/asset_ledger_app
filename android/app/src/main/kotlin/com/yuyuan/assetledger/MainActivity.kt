@@ -1,4 +1,4 @@
-package com.example.asset_ledger
+package com.yuyuan.assetledger
 
 import io.flutter.embedding.android.FlutterActivity
 

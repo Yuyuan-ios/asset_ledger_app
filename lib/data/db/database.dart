@@ -56,6 +56,8 @@ class AppDatabase {
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
   static const int _dbVersion = 9;
 
+  static int get schemaVersion => _dbVersion;
+
   // -------------------------------------------------------------------
   // 2.3 对外唯一入口：获取 Database 实例
   // -------------------------------------------------------------------

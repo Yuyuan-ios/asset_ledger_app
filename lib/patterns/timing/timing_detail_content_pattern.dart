@@ -328,6 +328,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     ValueChanged<String>? onChanged,
     Widget? suffixIcon,
     bool readOnly = false,
+    bool selectAllOnTap = false,
   }) {
     final fieldStyle = AppTypography.body(
       context,
@@ -338,7 +339,11 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
-      onTap: keyboardType == null ? null : () => selectAllIfZeroLike(controller),
+      onTap: selectAllOnTap
+          ? () => selectAllText(controller)
+          : (keyboardType == null
+                ? null
+                : () => selectAllIfZeroLike(controller)),
       onChanged: onChanged,
       style: fieldStyle,
       decoration: _sheetDecoration(
@@ -580,6 +585,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                                     decimal: true,
                                   ),
                               onChanged: (_) => _recalcEndFromHours(),
+                              selectAllOnTap: true,
                             ),
                           ),
                         ],
@@ -599,6 +605,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                           decimal: true,
                         ),
                         onChanged: (_) => _recalcEndFromHours(),
+                        selectAllOnTap: true,
                       ),
                       const SizedBox(height: TimingTokens.contentGap),
                       _field(

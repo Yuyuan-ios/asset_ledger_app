@@ -14,6 +14,7 @@ class SheetTextFieldPattern extends StatelessWidget {
     this.hintStyle,
     this.keyboardType,
     this.floatingLabelBehavior = FloatingLabelBehavior.auto,
+    this.selectAllOnTap = false,
   });
 
   final TextEditingController controller;
@@ -22,6 +23,7 @@ class SheetTextFieldPattern extends StatelessWidget {
   final TextStyle? hintStyle;
   final TextInputType? keyboardType;
   final FloatingLabelBehavior floatingLabelBehavior;
+  final bool selectAllOnTap;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,11 @@ class SheetTextFieldPattern extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      onTap: keyboardType == null ? null : () => selectAllIfZeroLike(controller),
+      onTap: selectAllOnTap
+          ? () => selectAllText(controller)
+          : (keyboardType == null
+                ? null
+                : () => selectAllIfZeroLike(controller)),
       style: textStyle,
       decoration: InputDecoration(
         labelText: labelText,

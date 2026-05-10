@@ -21,85 +21,104 @@ class DeviceManagementGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible = devices.take(DeviceManagementGridTokens.slots).toList();
-    return Container(
-      height: DeviceManagementGridTokens.height,
-      decoration: BoxDecoration(
-        color: DeviceTokens.managementGridBackgroundColor,
-        border: Border.all(color: DeviceTokens.managementGridBorderColor),
-        borderRadius: BorderRadius.circular(
-          DeviceManagementGridTokens.borderRadius,
-        ),
-      ),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          DeviceManagementGridTokens.padLeft,
-          DeviceManagementGridTokens.padTop,
-          DeviceManagementGridTokens.padRight,
-          DeviceManagementGridTokens.padBottom,
-        ),
-        itemCount: DeviceManagementGridTokens.slots,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: DeviceManagementGridTokens.columns,
-          crossAxisSpacing: DeviceManagementGridTokens.crossSpacing,
-          mainAxisSpacing: DeviceManagementGridTokens.mainSpacing,
-          childAspectRatio: DeviceManagementGridTokens.aspectRatio,
-        ),
-        itemBuilder: (context, index) {
-          if (index >= visible.length) {
-            return _placeholderItem();
-          }
+    final baseGridWidth =
+        DeviceTokens.pageContentWidth -
+        (DeviceTokens.pageHorizontalPadding * 2) -
+        (DeviceTokens.sectionHorizontalInset * 2);
 
-          final d = visible[index];
-          final label = DeviceLabel.indexOnly(d.name);
-          final displayIndex = label.trim().isEmpty ? '—' : label.trim();
-          final categoryLabel = d.equipmentType == EquipmentType.loader
-              ? '装载机'
-              : '挖掘机';
-          final displayText = displayIndex == '—'
-              ? categoryLabel
-              : '$displayIndex$categoryLabel';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final extraWidth = (constraints.maxWidth - baseGridWidth)
+            .clamp(0.0, 32.0)
+            .toDouble();
+        final horizontalInset =
+            DeviceManagementGridTokens.padLeft + (extraWidth * 0.25);
+        final crossSpacing =
+            DeviceManagementGridTokens.crossSpacing + (extraWidth * 0.06);
 
-          return Tooltip(
-            message: label.trim().isEmpty ? d.name : label,
-            child: GestureDetector(
-              onTap: () => onDeviceTap(d),
-              onLongPress: () => onDeviceLongPress(d),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: DeviceManagementGridTokens.avatarSize,
-                    height: DeviceManagementGridTokens.avatarSize,
-                    child: DeviceAvatar(
-                      brand: d.brand,
-                      customAvatarPath: d.customAvatarPath,
-                      radius: DeviceManagementGridTokens.avatarRadius,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: DeviceManagementGridTokens.labelTopGap,
-                  ),
-                  Text(
-                    displayText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.caption(
-                      context,
-                      fontSize: DeviceManagementGridTokens.labelFontSize,
-                      fontWeight: DeviceManagementGridTokens.labelFontWeight,
-                      color: DeviceTokens.managementGridLabelColor.withValues(
-                        alpha: DeviceManagementGridTokens.labelAlpha,
-                      ),
-                      height: 1,
-                    ),
-                  ),
-                ],
-              ),
+        return Container(
+          height: DeviceManagementGridTokens.height,
+          decoration: BoxDecoration(
+            color: DeviceTokens.managementGridBackgroundColor,
+            border: Border.all(color: DeviceTokens.managementGridBorderColor),
+            borderRadius: BorderRadius.circular(
+              DeviceManagementGridTokens.borderRadius,
             ),
-          );
-        },
-      ),
+          ),
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              horizontalInset,
+              DeviceManagementGridTokens.padTop,
+              horizontalInset,
+              DeviceManagementGridTokens.padBottom,
+            ),
+            itemCount: DeviceManagementGridTokens.slots,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: DeviceManagementGridTokens.columns,
+              crossAxisSpacing: crossSpacing,
+              mainAxisSpacing: DeviceManagementGridTokens.mainSpacing,
+              childAspectRatio: DeviceManagementGridTokens.aspectRatio,
+            ),
+            itemBuilder: (context, index) {
+              if (index >= visible.length) {
+                return _placeholderItem();
+              }
+
+              final d = visible[index];
+              final label = DeviceLabel.indexOnly(d.name);
+              final displayIndex = label.trim().isEmpty ? '—' : label.trim();
+              final categoryLabel = d.equipmentType == EquipmentType.loader
+                  ? '装载机'
+                  : '挖掘机';
+              final displayText = displayIndex == '—'
+                  ? categoryLabel
+                  : '$displayIndex$categoryLabel';
+
+              return Tooltip(
+                message: label.trim().isEmpty ? d.name : label,
+                child: GestureDetector(
+                  onTap: () => onDeviceTap(d),
+                  onLongPress: () => onDeviceLongPress(d),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: DeviceManagementGridTokens.avatarSize,
+                        height: DeviceManagementGridTokens.avatarSize,
+                        child: DeviceAvatar(
+                          brand: d.brand,
+                          customAvatarPath: d.customAvatarPath,
+                          radius: DeviceManagementGridTokens.avatarRadius,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: DeviceManagementGridTokens.labelTopGap,
+                      ),
+                      Text(
+                        displayText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption(
+                          context,
+                          fontSize: DeviceManagementGridTokens.labelFontSize,
+                          fontWeight:
+                              DeviceManagementGridTokens.labelFontWeight,
+                          color: DeviceTokens.managementGridLabelColor
+                              .withValues(
+                                alpha: DeviceManagementGridTokens.labelAlpha,
+                              ),
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

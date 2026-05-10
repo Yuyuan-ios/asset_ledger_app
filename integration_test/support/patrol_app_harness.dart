@@ -18,6 +18,7 @@ class PatrolAppHarness {
       deviceStore: bundle.deviceStore,
       timingStore: bundle.timingStore,
       fuelStore: bundle.fuelStore,
+      maintenanceStore: bundle.maintenanceStore,
       projectRateStore: bundle.projectRateStore,
     );
 

@@ -133,4 +133,33 @@ void main() {
 
     expect(find.text('破碎'), findsNothing);
   });
+
+  testWidgets('selects the full hours value when tapping the hours field', (
+    WidgetTester tester,
+  ) async {
+    final device = buildDevice(id: 1);
+    final editing = TimingRecord(
+      id: 7,
+      deviceId: 1,
+      startDate: 20260315,
+      contact: '何小波',
+      site: 'A工地',
+      type: TimingType.hours,
+      startMeter: 10,
+      endMeter: 12,
+      hours: 2,
+      income: 300,
+    );
+
+    await pumpTimingDetail(tester, editing: editing, devices: [device]);
+
+    final hoursField = find.widgetWithText(TextField, '工时（小时）');
+    await tester.tap(hoursField);
+    await tester.pump();
+
+    final field = tester.widget<TextField>(hoursField);
+    expect(field.controller?.text, '2.0');
+    expect(field.controller?.selection.baseOffset, 0);
+    expect(field.controller?.selection.extentOffset, 3);
+  });
 }

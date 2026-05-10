@@ -6,9 +6,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/main.dart' as app;
 
 void main() {
-  final binding =
-      IntegrationTestWidgetsFlutterBinding.ensureInitialized()
-          as IntegrationTestWidgetsFlutterBinding;
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   Future<void> seedLiveData() async {
     await AppDatabase.resetForTest();

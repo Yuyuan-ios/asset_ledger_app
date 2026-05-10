@@ -77,11 +77,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final timingStore = context.read<TimingStore>();
     final maintenanceStore = context.read<MaintenanceStore>();
     final formKey = GlobalKey<MaintenanceDetailContentState>();
+    final initialDeviceId = editing?.deviceId ?? _latestTimingDeviceId();
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       records: timingStore.records,
-      selectedId: editing?.deviceId,
+      selectedId: initialDeviceId,
     );
     List<String> itemSuggestions(String query) {
       final normalized = query.trim();
@@ -111,6 +112,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
           child: MaintenanceDetailContent(
             key: formKey,
             editing: editing,
+            initialDeviceId: initialDeviceId,
             deviceById: editorContext.deviceById,
             deviceItems: editorContext.deviceItems,
             itemSuggestions: itemSuggestions,
@@ -142,6 +144,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
         );
       },
     );
+  }
+
+  int? _latestTimingDeviceId() {
+    final records = context.read<TimingStore>().records;
+    if (records.isEmpty) return null;
+    return records.first.deviceId;
   }
 
   // =====================================================================

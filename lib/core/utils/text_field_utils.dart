@@ -9,6 +9,10 @@ bool isZeroLikeNumericText(String text) {
 
 void selectAllIfZeroLike(TextEditingController controller) {
   if (!isZeroLikeNumericText(controller.text)) return;
+  selectAllText(controller);
+}
+
+void selectAllText(TextEditingController controller) {
   controller.selection = TextSelection(
     baseOffset: 0,
     extentOffset: controller.text.length,

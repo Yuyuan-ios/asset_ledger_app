@@ -33,7 +33,7 @@
   `https://yuyuan-ios.github.io/asset_ledger_app/privacy.html`
 - 按 `docs/store-privacy-declarations.md` 填写 `Data safety`
 - Android 包名当前已定稿为：
-  `com.example.asset_ledger`
+  `com.yuyuan.assetledger`
 - 首次正式上架前，请再次确认你确实希望长期使用这个包名；一旦在 Google Play 上线后，再改包名会被视为新的应用
 
 ## 四、支持页与法务页面
@@ -60,7 +60,7 @@
 
 ## 六、建议但可后续再做
 
-- 将 Android `com.example.asset_ledger` 换成你自己的正式包名
+- 将 Android `com.yuyuan.assetledger` 与 Google Play、华为后台、知识产权材料里的包名保持一致
 - 将 Windows / Linux / macOS 的公司标识从 `com.example` 替换为你自己的组织标识
 - 如果未来接入登录、云同步、订阅支付、崩溃上报、统计或广告，重新填写隐私声明
 

@@ -6,7 +6,7 @@
 // - 自动命名：同品牌生成 "SANY 1# / 2# / 3# ..."
 // - 编号规则：只看 activeDevices（停用的不占号）
 //   ✅ 支持“回填空缺”：active 中缺 1# 就回到 1#
-// - 订阅能力：通过 SubscriptionService 的“同步缓存”统一判断（UI/Store 不直接判断）
+// - 订阅能力：通过 SubscriptionService 的状态模型统一判断（UI/Store 不直接判断）
 //
 // 层级：Service
 // =====================================================================
@@ -92,18 +92,13 @@ class DeviceService {
   // =====================================================================
 
   // -------------------------------------------------------------------
-  // 3.1 订阅能力：是否允许自定义头像（✅ 同步读取缓存）
+  // 3.1 订阅能力：是否允许自定义头像
   //
   // 关键点：
-  // - 你现在的 SubscriptionService 里：
-  //   - isPro() / canUseCustomAvatar() 是 Future（异步）
-  //   - proCached 是 bool（同步缓存）
-  //
-  // 我们这里必须同步：
-  // - Store/UI 不要 await
-  // - 订阅真正的异步刷新在 App 启动时调用 SubscriptionService.refresh()
+  // - Store/UI 不要散落套餐判断
+  // - 订阅真正的异步刷新由 SubscriptionService.init/sync 统一触发
   // -------------------------------------------------------------------
-  static bool get canUseCustomAvatar => SubscriptionService.proCached;
+  static bool get canUseCustomAvatar => SubscriptionService.canUseCustomAvatar;
 
   // -------------------------------------------------------------------
   // 3.2 写入自定义头像路径（不允许则抛错）

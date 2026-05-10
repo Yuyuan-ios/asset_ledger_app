@@ -5,48 +5,51 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   tearDown(() {
-    SubscriptionService.setPlanForDebug(Plan.free);
+    SubscriptionService.resetForTest();
   });
 
   group('DeviceService.nextIndex', () {
-    test('fills the first missing index among active devices of the same brand', () {
-      final result = DeviceService.nextIndex(
-        brand: 'SANY',
-        activeDevices: const [
-          Device(
-            id: 1,
-            name: 'SANY 2#',
-            brand: 'SANY',
-            defaultUnitPrice: 100,
-            baseMeterHours: 0,
-          ),
-          Device(
-            id: 2,
-            name: 'SANY 3#',
-            brand: 'SANY',
-            defaultUnitPrice: 100,
-            baseMeterHours: 0,
-          ),
-          Device(
-            id: 3,
-            name: 'SANY 9#',
-            brand: 'SANY',
-            defaultUnitPrice: 100,
-            baseMeterHours: 0,
-            isActive: false,
-          ),
-          Device(
-            id: 4,
-            name: 'CAT 1#',
-            brand: 'CAT',
-            defaultUnitPrice: 100,
-            baseMeterHours: 0,
-          ),
-        ],
-      );
+    test(
+      'fills the first missing index among active devices of the same brand',
+      () {
+        final result = DeviceService.nextIndex(
+          brand: 'SANY',
+          activeDevices: const [
+            Device(
+              id: 1,
+              name: 'SANY 2#',
+              brand: 'SANY',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+            Device(
+              id: 2,
+              name: 'SANY 3#',
+              brand: 'SANY',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+            Device(
+              id: 3,
+              name: 'SANY 9#',
+              brand: 'SANY',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+              isActive: false,
+            ),
+            Device(
+              id: 4,
+              name: 'CAT 1#',
+              brand: 'CAT',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+          ],
+        );
 
-      expect(result, 1);
-    });
+        expect(result, 1);
+      },
+    );
 
     test('builds the next display name from the trimmed brand', () {
       final result = DeviceService.nextDisplayName(
@@ -77,7 +80,7 @@ void main() {
     );
 
     test('throws when a free plan writes a non-empty avatar path', () {
-      SubscriptionService.setPlanForDebug(Plan.free);
+      SubscriptionService.setStatusForTest(SubscriptionStatus.free);
 
       expect(
         () => DeviceService.applyCustomAvatar(
@@ -97,30 +100,33 @@ void main() {
       expect(updated.customAvatarPath, isNull);
     });
 
-    test('preserves breaking price and equipment type when clearing avatar', () {
-      final updated = DeviceService.applyCustomAvatar(
-        device: const Device(
-          id: 2,
-          name: 'HITACHI 1#',
-          brand: 'HITACHI',
-          model: 'ZX60',
-          defaultUnitPrice: 120,
-          breakingUnitPrice: 180,
-          baseMeterHours: 2000,
-          equipmentType: EquipmentType.loader,
-          customAvatarPath: '/tmp/custom.png',
-        ),
-        customAvatarPath: '   ',
-      );
+    test(
+      'preserves breaking price and equipment type when clearing avatar',
+      () {
+        final updated = DeviceService.applyCustomAvatar(
+          device: const Device(
+            id: 2,
+            name: 'HITACHI 1#',
+            brand: 'HITACHI',
+            model: 'ZX60',
+            defaultUnitPrice: 120,
+            breakingUnitPrice: 180,
+            baseMeterHours: 2000,
+            equipmentType: EquipmentType.loader,
+            customAvatarPath: '/tmp/custom.png',
+          ),
+          customAvatarPath: '   ',
+        );
 
-      expect(updated.breakingUnitPrice, 180);
-      expect(updated.equipmentType, EquipmentType.loader);
-      expect(updated.model, 'ZX60');
-      expect(updated.customAvatarPath, isNull);
-    });
+        expect(updated.breakingUnitPrice, 180);
+        expect(updated.equipmentType, EquipmentType.loader);
+        expect(updated.model, 'ZX60');
+        expect(updated.customAvatarPath, isNull);
+      },
+    );
 
     test('writes a trimmed avatar path when the plan is pro', () {
-      SubscriptionService.setPlanForDebug(Plan.pro);
+      SubscriptionService.setStatusForTest(SubscriptionStatus.activeMonthly);
 
       final updated = DeviceService.applyCustomAvatar(
         device: device,

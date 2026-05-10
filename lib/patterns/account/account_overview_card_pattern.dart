@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
+import '../layout/phone_page_layout.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 import '../../tokens/mapper/spacing_tokens.dart';
@@ -42,184 +43,228 @@ class AccountOverviewCard extends StatelessWidget {
       letterSpacing: AccountTokens.overviewTitleLetterSpacing,
       color: Colors.black,
     );
-    final bodyStyle = AppTypography.body(
+    final summaryStyle = AppTypography.body(
       context,
       fontSize: AccountTokens.overviewLegendValueSize,
+      height: 1,
       color: Colors.black,
     );
+    const singleLegendTopPadding = 18.0;
     final emptyStyle = AppTypography.caption(
       context,
       fontSize: 12,
       color: SheetColors.hint,
     );
 
-    return Container(
-      width: double.infinity,
-      height: AccountTokens.overviewCardHeight,
-      padding: const EdgeInsets.fromLTRB(
-        AccountTokens.overviewCardPaddingLeft,
-        AccountTokens.overviewCardPaddingTop,
-        AccountTokens.overviewCardPaddingRight,
-        AccountTokens.overviewCardPaddingBottom,
-      ),
-      decoration: BoxDecoration(
-        color: SheetColors.background,
-        border: Border.all(
-          color: AccountTokens.overviewCardBorderColor,
-          width: AccountTokens.overviewCardBorderWidth,
-        ),
-        borderRadius: BorderRadius.circular(AccountTokens.overviewCardRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: AccountTokens.overviewCardShadowOpacity,
-            ),
-            blurRadius: AccountTokens.overviewCardShadowBlur,
-            offset: const Offset(
-              AccountTokens.overviewCardShadowOffsetX,
-              AccountTokens.overviewCardShadowOffsetY,
-            ),
+    final baseOverviewContentWidth =
+        AccountTokens.homeFixedContentWidth -
+        (AccountTokens.homePageHorizontalPadding * 2) -
+        AccountTokens.overviewCardPaddingLeft -
+        AccountTokens.overviewCardPaddingRight;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final innerWidth =
+            constraints.maxWidth -
+            AccountTokens.overviewCardPaddingLeft -
+            AccountTokens.overviewCardPaddingRight;
+        final maxOverviewContentWidth = PhonePageLayout.resolveMaxContentWidth(
+          innerWidth,
+          baseWidth: baseOverviewContentWidth,
+          maxWideGain: 18,
+          wideGrowthFactor: 0.45,
+        );
+
+        return Container(
+          width: double.infinity,
+          height: AccountTokens.overviewCardHeight,
+          padding: const EdgeInsets.fromLTRB(
+            AccountTokens.overviewCardPaddingLeft,
+            AccountTokens.overviewCardPaddingTop,
+            AccountTokens.overviewCardPaddingRight,
+            AccountTokens.overviewCardPaddingBottom,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(child: Text('总    览', style: titleStyle)),
-          const Divider(
-            height: AccountTokens.overviewDividerThickness,
-            thickness: AccountTokens.overviewDividerThickness,
-            color: TimingColors.divider,
-          ),
-          const SizedBox(height: AccountTokens.overviewMiddleTopGap),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: AccountTokens.overviewLeftColumnWidth,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AccountTokens.overviewChartColumnPadding,
-                      AccountTokens.overviewChartColumnPadding,
-                      AccountTokens.overviewChartColumnPadding,
-                      0,
-                    ),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: AccountTokens.overviewChartSize,
-                        height: AccountTokens.overviewChartSize,
-                        child: _OverviewDonut(items: items),
-                      ),
-                    ),
-                  ),
+          decoration: BoxDecoration(
+            color: SheetColors.background,
+            border: Border.all(
+              color: AccountTokens.overviewCardBorderColor,
+              width: AccountTokens.overviewCardBorderWidth,
+            ),
+            borderRadius: BorderRadius.circular(
+              AccountTokens.overviewCardRadius,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: AccountTokens.overviewCardShadowOpacity,
                 ),
-                const SizedBox(width: AccountTokens.overviewChartListGap),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AccountTokens.overviewRightPaddingLeft,
-                      AccountTokens.overviewRightPaddingTop,
-                      AccountTokens.overviewRightPaddingRight,
-                      AccountTokens.overviewRightPaddingBottom,
-                    ),
-                    child: items.isEmpty
-                        ? Text('暂无设备数据', style: emptyStyle)
-                        : SingleChildScrollView(
-                            physics: BouncingScrollPhysics(),
-                            child: Column(
-                              children: [
-                                for (final item in items) ...[
-                                  _OverviewLegendRow(item: item),
-                                  if (item != items.last)
-                                    const SizedBox(
-                                      height:
-                                          AccountTokens.overviewLegendRowGap,
-                                    ),
-                                ],
-                              ],
+                blurRadius: AccountTokens.overviewCardShadowBlur,
+                offset: const Offset(
+                  AccountTokens.overviewCardShadowOffsetX,
+                  AccountTokens.overviewCardShadowOffsetY,
+                ),
+              ),
+            ],
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxOverviewContentWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Text('总    览', style: titleStyle)),
+                  const Divider(
+                    height: AccountTokens.overviewDividerThickness,
+                    thickness: AccountTokens.overviewDividerThickness,
+                    color: TimingColors.divider,
+                  ),
+                  const SizedBox(height: AccountTokens.overviewMiddleTopGap),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: AccountTokens.overviewLeftColumnWidth,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AccountTokens.overviewChartColumnPadding,
+                              AccountTokens.overviewChartColumnPadding,
+                              AccountTokens.overviewChartColumnPadding,
+                              0,
+                            ),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: SizedBox(
+                                width: AccountTokens.overviewChartSize,
+                                height: AccountTokens.overviewChartSize,
+                                child: _OverviewDonut(items: items),
+                              ),
                             ),
                           ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AccountTokens.overviewPieTopGap),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: AccountTokens.overviewLeftColumnWidth,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AccountTokens.overviewChartColumnPadding,
-                    ),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: AccountTokens.overviewPieSize,
-                        height: AccountTokens.overviewPieSize,
-                        child: _OverviewPie(
-                          received: vm.totalReceived,
-                          remaining: vm.totalRemaining,
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AccountTokens.overviewChartListGap),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AccountTokens.overviewRightPaddingLeft,
-                      AccountTokens.overviewRightPaddingTop,
-                      AccountTokens.overviewRightPaddingRight,
-                      AccountTokens.overviewRightPaddingBottom,
-                    ),
-                    child: Column(
-                      children: [
                         const SizedBox(
-                          height: AccountTokens.overviewSummaryTopPadding,
+                          width: AccountTokens.overviewChartListGap,
                         ),
-                        _kv(
-                          context,
-                          '总应收',
-                          FormatUtils.money(vm.totalReceivable),
-                          bodyStyle,
-                        ),
-                        const SizedBox(height: SpaceTokens.sm),
-                        _kv(
-                          context,
-                          '已收',
-                          FormatUtils.money(vm.totalReceived),
-                          bodyStyle,
-                        ),
-                        const SizedBox(height: SpaceTokens.sm),
-                        _kv(
-                          context,
-                          '剩余',
-                          FormatUtils.money(vm.totalRemaining),
-                          bodyStyle,
-                        ),
-                        const SizedBox(height: SpaceTokens.sm),
-                        _kv(
-                          context,
-                          '回款',
-                          FormatUtils.percent1(vm.totalRatio),
-                          bodyStyle,
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AccountTokens.overviewRightPaddingLeft,
+                              AccountTokens.overviewRightPaddingTop,
+                              AccountTokens.overviewRightPaddingRight,
+                              AccountTokens.overviewRightPaddingBottom,
+                            ),
+                            child: items.isEmpty
+                                ? Text('暂无设备数据', style: emptyStyle)
+                                : SingleChildScrollView(
+                                    physics: BouncingScrollPhysics(),
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        top: items.length == 1
+                                            ? singleLegendTopPadding
+                                            : 0,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          for (final item in items) ...[
+                                            _OverviewLegendRow(item: item),
+                                            if (item != items.last)
+                                              const SizedBox(
+                                                height: AccountTokens
+                                                    .overviewLegendRowGap,
+                                              ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: AccountTokens.overviewPieTopGap),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: AccountTokens.overviewLeftColumnWidth,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal:
+                                  AccountTokens.overviewChartColumnPadding,
+                            ),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: SizedBox(
+                                width: AccountTokens.overviewPieSize,
+                                height: AccountTokens.overviewPieSize,
+                                child: _OverviewPie(
+                                  received: vm.totalReceived,
+                                  remaining: vm.totalRemaining,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(
+                          width: AccountTokens.overviewChartListGap,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AccountTokens.overviewRightPaddingLeft,
+                              AccountTokens.overviewRightPaddingTop,
+                              AccountTokens.overviewRightPaddingRight,
+                              AccountTokens.overviewRightPaddingBottom,
+                            ),
+                            child: Column(
+                              children: [
+                                const SizedBox(
+                                  height:
+                                      AccountTokens.overviewSummaryTopPadding,
+                                ),
+                                _kv(
+                                  context,
+                                  '总应收',
+                                  FormatUtils.money(vm.totalReceivable),
+                                  summaryStyle,
+                                ),
+                                const SizedBox(height: SpaceTokens.sm),
+                                _kv(
+                                  context,
+                                  '已收',
+                                  FormatUtils.money(vm.totalReceived),
+                                  summaryStyle,
+                                ),
+                                const SizedBox(height: SpaceTokens.sm),
+                                _kv(
+                                  context,
+                                  '剩余',
+                                  FormatUtils.money(vm.totalRemaining),
+                                  summaryStyle,
+                                ),
+                                const SizedBox(height: SpaceTokens.sm),
+                                _kv(
+                                  context,
+                                  '回款',
+                                  FormatUtils.percent1(vm.totalRatio),
+                                  summaryStyle,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

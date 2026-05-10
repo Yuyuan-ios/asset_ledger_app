@@ -13,7 +13,7 @@ import '../../core/foundation/spacing.dart';
 // 设计目标：
 // - Page/UI 不写任何 “if (isPro)” 分支
 // - 需要 Pro 的 UI，统一用 ProGate 包起来
-// - 未来接 IAP，只改 SubscriptionService.refresh 与缓存逻辑
+// - 未来接 IAP，统一从订阅状态/entitlement 注入权限结果
 //
 // 层级：Presentation Widget（UI 可复用组件）
 // =====================================================================
