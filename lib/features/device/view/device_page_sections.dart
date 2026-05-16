@@ -12,9 +12,6 @@ class DevicePageSectionHandlers {
   const DevicePageSectionHandlers({
     required this.onOpenUpgradePage,
     required this.onOpenAccountCenter,
-    required this.onOpenLocalBackup,
-    required this.onOpenLocalRestore,
-    required this.onOpenSyncInfo,
     required this.onOpenAddDeviceFlow,
     required this.onOpenRateApp,
     required this.onOpenTermsPage,
@@ -26,9 +23,6 @@ class DevicePageSectionHandlers {
 
   final VoidCallback onOpenUpgradePage;
   final VoidCallback onOpenAccountCenter;
-  final VoidCallback onOpenLocalBackup;
-  final VoidCallback onOpenLocalRestore;
-  final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenAddDeviceFlow;
   final VoidCallback onOpenRateApp;
   final VoidCallback onOpenTermsPage;
@@ -55,6 +49,11 @@ List<Widget> buildDevicePageSections({
 
   final sections = <Widget>[];
   for (final config in actionConfigs) {
+    if (config.id == DevicePageActionSectionId.profile) {
+      sections.add(_buildAccountSyncSection(handlers));
+      continue;
+    }
+
     sections.add(
       DeviceActionSection(
         title: config.title,
@@ -62,9 +61,6 @@ List<Widget> buildDevicePageSections({
         padding: config.padding,
       ),
     );
-    if (config.id == DevicePageActionSectionId.profile) {
-      sections.add(_buildAccountSyncSection(handlers));
-    }
     if (config.id == DevicePageActionSectionId.equipment) {
       sections.add(
         DeviceManagementSection(
@@ -96,27 +92,9 @@ Widget _buildAccountSyncSection(DevicePageSectionHandlers handlers) {
     title: '账号与同步',
     children: [
       DeviceActionCard(
-        title: '账号中心',
-        subtitle: '登录与云同步功能即将上线',
+        title: '账户中心',
+        subtitle: '登录、备份、恢复与云同步设置',
         onTap: handlers.onOpenAccountCenter,
-        trailingIcon: Icons.chevron_right,
-      ),
-      DeviceActionCard(
-        title: '本地备份',
-        subtitle: '导出当前数据，便于保存与迁移',
-        onTap: handlers.onOpenLocalBackup,
-        trailingIcon: Icons.chevron_right,
-      ),
-      DeviceActionCard(
-        title: '本地恢复',
-        subtitle: '从备份文件恢复本机数据',
-        onTap: handlers.onOpenLocalRestore,
-        trailingIcon: Icons.chevron_right,
-      ),
-      DeviceActionCard(
-        title: '云同步说明',
-        subtitle: '当前版本暂不支持自动多端同步',
-        onTap: handlers.onOpenSyncInfo,
         trailingIcon: Icons.chevron_right,
       ),
     ],

@@ -5,17 +5,21 @@ import '../../tokens/mapper/core_tokens.dart';
 Future<bool> showAppConfirmDialog({
   required BuildContext context,
   required String title,
-  required String content,
+  String? content,
+  Widget? contentWidget,
   String cancelText = '取消',
   String confirmText = '确定',
   bool barrierDismissible = false,
 }) async {
+  assert(content != null || contentWidget != null);
+
   final ok = await showDialog<bool>(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (ctx) => AppConfirmDialog(
       title: title,
       content: content,
+      contentWidget: contentWidget,
       cancelText: cancelText,
       confirmText: confirmText,
     ),
@@ -27,13 +31,15 @@ class AppConfirmDialog extends StatelessWidget {
   const AppConfirmDialog({
     super.key,
     required this.title,
-    required this.content,
+    this.content,
+    this.contentWidget,
     this.cancelText = '取消',
     this.confirmText = '确定',
-  });
+  }) : assert(content != null || contentWidget != null);
 
   final String title;
-  final String content;
+  final String? content;
+  final Widget? contentWidget;
   final String cancelText;
   final String confirmText;
 
@@ -51,7 +57,10 @@ class AppConfirmDialog extends StatelessWidget {
 
     return AlertDialog(
       title: Text(title, style: titleStyle),
-      content: Text(content, style: contentStyle),
+      content: DefaultTextStyle.merge(
+        style: contentStyle,
+        child: contentWidget ?? Text(content ?? ''),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),

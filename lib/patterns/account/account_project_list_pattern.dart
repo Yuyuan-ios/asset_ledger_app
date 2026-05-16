@@ -18,7 +18,10 @@ class AccountProjectList extends StatelessWidget {
 
   String _priceText(AccountProjectVM p) {
     final rate = p.minRate;
-    if (rate == null) return '单价：—';
+    if (rate == null) {
+      if (p.rentIncomeTotal > 0) return '租金(台班)';
+      return '单价：—';
+    }
     if (p.isMultiDevice) {
       return '单价：${FormatUtils.money(rate)}起(多设备)';
     }
@@ -28,11 +31,26 @@ class AccountProjectList extends StatelessWidget {
     return '单价：${FormatUtils.money(rate)}';
   }
 
-  String _totalHoursText(AccountProjectVM p) {
+  String? _totalHoursText(AccountProjectVM p) {
     final total = p.hoursByDevice.values.fold<double>(0, (sum, h) => sum + h);
+    if (total <= 0) return null;
     final one = total.toStringAsFixed(1);
-    final normalized = one.endsWith('.0') ? one.substring(0, one.length - 2) : one;
+    final normalized = one.endsWith('.0')
+        ? one.substring(0, one.length - 2)
+        : one;
     return '总共:  $normalized h';
+  }
+
+  String _receivedText(AccountProjectVM p) {
+    final base = '${FormatUtils.percent1(p.ratio)}实收';
+    if (p.kind != AccountProjectKind.merged) return base;
+
+    final sites = p.includedSites
+        .map((site) => site.trim())
+        .where((site) => site.isNotEmpty)
+        .toList();
+    if (sites.isEmpty) return base;
+    return '$base(${sites.join('+')})';
   }
 
   @override
@@ -88,146 +106,155 @@ class AccountProjectList extends StatelessWidget {
     return Column(
       children: [
         for (final p in projects) ...[
-          Container(
-            margin: const EdgeInsets.only(
-              bottom: AccountTokens.projectCardBottomMargin,
-            ),
-            constraints: const BoxConstraints(
-              minHeight: AccountTokens.projectCardMinHeight,
-            ),
-            decoration: BoxDecoration(
-              color: SheetColors.background,
-              border: Border.all(
-                color: AccountTokens.projectCardBorderColor,
-                width: AccountTokens.projectCardBorderWidth,
-              ),
-              borderRadius: BorderRadius.circular(
-                AccountTokens.projectCardRadius,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: AccountTokens.projectCardShadowOpacity,
-                  ),
-                  blurRadius: AccountTokens.projectCardShadowBlur,
-                  offset: const Offset(
-                    AccountTokens.projectCardShadowOffsetX,
-                    AccountTokens.projectCardShadowOffsetY,
-                  ),
+          Builder(
+            builder: (context) {
+              final totalHoursText = _totalHoursText(p);
+              return Container(
+                margin: const EdgeInsets.only(
+                  bottom: AccountTokens.projectCardBottomMargin,
                 ),
-              ],
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(
-                AccountTokens.projectCardRadius,
-              ),
-              onTap: () => onTap(p),
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: AccountTokens.projectCardPaddingHorizontal,
-                  right: AccountTokens.projectCardPaddingHorizontal,
-                  top: AccountTokens.projectCardPaddingTop,
+                constraints: const BoxConstraints(
+                  minHeight: AccountTokens.projectCardMinHeight,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            p.displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: titleStyle,
-                          ),
-                        ),
-                        const SizedBox(
-                          width: AccountTokens.projectCardTitleDateGap,
-                        ),
-                        Text(FormatUtils.date(p.minYmd), style: dateStyle),
-                      ],
-                    ),
-                    const SizedBox(height: AccountTokens.projectCardSectionGap),
-                    Row(
-                      children: [
-                        Container(
-                          constraints: const BoxConstraints(
-                            minWidth: AccountTokens.projectCardChipWidth,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal:
-                                AccountTokens.projectCardChipPaddingHorizontal,
-                            vertical: AccountTokens.projectCardChipPaddingVertical,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AccountTokens.projectCardChipColor,
-                            borderRadius: BorderRadius.circular(
-                              AccountTokens.projectCardChipRadius,
-                            ),
-                          ),
-                          child: Text(_priceText(p), style: chipStyle),
-                        ),
-                        const Spacer(),
-                        Text(_totalHoursText(p), style: totalHoursStyle),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: AccountTokens.projectCardRateToStatusGap,
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          '${FormatUtils.percent1(p.ratio)}实收',
-                          style: statusStyle,
-                        ),
-                        const Spacer(),
-                        Text(
-                          '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
-                          style: statusStyle,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: AccountTokens.projectCardProgressTopGap,
-                    ),
-                    SizedBox(
-                      height: AccountTokens.projectCardProgressHeight,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Stack(
-                          children: [
-                            Container(
-                              height:
-                                  AccountTokens.projectCardProgressFillHeight,
-                              decoration: BoxDecoration(
-                                color: AccountTokens.projectCardProgressTrack,
-                                borderRadius: BorderRadius.circular(
-                                  AccountTokens.projectCardProgressRadius,
-                                ),
-                              ),
-                            ),
-                            FractionallySizedBox(
-                              widthFactor: (p.ratio ?? 0).clamp(0, 1),
-                              child: Container(
-                                height:
-                                    AccountTokens.projectCardProgressFillHeight,
-                                decoration: BoxDecoration(
-                                  color: AccountTokens.projectCardProgressFill,
-                                  borderRadius: BorderRadius.circular(
-                                    AccountTokens.projectCardProgressRadius,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                decoration: BoxDecoration(
+                  color: SheetColors.background,
+                  border: Border.all(
+                    color: AccountTokens.projectCardBorderColor,
+                    width: AccountTokens.projectCardBorderWidth,
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    AccountTokens.projectCardRadius,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: AccountTokens.projectCardShadowOpacity,
+                      ),
+                      blurRadius: AccountTokens.projectCardShadowBlur,
+                      offset: const Offset(
+                        AccountTokens.projectCardShadowOffsetX,
+                        AccountTokens.projectCardShadowOffsetY,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(
+                    AccountTokens.projectCardRadius,
+                  ),
+                  onTap: () => onTap(p),
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: AccountTokens.projectCardPaddingHorizontal,
+                      right: AccountTokens.projectCardPaddingHorizontal,
+                      top: AccountTokens.projectCardPaddingTop,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                p.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                            ),
+                            const SizedBox(
+                              width: AccountTokens.projectCardTitleDateGap,
+                            ),
+                            Text(FormatUtils.date(p.minYmd), style: dateStyle),
+                          ],
+                        ),
+                        const SizedBox(
+                          height: AccountTokens.projectCardSectionGap,
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              constraints: const BoxConstraints(
+                                minWidth: AccountTokens.projectCardChipWidth,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AccountTokens
+                                    .projectCardChipPaddingHorizontal,
+                                vertical: AccountTokens
+                                    .projectCardChipPaddingVertical,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AccountTokens.projectCardChipColor,
+                                borderRadius: BorderRadius.circular(
+                                  AccountTokens.projectCardChipRadius,
+                                ),
+                              ),
+                              child: Text(_priceText(p), style: chipStyle),
+                            ),
+                            if (totalHoursText != null) ...[
+                              const Spacer(),
+                              Text(totalHoursText, style: totalHoursStyle),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(
+                          height: AccountTokens.projectCardRateToStatusGap,
+                        ),
+                        Row(
+                          children: [
+                            Text(_receivedText(p), style: statusStyle),
+                            const Spacer(),
+                            Text(
+                              '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
+                              style: statusStyle,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(
+                          height: AccountTokens.projectCardProgressTopGap,
+                        ),
+                        SizedBox(
+                          height: AccountTokens.projectCardProgressHeight,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  height: AccountTokens
+                                      .projectCardProgressFillHeight,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AccountTokens.projectCardProgressTrack,
+                                    borderRadius: BorderRadius.circular(
+                                      AccountTokens.projectCardProgressRadius,
+                                    ),
+                                  ),
+                                ),
+                                FractionallySizedBox(
+                                  widthFactor: (p.ratio ?? 0).clamp(0, 1),
+                                  child: Container(
+                                    height: AccountTokens
+                                        .projectCardProgressFillHeight,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          AccountTokens.projectCardProgressFill,
+                                      borderRadius: BorderRadius.circular(
+                                        AccountTokens.projectCardProgressRadius,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ],

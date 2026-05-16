@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../core/config/subscription_product_ids.dart';
 import 'subscription_entitlement_cache.dart';
 import 'subscription_store_gateway.dart';
 import 'subscription_verification_repository.dart';
@@ -110,8 +111,8 @@ class SubscriptionSnapshot {
 class SubscriptionService {
   const SubscriptionService._();
 
-  static const String monthlyProductId = 'com.yuyuan.assetledger.pro.monthly';
-  static const String yearlyProductId = 'com.yuyuan.assetledger.pro.yearly';
+  static const String monthlyProductId = SubscriptionProductIds.monthly;
+  static const String yearlyProductId = SubscriptionProductIds.yearly;
 
   static final ValueNotifier<SubscriptionSnapshot> notifier =
       ValueNotifier<SubscriptionSnapshot>(SubscriptionSnapshot.initial());

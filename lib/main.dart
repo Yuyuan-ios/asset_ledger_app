@@ -17,6 +17,7 @@ Future<void> main() async {
     fuelStore: appProviderBundle.fuelStore,
     maintenanceStore: appProviderBundle.maintenanceStore,
     projectRateStore: appProviderBundle.projectRateStore,
+    accountStore: appProviderBundle.accountStore,
   );
 
   runApp(

@@ -8,7 +8,6 @@ import '../../../data/models/fuel_log.dart';
 import '../../../data/services/fuel_suggest_service.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
-import '../../../patterns/fuel/fuel_home_pattern.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
 import '../../timing/state/timing_store.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
@@ -18,7 +17,7 @@ import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../components/avatars/app_device_avatar.dart';
 import '../../../patterns/fuel/fuel_detail_content_pattern.dart';
 import '../../../patterns/fuel/fuel_efficiency_summary_pattern.dart';
-import '../../../patterns/fuel/fuel_recent_records_pattern.dart';
+import '../../../patterns/fuel/fuel_sliver_home_pattern.dart';
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/fuel/fuel_supplier_filter_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
@@ -206,7 +205,10 @@ class _FuelPageState extends State<FuelPage> {
       },
     );
 
-    final records = FuelRecentRecordsSection(
+    return FuelSliverHomePattern(
+      header: SectionHeader(title: '燃油', onAdd: () => _openFuelEditor()),
+      summary: summary,
+      filter: filter,
       logs: viewData.filteredLogs,
       leadingBuilder: (log) {
         final d = deviceStore.tryFindById(log.deviceId);
@@ -232,13 +234,6 @@ class _FuelPageState extends State<FuelPage> {
       onTap: (log) => _openFuelEditor(editing: log),
       onConfirmDelete: _confirmDelete,
       onDelete: _delete,
-    );
-
-    return FuelHomePattern(
-      header: SectionHeader(title: '燃油', onAdd: () => _openFuelEditor()),
-      summary: summary,
-      filter: filter,
-      records: records,
       loading: viewData.loading,
       error: viewData.error,
       onRetry: () => _retryLoad(),

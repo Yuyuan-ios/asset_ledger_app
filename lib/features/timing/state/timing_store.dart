@@ -1,6 +1,7 @@
 import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../core/utils/base_store.dart';
+import '../calculator/model/timing_calculation_history.dart';
 
 class TimingStore extends BaseStore {
   TimingStore(this._repository);
@@ -40,23 +41,25 @@ class TimingStore extends BaseStore {
   // 写：save（insert / update）
   // =====================================================================
 
-  Future<void> save(TimingRecord record) async {
-    await writeAndPatchLocalState(
+  Future<void> save(
+    TimingRecord record, {
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) async {
+    await writeAndPatchLocalState<TimingRecord>(
       write: () async {
-        if (record.id == null) {
-          return await _repository.insert(record);
-        }
-        await _repository.update(record);
-        return record.id!;
+        return _repository.saveWithCalculationHistories(
+          record,
+          calculationHistories: calculationHistories,
+        );
       },
-      patch: (recordId) {
-        final next = record.copyWith(id: recordId);
+      patch: (savedRecord) {
+        final recordId = savedRecord.id;
         final index = _records.indexWhere((item) => item.id == recordId);
         if (index == -1) {
-          _records = [..._records, next];
+          _records = [..._records, savedRecord];
         } else {
           final updated = [..._records];
-          updated[index] = next;
+          updated[index] = savedRecord;
           _records = updated;
         }
         _sortRecords();
@@ -73,6 +76,20 @@ class TimingStore extends BaseStore {
       write: () => _repository.deleteById(id),
       patch: (_) {
         _records = _records.where((item) => item.id != id).toList();
+      },
+    );
+  }
+
+  Future<void> deleteByIds(Iterable<int> ids) async {
+    final uniqueIds = ids.toSet();
+    if (uniqueIds.isEmpty) return;
+
+    await writeAndPatchLocalState(
+      write: () => _repository.deleteByIds(uniqueIds),
+      patch: (_) {
+        _records = _records
+            .where((item) => item.id == null || !uniqueIds.contains(item.id))
+            .toList();
       },
     );
   }

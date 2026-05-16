@@ -14,6 +14,7 @@ import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
 import 'package:asset_ledger/features/account/state/account_payment_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
@@ -25,54 +26,57 @@ import 'package:sqflite/sqflite.dart';
 
 void main() {
   group('FuelStore write strategy', () {
-    test('patches local state for insert update and delete without reloading', () async {
-      final repository = _CountingFuelRepository(
-        seed: [
+    test(
+      'patches local state for insert update and delete without reloading',
+      () async {
+        final repository = _CountingFuelRepository(
+          seed: [
+            const FuelLog(
+              id: 2,
+              deviceId: 1,
+              date: 20260302,
+              supplier: 'B',
+              liters: 10,
+              cost: 80,
+            ),
+          ],
+        );
+        final store = FuelStore(repository);
+
+        await store.loadAll();
+        expect(repository.listAllCalls, 1);
+
+        await store.insert(
+          const FuelLog(
+            deviceId: 1,
+            date: 20260305,
+            supplier: 'A',
+            liters: 20,
+            cost: 160,
+          ),
+        );
+        expect(repository.listAllCalls, 1);
+        expect(store.logs.map((item) => item.id).toList(), [10, 2]);
+
+        await store.update(
           const FuelLog(
             id: 2,
             deviceId: 1,
-            date: 20260302,
-            supplier: 'B',
-            liters: 10,
-            cost: 80,
+            date: 20260306,
+            supplier: 'B2',
+            liters: 12,
+            cost: 96,
           ),
-        ],
-      );
-      final store = FuelStore(repository);
+        );
+        expect(repository.listAllCalls, 1);
+        expect(store.logs.map((item) => item.id).toList(), [2, 10]);
+        expect(store.logs.first.supplier, 'B2');
 
-      await store.loadAll();
-      expect(repository.listAllCalls, 1);
-
-      await store.insert(
-        const FuelLog(
-          deviceId: 1,
-          date: 20260305,
-          supplier: 'A',
-          liters: 20,
-          cost: 160,
-        ),
-      );
-      expect(repository.listAllCalls, 1);
-      expect(store.logs.map((item) => item.id).toList(), [10, 2]);
-
-      await store.update(
-        const FuelLog(
-          id: 2,
-          deviceId: 1,
-          date: 20260306,
-          supplier: 'B2',
-          liters: 12,
-          cost: 96,
-        ),
-      );
-      expect(repository.listAllCalls, 1);
-      expect(store.logs.map((item) => item.id).toList(), [2, 10]);
-      expect(store.logs.first.supplier, 'B2');
-
-      await store.deleteById(10);
-      expect(repository.listAllCalls, 1);
-      expect(store.logs.map((item) => item.id).toList(), [2]);
-    });
+        await store.deleteById(10);
+        expect(repository.listAllCalls, 1);
+        expect(store.logs.map((item) => item.id).toList(), [2]);
+      },
+    );
   });
 
   group('TimingStore write strategy', () {
@@ -112,6 +116,7 @@ void main() {
         ),
       );
       expect(repository.listAllCalls, 1);
+      expect(repository.savedCalculationHistories.single, isEmpty);
       expect(store.records.map((item) => item.id).toList(), [11, 4]);
 
       await store.save(
@@ -129,6 +134,8 @@ void main() {
         ),
       );
       expect(repository.listAllCalls, 1);
+      expect(repository.savedCalculationHistories, hasLength(2));
+      expect(repository.savedCalculationHistories.last, isEmpty);
       expect(store.records.map((item) => item.id).toList(), [4, 11]);
       expect(store.records.first.contact, 'A2');
 
@@ -221,68 +228,71 @@ void main() {
   });
 
   group('ProjectRateStore write strategy', () {
-    test('patches local state for upsert and delete without reloading', () async {
-      final repository = _CountingProjectRateRepository(
-        seed: [
+    test(
+      'patches local state for upsert and delete without reloading',
+      () async {
+        final repository = _CountingProjectRateRepository(
+          seed: [
+            const ProjectDeviceRate(
+              projectKey: '张三||工地A',
+              deviceId: 1,
+              isBreaking: false,
+              rate: 350,
+            ),
+          ],
+        );
+        final store = ProjectRateStore(repository);
+
+        await store.loadAll();
+        expect(repository.listAllCalls, 1);
+
+        await store.upsert(
+          const ProjectDeviceRate(
+            projectKey: '张三||工地A',
+            deviceId: 2,
+            isBreaking: true,
+            rate: 480,
+          ),
+        );
+        expect(repository.listAllCalls, 1);
+        expect(store.rates, hasLength(2));
+        expect(
+          store.rates.any(
+            (item) =>
+                item.projectKey == '张三||工地A' &&
+                item.deviceId == 2 &&
+                item.isBreaking &&
+                item.rate == 480,
+          ),
+          isTrue,
+        );
+
+        await store.upsert(
           const ProjectDeviceRate(
             projectKey: '张三||工地A',
             deviceId: 1,
             isBreaking: false,
-            rate: 350,
+            rate: 360,
           ),
-        ],
-      );
-      final store = ProjectRateStore(repository);
+        );
+        expect(repository.listAllCalls, 1);
+        expect(
+          store.rates
+              .singleWhere(
+                (item) =>
+                    item.projectKey == '张三||工地A' &&
+                    item.deviceId == 1 &&
+                    !item.isBreaking,
+              )
+              .rate,
+          360,
+        );
 
-      await store.loadAll();
-      expect(repository.listAllCalls, 1);
-
-      await store.upsert(
-        const ProjectDeviceRate(
-          projectKey: '张三||工地A',
-          deviceId: 2,
-          isBreaking: true,
-          rate: 480,
-        ),
-      );
-      expect(repository.listAllCalls, 1);
-      expect(store.rates, hasLength(2));
-      expect(
-        store.rates.any(
-          (item) =>
-              item.projectKey == '张三||工地A' &&
-              item.deviceId == 2 &&
-              item.isBreaking &&
-              item.rate == 480,
-        ),
-        isTrue,
-      );
-
-      await store.upsert(
-        const ProjectDeviceRate(
-          projectKey: '张三||工地A',
-          deviceId: 1,
-          isBreaking: false,
-          rate: 360,
-        ),
-      );
-      expect(repository.listAllCalls, 1);
-      expect(
-        store.rates
-            .singleWhere(
-              (item) =>
-                  item.projectKey == '张三||工地A' &&
-                  item.deviceId == 1 &&
-                  !item.isBreaking,
-            )
-            .rate,
-        360,
-      );
-
-      await store.delete('张三||工地A', 2, isBreaking: true);
-      expect(repository.listAllCalls, 1);
-      expect(store.rates, hasLength(1));
-    });
+        await store.delete('张三||工地A', 2, isBreaking: true);
+        expect(repository.listAllCalls, 1);
+        expect(store.rates, hasLength(1));
+      },
+    );
   });
 
   group('MaintenanceStore write strategy', () {
@@ -375,7 +385,8 @@ void main() {
 }
 
 class _CountingFuelRepository implements FuelRepository {
-  _CountingFuelRepository({required List<FuelLog> seed}) : _logs = List.of(seed);
+  _CountingFuelRepository({required List<FuelLog> seed})
+    : _logs = List.of(seed);
 
   final List<FuelLog> _logs;
   int listAllCalls = 0;
@@ -429,6 +440,7 @@ class _CountingTimingRepository implements TimingRepository {
     : _records = List.of(seed);
 
   final List<TimingRecord> _records;
+  final List<List<TimingCalculationHistory>> savedCalculationHistories = [];
   int listAllCalls = 0;
   int _nextId = 11;
 
@@ -455,9 +467,30 @@ class _CountingTimingRepository implements TimingRepository {
   }
 
   @override
+  Future<TimingRecord> saveWithCalculationHistories(
+    TimingRecord record, {
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) async {
+    savedCalculationHistories.add(List.of(calculationHistories));
+    if (record.id == null) {
+      final id = await insert(record);
+      return record.copyWith(id: id);
+    }
+    await update(record);
+    return record;
+  }
+
+  @override
   Future<int> deleteById(int id) async {
     _records.removeWhere((item) => item.id == id);
     return 1;
+  }
+
+  @override
+  Future<int> deleteByIds(Iterable<int> ids) async {
+    final uniqueIds = ids.toSet();
+    _records.removeWhere((item) => uniqueIds.contains(item.id));
+    return uniqueIds.length;
   }
 
   @override
@@ -541,6 +574,42 @@ class _CountingAccountPaymentRepository implements AccountPaymentRepository {
     _records.add(inserted);
     _sort();
     return inserted.id!;
+  }
+
+  @override
+  Future<void> insertAllInTransaction(List<AccountPayment> payments) async {
+    for (final payment in payments) {
+      await insert(payment);
+    }
+  }
+
+  @override
+  Future<List<AccountPayment>> listByMergeBatchId(String batchId) async {
+    return _records.where((item) {
+      return item.sourceType == AccountPayment.sourceTypeMergeAllocation &&
+          item.mergeBatchId == batchId;
+    }).toList();
+  }
+
+  @override
+  Future<int> deleteByMergeBatchId(String batchId) async {
+    final before = _records.length;
+    _records.removeWhere((item) {
+      return item.sourceType == AccountPayment.sourceTypeMergeAllocation &&
+          item.mergeBatchId == batchId;
+    });
+    return before - _records.length;
+  }
+
+  @override
+  Future<void> replaceMergeBatchInTransaction({
+    required String batchId,
+    required List<AccountPayment> newRows,
+  }) async {
+    await deleteByMergeBatchId(batchId);
+    for (final payment in newRows) {
+      await insert(payment);
+    }
   }
 
   @override

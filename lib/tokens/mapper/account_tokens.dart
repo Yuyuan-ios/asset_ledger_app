@@ -31,7 +31,7 @@ class AccountTokens {
   // ===== 账户页：总览卡片中部（圆环图 + 设备列表）=====
   static const double overviewMiddleTopGap = 0; // 标题到中部图表间距
   static const double overviewChartSize = 126; // 圆环图直径（视觉补偿后略大于饼图）
-  static const double overviewChartStroke = 20; // 圆环图线宽（加粗）
+  static const double overviewChartStroke = 22; // 圆环图线宽（加粗）
   static const double overviewChartListGap = 0; // 圆环图与列表间距
   static const double overviewLeftColumnWidth = 160; // 左侧图表列固定宽度（上下对齐）
   static const double overviewChartColumnPadding =
@@ -56,8 +56,8 @@ class AccountTokens {
   static const Color overviewPieRemaining = Color(0xFFF06161); // 剩余占比（Figma 红色）
   static const double overviewPieBorderWidth = 1; // 饼图描边
   static const Color overviewPieBorderColor = Color(0x1A000000); // 饼图描边色（10% 黑）
-  static const double overviewPieDividerWidth = 3; // 饼图分割线宽度
-  static const double overviewPieLabelSize = 14; // 饼图百分比字号
+  static const double overviewPieDividerWidth = 2.2; // 饼图分割线宽度
+  static const double overviewPieLabelSize = 11; // 饼图百分比字号
   static const FontWeight overviewPieLabelWeight = FontWeight.w400; // 饼图百分比字重
   static const double overviewPieLabelRadiusRatio = 0.6; // 百分比文字半径比例
   static const double overviewPieLabelMinRatio = 0.15; // 小于该比例不显示文字
@@ -78,6 +78,7 @@ class AccountTokens {
 
   // ===== 账户页：项目列表标题区（对齐计时页“最近记录”）=====
   static const double projectTitleTopGap = 8; // 总览卡片与标题区间距
+  static const double projectPinnedHeaderHeight = 32; // 项目吸顶标题栏固定高度
   static const double projectListTopGap = 8; // 标题区与项目列表间距
   static const double projectTitleFontSize = 18; // 标题字号
   static const double projectTitleLineHeight = 1; // 标题行高

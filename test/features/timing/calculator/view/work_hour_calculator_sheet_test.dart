@@ -1,0 +1,76 @@
+import 'package:asset_ledger/features/timing/calculator/model/staged_timing_calculation_history.dart';
+import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/features/timing/calculator/view/work_hour_calculator_sheet.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  Future<void> pumpSheet(
+    WidgetTester tester, {
+    List<TimingCalculationHistory> existingHistories = const [],
+    ValueChanged<List<StagedTimingCalculationHistory>>? onHistoriesChanged,
+  }) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkHourCalculatorSheet(
+            initialHours: null,
+            existingHistories: existingHistories,
+            initialStagedHistories: const [],
+            onResultApplied: (_) {},
+            onHistoriesChanged: (histories) {
+              onHistoriesChanged?.call(histories);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapTextKey(WidgetTester tester, String label) async {
+    await tester.tap(find.widgetWithText(OutlinedButton, label).last);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('shows existing histories and appends staged histories after =', (
+    WidgetTester tester,
+  ) async {
+    List<StagedTimingCalculationHistory>? latestStagedHistories;
+    await pumpSheet(
+      tester,
+      existingHistories: [
+        TimingCalculationHistory(
+          id: 'saved',
+          timingRecordId: 7,
+          createdAt: DateTime.utc(2026, 5, 13, 18, 20),
+          expression: '8+8.2+7.8',
+          result: 24.0,
+          ticketCount: 3,
+        ),
+      ],
+      onHistoriesChanged: (histories) {
+        latestStagedHistories = histories;
+      },
+    );
+
+    expect(find.textContaining('[已保存]'), findsOneWidget);
+    expect(find.text('8 + 8.2 + 7.8 = 24.0 h'), findsOneWidget);
+
+    await tapTextKey(tester, '8');
+    await tapTextKey(tester, '+');
+    await tapTextKey(tester, '8');
+    await tester.tap(find.widgetWithText(FilledButton, '=').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('[本次]'), findsOneWidget);
+    expect(find.text('8 + 8 = 16.0 h'), findsOneWidget);
+    expect(find.text('8 + 8.2 + 7.8 = 24.0 h'), findsOneWidget);
+    expect(latestStagedHistories, hasLength(1));
+  });
+}

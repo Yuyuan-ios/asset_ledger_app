@@ -417,17 +417,75 @@ class _OverviewDonutPainter extends CustomPainter {
       return;
     }
 
-    var start = -3.1415926 / 2;
+    const tau = math.pi * 2;
+    final hasMultipleSegments = items.length > 1;
+    const maxGapAngle = math.pi / 72; // 2.5 degrees.
+    final gapAngle = hasMultipleSegments
+        ? math.min(maxGapAngle, (tau * 0.08) / items.length)
+        : 0.0;
+    final availableSweep = tau - (gapAngle * items.length);
+    var start = -math.pi / 2;
     for (final item in items) {
-      final sweep = 2 * 3.1415926 * item.ratio;
+      final sweep = hasMultipleSegments
+          ? availableSweep * item.ratio
+          : tau * item.ratio;
       if (sweep <= 0) continue;
       shadowPaint.color = item.color.withValues(alpha: 0.2);
       canvas.drawArc(shadowRect, start, sweep, false, shadowPaint);
       paint.shader = null;
       paint.color = item.color;
       canvas.drawArc(rect, start, sweep, false, paint);
-      start += sweep;
+      _paintPercentLabel(
+        canvas: canvas,
+        center: center,
+        radius: radius,
+        start: start,
+        sweep: sweep,
+        ratio: item.ratio,
+        showLabels: hasMultipleSegments,
+      );
+      start += sweep + gapAngle;
     }
+  }
+
+  void _paintPercentLabel({
+    required Canvas canvas,
+    required Offset center,
+    required double radius,
+    required double start,
+    required double sweep,
+    required double ratio,
+    required bool showLabels,
+  }) {
+    if (!showLabels || ratio < 0.1) return;
+
+    final label = '${(ratio * 100).round()}%';
+    if (label == '100%') return;
+
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontSize: AccountTokens.overviewPieLabelSize,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final arcLength = radius * sweep;
+    if (arcLength < painter.width + 10) return;
+    if (AccountTokens.overviewChartStroke < painter.height + 4) return;
+
+    final mid = start + sweep / 2;
+    final offset = Offset(
+      center.dx + radius * math.cos(mid),
+      center.dy + radius * math.sin(mid),
+    );
+    final textOffset = offset - Offset(painter.width / 2, painter.height / 2);
+    painter.paint(canvas, textOffset);
   }
 
   @override
@@ -552,7 +610,7 @@ class _OverviewPiePainter extends CustomPainter {
         ..color = SheetColors.background
         ..style = PaintingStyle.stroke
         ..strokeWidth = AccountTokens.overviewPieDividerWidth
-        ..strokeCap = StrokeCap.butt
+        ..strokeCap = StrokeCap.round
         ..isAntiAlias = true;
 
       for (final angle in sliceBoundaries.take(2)) {

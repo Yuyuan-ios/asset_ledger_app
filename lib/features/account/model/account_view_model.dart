@@ -1,5 +1,7 @@
 import '../../../data/models/account_payment.dart';
 
+enum AccountProjectKind { normal, merged }
+
 class AccountComputed {
   final List<AccountProjectVM> projects;
   final double totalReceivable;
@@ -29,6 +31,11 @@ class AccountComputed {
 class AccountProjectVM {
   final String projectKey;
   final String displayName;
+  final AccountProjectKind kind;
+  final int? mergeGroupId;
+  final List<String> memberProjectKeys;
+  final List<String> includedSites;
+  final String? includedSitesText;
 
   /// 项目最早计时日期（YYYYMMDD）
   final int minYmd;
@@ -51,6 +58,11 @@ class AccountProjectVM {
   const AccountProjectVM({
     required this.projectKey,
     required this.displayName,
+    this.kind = AccountProjectKind.normal,
+    this.mergeGroupId,
+    this.memberProjectKeys = const [],
+    this.includedSites = const [],
+    this.includedSitesText,
     required this.minYmd,
     required this.deviceIds,
     required this.hoursByDevice,

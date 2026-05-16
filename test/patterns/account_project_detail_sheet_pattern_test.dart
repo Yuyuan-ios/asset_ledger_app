@@ -1,0 +1,352 @@
+import 'package:asset_ledger/data/models/account_payment.dart';
+import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/project_device_rate.dart';
+import 'package:asset_ledger/data/models/project_key.dart';
+import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/features/account/model/account_project_payment_display_vm.dart';
+import 'package:asset_ledger/features/account/model/account_view_model.dart';
+import 'package:asset_ledger/patterns/account/account_project_detail_sheet_pattern.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const shangyiKey = '李杰||尚义';
+  const xiantanKey = '李杰||鲜滩';
+
+  final devices = [
+    const Device(
+      id: 1,
+      name: 'HITACHI 1#',
+      brand: 'HITACHI',
+      defaultUnitPrice: 100,
+      baseMeterHours: 0,
+    ),
+    const Device(
+      id: 2,
+      name: 'SANY 1#',
+      brand: 'SANY',
+      defaultUnitPrice: 180,
+      baseMeterHours: 0,
+    ),
+  ];
+
+  final records = [
+    const TimingRecord(
+      deviceId: 1,
+      startDate: 20260501,
+      contact: '李杰',
+      site: '尚义',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 64.9,
+      hours: 64.9,
+      income: 6490,
+    ),
+    const TimingRecord(
+      deviceId: 1,
+      startDate: 20260502,
+      contact: '李杰',
+      site: '鲜滩',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 239,
+      hours: 239,
+      income: 23900,
+    ),
+    const TimingRecord(
+      deviceId: 2,
+      startDate: 20260502,
+      contact: '李杰',
+      site: '鲜滩',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 20,
+      hours: 20,
+      income: 3600,
+    ),
+  ];
+
+  Widget buildSheet({
+    required String projectKey,
+    required AccountComputed computed,
+    required AccountOpenSingleRateEditor onEditDeviceRate,
+    AccountDissolveMergeGroup? onDissolveMergeGroup,
+    AccountOpenMergedPaymentEditor? onAddMergedPayment,
+    AccountOpenMergedPaymentBatchEditor? onEditMergedPaymentBatch,
+    AccountOpenMergedPaymentBatchEditor? onDeleteMergedPaymentBatch,
+  }) {
+    return MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: AccountProjectDetailSheet(
+            projectKey: projectKey,
+            timingRecords: records,
+            allDevices: devices,
+            allPayments: const [],
+            allRates: const [
+              ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
+              ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
+              ProjectDeviceRate(projectKey: xiantanKey, deviceId: 2, rate: 180),
+            ],
+            computed: computed,
+            onBatchEditRate: (_, _, _) async {},
+            onEditDeviceRate: onEditDeviceRate,
+            onAddPayment:
+                ({required project, required allPayments, editing}) async {},
+            onEditPayment:
+                ({required project, required allPayments, editing}) async {},
+            onDeletePayment: (_) async {},
+            onDissolveMergeGroup: onDissolveMergeGroup,
+            onAddMergedPayment: onAddMergedPayment,
+            onEditMergedPaymentBatch: onEditMergedPaymentBatch,
+            onDeleteMergedPaymentBatch: onDeleteMergedPaymentBatch,
+          ),
+        ),
+      ),
+    );
+  }
+
+  AccountProjectVM mergedProject({int? mergeGroupId = 1}) {
+    return AccountProjectVM(
+      projectKey: 'merge:1',
+      displayName: '李杰 + 合并2项目',
+      kind: AccountProjectKind.merged,
+      mergeGroupId: mergeGroupId,
+      memberProjectKeys: const [shangyiKey, xiantanKey],
+      includedSites: const ['尚义', '鲜滩'],
+      includedSitesText: '尚义+鲜滩',
+      minYmd: 20260501,
+      deviceIds: const [1, 2],
+      hoursByDevice: const {1: 303.9, 2: 20},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: true,
+      isMultiMode: false,
+      receivable: 10000,
+      received: 5000,
+      remaining: 5000,
+      ratio: 0.5,
+      payments: const [
+        AccountPayment(
+          id: 1,
+          projectKey: shangyiKey,
+          ymd: 20260501,
+          amount: 5000,
+          note: '现金',
+          createdAt: '2026-05-16T01:01:00.000Z',
+        ),
+        AccountPayment(
+          id: 2,
+          projectKey: xiantanKey,
+          ymd: 20260502,
+          amount: 300,
+          createdAt: '2026-05-16T01:02:00.000Z',
+        ),
+        AccountPayment(
+          id: 3,
+          projectKey: shangyiKey,
+          ymd: 20260515,
+          amount: 1490,
+          sourceType: AccountPayment.sourceTypeMergeAllocation,
+          mergeGroupId: 1,
+          mergeBatchId: 'batch-1',
+          mergeBatchTotalAmount: 5000,
+          mergeBatchNote: '微信收款',
+          createdAt: '2026-05-16T01:03:00.000Z',
+        ),
+        AccountPayment(
+          id: 4,
+          projectKey: xiantanKey,
+          ymd: 20260515,
+          amount: 3510,
+          sourceType: AccountPayment.sourceTypeMergeAllocation,
+          mergeGroupId: 1,
+          mergeBatchId: 'batch-1',
+          mergeBatchTotalAmount: 5000,
+          mergeBatchNote: '微信收款',
+          createdAt: '2026-05-16T01:03:00.000Z',
+        ),
+      ],
+    );
+  }
+
+  testWidgets(
+    'merged detail renders member rows and exposes merge batch actions only',
+    (tester) async {
+      AccountProjectVM? editedProject;
+      AccountProjectVM? dissolvedProject;
+      AccountProjectPaymentDisplayVM? editedPaymentBatch;
+      AccountProjectPaymentDisplayVM? deletedPaymentBatch;
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: 'merge:1',
+          computed: AccountComputed(
+            projects: [mergedProject()],
+            totalReceivable: 10000,
+            totalReceived: 5000,
+            totalRemaining: 5000,
+            totalRatio: 0.5,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (project, _, _, _, _) async {
+            editedProject = project;
+          },
+          onDissolveMergeGroup: (project) async {
+            dissolvedProject = project;
+          },
+          onAddMergedPayment: (_) async {},
+          onEditMergedPaymentBatch: (project, payment) async {
+            editedPaymentBatch = payment;
+          },
+          onDeleteMergedPaymentBatch: (project, payment) async {
+            deletedPaymentBatch = payment;
+          },
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('李杰 + 合并2项目'), findsOneWidget);
+      expect(find.text('尚义'), findsOneWidget);
+      expect(find.text('鲜滩'), findsOneWidget);
+      expect(find.text('HITACHI 1#'), findsNWidgets(2));
+      expect(find.text('SANY 1#'), findsOneWidget);
+      expect(find.text('64.9 h'), findsOneWidget);
+      expect(find.text('239 h'), findsOneWidget);
+      expect(find.text('20 h'), findsOneWidget);
+      expect(find.text('50.0%实收'), findsOneWidget);
+      expect(find.textContaining('余: ¥5000 / ¥10000'), findsOneWidget);
+      expect(
+        find.textContaining('2026.05.15  —  ¥5000  合并分摊  备注:微信收款'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('2026.05.02  —  ¥300  鲜滩'), findsOneWidget);
+      expect(
+        find.textContaining('2026.05.01  —  ¥5000  尚义  备注:现金'),
+        findsOneWidget,
+      );
+      expect(find.text('新增收款'), findsOneWidget);
+      expect(find.text('批量修改'), findsNothing);
+      expect(find.text('解除合并'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pump();
+
+      expect(
+        editedPaymentBatch?.type,
+        AccountProjectPaymentDisplayType.mergeBatchPayment,
+      );
+      expect(editedPaymentBatch?.mergeBatchId, 'batch-1');
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pump();
+
+      expect(
+        deletedPaymentBatch?.type,
+        AccountProjectPaymentDisplayType.mergeBatchPayment,
+      );
+      expect(deletedPaymentBatch?.mergeBatchId, 'batch-1');
+
+      await tester.tap(find.text('修改').first);
+      await tester.pump();
+
+      expect(editedProject?.projectKey, shangyiKey);
+      expect(editedProject?.projectKey, isNot('merge:1'));
+
+      await tester.tap(find.text('解除合并'));
+      await tester.pump();
+
+      expect(dissolvedProject?.mergeGroupId, 1);
+    },
+  );
+
+  testWidgets(
+    'merged detail hides dissolve action when mergeGroupId is missing',
+    (tester) async {
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: 'merge:1',
+          computed: AccountComputed(
+            projects: [mergedProject(mergeGroupId: null)],
+            totalReceivable: 10000,
+            totalReceived: 5000,
+            totalRemaining: 5000,
+            totalRatio: 0.5,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onDissolveMergeGroup: (_) async {},
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('解除合并'), findsNothing);
+    },
+  );
+
+  testWidgets('normal detail keeps existing actions and edit project scope', (
+    tester,
+  ) async {
+    AccountProjectVM? editedProject;
+    final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
+
+    await tester.pumpWidget(
+      buildSheet(
+        projectKey: normalKey,
+        computed: AccountComputed(
+          projects: [
+            AccountProjectVM(
+              projectKey: normalKey,
+              displayName: '李杰 + 尚义',
+              minYmd: 20260501,
+              deviceIds: const [1],
+              hoursByDevice: const {1: 64.9},
+              rentIncomeTotal: 0,
+              minRate: 100,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 6490,
+              received: 0,
+              remaining: 6490,
+              ratio: 0,
+              payments: const [
+                AccountPayment(
+                  id: 9,
+                  projectKey: shangyiKey,
+                  ymd: 20260503,
+                  amount: 1000,
+                  note: '普通收款',
+                ),
+              ],
+            ),
+          ],
+          totalReceivable: 6490,
+          totalReceived: 0,
+          totalRemaining: 6490,
+          totalRatio: 0,
+          deviceReceivables: const [],
+        ),
+        onEditDeviceRate: (project, _, _, _, _) async {
+          editedProject = project;
+        },
+      ),
+    );
+
+    expect(find.text('李杰 + 尚义'), findsOneWidget);
+    expect(find.text('批量修改'), findsOneWidget);
+    expect(find.text('新增收款'), findsOneWidget);
+    expect(
+      find.textContaining('2026.05.03  —  ¥1000  备注:普通收款'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+    await tester.tap(find.text('修改').first);
+    await tester.pump();
+
+    expect(editedProject?.projectKey, normalKey);
+  });
+}

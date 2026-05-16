@@ -12,6 +12,14 @@ import '../timing/records_title_pattern.dart';
 
 typedef DeleteFuelRecordCallback = Future<bool> Function(FuelLog log);
 
+String fuelRecentRecordKey(FuelLog r) {
+  return 'fuel-${r.id ?? '${r.date}-${r.deviceId}-${r.supplier}-${r.liters}-${r.cost}'}';
+}
+
+Set<String> fuelRecentRecordKeys(List<FuelLog> logs) {
+  return logs.map(fuelRecentRecordKey).toSet();
+}
+
 class FuelRecentRecordsSection extends StatefulWidget {
   final List<FuelLog> logs;
   final Widget Function(FuelLog log) leadingBuilder;
@@ -40,20 +48,16 @@ class FuelRecentRecordsSection extends StatefulWidget {
 class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
   final Set<String> _locallyRemovedKeys = <String>{};
 
-  String _recordKey(FuelLog r) {
-    return 'fuel-${r.id ?? '${r.date}-${r.deviceId}-${r.supplier}-${r.liters}-${r.cost}'}';
-  }
-
   @override
   void didUpdateWidget(covariant FuelRecentRecordsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final currentKeys = widget.logs.map(_recordKey).toSet();
+    final currentKeys = fuelRecentRecordKeys(widget.logs);
     _locallyRemovedKeys.removeWhere((k) => !currentKeys.contains(k));
   }
 
   Future<void> _deleteWithOptimisticRemove(FuelLog log) async {
     if (widget.onDelete == null) return;
-    final key = _recordKey(log);
+    final key = fuelRecentRecordKey(log);
     setState(() => _locallyRemovedKeys.add(key));
     final ok = await widget.onDelete!(log);
     if (!ok && mounted) {
@@ -64,7 +68,7 @@ class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
   @override
   Widget build(BuildContext context) {
     final visibleLogs = widget.logs
-        .where((r) => !_locallyRemovedKeys.contains(_recordKey(r)))
+        .where((r) => !_locallyRemovedKeys.contains(fuelRecentRecordKey(r)))
         .toList();
 
     return Column(
@@ -72,7 +76,7 @@ class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
       children: [
         RecordsTitle(count: visibleLogs.length),
         SizedBox(height: FuelTokens.recordsTitleTopGap),
-        _FuelGroupedList(
+        FuelRecordsListContent(
           logs: visibleLogs,
           leadingBuilder: widget.leadingBuilder,
           titleBuilder: widget.titleBuilder,
@@ -86,7 +90,7 @@ class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
   }
 }
 
-class _FuelGroupedList extends StatelessWidget {
+class FuelRecordsListContent extends StatelessWidget {
   final List<FuelLog> logs;
   final Widget Function(FuelLog log) leadingBuilder;
   final String Function(FuelLog log) titleBuilder;
@@ -95,7 +99,8 @@ class _FuelGroupedList extends StatelessWidget {
   final Future<bool> Function(FuelLog log)? onConfirmDelete;
   final Future<void> Function(FuelLog log)? onDelete;
 
-  const _FuelGroupedList({
+  const FuelRecordsListContent({
+    super.key,
     required this.logs,
     required this.leadingBuilder,
     required this.titleBuilder,
@@ -254,9 +259,7 @@ class _FuelRecordRow extends StatelessWidget {
     if (onConfirmDelete == null || onDelete == null) return content;
 
     return Dismissible(
-      key: ValueKey(
-        'fuel-${log.id ?? '${log.date}-${log.deviceId}-${log.supplier}-${log.liters}-${log.cost}'}',
-      ),
+      key: ValueKey(fuelRecentRecordKey(log)),
       direction: DismissDirection.endToStart,
       background: Container(
         color: Colors.red.shade500,

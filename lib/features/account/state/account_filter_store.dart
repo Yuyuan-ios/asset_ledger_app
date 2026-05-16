@@ -24,8 +24,11 @@ class AccountFilterStore extends ChangeNotifier {
     final query = _projectFilterKeyword.toLowerCase();
     if (query.isEmpty) return projects;
 
-    return projects
-        .where((project) => project.displayName.toLowerCase().contains(query))
-        .toList();
+    return projects.where((project) {
+      if (project.displayName.toLowerCase().contains(query)) return true;
+      return project.includedSites.any((site) {
+        return site.toLowerCase().contains(query);
+      });
+    }).toList();
   }
 }

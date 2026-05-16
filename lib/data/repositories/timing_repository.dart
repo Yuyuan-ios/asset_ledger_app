@@ -3,10 +3,14 @@
 // =====================================================================
 
 // 1.1 项目内：数据库入口（统一拿到 sqflite Database 实例）
+import 'package:sqflite/sqflite.dart';
+
 import '../db/database.dart';
 
 // 1.2 项目内：计时记录模型（TimingRecord / TimingType）
 import '../models/timing_record.dart';
+import '../../features/timing/calculator/model/timing_calculation_history.dart';
+import '../../features/timing/calculator/repository/timing_calculation_history_repository.dart';
 
 abstract class TimingRepository {
   Future<List<TimingRecord>> listAll();
@@ -15,7 +19,20 @@ abstract class TimingRepository {
 
   Future<int> update(TimingRecord record);
 
+  Future<TimingRecord> saveWithCalculationHistories(
+    TimingRecord record, {
+    List<TimingCalculationHistory> calculationHistories = const [],
+  });
+
   Future<int> deleteById(int id);
+
+  Future<int> deleteByIds(Iterable<int> ids) async {
+    var deleted = 0;
+    for (final id in ids) {
+      deleted += await deleteById(id);
+    }
+    return deleted;
+  }
 
   Future<int> deleteByDeviceId(int deviceId);
 }
@@ -30,6 +47,8 @@ abstract class TimingRepository {
 //
 class SqfliteTimingRepository implements TimingRepository {
   static const _table = 'timing_records';
+  final SqfliteTimingCalculationHistoryRepository
+  _calculationHistoryRepository = SqfliteTimingCalculationHistoryRepository();
 
   // =====================================================================
   // ============================== 三、查询（Read） ==============================
@@ -51,7 +70,11 @@ class SqfliteTimingRepository implements TimingRepository {
   @override
   Future<int> insert(TimingRecord r) async {
     final db = await AppDatabase.database;
-    return db.insert(_table, _toRow(r));
+    return insertWithExecutor(db, r);
+  }
+
+  Future<int> insertWithExecutor(DatabaseExecutor executor, TimingRecord r) {
+    return executor.insert(_table, _toRow(r));
   }
 
   // =====================================================================
@@ -61,12 +84,51 @@ class SqfliteTimingRepository implements TimingRepository {
   /// 更新记录：按 id 更新
   @override
   Future<int> update(TimingRecord r) async {
+    final db = await AppDatabase.database;
+    return updateWithExecutor(db, r);
+  }
+
+  Future<int> updateWithExecutor(DatabaseExecutor executor, TimingRecord r) {
     if (r.id == null) {
-      throw Exception('SqfliteTimingRepository.update: TimingRecord.id is null');
+      throw Exception(
+        'SqfliteTimingRepository.update: TimingRecord.id is null',
+      );
     }
 
-    final db = await AppDatabase.database;
-    return db.update(_table, _toRow(r), where: 'id = ?', whereArgs: [r.id]);
+    return executor.update(
+      _table,
+      _toRow(r),
+      where: 'id = ?',
+      whereArgs: [r.id],
+    );
+  }
+
+  @override
+  Future<TimingRecord> saveWithCalculationHistories(
+    TimingRecord record, {
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) {
+    return AppDatabase.inTransaction((txn) async {
+      final recordId = record.id;
+      if (recordId == null) {
+        final insertedId = await insertWithExecutor(txn, record);
+        final savedRecord = record.copyWith(id: insertedId);
+        await _calculationHistoryRepository.insertManyWithExecutor(
+          txn,
+          insertedId,
+          calculationHistories,
+        );
+        return savedRecord;
+      }
+
+      await updateWithExecutor(txn, record);
+      await _calculationHistoryRepository.insertManyWithExecutor(
+        txn,
+        recordId,
+        calculationHistories,
+      );
+      return record;
+    });
   }
 
   // =====================================================================
@@ -78,6 +140,21 @@ class SqfliteTimingRepository implements TimingRepository {
   Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
     return db.delete(_table, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// 删除记录：按记录 id 批量删除多条
+  @override
+  Future<int> deleteByIds(Iterable<int> ids) async {
+    final uniqueIds = ids.toSet();
+    if (uniqueIds.isEmpty) return 0;
+
+    return AppDatabase.inTransaction((txn) async {
+      var deleted = 0;
+      for (final id in uniqueIds) {
+        deleted += await txn.delete(_table, where: 'id = ?', whereArgs: [id]);
+      }
+      return deleted;
+    });
   }
 
   /// 删除记录：按设备 id 删除该设备所有记录

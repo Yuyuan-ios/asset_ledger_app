@@ -34,6 +34,7 @@ Future<T?> openEditorSheet<T>({
   required WidgetBuilder childBuilder,
   VoidCallback? onConfirm,
   void Function(BuildContext sheetContext)? onCancel,
+  WidgetBuilder? footerCenterBuilder,
   bool useSafeArea = true,
   bool scrollable = false,
   EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
@@ -56,6 +57,7 @@ Future<T?> openEditorSheet<T>({
           Navigator.of(sheetContext).pop();
         },
         onConfirm: onConfirm,
+        footerCenter: footerCenterBuilder?.call(sheetContext),
         child: childBuilder(sheetContext),
       );
     },
@@ -96,6 +98,7 @@ class AppBottomSheetShell extends StatelessWidget {
   final double dividerToContentGap;
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
+  final Widget? footerCenter;
   final String cancelText;
   final String confirmText;
   final bool footerEnabled;
@@ -123,6 +126,7 @@ class AppBottomSheetShell extends StatelessWidget {
     this.dividerToContentGap = BottomSheetTokens.dividerToContentGap,
     this.onCancel,
     this.onConfirm,
+    this.footerCenter,
     this.cancelText = '取消',
     this.confirmText = '确定',
     this.footerEnabled = true,
@@ -218,6 +222,7 @@ class AppBottomSheetShell extends StatelessWidget {
                 _BottomSheetFooter(
                   onCancel: onCancel,
                   onConfirm: onConfirm,
+                  center: footerCenter,
                   cancelText: cancelText,
                   confirmText: confirmText,
                 ),
@@ -267,12 +272,14 @@ class _BottomSheetFooter extends StatelessWidget {
   const _BottomSheetFooter({
     required this.onCancel,
     required this.onConfirm,
+    this.center,
     required this.cancelText,
     required this.confirmText,
   });
 
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
+  final Widget? center;
   final String cancelText;
   final String confirmText;
 
@@ -303,7 +310,7 @@ class _BottomSheetFooter extends StatelessWidget {
             ),
             child: Text(cancelText),
           ),
-          const Spacer(),
+          Expanded(child: Center(child: center ?? const SizedBox.shrink())),
           SizedBox(
             width: BottomSheetTokens.actionButtonWidth,
             height: BottomSheetTokens.actionButtonHeight,

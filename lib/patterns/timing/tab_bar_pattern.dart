@@ -105,13 +105,20 @@ class _TabButton extends StatelessWidget {
           highlightColor: NavigationTokens.interactionOverlay,
           hoverColor: NavigationTokens.interactionOverlay,
           child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(spec.icon, size: NavigationTokens.iconSize, color: color),
-                const SizedBox(height: NavigationTokens.labelTopGap),
-                Text(spec.label, style: labelStyle),
-              ],
+            child: Transform.translate(
+              offset: const Offset(0, NavigationTokens.contentLiftY),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    spec.icon,
+                    size: NavigationTokens.iconSize,
+                    color: color,
+                  ),
+                  const SizedBox(height: NavigationTokens.labelTopGap),
+                  Text(spec.label, style: labelStyle),
+                ],
+              ),
             ),
           ),
         ),

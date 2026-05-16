@@ -18,11 +18,13 @@ class AccountPaymentEditorDialog extends StatefulWidget {
     required this.project,
     required this.allPayments,
     this.editing,
+    this.receivedOverride,
   });
 
   final AccountProjectVM project;
   final List<AccountPayment> allPayments;
   final AccountPayment? editing;
+  final double? receivedOverride;
 
   @override
   State<AccountPaymentEditorDialog> createState() =>
@@ -68,6 +70,8 @@ class _AccountPaymentEditorDialogState
   double get _receivable => widget.project.receivable;
 
   double _received({int? excludePaymentId}) {
+    final override = widget.receivedOverride;
+    if (override != null) return override;
     return AccountService.sumReceivedByProject(
       projectKey: widget.project.projectKey,
       payments: widget.allPayments,

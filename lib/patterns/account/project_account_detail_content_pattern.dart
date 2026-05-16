@@ -4,8 +4,31 @@ import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
+import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../core/utils/format_utils.dart';
 import '../../tokens/mapper/account_tokens.dart';
+
+class ProjectAccountDetailRateRow {
+  final String projectKey;
+  final String label;
+  final int deviceId;
+  final String deviceLabel;
+  final double hours;
+  final double rate;
+  final bool showEdit;
+  final bool isBreaking;
+
+  const ProjectAccountDetailRateRow({
+    required this.projectKey,
+    required this.label,
+    required this.deviceId,
+    required this.deviceLabel,
+    required this.hours,
+    required this.rate,
+    required this.showEdit,
+    required this.isBreaking,
+  });
+}
 
 /// 项目账户详情内容（仅内容，不含 BottomSheet Shell）
 ///
@@ -36,6 +59,13 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final double remaining;
 
   final List<AccountPayment> payments;
+  final List<AccountProjectPaymentDisplayVM>? paymentDisplayItems;
+  final List<ProjectAccountDetailRateRow>? detailRows;
+  final bool showBatchAction;
+  final String batchActionText;
+  final bool showPaymentActions;
+  final bool showRawPaymentActions;
+  final bool showAddPayment;
 
   /// 回调
   final VoidCallback onBatchEditRate;
@@ -46,6 +76,11 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final VoidCallback onAddPayment;
   final void Function(AccountPayment p) onEditPayment;
   final void Function(AccountPayment p) onDeletePayment;
+  final void Function(AccountProjectPaymentDisplayVM item)?
+  onEditPaymentDisplayItem;
+  final void Function(AccountProjectPaymentDisplayVM item)?
+  onDeletePaymentDisplayItem;
+  final void Function(ProjectAccountDetailRateRow row)? onEditRateRow;
 
   const ProjectAccountDetailContent({
     super.key,
@@ -64,6 +99,16 @@ class ProjectAccountDetailContent extends StatelessWidget {
     required this.onAddPayment,
     required this.onEditPayment,
     required this.onDeletePayment,
+    this.onEditPaymentDisplayItem,
+    this.onDeletePaymentDisplayItem,
+    this.paymentDisplayItems,
+    this.detailRows,
+    this.showBatchAction = true,
+    this.batchActionText = '批量修改',
+    this.showPaymentActions = true,
+    this.showRawPaymentActions = true,
+    this.showAddPayment = true,
+    this.onEditRateRow,
   });
 
   @override
@@ -124,44 +169,10 @@ class ProjectAccountDetailContent extends StatelessWidget {
       color: Colors.grey.shade600,
     );
 
-    final detailRows = <_DetailRateRow>[];
-    for (final d in devices) {
-      final id = d.id;
-      if (id == null) continue;
-
-      final rate = deviceRates[id] ?? d.defaultUnitPrice;
-      final breakingRate =
-          breakingDeviceRates[id] ?? d.breakingUnitPrice ?? d.defaultUnitPrice;
-      final normalHours = normalHoursByDevice[id] ?? 0.0;
-      final breakingHours = breakingHoursByDevice[id] ?? 0.0;
-
-      // 普通模式：默认展示；若仅有破碎工时，则隐藏普通行，避免重复信息。
-      if (normalHours > 0 || breakingHours <= 0) {
-        detailRows.add(
-          _DetailRateRow(
-            deviceId: id,
-            deviceLabel: d.name,
-            hours: normalHours,
-            rate: rate,
-            showEdit: true,
-            isBreaking: false,
-          ),
-        );
-      }
-
-      if (breakingHours > 0) {
-        detailRows.add(
-          _DetailRateRow(
-            deviceId: id,
-            deviceLabel: '${d.name} · 破碎',
-            hours: breakingHours,
-            rate: breakingRate,
-            showEdit: true,
-            isBreaking: true,
-          ),
-        );
-      }
-    }
+    final visibleDetailRows =
+        detailRows ?? _buildDeviceDetailRows(devices: devices);
+    final visiblePaymentItems =
+        paymentDisplayItems ?? _paymentItemsFromPayments(payments);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,19 +197,22 @@ class ProjectAccountDetailContent extends StatelessWidget {
               ),
               SizedBox(
                 width: AccountTokens.projectDetailBatchActionWidth,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: onBatchEditRate,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: AccountTokens.projectDetailActionColor,
-                    ),
-                    child: Text('批量修改', style: actionStyle),
-                  ),
-                ),
+                child: showBatchAction
+                    ? Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: onBatchEditRate,
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor:
+                                AccountTokens.projectDetailActionColor,
+                          ),
+                          child: Text(batchActionText, style: actionStyle),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           ),
@@ -206,14 +220,13 @@ class ProjectAccountDetailContent extends StatelessWidget {
 
         const SizedBox(height: AccountTokens.projectDetailTopSectionGap),
 
-        ...detailRows.asMap().entries.map((entry) {
-          final index = entry.key;
+        ...visibleDetailRows.asMap().entries.map((entry) {
           final row = entry.value;
           return SizedBox(
             height: AccountTokens.projectDetailRowHeight,
             child: Stack(
               children: [
-                if (index == 0)
+                if (row.label.trim().isNotEmpty)
                   Positioned(
                     left: AccountTokens.projectDetailLabelLeft,
                     top: 0,
@@ -221,7 +234,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
                     width: AccountTokens.projectDetailLabelWidth,
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('设备单价', style: labelStyle),
+                      child: Text(row.label, style: labelStyle),
                     ),
                   ),
                 Positioned(
@@ -278,8 +291,14 @@ class ProjectAccountDetailContent extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () =>
-                            onEditDeviceRate(row.deviceId, row.isBreaking),
+                        onPressed: () {
+                          final editRow = onEditRateRow;
+                          if (editRow != null) {
+                            editRow(row);
+                            return;
+                          }
+                          onEditDeviceRate(row.deviceId, row.isBreaking);
+                        },
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           minimumSize: Size.zero,
@@ -353,18 +372,40 @@ class ProjectAccountDetailContent extends StatelessWidget {
 
         const SizedBox(height: AppSpace.sm),
 
-        if (payments.isEmpty)
+        if (visiblePaymentItems.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
             child: Center(child: Text('暂无收款记录', style: emptyStyle)),
           )
         else
-          ...payments.map((p) {
-            final note = (p.note == null || p.note!.trim().isEmpty)
-                ? null
-                : p.note!.trim();
+          ...visiblePaymentItems.map((item) {
             final title =
-                '${FormatUtils.date(p.ymd)}  —  ${FormatUtils.money(p.amount)}';
+                '${FormatUtils.date(item.ymd)}  —  ${FormatUtils.money(item.amount)}';
+            final sourceLabel = item.sourceLabel.trim();
+            final note = item.note;
+            final rawPayment =
+                item.type ==
+                    AccountProjectPaymentDisplayType.normalMemberPayment
+                ? _paymentByDisplayItem(item)
+                : null;
+            final canEditRawPayment =
+                showPaymentActions &&
+                showRawPaymentActions &&
+                rawPayment != null;
+            final canEditDisplayItem =
+                showPaymentActions &&
+                rawPayment == null &&
+                item.type ==
+                    AccountProjectPaymentDisplayType.mergeBatchPayment &&
+                onEditPaymentDisplayItem != null;
+            final canDeleteDisplayItem =
+                showPaymentActions &&
+                rawPayment == null &&
+                item.type ==
+                    AccountProjectPaymentDisplayType.mergeBatchPayment &&
+                onDeletePaymentDisplayItem != null;
+            final showEditButton = canEditRawPayment || canEditDisplayItem;
+            final showDeleteButton = canEditRawPayment || canDeleteDisplayItem;
 
             return Column(
               children: [
@@ -375,6 +416,11 @@ class ProjectAccountDetailContent extends StatelessWidget {
                         TextSpan(
                           children: [
                             TextSpan(text: title, style: paymentTitleStyle),
+                            if (sourceLabel.isNotEmpty)
+                              TextSpan(
+                                text: '  $sourceLabel',
+                                style: paymentNoteStyle,
+                              ),
                             if (note != null)
                               TextSpan(
                                 text: '  备注:$note',
@@ -386,14 +432,20 @@ class ProjectAccountDetailContent extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      onPressed: () => onEditPayment(p),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      onPressed: () => onDeletePayment(p),
-                    ),
+                    if (showEditButton)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        onPressed: rawPayment != null
+                            ? () => onEditPayment(rawPayment)
+                            : () => onEditPaymentDisplayItem?.call(item),
+                      ),
+                    if (showDeleteButton)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        onPressed: rawPayment != null
+                            ? () => onDeletePayment(rawPayment)
+                            : () => onDeletePaymentDisplayItem?.call(item),
+                      ),
                   ],
                 ),
                 const Divider(height: 1),
@@ -403,18 +455,95 @@ class ProjectAccountDetailContent extends StatelessWidget {
 
         const SizedBox(height: AppSpace.md),
 
-        // ───────────────── 新增收款 ─────────────────
-        Center(
-          child: TextButton.icon(
-            onPressed: onAddPayment,
-            icon: const Icon(Icons.add),
-            label: const Text('新增收款'),
+        if (showAddPayment)
+          Center(
+            child: TextButton.icon(
+              onPressed: onAddPayment,
+              icon: const Icon(Icons.add),
+              label: const Text('新增收款'),
+            ),
           ),
-        ),
 
         const SizedBox(height: AppSpace.xxl),
       ],
     );
+  }
+
+  List<ProjectAccountDetailRateRow> _buildDeviceDetailRows({
+    required List<Device> devices,
+  }) {
+    final rows = <ProjectAccountDetailRateRow>[];
+    for (final d in devices) {
+      final id = d.id;
+      if (id == null) continue;
+
+      final rate = deviceRates[id] ?? d.defaultUnitPrice;
+      final breakingRate =
+          breakingDeviceRates[id] ?? d.breakingUnitPrice ?? d.defaultUnitPrice;
+      final normalHours = normalHoursByDevice[id] ?? 0.0;
+      final breakingHours = breakingHoursByDevice[id] ?? 0.0;
+
+      // 普通模式：默认展示；若仅有破碎工时，则隐藏普通行，避免重复信息。
+      if (normalHours > 0 || breakingHours <= 0) {
+        rows.add(
+          ProjectAccountDetailRateRow(
+            projectKey: '',
+            label: rows.isEmpty ? '设备单价' : '',
+            deviceId: id,
+            deviceLabel: d.name,
+            hours: normalHours,
+            rate: rate,
+            showEdit: true,
+            isBreaking: false,
+          ),
+        );
+      }
+
+      if (breakingHours > 0) {
+        rows.add(
+          ProjectAccountDetailRateRow(
+            projectKey: '',
+            label: rows.isEmpty ? '设备单价' : '',
+            deviceId: id,
+            deviceLabel: '${d.name} · 破碎',
+            hours: breakingHours,
+            rate: breakingRate,
+            showEdit: true,
+            isBreaking: true,
+          ),
+        );
+      }
+    }
+    return rows;
+  }
+
+  List<AccountProjectPaymentDisplayVM> _paymentItemsFromPayments(
+    List<AccountPayment> payments,
+  ) {
+    return payments.map((payment) {
+      final note = payment.note?.trim();
+      return AccountProjectPaymentDisplayVM(
+        id:
+            payment.id?.toString() ??
+            'payment:${payment.projectKey}:${payment.ymd}',
+        type: AccountProjectPaymentDisplayType.normalMemberPayment,
+        ymd: payment.ymd,
+        amount: payment.amount,
+        note: note == null || note.isEmpty ? null : note,
+        sourceLabel: '',
+        relatedProjectKey: payment.projectKey,
+        sortCreatedAt: payment.createdAt,
+        sortId: payment.id,
+      );
+    }).toList();
+  }
+
+  AccountPayment? _paymentByDisplayItem(AccountProjectPaymentDisplayVM item) {
+    for (final payment in payments) {
+      final id = payment.id;
+      if (id != null && item.id == id.toString()) return payment;
+    }
+    return null;
   }
 
   String _hoursText(double h) {
@@ -424,22 +553,4 @@ class ProjectAccountDetailContent extends StatelessWidget {
         : rounded;
     return '$normalized h';
   }
-}
-
-class _DetailRateRow {
-  final int deviceId;
-  final String deviceLabel;
-  final double hours;
-  final double rate;
-  final bool showEdit;
-  final bool isBreaking;
-
-  const _DetailRateRow({
-    required this.deviceId,
-    required this.deviceLabel,
-    required this.hours,
-    required this.rate,
-    required this.showEdit,
-    required this.isBreaking,
-  });
 }

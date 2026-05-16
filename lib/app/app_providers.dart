@@ -2,11 +2,13 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../data/repositories/account_payment_repository.dart';
+import '../data/repositories/account_project_merge_repository.dart';
 import '../data/repositories/device_repository.dart';
 import '../data/repositories/fuel_repository.dart';
 import '../data/repositories/maintenance_repository.dart';
 import '../data/repositories/project_rate_repository.dart';
 import '../data/repositories/timing_repository.dart';
+import '../data/services/account_project_merge_service.dart';
 import '../features/account/state/account_store.dart';
 import '../features/account/state/account_filter_store.dart';
 import '../features/account/state/account_payment_store.dart';
@@ -24,6 +26,11 @@ class AppProviders {
     final maintenanceRepository = SqfliteMaintenanceRepository();
     final accountPaymentRepository = SqfliteAccountPaymentRepository();
     final projectRateRepository = SqfliteProjectRateRepository();
+    final accountProjectMergeRepository =
+        SqfliteAccountProjectMergeRepository();
+    final accountProjectMergeService = AccountProjectMergeService(
+      repository: accountProjectMergeRepository,
+    );
 
     final deviceStore = DeviceStore(deviceRepository);
     final timingStore = TimingStore(timingRepository);
@@ -31,6 +38,7 @@ class AppProviders {
     final maintenanceStore = MaintenanceStore(maintenanceRepository);
     final paymentStore = AccountPaymentStore(accountPaymentRepository);
     final projectRateStore = ProjectRateStore(projectRateRepository);
+    final accountStore = AccountStore(mergeService: accountProjectMergeService);
 
     return AppProviderBundle(
       deviceStore: deviceStore,
@@ -39,6 +47,7 @@ class AppProviders {
       maintenanceStore: maintenanceStore,
       paymentStore: paymentStore,
       projectRateStore: projectRateStore,
+      accountStore: accountStore,
       providers: [
         Provider<DeviceRepository>.value(value: deviceRepository),
         Provider<TimingRepository>.value(value: timingRepository),
@@ -48,12 +57,18 @@ class AppProviders {
           value: accountPaymentRepository,
         ),
         Provider<ProjectRateRepository>.value(value: projectRateRepository),
+        Provider<AccountProjectMergeRepository>.value(
+          value: accountProjectMergeRepository,
+        ),
+        Provider<AccountProjectMergeService>.value(
+          value: accountProjectMergeService,
+        ),
         ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
         ChangeNotifierProvider<TimingStore>.value(value: timingStore),
         ChangeNotifierProvider<FuelStore>.value(value: fuelStore),
         ChangeNotifierProvider<MaintenanceStore>.value(value: maintenanceStore),
         ChangeNotifierProvider<AccountPaymentStore>.value(value: paymentStore),
-        Provider<AccountStore>(create: (_) => AccountStore()),
+        ChangeNotifierProvider<AccountStore>.value(value: accountStore),
         ChangeNotifierProvider<AccountFilterStore>(
           create: (_) => AccountFilterStore(),
         ),
@@ -70,6 +85,7 @@ class AppProviderBundle {
   final MaintenanceStore maintenanceStore;
   final AccountPaymentStore paymentStore;
   final ProjectRateStore projectRateStore;
+  final AccountStore accountStore;
   final List<SingleChildWidget> providers;
 
   const AppProviderBundle({
@@ -79,6 +95,7 @@ class AppProviderBundle {
     required this.maintenanceStore,
     required this.paymentStore,
     required this.projectRateStore,
+    required this.accountStore,
     required this.providers,
   });
 }

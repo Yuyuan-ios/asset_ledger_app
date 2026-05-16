@@ -1,3 +1,4 @@
+import '../features/account/state/account_store.dart';
 import '../features/device/state/device_store.dart';
 import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
@@ -11,6 +12,7 @@ class AppBootstrap {
     required FuelStore fuelStore,
     required MaintenanceStore maintenanceStore,
     required ProjectRateStore projectRateStore,
+    required AccountStore accountStore,
   }) async {
     await Future.wait([
       deviceStore.loadAll(),
@@ -18,6 +20,7 @@ class AppBootstrap {
       fuelStore.loadAll(),
       maintenanceStore.loadAll(),
       projectRateStore.loadAll(),
+      accountStore.loadAll(),
     ]);
   }
 }

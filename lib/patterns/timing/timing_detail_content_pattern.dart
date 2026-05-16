@@ -6,6 +6,9 @@ import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/timing_record.dart';
 import '../../data/services/timing_service.dart';
+import '../../features/timing/calculator/model/staged_timing_calculation_history.dart';
+import '../../features/timing/calculator/model/timing_calculation_history.dart';
+import '../../features/timing/calculator/view/work_hour_calculator_sheet.dart';
 import '../../components/fields/timing_time_block.dart';
 import 'exclude_fuel_switch_card_pattern.dart';
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
@@ -19,6 +22,7 @@ import '../../core/utils/format_utils.dart';
 import '../../core/utils/text_field_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../patterns/device/device_picker_pattern.dart';
+import '../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../components/fields/app_date_field.dart';
 import '../../components/feedback/app_toast_bubble.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
@@ -44,6 +48,12 @@ typedef TimingMeterBoundsValidator =
       int? excludeId,
     });
 
+typedef TimingDetailSubmitHandler =
+    Future<void> Function(
+      TimingRecord record,
+      List<TimingCalculationHistory> calculationHistories,
+    );
+
 class TimingDetailContent extends StatefulWidget {
   const TimingDetailContent({
     super.key,
@@ -58,6 +68,7 @@ class TimingDetailContent extends StatefulWidget {
     required this.siteSuggestions,
     required this.resolveIncome,
     required this.validateMeterBounds,
+    this.existingCalculationHistories = const [],
     this.onCancel,
     required this.onSubmit,
     required this.onToast,
@@ -74,8 +85,9 @@ class TimingDetailContent extends StatefulWidget {
   final List<String> Function(String) siteSuggestions;
   final TimingIncomeResolver resolveIncome;
   final TimingMeterBoundsValidator validateMeterBounds;
+  final List<TimingCalculationHistory> existingCalculationHistories;
   final VoidCallback? onCancel;
-  final Future<void> Function(TimingRecord record) onSubmit;
+  final TimingDetailSubmitHandler onSubmit;
   final void Function(String msg) onToast;
 
   @override
@@ -104,6 +116,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   String? _bottomTip;
   Timer? _bottomTipTimer;
   Timer? _meterValidateTimer;
+  int _calculationHistoryIdSequence = 0;
+  List<StagedTimingCalculationHistory> _stagedCalculationHistories = [];
 
   bool get _supportsBreakingMode {
     if (_mode != WorkMode.hours) return false;
@@ -252,6 +266,64 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _syncingFromHours = true;
     _setEnd(start + hours);
     _syncingFromHours = false;
+  }
+
+  Future<void> _openWorkHourCalculator() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final parsedHours = double.tryParse(_hoursCtrl.text.trim());
+    final initialHours = parsedHours != null && parsedHours > 0
+        ? parsedHours
+        : null;
+
+    await showAppBottomSheet<void>(
+      context: context,
+      useSafeArea: false,
+      builder: (_) {
+        return WorkHourCalculatorSheet(
+          initialHours: initialHours,
+          existingHistories: widget.existingCalculationHistories,
+          initialStagedHistories: _stagedCalculationHistories,
+          onResultApplied: (result) {
+            if (!mounted) return;
+            setState(() {
+              _hoursCtrl.text = result.toStringAsFixed(1);
+              _recalcEndFromHours();
+            });
+          },
+          onHistoriesChanged: (histories) {
+            if (!mounted) return;
+            setState(() {
+              _stagedCalculationHistories = List.of(histories);
+            });
+          },
+        );
+      },
+    );
+  }
+
+  List<TimingCalculationHistory> _buildCalculationHistoriesForSubmit() {
+    if (_mode != WorkMode.hours || _stagedCalculationHistories.isEmpty) {
+      return const <TimingCalculationHistory>[];
+    }
+
+    final timingRecordId = widget.editing?.id ?? 0;
+    return _stagedCalculationHistories.map((history) {
+      return TimingCalculationHistory(
+        id: _nextCalculationHistoryId(),
+        timingRecordId: timingRecordId,
+        createdAt: history.createdAt,
+        expression: history.expression,
+        result: history.result,
+        ticketCount: history.ticketCount,
+      );
+    }).toList();
+  }
+
+  String _nextCalculationHistoryId() {
+    _calculationHistoryIdSequence += 1;
+    return 'timing-calc-${DateTime.now().microsecondsSinceEpoch}-'
+        '${identityHashCode(this)}-$_calculationHistoryIdSequence';
   }
 
   Future<void> _pickDate() async {
@@ -475,10 +547,11 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       excludeFromFuelEfficiency: excludeFuel,
       isBreaking: isBreaking,
     );
+    final calculationHistories = _buildCalculationHistoriesForSubmit();
 
     setState(() => _submitting = true);
     try {
-      await widget.onSubmit(record);
+      await widget.onSubmit(record, calculationHistories);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -585,6 +658,13 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                                     decimal: true,
                                   ),
                               onChanged: (_) => _recalcEndFromHours(),
+                              suffixIcon: IconButton(
+                                tooltip: '工时计算依据',
+                                icon: const Icon(Icons.receipt_long_outlined),
+                                onPressed: _submitting
+                                    ? null
+                                    : _openWorkHourCalculator,
+                              ),
                               selectAllOnTap: true,
                             ),
                           ),
@@ -735,7 +815,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
         });
       },
       leftText: '工时',
-      rightText: '租金',
+      rightText: '租金(台班)',
     );
   }
 

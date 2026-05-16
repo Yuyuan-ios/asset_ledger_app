@@ -234,6 +234,11 @@ class AccountService {
         totals[deviceId] = (totals[deviceId] ?? 0.0) + hours * rate;
       }
     }
+    for (final t in timingRecords) {
+      if (t.type != TimingType.rent) continue;
+      if (t.income <= 0) continue;
+      totals[t.deviceId] = (totals[t.deviceId] ?? 0.0) + t.income;
+    }
     return totals;
   }
 
