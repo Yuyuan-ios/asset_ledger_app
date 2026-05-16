@@ -20,13 +20,11 @@ class PatrolAppHarness {
       fuelStore: bundle.fuelStore,
       maintenanceStore: bundle.maintenanceStore,
       projectRateStore: bundle.projectRateStore,
+      accountStore: bundle.accountStore,
     );
 
     await $.pumpWidget(
-      MultiProvider(
-        providers: bundle.providers,
-        child: const AssetLedgerApp(),
-      ),
+      MultiProvider(providers: bundle.providers, child: const AssetLedgerApp()),
     );
     await $.pumpAndSettle();
   }

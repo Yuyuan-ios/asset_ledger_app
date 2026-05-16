@@ -10,6 +10,8 @@ class FuelTokens {
   static const double homeSectionGap = 12; // 分区之间间距
   static const double homeListBottomGap = 24; // 列表底部留白
   static const double recordsTitleTopGap = 8; // 最近记录标题与列表间距
+  static const double pinnedFilterHeight = 48; // 吸顶筛选输入框固定高度
+  static const double pinnedRecordsHeaderHeight = 87; // 筛选 + 最近记录组合吸顶栏高度
 
   // ===== 燃油页：反馈提示 =====
   static const double homeLoadingBottomGap = 10; // 加载条下方间距

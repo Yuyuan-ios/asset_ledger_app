@@ -19,11 +19,14 @@ class AccountPaymentStore extends BaseStore {
   }
 
   void _sortRecords() {
-    _records = [..._records]..sort((a, b) {
-      final byDate = b.ymd.compareTo(a.ymd);
-      if (byDate != 0) return byDate;
-      return (b.id ?? 0).compareTo(a.id ?? 0);
-    });
+    _records = [..._records]
+      ..sort((a, b) {
+        final byDate = b.ymd.compareTo(a.ymd);
+        if (byDate != 0) return byDate;
+        final byCreatedAt = (b.createdAt ?? '').compareTo(a.createdAt ?? '');
+        if (byCreatedAt != 0) return byCreatedAt;
+        return (b.id ?? 0).compareTo(a.id ?? 0);
+      });
   }
 
   /// 对外提供的收款记录列表（只读）
@@ -44,16 +47,19 @@ class AccountPaymentStore extends BaseStore {
   /// 根据是否有 id 来判断是新增还是编辑操作
   /// [p] 要保存的收款记录实体
   Future<void> save(AccountPayment p) async {
+    final payment = p.id == null && p.createdAt == null
+        ? p.copyWith(createdAt: DateTime.now().toUtc().toIso8601String())
+        : p;
     await writeAndPatchLocalState(
       write: () async {
-        if (p.id == null) {
-          return await _repository.insert(p);
+        if (payment.id == null) {
+          return await _repository.insert(payment);
         }
-        await _repository.update(p);
-        return p.id!;
+        await _repository.update(payment);
+        return payment.id!;
       },
       patch: (paymentId) {
-        final next = p.copyWith(id: paymentId);
+        final next = payment.copyWith(id: paymentId);
         final index = _records.indexWhere((item) => item.id == paymentId);
         if (index == -1) {
           _records = [..._records, next];

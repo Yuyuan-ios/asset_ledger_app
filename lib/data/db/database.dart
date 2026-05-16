@@ -51,10 +51,13 @@ class AppDatabase {
   // - v7：timing_records 增加 is_breaking（破碎模式）
   // - v8：devices 增加 breaking_unit_price；project_device_rates 增加 is_breaking
   // - v9：devices 增加 equipment_type（excavator/loader）
+  // - v10：新增 timing_calculation_history（计时记录工时计算依据）
+  // - v11：新增 account_project_merge_groups / members（账户项目合并关系）
+  // - v12：account_payments 增加合并收款分摊批次字段
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 9;
+  static const int _dbVersion = 12;
 
   static int get schemaVersion => _dbVersion;
 

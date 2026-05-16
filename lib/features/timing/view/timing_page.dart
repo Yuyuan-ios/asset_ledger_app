@@ -13,14 +13,17 @@ import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/project_key.dart';
 import '../../../data/services/account_service.dart';
 import '../../../data/services/timing_monthly_expense_service.dart';
-import '../../../data/services/timing_service.dart';
 import '../../../data/services/timing_monthly_income_service.dart';
+import '../../../data/services/timing_service.dart';
 import '../../../data/services/timing_suggest_service.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
+import '../../../features/timing/calculator/model/timing_calculation_history.dart';
+import '../../../features/timing/calculator/repository/timing_calculation_history_repository.dart';
 import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/state/timing_store.dart';
+import '../../../features/timing/use_cases/compute_timing_chart_finance_use_case.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -30,7 +33,6 @@ import '../../../patterns/timing/timing_detail_content_pattern.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
-import '../../../patterns/timing/recent_records_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
 
 class TimingPage extends StatefulWidget {
@@ -38,10 +40,12 @@ class TimingPage extends StatefulWidget {
     super.key,
     this.initialTargetYear,
     this.initialTargetMonth,
+    this.calculationHistoryRepository,
   });
 
   final int? initialTargetYear;
   final int? initialTargetMonth;
+  final TimingCalculationHistoryRepository? calculationHistoryRepository;
 
   @override
   State<TimingPage> createState() => _TimingPageState();
@@ -140,8 +144,8 @@ class _TimingPageState extends State<TimingPage> {
       fuelLogs: fuelLogs,
       maintenanceRecords: maintenanceRecords,
     );
-    // 正式口径：展示“截至当前业务日(asOfDate/今天)已发生的动态应收收入”，
-    // 非静态快照；目标月份/价格/记录变化时可触发历史月份重算。
+    // 柱图仍使用原有月度动态收入分布，只把图例中的总收入文案切换为
+    // 账户页总应收 - 计时页支出，避免改变历史柱形视觉。
     final monthlyIncome =
         TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
           records: records,
@@ -150,11 +154,6 @@ class _TimingPageState extends State<TimingPage> {
           targetYear: _targetYear,
           targetMonth: effectiveTargetMonth,
         );
-    // 图表当前采用“收入/支出同尺度”模式：
-    // 1) 收入柱与支出柱共用同一纵向刻度；
-    // 2) 纵向归一化基准固定为“当年最高月收入(maxIncome)”；
-    // 3) 这样可直接比较同月收入/支出的相对体量；
-    // 4) 当前不是“支出单独归一化”模式。
     final maxIncome = monthlyIncome.fold<double>(0.0, (acc, value) {
       return value > acc ? value : acc;
     });
@@ -163,7 +162,6 @@ class _TimingPageState extends State<TimingPage> {
         : monthlyIncome
               .map((income) => (income / maxIncome) * maxBarHeight)
               .toList();
-    final totalIncome = monthlyIncome.fold<double>(0.0, (sum, x) => sum + x);
 
     final expenseStats = TimingMonthlyExpenseService.computeMonthlyExpense(
       fuelLogs: fuelLogs,
@@ -171,14 +169,19 @@ class _TimingPageState extends State<TimingPage> {
       targetYear: _targetYear,
       targetMonth: effectiveTargetMonth,
     );
+    final finance = const ComputeTimingChartFinanceUseCase().execute(
+      timingRecords: records,
+      devices: devices,
+      rates: rates,
+      expenseStats: expenseStats,
+    );
+
     final expenseBars = maxIncome <= 0
         ? List<double>.filled(12, 0.0)
-        : expenseStats.monthlyTotal
-              .map((expense) {
-                final height = (expense / maxIncome) * maxBarHeight;
-                return height.clamp(0.0, maxBarHeight).toDouble();
-              })
-              .toList();
+        : expenseStats.monthlyTotal.map((expense) {
+            final height = (expense / maxIncome) * maxBarHeight;
+            return height.clamp(0.0, maxBarHeight).toDouble();
+          }).toList();
 
     return TimingChartData(
       year: _targetYear,
@@ -186,7 +189,7 @@ class _TimingPageState extends State<TimingPage> {
       monthLabels: monthLabels,
       incomeBars: incomeBars,
       expenseBars: expenseBars,
-      totalIncomeText: FormatUtils.money(totalIncome),
+      totalIncomeText: FormatUtils.money(finance.displayIncome),
       totalExpenseText: FormatUtils.money(expenseStats.totalExpense),
     );
   }
@@ -194,6 +197,28 @@ class _TimingPageState extends State<TimingPage> {
   void _toast(String msg) {
     if (!mounted) return;
     AppToast.show(context, msg);
+  }
+
+  TimingCalculationHistoryRepository get _calculationHistoryRepository =>
+      widget.calculationHistoryRepository ??
+      SqfliteTimingCalculationHistoryRepository();
+
+  Future<List<TimingCalculationHistory>> _loadExistingCalculationHistories(
+    TimingRecord? editing,
+  ) async {
+    if (editing == null || editing.type != TimingType.hours) {
+      return const <TimingCalculationHistory>[];
+    }
+
+    final recordId = editing.id;
+    if (recordId == null) return const <TimingCalculationHistory>[];
+
+    try {
+      return await _calculationHistoryRepository.findByTimingRecordId(recordId);
+    } catch (_) {
+      _toast('工时计算历史加载失败，仍可继续编辑');
+      return const <TimingCalculationHistory>[];
+    }
   }
 
   Future<void> _retryLoad() async {
@@ -214,6 +239,10 @@ class _TimingPageState extends State<TimingPage> {
     final timingStore = context.read<TimingStore>();
     final rateStore = context.read<ProjectRateStore>();
     final formKey = GlobalKey<TimingDetailContentState>();
+    final existingCalculationHistories =
+        await _loadExistingCalculationHistories(editing);
+    if (!mounted) return;
+
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
@@ -236,6 +265,7 @@ class _TimingPageState extends State<TimingPage> {
           deviceById: editorContext.deviceById,
           deviceItems: editorContext.deviceItems,
           projectRates: rateStore.rates,
+          existingCalculationHistories: existingCalculationHistories,
           contactSuggestions: (query) =>
               TimingSuggestService.contactSuggestions(
                 timingStore.records,
@@ -292,8 +322,11 @@ class _TimingPageState extends State<TimingPage> {
                 return null;
               },
           onToast: _toast,
-          onSubmit: (record) async {
-            await timingStore.save(record);
+          onSubmit: (record, calculationHistories) async {
+            await timingStore.save(
+              record,
+              calculationHistories: calculationHistories,
+            );
             if (!mounted) return;
 
             final feedback = storeActionFeedback(timingStore, action: '保存');
@@ -315,11 +348,19 @@ class _TimingPageState extends State<TimingPage> {
     return showAppConfirmDialog(
       context: context,
       title: '删除记录',
-      content:
-          '⚠️ 删除此记录将产生以下影响：\n\n'
-          '• 燃油页：工时模式下对应的燃油效率数据\n\n'
-          '• 账户页：对应项目的统计数据\n\n'
-          '确定删除这条记录吗？',
+      contentWidget: const _TimingDeleteConfirmContent(),
+      confirmText: '删除',
+    );
+  }
+
+  Future<bool> _confirmDeleteRecords(List<TimingRecord> records) async {
+    final count = records.where((record) => record.id != null).length;
+    if (count == 0) return false;
+
+    return showAppConfirmDialog(
+      context: context,
+      title: '删除记录',
+      contentWidget: _TimingDeleteConfirmContent(recordCount: count),
       confirmText: '删除',
     );
   }
@@ -330,6 +371,22 @@ class _TimingPageState extends State<TimingPage> {
 
     final store = context.read<TimingStore>();
     await store.deleteById(record.id!);
+    if (!mounted) return false;
+    final feedback = storeActionFeedback(store, action: '删除');
+    _toast(feedback.message);
+    if (!feedback.isSuccess) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<bool> _deleteRecords(List<TimingRecord> records) async {
+    final ids = records.map((record) => record.id).whereType<int>().toSet();
+    if (ids.isEmpty) return false;
+    if (!mounted) return false;
+
+    final store = context.read<TimingStore>();
+    await store.deleteByIds(ids);
     if (!mounted) return false;
     final feedback = storeActionFeedback(store, action: '删除');
     _toast(feedback.message);
@@ -391,17 +448,84 @@ class _TimingPageState extends State<TimingPage> {
         onNextYear: () => _moveTargetYear(1),
       ),
       recordsTitle: RecordsTitle(count: timingStore.records.length),
-      records: SectionRecentRecords(
-        records: timingStore.records,
-        deviceById: deviceById,
-        deviceIndexById: deviceIndexById,
-        onTapRecord: (r) => _openTimingEditor(editing: r),
-        onConfirmDeleteRecord: _confirmDeleteRecord,
-        onDeleteRecord: _deleteRecord,
-      ),
+      records: timingStore.records,
+      deviceById: deviceById,
+      deviceIndexById: deviceIndexById,
+      onTapRecord: (r) => _openTimingEditor(editing: r),
+      onConfirmDeleteRecord: _confirmDeleteRecord,
+      onDeleteRecord: _deleteRecord,
+      onConfirmDeleteRecords: _confirmDeleteRecords,
+      onDeleteRecords: _deleteRecords,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),
+    );
+  }
+}
+
+class _TimingDeleteConfirmContent extends StatelessWidget {
+  const _TimingDeleteConfirmContent({this.recordCount});
+
+  final int? recordCount;
+
+  bool get _isGroupDelete => recordCount != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = DefaultTextStyle.of(context).style;
+    final dangerStyle = style.copyWith(
+      color: Colors.red.shade600,
+      fontWeight: FontWeight.w700,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('⚠️  删除此记录将产生以下影响：'),
+        const SizedBox(height: 16),
+        if (_isGroupDelete) ...[
+          _DeleteImpactLine(
+            children: [
+              const TextSpan(text: '计时页：这将删除'),
+              TextSpan(text: '$recordCount', style: dangerStyle),
+              const TextSpan(text: '条记录，无法恢复'),
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
+        const _DeleteImpactLine(
+          children: [TextSpan(text: '燃油页：工时模式下对应的燃油效率数据')],
+        ),
+        const SizedBox(height: 14),
+        const _DeleteImpactLine(children: [TextSpan(text: '账户页：对应项目的统计数据')]),
+        const SizedBox(height: 22),
+        Text(_isGroupDelete ? '确定删除这组记录吗？' : '确定删除这条记录吗？'),
+      ],
+    );
+  }
+}
+
+class _DeleteImpactLine extends StatelessWidget {
+  const _DeleteImpactLine({required this.children});
+
+  final List<InlineSpan> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = DefaultTextStyle.of(context).style;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('•', style: style),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(style: style, children: children),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -5,6 +5,42 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/radius.dart';
 import '../../core/foundation/spacing.dart';
+import '../../data/services/subscription_service.dart';
+import '../../features/device/view/upgrade_page.dart';
+
+Future<bool> requireProFeature(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmText = '去升级',
+  String cancelText = '取消',
+}) async {
+  if (SubscriptionService.snapshot.allowsProFeatures) return true;
+
+  final goUpgrade = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(cancelText),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(confirmText),
+        ),
+      ],
+    ),
+  );
+
+  if (goUpgrade != true || !context.mounted) return false;
+  await Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage()));
+  return SubscriptionService.snapshot.allowsProFeatures;
+}
 
 // =====================================================================
 // ============================== 二、ProGate（订阅能力门控组件） ==============================

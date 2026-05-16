@@ -1,4 +1,5 @@
 import 'package:asset_ledger/data/db/db_migrations.dart';
+import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/db/db_schema_compat.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,90 +13,143 @@ void main() {
   configureTestDatabase();
 
   group('Db migrations', () {
-    test('upgrades a v3 database to v9 and creates missing tables with safe defaults', () async {
-      final path = await _testDbPath('v3_to_v9');
-      await deleteDatabase(path);
+    test(
+      'upgrades a v3 database to v12 and creates missing tables with safe defaults',
+      () async {
+        final path = await _testDbPath('v3_to_v9');
+        await deleteDatabase(path);
 
-      final legacyDb = await openDatabase(
-        path,
-        version: 3,
-        onCreate: (db, _) async {
-          await _createV3Schema(db);
-          await _seedV3Data(db);
-        },
-      );
-      await legacyDb.close();
+        final legacyDb = await openDatabase(
+          path,
+          version: 3,
+          onCreate: (db, _) async {
+            await _createV3Schema(db);
+            await _seedV3Data(db);
+          },
+        );
+        await legacyDb.close();
 
-      final db = await _openCurrentDb(path);
+        final db = await _openCurrentDb(path);
 
-      final deviceRow = (await db.query('devices', where: 'id = 1')).single;
-      expect(deviceRow['name'], 'Legacy SANY 1#');
-      expect(deviceRow['breaking_unit_price'], isNull);
-      expect(deviceRow['equipment_type'], 'excavator');
+        final deviceRow = (await db.query('devices', where: 'id = 1')).single;
+        expect(deviceRow['name'], 'Legacy SANY 1#');
+        expect(deviceRow['breaking_unit_price'], isNull);
+        expect(deviceRow['equipment_type'], 'excavator');
 
-      final timingRow = (await db.query('timing_records', where: 'id = 1')).single;
-      expect(timingRow['contact'], '张三');
-      expect(timingRow['exclude_from_fuel_eff'], 0);
-      expect(timingRow['is_breaking'], 0);
+        final timingRow = (await db.query(
+          'timing_records',
+          where: 'id = 1',
+        )).single;
+        expect(timingRow['contact'], '张三');
+        expect(timingRow['exclude_from_fuel_eff'], 0);
+        expect(timingRow['is_breaking'], 0);
 
-      expect(await _tableExists(db, 'maintenance_records'), isTrue);
-      expect(await _tableExists(db, 'account_payments'), isTrue);
-      expect(await _tableExists(db, 'project_device_rates'), isTrue);
+        expect(await _tableExists(db, 'maintenance_records'), isTrue);
+        expect(await _tableExists(db, 'account_payments'), isTrue);
+        expect(
+          await _columnNames(db, 'account_payments'),
+          containsAll([
+            'source_type',
+            'merge_group_id',
+            'merge_batch_id',
+            'merge_batch_total_amount',
+            'merge_batch_note',
+            'created_at',
+          ]),
+        );
+        expect(await _tableExists(db, 'project_device_rates'), isTrue);
+        expect(await _tableExists(db, 'timing_calculation_history'), isTrue);
+        expect(await _tableExists(db, 'account_project_merge_groups'), isTrue);
+        expect(await _tableExists(db, 'account_project_merge_members'), isTrue);
+        expect(await _indexExists(db, 'idx_timing_calc_record_id'), isTrue);
+        expect(
+          await _indexExists(
+            db,
+            'idx_account_project_merge_groups_active_contact',
+          ),
+          isTrue,
+        );
+        expect(
+          await _indexExists(
+            db,
+            'idx_account_project_merge_members_active_project',
+          ),
+          isTrue,
+        );
 
-      expect(
-        await _primaryKeyColumns(db, 'project_device_rates'),
-        ['project_key', 'device_id', 'is_breaking'],
-      );
+        expect(await _primaryKeyColumns(db, 'project_device_rates'), [
+          'project_key',
+          'device_id',
+          'is_breaking',
+        ]);
 
-      await db.close();
-      await deleteDatabase(path);
-    });
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
 
-    test('upgrades a v7 database by rebuilding project rate primary keys', () async {
-      final path = await _testDbPath('v7_to_v9');
-      await deleteDatabase(path);
+    test(
+      'upgrades a v7 database by rebuilding project rate primary keys',
+      () async {
+        final path = await _testDbPath('v7_to_v9');
+        await deleteDatabase(path);
 
-      final legacyDb = await openDatabase(
-        path,
-        version: 7,
-        onCreate: (db, _) async {
-          await _createV7Schema(db);
-          await _seedV7Data(db);
-        },
-      );
-      await legacyDb.close();
+        final legacyDb = await openDatabase(
+          path,
+          version: 7,
+          onCreate: (db, _) async {
+            await _createV7Schema(db);
+            await _seedV7Data(db);
+          },
+        );
+        await legacyDb.close();
 
-      final db = await _openCurrentDb(path);
+        final db = await _openCurrentDb(path);
 
-      final rows = await db.query(
-        'project_device_rates',
-        orderBy: 'project_key ASC, device_id ASC, is_breaking ASC',
-      );
-      expect(rows, hasLength(2));
-      expect(
-        rows
-            .map(
-              (row) => (
-                row['project_key'] as String,
-                row['device_id'] as int,
-                row['is_breaking'] as int,
-                row['rate'] as double,
-              ),
-            )
-            .toList(),
-        unorderedEquals([
-          ('李四||二号工地', 1, 0, 510.0),
-          ('李四||三号工地', 2, 0, 610.0),
-        ]),
-      );
-      expect(
-        await _primaryKeyColumns(db, 'project_device_rates'),
-        ['project_key', 'device_id', 'is_breaking'],
-      );
+        final rows = await db.query(
+          'project_device_rates',
+          orderBy: 'project_key ASC, device_id ASC, is_breaking ASC',
+        );
+        expect(rows, hasLength(2));
+        expect(
+          rows
+              .map(
+                (row) => (
+                  row['project_key'] as String,
+                  row['device_id'] as int,
+                  row['is_breaking'] as int,
+                  row['rate'] as double,
+                ),
+              )
+              .toList(),
+          unorderedEquals([
+            ('李四||二号工地', 1, 0, 510.0),
+            ('李四||三号工地', 2, 0, 610.0),
+          ]),
+        );
+        expect(await _primaryKeyColumns(db, 'project_device_rates'), [
+          'project_key',
+          'device_id',
+          'is_breaking',
+        ]);
+        expect(await _tableExists(db, 'timing_calculation_history'), isTrue);
 
-      await db.close();
-      await deleteDatabase(path);
-    });
+        final paymentRow = (await db.query(
+          'account_payments',
+          where: 'id = ?',
+          whereArgs: [1],
+        )).single;
+        expect(paymentRow['source_type'], 'manual');
+        expect(paymentRow['merge_group_id'], isNull);
+        expect(paymentRow['merge_batch_id'], isNull);
+        expect(paymentRow['merge_batch_total_amount'], isNull);
+        expect(paymentRow['merge_batch_note'], isNull);
+        expect(paymentRow['created_at'], isNull);
+
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
 
     test('repairs drifted latest-version schemas on open', () async {
       final path = await _testDbPath('compat_fix');
@@ -117,12 +171,30 @@ void main() {
         await _columnNames(db, 'devices'),
         containsAll(['breaking_unit_price', 'equipment_type']),
       );
+      expect(await _primaryKeyColumns(db, 'project_device_rates'), [
+        'project_key',
+        'device_id',
+        'is_breaking',
+      ]);
+      expect(await _tableExists(db, 'timing_calculation_history'), isTrue);
+      expect(await _tableExists(db, 'account_project_merge_groups'), isTrue);
+      expect(await _tableExists(db, 'account_project_merge_members'), isTrue);
       expect(
-        await _primaryKeyColumns(db, 'project_device_rates'),
-        ['project_key', 'device_id', 'is_breaking'],
+        await _columnNames(db, 'account_payments'),
+        containsAll([
+          'source_type',
+          'merge_group_id',
+          'merge_batch_id',
+          'merge_batch_total_amount',
+          'merge_batch_note',
+          'created_at',
+        ]),
       );
 
-      final repairedDevice = (await db.query('devices', where: 'id = 1')).single;
+      final repairedDevice = (await db.query(
+        'devices',
+        where: 'id = 1',
+      )).single;
       expect(repairedDevice['equipment_type'], 'excavator');
       expect(repairedDevice['breaking_unit_price'], isNull);
 
@@ -141,7 +213,7 @@ void main() {
 Future<Database> _openCurrentDb(String path) {
   return openDatabase(
     path,
-    version: 9,
+    version: AppDatabase.schemaVersion,
     onConfigure: (db) async {
       await db.execute('PRAGMA foreign_keys = ON');
     },
@@ -153,6 +225,17 @@ Future<Database> _openCurrentDb(String path) {
       await DbSchemaCompat.ensure(db);
     },
   );
+}
+
+Future<bool> _indexExists(Database db, String index) async {
+  final rows = await db.query(
+    'sqlite_master',
+    columns: ['name'],
+    where: 'type = ? AND name = ?',
+    whereArgs: ['index', index],
+    limit: 1,
+  );
+  return rows.isNotEmpty;
 }
 
 Future<String> _testDbPath(String name) async {
@@ -343,6 +426,13 @@ Future<void> _createV7Schema(Database db) async {
 }
 
 Future<void> _seedV7Data(Database db) async {
+  await db.insert('account_payments', {
+    'id': 1,
+    'project_key': '李四||二号工地',
+    'ymd': 20260515,
+    'amount': 500.0,
+    'note': '旧库收款',
+  });
   await db.insert('project_device_rates', {
     'project_key': '李四||二号工地',
     'device_id': 1,

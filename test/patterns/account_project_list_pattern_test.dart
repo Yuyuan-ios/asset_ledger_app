@@ -27,10 +27,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: AccountProjectList(
-            projects: const [project],
-            onTap: (_) {},
-          ),
+          body: AccountProjectList(projects: const [project], onTap: (_) {}),
         ),
       ),
     );
@@ -38,5 +35,74 @@ void main() {
     final totalHoursText = tester.widget<Text>(find.text('总共:  9 h'));
 
     expect(totalHoursText.style?.fontWeight, FontWeight.w700);
+  });
+
+  testWidgets(
+    'shows included sites after received percent for merged projects',
+    (tester) async {
+      const project = AccountProjectVM(
+        projectKey: 'merge:1',
+        displayName: '赵六 + 合并2项目',
+        kind: AccountProjectKind.merged,
+        mergeGroupId: 1,
+        memberProjectKeys: ['赵六||尚义', '赵六||鲜滩'],
+        includedSites: ['尚义', '鲜滩'],
+        minYmd: 20260317,
+        deviceIds: [1],
+        hoursByDevice: {1: 9},
+        rentIncomeTotal: 0,
+        minRate: 120,
+        isMultiDevice: false,
+        isMultiMode: false,
+        receivable: 1080,
+        received: 1000,
+        remaining: 80,
+        ratio: 0.926,
+        payments: [],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(projects: const [project], onTap: (_) {}),
+          ),
+        ),
+      );
+
+      expect(find.text('92.6%实收(尚义+鲜滩)'), findsOneWidget);
+    },
+  );
+
+  testWidgets('shows rent label and hides zero hours for rent-only project', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: '周亮||成都',
+      displayName: '周亮 + 成都',
+      minYmd: 20260516,
+      deviceIds: [],
+      hoursByDevice: {},
+      rentIncomeTotal: 22000,
+      minRate: null,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 22000,
+      received: 0,
+      remaining: 22000,
+      ratio: 0,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(projects: const [project], onTap: (_) {}),
+        ),
+      ),
+    );
+
+    expect(find.text('租金(台班)'), findsOneWidget);
+    expect(find.text('单价：—'), findsNothing);
+    expect(find.text('总共:  0 h'), findsNothing);
   });
 }

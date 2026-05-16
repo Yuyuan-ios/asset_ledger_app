@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
 
 import '../../components/feedback/store_error_banner.dart';
+import '../../components/layout/pinned_header_delegate.dart';
+import '../../data/models/device.dart';
+import '../../data/models/timing_record.dart';
 import '../layout/phone_page_layout.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
+import 'recent_records_pattern.dart';
 
-class TimingHomePattern extends StatelessWidget {
+class TimingHomePattern extends StatefulWidget {
   const TimingHomePattern({
     super.key,
     required this.header,
     required this.chart,
     required this.recordsTitle,
     required this.records,
+    required this.deviceById,
+    required this.deviceIndexById,
+    this.onTapRecord,
+    this.onConfirmDeleteRecord,
+    this.onDeleteRecord,
+    this.onConfirmDeleteRecords,
+    this.onDeleteRecords,
     required this.loading,
     this.error,
     this.onRetry,
@@ -20,10 +31,87 @@ class TimingHomePattern extends StatelessWidget {
   final Widget header;
   final Widget chart;
   final Widget recordsTitle;
-  final Widget records;
+  final List<TimingRecord> records;
+  final Map<int, Device> deviceById;
+  final Map<int, String> deviceIndexById;
+  final ValueChanged<TimingRecord>? onTapRecord;
+  final Future<bool> Function(TimingRecord)? onConfirmDeleteRecord;
+  final DeleteRecordCallback? onDeleteRecord;
+  final Future<bool> Function(List<TimingRecord>)? onConfirmDeleteRecords;
+  final DeleteRecordsCallback? onDeleteRecords;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
+
+  @override
+  State<TimingHomePattern> createState() => _TimingHomePatternState();
+}
+
+class _TimingHomePatternState extends State<TimingHomePattern> {
+  final Set<String> _locallyRemovedRecordKeys = <String>{};
+  final Set<String> _expandedAggregateKeys = <String>{};
+
+  static const double _recordsHeaderHeight =
+      (TimingTokens.recordsTitleFontSize *
+          TimingTokens.recordsTitleLineHeight) +
+      TimingTokens.homeRecordsTitleTopGap;
+
+  @override
+  void didUpdateWidget(covariant TimingHomePattern oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _pruneRecordState();
+  }
+
+  void _pruneRecordState() {
+    final currentRecordKeys = timingRecentRecordKeys(widget.records);
+    _locallyRemovedRecordKeys.removeWhere(
+      (key) => !currentRecordKeys.contains(key),
+    );
+
+    final currentAggregateKeys = timingRecentAggregateKeys(
+      widget.records,
+      _locallyRemovedRecordKeys,
+    );
+    _expandedAggregateKeys.removeWhere(
+      (key) => !currentAggregateKeys.contains(key),
+    );
+  }
+
+  void _toggleAggregate(String key) {
+    setState(() {
+      if (_expandedAggregateKeys.contains(key)) {
+        _expandedAggregateKeys.remove(key);
+      } else {
+        _expandedAggregateKeys.add(key);
+      }
+    });
+  }
+
+  Future<void> _deleteWithOptimisticRemove(TimingRecord record) async {
+    if (widget.onDeleteRecord == null) return;
+    final key = timingRecentRecordKey(record);
+    setState(() => _locallyRemovedRecordKeys.add(key));
+    final ok = await widget.onDeleteRecord!(record);
+    if (!ok && mounted) {
+      setState(() => _locallyRemovedRecordKeys.remove(key));
+    }
+  }
+
+  Future<void> _deleteAggregateWithOptimisticRemove(
+    List<TimingRecord> records,
+    String aggregateKey,
+  ) async {
+    if (widget.onDeleteRecords == null) return;
+    final keys = records.map(timingRecentRecordKey).toSet();
+    setState(() {
+      _locallyRemovedRecordKeys.addAll(keys);
+      _expandedAggregateKeys.remove(aggregateKey);
+    });
+    final ok = await widget.onDeleteRecords!(records);
+    if (!ok && mounted) {
+      setState(() => _locallyRemovedRecordKeys.removeAll(keys));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,40 +130,72 @@ class TimingHomePattern extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Column(
                 children: [
-                  header,
+                  widget.header,
                   const SizedBox(height: TimingTokens.homeHeaderBottomGap),
                   Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (loading)
-                            const Padding(
+                    child: CustomScrollView(
+                      slivers: [
+                        if (widget.loading)
+                          const SliverToBoxAdapter(
+                            child: Padding(
                               padding: EdgeInsets.only(
                                 bottom: TimingTokens.homeLoadingBottomGap,
                               ),
                               child: LinearProgressIndicator(minHeight: 2),
                             ),
-                          if (error != null && error!.trim().isNotEmpty)
-                            Padding(
+                          ),
+                        if (widget.error != null &&
+                            widget.error!.trim().isNotEmpty)
+                          SliverToBoxAdapter(
+                            child: Padding(
                               padding: const EdgeInsets.only(
                                 bottom: TimingTokens.homeErrorBottomGap,
                               ),
                               child: StoreErrorBanner(
-                                message: error!,
-                                onRetry: loading ? null : onRetry,
+                                message: widget.error!,
+                                onRetry: widget.loading ? null : widget.onRetry,
                               ),
                             ),
-                          chart,
-                          const SizedBox(height: TimingTokens.homeChartTopGap),
-                          recordsTitle,
-                          const SizedBox(
-                            height: TimingTokens.homeRecordsTitleTopGap,
                           ),
-                          records,
-                          const SizedBox(height: TimingTokens.homeBottomGap),
-                        ],
-                      ),
+                        SliverToBoxAdapter(child: widget.chart),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: TimingTokens.homeChartTopGap),
+                        ),
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: PinnedHeaderDelegate(
+                            height: _recordsHeaderHeight,
+                            child: ColoredBox(
+                              color: AppColors.scaffoldBg,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: TimingTokens.homeRecordsTitleTopGap,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: widget.recordsTitle,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        ...buildTimingRecentRecordSlivers(
+                          records: widget.records,
+                          deviceById: widget.deviceById,
+                          deviceIndexById: widget.deviceIndexById,
+                          locallyRemovedKeys: _locallyRemovedRecordKeys,
+                          expandedAggregateKeys: _expandedAggregateKeys,
+                          onToggleAggregate: _toggleAggregate,
+                          onTapRecord: widget.onTapRecord,
+                          onConfirmDeleteRecord: widget.onConfirmDeleteRecord,
+                          onDeleteRecord: _deleteWithOptimisticRemove,
+                          onConfirmDeleteRecords: widget.onConfirmDeleteRecords,
+                          onDeleteRecords: _deleteAggregateWithOptimisticRemove,
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: TimingTokens.homeBottomGap),
+                        ),
+                      ],
                     ),
                   ),
                 ],

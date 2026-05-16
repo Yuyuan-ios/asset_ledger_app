@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../components/feedback/app_toast.dart';
+import '../../../components/feedback/pro_gate.dart';
 import '../../../core/utils/device_label.dart';
 import '../../../data/models/device.dart';
 import '../../../data/services/avatar_storage_service.dart';
@@ -14,7 +15,6 @@ import '../../../patterns/device/device_editor_brand_row_pattern.dart';
 import '../../../patterns/device/device_editor_fields_group_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_avatar_select_page.dart';
-import 'upgrade_page.dart';
 
 class DeviceEditorDialog extends StatefulWidget {
   const DeviceEditorDialog({
@@ -120,29 +120,11 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
   }
 
   Future<bool> _ensureProForCustomAvatar() async {
-    if (SubscriptionService.canUseCustomAvatar) return true;
-    final goUpgrade = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('需要升级'),
-        content: const Text('自定义头像仅订阅用户可用，是否去升级？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('去升级'),
-          ),
-        ],
-      ),
-    );
-    if (goUpgrade != true || !mounted) return false;
-    await Navigator.of(
+    return requireProFeature(
       context,
-    ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage()));
-    return SubscriptionService.canUseCustomAvatar;
+      title: '需要升级',
+      message: '自定义设备头像是 Pro 功能，升级后可为设备设置专属头像。',
+    );
   }
 
   Future<void> _pickCustomAvatarFromGallery() async {

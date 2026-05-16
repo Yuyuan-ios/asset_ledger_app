@@ -5,6 +5,7 @@ import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/project_key.dart';
 import '../../data/models/timing_record.dart';
+import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'project_account_detail_content_pattern.dart';
@@ -34,6 +35,18 @@ typedef AccountOpenPaymentEditor =
 
 typedef AccountDeletePayment = Future<void> Function(AccountPayment payment);
 
+typedef AccountDissolveMergeGroup =
+    Future<void> Function(AccountProjectVM project);
+
+typedef AccountOpenMergedPaymentEditor =
+    Future<void> Function(AccountProjectVM project);
+
+typedef AccountOpenMergedPaymentBatchEditor =
+    Future<void> Function(
+      AccountProjectVM project,
+      AccountProjectPaymentDisplayVM payment,
+    );
+
 class AccountProjectDetailSheet extends StatelessWidget {
   const AccountProjectDetailSheet({
     super.key,
@@ -48,6 +61,11 @@ class AccountProjectDetailSheet extends StatelessWidget {
     required this.onAddPayment,
     required this.onEditPayment,
     required this.onDeletePayment,
+    this.onDissolveMergeGroup,
+    this.onAddMergedPayment,
+    this.onEditMergedPaymentBatch,
+    this.onDeleteMergedPaymentBatch,
+    this.showInlineAddPayment = true,
   });
 
   final String projectKey;
@@ -61,6 +79,11 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final AccountOpenPaymentEditor onAddPayment;
   final AccountOpenPaymentEditor onEditPayment;
   final AccountDeletePayment onDeletePayment;
+  final AccountDissolveMergeGroup? onDissolveMergeGroup;
+  final AccountOpenMergedPaymentEditor? onAddMergedPayment;
+  final AccountOpenMergedPaymentBatchEditor? onEditMergedPaymentBatch;
+  final AccountOpenMergedPaymentBatchEditor? onDeleteMergedPaymentBatch;
+  final bool showInlineAddPayment;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +99,55 @@ class AccountProjectDetailSheet extends StatelessWidget {
     }
 
     final project = hit.first;
+    if (project.kind == AccountProjectKind.merged) {
+      final detailRows = _buildMergedDetailRows(project);
+      final paymentDisplayItems = buildMergedPaymentDisplayItems(
+        payments: project.payments,
+        memberProjectKeys: project.memberProjectKeys,
+      );
+      return ProjectAccountDetailContent(
+        title: project.displayName,
+        minYmd: project.minYmd,
+        devices: const [],
+        deviceRates: const {},
+        breakingDeviceRates: const {},
+        normalHoursByDevice: const {},
+        breakingHoursByDevice: const {},
+        receivable: project.receivable,
+        remaining: project.remaining,
+        payments: project.payments,
+        paymentDisplayItems: paymentDisplayItems,
+        detailRows: detailRows,
+        showBatchAction:
+            project.mergeGroupId != null && onDissolveMergeGroup != null,
+        batchActionText: '解除合并',
+        showPaymentActions:
+            onEditMergedPaymentBatch != null ||
+            onDeleteMergedPaymentBatch != null,
+        showRawPaymentActions: false,
+        showAddPayment: showInlineAddPayment && onAddMergedPayment != null,
+        onBatchEditRate: () => onDissolveMergeGroup?.call(project),
+        onEditDeviceRate: (_, _) {},
+        onEditRateRow: (row) {
+          final memberProject = _memberProjectForRateEdit(project, row);
+          onEditDeviceRate(
+            memberProject,
+            row.deviceId,
+            row.isBreaking,
+            allDevices,
+            allRates,
+          );
+        },
+        onAddPayment: () => onAddMergedPayment?.call(project),
+        onEditPayment: (_) {},
+        onDeletePayment: (_) {},
+        onEditPaymentDisplayItem: (payment) =>
+            onEditMergedPaymentBatch?.call(project, payment),
+        onDeletePaymentDisplayItem: (payment) =>
+            onDeleteMergedPaymentBatch?.call(project, payment),
+      );
+    }
+
     final usedDevices = allDevices
         .where(
           (device) =>
@@ -123,6 +195,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
       onEditDeviceRate: (deviceId, isBreaking) =>
           onEditDeviceRate(project, deviceId, isBreaking, allDevices, allRates),
+      showAddPayment: showInlineAddPayment,
       onAddPayment: () =>
           onAddPayment(project: project, allPayments: allPayments),
       onEditPayment: (payment) => onEditPayment(
@@ -131,6 +204,142 @@ class AccountProjectDetailSheet extends StatelessWidget {
         editing: payment,
       ),
       onDeletePayment: onDeletePayment,
+    );
+  }
+
+  List<ProjectAccountDetailRateRow> _buildMergedDetailRows(
+    AccountProjectVM project,
+  ) {
+    final rows = <ProjectAccountDetailRateRow>[];
+    final devicesById = <int, Device>{
+      for (final device in allDevices)
+        if (device.id != null) device.id!: device,
+    };
+
+    for (final memberProjectKey in project.memberProjectKeys) {
+      final key = ProjectKey.fromKey(memberProjectKey);
+      final normalHoursByDevice = <int, double>{};
+      final breakingHoursByDevice = <int, double>{};
+      for (final record in timingRecords) {
+        if (record.type != TimingType.hours) continue;
+        final recordKey = ProjectKey.buildKey(
+          contact: record.contact.trim(),
+          site: record.site.trim(),
+        );
+        if (recordKey != memberProjectKey) continue;
+        final target = record.isBreaking
+            ? breakingHoursByDevice
+            : normalHoursByDevice;
+        target[record.deviceId] =
+            (target[record.deviceId] ?? 0.0) + record.hours;
+      }
+
+      final deviceIds = <int>{
+        ...normalHoursByDevice.keys,
+        ...breakingHoursByDevice.keys,
+      }.toList()..sort((a, b) => _deviceOrder(a).compareTo(_deviceOrder(b)));
+
+      var hasShownSite = false;
+      for (final deviceId in deviceIds) {
+        final device = devicesById[deviceId] ?? _fallbackDevice(deviceId);
+        final normalHours = normalHoursByDevice[deviceId] ?? 0.0;
+        final breakingHours = breakingHoursByDevice[deviceId] ?? 0.0;
+        final normalRate =
+            _rateFor(memberProjectKey, deviceId, isBreaking: false) ??
+            device.defaultUnitPrice;
+        final breakingRate =
+            _rateFor(memberProjectKey, deviceId, isBreaking: true) ??
+            device.breakingUnitPrice ??
+            device.defaultUnitPrice;
+
+        if (normalHours > 0) {
+          rows.add(
+            ProjectAccountDetailRateRow(
+              projectKey: memberProjectKey,
+              label: hasShownSite ? '' : key.site.trim(),
+              deviceId: deviceId,
+              deviceLabel: device.name,
+              hours: normalHours,
+              rate: normalRate,
+              showEdit: true,
+              isBreaking: false,
+            ),
+          );
+          hasShownSite = true;
+        }
+
+        if (breakingHours > 0) {
+          rows.add(
+            ProjectAccountDetailRateRow(
+              projectKey: memberProjectKey,
+              label: hasShownSite ? '' : key.site.trim(),
+              deviceId: deviceId,
+              deviceLabel: '${device.name} · 破碎',
+              hours: breakingHours,
+              rate: breakingRate,
+              showEdit: true,
+              isBreaking: true,
+            ),
+          );
+          hasShownSite = true;
+        }
+      }
+    }
+
+    return rows;
+  }
+
+  AccountProjectVM _memberProjectForRateEdit(
+    AccountProjectVM mergedProject,
+    ProjectAccountDetailRateRow row,
+  ) {
+    final key = ProjectKey.fromKey(row.projectKey);
+    return AccountProjectVM(
+      projectKey: row.projectKey,
+      displayName: key.displayName,
+      minYmd: mergedProject.minYmd,
+      deviceIds: [row.deviceId],
+      hoursByDevice: {row.deviceId: row.hours},
+      rentIncomeTotal: 0,
+      minRate: row.rate,
+      isMultiDevice: false,
+      isMultiMode: row.isBreaking,
+      receivable: 0,
+      received: 0,
+      remaining: 0,
+      ratio: null,
+      payments: const [],
+    );
+  }
+
+  double? _rateFor(
+    String projectKey,
+    int deviceId, {
+    required bool isBreaking,
+  }) {
+    for (final rate in allRates) {
+      if (rate.projectKey == projectKey &&
+          rate.deviceId == deviceId &&
+          rate.isBreaking == isBreaking) {
+        return rate.rate;
+      }
+    }
+    return null;
+  }
+
+  int _deviceOrder(int deviceId) {
+    final index = allDevices.indexWhere((device) => device.id == deviceId);
+    return index < 0 ? 1 << 20 : index;
+  }
+
+  Device _fallbackDevice(int deviceId) {
+    return Device(
+      id: deviceId,
+      name: '设备#$deviceId',
+      brand: '',
+      defaultUnitPrice: 0,
+      baseMeterHours: 0,
+      isActive: false,
     );
   }
 }

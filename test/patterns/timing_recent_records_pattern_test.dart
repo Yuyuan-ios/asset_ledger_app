@@ -43,4 +43,82 @@ void main() {
     final indexText = tester.widget<Text>(find.text('1#'));
     expect(indexText.style?.fontWeight, FontWeight.w700);
   });
+
+  testWidgets('hides zero hours for rent recent record and keeps amount', (
+    WidgetTester tester,
+  ) async {
+    const device = Device(
+      id: 1,
+      name: 'HITACHI 1#',
+      brand: 'HITACHI',
+      defaultUnitPrice: 120,
+      baseMeterHours: 2000,
+    );
+    const record = TimingRecord(
+      id: 2,
+      deviceId: 1,
+      startDate: 20260516,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.rent,
+      startMeter: 6180.7,
+      endMeter: 6180.7,
+      hours: 0,
+      income: 22000,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SectionRecentRecords(
+            records: const [record],
+            deviceById: const {1: device},
+            deviceIndexById: const {1: '1#'},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0.0 h'), findsNothing);
+    expect(find.text('¥22000'), findsOneWidget);
+  });
+
+  testWidgets('shows rent recent record hours when actual hours exist', (
+    WidgetTester tester,
+  ) async {
+    const device = Device(
+      id: 1,
+      name: 'HITACHI 1#',
+      brand: 'HITACHI',
+      defaultUnitPrice: 120,
+      baseMeterHours: 2000,
+    );
+    const record = TimingRecord(
+      id: 3,
+      deviceId: 1,
+      startDate: 20260516,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.rent,
+      startMeter: 6180.7,
+      endMeter: 6184.7,
+      hours: 4,
+      income: 22000,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SectionRecentRecords(
+            records: const [record],
+            deviceById: const {1: device},
+            deviceIndexById: const {1: '1#'},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('4.0 h'), findsOneWidget);
+    expect(find.text('¥22000'), findsOneWidget);
+  });
 }

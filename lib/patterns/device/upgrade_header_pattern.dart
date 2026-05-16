@@ -8,7 +8,7 @@ class UpgradeHeaderPattern extends StatelessWidget {
     super.key,
     required this.onBack,
     this.backLabel = '设备',
-    this.title = '立即升级！',
+    this.title = '立即升级',
   });
 
   final VoidCallback onBack;

@@ -38,6 +38,25 @@ class DbSchema {
       );
     ''');
 
+    // ------------------- timing_calculation_history -------------------
+    await db.execute('''
+      CREATE TABLE timing_calculation_history (
+        id TEXT PRIMARY KEY,
+        timing_record_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        expression TEXT NOT NULL,
+        result REAL NOT NULL,
+        ticket_count INTEGER NOT NULL,
+        FOREIGN KEY (timing_record_id)
+          REFERENCES timing_records(id) ON DELETE CASCADE
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_timing_calc_record_id
+      ON timing_calculation_history(timing_record_id);
+    ''');
+
     // ---------------------------- fuel_logs ----------------------------
     await db.execute('''
       CREATE TABLE fuel_logs (
@@ -69,7 +88,13 @@ class DbSchema {
         project_key TEXT NOT NULL,
         ymd INTEGER NOT NULL,
         amount REAL NOT NULL,
-        note TEXT
+        note TEXT,
+        source_type TEXT NOT NULL DEFAULT 'manual',
+        merge_group_id INTEGER,
+        merge_batch_id TEXT,
+        merge_batch_total_amount REAL,
+        merge_batch_note TEXT,
+        created_at TEXT
       );
     ''');
 
@@ -92,6 +117,56 @@ class DbSchema {
     await db.execute('''
       CREATE INDEX idx_project_device_rates_project
       ON project_device_rates(project_key);
+    ''');
+
+    // ------------------ account_project_merge_groups ------------------
+    await db.execute('''
+      CREATE TABLE account_project_merge_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        dissolved_at TEXT,
+        source_type TEXT NOT NULL DEFAULT 'local'
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_account_project_merge_groups_active_contact
+      ON account_project_merge_groups(is_active, contact);
+    ''');
+
+    // ------------------ account_project_merge_members -----------------
+    await db.execute('''
+      CREATE TABLE account_project_merge_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        project_key TEXT NOT NULL,
+        contact TEXT NOT NULL,
+        site TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (group_id)
+          REFERENCES account_project_merge_groups(id) ON DELETE CASCADE
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_account_project_merge_members_group
+      ON account_project_merge_members(group_id, sort_order);
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX idx_account_project_merge_members_group_project
+      ON account_project_merge_members(group_id, project_key);
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX idx_account_project_merge_members_active_project
+      ON account_project_merge_members(project_key)
+      WHERE is_active = 1;
     ''');
   }
 }

@@ -1,10 +1,13 @@
 import 'package:asset_ledger/app/app_providers.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
+import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/data/services/account_project_merge_service.dart';
+import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
@@ -25,10 +28,13 @@ void main() {
       late MaintenanceRepository maintenanceRepository;
       late AccountPaymentRepository accountPaymentRepository;
       late ProjectRateRepository projectRateRepository;
+      late AccountProjectMergeRepository accountProjectMergeRepository;
+      late AccountProjectMergeService accountProjectMergeService;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
       late FuelStore fuelStore;
       late MaintenanceStore maintenanceStore;
+      late AccountStore accountStore;
 
       await tester.pumpWidget(
         Directionality(
@@ -44,10 +50,15 @@ void main() {
                 accountPaymentRepository = context
                     .read<AccountPaymentRepository>();
                 projectRateRepository = context.read<ProjectRateRepository>();
+                accountProjectMergeRepository = context
+                    .read<AccountProjectMergeRepository>();
+                accountProjectMergeService = context
+                    .read<AccountProjectMergeService>();
                 deviceStore = context.read<DeviceStore>();
                 timingStore = context.read<TimingStore>();
                 fuelStore = context.read<FuelStore>();
                 maintenanceStore = context.read<MaintenanceStore>();
+                accountStore = context.read<AccountStore>();
                 return const SizedBox.shrink();
               },
             ),
@@ -61,11 +72,17 @@ void main() {
       expect(maintenanceRepository, isA<MaintenanceRepository>());
       expect(accountPaymentRepository, isA<AccountPaymentRepository>());
       expect(projectRateRepository, isA<ProjectRateRepository>());
+      expect(
+        accountProjectMergeRepository,
+        isA<AccountProjectMergeRepository>(),
+      );
+      expect(accountProjectMergeService, isA<AccountProjectMergeService>());
 
       expect(identical(deviceStore, bundle.deviceStore), isTrue);
       expect(identical(timingStore, bundle.timingStore), isTrue);
       expect(identical(fuelStore, bundle.fuelStore), isTrue);
       expect(identical(maintenanceStore, bundle.maintenanceStore), isTrue);
+      expect(identical(accountStore, bundle.accountStore), isTrue);
     },
   );
 }

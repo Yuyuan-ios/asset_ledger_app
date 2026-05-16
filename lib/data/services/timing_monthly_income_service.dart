@@ -11,16 +11,17 @@ import 'account_service.dart';
 /// 1) 本算法是“动态视图”，不是落库后的静态月汇总。
 /// 2) 统计目标月变化时，未闭合区间会延长到新目标月月末，因此历史月份允许重算变化。
 /// 3) 仅处理收入分摊，不处理支出逻辑。
-/// 4) 图表收入真源是实时重算值 `hours * currentEffectiveRate`，
-///    不是 [TimingRecord.income]（后者仅作为兼容历史字段保留）。
+/// 4) 工时收入真源是实时重算值 `hours * currentEffectiveRate`；
+///    租金收入按 [TimingRecord.income] 计入记录日期所在月。
 class TimingMonthlyIncomeService {
   const TimingMonthlyIncomeService._();
 
   /// 计算指定统计目标月下的“目标年份 1-12 月收入”（实时单价口径）
   ///
   /// 口径切换说明：
-  /// - 图表收入真源不再读取 [TimingRecord.income]；
-  /// - 每条记录实时收入统一为：`hours * currentEffectiveRate`；
+  /// - 工时记录收入不再读取 [TimingRecord.income]；
+  /// - 工时记录实时收入统一为：`hours * currentEffectiveRate`；
+  /// - 租金记录按 [TimingRecord.income] 直接计入记录日期所在月；
   /// - effectiveRate 规则复用账户页 `AccountService.buildEffectiveRateMap`。
   ///
   /// 其余分摊规则：
@@ -48,6 +49,14 @@ class TimingMonthlyIncomeService {
     final monthly = List<double>.filled(12, 0.0);
     final rateCache = <String, Map<int, double>>{};
 
+    for (final record in records) {
+      if (record.type != TimingType.rent || record.income <= 0) continue;
+      final start = FormatUtils.dateFromYmd(record.startDate);
+      if (!start.isAfter(cutoffDate) && start.year == targetYear) {
+        monthly[start.month - 1] += record.income;
+      }
+    }
+
     final grouped = _groupByDevice(records);
 
     for (final entry in grouped.entries) {
@@ -58,13 +67,18 @@ class TimingMonthlyIncomeService {
 
       for (var i = 0; i < safeRecords.length; i++) {
         final current = safeRecords[i];
+        if (current.type == TimingType.rent) {
+          continue;
+        }
+
+        final start = FormatUtils.dateFromYmd(current.startDate);
         final rate = _resolveEffectiveRate(
           record: current,
           devices: devices,
           rates: rates,
           cache: rateCache,
         );
-        // 图表收入唯一真源：按当前有效单价实时重算，不读取 record.income。
+        // 工时收入按当前有效单价实时重算，不读取 record.income。
         final realtimeIncome = current.hours * rate;
 
         // 新口径：收入统一由实时单价重算；<= 0 跳过
@@ -72,7 +86,6 @@ class TimingMonthlyIncomeService {
           continue;
         }
 
-        final start = FormatUtils.dateFromYmd(current.startDate);
         // 未来记录保留在列表中，但不参与当前 cutoffDate 之前的图表统计。
         if (start.isAfter(cutoffDate)) {
           continue;
@@ -80,7 +93,9 @@ class TimingMonthlyIncomeService {
 
         DateTime end;
         if (i + 1 < safeRecords.length) {
-          final nextStart = FormatUtils.dateFromYmd(safeRecords[i + 1].startDate);
+          final nextStart = FormatUtils.dateFromYmd(
+            safeRecords[i + 1].startDate,
+          );
           end = nextStart.subtract(const Duration(days: 1));
         } else {
           end = cutoffDate;
@@ -112,7 +127,9 @@ class TimingMonthlyIncomeService {
     return monthly;
   }
 
-  static Map<int, List<TimingRecord>> _groupByDevice(List<TimingRecord> records) {
+  static Map<int, List<TimingRecord>> _groupByDevice(
+    List<TimingRecord> records,
+  ) {
     final grouped = <int, List<TimingRecord>>{};
     for (final record in records) {
       grouped.putIfAbsent(record.deviceId, () => []).add(record);
@@ -145,7 +162,8 @@ class TimingMonthlyIncomeService {
     for (var i = 0; i < sorted.length; i++) {
       final current = sorted[i];
       final isLastOfDay =
-          i == sorted.length - 1 || sorted[i + 1].startDate != current.startDate;
+          i == sorted.length - 1 ||
+          sorted[i + 1].startDate != current.startDate;
       if (isLastOfDay) {
         result.add(current);
       }

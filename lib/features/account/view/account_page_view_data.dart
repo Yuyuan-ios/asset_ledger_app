@@ -61,7 +61,8 @@ AccountPageViewData buildAccountPageViewData({
       timingStore.loading ||
       deviceStore.loading ||
       paymentStore.loading ||
-      rateStore.loading;
+      rateStore.loading ||
+      accountStore.loading;
   final hasActiveFilter =
       filterStore.projectFilterKeyword.isNotEmpty &&
       filteredProjects.length < computed.projects.length;
@@ -70,6 +71,7 @@ AccountPageViewData buildAccountPageViewData({
     deviceStore,
     paymentStore,
     rateStore,
+    accountStore,
   ], action: '读取');
 
   return AccountPageViewData(

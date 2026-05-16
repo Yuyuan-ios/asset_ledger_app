@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../../core/config/subscription_config.dart';
 import '../../../data/services/subscription_service.dart';
+import '../../../data/services/subscription_verification_repository_factory.dart';
 import '../../../core/foundation/typography.dart';
 import '../../../patterns/device/upgrade_benefit_item_pattern.dart';
 import '../../../patterns/device/upgrade_footer_links_pattern.dart';
@@ -69,18 +69,15 @@ class _UpgradePageState extends State<UpgradePage> {
     return product.price;
   }
 
-  String _productDescription(ProductDetails? product, String fallback) {
-    final description = product?.description.trim();
-    if (description == null || description.isEmpty) return fallback;
-    return description;
-  }
-
   Widget _buildStatusMessage(
     BuildContext context,
     SubscriptionSnapshot snapshot,
   ) {
+    final canUsePurchaseFlow =
+        SubscriptionConfig.fromEnvironment.isConfigured ||
+        kUseLocalIapVerification;
     String? message = snapshot.errorMessage;
-    if (!SubscriptionConfig.fromEnvironment.isConfigured) {
+    if (!canUsePurchaseFlow) {
       message = '当前版本暂未开放订阅购买';
     } else if (snapshot.isLoadingProducts) {
       message = '正在加载 App Store 订阅商品...';
@@ -115,11 +112,14 @@ class _UpgradePageState extends State<UpgradePage> {
     return ValueListenableBuilder<SubscriptionSnapshot>(
       valueListenable: SubscriptionService.notifier,
       builder: (context, snapshot, _) {
-        final yearly = snapshot.productFor(SubscriptionProductKind.yearly);
-        final monthly = snapshot.productFor(SubscriptionProductKind.monthly);
         final selectedProduct = snapshot.productFor(_selectedPlan.productKind);
         final subscriptionVerificationConfigured =
             SubscriptionConfig.fromEnvironment.isConfigured;
+        // In TestFlight / sandbox smoke tests we allow the purchase flow to run
+        // with local entitlement verification. Production builds must keep
+        // server-side verification enabled.
+        final canUsePurchaseFlow =
+            subscriptionVerificationConfigured || kUseLocalIapVerification;
         final yearlyPrice = _planPrice(
           snapshot: snapshot,
           kind: SubscriptionProductKind.yearly,
@@ -134,14 +134,14 @@ class _UpgradePageState extends State<UpgradePage> {
             snapshot.isPurchasing ||
             snapshot.status == SubscriptionStatus.pending;
         final canBuy =
-            subscriptionVerificationConfigured &&
+            canUsePurchaseFlow &&
             selectedProduct != null &&
             !snapshot.isLoadingProducts &&
             !snapshot.isBusy &&
             !snapshot.allowsProFeatures;
         final buttonText = snapshot.isLoadingProducts
             ? '加载中...'
-            : !subscriptionVerificationConfigured
+            : !canUsePurchaseFlow
             ? '暂未开放'
             : purchasing
             ? '处理中...'
@@ -160,7 +160,7 @@ class _UpgradePageState extends State<UpgradePage> {
                 UpgradeHeaderPattern(
                   onBack: () => Navigator.of(context).pop(),
                   backLabel: '设备',
-                  title: '立即升级！',
+                  title: '立即升级',
                 ),
                 Expanded(
                   child: Container(
@@ -184,12 +184,12 @@ class _UpgradePageState extends State<UpgradePage> {
                         const SizedBox(
                           height: DeviceTokens.upgradeHeroToBenefitsGap,
                         ),
-                        const UpgradeBenefitItem(text: '云端数据同步/备份'),
-                        const UpgradeBenefitItem(text: '解锁应用中的所有功能'),
+                        const UpgradeBenefitItem(text: '多留一份清楚的电子账'),
+                        const UpgradeBenefitItem(text: '云备份、协作记录、高级统计将优先开放'),
                         UpgradePlanCard(
                           title: '年套餐',
                           subtitle1: '$yearlyPrice · 年度订阅',
-                          subtitle2: _productDescription(yearly, '附带 7天免费试用'),
+                          subtitle2: '如果对您有帮助，请开发者喝瓶红牛持续开发',
                           badge: '省50%',
                           emphasized: _selectedPlan == _UpgradePlan.annual,
                           onTap: snapshot.isBusy
@@ -202,7 +202,7 @@ class _UpgradePageState extends State<UpgradePage> {
                         UpgradePlanCard(
                           title: '月套餐',
                           subtitle1: '$monthlyPrice · 按月订阅',
-                          subtitle2: _productDescription(monthly, '月度 Pro 订阅'),
+                          subtitle2: '按月支持维护，体验当前 Pro 权益。',
                           emphasized: _selectedPlan == _UpgradePlan.monthly,
                           onTap: snapshot.isBusy
                               ? null
@@ -245,9 +245,7 @@ class _UpgradePageState extends State<UpgradePage> {
                         UpgradeFooterLinksPattern(
                           onTermsTap: _openTermsPage,
                           onPrivacyTap: _openPrivacyPage,
-                          onRestoreTap:
-                              snapshot.isBusy ||
-                                  !subscriptionVerificationConfigured
+                          onRestoreTap: snapshot.isBusy || !canUsePurchaseFlow
                               ? null
                               : _restorePurchases,
                         ),

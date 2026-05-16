@@ -4,14 +4,21 @@ import 'package:asset_ledger/app/app_bootstrap.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/fuel_log.dart';
 import 'package:asset_ledger/data/models/maintenance_record.dart';
+import 'package:asset_ledger/data/models/account_project_merge_group.dart';
+import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
+import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/data/services/account_project_merge_service.dart';
+import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
+import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
@@ -27,12 +34,16 @@ void main() {
       final fuelRepository = _FakeFuelRepository();
       final maintenanceRepository = _FakeMaintenanceRepository();
       final rateRepository = _FakeProjectRateRepository();
+      final mergeRepository = _FakeMergeRepository();
 
       final deviceStore = DeviceStore(deviceRepository);
       final timingStore = TimingStore(timingRepository);
       final fuelStore = FuelStore(fuelRepository);
       final maintenanceStore = MaintenanceStore(maintenanceRepository);
       final projectRateStore = ProjectRateStore(rateRepository);
+      final accountStore = AccountStore(
+        mergeService: AccountProjectMergeService(repository: mergeRepository),
+      );
 
       await AppBootstrap.preload(
         deviceStore: deviceStore,
@@ -40,6 +51,7 @@ void main() {
         fuelStore: fuelStore,
         maintenanceStore: maintenanceStore,
         projectRateStore: projectRateStore,
+        accountStore: accountStore,
       );
 
       expect(deviceRepository.listAllCalls, 1);
@@ -47,6 +59,7 @@ void main() {
       expect(fuelRepository.listAllCalls, 1);
       expect(maintenanceRepository.listAllCalls, 1);
       expect(rateRepository.listAllCalls, 1);
+      expect(mergeRepository.listActiveGroupsWithMembersCalls, 1);
     },
   );
 
@@ -57,6 +70,7 @@ void main() {
     final fuelRepository = _BlockingFuelRepository(gate.future);
     final maintenanceRepository = _BlockingMaintenanceRepository(gate.future);
     final rateRepository = _BlockingProjectRateRepository(gate.future);
+    final mergeRepository = _BlockingMergeRepository(gate.future);
 
     final preloadFuture = AppBootstrap.preload(
       deviceStore: DeviceStore(deviceRepository),
@@ -64,6 +78,9 @@ void main() {
       fuelStore: FuelStore(fuelRepository),
       maintenanceStore: MaintenanceStore(maintenanceRepository),
       projectRateStore: ProjectRateStore(rateRepository),
+      accountStore: AccountStore(
+        mergeService: AccountProjectMergeService(repository: mergeRepository),
+      ),
     );
 
     await Future<void>.delayed(Duration.zero);
@@ -73,6 +90,7 @@ void main() {
     expect(fuelRepository.listAllCalls, 1);
     expect(maintenanceRepository.listAllCalls, 1);
     expect(rateRepository.listAllCalls, 1);
+    expect(mergeRepository.listActiveGroupsWithMembersCalls, 1);
 
     gate.complete();
     await preloadFuture;
@@ -126,7 +144,19 @@ class _FakeTimingRepository implements TimingRepository {
   Future<int> update(TimingRecord record) async => 1;
 
   @override
+  Future<TimingRecord> saveWithCalculationHistories(
+    TimingRecord record, {
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) async {
+    if (record.id == null) return record.copyWith(id: 1);
+    return record;
+  }
+
+  @override
   Future<int> deleteById(int id) async => 1;
+
+  @override
+  Future<int> deleteByIds(Iterable<int> ids) async => ids.length;
 
   @override
   Future<int> deleteByDeviceId(int deviceId) async => 1;
@@ -259,4 +289,72 @@ class _FakeProjectRateRepository implements ProjectRateRepository {
 
   @override
   Future<int> deleteByProjectKey(String projectKey) async => 1;
+}
+
+class _FakeMergeRepository implements AccountProjectMergeRepository {
+  int listActiveGroupsWithMembersCalls = 0;
+
+  @override
+  Future<List<AccountProjectMergeGroupWithMembers>>
+  listActiveGroupsWithMembers() async {
+    listActiveGroupsWithMembersCalls++;
+    return const [];
+  }
+
+  @override
+  Future<AccountProjectMergeGroupWithMembers> createGroupWithMembers({
+    required AccountProjectMergeGroup group,
+    required List<AccountProjectMergeMember> members,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> dissolveGroup({
+    required int groupId,
+    required String dissolvedAt,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AccountProjectMergeGroup?> getGroupById(int groupId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<AccountProjectMergeGroup>> listActiveGroups() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembers() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectKeys(
+    List<String> projectKeys,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listMembersByGroupId(int groupId) {
+    throw UnimplementedError();
+  }
+}
+
+class _BlockingMergeRepository extends _FakeMergeRepository {
+  _BlockingMergeRepository(this._gate);
+
+  final Future<void> _gate;
+
+  @override
+  Future<List<AccountProjectMergeGroupWithMembers>>
+  listActiveGroupsWithMembers() async {
+    listActiveGroupsWithMembersCalls++;
+    await _gate;
+    return const [];
+  }
 }

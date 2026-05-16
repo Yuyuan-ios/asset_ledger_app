@@ -16,18 +16,27 @@ import 'package:provider/provider.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_key.dart';
+import '../../../data/repositories/account_payment_repository.dart';
+import '../../../features/account/model/account_project_payment_display_vm.dart';
+import '../../../data/services/account_project_merge_service.dart';
 import '../../../features/account/model/account_view_model.dart';
+import '../../../features/account/use_cases/create_merged_payment_use_case.dart';
+import '../../../features/account/use_cases/delete_merged_payment_batch_use_case.dart';
+import '../../../features/account/use_cases/update_merged_payment_batch_use_case.dart';
 
 // ------------------------------ UI / Utils ------------------------------
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/interaction_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
+import '../../../components/layout/pinned_header_delegate.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/account_tokens.dart';
 import '../../../patterns/account/account_overview_card_pattern.dart';
 import '../../../patterns/account/account_project_detail_sheet_pattern.dart';
+import '../../../patterns/account/account_project_list_pattern.dart';
 import '../../../patterns/account/account_project_section_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
@@ -43,6 +52,8 @@ import '../../../features/timing/state/timing_store.dart';
 import 'actions/account_rate_edit_actions.dart';
 import 'account_page_view_data.dart';
 import 'dialogs/account_payment_editor_dialog.dart';
+import 'dialogs/account_project_merge_sheet.dart';
+import 'dialogs/account_project_merge_sheet_data.dart';
 import 'dialogs/account_project_filter_sheet.dart';
 
 // =====================================================================
@@ -74,11 +85,13 @@ class _AccountPageState extends State<AccountPage> {
     final deviceStore = context.read<DeviceStore>();
     final paymentStore = context.read<AccountPaymentStore>();
     final rateStore = context.read<ProjectRateStore>();
+    final accountStore = context.read<AccountStore>();
     await Future.wait([
       timingStore.loadAll(),
       deviceStore.loadAll(),
       paymentStore.loadAll(),
       rateStore.loadAll(),
+      accountStore.loadAll(),
     ]);
   }
 
@@ -120,6 +133,198 @@ class _AccountPageState extends State<AccountPage> {
     });
   }
 
+  Future<void> _openMergedPaymentEditor(AccountProjectVM project) async {
+    final payment = await showDialog<AccountPayment>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AccountPaymentEditorDialog(
+        project: project,
+        allPayments: project.payments,
+        receivedOverride: project.received,
+      ),
+    );
+
+    if (!mounted || payment == null) return;
+
+    Future.microtask(() async {
+      if (!mounted) return;
+
+      final timingStore = context.read<TimingStore>();
+      final deviceStore = context.read<DeviceStore>();
+      final paymentStore = context.read<AccountPaymentStore>();
+      final rateStore = context.read<ProjectRateStore>();
+      final accountStore = context.read<AccountStore>();
+      final paymentRepository = context.read<AccountPaymentRepository>();
+      final memberProjects = _memberProjectsForMerged(
+        project: project,
+        timingStore: timingStore,
+        deviceStore: deviceStore,
+        paymentStore: paymentStore,
+        rateStore: rateStore,
+        accountStore: accountStore,
+      );
+
+      try {
+        await CreateMergedPaymentUseCase(repository: paymentRepository).execute(
+          mergedProject: project,
+          memberProjects: memberProjects,
+          ymd: payment.ymd,
+          amount: payment.amount,
+          note: payment.note,
+        );
+        await paymentStore.loadAll();
+        await accountStore.loadAll();
+        if (!mounted) return;
+        _toast('保存成功');
+      } catch (error) {
+        if (!mounted) return;
+        _toast('保存失败：${_friendlyMergedPaymentError(error)}');
+      }
+    });
+  }
+
+  Future<void> _openMergedPaymentBatchEditor(
+    AccountProjectVM project,
+    AccountProjectPaymentDisplayVM paymentItem,
+  ) async {
+    final batchId = paymentItem.mergeBatchId;
+    if (batchId == null || batchId.trim().isEmpty) return;
+
+    final receivedExcludingBatch = project.received - paymentItem.amount;
+    final payment = await showDialog<AccountPayment>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AccountPaymentEditorDialog(
+        project: project,
+        allPayments: project.payments,
+        editing: AccountPayment(
+          projectKey: project.projectKey,
+          ymd: paymentItem.ymd,
+          amount: paymentItem.amount,
+          note: paymentItem.note,
+        ),
+        receivedOverride: receivedExcludingBatch < 0
+            ? 0.0
+            : receivedExcludingBatch,
+      ),
+    );
+
+    if (!mounted || payment == null) return;
+
+    Future.microtask(() async {
+      if (!mounted) return;
+
+      final timingStore = context.read<TimingStore>();
+      final deviceStore = context.read<DeviceStore>();
+      final paymentStore = context.read<AccountPaymentStore>();
+      final rateStore = context.read<ProjectRateStore>();
+      final accountStore = context.read<AccountStore>();
+      final paymentRepository = context.read<AccountPaymentRepository>();
+      final memberProjects = _memberProjectsForMerged(
+        project: project,
+        timingStore: timingStore,
+        deviceStore: deviceStore,
+        paymentStore: paymentStore,
+        rateStore: rateStore,
+        accountStore: accountStore,
+      );
+
+      try {
+        await UpdateMergedPaymentBatchUseCase(
+          repository: paymentRepository,
+        ).execute(
+          mergedProject: project,
+          memberProjects: memberProjects,
+          mergeBatchId: batchId,
+          ymd: payment.ymd,
+          amount: payment.amount,
+          note: payment.note,
+        );
+        await paymentStore.loadAll();
+        await accountStore.loadAll();
+        if (!mounted) return;
+        _toast('已保存');
+      } catch (error) {
+        if (!mounted) return;
+        _toast('保存失败：${_friendlyMergedPaymentError(error)}');
+      }
+    });
+  }
+
+  Future<void> _confirmDeleteMergedPaymentBatch(
+    AccountProjectVM _,
+    AccountProjectPaymentDisplayVM paymentItem,
+  ) async {
+    final batchId = paymentItem.mergeBatchId;
+    if (batchId == null || batchId.trim().isEmpty) return;
+
+    final ok = await showAppConfirmDialog(
+      context: context,
+      title: '删除收款？',
+      content:
+          '将删除这笔合并收款及其分摊记录：\n'
+          '${FormatUtils.date(paymentItem.ymd)}  ${FormatUtils.money(paymentItem.amount)}\n\n'
+          '此操作不会删除计时记录。',
+      confirmText: '删除',
+    );
+
+    if (!mounted || ok != true) return;
+
+    final paymentStore = context.read<AccountPaymentStore>();
+    final accountStore = context.read<AccountStore>();
+    final paymentRepository = context.read<AccountPaymentRepository>();
+
+    try {
+      await DeleteMergedPaymentBatchUseCase(
+        repository: paymentRepository,
+      ).execute(mergeBatchId: batchId);
+      await paymentStore.loadAll();
+      await accountStore.loadAll();
+      if (!mounted) return;
+      _toast('已删除');
+    } catch (error) {
+      if (!mounted) return;
+      _toast('删除失败：${_friendlyMergedPaymentError(error)}');
+    }
+  }
+
+  String _friendlyMergedPaymentError(Object error) {
+    final message = error.toString();
+    if (message.contains('不存在或已被删除')) {
+      return '这笔合并收款不存在或已被删除，请刷新后重试。';
+    }
+    if (message.contains('合并状态已变化')) {
+      return '合并状态已变化，请重新打开项目详情后再操作。';
+    }
+    if (message.contains('超出剩余应收')) {
+      final index = message.indexOf('超出剩余应收');
+      return index < 0 ? '超出剩余应收' : message.substring(index);
+    }
+    return '操作失败，请稍后重试。';
+  }
+
+  List<AccountProjectVM> _memberProjectsForMerged({
+    required AccountProjectVM project,
+    required TimingStore timingStore,
+    required DeviceStore deviceStore,
+    required AccountPaymentStore paymentStore,
+    required ProjectRateStore rateStore,
+    required AccountStore accountStore,
+  }) {
+    final normalComputed = accountStore.compute(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+      rates: rateStore.rates,
+      payments: paymentStore.records,
+      activeMergeGroups: const [],
+    );
+
+    final memberKeys = project.memberProjectKeys.toSet();
+    return normalComputed.projects.where((item) {
+      return memberKeys.contains(item.projectKey);
+    }).toList();
+  }
+
   // =====================================================================
   // ============================== B) 单价弹窗：批量修改 ==============================
   // =====================================================================
@@ -150,6 +355,35 @@ class _AccountPageState extends State<AccountPage> {
       isMounted: () => mounted,
       toast: _toast,
     ).openSingleRateEditor(p, deviceId, isBreaking, devices, rates);
+  }
+
+  Future<void> _confirmDissolveMergeGroup(
+    AccountProjectVM project,
+    BuildContext sheetContext,
+  ) async {
+    final groupId = project.mergeGroupId;
+    if (groupId == null) return;
+
+    final sheetNavigator = Navigator.of(sheetContext);
+    final mergeService = context.read<AccountProjectMergeService>();
+    final accountStore = context.read<AccountStore>();
+
+    final dissolved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _DissolveMergeConfirmDialog(
+        project: project,
+        onError: _toast,
+        onConfirm: () async {
+          await mergeService.dissolveMergeGroup(groupId);
+          await accountStore.loadAll();
+        },
+      ),
+    );
+
+    if (!mounted || dissolved != true) return;
+    sheetNavigator.maybePop();
+    _toast('已解除合并');
   }
 
   // =====================================================================
@@ -225,6 +459,42 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
+  Future<void> _openMergeSheet() async {
+    final timingStore = context.read<TimingStore>();
+    final deviceStore = context.read<DeviceStore>();
+    final paymentStore = context.read<AccountPaymentStore>();
+    final rateStore = context.read<ProjectRateStore>();
+    final accountStore = context.read<AccountStore>();
+    final mergeService = context.read<AccountProjectMergeService>();
+
+    final computed = accountStore.compute(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+      rates: rateStore.rates,
+      payments: paymentStore.records,
+    );
+    final groups = buildMergeSheetGroups(
+      normalProjects: computed.projects,
+      activeMergeGroups: accountStore.activeMergeGroups,
+    );
+
+    final result = await showAccountProjectMergeSheet(
+      context,
+      groups: groups,
+      onError: _toast,
+      onConfirmMerge: (result) async {
+        await mergeService.createMergeGroup(
+          contact: result.contact,
+          projectKeys: result.projectKeys,
+        );
+        await accountStore.loadAll();
+      },
+    );
+
+    if (!mounted || result == null) return;
+    _toast('已合并');
+  }
+
   // =====================================================================
   // ============================== F) 项目详情 BottomSheet ==============================
   // =====================================================================
@@ -237,8 +507,16 @@ class _AccountPageState extends State<AccountPage> {
     openEditorSheet<void>(
       context: context,
       title: '项目详情',
+      scrollable: true,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailContentInset,
+      ),
+      onConfirm: () => Navigator.of(context).maybePop(),
+      footerCenterBuilder: (sheetContext) => TextButton.icon(
+        onPressed: () =>
+            _openProjectDetailPaymentFromFooter(sheetContext, projectKey),
+        icon: const Icon(Icons.add),
+        label: const Text('新增收款'),
       ),
       childBuilder: (sheetContext) =>
           Consumer4<
@@ -280,9 +558,52 @@ class _AccountPageState extends State<AccountPage> {
                     onAddPayment: _openPaymentEditor,
                     onEditPayment: _openPaymentEditor,
                     onDeletePayment: _deletePayment,
+                    onDissolveMergeGroup: (project) =>
+                        _confirmDissolveMergeGroup(project, sheetContext),
+                    onAddMergedPayment: _openMergedPaymentEditor,
+                    onEditMergedPaymentBatch: _openMergedPaymentBatchEditor,
+                    onDeleteMergedPaymentBatch:
+                        _confirmDeleteMergedPaymentBatch,
+                    showInlineAddPayment: false,
                   );
                 },
           ),
+    );
+  }
+
+  Future<void> _openProjectDetailPaymentFromFooter(
+    BuildContext sheetContext,
+    String projectKey,
+  ) async {
+    final timingStore = sheetContext.read<TimingStore>();
+    final deviceStore = sheetContext.read<DeviceStore>();
+    final paymentStore = sheetContext.read<AccountPaymentStore>();
+    final rateStore = sheetContext.read<ProjectRateStore>();
+    final accountStore = sheetContext.read<AccountStore>();
+
+    final computed = accountStore.compute(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+      rates: rateStore.rates,
+      payments: paymentStore.records,
+    );
+    final matches = computed.projects
+        .where((project) => project.projectKey == projectKey)
+        .toList();
+    if (matches.isEmpty) {
+      _toast('项目不存在或已被清理');
+      return;
+    }
+
+    final project = matches.first;
+    if (project.kind == AccountProjectKind.merged) {
+      await _openMergedPaymentEditor(project);
+      return;
+    }
+
+    await _openPaymentEditor(
+      project: project,
+      allPayments: paymentStore.records,
     );
   }
 
@@ -295,7 +616,7 @@ class _AccountPageState extends State<AccountPage> {
     final deviceStore = context.watch<DeviceStore>();
     final paymentStore = context.watch<AccountPaymentStore>();
     final rateStore = context.watch<ProjectRateStore>();
-    final accountStore = context.read<AccountStore>();
+    final accountStore = context.watch<AccountStore>();
     final filterStore = context.watch<AccountFilterStore>();
 
     final viewData = buildAccountPageViewData(
@@ -324,24 +645,33 @@ class _AccountPageState extends State<AccountPage> {
                 children: [
                   const SizedBox(height: AccountTokens.homeTopGap),
                   Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (viewData.loading) ...[
-                            const LinearProgressIndicator(),
-                            const SizedBox(height: 10),
-                          ],
-                          if (viewData.error != null) ...[
-                            StoreErrorBanner(
-                              message: viewData.error!,
-                              onRetry: viewData.loading
-                                  ? null
-                                  : () => _retryLoad(),
+                    child: CustomScrollView(
+                      slivers: [
+                        if (viewData.loading)
+                          const SliverToBoxAdapter(
+                            child: Column(
+                              children: [
+                                LinearProgressIndicator(),
+                                SizedBox(height: 10),
+                              ],
                             ),
-                            const SizedBox(height: 10),
-                          ],
-                          AccountOverviewCard(
+                          ),
+                        if (viewData.error != null)
+                          SliverToBoxAdapter(
+                            child: Column(
+                              children: [
+                                StoreErrorBanner(
+                                  message: viewData.error!,
+                                  onRetry: viewData.loading
+                                      ? null
+                                      : () => _retryLoad(),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            ),
+                          ),
+                        SliverToBoxAdapter(
+                          child: AccountOverviewCard(
                             vm: AccountOverviewVm(
                               totalReceivable:
                                   viewData.computed.totalReceivable,
@@ -352,23 +682,48 @@ class _AccountPageState extends State<AccountPage> {
                                   viewData.computed.deviceReceivables,
                             ),
                           ),
-                          const SizedBox(
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(
                             height: AccountTokens.projectTitleTopGap,
                           ),
-                          AccountProjectSection(
-                            projects: viewData.filteredProjects,
-                            hasActiveFilter: viewData.hasActiveFilter,
-                            onOpenFilter: () => _openProjectFilterSheet(
-                              suggestions: viewData.projectSuggestions,
+                        ),
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: PinnedHeaderDelegate(
+                            height: AccountTokens.projectPinnedHeaderHeight,
+                            child: AccountProjectPinnedHeader(
+                              projectCount: viewData.filteredProjects.length,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AccountProjectMergeButton(
+                                    onPressed: _openMergeSheet,
+                                  ),
+                                  AccountProjectFilterButton(
+                                    hasActiveFilter: viewData.hasActiveFilter,
+                                    onOpenFilter: () => _openProjectFilterSheet(
+                                      suggestions: viewData.projectSuggestions,
+                                    ),
+                                    onClearFilter: () => _applyProjectFilterResult(
+                                      const AccountProjectFilterResult.clear(),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            onClearFilter: () => _applyProjectFilterResult(
-                              const AccountProjectFilterResult.clear(),
-                            ),
-                            onTapProject: (p) =>
-                                _openProjectDetail(p.projectKey),
                           ),
-                        ],
-                      ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: AccountProjectList(
+                            projects: viewData.filteredProjects,
+                            onTap: (p) => _openProjectDetail(p.projectKey),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: AccountTokens.homeBottomGap),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -378,5 +733,78 @@ class _AccountPageState extends State<AccountPage> {
         ),
       ),
     );
+  }
+}
+
+class _DissolveMergeConfirmDialog extends StatefulWidget {
+  const _DissolveMergeConfirmDialog({
+    required this.project,
+    required this.onConfirm,
+    required this.onError,
+  });
+
+  final AccountProjectVM project;
+  final Future<void> Function() onConfirm;
+  final void Function(String message) onError;
+
+  @override
+  State<_DissolveMergeConfirmDialog> createState() =>
+      _DissolveMergeConfirmDialogState();
+}
+
+class _DissolveMergeConfirmDialogState
+    extends State<_DissolveMergeConfirmDialog> {
+  bool _submitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final projects = widget.project.memberProjectKeys.map((key) {
+      return ProjectKey.fromKey(key).displayName;
+    }).toList();
+
+    return AlertDialog(
+      title: const Text('解除合并？'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('解除后将恢复为普通项目：'),
+          const SizedBox(height: 8),
+          for (final project in projects) Text(project),
+          const SizedBox(height: 12),
+          const Text('原始计时记录不会删除。\n设备、工时、单价不会改变。'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).pop(false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _confirm,
+          child: Text(_submitting ? '解除中' : '解除合并'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirm() async {
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      await widget.onConfirm();
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+      });
+      widget.onError('解除合并失败：$error');
+    }
   }
 }

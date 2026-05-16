@@ -23,10 +23,11 @@ import '../../../core/utils/store_feedback.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 
-import '../../../patterns/fuel/fuel_home_pattern.dart';
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/maintenance/maintenance_detail_content_pattern.dart';
+import '../../../patterns/maintenance/maintenance_sliver_home_pattern.dart';
+import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
 
@@ -302,20 +303,19 @@ class _MaintenancePageState extends State<MaintenancePage> {
       deviceStore: deviceStore,
     );
 
-    final recordsSection = MaintenanceRecordsSection(
+    final recordsContent = MaintenanceRecordsContent(
       rows: viewData.rows,
       onEdit: (record) => _openMaintenanceEditor(editing: record),
       onConfirmDelete: _confirmDelete,
       onDelete: _delete,
     );
 
-    return FuelHomePattern(
+    return MaintenanceSliverHomePattern(
       header: SectionHeader(title: '维保', onAdd: () => _openMaintenanceEditor()),
       summary: _buildSummaryCard(viewData.summary),
-      filter: const SizedBox.shrink(),
-      records: recordsSection,
+      recordsTitle: RecordsTitle(count: viewData.rows.length),
+      records: recordsContent,
       loading: viewData.loading,
-      hasFilter: false,
       error: viewData.error,
       onRetry: _retryLoad,
     );
