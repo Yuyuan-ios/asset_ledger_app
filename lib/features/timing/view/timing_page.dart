@@ -11,6 +11,7 @@ import '../../../data/models/fuel_log.dart';
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/project_key.dart';
+import '../../../data/services/account_project_merge_service.dart';
 import '../../../data/services/account_service.dart';
 import '../../../data/services/timing_monthly_expense_service.dart';
 import '../../../data/services/timing_monthly_income_service.dart';
@@ -221,6 +222,29 @@ class _TimingPageState extends State<TimingPage> {
     }
   }
 
+  Future<bool> _autoDissolveMergeGroupIfProjectKeyChanged({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  }) async {
+    if (editing == null) return false;
+
+    final oldProjectKey = ProjectKey.buildKey(
+      contact: editing.contact,
+      site: editing.site,
+    );
+    final newProjectKey = ProjectKey.buildKey(
+      contact: record.contact,
+      site: record.site,
+    );
+    if (oldProjectKey == newProjectKey) return false;
+
+    final mergeService = context.read<AccountProjectMergeService>();
+    return mergeService.dissolveMergeGroupIfProjectKeyChanged(
+      oldProjectKey: oldProjectKey,
+      newProjectKey: newProjectKey,
+    );
+  }
+
   Future<void> _retryLoad() async {
     final timingStore = context.read<TimingStore>();
     final deviceStore = context.read<DeviceStore>();
@@ -330,10 +354,25 @@ class _TimingPageState extends State<TimingPage> {
             if (!mounted) return;
 
             final feedback = storeActionFeedback(timingStore, action: '保存');
-            _toast(feedback.message);
             if (!feedback.isSuccess) {
+              _toast(feedback.message);
               return;
             }
+            var toastMessage = feedback.message;
+            try {
+              final dissolved =
+                  await _autoDissolveMergeGroupIfProjectKeyChanged(
+                    editing: editing,
+                    record: record,
+                  );
+              if (dissolved) {
+                toastMessage = '该项目联系人或地址已变更，系统已自动解除相关合并项目。';
+              }
+            } catch (_) {
+              toastMessage = '项目已保存，但自动解除合并失败，请稍后重试。';
+            }
+            if (!mounted) return;
+            _toast(toastMessage);
             if (!sheetContext.mounted) return;
             Navigator.of(sheetContext).pop();
           },

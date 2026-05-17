@@ -1,13 +1,18 @@
+import 'package:asset_ledger/data/models/account_project_merge_group.dart';
+import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
+import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/fuel_log.dart';
 import 'package:asset_ledger/data/models/maintenance_record.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
@@ -116,12 +121,74 @@ void main() {
     expect(timingRepository.saveCalls, 0);
     expect(timingRepository.savedCalculationHistories, isEmpty);
   });
+
+  testWidgets('dissolves active merge group after editing project address', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+    final mergeRepository = _FakeAccountProjectMergeRepository(
+      group: _mergeGroup(),
+      members: _mergeMembers(),
+    );
+
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      mergeRepository: mergeRepository,
+    );
+
+    await tester.tap(find.text('甲方·一号工地'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(timingRepository.saveCalls, 1);
+    expect(timingRepository.savedRecords.single.site, '一号工地新址');
+    expect(mergeRepository.dissolvedGroupIds, [1]);
+    expect(mergeRepository.group?.isActive, isFalse);
+    expect(mergeRepository.members.every((member) => !member.isActive), isTrue);
+  });
+
+  testWidgets(
+    'keeps merge group when editing hours without project key change',
+    (WidgetTester tester) async {
+      final timingRepository = _FakeTimingRepository(seed: [_record()]);
+      final mergeRepository = _FakeAccountProjectMergeRepository(
+        group: _mergeGroup(),
+        members: _mergeMembers(),
+      );
+
+      await _pumpTimingPage(
+        tester,
+        timingRepository: timingRepository,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        mergeRepository: mergeRepository,
+      );
+
+      await tester.tap(find.text('甲方·一号工地'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_textFieldWithLabel('工时（小时）'), '20.0');
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pumpAndSettle();
+
+      expect(timingRepository.saveCalls, 1);
+      expect(timingRepository.savedRecords.single.contact, '甲方');
+      expect(timingRepository.savedRecords.single.site, '一号工地');
+      expect(mergeRepository.dissolvedGroupIds, isEmpty);
+      expect(mergeRepository.group?.isActive, isTrue);
+    },
+  );
 }
 
 Future<void> _pumpTimingPage(
   WidgetTester tester, {
   _FakeTimingRepository? timingRepository,
   required TimingCalculationHistoryRepository historyRepository,
+  _FakeAccountProjectMergeRepository? mergeRepository,
 }) async {
   tester.view.physicalSize = const Size(800, 1000);
   tester.view.devicePixelRatio = 1;
@@ -140,6 +207,12 @@ Future<void> _pumpTimingPage(
   final fuelStore = FuelStore(fuelRepository);
   final maintenanceStore = MaintenanceStore(maintenanceRepository);
   final rateStore = ProjectRateStore(rateRepository);
+  final resolvedMergeRepository =
+      mergeRepository ?? _FakeAccountProjectMergeRepository();
+  final mergeService = AccountProjectMergeService(
+    repository: resolvedMergeRepository,
+    now: () => DateTime.utc(2026, 5, 15, 1, 2, 3),
+  );
 
   await deviceStore.loadAll();
   await timingStore.loadAll();
@@ -158,6 +231,7 @@ Future<void> _pumpTimingPage(
             value: maintenanceStore,
           ),
           ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+          Provider<AccountProjectMergeService>.value(value: mergeService),
         ],
         child: TimingPage(calculationHistoryRepository: historyRepository),
       ),
@@ -174,6 +248,12 @@ Device _device() {
     defaultUnitPrice: 100,
     baseMeterHours: 0,
   );
+}
+
+Finder _textFieldWithLabel(String label) {
+  return find.byWidgetPredicate((widget) {
+    return widget is TextField && widget.decoration?.labelText == label;
+  });
 }
 
 TimingRecord _record({TimingType type = TimingType.hours}) {
@@ -239,6 +319,7 @@ class _FakeTimingRepository implements TimingRepository {
     : _records = List.of(seed);
 
   final List<TimingRecord> _records;
+  final List<TimingRecord> savedRecords = [];
   final List<List<TimingCalculationHistory>> savedCalculationHistories = [];
   var saveCalls = 0;
 
@@ -257,6 +338,7 @@ class _FakeTimingRepository implements TimingRepository {
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
     saveCalls++;
+    savedRecords.add(record);
     savedCalculationHistories.add(List.of(calculationHistories));
     return record.id == null ? record.copyWith(id: 1) : record;
   }
@@ -357,4 +439,120 @@ class _FakeProjectRateRepository implements ProjectRateRepository {
 
   @override
   Future<int> deleteByProjectKey(String projectKey) async => 1;
+}
+
+AccountProjectMergeGroup _mergeGroup() {
+  return const AccountProjectMergeGroup(
+    id: 1,
+    contact: '甲方',
+    createdAt: '2026-05-15T00:00:00.000Z',
+  );
+}
+
+List<AccountProjectMergeMember> _mergeMembers() {
+  return const [
+    AccountProjectMergeMember(
+      id: 1,
+      groupId: 1,
+      projectKey: '甲方||一号工地',
+      contact: '甲方',
+      site: '一号工地',
+      sortOrder: 0,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+    AccountProjectMergeMember(
+      id: 2,
+      groupId: 1,
+      projectKey: '甲方||二号工地',
+      contact: '甲方',
+      site: '二号工地',
+      sortOrder: 1,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+  ];
+}
+
+class _FakeAccountProjectMergeRepository
+    implements AccountProjectMergeRepository {
+  _FakeAccountProjectMergeRepository({
+    this.group,
+    List<AccountProjectMergeMember> members = const [],
+  }) : members = List.of(members);
+
+  AccountProjectMergeGroup? group;
+  List<AccountProjectMergeMember> members;
+  final List<int> dissolvedGroupIds = [];
+
+  @override
+  Future<AccountProjectMergeGroupWithMembers> createGroupWithMembers({
+    required AccountProjectMergeGroup group,
+    required List<AccountProjectMergeMember> members,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> dissolveGroup({
+    required int groupId,
+    required String dissolvedAt,
+  }) async {
+    dissolvedGroupIds.add(groupId);
+    group = group?.copyWith(isActive: false, dissolvedAt: dissolvedAt);
+    members = [
+      for (final member in members)
+        if (member.groupId == groupId)
+          member.copyWith(isActive: false)
+        else
+          member,
+    ];
+  }
+
+  @override
+  Future<AccountProjectMergeGroup?> getGroupById(int groupId) async {
+    final current = group;
+    if (current == null || current.id != groupId) return null;
+    return current;
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembers() async {
+    return members.where((member) => member.isActive).toList();
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectKeys(
+    List<String> projectKeys,
+  ) async {
+    final keySet = projectKeys.map((key) => key.trim()).toSet();
+    return members.where((member) {
+      return member.isActive && keySet.contains(member.projectKey);
+    }).toList();
+  }
+
+  @override
+  Future<List<AccountProjectMergeGroup>> listActiveGroups() async {
+    final current = group;
+    if (current == null || !current.isActive) return const [];
+    return [current];
+  }
+
+  @override
+  Future<List<AccountProjectMergeGroupWithMembers>>
+  listActiveGroupsWithMembers() async {
+    final current = group;
+    if (current == null || !current.isActive) return const [];
+    return [
+      AccountProjectMergeGroupWithMembers(
+        group: current,
+        members: await listActiveMembers(),
+      ),
+    ];
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listMembersByGroupId(
+    int groupId,
+  ) async {
+    return members.where((member) => member.groupId == groupId).toList();
+  }
 }

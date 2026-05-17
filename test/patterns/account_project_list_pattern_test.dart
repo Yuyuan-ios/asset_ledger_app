@@ -69,7 +69,9 @@ void main() {
         ),
       );
 
-      expect(find.text('92.6%实收(尚义+鲜滩)'), findsOneWidget);
+      expect(find.text('92.6%实收('), findsOneWidget);
+      expect(find.text('尚义+鲜滩'), findsOneWidget);
+      expect(find.text(')'), findsOneWidget);
     },
   );
 

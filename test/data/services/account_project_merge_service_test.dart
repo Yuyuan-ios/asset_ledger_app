@@ -80,6 +80,88 @@ void main() {
     expect(members.every((item) => !item.isActive), isTrue);
   });
 
+  test('dissolves active group when member address changes', () async {
+    final created = await service.createMergeGroup(
+      contact: '李杰',
+      projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+    );
+
+    final dissolved = await service.dissolveMergeGroupIfProjectKeyChanged(
+      oldProjectKey: '李杰||尚义',
+      newProjectKey: '李杰||尚义远的家电公司也有很多长您好今天',
+    );
+
+    expect(dissolved, isTrue);
+    expect(await service.getActiveMergeGroupsWithMembers(), isEmpty);
+
+    final group = await repository.getGroupById(created.group.id!);
+    expect(group, isNotNull);
+    expect(group!.isActive, isFalse);
+
+    final members = await repository.listMembersByGroupId(created.group.id!);
+    expect(members, hasLength(2));
+    expect(members.every((item) => !item.isActive), isTrue);
+  });
+
+  test('dissolves active group when member contact changes', () async {
+    await service.createMergeGroup(
+      contact: '李杰',
+      projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+    );
+
+    final dissolved = await service.dissolveMergeGroupIfProjectKeyChanged(
+      oldProjectKey: '李杰||尚义',
+      newProjectKey: '张三||尚义',
+    );
+
+    expect(dissolved, isTrue);
+    expect(await service.getActiveMergeGroupsWithMembers(), isEmpty);
+  });
+
+  test(
+    'keeps active group when hours date device or note edits keep project key',
+    () async {
+      final created = await service.createMergeGroup(
+        contact: '李杰',
+        projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+      );
+
+      for (final editedField in ['工时', '日期', '设备', '备注']) {
+        final dissolved = await service.dissolveMergeGroupIfProjectKeyChanged(
+          oldProjectKey: '李杰||尚义',
+          newProjectKey: '李杰||尚义',
+        );
+        expect(dissolved, isFalse, reason: editedField);
+      }
+
+      final active = await service.getActiveMergeGroupsWithMembers();
+      expect(active, hasLength(1));
+      expect(active.single.group.id, created.group.id);
+      expect(active.single.group.isActive, isTrue);
+    },
+  );
+
+  test(
+    'does not dissolve when old project key is not an active member',
+    () async {
+      final created = await service.createMergeGroup(
+        contact: '李杰',
+        projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+      );
+
+      final dissolved = await service.dissolveMergeGroupIfProjectKeyChanged(
+        oldProjectKey: '李杰||高桥',
+        newProjectKey: '李杰||高桥新址',
+      );
+
+      expect(dissolved, isFalse);
+
+      final active = await service.getActiveMergeGroupsWithMembers();
+      expect(active, hasLength(1));
+      expect(active.single.group.id, created.group.id);
+    },
+  );
+
   test('rejects fewer than two members', () async {
     expect(
       () => service.createMergeGroup(contact: '李杰', projectKeys: ['李杰||尚义']),

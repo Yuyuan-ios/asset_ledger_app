@@ -41,16 +41,52 @@ class AccountProjectList extends StatelessWidget {
     return '总共:  $normalized h';
   }
 
-  String _receivedText(AccountProjectVM p) {
-    final base = '${FormatUtils.percent1(p.ratio)}实收';
-    if (p.kind != AccountProjectKind.merged) return base;
+  String _receivedBaseText(AccountProjectVM p) {
+    return '${FormatUtils.percent1(p.ratio)}实收';
+  }
 
-    final sites = p.includedSites
+  Widget _receivedText(AccountProjectVM p, TextStyle? style) {
+    final base = _receivedBaseText(p);
+    final sitesSuffix = p.kind == AccountProjectKind.merged
+        ? _mergedSitesSuffix(p.includedSites)
+        : '';
+    if (sitesSuffix.isEmpty) {
+      return Text(
+        base,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$base(', maxLines: 1, style: style),
+        Flexible(
+          child: Text(
+            sitesSuffix,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+        Text(')', maxLines: 1, style: style),
+      ],
+    );
+  }
+
+  String _mergedSitesSuffix(List<String> includedSites) {
+    final effectiveSites = includedSites
         .map((site) => site.trim())
         .where((site) => site.isNotEmpty)
         .toList();
-    if (sites.isEmpty) return base;
-    return '$base(${sites.join('+')})';
+    final joined = effectiveSites.join('+');
+    if (joined.isEmpty) return '';
+
+    final maxPrefixLength = '家里+成都+鲜滩+'.length;
+    if (joined.length <= maxPrefixLength) return joined;
+    return '${joined.substring(0, maxPrefixLength)}...';
   }
 
   @override
@@ -203,11 +239,19 @@ class AccountProjectList extends StatelessWidget {
                         ),
                         Row(
                           children: [
-                            Text(_receivedText(p), style: statusStyle),
-                            const Spacer(),
-                            Text(
-                              '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
-                              style: statusStyle,
+                            Expanded(child: _receivedText(p, statusStyle)),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: statusStyle,
+                                ),
+                              ),
                             ),
                           ],
                         ),

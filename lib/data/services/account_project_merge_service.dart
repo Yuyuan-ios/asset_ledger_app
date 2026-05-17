@@ -73,6 +73,30 @@ class AccountProjectMergeService {
     );
   }
 
+  Future<int?> findActiveGroupIdByProjectKey(String projectKey) async {
+    final key = projectKey.trim();
+    if (key.isEmpty) return null;
+
+    final members = await _repository.listActiveMembersByProjectKeys([key]);
+    if (members.isEmpty) return null;
+    return members.first.groupId;
+  }
+
+  Future<bool> dissolveMergeGroupIfProjectKeyChanged({
+    required String oldProjectKey,
+    required String newProjectKey,
+  }) async {
+    final oldKey = oldProjectKey.trim();
+    final newKey = newProjectKey.trim();
+    if (oldKey.isEmpty || oldKey == newKey) return false;
+
+    final groupId = await findActiveGroupIdByProjectKey(oldKey);
+    if (groupId == null) return false;
+
+    await dissolveMergeGroup(groupId);
+    return true;
+  }
+
   Future<List<AccountProjectMergeGroupWithMembers>>
   getActiveMergeGroupsWithMembers() {
     return _repository.listActiveGroupsWithMembers();
