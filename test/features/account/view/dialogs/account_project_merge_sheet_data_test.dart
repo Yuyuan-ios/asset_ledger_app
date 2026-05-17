@@ -49,6 +49,51 @@ void main() {
       expect(mergedItems.map((item) => item.projectKey), ['李杰||尚义', '李杰||鲜滩']);
     });
 
+    test('excludes active merge members from unmerged items', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: [
+          _project('李杰||鲜滩', '李杰 + 鲜滩'),
+          _project('李杰||新地址', '李杰 + 新地址'),
+        ],
+        activeMergeGroups: const [_activeGroup],
+      );
+
+      final group = groups.single;
+      expect(group.unmergedItems.map((item) => item.projectKey), ['李杰||新地址']);
+      expect(group.mergedItems.map((item) => item.projectKey), [
+        '李杰||尚义',
+        '李杰||鲜滩',
+      ]);
+
+      final unmergedKeys = group.unmergedItems.map((item) => item.projectKey);
+      final mergedKeys = group.mergedItems.map((item) => item.projectKey);
+      expect(unmergedKeys.toSet().intersection(mergedKeys.toSet()), isEmpty);
+    });
+
+    test(
+      'does not duplicate active members when a group contains stale keys',
+      () {
+        final groups = buildMergeSheetGroups(
+          normalProjects: [
+            _project('李杰||鲜滩', '李杰 + 鲜滩'),
+            _project('李杰||新地址', '李杰 + 新地址'),
+          ],
+          activeMergeGroups: const [_activeGroupWithStaleMember],
+        );
+
+        final group = groups.single;
+        expect(group.unmergedItems.map((item) => item.projectKey), ['李杰||新地址']);
+        expect(group.mergedItems.map((item) => item.projectKey), [
+          '李杰||鲜滩',
+          '李杰||尚义',
+        ]);
+
+        final unmergedKeys = group.unmergedItems.map((item) => item.projectKey);
+        final mergedKeys = group.mergedItems.map((item) => item.projectKey);
+        expect(unmergedKeys.toSet().intersection(mergedKeys.toSet()), isEmpty);
+      },
+    );
+
     test('does not include a contact with only one project', () {
       final groups = buildMergeSheetGroups(
         normalProjects: [_project('赵六||尚义', '赵六 + 尚义')],
@@ -78,6 +123,34 @@ AccountProjectVM _project(String projectKey, String displayName) {
     payments: const [],
   );
 }
+
+const _activeGroupWithStaleMember = AccountProjectMergeGroupWithMembers(
+  group: AccountProjectMergeGroup(
+    id: 2,
+    contact: '李杰',
+    createdAt: '2026-05-15T00:00:00.000Z',
+  ),
+  members: [
+    AccountProjectMergeMember(
+      id: 3,
+      groupId: 2,
+      projectKey: '李杰||鲜滩',
+      contact: '李杰',
+      site: '鲜滩',
+      sortOrder: 0,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+    AccountProjectMergeMember(
+      id: 4,
+      groupId: 2,
+      projectKey: '李杰||尚义',
+      contact: '李杰',
+      site: '尚义',
+      sortOrder: 1,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+  ],
+);
 
 const _activeGroup = AccountProjectMergeGroupWithMembers(
   group: AccountProjectMergeGroup(

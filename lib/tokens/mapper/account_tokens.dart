@@ -114,7 +114,8 @@ class AccountTokens {
   static const Color projectCardBorderColor = Color(0x4D000000); // 30% 黑色描边
   static const Color projectCardChipColor = Color(0x33999999); // 20% 灰底
   static const Color projectCardProgressTrack = Color(0xFFD9D9D9); // 进度条底色
-  static const Color projectCardProgressFill = Color(0xFF32CD32); // 进度条高亮
+  static const Color projectCardProgressFill =
+      TimingColors.chartIncome; // 进度条高亮（对齐总览饼图已收色）
 
   // ===== 账户页：项目详情弹窗 =====
   static const double projectDetailSheetHeaderInset = 2; // Header 左右补偿，使最终为 10

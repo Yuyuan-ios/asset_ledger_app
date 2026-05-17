@@ -31,11 +31,19 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
   required List<AccountProjectMergeGroupWithMembers> activeMergeGroups,
 }) {
   final groupsByContact = <String, _MutableMergeSheetContactGroup>{};
+  final activeMemberProjectKeys = <String>{
+    for (final groupWithMembers in activeMergeGroups)
+      if (groupWithMembers.group.isActive)
+        for (final member in groupWithMembers.members)
+          if (member.isActive) member.projectKey.trim(),
+  };
 
   for (final project in normalProjects) {
     if (project.kind != AccountProjectKind.normal) continue;
+    final projectKey = project.projectKey.trim();
+    if (activeMemberProjectKeys.contains(projectKey)) continue;
 
-    final key = ProjectKey.fromKey(project.projectKey);
+    final key = ProjectKey.fromKey(projectKey);
     final contact = key.contact.trim();
     if (contact.isEmpty || key.site.trim().isEmpty) continue;
 
@@ -47,7 +55,7 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
         .unmergedItems
         .add(
           MergeProjectSheetItem(
-            projectKey: project.projectKey,
+            projectKey: projectKey,
             displayName: project.displayName,
             isMerged: false,
           ),

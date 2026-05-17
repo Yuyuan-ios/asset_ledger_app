@@ -71,4 +71,29 @@ docs/**/*.pdf
 build/ios/ipa/
 build/ios/archive/
 
+# Local agent/tooling caches
+.claude/skills/gitnexus/
 .gitnexus
+
+# Local archives and temporary exports
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Local secrets and environment overrides
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.secret
+secrets/
+
+# Local runtime/debug scratch
+*.tmp
+*.temp
+*.pid
+*.trace
+*.crash
+*.ips
