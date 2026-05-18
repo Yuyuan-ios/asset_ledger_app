@@ -16,6 +16,7 @@ class _AssetLedgerArchitectureLints extends PluginBase {
     _NoProjectKeyInCoreIdentityPath(),
     _NoFeatureModelDataImplementationImports(),
     _NoDataLayerImportsFromFeatures(),
+    _NoCoreLayerImportsFromUpperLayers(),
     _NoEnumValuesByName(),
   ];
 }
@@ -221,6 +222,34 @@ class _NoDataLayerImportsFromFeatures extends DartLintRule {
   }
 }
 
+class _NoCoreLayerImportsFromUpperLayers extends DartLintRule {
+  const _NoCoreLayerImportsFromUpperLayers() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_core_layer_imports_from_upper_layers',
+    problemMessage:
+        'Core layer files must not import data, app or features; core must '
+        'stay dependency-free of upper layers.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!path.contains('/lib/core/')) return;
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null || !_isUpperLayerImport(uri)) return;
+      reporter.atNode(node.uri, code);
+    });
+  }
+}
+
 class _NoEnumValuesByName extends DartLintRule {
   const _NoEnumValuesByName() : super(code: _code);
 
@@ -331,4 +360,20 @@ bool _isFeaturesImport(String uri) {
         .startsWith('features/');
   }
   return normalized.contains('features/');
+}
+
+bool _isUpperLayerImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  bool hitsUpper(String path) =>
+      path.startsWith('data/') ||
+      path.startsWith('app/') ||
+      path.startsWith('features/') ||
+      path.contains('/data/') ||
+      path.contains('/app/') ||
+      path.contains('/features/');
+  if (normalized.startsWith('package:')) {
+    if (!normalized.startsWith('package:asset_ledger/')) return false;
+    return hitsUpper(normalized.substring('package:asset_ledger/'.length));
+  }
+  return hitsUpper(normalized);
 }

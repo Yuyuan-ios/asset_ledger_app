@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/pro_gate.dart';
-import '../../../core/utils/device_label.dart';
+import 'package:asset_ledger/data/services/device_label.dart';
 import '../../../data/models/device.dart';
 import '../../../data/services/avatar_storage_service.dart';
 import '../../../data/services/device_service.dart';

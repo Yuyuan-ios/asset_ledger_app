@@ -1,5 +1,5 @@
-import '../../data/models/device.dart';
-import '../../data/services/device_service.dart';
+import '../models/device.dart';
+import 'device_service.dart';
 
 // =====================================================================
 // ============================== 设备显示标签工具 ==============================

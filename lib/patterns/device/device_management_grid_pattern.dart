@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../components/avatars/app_device_avatar.dart';
 import '../../core/foundation/typography.dart';
-import '../../core/utils/device_label.dart';
+import 'package:asset_ledger/data/services/device_label.dart';
 import '../../data/models/device.dart';
 import '../../tokens/mapper/device_tokens.dart';
 

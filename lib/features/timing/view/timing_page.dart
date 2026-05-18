@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/money/amount_policy.dart';
-import '../../../core/utils/device_maps.dart';
-import '../../../core/utils/device_label.dart';
+import 'package:asset_ledger/data/models/device_maps.dart';
+import 'package:asset_ledger/data/services/device_label.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../data/models/timing_record.dart';
