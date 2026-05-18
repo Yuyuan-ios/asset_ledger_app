@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
+import '../../tokens/mapper/timing_tokens.dart';
 
 /// Figma: Component_TabBar
 /// - 固定底部
@@ -82,7 +83,7 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected
-        ? AppColors.brand
+        ? TimingTokens.headerAddButtonBackground
         : Colors.black.withValues(alpha: NavigationTokens.inactiveAlpha);
     final labelStyle = AppTypography.caption(
       context,
