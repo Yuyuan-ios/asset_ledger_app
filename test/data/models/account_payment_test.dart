@@ -110,5 +110,42 @@ void main() {
       expect(payment.mergeBatchNote, '微信收款');
       expect(payment.createdAt, '2026-05-16T01:02:03.000Z');
     });
+
+    test('fromMap falls back to legacy REAL amount when fen is absent', () {
+      // Pre-v18 historical row / old backup import: only the REAL columns
+      // exist. The model must read them and still derive fen on write-back.
+      final legacy = AccountPayment.fromMap({
+        'id': 7,
+        'project_key': 'Carol||Yard C',
+        'ymd': 20251231,
+        'amount': 73.21,
+        'merge_batch_total_amount': 200.05,
+        'source_type': AccountPayment.sourceTypeMergeAllocation,
+      });
+
+      expect(legacy.amount, 73.21);
+      expect(legacy.mergeBatchTotalAmount, 200.05);
+      expect(legacy.amountFen, 7321);
+      expect(legacy.mergeBatchTotalAmountFen, 20005);
+
+      final remapped = legacy.toMap();
+      expect(remapped['amount'], 73.21);
+      expect(remapped['amount_fen'], 7321);
+      expect(remapped['merge_batch_total_amount'], 200.05);
+      expect(remapped['merge_batch_total_amount_fen'], 20005);
+    });
+
+    test('fromMap prefers fen and tolerates a NULL fen column', () {
+      final nullFen = AccountPayment.fromMap({
+        'id': 8,
+        'project_key': 'Dan||Yard D',
+        'ymd': 20260101,
+        'amount': 9.99,
+        'amount_fen': null,
+      });
+
+      expect(nullFen.amount, 9.99);
+      expect(nullFen.amountFen, 999);
+    });
   });
 }
