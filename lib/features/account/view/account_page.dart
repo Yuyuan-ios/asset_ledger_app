@@ -200,6 +200,7 @@ class _AccountPageState extends State<AccountPage> {
         project: project,
         allPayments: project.payments,
         editing: AccountPayment(
+          projectId: project.effectiveProjectId,
           projectKey: project.projectKey,
           ymd: paymentItem.ymd,
           amount: paymentItem.amount,

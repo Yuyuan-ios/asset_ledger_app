@@ -192,13 +192,27 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
   static Future<void> _ensureProjectWithExecutor(
     DatabaseExecutor executor,
     AccountPayment payment,
-  ) {
+  ) async {
+    final projectId = payment.effectiveProjectId.trim();
+    if (projectId.isEmpty) {
+      throw StateError('收款缺少项目 ID');
+    }
+
+    final existing = await executor.query(
+      SqfliteProjectRepository.table,
+      columns: const ['id'],
+      where: 'id = ?',
+      whereArgs: [projectId],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) return;
+
     final parsed = ProjectKey.fromKey(payment.projectKey);
     final timestamp = DateTime.now().toUtc().toIso8601String();
-    return SqfliteProjectRepository.upsertWithExecutor(
+    await SqfliteProjectRepository.upsertWithExecutor(
       executor,
       Project(
-        id: payment.effectiveProjectId,
+        id: projectId,
         contact: parsed.contact.trim(),
         site: parsed.site.trim(),
         createdAt: timestamp,

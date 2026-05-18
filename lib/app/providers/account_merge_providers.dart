@@ -4,6 +4,7 @@ import 'package:provider/single_child_widget.dart';
 import '../adapters/account_merge_dissolve_adapter.dart';
 import '../../data/repositories/account_payment_repository.dart';
 import '../../data/repositories/account_project_merge_repository.dart';
+import '../../data/repositories/project_write_off_repository.dart';
 import '../../data/repositories/project_rate_repository.dart';
 import '../../data/services/account_project_merge_service.dart';
 import '../../features/account/state/account_filter_store.dart';
@@ -30,6 +31,7 @@ class AccountMergeProviders {
   factory AccountMergeProviders.build() {
     final accountPaymentRepository = SqfliteAccountPaymentRepository();
     final projectRateRepository = SqfliteProjectRateRepository();
+    final projectWriteOffRepository = SqfliteProjectWriteOffRepository();
     final accountProjectMergeRepository =
         SqfliteAccountProjectMergeRepository();
     final accountProjectMergeService = AccountProjectMergeService(
@@ -41,7 +43,10 @@ class AccountMergeProviders {
 
     final paymentStore = AccountPaymentStore(accountPaymentRepository);
     final projectRateStore = ProjectRateStore(projectRateRepository);
-    final accountStore = AccountStore(mergeService: accountProjectMergeService);
+    final accountStore = AccountStore(
+      mergeService: accountProjectMergeService,
+      writeOffRepository: projectWriteOffRepository,
+    );
 
     return AccountMergeProviders._(
       paymentStore: paymentStore,
@@ -52,6 +57,9 @@ class AccountMergeProviders {
           value: accountPaymentRepository,
         ),
         Provider<ProjectRateRepository>.value(value: projectRateRepository),
+        Provider<ProjectWriteOffRepository>.value(
+          value: projectWriteOffRepository,
+        ),
         Provider<AccountProjectMergeRepository>.value(
           value: accountProjectMergeRepository,
         ),

@@ -74,6 +74,7 @@ class _AccountPaymentEditorDialogState
     if (override != null) return override;
     return AccountService.sumReceivedByProject(
       projectKey: widget.project.projectKey,
+      projectId: widget.project.effectiveProjectId,
       payments: widget.allPayments,
       excludePaymentId: excludePaymentId,
     );
@@ -186,7 +187,8 @@ class _AccountPaymentEditorDialogState
         ),
         FilledButton(
           onPressed: () {
-            if (editing != null && editing.projectKey != project.projectKey) {
+            if (editing != null &&
+                editing.effectiveProjectId != project.effectiveProjectId) {
               _showError(formValidationMessage('编辑记录不属于当前项目'));
               return;
             }
@@ -224,9 +226,13 @@ class _AccountPaymentEditorDialogState
               });
             }
 
+            final editingProjectId = editing?.projectId.trim() ?? '';
             _close(
               AccountPayment(
                 id: editing?.id,
+                projectId: editingProjectId.isNotEmpty
+                    ? editingProjectId
+                    : project.effectiveProjectId,
                 projectKey: project.projectKey,
                 ymd: ymd,
                 amount: amount,

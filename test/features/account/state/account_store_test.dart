@@ -2,8 +2,11 @@ import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
+import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
@@ -116,6 +119,47 @@ void main() {
         expect(store.activeMergeGroups, isEmpty);
       },
     );
+
+    test('uses loaded write-offs when computing summaries', () async {
+      final store = AccountStore(
+        mergeService: AccountProjectMergeService(
+          repository: _FakeMergeRepository(activeGroups: const []),
+        ),
+        writeOffRepository: _FakeWriteOffRepository(
+          items: [
+            ProjectWriteOff(
+              id: 'write-off-1',
+              projectId: ProjectId.legacyFromKey('李杰||鲜滩'),
+              amount: 1000,
+              reason: ProjectWriteOffReason.settlement.dbValue,
+              writeOffDate: '2026-05-16',
+              createdAt: '2026-05-16T00:00:00.000Z',
+              updatedAt: '2026-05-16T00:00:00.000Z',
+            ),
+          ],
+        ),
+      );
+
+      await store.loadAll();
+
+      final result = store.compute(
+        timingRecords: _timingRecords,
+        devices: _devices,
+        rates: const [],
+        payments: const [],
+      );
+
+      final xiantan = result.projects.firstWhere(
+        (project) => project.projectKey == '李杰||鲜滩',
+      );
+
+      expect(store.writeOffs, hasLength(1));
+      expect(xiantan.receivable, 1000);
+      expect(xiantan.writeOff, 1000);
+      expect(xiantan.remaining, 0);
+      expect(result.totalWriteOff, 1000);
+      expect(result.totalRemaining, 1000);
+    });
   });
 }
 
@@ -217,6 +261,50 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
 
   @override
   Future<List<AccountProjectMergeMember>> listMembersByGroupId(int groupId) {
+    throw UnimplementedError();
+  }
+}
+
+class _FakeWriteOffRepository implements ProjectWriteOffRepository {
+  _FakeWriteOffRepository({required this.items});
+
+  final List<ProjectWriteOff> items;
+
+  @override
+  Future<List<ProjectWriteOff>> listAll() async => items;
+
+  @override
+  Future<int> clearAllForRestore() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<int> deleteById(String id) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> insert(ProjectWriteOff item) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<ProjectWriteOff>> listByProjectId(String projectId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<double> sumByProjectId(String projectId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Map<String, double>> sumByProjectIds(Iterable<String> projectIds) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<int> update(ProjectWriteOff item) {
     throw UnimplementedError();
   }
 }

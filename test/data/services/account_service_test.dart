@@ -2,6 +2,7 @@ import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/services/account_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -255,11 +256,62 @@ void main() {
 
         expect(money.receivable, 1450);
         expect(money.received, 400);
+        expect(money.writeOff, 0);
         expect(money.remaining, 1050);
         expect(money.ratio, closeTo(400 / 1450, 0.000001));
+        expect(money.settlementRatio, closeTo(400 / 1450, 0.000001));
         expect(receivedExcluding, 300);
         expect(rateInfo.minRate, 100);
         expect(rateInfo.isMultiDevice, isTrue);
+      },
+    );
+
+    test(
+      'deducts write-offs from remaining but not received or receivable',
+      () {
+        const agg = ProjectAgg(
+          projectKey: 'Alice||Yard A',
+          contact: 'Alice',
+          site: 'Yard A',
+          minYmd: 20260301,
+          deviceIds: [],
+          hoursByDevice: {},
+          normalHoursByDevice: {},
+          breakingHoursByDevice: {},
+          rentIncomeTotal: 1260,
+        );
+
+        final money = AccountService.calcMoney(
+          agg: agg,
+          devices: const [],
+          rates: const [],
+          payments: const [
+            AccountPayment(
+              id: 1,
+              projectKey: 'Alice||Yard A',
+              ymd: 20260310,
+              amount: 1200,
+            ),
+          ],
+          writeOffs: [
+            ProjectWriteOff(
+              id: 'write-off-1',
+              projectId: ProjectId.legacyFromKey('Alice||Yard A'),
+              amount: 60,
+              reason: ProjectWriteOffReason.rounding.dbValue,
+              writeOffDate: '2026-03-10',
+              createdAt: '2026-03-10T00:00:00.000Z',
+              updatedAt: '2026-03-10T00:00:00.000Z',
+            ),
+          ],
+        );
+
+        expect(money.receivable, 1260);
+        expect(money.received, 1200);
+        expect(money.writeOff, 60);
+        expect(money.remaining, 0);
+        expect(money.ratio, closeTo(1200 / 1260, 0.000001));
+        expect(money.settlementRatio, 1.0);
       },
     );
 
