@@ -68,7 +68,7 @@ const double _dateHeaderExtent =
     TimingTokens.recordDividerThickness +
     TimingTokens.recordDividerThickness;
 const double _dateHeaderDividerHorizontalInset = 4;
-const Color _dateHeaderDividerColor = Color(0xCCD9D9D9);
+const Color _dateHeaderDividerColor = Color(0x33D9D9D9);
 
 List<Widget> _buildTimingRecordRows({
   required _RecordDisplaySection section,
