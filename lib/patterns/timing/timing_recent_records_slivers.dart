@@ -43,9 +43,9 @@ List<Widget> buildTimingRecentRecordSlivers({
           ),
         ),
       ),
-      SliverList(
-        delegate: SliverChildListDelegate(
-          _buildTimingRecordRows(
+      SliverToBoxAdapter(
+        child: _RecordGroupCard(
+          rows: _buildTimingRecordRows(
             section: section,
             expandedAggregateKeys: expandedAggregateKeys,
             onToggleAggregate: onToggleAggregate,
@@ -67,6 +67,7 @@ const double _dateHeaderExtent =
     (TimingTokens.dateHeaderFontSize * TimingTokens.dateHeaderLineHeight) +
     TimingTokens.recordDividerThickness +
     TimingTokens.recordDividerThickness;
+const double _dateHeaderDividerHorizontalInset = 10;
 
 List<Widget> _buildTimingRecordRows({
   required _RecordDisplaySection section,
@@ -146,6 +147,52 @@ List<Widget> _buildTimingRecordRows({
       .toList();
 }
 
+const double _recordGroupRadius = 8;
+const double _recordInnerDividerLeftInset =
+    TimingTokens.recordRowPaddingLeft +
+    TimingTokens.recordAvatarSize +
+    TimingTokens.recordAvatarRightGap;
+
+class _RecordGroupCard extends StatelessWidget {
+  const _RecordGroupCard({required this.rows});
+
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_recordGroupRadius),
+      child: ColoredBox(
+        color: SheetColors.background,
+        child: Column(
+          children: [
+            for (var index = 0; index < rows.length; index += 1) ...[
+              if (index > 0) const _RecordInnerDivider(),
+              rows[index],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordInnerDivider extends StatelessWidget {
+  const _RecordInnerDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(left: _recordInnerDividerLeftInset),
+      child: Divider(
+        height: TimingTokens.recordDividerThickness,
+        thickness: TimingTokens.recordDividerThickness,
+        color: TimingColors.divider,
+      ),
+    );
+  }
+}
+
 class _SliverDateGroupHeader extends StatelessWidget {
   const _SliverDateGroupHeader({
     required this.ymd,
@@ -182,13 +229,24 @@ class _SliverDateGroupHeader extends StatelessWidget {
               ),
             ),
           ),
-          const Divider(
-            height: TimingTokens.recordDividerThickness,
-            thickness: TimingTokens.recordDividerThickness,
-            color: TimingColors.divider,
-          ),
+          const _DateHeaderBoundaryDivider(),
         ],
       ),
+    );
+  }
+}
+
+class _DateHeaderBoundaryDivider extends StatelessWidget {
+  const _DateHeaderBoundaryDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(
+      indent: _dateHeaderDividerHorizontalInset,
+      endIndent: _dateHeaderDividerHorizontalInset,
+      height: TimingTokens.recordDividerThickness,
+      thickness: TimingTokens.recordDividerThickness,
+      color: TimingColors.divider,
     );
   }
 }

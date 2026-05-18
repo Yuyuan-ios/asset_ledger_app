@@ -23,6 +23,9 @@ class TimingTokens {
   static const double headerAddButtonHorizontalPadding = 16; // “+ 新建”按钮水平内边距
   static const double headerAddButtonTextSize = 20; // “+ 新建”按钮字号
   static const double headerAddButtonTextLineHeight = 1; // “+ 新建”按钮行高
+  static const Color headerAddButtonBackground = Color(
+    0xFFC45A2D,
+  ); // “+ 新建”按钮背景色
 
   // ===== 计时主页：年度图表卡片 =====
   static const double chartCardHeight = 240; // 图表卡片高度
