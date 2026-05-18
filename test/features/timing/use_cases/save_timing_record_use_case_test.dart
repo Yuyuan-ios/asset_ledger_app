@@ -11,6 +11,7 @@ import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_use_case.dart';
+import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -102,7 +103,9 @@ _SaveTimingUseCaseHarness _useCase(
   return _SaveTimingUseCaseHarness(
     useCase: SaveTimingRecordUseCase(
       timingStore: TimingStore(timingRepository),
-      mergeService: AccountProjectMergeService(repository: mergeRepository),
+      mergeDissolve: AccountMergeDissolveAdapter(
+        AccountProjectMergeService(repository: mergeRepository),
+      ),
       projectResolver: ProjectResolver(
         projectRepository: projectRepository,
         now: () => DateTime.utc(2026, 5, 17),
