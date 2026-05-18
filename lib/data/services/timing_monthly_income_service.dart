@@ -3,8 +3,11 @@ import '../../core/utils/format_utils.dart';
 import '../models/device.dart';
 import '../models/project_device_rate.dart';
 import '../models/project_key.dart';
+import '../models/project_write_off.dart';
 import '../models/timing_record.dart';
 import 'account_service.dart';
+
+const double _timingIncomeEpsilon = 0.000001;
 
 /// 计时页收入图表：动态应收摊销视图（按设备连续区间按天均摊到自然月）
 ///
@@ -41,6 +44,7 @@ class TimingMonthlyIncomeService {
     required int targetYear,
     required int targetMonth,
     DateTime? asOfDate,
+    List<ProjectWriteOff> projectWriteOffs = const [],
   }) {
     final month = targetMonth.clamp(1, 12);
     final targetMonthEnd = _monthEnd(targetYear, month);
@@ -48,13 +52,24 @@ class TimingMonthlyIncomeService {
     final asOf = _dateOnly(asOfDate ?? DateTime.now());
     final cutoffDate = asOf.isBefore(targetMonthEnd) ? asOf : targetMonthEnd;
     final monthly = List<double>.filled(12, 0.0);
+    final projectMonthlyIncome = <String, Map<int, double>>{};
     final rateCache = <String, Map<int, double>>{};
 
     for (final record in records) {
       if (record.type != TimingType.rent || record.income <= 0) continue;
       final start = FormatUtils.dateFromYmd(record.startDate);
-      if (!start.isAfter(cutoffDate) && start.year == targetYear) {
-        monthly[start.month - 1] += record.income;
+      if (!start.isAfter(cutoffDate)) {
+        final projectId = record.effectiveProjectId;
+        _addProjectMonthIncome(
+          projectMonthlyIncome,
+          projectId: projectId,
+          year: start.year,
+          month: start.month,
+          amount: record.income,
+        );
+        if (start.year == targetYear) {
+          monthly[start.month - 1] += record.income;
+        }
       }
     }
 
@@ -121,6 +136,8 @@ class TimingMonthlyIncomeService {
         final dailyIncome = realtimeIncome / days;
         _distributeToMonths(
           monthly: monthly,
+          projectMonthlyIncome: projectMonthlyIncome,
+          projectId: current.effectiveProjectId,
           targetYear: targetYear,
           start: start,
           end: end,
@@ -128,7 +145,12 @@ class TimingMonthlyIncomeService {
         );
       }
     }
-    return monthly;
+    return _applyProjectWriteOffs(
+      monthly: monthly,
+      projectMonthlyIncome: projectMonthlyIncome,
+      targetYear: targetYear,
+      writeOffs: projectWriteOffs,
+    );
   }
 
   static Map<int, List<TimingRecord>> _groupByDevice(
@@ -177,6 +199,8 @@ class TimingMonthlyIncomeService {
 
   static void _distributeToMonths({
     required List<double> monthly,
+    required Map<String, Map<int, double>> projectMonthlyIncome,
+    required String projectId,
     required int targetYear,
     required DateTime start,
     required DateTime end,
@@ -189,13 +213,88 @@ class TimingMonthlyIncomeService {
       final monthEnd = _monthEnd(cursor.year, cursor.month);
       final segmentEnd = monthEnd.isBefore(end) ? monthEnd : end;
       final days = segmentEnd.difference(cursor).inDays + 1;
+      final amount = dailyIncome * days;
+
+      _addProjectMonthIncome(
+        projectMonthlyIncome,
+        projectId: projectId,
+        year: cursor.year,
+        month: cursor.month,
+        amount: amount,
+      );
 
       if (cursor.year == targetYear) {
-        monthly[cursor.month - 1] += dailyIncome * days;
+        monthly[cursor.month - 1] += amount;
       }
 
       cursor = segmentEnd.add(const Duration(days: 1));
     }
+  }
+
+  static void _addProjectMonthIncome(
+    Map<String, Map<int, double>> projectMonthlyIncome, {
+    required String projectId,
+    required int year,
+    required int month,
+    required double amount,
+  }) {
+    if (projectId.trim().isEmpty || amount <= 0) return;
+    final monthKey = year * 100 + month;
+    final monthly = projectMonthlyIncome.putIfAbsent(projectId, () => {});
+    monthly[monthKey] = (monthly[monthKey] ?? 0.0) + amount;
+  }
+
+  static List<double> _applyProjectWriteOffs({
+    required List<double> monthly,
+    required Map<String, Map<int, double>> projectMonthlyIncome,
+    required int targetYear,
+    required List<ProjectWriteOff> writeOffs,
+  }) {
+    if (writeOffs.isEmpty || projectMonthlyIncome.isEmpty) return monthly;
+
+    final writeOffByProjectId = <String, double>{};
+    for (final writeOff in writeOffs) {
+      final projectId = writeOff.projectId.trim();
+      if (projectId.isEmpty || writeOff.amount <= 0) continue;
+      writeOffByProjectId[projectId] =
+          (writeOffByProjectId[projectId] ?? 0.0) + writeOff.amount;
+    }
+    if (writeOffByProjectId.isEmpty) return monthly;
+
+    final adjusted = List<double>.from(monthly);
+    for (final entry in writeOffByProjectId.entries) {
+      final monthIncome = projectMonthlyIncome[entry.key];
+      if (monthIncome == null || monthIncome.isEmpty) continue;
+
+      final projectOriginalIncome = monthIncome.values.fold<double>(
+        0.0,
+        (sum, amount) => sum + amount,
+      );
+      if (projectOriginalIncome <= _timingIncomeEpsilon) continue;
+
+      for (final monthEntry in monthIncome.entries) {
+        final monthKey = monthEntry.key;
+        final year = monthKey ~/ 100;
+        if (year != targetYear) continue;
+
+        final month = monthKey % 100;
+        if (month < 1 || month > 12) continue;
+
+        final originalIncome = monthEntry.value;
+        final allocatedWriteOff =
+            entry.value * originalIncome / projectOriginalIncome;
+        final cappedWriteOff = allocatedWriteOff > originalIncome
+            ? originalIncome
+            : allocatedWriteOff;
+        final index = month - 1;
+        adjusted[index] -= cappedWriteOff;
+        if (adjusted[index].abs() <= _timingIncomeEpsilon ||
+            adjusted[index] < 0) {
+          adjusted[index] = 0.0;
+        }
+      }
+    }
+    return adjusted;
   }
 
   static DateTime _monthEnd(int year, int month) {

@@ -17,6 +17,7 @@ import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
+import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
@@ -255,6 +256,7 @@ Future<void> _pumpTimingPage(
   final fuelStore = FuelStore(fuelRepository);
   final maintenanceStore = MaintenanceStore(maintenanceRepository);
   final rateStore = ProjectRateStore(rateRepository);
+  final accountStore = AccountStore();
   final resolvedMergeRepository =
       mergeRepository ?? _FakeAccountProjectMergeRepository();
   final mergeService = AccountProjectMergeService(
@@ -267,6 +269,7 @@ Future<void> _pumpTimingPage(
   await fuelStore.loadAll();
   await maintenanceStore.loadAll();
   await rateStore.loadAll();
+  await accountStore.loadAll();
 
   await tester.pumpWidget(
     MaterialApp(
@@ -279,6 +282,7 @@ Future<void> _pumpTimingPage(
             value: maintenanceStore,
           ),
           ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+          ChangeNotifierProvider<AccountStore>.value(value: accountStore),
           Provider<AccountProjectMergeService>.value(value: mergeService),
           Provider<TimingMergeDissolvePort>.value(
             value: AccountMergeDissolveAdapter(mergeService),
