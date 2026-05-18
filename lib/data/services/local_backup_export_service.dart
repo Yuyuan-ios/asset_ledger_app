@@ -10,6 +10,7 @@ import '../repositories/fuel_repository.dart';
 import '../repositories/maintenance_repository.dart';
 import '../repositories/project_repository.dart';
 import '../repositories/project_rate_repository.dart';
+import '../repositories/project_write_off_repository.dart';
 import '../repositories/timing_repository.dart';
 import 'local_backup_file_naming.dart';
 
@@ -50,6 +51,7 @@ class LocalBackupExportService {
       final fuelRepository = SqfliteFuelRepository();
       final maintenanceRepository = SqfliteMaintenanceRepository();
       final accountPaymentRepository = SqfliteAccountPaymentRepository();
+      final projectWriteOffRepository = SqfliteProjectWriteOffRepository();
       final projectRateRepository = SqfliteProjectRateRepository();
       final projectRepository = SqfliteProjectRepository();
 
@@ -60,6 +62,7 @@ class LocalBackupExportService {
         fuelRepository.listAll(),
         maintenanceRepository.listAll(),
         accountPaymentRepository.listAll(),
+        projectWriteOffRepository.listAll(),
         projectRateRepository.listAll(),
         _listTimingCalculationHistoryRows(),
         _listMergeGroupRows(),
@@ -72,11 +75,12 @@ class LocalBackupExportService {
       final fuelLogs = results[3].cast<dynamic>();
       final maintenanceRecords = results[4].cast<dynamic>();
       final accountPayments = results[5].cast<dynamic>();
-      final projectDeviceRates = results[6].cast<dynamic>();
-      final timingCalculationHistoryRows = results[7]
+      final projectWriteOffs = results[6].cast<dynamic>();
+      final projectDeviceRates = results[7].cast<dynamic>();
+      final timingCalculationHistoryRows = results[8]
           .cast<Map<String, Object?>>();
-      final mergeGroupRows = results[8].cast<Map<String, Object?>>();
-      final mergeMemberRows = results[9].cast<Map<String, Object?>>();
+      final mergeGroupRows = results[9].cast<Map<String, Object?>>();
+      final mergeMemberRows = results[10].cast<Map<String, Object?>>();
 
       final exportedAt = DateTime.now().toUtc();
 
@@ -95,6 +99,9 @@ class LocalBackupExportService {
             .map((item) => item.toMap())
             .toList(growable: false),
         'account_payments': accountPayments
+            .map((item) => item.toMap())
+            .toList(growable: false),
+        'project_write_offs': projectWriteOffs
             .map((item) => item.toMap())
             .toList(growable: false),
         'project_device_rates': projectDeviceRates
@@ -133,6 +140,7 @@ class LocalBackupExportService {
             'fuel_logs': fuelLogs.length,
             'maintenance_records': maintenanceRecords.length,
             'account_payments': accountPayments.length,
+            'project_write_offs': projectWriteOffs.length,
             'project_device_rates': projectDeviceRates.length,
             _calculationHistoryTable: timingCalculationHistoryRows.length,
             _mergeGroupsTable: mergeGroupRows.length,

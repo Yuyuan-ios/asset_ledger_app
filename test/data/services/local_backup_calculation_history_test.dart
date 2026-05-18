@@ -6,6 +6,7 @@ import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/project_key.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/services/local_backup_export_service.dart';
 import 'package:asset_ledger/data/services/local_backup_import_preview_service.dart';
 import 'package:asset_ledger/data/services/local_backup_restore_service.dart';
@@ -161,6 +162,41 @@ void main() {
     });
   });
 
+  test('export includes project write-offs and counts', () async {
+    final db = await _openCurrentInMemoryDb();
+    await _seedProjectWriteOff(
+      db,
+      _writeOffMap(
+        id: 'write-off-1',
+        amount: 60,
+        reason: ProjectWriteOffReason.rounding.dbValue,
+      ),
+    );
+
+    final result = await LocalBackupExportService.exportJsonBackup();
+
+    expect(result.success, isTrue);
+    final rawJson = await File(result.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final summary = decoded['summary'] as Map<String, dynamic>;
+    final tableCounts = summary['table_counts'] as Map<String, dynamic>;
+    final writeOffs = data['project_write_offs'] as List<dynamic>;
+
+    expect(tableCounts['project_write_offs'], 1);
+    expect(writeOffs, hasLength(1));
+    expect(writeOffs.single, {
+      'id': 'write-off-1',
+      'project_id': _projectIdForKey('甲方||一号工地'),
+      'amount': 60.0,
+      'reason': ProjectWriteOffReason.rounding.dbValue,
+      'note': '尾款不再追收',
+      'write_off_date': '2026-05-18',
+      'created_at': '2026-05-18T00:00:00.000Z',
+      'updated_at': '2026-05-18T00:00:00.000Z',
+    });
+  });
+
   test('export includes projects and project_id child links', () async {
     final db = await _openCurrentInMemoryDb();
     await _seedDevice(db, id: 1);
@@ -227,6 +263,22 @@ void main() {
     expect(preview.tableCounts['account_project_merge_members'], 2);
     expect(preview.projectCount, 2);
     expect(preview.accountCount, 1);
+  });
+
+  test('preview counts project write-offs when present', () {
+    final preview = const LocalBackupImportPreviewService()
+        .previewFromDecodedJson(
+          _backupJson(
+            schemaVersion: AppDatabase.schemaVersion,
+            projectWriteOffs: [
+              _writeOffMap(id: 'write-off-1'),
+              _writeOffMap(id: 'write-off-2', amount: 40),
+            ],
+          ),
+        );
+
+    expect(preview.isValid, isTrue);
+    expect(preview.tableCounts['project_write_offs'], 2);
   });
 
   test('preview counts new projects table without splitting project ids', () {
@@ -585,6 +637,32 @@ void main() {
     expect(payment['created_at'], '2026-05-16T01:02:03.000Z');
   });
 
+  test('restore restores project write-offs', () async {
+    final db = await _openCurrentInMemoryDb();
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(
+        exportFormatVersion: 2,
+        schemaVersion: AppDatabase.schemaVersion,
+        projects: [_projectMap()],
+        timingRecords: [
+          _timingRecordMap(id: 7, deviceId: 1, includeProjectId: true),
+        ],
+        projectWriteOffs: [_writeOffMap(id: 'write-off-1')],
+      ),
+    );
+
+    expect(result.success, isTrue);
+    expect(result.restoredCounts['project_write_offs'], 1);
+
+    final rows = await db.query('project_write_offs');
+    expect(rows, hasLength(1));
+    expect(rows.single['id'], 'write-off-1');
+    expect(rows.single['project_id'], _projectIdForKey('甲方||一号工地'));
+    expect(rows.single['amount'], 60.0);
+    expect(rows.single['reason'], ProjectWriteOffReason.rounding.dbValue);
+  });
+
   test('exported backup restores in a round trip', () async {
     final db = await _openCurrentInMemoryDb();
     await _seedDevice(db, id: 1);
@@ -598,6 +676,7 @@ void main() {
       ticketCount: 2,
     );
     await _seedAccountPayment(db, _paymentMap());
+    await _seedProjectWriteOff(db, _writeOffMap(id: 'write-off-1'));
     await db.insert(
       'project_device_rates',
       _projectRateMap(includeProjectId: true),
@@ -623,6 +702,7 @@ void main() {
     expect(result.restoredCounts['timing_records'], 1);
     expect(result.restoredCounts['timing_calculation_history'], 1);
     expect(result.restoredCounts['account_payments'], 1);
+    expect(result.restoredCounts['project_write_offs'], 1);
     expect(result.restoredCounts['project_device_rates'], 1);
     expect(result.restoredCounts['account_project_merge_groups'], 1);
     expect(result.restoredCounts['account_project_merge_members'], 1);
@@ -641,6 +721,7 @@ void main() {
       expect(result.restoredCounts['timing_calculation_history'], 0);
       expect(result.restoredCounts['account_project_merge_groups'], 0);
       expect(result.restoredCounts['account_project_merge_members'], 0);
+      expect(result.restoredCounts['project_write_offs'], 0);
       expect(
         await SqfliteTimingCalculationHistoryRepository().findByTimingRecordId(
           7,
@@ -657,6 +738,10 @@ void main() {
         await (await AppDatabase.database).query(
           'account_project_merge_members',
         ),
+        isEmpty,
+      );
+      expect(
+        await (await AppDatabase.database).query('project_write_offs'),
         isEmpty,
       );
     },
@@ -739,6 +824,7 @@ Map<String, dynamic> _backupJson({
   List<Map<String, Object?>>? timingRecords,
   List<Map<String, Object?>> calculationHistories = const [],
   List<Map<String, Object?>> accountPayments = const [],
+  List<Map<String, Object?>>? projectWriteOffs,
   List<Map<String, Object?>> projectDeviceRates = const [],
   List<Map<String, Object?>>? mergeGroups,
   List<Map<String, Object?>>? mergeMembers,
@@ -750,6 +836,9 @@ Map<String, dynamic> _backupJson({
     'fuel_logs': const [],
     'maintenance_records': const [],
     'account_payments': accountPayments,
+    ...projectWriteOffs == null
+        ? const {}
+        : {'project_write_offs': projectWriteOffs},
     'project_device_rates': projectDeviceRates,
   };
 
@@ -779,6 +868,8 @@ Map<String, dynamic> _backupJson({
         'fuel_logs': 0,
         'maintenance_records': 0,
         'account_payments': accountPayments.length,
+        if (projectWriteOffs != null)
+          'project_write_offs': projectWriteOffs.length,
         'project_device_rates': projectDeviceRates.length,
         if (includeCalculationHistoryTable)
           'timing_calculation_history': calculationHistories.length,
@@ -924,6 +1015,28 @@ Map<String, Object?> _paymentMap({
   };
 }
 
+Map<String, Object?> _writeOffMap({
+  String id = 'write-off-1',
+  String projectKey = '甲方||一号工地',
+  double amount = 60.0,
+  String reason = 'rounding',
+  String? note = '尾款不再追收',
+  String writeOffDate = '2026-05-18',
+  String createdAt = '2026-05-18T00:00:00.000Z',
+  String updatedAt = '2026-05-18T00:00:00.000Z',
+}) {
+  return {
+    'id': id,
+    'project_id': _projectIdForKey(projectKey),
+    'amount': amount,
+    'reason': reason,
+    'note': note,
+    'write_off_date': writeOffDate,
+    'created_at': createdAt,
+    'updated_at': updatedAt,
+  };
+}
+
 Map<String, Object?> _mergeGroupMap({
   int id = 1,
   String contact = '甲方',
@@ -1014,6 +1127,15 @@ Future<void> _seedAccountPayment(
     ...payment,
     'project_id': payment['project_id'] ?? _projectIdForKey(projectKey),
   });
+}
+
+Future<void> _seedProjectWriteOff(
+  Database db,
+  Map<String, Object?> writeOff,
+) async {
+  final projectId = writeOff['project_id'] as String;
+  await _seedProject(db, projectKey: '甲方||一号工地');
+  await db.insert('project_write_offs', {...writeOff, 'project_id': projectId});
 }
 
 Future<void> _seedMergeGroup(Database db) async {

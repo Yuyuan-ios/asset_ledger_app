@@ -49,6 +49,7 @@ class LocalBackupImportPreviewService {
     'account_project_merge_groups',
     'account_project_merge_members',
     'projects',
+    'project_write_offs',
   ];
 
   Future<BackupPreview> pickAndPreviewBackup() async {

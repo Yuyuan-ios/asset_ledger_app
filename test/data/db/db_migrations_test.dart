@@ -60,6 +60,7 @@ void main() {
             'account_payments',
             'project_device_rates',
             'account_project_merge_members',
+            'project_write_offs',
           ]),
         );
         expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
@@ -81,7 +82,16 @@ void main() {
         expect(await _tableExists(db, 'timing_calculation_history'), isTrue);
         expect(await _tableExists(db, 'account_project_merge_groups'), isTrue);
         expect(await _tableExists(db, 'account_project_merge_members'), isTrue);
+        expect(await _tableExists(db, 'project_write_offs'), isTrue);
         expect(await _indexExists(db, 'idx_timing_calc_record_id'), isTrue);
+        expect(
+          await _indexExists(db, 'idx_project_write_offs_project_id'),
+          isTrue,
+        );
+        expect(
+          await _indexExists(db, 'idx_project_write_offs_write_off_date'),
+          isTrue,
+        );
         expect(
           await _indexExists(
             db,
@@ -300,150 +310,141 @@ void main() {
       },
     );
 
-    test(
-      'account_payments project_id foreign key rejects orphans and '
-      'restricts delete',
-      () async {
-        final path = await _testDbPath('account_payments_fk');
-        await deleteDatabase(path);
+    test('account_payments project_id foreign key rejects orphans and '
+        'restricts delete', () async {
+      final path = await _testDbPath('account_payments_fk');
+      await deleteDatabase(path);
 
-        final db = await _openCurrentDb(path);
-        final project = Project(
-          id: 'project:fk',
-          contact: '甲方',
-          site: '一号工地',
-          createdAt: '2026-05-17T00:00:00.000Z',
-          updatedAt: '2026-05-17T00:00:00.000Z',
-        );
-        await db.insert('projects', project.toMap());
+      final db = await _openCurrentDb(path);
+      final project = Project(
+        id: 'project:fk',
+        contact: '甲方',
+        site: '一号工地',
+        createdAt: '2026-05-17T00:00:00.000Z',
+        updatedAt: '2026-05-17T00:00:00.000Z',
+      );
+      await db.insert('projects', project.toMap());
 
-        await expectLater(
-          db.insert('account_payments', {
-            'project_id': 'project:missing',
-            'project_key': '甲方||一号工地',
-            'ymd': 20260517,
-            'amount': 100.0,
-          }),
-          throwsA(isA<DatabaseException>()),
-        );
-
-        await db.insert('account_payments', {
-          'project_id': project.id,
+      await expectLater(
+        db.insert('account_payments', {
+          'project_id': 'project:missing',
           'project_key': '甲方||一号工地',
           'ymd': 20260517,
           'amount': 100.0,
-        });
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
 
-        await expectLater(
-          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
-          throwsA(isA<DatabaseException>()),
-        );
-        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+      await db.insert('account_payments', {
+        'project_id': project.id,
+        'project_key': '甲方||一号工地',
+        'ymd': 20260517,
+        'amount': 100.0,
+      });
 
-        await db.close();
-        await deleteDatabase(path);
-      },
-    );
+      await expectLater(
+        db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
 
-    test(
-      'project_device_rates project_id foreign key rejects orphans and '
-      'restricts delete',
-      () async {
-        final path = await _testDbPath('project_device_rates_fk');
-        await deleteDatabase(path);
+      await db.close();
+      await deleteDatabase(path);
+    });
 
-        final db = await _openCurrentDb(path);
-        final project = Project(
-          id: 'project:fk',
-          contact: '甲方',
-          site: '一号工地',
-          createdAt: '2026-05-17T00:00:00.000Z',
-          updatedAt: '2026-05-17T00:00:00.000Z',
-        );
-        await db.insert('projects', project.toMap());
+    test('project_device_rates project_id foreign key rejects orphans and '
+        'restricts delete', () async {
+      final path = await _testDbPath('project_device_rates_fk');
+      await deleteDatabase(path);
 
-        await expectLater(
-          db.insert('project_device_rates', {
-            'project_id': 'project:missing',
-            'project_key': '甲方||一号工地',
-            'device_id': 1,
-            'is_breaking': 0,
-            'rate': 380.0,
-          }),
-          throwsA(isA<DatabaseException>()),
-        );
+      final db = await _openCurrentDb(path);
+      final project = Project(
+        id: 'project:fk',
+        contact: '甲方',
+        site: '一号工地',
+        createdAt: '2026-05-17T00:00:00.000Z',
+        updatedAt: '2026-05-17T00:00:00.000Z',
+      );
+      await db.insert('projects', project.toMap());
 
-        await db.insert('project_device_rates', {
-          'project_id': project.id,
+      await expectLater(
+        db.insert('project_device_rates', {
+          'project_id': 'project:missing',
           'project_key': '甲方||一号工地',
           'device_id': 1,
           'is_breaking': 0,
           'rate': 380.0,
-        });
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
 
-        await expectLater(
-          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
-          throwsA(isA<DatabaseException>()),
-        );
-        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+      await db.insert('project_device_rates', {
+        'project_id': project.id,
+        'project_key': '甲方||一号工地',
+        'device_id': 1,
+        'is_breaking': 0,
+        'rate': 380.0,
+      });
 
-        await db.close();
-        await deleteDatabase(path);
-      },
-    );
+      await expectLater(
+        db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
 
-    test(
-      'account_project_merge_members project_id foreign key rejects '
-      'orphans and restricts delete',
-      () async {
-        final path = await _testDbPath('merge_members_fk');
-        await deleteDatabase(path);
+      await db.close();
+      await deleteDatabase(path);
+    });
 
-        final db = await _openCurrentDb(path);
-        final project = Project(
-          id: 'project:fk',
-          contact: '甲方',
-          site: '一号工地',
-          createdAt: '2026-05-17T00:00:00.000Z',
-          updatedAt: '2026-05-17T00:00:00.000Z',
-        );
-        await db.insert('projects', project.toMap());
-        final groupId = await db.insert('account_project_merge_groups', {
-          'contact': '甲方',
-          'created_at': '2026-05-17T00:00:00.000Z',
-        });
+    test('account_project_merge_members project_id foreign key rejects '
+        'orphans and restricts delete', () async {
+      final path = await _testDbPath('merge_members_fk');
+      await deleteDatabase(path);
 
-        await expectLater(
-          db.insert('account_project_merge_members', {
-            'group_id': groupId,
-            'project_id': 'project:missing',
-            'project_key': '甲方||一号工地',
-            'contact': '甲方',
-            'site': '一号工地',
-            'created_at': '2026-05-17T00:00:00.000Z',
-          }),
-          throwsA(isA<DatabaseException>()),
-        );
+      final db = await _openCurrentDb(path);
+      final project = Project(
+        id: 'project:fk',
+        contact: '甲方',
+        site: '一号工地',
+        createdAt: '2026-05-17T00:00:00.000Z',
+        updatedAt: '2026-05-17T00:00:00.000Z',
+      );
+      await db.insert('projects', project.toMap());
+      final groupId = await db.insert('account_project_merge_groups', {
+        'contact': '甲方',
+        'created_at': '2026-05-17T00:00:00.000Z',
+      });
 
-        await db.insert('account_project_merge_members', {
+      await expectLater(
+        db.insert('account_project_merge_members', {
           'group_id': groupId,
-          'project_id': project.id,
+          'project_id': 'project:missing',
           'project_key': '甲方||一号工地',
           'contact': '甲方',
           'site': '一号工地',
           'created_at': '2026-05-17T00:00:00.000Z',
-        });
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
 
-        await expectLater(
-          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
-          throwsA(isA<DatabaseException>()),
-        );
-        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+      await db.insert('account_project_merge_members', {
+        'group_id': groupId,
+        'project_id': project.id,
+        'project_key': '甲方||一号工地',
+        'contact': '甲方',
+        'site': '一号工地',
+        'created_at': '2026-05-17T00:00:00.000Z',
+      });
 
-        await db.close();
-        await deleteDatabase(path);
-      },
-    );
+      await expectLater(
+        db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+      await db.close();
+      await deleteDatabase(path);
+    });
 
     test('upgrades v14 databases with external work import tables', () async {
       final path = await _testDbPath('v14_to_v15_external_work');
@@ -492,6 +493,78 @@ void main() {
         ),
       );
       expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+      await db.close();
+      await deleteDatabase(path);
+    });
+
+    test('new v16 databases include project write-off schema', () async {
+      final path = await _testDbPath('v16_project_write_off_on_create');
+      await deleteDatabase(path);
+
+      final db = await _openCurrentDb(path);
+
+      expect(await _tableExists(db, 'project_write_offs'), isTrue);
+      expect(
+        await _columnNames(db, 'project_write_offs'),
+        containsAll([
+          'id',
+          'project_id',
+          'amount',
+          'reason',
+          'note',
+          'write_off_date',
+          'created_at',
+          'updated_at',
+        ]),
+      );
+      expect(
+        await _indexExists(db, 'idx_project_write_offs_project_id'),
+        isTrue,
+      );
+      expect(
+        await _indexExists(db, 'idx_project_write_offs_write_off_date'),
+        isTrue,
+      );
+
+      await db.close();
+      await deleteDatabase(path);
+    });
+
+    test('upgrades v15 databases with project write-off table', () async {
+      final path = await _testDbPath('v15_to_v16_project_write_offs');
+      await deleteDatabase(path);
+
+      final legacyDb = await openDatabase(
+        path,
+        version: 15,
+        onConfigure: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON');
+        },
+        onCreate: (db, _) async {
+          await DbSchema.create(db);
+          await db.execute(
+            'DROP INDEX IF EXISTS idx_project_write_offs_project_id;',
+          );
+          await db.execute(
+            'DROP INDEX IF EXISTS idx_project_write_offs_write_off_date;',
+          );
+          await db.execute('DROP TABLE IF EXISTS project_write_offs;');
+        },
+      );
+      await legacyDb.close();
+
+      final db = await _openCurrentDb(path);
+
+      expect(await _tableExists(db, 'project_write_offs'), isTrue);
+      expect(
+        await _indexExists(db, 'idx_project_write_offs_project_id'),
+        isTrue,
+      );
+      expect(
+        await _indexExists(db, 'idx_project_write_offs_write_off_date'),
+        isTrue,
+      );
 
       await db.close();
       await deleteDatabase(path);
@@ -559,6 +632,7 @@ Future<Set<String>> _projectForeignKeyTables(Database db) async {
     'account_payments',
     'project_device_rates',
     'account_project_merge_members',
+    'project_write_offs',
   };
   final out = <String>{};
   for (final table in tables) {

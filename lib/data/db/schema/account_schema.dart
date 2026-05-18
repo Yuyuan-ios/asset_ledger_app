@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
-/// account_payments / project_device_rates（project_id 外键指向 projects）。
+/// account_payments / project_write_offs / project_device_rates
+/// （project_id 外键指向 projects）。
 class AccountSchema {
   static Future<void> create(Database db) async {
     await db.execute('''
@@ -25,6 +26,31 @@ class AccountSchema {
     await db.execute('''
       CREATE INDEX idx_account_payments_project_ymd
       ON account_payments(project_id, ymd);
+    ''');
+
+    await db.execute('''
+      CREATE TABLE project_write_offs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        amount REAL NOT NULL CHECK (amount > 0),
+        reason TEXT NOT NULL,
+        note TEXT,
+        write_off_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE RESTRICT
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_project_write_offs_project_id
+      ON project_write_offs(project_id);
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_project_write_offs_write_off_date
+      ON project_write_offs(write_off_date);
     ''');
 
     await db.execute('''
