@@ -45,5 +45,48 @@ void main() {
       expect(amount.fen, 57000);
       expect(amount.yuan, 570);
     });
+
+    test('rounds negative amounts symmetrically away from zero', () {
+      const unitPrice = UnitPrice(12345);
+
+      expect(
+        AmountPolicy.calculateAmount(
+          hours: const WorkHours(-100),
+          unitPrice: unitPrice,
+        ).fen,
+        -1235,
+      );
+      expect(
+        AmountPolicy.calculateAmount(
+          hours: const WorkHours(-500),
+          unitPrice: unitPrice,
+        ).fen,
+        -6173,
+      );
+      expect(
+        AmountPolicy.calculateAmount(
+          hours: const WorkHours(-239000),
+          unitPrice: unitPrice,
+        ).fen,
+        -2950455,
+      );
+
+      // Exactly 0.5 fen magnitude rounds away from zero for both signs.
+      const halfUnit = UnitPrice(5);
+      expect(
+        AmountPolicy.calculateAmount(
+          hours: const WorkHours(100),
+          unitPrice: halfUnit,
+        ).fen,
+        1,
+      );
+      expect(
+        AmountPolicy.calculateAmount(
+          hours: const WorkHours(-100),
+          unitPrice: halfUnit,
+        ).fen,
+        -1,
+      );
+    });
   });
 }
