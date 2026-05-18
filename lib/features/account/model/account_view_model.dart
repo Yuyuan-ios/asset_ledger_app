@@ -7,16 +7,20 @@ class AccountComputed {
   final List<AccountProjectVM> projects;
   final double totalReceivable;
   final double totalReceived;
+  final double totalWriteOff;
   final double totalRemaining;
   final double? totalRatio;
+  final double? settlementRate;
   final List<AccountDeviceReceivable> deviceReceivables;
 
   const AccountComputed({
     required this.projects,
     required this.totalReceivable,
     required this.totalReceived,
+    this.totalWriteOff = 0,
     required this.totalRemaining,
     required this.totalRatio,
+    this.settlementRate,
     required this.deviceReceivables,
   });
 
@@ -24,8 +28,10 @@ class AccountComputed {
     : projects = const [],
       totalReceivable = 0,
       totalReceived = 0,
+      totalWriteOff = 0,
       totalRemaining = 0,
       totalRatio = null,
+      settlementRate = null,
       deviceReceivables = const [];
 }
 
@@ -53,8 +59,10 @@ class AccountProjectVM {
 
   final double receivable;
   final double received;
+  final double writeOff;
   final double remaining;
   final double? ratio;
+  final double? settlementRatio;
 
   final List<AccountPayment> payments;
 
@@ -77,8 +85,10 @@ class AccountProjectVM {
     required this.isMultiMode,
     required this.receivable,
     required this.received,
+    this.writeOff = 0,
     required this.remaining,
     required this.ratio,
+    this.settlementRatio,
     required this.payments,
   });
 

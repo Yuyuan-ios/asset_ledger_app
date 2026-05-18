@@ -2,10 +2,13 @@ import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/account_project_merge_group_with_members.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_write_off.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/account_service.dart';
 import 'package:asset_ledger/data/models/device_maps.dart';
 import '../model/account_view_model.dart';
+
+const double _accountSummaryEpsilon = 0.0000001;
 
 class ComputeAccountSummaryUseCase {
   const ComputeAccountSummaryUseCase();
@@ -15,6 +18,7 @@ class ComputeAccountSummaryUseCase {
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
     required List<AccountPayment> payments,
+    List<ProjectWriteOff> writeOffs = const [],
     List<AccountProjectMergeGroupWithMembers> activeMergeGroups = const [],
   }) {
     final projects = AccountService.buildProjects(timingRecords: timingRecords);
@@ -39,6 +43,7 @@ class ComputeAccountSummaryUseCase {
         devices: devices,
         rates: rates,
         payments: payments,
+        writeOffs: writeOffs,
       );
 
       totalReceivable += money.receivable;
@@ -64,8 +69,10 @@ class ComputeAccountSummaryUseCase {
           isMultiMode: rateInfo.isMultiMode,
           receivable: money.receivable,
           received: money.received,
+          writeOff: money.writeOff,
           remaining: money.remaining,
           ratio: money.ratio,
+          settlementRatio: money.settlementRatio,
           payments: payments.where((payment) {
             return payment.effectiveProjectId == agg.projectId;
           }).toList()..sort((a, b) => b.ymd.compareTo(a.ymd)),
@@ -73,10 +80,20 @@ class ComputeAccountSummaryUseCase {
       );
     }
 
-    final remaining = totalReceivable - totalReceived;
-    final ratio = (totalReceivable <= 0.0000001)
+    final totalWriteOff = normalItems.fold<double>(
+      0.0,
+      (sum, item) => sum + item.writeOff,
+    );
+    final rawRemaining = totalReceivable - totalReceived - totalWriteOff;
+    final remaining = rawRemaining.abs() <= _accountSummaryEpsilon
+        ? 0.0
+        : rawRemaining;
+    final ratio = (totalReceivable <= _accountSummaryEpsilon)
         ? null
         : (totalReceived / totalReceivable);
+    final settlementRate = (totalReceivable <= _accountSummaryEpsilon)
+        ? null
+        : ((totalReceived + totalWriteOff) / totalReceivable);
 
     final items = _applyMergeGroups(
       normalItems: normalItems,
@@ -114,8 +131,10 @@ class ComputeAccountSummaryUseCase {
       projects: items,
       totalReceivable: totalReceivable,
       totalReceived: totalReceived,
+      totalWriteOff: totalWriteOff,
       totalRemaining: remaining,
       totalRatio: ratio,
+      settlementRate: settlementRate,
       deviceReceivables: deviceReceivables,
     );
   }
@@ -200,6 +219,7 @@ class ComputeAccountSummaryUseCase {
     var isMultiMode = false;
     var receivable = 0.0;
     var received = 0.0;
+    var writeOff = 0.0;
 
     for (final item in memberItems) {
       if (item.minYmd < minYmd) minYmd = item.minYmd;
@@ -216,12 +236,21 @@ class ComputeAccountSummaryUseCase {
       isMultiMode = isMultiMode || item.isMultiMode;
       receivable += item.receivable;
       received += item.received;
+      writeOff += item.writeOff;
       payments.addAll(item.payments);
     }
 
     payments.sort((a, b) => b.ymd.compareTo(a.ymd));
-    final remaining = receivable - received;
-    final ratio = receivable <= 0.0000001 ? null : received / receivable;
+    final rawRemaining = receivable - received - writeOff;
+    final remaining = rawRemaining.abs() <= _accountSummaryEpsilon
+        ? 0.0
+        : rawRemaining;
+    final ratio = receivable <= _accountSummaryEpsilon
+        ? null
+        : received / receivable;
+    final settlementRatio = receivable <= _accountSummaryEpsilon
+        ? null
+        : (received + writeOff) / receivable;
     final sortedDeviceIds = deviceIds.toList()..sort();
 
     return AccountProjectVM(
@@ -243,8 +272,10 @@ class ComputeAccountSummaryUseCase {
       isMultiMode: isMultiMode,
       receivable: receivable,
       received: received,
+      writeOff: writeOff,
       remaining: remaining,
       ratio: ratio,
+      settlementRatio: settlementRatio,
       payments: payments,
     );
   }

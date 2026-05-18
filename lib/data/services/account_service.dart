@@ -3,8 +3,11 @@ import '../models/account_payment.dart';
 import '../models/project_device_rate.dart';
 import '../models/project_id.dart';
 import '../models/project_key.dart';
+import '../models/project_write_off.dart';
 import '../models/timing_record.dart';
 import '../models/device.dart';
+
+const double _accountMoneyEpsilon = 0.0000001;
 
 // =====================================================================
 // ============================== AccountService（纯聚合） ==============================
@@ -64,16 +67,20 @@ class ProjectAgg {
 class ProjectMoney {
   final double receivable;
   final double received;
+  final double writeOff;
   final double remaining;
 
   /// 0~1（除零保护：不可算时返回 null）
   final double? ratio;
+  final double? settlementRatio;
 
   const ProjectMoney({
     required this.receivable,
     required this.received,
+    required this.writeOff,
     required this.remaining,
     required this.ratio,
+    required this.settlementRatio,
   });
 }
 
@@ -158,6 +165,7 @@ class AccountService {
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
     required List<AccountPayment> payments,
+    List<ProjectWriteOff> writeOffs = const [],
   }) {
     final effectiveRate = buildEffectiveRateMap(
       projectKey: agg.projectKey,
@@ -200,16 +208,31 @@ class AccountService {
       projectId: agg.projectId,
       payments: payments,
     );
+    final writeOff = sumWriteOffByProject(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      writeOffs: writeOffs,
+    );
 
-    // 3) 剩余 & 回款率（除零保护）
-    final remaining = receivable - received;
-    final ratio = (receivable <= 0.0000001) ? null : (received / receivable);
+    // 3) 剩余、真实回款率、结清率（除零保护）
+    final rawRemaining = receivable - received - writeOff;
+    final remaining = rawRemaining.abs() <= _accountMoneyEpsilon
+        ? 0.0
+        : rawRemaining;
+    final ratio = (receivable <= _accountMoneyEpsilon)
+        ? null
+        : (received / receivable);
+    final settlementRatio = (receivable <= _accountMoneyEpsilon)
+        ? null
+        : ((received + writeOff) / receivable);
 
     return ProjectMoney(
       receivable: receivable,
       received: received,
+      writeOff: writeOff,
       remaining: remaining,
       ratio: ratio,
+      settlementRatio: settlementRatio,
     );
   }
 
@@ -373,6 +396,23 @@ class AccountService {
       if (p.effectiveProjectId != targetProjectId) continue;
       if (excludePaymentId != null && p.id == excludePaymentId) continue;
       sum += p.amount;
+    }
+    return sum;
+  }
+
+  static double sumWriteOffByProject({
+    String? projectKey,
+    String? projectId,
+    required List<ProjectWriteOff> writeOffs,
+  }) {
+    double sum = 0.0;
+    final targetProjectId = _resolveProjectId(
+      projectId: projectId,
+      projectKey: projectKey,
+    );
+    for (final writeOff in writeOffs) {
+      if (writeOff.projectId != targetProjectId) continue;
+      sum += writeOff.amount;
     }
     return sum;
   }

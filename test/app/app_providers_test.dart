@@ -6,6 +6,7 @@ import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
+import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
@@ -33,6 +34,7 @@ void main() {
       late ProjectResolver projectResolver;
       late AccountPaymentRepository accountPaymentRepository;
       late ProjectRateRepository projectRateRepository;
+      late ProjectWriteOffRepository projectWriteOffRepository;
       late AccountProjectMergeRepository accountProjectMergeRepository;
       late AccountProjectMergeService accountProjectMergeService;
       late TimingMergeDissolvePort timingMergeDissolvePort;
@@ -58,6 +60,8 @@ void main() {
                 accountPaymentRepository = context
                     .read<AccountPaymentRepository>();
                 projectRateRepository = context.read<ProjectRateRepository>();
+                projectWriteOffRepository = context
+                    .read<ProjectWriteOffRepository>();
                 accountProjectMergeRepository = context
                     .read<AccountProjectMergeRepository>();
                 accountProjectMergeService = context
@@ -84,6 +88,7 @@ void main() {
       expect(projectResolver, isA<ProjectResolver>());
       expect(accountPaymentRepository, isA<AccountPaymentRepository>());
       expect(projectRateRepository, isA<ProjectRateRepository>());
+      expect(projectWriteOffRepository, isA<ProjectWriteOffRepository>());
       expect(
         accountProjectMergeRepository,
         isA<AccountProjectMergeRepository>(),

@@ -2,7 +2,9 @@ import '../../../data/models/account_payment.dart';
 import '../../../data/models/account_project_merge_group_with_members.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_write_off.dart';
 import '../../../data/models/timing_record.dart';
+import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/services/account_project_merge_service.dart';
 import '../../../core/utils/base_store.dart';
 import '../model/account_view_model.dart';
@@ -26,27 +28,35 @@ import '../use_cases/compute_account_summary_use_case.dart';
 class AccountStore extends BaseStore {
   AccountStore({
     AccountProjectMergeService? mergeService,
+    ProjectWriteOffRepository? writeOffRepository,
     ComputeAccountSummaryUseCase? computeAccountSummaryUseCase,
   }) : _mergeService = mergeService,
+       _writeOffRepository = writeOffRepository,
        _computeAccountSummaryUseCase =
            computeAccountSummaryUseCase ?? const ComputeAccountSummaryUseCase();
 
   final AccountProjectMergeService? _mergeService;
+  final ProjectWriteOffRepository? _writeOffRepository;
   final ComputeAccountSummaryUseCase _computeAccountSummaryUseCase;
   List<AccountProjectMergeGroupWithMembers> _activeMergeGroups = const [];
+  List<ProjectWriteOff> _writeOffs = const [];
 
   List<AccountProjectMergeGroupWithMembers> get activeMergeGroups =>
       List.unmodifiable(_activeMergeGroups);
 
-  Future<void> loadAll() async {
-    final mergeService = _mergeService;
-    if (mergeService == null) {
-      _activeMergeGroups = const [];
-      return;
-    }
+  List<ProjectWriteOff> get writeOffs => List.unmodifiable(_writeOffs);
 
+  Future<void> loadAll() async {
     await run(() async {
-      _activeMergeGroups = await mergeService.getActiveMergeGroupsWithMembers();
+      final mergeService = _mergeService;
+      _activeMergeGroups = mergeService == null
+          ? const []
+          : await mergeService.getActiveMergeGroupsWithMembers();
+
+      final writeOffRepository = _writeOffRepository;
+      _writeOffs = writeOffRepository == null
+          ? const []
+          : await writeOffRepository.listAll();
     });
   }
 
@@ -60,12 +70,14 @@ class AccountStore extends BaseStore {
     required List<ProjectDeviceRate> rates,
     required List<AccountPayment> payments,
     List<AccountProjectMergeGroupWithMembers>? activeMergeGroups,
+    List<ProjectWriteOff>? writeOffs,
   }) {
     return _computeAccountSummaryUseCase.execute(
       timingRecords: timingRecords,
       devices: devices,
       rates: rates,
       payments: payments,
+      writeOffs: writeOffs ?? _writeOffs,
       activeMergeGroups: activeMergeGroups ?? _activeMergeGroups,
     );
   }

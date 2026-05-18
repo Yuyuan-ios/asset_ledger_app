@@ -1,6 +1,7 @@
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
+import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -115,6 +116,80 @@ void main() {
       expect(row.mergeBatchNote, isNull);
       expect(row.createdAt, isNull);
     });
+
+    test('insert keeps existing stable project status unchanged', () async {
+      final db = await _openCurrentInMemoryDb();
+      final repo = SqfliteAccountPaymentRepository();
+
+      await db.insert(
+        'projects',
+        const Project(
+          id: 'project:stable',
+          contact: '新联系人',
+          site: '新工地',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-16T00:00:00.000Z',
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-16T00:00:00.000Z',
+          legacyProjectKey: '旧联系人||旧工地',
+        ).toMap(),
+      );
+
+      await repo.insert(
+        const AccountPayment(
+          projectId: 'project:stable',
+          projectKey: '旧联系人||旧工地',
+          ymd: 20260517,
+          amount: 100,
+        ),
+      );
+
+      final projectRows = await db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: ['project:stable'],
+      );
+      final project = Project.fromMap(projectRows.single);
+
+      expect(project.status, ProjectStatus.settled);
+      expect(project.contact, '新联系人');
+      expect(project.site, '新工地');
+      expect(project.settledAt, '2026-05-16T00:00:00.000Z');
+
+      final payment = (await repo.listAll()).single;
+      expect(payment.projectId, 'project:stable');
+      expect(payment.effectiveProjectId, 'project:stable');
+    });
+
+    test(
+      'insert creates a missing stable project without legacy fallback',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final repo = SqfliteAccountPaymentRepository();
+
+        await repo.insert(
+          const AccountPayment(
+            projectId: 'project:stable',
+            projectKey: '丁队||五里山',
+            ymd: 20260517,
+            amount: 100,
+          ),
+        );
+
+        final projectRows = await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:stable'],
+        );
+        final project = Project.fromMap(projectRows.single);
+
+        expect(project.id, 'project:stable');
+        expect(project.contact, '丁队');
+        expect(project.site, '五里山');
+        expect(project.status, ProjectStatus.active);
+        expect(project.legacyProjectKey, '丁队||五里山');
+      },
+    );
 
     test('batch queries and deletes only merge allocation rows', () async {
       await _openCurrentInMemoryDb();

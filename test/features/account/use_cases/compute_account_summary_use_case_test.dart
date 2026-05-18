@@ -4,6 +4,8 @@ import 'package:asset_ledger/data/models/account_project_merge_group_with_member
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/use_cases/compute_account_summary_use_case.dart';
@@ -131,8 +133,10 @@ void main() {
 
       expect(result.totalReceivable, 1350);
       expect(result.totalReceived, 350);
+      expect(result.totalWriteOff, 0);
       expect(result.totalRemaining, 1000);
       expect(result.totalRatio, closeTo(350 / 1350, 0.000001));
+      expect(result.settlementRate, closeTo(350 / 1350, 0.000001));
 
       expect(
         result.deviceReceivables.any(
@@ -184,6 +188,198 @@ void main() {
       expect(result.projects.single.hoursByDevice, isEmpty);
       expect(result.deviceReceivables.single.deviceId, 1);
       expect(result.deviceReceivables.single.amount, 22000);
+    });
+
+    test('deducts write-offs from remaining without lowering receivable', () {
+      const useCase = ComputeAccountSummaryUseCase();
+
+      final result = useCase.execute(
+        timingRecords: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: '周亮',
+            site: '成都',
+            type: TimingType.rent,
+            startMeter: 0,
+            endMeter: 0,
+            hours: 0,
+            income: 1260,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        payments: const [
+          AccountPayment(
+            id: 1,
+            projectKey: '周亮||成都',
+            ymd: 20260516,
+            amount: 1200,
+          ),
+        ],
+        writeOffs: [
+          ProjectWriteOff(
+            id: 'write-off-1',
+            projectId: ProjectId.legacyFromKey('周亮||成都'),
+            amount: 60,
+            reason: ProjectWriteOffReason.rounding.dbValue,
+            writeOffDate: '2026-05-16',
+            createdAt: '2026-05-16T00:00:00.000Z',
+            updatedAt: '2026-05-16T00:00:00.000Z',
+          ),
+        ],
+      );
+
+      final project = result.projects.single;
+      expect(project.receivable, 1260);
+      expect(project.received, 1200);
+      expect(project.writeOff, 60);
+      expect(project.remaining, 0);
+      expect(project.ratio, closeTo(1200 / 1260, 0.000001));
+      expect(project.settlementRatio, 1.0);
+      expect(result.totalReceivable, 1260);
+      expect(result.totalReceived, 1200);
+      expect(result.totalWriteOff, 60);
+      expect(result.totalRemaining, 0);
+      expect(result.totalRatio, closeTo(1200 / 1260, 0.000001));
+      expect(result.settlementRate, 1.0);
+    });
+
+    test('keeps cash collection rate separate from settlement rate', () {
+      const useCase = ComputeAccountSummaryUseCase();
+
+      final result = useCase.execute(
+        timingRecords: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: '丁队',
+            site: '五里山',
+            type: TimingType.rent,
+            startMeter: 0,
+            endMeter: 0,
+            hours: 0,
+            income: 20000,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'HITACHI 1#',
+            brand: 'HITACHI',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        payments: const [
+          AccountPayment(
+            id: 1,
+            projectKey: '丁队||五里山',
+            ymd: 20260516,
+            amount: 10000,
+          ),
+        ],
+        writeOffs: [
+          ProjectWriteOff(
+            id: 'write-off-1',
+            projectId: ProjectId.legacyFromKey('丁队||五里山'),
+            amount: 10000,
+            reason: ProjectWriteOffReason.settlement.dbValue,
+            writeOffDate: '2026-05-16',
+            createdAt: '2026-05-16T00:00:00.000Z',
+            updatedAt: '2026-05-16T00:00:00.000Z',
+          ),
+        ],
+      );
+
+      expect(result.totalReceivable, 20000);
+      expect(result.totalReceived, 10000);
+      expect(result.totalWriteOff, 10000);
+      expect(result.totalRemaining, 0);
+      expect(result.totalRatio, 0.5);
+      expect(result.settlementRate, 1.0);
+      expect(result.projects.single.received, 10000);
+      expect(result.projects.single.writeOff, 10000);
+    });
+
+    test('sums write-offs across multiple projects', () {
+      const useCase = ComputeAccountSummaryUseCase();
+
+      final result = useCase.execute(
+        timingRecords: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: '丁队',
+            site: '五里山',
+            type: TimingType.rent,
+            startMeter: 0,
+            endMeter: 0,
+            hours: 0,
+            income: 1000,
+          ),
+          TimingRecord(
+            id: 2,
+            deviceId: 1,
+            startDate: 20260502,
+            contact: '周亮',
+            site: '成都',
+            type: TimingType.rent,
+            startMeter: 0,
+            endMeter: 0,
+            hours: 0,
+            income: 500,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        payments: const [],
+        writeOffs: [
+          ProjectWriteOff(
+            id: 'write-off-1',
+            projectId: ProjectId.legacyFromKey('丁队||五里山'),
+            amount: 100,
+            reason: ProjectWriteOffReason.rounding.dbValue,
+            writeOffDate: '2026-05-16',
+            createdAt: '2026-05-16T00:00:00.000Z',
+            updatedAt: '2026-05-16T00:00:00.000Z',
+          ),
+          ProjectWriteOff(
+            id: 'write-off-2',
+            projectId: ProjectId.legacyFromKey('周亮||成都'),
+            amount: 50,
+            reason: ProjectWriteOffReason.underpaid.dbValue,
+            writeOffDate: '2026-05-16',
+            createdAt: '2026-05-16T00:00:00.000Z',
+            updatedAt: '2026-05-16T00:00:00.000Z',
+          ),
+        ],
+      );
+
+      expect(result.totalReceivable, 1500);
+      expect(result.totalReceived, 0);
+      expect(result.totalWriteOff, 150);
+      expect(result.totalRemaining, 1350);
     });
 
     test(
