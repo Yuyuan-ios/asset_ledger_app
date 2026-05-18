@@ -51,16 +51,22 @@ void main() {
         'project_key': 'Bob||Yard B',
         'ymd': 20260302,
         'amount': 88.5,
+        'amount_fen': 8850,
         'note': null,
         'source_type': AccountPayment.sourceTypeManual,
         'merge_group_id': null,
         'merge_batch_id': null,
         'merge_batch_total_amount': null,
+        'merge_batch_total_amount_fen': null,
         'merge_batch_note': null,
         'created_at': null,
       });
 
-      final rebuilt = AccountPayment.fromMap({'id': 3, 'amount': 120});
+      final rebuilt = AccountPayment.fromMap({
+        'id': 3,
+        'amount': 120.01,
+        'amount_fen': 12000,
+      });
 
       expect(rebuilt.id, 3);
       expect(rebuilt.projectId, '');
@@ -87,6 +93,7 @@ void main() {
         'merge_group_id': 3,
         'merge_batch_id': 'batch-20260515',
         'merge_batch_total_amount': 5000,
+        'merge_batch_total_amount_fen': 499999,
         'merge_batch_note': '微信收款',
         'created_at': '2026-05-16T01:02:03.000Z',
       });
@@ -99,7 +106,7 @@ void main() {
       expect(payment.sourceType, AccountPayment.sourceTypeMergeAllocation);
       expect(payment.mergeGroupId, 3);
       expect(payment.mergeBatchId, 'batch-20260515');
-      expect(payment.mergeBatchTotalAmount, 5000);
+      expect(payment.mergeBatchTotalAmount, 4999.99);
       expect(payment.mergeBatchNote, '微信收款');
       expect(payment.createdAt, '2026-05-16T01:02:03.000Z');
     });

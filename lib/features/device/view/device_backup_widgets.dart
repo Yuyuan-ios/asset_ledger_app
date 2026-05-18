@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../tokens/mapper/core_tokens.dart';
 import '../application/controllers/local_backup_controller.dart';
@@ -55,15 +56,17 @@ class BackupFileTile extends StatelessWidget {
     super.key,
     required this.backup,
     required this.onTap,
-    this.controller = const LocalBackupController(),
+    this.controller,
   });
 
   final LocalBackupFile backup;
   final VoidCallback onTap;
-  final LocalBackupController controller;
+  final LocalBackupController? controller;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedController =
+        controller ?? context.read<LocalBackupController>();
     final time = backup.backupTime ?? backup.modifiedAt;
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -73,7 +76,7 @@ class BackupFileTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        '${controller.formatBackupTimeForDisplay(time)} · ${formatFileSize(backup.size)}',
+        '${resolvedController.formatBackupTimeForDisplay(time)} · ${formatFileSize(backup.size)}',
       ),
       onTap: onTap,
     );

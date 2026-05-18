@@ -43,9 +43,10 @@ enum _ManualBackupAction { backupOnly, backupAndShare }
 // =====================================================================
 
 class _DevicePageState extends State<DevicePage> {
-  static const _localBackupController = LocalBackupController();
-
   bool _isExportingBackup = false;
+
+  LocalBackupController get _localBackupController =>
+      context.read<LocalBackupController>();
 
   // -------------------------------------------------------------------
   // 3.1 通用：提示消息（SnackBar）

@@ -104,6 +104,7 @@ class ProjectWriteOff {
       'id': id,
       'project_id': projectId,
       'amount': amount,
+      'amount_fen': amountFen,
       'reason': reason,
       'note': note,
       'write_off_date': writeOffDate,
@@ -113,10 +114,13 @@ class ProjectWriteOff {
   }
 
   static ProjectWriteOff fromMap(Map<String, Object?> map) {
+    final amountFen = _readFen(map['amount_fen']);
     return ProjectWriteOff(
       id: (map['id'] as String?) ?? '',
       projectId: (map['project_id'] as String?) ?? '',
-      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: amountFen == null
+          ? (map['amount'] as num?)?.toDouble() ?? 0.0
+          : _fenToYuan(amountFen),
       reason: (map['reason'] as String?) ?? '',
       note: map['note'] as String?,
       writeOffDate: (map['write_off_date'] as String?) ?? '',
@@ -124,6 +128,18 @@ class ProjectWriteOff {
       updatedAt: (map['updated_at'] as String?) ?? '',
     );
   }
+
+  int get amountFen => _yuanToFen(amount);
 }
 
 const _sentinel = Object();
+
+int _yuanToFen(num value) => (value * 100).round();
+
+double _fenToYuan(int value) => value / 100.0;
+
+int? _readFen(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return null;
+}

@@ -53,6 +53,12 @@ void main() {
         reason: ProjectWriteOffReason.settlement.dbValue,
       ),
     );
+    final rawRows = await db.query(
+      'project_write_offs',
+      where: 'id = ?',
+      whereArgs: ['write-off-1'],
+    );
+    expect(rawRows.single['amount_fen'], 6000);
 
     final alphaRows = await repository.listByProjectId('project:alpha');
     expect(alphaRows.map((row) => row.id).toSet(), {

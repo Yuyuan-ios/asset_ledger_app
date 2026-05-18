@@ -152,11 +152,13 @@ void main() {
       'project_key': '甲方||一号工地',
       'ymd': 20260515,
       'amount': 500.0,
+      'amount_fen': 50000,
       'note': '收款',
       'source_type': AccountPayment.sourceTypeMergeAllocation,
       'merge_group_id': 3,
       'merge_batch_id': 'batch-1',
       'merge_batch_total_amount': 5000.0,
+      'merge_batch_total_amount_fen': 500000,
       'merge_batch_note': '微信收款',
       'created_at': '2026-05-16T01:02:03.000Z',
     });
@@ -189,6 +191,7 @@ void main() {
       'id': 'write-off-1',
       'project_id': _projectIdForKey('甲方||一号工地'),
       'amount': 60.0,
+      'amount_fen': 6000,
       'reason': ProjectWriteOffReason.rounding.dbValue,
       'note': '尾款不再追收',
       'write_off_date': '2026-05-18',
@@ -633,6 +636,8 @@ void main() {
     expect(payment['merge_group_id'], 3);
     expect(payment['merge_batch_id'], 'batch-1');
     expect(payment['merge_batch_total_amount'], 5000.0);
+    expect(payment['amount_fen'], 50000);
+    expect(payment['merge_batch_total_amount_fen'], 500000);
     expect(payment['merge_batch_note'], '微信收款');
     expect(payment['created_at'], '2026-05-16T01:02:03.000Z');
   });
@@ -660,6 +665,7 @@ void main() {
     expect(rows.single['id'], 'write-off-1');
     expect(rows.single['project_id'], _projectIdForKey('甲方||一号工地'));
     expect(rows.single['amount'], 60.0);
+    expect(rows.single['amount_fen'], 6000);
     expect(rows.single['reason'], ProjectWriteOffReason.rounding.dbValue);
   });
 

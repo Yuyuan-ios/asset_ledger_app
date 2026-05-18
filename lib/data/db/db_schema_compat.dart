@@ -95,6 +95,7 @@ class DbSchemaCompat {
     await DbMigrations.ensureProjectWriteOffSchema(db);
     await DbMigrations.ensureExternalWorkSchema(db);
     await DbMigrations.ensureSyncSchema(db);
+    await DbMigrations.ensureMoneyFenSchema(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
@@ -121,6 +122,17 @@ class DbSchemaCompat {
       await db.execute('''
         ALTER TABLE account_payments
         ADD COLUMN merge_batch_total_amount REAL;
+      ''');
+    }
+    if (!names.contains('amount_fen')) {
+      await db.execute(
+        'ALTER TABLE account_payments ADD COLUMN amount_fen INTEGER;',
+      );
+    }
+    if (!names.contains('merge_batch_total_amount_fen')) {
+      await db.execute('''
+        ALTER TABLE account_payments
+        ADD COLUMN merge_batch_total_amount_fen INTEGER;
       ''');
     }
     if (!names.contains('merge_batch_note')) {
