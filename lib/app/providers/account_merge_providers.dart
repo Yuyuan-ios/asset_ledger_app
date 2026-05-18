@@ -1,6 +1,7 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../adapters/account_merge_dissolve_adapter.dart';
 import '../../data/repositories/account_payment_repository.dart';
 import '../../data/repositories/account_project_merge_repository.dart';
 import '../../data/repositories/project_rate_repository.dart';
@@ -9,6 +10,7 @@ import '../../features/account/state/account_filter_store.dart';
 import '../../features/account/state/account_payment_store.dart';
 import '../../features/account/state/account_store.dart';
 import '../../features/account/state/project_rate_store.dart';
+import '../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 
 /// Account + project-merge composition slice: payment / rate / merge
 /// repositories, merge service and the account-side stores.
@@ -33,12 +35,13 @@ class AccountMergeProviders {
     final accountProjectMergeService = AccountProjectMergeService(
       repository: accountProjectMergeRepository,
     );
+    final timingMergeDissolvePort = AccountMergeDissolveAdapter(
+      accountProjectMergeService,
+    );
 
     final paymentStore = AccountPaymentStore(accountPaymentRepository);
     final projectRateStore = ProjectRateStore(projectRateRepository);
-    final accountStore = AccountStore(
-      mergeService: accountProjectMergeService,
-    );
+    final accountStore = AccountStore(mergeService: accountProjectMergeService);
 
     return AccountMergeProviders._(
       paymentStore: paymentStore,
@@ -55,14 +58,13 @@ class AccountMergeProviders {
         Provider<AccountProjectMergeService>.value(
           value: accountProjectMergeService,
         ),
+        Provider<TimingMergeDissolvePort>.value(value: timingMergeDissolvePort),
         ChangeNotifierProvider<AccountPaymentStore>.value(value: paymentStore),
         ChangeNotifierProvider<AccountStore>.value(value: accountStore),
         ChangeNotifierProvider<AccountFilterStore>(
           create: (_) => AccountFilterStore(),
         ),
-        ChangeNotifierProvider<ProjectRateStore>.value(
-          value: projectRateStore,
-        ),
+        ChangeNotifierProvider<ProjectRateStore>.value(value: projectRateStore),
       ],
     );
   }
