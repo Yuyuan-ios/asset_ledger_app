@@ -4,6 +4,7 @@ import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/project_key.dart';
+import '../../data/models/project_write_off.dart';
 import '../../data/models/timing_record.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/account_view_model.dart';
@@ -35,6 +36,9 @@ typedef AccountOpenPaymentEditor =
 
 typedef AccountDeletePayment = Future<void> Function(AccountPayment payment);
 
+typedef AccountOpenProjectSettlement =
+    Future<void> Function(AccountProjectVM project);
+
 typedef AccountDissolveMergeGroup =
     Future<void> Function(AccountProjectVM project);
 
@@ -54,6 +58,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     required this.timingRecords,
     required this.allDevices,
     required this.allPayments,
+    this.allWriteOffs = const [],
     required this.allRates,
     required this.computed,
     required this.onBatchEditRate,
@@ -61,6 +66,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     required this.onAddPayment,
     required this.onEditPayment,
     required this.onDeletePayment,
+    this.onSettleProject,
     this.onDissolveMergeGroup,
     this.onAddMergedPayment,
     this.onEditMergedPaymentBatch,
@@ -72,6 +78,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final List<TimingRecord> timingRecords;
   final List<Device> allDevices;
   final List<AccountPayment> allPayments;
+  final List<ProjectWriteOff> allWriteOffs;
   final List<ProjectDeviceRate> allRates;
   final AccountComputed computed;
   final AccountOpenBatchRateEditor onBatchEditRate;
@@ -79,6 +86,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final AccountOpenPaymentEditor onAddPayment;
   final AccountOpenPaymentEditor onEditPayment;
   final AccountDeletePayment onDeletePayment;
+  final AccountOpenProjectSettlement? onSettleProject;
   final AccountDissolveMergeGroup? onDissolveMergeGroup;
   final AccountOpenMergedPaymentEditor? onAddMergedPayment;
   final AccountOpenMergedPaymentBatchEditor? onEditMergedPaymentBatch;
@@ -114,8 +122,10 @@ class AccountProjectDetailSheet extends StatelessWidget {
         normalHoursByDevice: const {},
         breakingHoursByDevice: const {},
         receivable: project.receivable,
+        writeOff: project.writeOff,
         remaining: project.remaining,
         payments: project.payments,
+        writeOffs: _writeOffsForProject(project),
         paymentDisplayItems: paymentDisplayItems,
         detailRows: detailRows,
         showBatchAction:
@@ -139,6 +149,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
           );
         },
         onAddPayment: () => onAddMergedPayment?.call(project),
+        onSettleProject: null,
         onEditPayment: (_) {},
         onDeletePayment: (_) {},
         onEditPaymentDisplayItem: (payment) =>
@@ -190,14 +201,19 @@ class AccountProjectDetailSheet extends StatelessWidget {
       normalHoursByDevice: normalHoursByDevice,
       breakingHoursByDevice: breakingHoursByDevice,
       receivable: project.receivable,
+      writeOff: project.writeOff,
       remaining: project.remaining,
       payments: project.payments,
+      writeOffs: _writeOffsForProject(project),
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
       onEditDeviceRate: (deviceId, isBreaking) =>
           onEditDeviceRate(project, deviceId, isBreaking, allDevices, allRates),
       showAddPayment: showInlineAddPayment,
       onAddPayment: () =>
           onAddPayment(project: project, allPayments: allPayments),
+      onSettleProject: onSettleProject == null
+          ? null
+          : () => onSettleProject?.call(project),
       onEditPayment: (payment) => onEditPayment(
         project: project,
         allPayments: allPayments,
@@ -205,6 +221,15 @@ class AccountProjectDetailSheet extends StatelessWidget {
       ),
       onDeletePayment: onDeletePayment,
     );
+  }
+
+  List<ProjectWriteOff> _writeOffsForProject(AccountProjectVM project) {
+    final projectIds = project.kind == AccountProjectKind.merged
+        ? project.memberProjectIds.toSet()
+        : {project.effectiveProjectId};
+    return allWriteOffs
+        .where((item) => projectIds.contains(item.projectId))
+        .toList(growable: false);
   }
 
   List<ProjectAccountDetailRateRow> _buildMergedDetailRows(

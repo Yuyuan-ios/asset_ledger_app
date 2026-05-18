@@ -4,6 +4,7 @@ import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
+import '../../data/models/project_write_off.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../core/utils/format_utils.dart';
 import '../../tokens/mapper/account_tokens.dart';
@@ -12,10 +13,17 @@ import '../../tokens/mapper/color_tokens.dart';
 const _addPaymentPillBackground = Color(0xFFEAF7F5);
 const _addPaymentPillBorder = Color(0xFF8AD5CC);
 const _addPaymentPillText = Color(0xFF147C73);
+const _settlementPillBackground = Color(0xFFE4F6EF);
+const _settlementPillBorder = Color(0xFF77C8A5);
+const _settlementPillText = Color(0xFF16714F);
+const _settledPillBackground = Color(0xFFF1F5F3);
+const _settledPillBorder = Color(0xFFD7E2DC);
+const _settledPillText = Color(0xFF6E8277);
 const _projectActionPillBackground = Color(0xFFF5F2EE);
 const _projectActionPillBorder = Color(0xFFD8C8B8);
 const _projectActionPillText = Color(0xFF7A5A3A);
 const _fallbackActionTextStyle = TextStyle();
+const _moneyEpsilon = 0.000001;
 
 class ProjectAccountDetailRateRow {
   final String projectKey;
@@ -65,9 +73,11 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final Map<int, double> breakingHoursByDevice; // deviceId -> 破碎总工时
 
   final double receivable;
+  final double writeOff;
   final double remaining;
 
   final List<AccountPayment> payments;
+  final List<ProjectWriteOff> writeOffs;
   final List<AccountProjectPaymentDisplayVM>? paymentDisplayItems;
   final List<ProjectAccountDetailRateRow>? detailRows;
   final bool showBatchAction;
@@ -83,6 +93,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final void Function(int deviceId, bool isBreaking) onEditDeviceRate;
 
   final VoidCallback onAddPayment;
+  final VoidCallback? onSettleProject;
   final void Function(AccountPayment p) onEditPayment;
   final void Function(AccountPayment p) onDeletePayment;
   final void Function(AccountProjectPaymentDisplayVM item)?
@@ -101,11 +112,14 @@ class ProjectAccountDetailContent extends StatelessWidget {
     required this.normalHoursByDevice,
     required this.breakingHoursByDevice,
     required this.receivable,
+    this.writeOff = 0,
     required this.remaining,
     required this.payments,
+    this.writeOffs = const [],
     required this.onBatchEditRate,
     required this.onEditDeviceRate,
     required this.onAddPayment,
+    this.onSettleProject,
     required this.onEditPayment,
     required this.onDeletePayment,
     this.onEditPaymentDisplayItem,
@@ -122,7 +136,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final received = (receivable - remaining).clamp(0.0, receivable);
+    final received = (receivable - remaining - writeOff).clamp(0.0, receivable);
     final ratio = receivable <= 0
         ? 0.0
         : (received / receivable).clamp(0.0, 1.0);
@@ -221,6 +235,13 @@ class ProjectAccountDetailContent extends StatelessWidget {
       height: 1,
       color: TimingColors.chartIncome,
     );
+    final writeOffReasonStyle = AppTypography.body(
+      context,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
 
     final visibleDetailRows =
         detailRows ?? _buildDeviceDetailRows(devices: devices);
@@ -251,6 +272,17 @@ class ProjectAccountDetailContent extends StatelessWidget {
         ),
 
         const SizedBox(height: AppSpace.md),
+
+        if (writeOffs.isNotEmpty) ...[
+          _buildWriteOffSection(
+            sectionTitleStyle: sectionTitleStyle,
+            dateStyle: paymentDateStyle,
+            amountStyle: paymentAmountStyle,
+            reasonStyle: writeOffReasonStyle,
+            remarkStyle: paymentRemarkStyle,
+          ),
+          const SizedBox(height: AppSpace.md),
+        ],
 
         // ───────────────── 收款记录 ─────────────────
         Padding(
@@ -574,6 +606,15 @@ class ProjectAccountDetailContent extends StatelessWidget {
     required TextStyle? progressAmountStyle,
     required TextStyle? progressMetaStyle,
   }) {
+    final rawRemaining = remaining.abs() <= _moneyEpsilon ? 0.0 : remaining;
+    final displayRemaining = rawRemaining < 0 ? 0.0 : rawRemaining;
+    final hasProjectTotal = receivable > _moneyEpsilon;
+    final canSettle =
+        hasProjectTotal &&
+        displayRemaining > _moneyEpsilon &&
+        onSettleProject != null;
+    final isSettled = hasProjectTotal && displayRemaining <= _moneyEpsilon;
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
@@ -634,7 +675,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
                 const SizedBox(width: AppSpace.md),
                 Expanded(
                   child: Text(
-                    '待收 ${FormatUtils.money(remaining)}',
+                    '待收 ${FormatUtils.money(displayRemaining)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
@@ -656,6 +697,10 @@ class ProjectAccountDetailContent extends StatelessWidget {
                     style: progressAmountStyle,
                   ),
                 ),
+                if (canSettle || isSettled) ...[
+                  const SizedBox(width: AppSpace.sm),
+                  _buildSettlementPill(enabled: canSettle),
+                ],
                 const SizedBox(width: AppSpace.md),
                 Expanded(
                   child: Text(
@@ -667,6 +712,157 @@ class ProjectAccountDetailContent extends StatelessWidget {
                     style: progressMetaStyle,
                   ),
                 ),
+              ],
+            ),
+            if (writeOff > _moneyEpsilon) ...[
+              const SizedBox(height: AppSpace.xs),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '已核销 ${FormatUtils.money(writeOff)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  textAlign: TextAlign.right,
+                  style: progressMetaStyle?.copyWith(
+                    color: SheetColors.hint,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettlementPill({required bool enabled}) {
+    final text = enabled ? '结清' : '已结清';
+    final textColor = enabled ? _settlementPillText : _settledPillText;
+    final backgroundColor = enabled
+        ? _settlementPillBackground
+        : _settledPillBackground;
+    final borderColor = enabled ? _settlementPillBorder : _settledPillBorder;
+
+    return InkWell(
+      onTap: enabled ? onSettleProject : null,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: borderColor),
+        ),
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWriteOffSection({
+    required TextStyle? sectionTitleStyle,
+    required TextStyle? dateStyle,
+    required TextStyle? amountStyle,
+    required TextStyle? reasonStyle,
+    required TextStyle? remarkStyle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
+          ),
+          child: Text(
+            '核销记录',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: sectionTitleStyle,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...writeOffs.map(
+          (item) => _buildWriteOffCard(
+            item: item,
+            dateStyle: dateStyle,
+            amountStyle: amountStyle,
+            reasonStyle: reasonStyle,
+            remarkStyle: remarkStyle,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWriteOffCard({
+    required ProjectWriteOff item,
+    required TextStyle? dateStyle,
+    required TextStyle? amountStyle,
+    required TextStyle? reasonStyle,
+    required TextStyle? remarkStyle,
+  }) {
+    final note = item.note?.trim() ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AccountTokens.projectDetailSectionHorizontalPadding,
+        right: AccountTokens.projectDetailSectionHorizontalPadding,
+        bottom: AccountTokens.projectCardBottomMargin,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AccountTokens.projectCardPaddingHorizontal,
+          vertical: 9,
+        ),
+        decoration: _cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _formatWriteOffDate(item.writeOffDate),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    style: dateStyle,
+                  ),
+                ),
+                Text(FormatUtils.money(item.amount), style: amountStyle),
+              ],
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Row(
+              children: [
+                Text(_writeOffReasonLabel(item.reason), style: reasonStyle),
+                if (note.isNotEmpty) ...[
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    child: Text(
+                      '备注：$note',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: remarkStyle,
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -949,6 +1145,36 @@ class ProjectAccountDetailContent extends StatelessWidget {
       if (id != null && item.id == id.toString()) return payment;
     }
     return null;
+  }
+
+  String _formatWriteOffDate(String value) {
+    final normalized = value
+        .trim()
+        .replaceAll('-', '')
+        .replaceAll('.', '')
+        .replaceAll('/', '');
+    final ymd = int.tryParse(normalized);
+    if (ymd == null || normalized.length != 8) return value;
+    return FormatUtils.date(ymd);
+  }
+
+  String _writeOffReasonLabel(String value) {
+    switch (ProjectWriteOffReasonX.fromDbValue(value)) {
+      case ProjectWriteOffReason.rounding:
+        return '抹零';
+      case ProjectWriteOffReason.qualityDeduction:
+        return '质量扣款';
+      case ProjectWriteOffReason.underpaid:
+        return '客户少付';
+      case ProjectWriteOffReason.badDebt:
+        return '坏账核销';
+      case ProjectWriteOffReason.settlement:
+        return '协商结清';
+      case ProjectWriteOffReason.offset:
+        return '抵账';
+      case ProjectWriteOffReason.other:
+        return '其他';
+    }
   }
 
   String _hoursText(double h) {

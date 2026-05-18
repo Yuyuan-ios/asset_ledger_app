@@ -23,6 +23,7 @@ import '../../../data/services/account_project_merge_service.dart';
 import '../../../features/account/model/account_view_model.dart';
 import '../../../features/account/use_cases/create_merged_payment_use_case.dart';
 import '../../../features/account/use_cases/delete_merged_payment_batch_use_case.dart';
+import '../../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../../features/account/use_cases/update_merged_payment_batch_use_case.dart';
 
 // ------------------------------ UI / Utils ------------------------------
@@ -55,6 +56,7 @@ import 'dialogs/account_payment_editor_dialog.dart';
 import 'dialogs/account_project_merge_sheet.dart';
 import 'dialogs/account_project_merge_sheet_data.dart';
 import 'dialogs/account_project_filter_sheet.dart';
+import 'dialogs/project_settlement_dialog.dart';
 
 // =====================================================================
 // ============================== 页面入口 ==============================
@@ -133,6 +135,66 @@ class _AccountPageState extends State<AccountPage> {
       final feedback = storeActionFeedback(store, action: '保存');
       _toast(feedback.message);
     });
+  }
+
+  Future<void> _openProjectSettlement(AccountProjectVM project) async {
+    if (project.kind != AccountProjectKind.normal) {
+      _toast('合并项目暂不支持直接结清');
+      return;
+    }
+
+    final result = await showDialog<ProjectSettlementResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ProjectSettlementDialog(
+        project: project,
+        onSave: (input) async {
+          if (!mounted) throw StateError('页面已关闭');
+
+          final latestProject = _latestProjectForSettlement(project);
+          final settlement = await ProjectSettlementUseCase().execute(
+            projectId: latestProject.effectiveProjectId,
+            projectKey: latestProject.projectKey,
+            receivable: latestProject.receivable,
+            paymentAmount: input.paymentAmount,
+            writeOffAmount: input.writeOffAmount,
+            writeOffReason: input.writeOffReason,
+            ymd: input.ymd,
+            note: input.note,
+          );
+
+          if (!mounted) return settlement;
+          final paymentStore = context.read<AccountPaymentStore>();
+          final accountStore = context.read<AccountStore>();
+          await Future.wait([paymentStore.loadAll(), accountStore.loadAll()]);
+          return settlement;
+        },
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    _toast(result.successMessage);
+  }
+
+  AccountProjectVM _latestProjectForSettlement(AccountProjectVM project) {
+    final timingStore = context.read<TimingStore>();
+    final deviceStore = context.read<DeviceStore>();
+    final paymentStore = context.read<AccountPaymentStore>();
+    final rateStore = context.read<ProjectRateStore>();
+    final accountStore = context.read<AccountStore>();
+    final computed = accountStore.compute(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+      rates: rateStore.rates,
+      payments: paymentStore.records,
+      activeMergeGroups: const [],
+    );
+    for (final item in computed.projects) {
+      if (item.effectiveProjectId == project.effectiveProjectId) {
+        return item;
+      }
+    }
+    throw StateError('项目不存在或已被清理');
   }
 
   Future<void> _openMergedPaymentEditor(AccountProjectVM project) async {
@@ -517,11 +579,12 @@ class _AccountPageState extends State<AccountPage> {
       footerEnabled: false,
       onConfirm: () => Navigator.of(context).maybePop(),
       childBuilder: (sheetContext) =>
-          Consumer4<
+          Consumer5<
             TimingStore,
             DeviceStore,
             AccountPaymentStore,
-            ProjectRateStore
+            ProjectRateStore,
+            AccountStore
           >(
             builder:
                 (
@@ -530,9 +593,9 @@ class _AccountPageState extends State<AccountPage> {
                   deviceStore,
                   paymentStore,
                   rateStore,
+                  accountStore,
                   _,
                 ) {
-                  final accountStore = context.read<AccountStore>();
                   final timing = timingStore.records;
                   final devices = deviceStore.allDevices;
                   final payments = paymentStore.records;
@@ -549,6 +612,7 @@ class _AccountPageState extends State<AccountPage> {
                     timingRecords: timing,
                     allDevices: devices,
                     allPayments: payments,
+                    allWriteOffs: accountStore.writeOffs,
                     allRates: rates,
                     computed: computed,
                     onBatchEditRate: _openBatchRateEditor,
@@ -556,6 +620,7 @@ class _AccountPageState extends State<AccountPage> {
                     onAddPayment: _openPaymentEditor,
                     onEditPayment: _openPaymentEditor,
                     onDeletePayment: _deletePayment,
+                    onSettleProject: _openProjectSettlement,
                     onDissolveMergeGroup: (project) =>
                         _confirmDissolveMergeGroup(project, sheetContext),
                     onAddMergedPayment: _openMergedPaymentEditor,
