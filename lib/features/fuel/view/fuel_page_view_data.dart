@@ -1,4 +1,4 @@
-import '../../../core/utils/device_label.dart';
+import 'package:asset_ledger/data/services/device_label.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../data/models/fuel_log.dart';

@@ -1,4 +1,4 @@
-import '../../core/utils/device_maps.dart';
+import 'package:asset_ledger/data/models/device_maps.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/device.dart';
 import '../../data/models/timing_record.dart';

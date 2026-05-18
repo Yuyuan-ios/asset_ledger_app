@@ -4,7 +4,7 @@ import '../../../data/models/account_project_merge_group_with_members.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/account_service.dart';
-import '../../../core/utils/device_maps.dart';
+import 'package:asset_ledger/data/models/device_maps.dart';
 import '../model/account_view_model.dart';
 
 class ComputeAccountSummaryUseCase {
