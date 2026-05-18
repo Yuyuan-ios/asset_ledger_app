@@ -1,86 +1,40 @@
-import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
-import '../data/repositories/account_payment_repository.dart';
-import '../data/repositories/account_project_merge_repository.dart';
-import '../data/repositories/device_repository.dart';
-import '../data/repositories/fuel_repository.dart';
-import '../data/repositories/maintenance_repository.dart';
-import '../data/repositories/project_repository.dart';
-import '../data/repositories/project_rate_repository.dart';
-import '../data/repositories/timing_repository.dart';
-import '../data/services/account_project_merge_service.dart';
-import '../data/services/project_resolver.dart';
-import '../features/account/state/account_store.dart';
-import '../features/account/state/account_filter_store.dart';
 import '../features/account/state/account_payment_store.dart';
+import '../features/account/state/account_store.dart';
 import '../features/account/state/project_rate_store.dart';
 import '../features/device/state/device_store.dart';
 import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
 import '../features/timing/state/timing_store.dart';
+import 'providers/account_merge_providers.dart';
+import 'providers/device_fleet_providers.dart';
+import 'providers/project_providers.dart';
+import 'providers/timing_providers.dart';
 
+/// Aggregates the per-domain composition slices into a single bundle.
+/// Each slice owns construction of its own instances and providers;
+/// this root only composes them.
 class AppProviders {
   static AppProviderBundle build() {
-    final deviceRepository = SqfliteDeviceRepository();
-    final timingRepository = SqfliteTimingRepository();
-    final fuelRepository = SqfliteFuelRepository();
-    final maintenanceRepository = SqfliteMaintenanceRepository();
-    final accountPaymentRepository = SqfliteAccountPaymentRepository();
-    final projectRateRepository = SqfliteProjectRateRepository();
-    final projectRepository = SqfliteProjectRepository();
-    final projectResolver = ProjectResolver(
-      projectRepository: projectRepository,
-    );
-    final accountProjectMergeRepository =
-        SqfliteAccountProjectMergeRepository();
-    final accountProjectMergeService = AccountProjectMergeService(
-      repository: accountProjectMergeRepository,
-    );
-
-    final deviceStore = DeviceStore(deviceRepository);
-    final timingStore = TimingStore(timingRepository);
-    final fuelStore = FuelStore(fuelRepository);
-    final maintenanceStore = MaintenanceStore(maintenanceRepository);
-    final paymentStore = AccountPaymentStore(accountPaymentRepository);
-    final projectRateStore = ProjectRateStore(projectRateRepository);
-    final accountStore = AccountStore(mergeService: accountProjectMergeService);
+    final deviceFleet = DeviceFleetProviders.build();
+    final project = ProjectProviders.build();
+    final timing = TimingProviders.build();
+    final accountMerge = AccountMergeProviders.build();
 
     return AppProviderBundle(
-      deviceStore: deviceStore,
-      timingStore: timingStore,
-      fuelStore: fuelStore,
-      maintenanceStore: maintenanceStore,
-      paymentStore: paymentStore,
-      projectRateStore: projectRateStore,
-      accountStore: accountStore,
+      deviceStore: deviceFleet.deviceStore,
+      timingStore: timing.timingStore,
+      fuelStore: deviceFleet.fuelStore,
+      maintenanceStore: deviceFleet.maintenanceStore,
+      paymentStore: accountMerge.paymentStore,
+      projectRateStore: accountMerge.projectRateStore,
+      accountStore: accountMerge.accountStore,
       providers: [
-        Provider<DeviceRepository>.value(value: deviceRepository),
-        Provider<TimingRepository>.value(value: timingRepository),
-        Provider<FuelRepository>.value(value: fuelRepository),
-        Provider<MaintenanceRepository>.value(value: maintenanceRepository),
-        Provider<ProjectRepository>.value(value: projectRepository),
-        Provider<ProjectResolver>.value(value: projectResolver),
-        Provider<AccountPaymentRepository>.value(
-          value: accountPaymentRepository,
-        ),
-        Provider<ProjectRateRepository>.value(value: projectRateRepository),
-        Provider<AccountProjectMergeRepository>.value(
-          value: accountProjectMergeRepository,
-        ),
-        Provider<AccountProjectMergeService>.value(
-          value: accountProjectMergeService,
-        ),
-        ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
-        ChangeNotifierProvider<TimingStore>.value(value: timingStore),
-        ChangeNotifierProvider<FuelStore>.value(value: fuelStore),
-        ChangeNotifierProvider<MaintenanceStore>.value(value: maintenanceStore),
-        ChangeNotifierProvider<AccountPaymentStore>.value(value: paymentStore),
-        ChangeNotifierProvider<AccountStore>.value(value: accountStore),
-        ChangeNotifierProvider<AccountFilterStore>(
-          create: (_) => AccountFilterStore(),
-        ),
-        ChangeNotifierProvider<ProjectRateStore>.value(value: projectRateStore),
+        ...deviceFleet.providers,
+        ...project.providers,
+        ...timing.providers,
+        ...accountMerge.providers,
       ],
     );
   }
