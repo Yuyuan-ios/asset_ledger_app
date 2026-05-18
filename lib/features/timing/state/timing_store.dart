@@ -1,7 +1,7 @@
 import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../core/utils/base_store.dart';
-import '../calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 
 class TimingStore extends BaseStore {
   TimingStore(this._repository);

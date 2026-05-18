@@ -1,7 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../../../../data/db/database.dart';
-import '../model/timing_calculation_history.dart';
+import '../db/database.dart';
+import '../models/timing_calculation_history.dart';
 
 abstract class TimingCalculationHistoryRepository {
   Future<List<TimingCalculationHistory>> findByTimingRecordId(

@@ -9,8 +9,8 @@ import '../db/database.dart';
 
 // 1.2 项目内：计时记录模型（TimingRecord / TimingType）
 import '../models/timing_record.dart';
-import '../../features/timing/calculator/model/timing_calculation_history.dart';
-import '../../features/timing/calculator/repository/timing_calculation_history_repository.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 
 abstract class TimingRepository {
   Future<List<TimingRecord>> listAll();

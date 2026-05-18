@@ -1,4 +1,4 @@
-import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

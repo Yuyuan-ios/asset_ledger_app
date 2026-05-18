@@ -1,7 +1,7 @@
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
-import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_detail_content_pattern.dart';
 import 'package:flutter/material.dart';

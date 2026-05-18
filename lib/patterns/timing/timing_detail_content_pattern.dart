@@ -7,7 +7,7 @@ import '../../data/models/project_device_rate.dart';
 import '../../data/models/timing_record.dart';
 import '../../data/services/timing_service.dart';
 import '../../features/timing/calculator/model/staged_timing_calculation_history.dart';
-import '../../features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import '../../features/timing/calculator/view/work_hour_calculator_sheet.dart';
 import '../../components/fields/timing_time_block.dart';
 import 'exclude_fuel_switch_card_pattern.dart';

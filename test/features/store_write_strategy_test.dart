@@ -14,7 +14,7 @@ import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
-import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/account/state/account_payment_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
