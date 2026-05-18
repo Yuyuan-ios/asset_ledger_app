@@ -2,6 +2,7 @@ import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/project_key.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/features/account/model/account_project_payment_display_vm.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
@@ -74,6 +75,8 @@ void main() {
     AccountOpenMergedPaymentEditor? onAddMergedPayment,
     AccountOpenMergedPaymentBatchEditor? onEditMergedPaymentBatch,
     AccountOpenMergedPaymentBatchEditor? onDeleteMergedPaymentBatch,
+    AccountOpenProjectSettlement? onSettleProject,
+    List<ProjectWriteOff> writeOffs = const [],
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -83,6 +86,7 @@ void main() {
             timingRecords: records,
             allDevices: devices,
             allPayments: const [],
+            allWriteOffs: writeOffs,
             allRates: const [
               ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
               ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
@@ -96,6 +100,7 @@ void main() {
             onEditPayment:
                 ({required project, required allPayments, editing}) async {},
             onDeletePayment: (_) async {},
+            onSettleProject: onSettleProject,
             onDissolveMergeGroup: onDissolveMergeGroup,
             onAddMergedPayment: onAddMergedPayment,
             onEditMergedPaymentBatch: onEditMergedPaymentBatch,
@@ -295,6 +300,7 @@ void main() {
     tester,
   ) async {
     AccountProjectVM? editedProject;
+    AccountProjectVM? settledProject;
     final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
 
     await tester.pumpWidget(
@@ -336,6 +342,9 @@ void main() {
         onEditDeviceRate: (project, _, _, _, _) async {
           editedProject = project;
         },
+        onSettleProject: (project) async {
+          settledProject = project;
+        },
       ),
     );
 
@@ -346,6 +355,7 @@ void main() {
     expect(find.byIcon(Icons.location_on_outlined), findsNothing);
     expect(find.text('批量修改'), findsOneWidget);
     expect(find.text('+ 新增收款'), findsOneWidget);
+    expect(find.text('结清'), findsOneWidget);
     expect(find.text('2026.05.03'), findsOneWidget);
     expect(find.text('¥1000'), findsOneWidget);
     expect(find.text('备注：普通收款'), findsOneWidget);
@@ -356,6 +366,76 @@ void main() {
     await tester.pump();
 
     expect(editedProject?.projectKey, normalKey);
+
+    await tester.tap(find.text('结清'));
+    await tester.pump();
+
+    expect(settledProject?.projectKey, normalKey);
+  });
+
+  testWidgets('normal detail separates received and write-off amounts', (
+    tester,
+  ) async {
+    final normalKey = ProjectKey.buildKey(contact: '甲方', site: '一号工地');
+
+    await tester.pumpWidget(
+      buildSheet(
+        projectKey: normalKey,
+        computed: AccountComputed(
+          projects: [
+            AccountProjectVM(
+              projectId: 'project:1',
+              projectKey: normalKey,
+              displayName: '甲方 + 一号工地',
+              minYmd: 20260501,
+              deviceIds: const [1],
+              hoursByDevice: const {1: 12.6},
+              rentIncomeTotal: 0,
+              minRate: 100,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 1260,
+              received: 1200,
+              writeOff: 60,
+              remaining: 0,
+              ratio: 1200 / 1260,
+              settlementRatio: 1,
+              payments: const [],
+            ),
+          ],
+          totalReceivable: 1260,
+          totalReceived: 1200,
+          totalWriteOff: 60,
+          totalRemaining: 0,
+          totalRatio: 1200 / 1260,
+          settlementRate: 1,
+          deviceReceivables: const [],
+        ),
+        writeOffs: const [
+          ProjectWriteOff(
+            id: 'write-off-1',
+            projectId: 'project:1',
+            amount: 60,
+            reason: 'rounding',
+            note: '尾款抹零',
+            writeOffDate: '2026-05-18',
+            createdAt: '2026-05-18T00:00:00.000Z',
+            updatedAt: '2026-05-18T00:00:00.000Z',
+          ),
+        ],
+        onEditDeviceRate: (_, _, _, _, _) async {},
+        onSettleProject: (_) async {},
+      ),
+    );
+
+    expect(find.text('已收 95.2%'), findsOneWidget);
+    expect(find.text('待收 ¥0'), findsOneWidget);
+    expect(find.text('¥1200'), findsOneWidget);
+    expect(find.text('已核销 ¥60'), findsOneWidget);
+    expect(find.text('已结清'), findsOneWidget);
+    expect(find.text('核销记录'), findsOneWidget);
+    expect(find.text('抹零'), findsOneWidget);
+    expect(find.text('备注：尾款抹零'), findsOneWidget);
   });
 }
 
