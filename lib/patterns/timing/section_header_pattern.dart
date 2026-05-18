@@ -62,6 +62,7 @@ class SectionHeader extends StatelessWidget {
             child: FilledButton(
               onPressed: onAdd,
               style: FilledButton.styleFrom(
+                backgroundColor: TimingTokens.headerAddButtonBackground,
                 elevation: 0,
                 shape: const StadiumBorder(),
                 padding: EdgeInsets.symmetric(
