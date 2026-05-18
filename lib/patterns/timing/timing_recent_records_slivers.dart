@@ -67,7 +67,8 @@ const double _dateHeaderExtent =
     (TimingTokens.dateHeaderFontSize * TimingTokens.dateHeaderLineHeight) +
     TimingTokens.recordDividerThickness +
     TimingTokens.recordDividerThickness;
-const double _dateHeaderDividerHorizontalInset = 10;
+const double _dateHeaderDividerHorizontalInset = 8;
+const Color _dateHeaderDividerColor = Color(0xCCD9D9D9);
 
 List<Widget> _buildTimingRecordRows({
   required _RecordDisplaySection section,
@@ -246,7 +247,7 @@ class _DateHeaderBoundaryDivider extends StatelessWidget {
       endIndent: _dateHeaderDividerHorizontalInset,
       height: TimingTokens.recordDividerThickness,
       thickness: TimingTokens.recordDividerThickness,
-      color: TimingColors.divider,
+      color: _dateHeaderDividerColor,
     );
   }
 }
