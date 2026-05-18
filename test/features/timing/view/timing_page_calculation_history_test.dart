@@ -1,3 +1,4 @@
+import 'package:asset_ledger/app/adapters/account_merge_dissolve_adapter.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
@@ -23,6 +24,7 @@ import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -278,6 +280,9 @@ Future<void> _pumpTimingPage(
           ),
           ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
           Provider<AccountProjectMergeService>.value(value: mergeService),
+          Provider<TimingMergeDissolvePort>.value(
+            value: AccountMergeDissolveAdapter(mergeService),
+          ),
           Provider<ProjectResolver>.value(value: projectResolver),
         ],
         child: TimingPage(calculationHistoryRepository: historyRepository),

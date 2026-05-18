@@ -14,6 +14,7 @@ import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +35,7 @@ void main() {
       late ProjectRateRepository projectRateRepository;
       late AccountProjectMergeRepository accountProjectMergeRepository;
       late AccountProjectMergeService accountProjectMergeService;
+      late TimingMergeDissolvePort timingMergeDissolvePort;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
       late FuelStore fuelStore;
@@ -60,6 +62,8 @@ void main() {
                     .read<AccountProjectMergeRepository>();
                 accountProjectMergeService = context
                     .read<AccountProjectMergeService>();
+                timingMergeDissolvePort = context
+                    .read<TimingMergeDissolvePort>();
                 deviceStore = context.read<DeviceStore>();
                 timingStore = context.read<TimingStore>();
                 fuelStore = context.read<FuelStore>();
@@ -85,6 +89,7 @@ void main() {
         isA<AccountProjectMergeRepository>(),
       );
       expect(accountProjectMergeService, isA<AccountProjectMergeService>());
+      expect(timingMergeDissolvePort, isA<TimingMergeDissolvePort>());
 
       expect(identical(deviceStore, bundle.deviceStore), isTrue);
       expect(identical(timingStore, bundle.timingStore), isTrue);

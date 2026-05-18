@@ -10,7 +10,6 @@ import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/models/project_device_rate.dart';
-import '../../../data/services/account_project_merge_service.dart';
 import '../../../data/services/project_resolver.dart';
 import '../../../data/services/timing_monthly_expense_service.dart';
 import '../../../data/services/timing_monthly_income_service.dart';
@@ -362,9 +361,7 @@ class _TimingPageState extends State<TimingPage> {
           onSubmit: (record, calculationHistories) async {
             final saveUseCase = SaveTimingRecordUseCase(
               timingStore: timingStore,
-              mergeDissolve: AccountMergeDissolveAdapter(
-                context.read<AccountProjectMergeService>(),
-              ),
+              mergeDissolve: context.read<TimingMergeDissolvePort>(),
               projectResolver: context.read<ProjectResolver>(),
             );
             SaveTimingRecordResult result;
