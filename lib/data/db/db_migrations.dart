@@ -254,10 +254,40 @@ class DbMigrations {
     if (oldVersion < 15) {
       await ensureExternalWorkSchema(db);
     }
+
+    // v15 -> v16：新增项目核销记录表。
+    if (oldVersion < 16) {
+      await ensureProjectWriteOffSchema(db);
+    }
   }
 
   static Future<void> ensureExternalWorkSchema(Database db) async {
     await ExternalWorkSchema.create(db);
+  }
+
+  static Future<void> ensureProjectWriteOffSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS project_write_offs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        amount REAL NOT NULL CHECK (amount > 0),
+        reason TEXT NOT NULL,
+        note TEXT,
+        write_off_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE RESTRICT
+      );
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_project_write_offs_project_id
+      ON project_write_offs(project_id);
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_project_write_offs_write_off_date
+      ON project_write_offs(write_off_date);
+    ''');
   }
 
   static Future<void> ensureProjectIdentitySchema(

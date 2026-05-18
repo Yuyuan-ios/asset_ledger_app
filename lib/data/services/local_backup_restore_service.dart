@@ -7,6 +7,7 @@ import '../models/account_payment.dart';
 import '../models/backup_restore_result.dart';
 import '../models/project.dart';
 import '../models/project_key.dart';
+import '../models/project_write_off.dart';
 import '../models/timing_record.dart';
 import 'local_backup_export_service.dart';
 import 'local_backup_import_preview_service.dart';
@@ -27,6 +28,7 @@ class LocalBackupRestoreService {
     'account_project_merge_groups',
     'timing_calculation_history',
     'project_device_rates',
+    'project_write_offs',
     'account_payments',
     'maintenance_records',
     'fuel_logs',
@@ -45,6 +47,7 @@ class LocalBackupRestoreService {
     'fuel_logs',
     'maintenance_records',
     'account_payments',
+    'project_write_offs',
     'project_device_rates',
   ];
 
@@ -73,6 +76,15 @@ class LocalBackupRestoreService {
     'fuel_logs': ['id', 'device_id', 'date', 'liters', 'cost'],
     'maintenance_records': ['id', 'device_id', 'ymd', 'item', 'amount'],
     'account_payments': ['id', 'project_id', 'project_key', 'ymd', 'amount'],
+    'project_write_offs': [
+      'id',
+      'project_id',
+      'amount',
+      'reason',
+      'write_off_date',
+      'created_at',
+      'updated_at',
+    ],
     'project_device_rates': [
       'project_id',
       'project_key',
@@ -112,6 +124,7 @@ class LocalBackupRestoreService {
     'timing_calculation_history',
     'account_project_merge_groups',
     'account_project_merge_members',
+    'project_write_offs',
   };
 
   final LocalBackupImportPreviewService _previewService;
@@ -429,6 +442,9 @@ class LocalBackupRestoreService {
         }
         normalized['is_breaking'] ??= 0;
         break;
+      case 'project_write_offs':
+        normalized.putIfAbsent('note', () => null);
+        break;
       case 'account_project_merge_members':
         if (allowLegacyProjectIdentity) {
           normalized['project_id'] ??= _legacyProjectIdFromKey(
@@ -468,6 +484,8 @@ class LocalBackupRestoreService {
         return _validateMaintenanceRow(row);
       case 'account_payments':
         return _validateAccountPaymentRow(row);
+      case 'project_write_offs':
+        return _validateProjectWriteOffRow(row);
       case 'project_device_rates':
         return _validateProjectDeviceRateRow(row);
       case 'timing_calculation_history':
@@ -632,6 +650,37 @@ class LocalBackupRestoreService {
     return null;
   }
 
+  static String? _validateProjectWriteOffRow(Map<String, Object?> row) {
+    if (!_isNonEmptyString(row['id'])) return 'invalid_project_write_offs_id';
+    if (!_isNonEmptyString(row['project_id'])) {
+      return 'invalid_project_write_offs_project_id';
+    }
+    final amount = row['amount'];
+    if (!_isNumber(amount) || (amount as num) <= 0) {
+      return 'invalid_project_write_offs_amount';
+    }
+    final reason = row['reason'];
+    if (!_isNonEmptyString(reason)) {
+      return 'invalid_project_write_offs_reason';
+    }
+    if (!ProjectWriteOffReasonX.isKnownDbValue(reason as String)) {
+      return 'invalid_project_write_offs_reason';
+    }
+    if (!_isNullableString(row['note'])) {
+      return 'invalid_project_write_offs_note';
+    }
+    if (!_isNonEmptyString(row['write_off_date'])) {
+      return 'invalid_project_write_offs_write_off_date';
+    }
+    if (!_isNonEmptyString(row['created_at'])) {
+      return 'invalid_project_write_offs_created_at';
+    }
+    if (!_isNonEmptyString(row['updated_at'])) {
+      return 'invalid_project_write_offs_updated_at';
+    }
+    return null;
+  }
+
   static String? _validateTimingCalculationHistoryRow(
     Map<String, Object?> row,
   ) {
@@ -756,6 +805,7 @@ class LocalBackupRestoreService {
     for (final tableName in const [
       'account_payments',
       'project_device_rates',
+      'project_write_offs',
       'account_project_merge_members',
     ]) {
       for (final row in rowsByTable[tableName] ?? const []) {
@@ -790,6 +840,7 @@ class LocalBackupRestoreService {
       'timing_records',
       'account_payments',
       'project_device_rates',
+      'project_write_offs',
       'account_project_merge_members',
     ]) {
       for (final row in rowsByTable[tableName] ?? const []) {

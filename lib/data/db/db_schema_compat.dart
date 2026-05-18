@@ -92,6 +92,7 @@ class DbSchemaCompat {
       db,
       enforceForeignKeys: true,
     );
+    await DbMigrations.ensureProjectWriteOffSchema(db);
     await DbMigrations.ensureExternalWorkSchema(db);
   }
 
