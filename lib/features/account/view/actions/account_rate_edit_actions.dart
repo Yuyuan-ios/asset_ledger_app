@@ -44,8 +44,9 @@ class AccountRateEditActions {
     final firstId = first.id!;
     double? initDiggingOverride;
     double? initBreakingOverride;
+    final projectId = project.effectiveProjectId;
     for (final r in rates) {
-      if (r.projectKey != project.projectKey || r.deviceId != firstId) continue;
+      if (r.effectiveProjectId != projectId || r.deviceId != firstId) continue;
       if (r.isBreaking) {
         initBreakingOverride = r.rate;
       } else {
@@ -82,10 +83,16 @@ class AccountRateEditActions {
         final defaultBreaking = d.breakingUnitPrice ?? d.defaultUnitPrice;
 
         if ((newRate.diggingRate - defaultDigging).abs() <= eps) {
-          await rateStore.delete(project.projectKey, id, isBreaking: false);
+          await rateStore.delete(
+            project.projectKey,
+            id,
+            projectId: projectId,
+            isBreaking: false,
+          );
         } else {
           await rateStore.upsert(
             ProjectDeviceRate(
+              projectId: projectId,
               projectKey: project.projectKey,
               deviceId: id,
               isBreaking: false,
@@ -95,10 +102,16 @@ class AccountRateEditActions {
         }
 
         if ((newRate.breakingRate - defaultBreaking).abs() <= eps) {
-          await rateStore.delete(project.projectKey, id, isBreaking: true);
+          await rateStore.delete(
+            project.projectKey,
+            id,
+            projectId: projectId,
+            isBreaking: true,
+          );
         } else {
           await rateStore.upsert(
             ProjectDeviceRate(
+              projectId: projectId,
               projectKey: project.projectKey,
               deviceId: id,
               isBreaking: true,
@@ -134,8 +147,9 @@ class AccountRateEditActions {
     final device = hit.first;
 
     double? currentOverride;
+    final projectId = project.effectiveProjectId;
     for (final r in rates) {
-      if (r.projectKey == project.projectKey &&
+      if (r.effectiveProjectId == projectId &&
           r.deviceId == deviceId &&
           r.isBreaking == isBreaking) {
         currentOverride = r.rate;
@@ -152,7 +166,9 @@ class AccountRateEditActions {
       context: context,
       barrierDismissible: false,
       builder: (_) => AccountRateSingleDialog(
-        title: isBreaking ? '编辑破碎单价：${project.displayName}' : '编辑单价：${project.displayName}',
+        title: isBreaking
+            ? '编辑破碎单价：${project.displayName}'
+            : '编辑单价：${project.displayName}',
         deviceName: isBreaking ? '${device.name} · 破碎' : device.name,
         initialRateInt: current,
       ),
@@ -165,10 +181,16 @@ class AccountRateEditActions {
 
       const eps = 0.05;
       if ((newRate - modeDefaultRate).abs() <= eps) {
-        await rateStore.delete(project.projectKey, deviceId, isBreaking: isBreaking);
+        await rateStore.delete(
+          project.projectKey,
+          deviceId,
+          projectId: projectId,
+          isBreaking: isBreaking,
+        );
       } else {
         await rateStore.upsert(
           ProjectDeviceRate(
+            projectId: projectId,
             projectKey: project.projectKey,
             deviceId: deviceId,
             isBreaking: isBreaking,

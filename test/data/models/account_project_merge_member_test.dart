@@ -1,4 +1,5 @@
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,6 +19,7 @@ void main() {
       expect(member.toMap(), {
         'id': 9,
         'group_id': 3,
+        'project_id': ProjectId.legacyFromKey('李杰||尚义'),
         'project_key': '李杰||尚义',
         'contact': '李杰',
         'site': '尚义',
@@ -37,6 +39,7 @@ void main() {
 
       expect(rebuilt.id, 10);
       expect(rebuilt.groupId, 4);
+      expect(rebuilt.effectiveProjectId, ProjectId.legacyFromKey('王涛||高桥'));
       expect(rebuilt.projectKey, '王涛||高桥');
       expect(rebuilt.contact, '王涛');
       expect(rebuilt.site, '高桥');

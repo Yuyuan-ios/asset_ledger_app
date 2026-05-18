@@ -31,6 +31,10 @@ enum WorkMode { hours, rent }
 
 enum AttachmentMode { digging, breaking }
 
+const _workHourCalculatorIconAsset =
+    'assets/icons/timing/work_hour_calculator_icon.png';
+const _timingFieldIconSize = 30.0;
+
 typedef TimingIncomeResolver =
     double Function({
       required int deviceId,
@@ -535,6 +539,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final record = TimingRecord(
       id: widget.editing?.id,
+      projectId: widget.editing?.projectId ?? '',
       deviceId: deviceId,
       startDate: ymd,
       contact: contact,
@@ -624,6 +629,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     TimingTimeBlock(
                       title: '开始工作时间',
                       controller: _startMeterCtrl,
+                      alignLabelToContainer: true,
                       onChanged: (start) {
                         final end = _d(_endMeterCtrl.text);
                         if (end < start) _setEnd(start);
@@ -634,6 +640,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     TimingTimeBlock(
                       title: '结束工作时间',
                       controller: _endMeterCtrl,
+                      alignLabelToContainer: true,
                       onChanged: (_) {
                         _recalcHoursFromMeters();
                         _scheduleMeterValidation();
@@ -658,9 +665,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                                     decimal: true,
                                   ),
                               onChanged: (_) => _recalcEndFromHours(),
-                              suffixIcon: IconButton(
+                              suffixIcon: _TimingFieldAssetIconButton(
                                 tooltip: '工时计算依据',
-                                icon: const Icon(Icons.receipt_long_outlined),
+                                assetPath: _workHourCalculatorIconAsset,
                                 onPressed: _submitting
                                     ? null
                                     : _openWorkHourCalculator,
@@ -733,71 +740,19 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     double? checkSize,
     double? textSize,
   }) {
-    final resolvedRadius = radius ?? TimingTokens.segmentRadius;
-    final resolvedHeight = height ?? TimingTokens.segmentHeight;
-    final resolvedInset = inset ?? TimingTokens.segmentInset;
-    final resolvedItemHeight = itemHeight ?? TimingTokens.segmentItemHeight;
-    final resolvedCheckRightGap =
-        checkRightGap ?? TimingTokens.segmentCheckRightGap;
-    final resolvedCheckSize = checkSize ?? TimingTokens.segmentCheckSize;
-    final resolvedTextSize = textSize ?? TimingTokens.segmentTextSize;
-    final checkStyle = AppTypography.caption(
-      context,
-      fontSize: resolvedCheckSize,
-      color: SheetColors.textPrimary,
-    );
-    final segmentTextStyle = AppTypography.body(
-      context,
-      fontSize: resolvedTextSize,
-      color: SheetColors.textPrimary,
-    );
-
-    Widget buildSegmentItem(int index, String text) {
-      final selected = selectedIndex == index;
-      return Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(resolvedRadius),
-          onTap: () => onTap(index),
-          child: Container(
-            height: resolvedItemHeight,
-            decoration: BoxDecoration(
-              color: selected
-                  ? SheetColors.segmentSelected
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(resolvedRadius),
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (selected)
-                  Padding(
-                    padding: EdgeInsets.only(right: resolvedCheckRightGap),
-                    child: Text('✓', style: checkStyle),
-                  ),
-                Text(text, style: segmentTextStyle),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      width: width ?? double.infinity,
-      height: resolvedHeight,
-      padding: EdgeInsets.all(resolvedInset),
-      decoration: BoxDecoration(
-        color: SheetColors.segmentBackground,
-        borderRadius: BorderRadius.circular(resolvedRadius),
-        border: Border.all(color: SheetColors.segmentBorder),
-      ),
-      child: Row(
-        children: [
-          buildSegmentItem(0, leftText),
-          buildSegmentItem(1, rightText),
-        ],
-      ),
+    return _TimingTwoOptionSegment(
+      selectedIndex: selectedIndex,
+      onTap: onTap,
+      leftText: leftText,
+      rightText: rightText,
+      width: width,
+      height: height,
+      inset: inset,
+      radius: radius,
+      itemHeight: itemHeight,
+      checkRightGap: checkRightGap,
+      checkSize: checkSize,
+      textSize: textSize,
     );
   }
 
@@ -839,6 +794,175 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       checkRightGap: compact ? 2 : null,
       checkSize: compact ? 10 : null,
       textSize: compact ? 12 : null,
+    );
+  }
+}
+
+class _TimingTwoOptionSegment extends StatelessWidget {
+  const _TimingTwoOptionSegment({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.leftText,
+    required this.rightText,
+    this.width,
+    this.height,
+    this.inset,
+    this.radius,
+    this.itemHeight,
+    this.checkRightGap,
+    this.checkSize,
+    this.textSize,
+  });
+
+  final int selectedIndex;
+  final void Function(int index) onTap;
+  final String leftText;
+  final String rightText;
+  final double? width;
+  final double? height;
+  final double? inset;
+  final double? radius;
+  final double? itemHeight;
+  final double? checkRightGap;
+  final double? checkSize;
+  final double? textSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedRadius = radius ?? TimingTokens.segmentRadius;
+    final resolvedHeight = height ?? TimingTokens.segmentHeight;
+    final resolvedInset = inset ?? TimingTokens.segmentInset;
+    final resolvedItemHeight = itemHeight ?? TimingTokens.segmentItemHeight;
+    final resolvedCheckRightGap =
+        checkRightGap ?? TimingTokens.segmentCheckRightGap;
+    final resolvedCheckSize = checkSize ?? TimingTokens.segmentCheckSize;
+    final resolvedTextSize = textSize ?? TimingTokens.segmentTextSize;
+    final checkStyle = AppTypography.caption(
+      context,
+      fontSize: resolvedCheckSize,
+      color: SheetColors.textPrimary,
+    );
+    final segmentTextStyle = AppTypography.body(
+      context,
+      fontSize: resolvedTextSize,
+      color: SheetColors.textPrimary,
+    );
+
+    return Container(
+      width: width ?? double.infinity,
+      height: resolvedHeight,
+      padding: EdgeInsets.all(resolvedInset),
+      decoration: BoxDecoration(
+        color: SheetColors.segmentBackground,
+        borderRadius: BorderRadius.circular(resolvedRadius),
+        border: Border.all(color: SheetColors.segmentBorder),
+      ),
+      child: Row(
+        children: [
+          _TimingTwoOptionSegmentItem(
+            selected: selectedIndex == 0,
+            text: leftText,
+            radius: resolvedRadius,
+            height: resolvedItemHeight,
+            checkRightGap: resolvedCheckRightGap,
+            checkStyle: checkStyle,
+            textStyle: segmentTextStyle,
+            onTap: () => onTap(0),
+          ),
+          _TimingTwoOptionSegmentItem(
+            selected: selectedIndex == 1,
+            text: rightText,
+            radius: resolvedRadius,
+            height: resolvedItemHeight,
+            checkRightGap: resolvedCheckRightGap,
+            checkStyle: checkStyle,
+            textStyle: segmentTextStyle,
+            onTap: () => onTap(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimingTwoOptionSegmentItem extends StatelessWidget {
+  const _TimingTwoOptionSegmentItem({
+    required this.selected,
+    required this.text,
+    required this.radius,
+    required this.height,
+    required this.checkRightGap,
+    required this.checkStyle,
+    required this.textStyle,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String text;
+  final double radius;
+  final double height;
+  final double checkRightGap;
+  final TextStyle? checkStyle;
+  final TextStyle? textStyle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(radius),
+        onTap: onTap,
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: selected ? SheetColors.segmentSelected : Colors.transparent,
+            borderRadius: BorderRadius.circular(radius),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (selected)
+                Padding(
+                  padding: EdgeInsets.only(right: checkRightGap),
+                  child: Text('✓', style: checkStyle),
+                ),
+              Text(text, style: textStyle),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimingFieldAssetIconButton extends StatelessWidget {
+  const _TimingFieldAssetIconButton({
+    required this.tooltip,
+    required this.assetPath,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final String assetPath;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      padding: const EdgeInsets.all(1),
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      icon: Opacity(
+        opacity: onPressed == null ? 0.45 : 1,
+        child: Image.asset(
+          assetPath,
+          width: _timingFieldIconSize,
+          height: _timingFieldIconSize,
+          fit: BoxFit.contain,
+        ),
+      ),
     );
   }
 }

@@ -12,9 +12,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - patrol_test/**
-    - integration_test/test_bundle.dart
-  plugins:
-    - custom_lint
+    - integration_test/**
+    - test_driver/**
 
 
 linter:

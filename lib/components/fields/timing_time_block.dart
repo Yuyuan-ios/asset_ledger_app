@@ -13,11 +13,13 @@ class TimingTimeBlock extends StatefulWidget {
     required this.title,
     required this.controller,
     required this.onChanged,
+    this.alignLabelToContainer = false,
   });
 
   final String title;
   final TextEditingController controller;
   final ValueChanged<double> onChanged;
+  final bool alignLabelToContainer;
 
   @override
   State<TimingTimeBlock> createState() => _TimingTimeBlockState();
@@ -141,18 +143,29 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Transform.translate(
-                  offset: const Offset(-TimingTokens.meterLabelLeftShift, 0),
-                  child: Center(
-                    child: SizedBox(
-                      width: groupWidth,
-                      child: SizedBox(
+                widget.alignLabelToContainer
+                    ? SizedBox(
                         height: TimingTokens.meterLabelHeight,
-                        child: Text(widget.title, style: labelStyle),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(widget.title, style: labelStyle),
+                        ),
+                      )
+                    : Transform.translate(
+                        offset: const Offset(
+                          -TimingTokens.meterLabelLeftShift,
+                          0,
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: groupWidth,
+                            child: SizedBox(
+                              height: TimingTokens.meterLabelHeight,
+                              child: Text(widget.title, style: labelStyle),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: TimingTokens.meterLabelBottomGap),
                 Listener(
                   onPointerDown: (_) =>

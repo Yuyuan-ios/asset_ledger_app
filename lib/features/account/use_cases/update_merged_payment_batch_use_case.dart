@@ -47,8 +47,8 @@ class UpdateMergedPaymentBatchUseCase {
     double? oldBatchTotalAmount;
     final oldCreatedAtValues = <String>[];
     for (final row in oldRows) {
-      oldAmountByProject[row.projectKey] =
-          (oldAmountByProject[row.projectKey] ?? 0.0) + row.amount;
+      oldAmountByProject[row.effectiveProjectId] =
+          (oldAmountByProject[row.effectiveProjectId] ?? 0.0) + row.amount;
       oldRowsTotal += row.amount;
       oldBatchTotalAmount ??= row.mergeBatchTotalAmount;
       final createdAt = row.createdAt?.trim();
@@ -63,18 +63,22 @@ class UpdateMergedPaymentBatchUseCase {
       throw StateError('超出剩余应收（剩余约 ${FormatUtils.money(editableRemaining)}）');
     }
 
+    final memberProjectIds = mergedProject.memberProjectIds.toSet();
     final memberKeys = mergedProject.memberProjectKeys.toSet();
     final createdAt = _batchCreatedAt(oldCreatedAtValues);
     final allocations = buildMergedPaymentAllocationRows(
       candidates: [
         for (final project in memberProjects)
-          if (memberKeys.contains(project.projectKey))
+          if (memberProjectIds.isNotEmpty
+              ? memberProjectIds.contains(project.effectiveProjectId)
+              : memberKeys.contains(project.projectKey))
             MergedPaymentAllocationCandidate(
+              projectId: project.effectiveProjectId,
               projectKey: project.projectKey,
               minYmd: project.minYmd,
               remaining:
                   project.remaining +
-                  (oldAmountByProject[project.projectKey] ?? 0.0),
+                  (oldAmountByProject[project.effectiveProjectId] ?? 0.0),
             ),
       ],
       mergeGroupId: groupId,
@@ -88,7 +92,8 @@ class UpdateMergedPaymentBatchUseCase {
       return row.mergeGroupId != groupId ||
           row.mergeBatchId != batchId ||
           row.sourceType != AccountPayment.sourceTypeMergeAllocation ||
-          row.projectKey.startsWith('merge:');
+          row.projectKey.startsWith('merge:') ||
+          row.effectiveProjectId.startsWith('merge:');
     })) {
       throw StateError('合并收款分摊结果不合法');
     }

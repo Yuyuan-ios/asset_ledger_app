@@ -1,6 +1,7 @@
 import 'package:asset_ledger/data/db/db_migrations.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/db/database.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
@@ -145,6 +146,7 @@ void main() {
         final db = await _openCurrentInMemoryDb();
         final timingRepository = SqfliteTimingRepository();
         final historyRepository = SqfliteTimingCalculationHistoryRepository();
+        await _seedProject(db, contact: '新建', site: '一号工地');
 
         final savedRecord = await timingRepository.saveWithCalculationHistories(
           _record(contact: '新建'),
@@ -171,9 +173,10 @@ void main() {
     test(
       'updating a timing record appends new histories without deleting old ones',
       () async {
-        await _openCurrentInMemoryDb();
+        final db = await _openCurrentInMemoryDb();
         final timingRepository = SqfliteTimingRepository();
         final historyRepository = SqfliteTimingCalculationHistoryRepository();
+        await _seedProject(db, contact: '更新前', site: '一号工地');
 
         final savedRecord = await timingRepository.saveWithCalculationHistories(
           _record(contact: '更新前'),
@@ -216,6 +219,7 @@ void main() {
         final db = await _openCurrentInMemoryDb();
         final timingRepository = SqfliteTimingRepository();
         final historyRepository = SqfliteTimingCalculationHistoryRepository();
+        await _seedProject(db, contact: '无历史', site: '一号工地');
 
         final savedRecord = await timingRepository.saveWithCalculationHistories(
           _record(contact: '无历史'),
@@ -237,6 +241,7 @@ void main() {
     test('rolls back the timing record when history insertion fails', () async {
       final db = await _openCurrentInMemoryDb();
       final timingRepository = SqfliteTimingRepository();
+      await _seedProject(db, contact: '应回滚', site: '一号工地');
 
       await expectLater(
         timingRepository.saveWithCalculationHistories(
@@ -304,6 +309,7 @@ TimingCalculationHistory _history({
 
 TimingRecord _record({String contact = '甲方'}) {
   return TimingRecord(
+    projectId: ProjectId.legacyFromParts(contact: contact, site: '一号工地'),
     deviceId: 1,
     startDate: 20260514,
     contact: contact,
@@ -317,7 +323,7 @@ TimingRecord _record({String contact = '甲方'}) {
 }
 
 Future<void> _seedTimingRecord(Database db, {required int id}) async {
-  await db.insert('timing_records', {
+  final row = <String, Object?>{
     'id': id,
     'device_id': 1,
     'start_date': 20260514,
@@ -330,7 +336,33 @@ Future<void> _seedTimingRecord(Database db, {required int id}) async {
     'income': 800.0,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,
-  });
+  };
+  final columns = await db.rawQuery('PRAGMA table_info(timing_records);');
+  if (columns.any((column) => column['name'] == 'project_id')) {
+    row['project_id'] = ProjectId.legacyFromParts(contact: '甲方', site: '一号工地');
+    await _seedProject(db, contact: '甲方', site: '一号工地');
+  }
+  await db.insert('timing_records', row);
+}
+
+Future<void> _seedProject(
+  Database db, {
+  required String contact,
+  required String site,
+}) async {
+  if (!await _tableExists(db, 'projects')) return;
+  final now = DateTime.utc(2026, 5, 14).toIso8601String();
+  await db.insert('projects', {
+    'id': ProjectId.legacyFromParts(contact: contact, site: site),
+    'contact': contact,
+    'site': site,
+    'status': 'active',
+    'settled_at': null,
+    'settled_snapshot': null,
+    'created_at': now,
+    'updated_at': now,
+    'legacy_project_key': '$contact||$site',
+  }, conflictAlgorithm: ConflictAlgorithm.ignore);
 }
 
 Future<void> _createMinimalV9Schema(Database db) async {

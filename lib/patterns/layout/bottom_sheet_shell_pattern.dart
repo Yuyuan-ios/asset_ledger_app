@@ -35,6 +35,7 @@ Future<T?> openEditorSheet<T>({
   VoidCallback? onConfirm,
   void Function(BuildContext sheetContext)? onCancel,
   WidgetBuilder? footerCenterBuilder,
+  bool footerEnabled = true,
   bool useSafeArea = true,
   bool scrollable = false,
   EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
@@ -58,6 +59,7 @@ Future<T?> openEditorSheet<T>({
         },
         onConfirm: onConfirm,
         footerCenter: footerCenterBuilder?.call(sheetContext),
+        footerEnabled: footerEnabled,
         child: childBuilder(sheetContext),
       );
     },
@@ -92,6 +94,7 @@ class AppBottomSheetShell extends StatelessWidget {
   final Widget? headerTrailing;
   final double handleWidth;
   final Color? handleColor;
+  final Color? backgroundColor;
   final double headerSideInset;
   final double dividerSideInset;
   final double headerToDividerGap;
@@ -120,6 +123,7 @@ class AppBottomSheetShell extends StatelessWidget {
     this.headerTrailing,
     this.handleWidth = BottomSheetTokens.handleWidth,
     this.handleColor,
+    this.backgroundColor,
     this.headerSideInset = 0,
     this.dividerSideInset = 0,
     this.headerToDividerGap = BottomSheetTokens.headerToDividerGap,
@@ -147,7 +151,7 @@ class AppBottomSheetShell extends StatelessWidget {
     final sheetHeight = h * factor;
 
     final sheet = Material(
-      color: SheetColors.background,
+      color: backgroundColor ?? SheetColors.background,
       borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
@@ -195,13 +199,7 @@ class AppBottomSheetShell extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: headerToDividerGap),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: dividerSideInset),
-                  child: const Divider(
-                    height: BottomSheetTokens.dividerThickness,
-                    thickness: BottomSheetTokens.dividerThickness,
-                  ),
-                ),
+                _SoftHeaderDivider(horizontalInset: dividerSideInset),
                 SizedBox(height: dividerToContentGap),
               ],
 
@@ -244,6 +242,33 @@ class AppBottomSheetShell extends StatelessWidget {
             : 0.0,
       ),
       child: Align(alignment: Alignment.bottomCenter, child: sheet),
+    );
+  }
+}
+
+class _SoftHeaderDivider extends StatelessWidget {
+  const _SoftHeaderDivider({required this.horizontalInset});
+
+  final double horizontalInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: BottomSheetTokens.dividerThickness,
+      margin: EdgeInsets.symmetric(horizontal: 16 + horizontalInset),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color(0x00D8CEC4),
+            Color(0x78D8CEC4),
+            Color(0x78D8CEC4),
+            Color(0x00D8CEC4),
+          ],
+          stops: [0.0, 0.06, 0.94, 1.0],
+        ),
+      ),
     );
   }
 }

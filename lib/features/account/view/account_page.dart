@@ -72,6 +72,8 @@ class AccountPage extends StatefulWidget {
 // =====================================================================
 
 class _AccountPageState extends State<AccountPage> {
+  bool _isCompactProjectList = false;
+
   // -------------------------------------------------------------------
   // 通用：提示消息（SnackBar）
   // -------------------------------------------------------------------
@@ -501,7 +503,7 @@ class _AccountPageState extends State<AccountPage> {
   //
   // 关键点：
   // - 这里用 sheetCtx.watch(...)：保证详情里“保存/删除/改单价”后自动刷新 UI
-  // - 同时把“新增收款”限定为项目内模式：传 pNow 给 _openPaymentEditor
+  // - “新增收款”由详情内容区触发，并限定在当前项目范围内
   //
   void _openProjectDetail(String projectKey) {
     openEditorSheet<void>(
@@ -511,13 +513,8 @@ class _AccountPageState extends State<AccountPage> {
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailContentInset,
       ),
+      footerEnabled: false,
       onConfirm: () => Navigator.of(context).maybePop(),
-      footerCenterBuilder: (sheetContext) => TextButton.icon(
-        onPressed: () =>
-            _openProjectDetailPaymentFromFooter(sheetContext, projectKey),
-        icon: const Icon(Icons.add),
-        label: const Text('新增收款'),
-      ),
       childBuilder: (sheetContext) =>
           Consumer4<
             TimingStore,
@@ -564,46 +561,9 @@ class _AccountPageState extends State<AccountPage> {
                     onEditMergedPaymentBatch: _openMergedPaymentBatchEditor,
                     onDeleteMergedPaymentBatch:
                         _confirmDeleteMergedPaymentBatch,
-                    showInlineAddPayment: false,
                   );
                 },
           ),
-    );
-  }
-
-  Future<void> _openProjectDetailPaymentFromFooter(
-    BuildContext sheetContext,
-    String projectKey,
-  ) async {
-    final timingStore = sheetContext.read<TimingStore>();
-    final deviceStore = sheetContext.read<DeviceStore>();
-    final paymentStore = sheetContext.read<AccountPaymentStore>();
-    final rateStore = sheetContext.read<ProjectRateStore>();
-    final accountStore = sheetContext.read<AccountStore>();
-
-    final computed = accountStore.compute(
-      timingRecords: timingStore.records,
-      devices: deviceStore.allDevices,
-      rates: rateStore.rates,
-      payments: paymentStore.records,
-    );
-    final matches = computed.projects
-        .where((project) => project.projectKey == projectKey)
-        .toList();
-    if (matches.isEmpty) {
-      _toast('项目不存在或已被清理');
-      return;
-    }
-
-    final project = matches.first;
-    if (project.kind == AccountProjectKind.merged) {
-      await _openMergedPaymentEditor(project);
-      return;
-    }
-
-    await _openPaymentEditor(
-      project: project,
-      allPayments: paymentStore.records,
     );
   }
 
@@ -694,6 +654,13 @@ class _AccountPageState extends State<AccountPage> {
                             height: AccountTokens.projectPinnedHeaderHeight,
                             child: AccountProjectPinnedHeader(
                               projectCount: viewData.filteredProjects.length,
+                              isCompactProjectList: _isCompactProjectList,
+                              onToggleCompactProjectList: () {
+                                setState(() {
+                                  _isCompactProjectList =
+                                      !_isCompactProjectList;
+                                });
+                              },
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -717,6 +684,7 @@ class _AccountPageState extends State<AccountPage> {
                         SliverToBoxAdapter(
                           child: AccountProjectList(
                             projects: viewData.filteredProjects,
+                            isCompact: _isCompactProjectList,
                             onTap: (p) => _openProjectDetail(p.projectKey),
                           ),
                         ),

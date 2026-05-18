@@ -174,6 +174,7 @@ class SqfliteTimingRepository implements TimingRepository {
   /// - bool 在 SQLite 中使用 0/1 存储
   static Map<String, Object?> _toRow(TimingRecord r) {
     return {
+      'project_id': r.effectiveProjectId,
       'device_id': r.deviceId,
       'start_date': r.startDate,
       'contact': r.contact,
@@ -193,20 +194,6 @@ class SqfliteTimingRepository implements TimingRepository {
   ///
   /// 兼容老数据：字段不存在/为 null 时，默认 false
   static TimingRecord _fromRow(Map<String, Object?> row) {
-    return TimingRecord(
-      id: row['id'] as int,
-      deviceId: row['device_id'] as int,
-      startDate: row['start_date'] as int,
-      contact: row['contact'] as String,
-      site: row['site'] as String,
-      type: TimingType.values.byName(row['type'] as String),
-      startMeter: (row['start_meter'] as num).toDouble(),
-      endMeter: (row['end_meter'] as num).toDouble(),
-      hours: (row['hours'] as num).toDouble(),
-      income: (row['income'] as num).toDouble(),
-      excludeFromFuelEfficiency:
-          ((row['exclude_from_fuel_eff'] as int?) ?? 0) == 1,
-      isBreaking: ((row['is_breaking'] as int?) ?? 0) == 1,
-    );
+    return TimingRecord.fromMap(row);
   }
 }

@@ -59,8 +59,29 @@ void main() {
       },
     );
 
-    expect(find.textContaining('[已保存]'), findsOneWidget);
-    expect(find.text('8 + 8.2 + 7.8 = 24.0 h'), findsOneWidget);
+    expect(find.textContaining('[已保存]'), findsNothing);
+    expect(find.text('2026.05.13 18:20 | 票据 3 张'), findsOneWidget);
+    expect(
+      find.textContaining('8 + 8.2 + 7.8 = 24.0 h', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('计算依据'), findsNothing);
+    expect(find.text('工时计算依据'), findsNothing);
+    expect(find.byTooltip('关闭'), findsNothing);
+    expect(find.widgetWithText(TextButton, '关闭'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '完成'), findsNothing);
+
+    final equalLeft = tester
+        .getTopLeft(find.widgetWithText(FilledButton, '='))
+        .dx;
+    final zeroLeft = tester
+        .getTopLeft(find.widgetWithText(OutlinedButton, '0'))
+        .dx;
+    final decimalLeft = tester
+        .getTopLeft(find.widgetWithText(OutlinedButton, '.'))
+        .dx;
+    expect(equalLeft, lessThan(zeroLeft));
+    expect(zeroLeft, lessThan(decimalLeft));
 
     await tapTextKey(tester, '8');
     await tapTextKey(tester, '+');
@@ -68,9 +89,27 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '=').last);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('[本次]'), findsOneWidget);
-    expect(find.text('8 + 8 = 16.0 h'), findsOneWidget);
-    expect(find.text('8 + 8.2 + 7.8 = 24.0 h'), findsOneWidget);
-    expect(latestStagedHistories, hasLength(1));
+    expect(find.textContaining('[本次]'), findsNothing);
+    expect(find.text('已填入工时'), findsOneWidget);
+    expect(
+      find.textContaining('8 + 8 = 16.0 h', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('8 + 8.2 + 7.8 = 24.0 h', findRichText: true),
+      findsOneWidget,
+    );
+
+    await tapTextKey(tester, '+');
+    await tapTextKey(tester, '4');
+    await tester.tap(find.widgetWithText(FilledButton, '=').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('已填入工时'), findsOneWidget);
+    expect(
+      find.textContaining('16.0 + 4 = 20.0 h', findRichText: true),
+      findsOneWidget,
+    );
+    expect(latestStagedHistories, hasLength(2));
   });
 }

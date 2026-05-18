@@ -104,6 +104,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> closeCalculatorSheet(WidgetTester tester) async {
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+  }
+
   TimingCalculationHistory existingHistory({
     String id = 'existing-h1',
     DateTime? createdAt,
@@ -228,16 +233,23 @@ void main() {
 
     await tester.tap(find.byTooltip('工时计算依据'));
     await tester.pumpAndSettle();
+    expect(find.text('计算依据'), findsNothing);
+    expect(find.byTooltip('关闭'), findsNothing);
+    expect(find.widgetWithText(TextButton, '关闭'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '完成'), findsNothing);
     await tapCalculatorTextKey(tester, '8');
     await tapCalculatorTextKey(tester, '+');
     await tapCalculatorTextKey(tester, '8');
     await tester.tap(find.widgetWithText(FilledButton, '=').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('8 + 8 = 16.0 h'), findsOneWidget);
+    expect(
+      find.textContaining('8 + 8 = 16.0 h', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('已填入工时'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, '完成').last);
-    await tester.pumpAndSettle();
+    await closeCalculatorSheet(tester);
     await key.currentState!.submit();
     await tester.pumpAndSettle();
 
@@ -273,8 +285,11 @@ void main() {
     await tester.tap(find.byTooltip('工时计算依据'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('[已保存]'), findsOneWidget);
-    expect(find.text('8 + 8.2 + 7.8 = 24.0 h'), findsOneWidget);
+    expect(find.textContaining('[已保存]'), findsNothing);
+    expect(
+      find.textContaining('8 + 8.2 + 7.8 = 24.0 h', findRichText: true),
+      findsOneWidget,
+    );
 
     await tapCalculatorTextKey(tester, '8');
     await tapCalculatorTextKey(tester, '+');
@@ -282,11 +297,14 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '=').last);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('[本次]'), findsOneWidget);
-    expect(find.text('8 + 8 = 16.0 h'), findsOneWidget);
+    expect(find.textContaining('[本次]'), findsNothing);
+    expect(
+      find.textContaining('8 + 8 = 16.0 h', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('已填入工时'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, '完成').last);
-    await tester.pumpAndSettle();
+    await closeCalculatorSheet(tester);
     await key.currentState!.submit();
     await tester.pumpAndSettle();
 
@@ -322,8 +340,7 @@ void main() {
     await tapCalculatorTextKey(tester, '8');
     await tester.tap(find.widgetWithText(FilledButton, '=').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '完成').last);
-    await tester.pumpAndSettle();
+    await closeCalculatorSheet(tester);
 
     await tester.tap(find.text('租金(台班)'));
     await tester.pumpAndSettle();

@@ -1,6 +1,9 @@
+import 'project_id.dart';
+
 class AccountProjectMergeMember {
   final int? id;
   final int groupId;
+  final String projectId;
   final String projectKey;
   final String contact;
   final String site;
@@ -11,6 +14,7 @@ class AccountProjectMergeMember {
   const AccountProjectMergeMember({
     this.id,
     required this.groupId,
+    this.projectId = '',
     required this.projectKey,
     required this.contact,
     required this.site,
@@ -22,6 +26,7 @@ class AccountProjectMergeMember {
   AccountProjectMergeMember copyWith({
     int? id,
     int? groupId,
+    String? projectId,
     String? projectKey,
     String? contact,
     String? site,
@@ -32,6 +37,7 @@ class AccountProjectMergeMember {
     return AccountProjectMergeMember(
       id: id ?? this.id,
       groupId: groupId ?? this.groupId,
+      projectId: projectId ?? this.projectId,
       projectKey: projectKey ?? this.projectKey,
       contact: contact ?? this.contact,
       site: site ?? this.site,
@@ -45,6 +51,7 @@ class AccountProjectMergeMember {
     return {
       'id': id,
       'group_id': groupId,
+      'project_id': effectiveProjectId,
       'project_key': projectKey,
       'contact': contact,
       'site': site,
@@ -58,6 +65,7 @@ class AccountProjectMergeMember {
     return AccountProjectMergeMember(
       id: map['id'] as int?,
       groupId: (map['group_id'] as int?) ?? 0,
+      projectId: (map['project_id'] as String?) ?? '',
       projectKey: (map['project_key'] as String?) ?? '',
       contact: (map['contact'] as String?) ?? '',
       site: (map['site'] as String?) ?? '',
@@ -65,5 +73,9 @@ class AccountProjectMergeMember {
       createdAt: (map['created_at'] as String?) ?? '',
       isActive: ((map['is_active'] as int?) ?? 1) == 1,
     );
+  }
+
+  String get effectiveProjectId {
+    return ProjectId.ensure(projectId: projectId, legacyProjectKey: projectKey);
   }
 }

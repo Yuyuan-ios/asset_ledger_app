@@ -13,6 +13,9 @@ class _AssetLedgerArchitectureLints extends PluginBase {
     _NoStoreReadsInReusableUi(),
     _NoFontFamilyInUiLayers(),
     _NoTextStyleInMigratedModules(),
+    _NoProjectKeyInCoreIdentityPath(),
+    _NoFeatureModelDataImplementationImports(),
+    _NoEnumValuesByName(),
   ];
 }
 
@@ -128,6 +131,92 @@ class _NoTextStyleInMigratedModules extends DartLintRule {
   }
 }
 
+class _NoProjectKeyInCoreIdentityPath extends DartLintRule {
+  const _NoProjectKeyInCoreIdentityPath() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_project_key_in_core_identity_path',
+    problemMessage:
+        'Core project identity paths must resolve project_id through ProjectResolver, not legacy ProjectKey/ProjectId helpers.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!_isCoreProjectIdentityPath(path)) return;
+
+    context.registry.addMethodInvocation((node) {
+      final target = node.target?.toSource().trim();
+      final methodName = node.methodName.name;
+      final isLegacyProjectId =
+          target == 'ProjectId' && methodName.startsWith('legacy');
+      final isProjectKeyIdentity =
+          target == 'ProjectKey' &&
+          (methodName == 'buildKey' || methodName == 'fromKey');
+      if (!isLegacyProjectId && !isProjectKeyIdentity) return;
+      reporter.atNode(node.methodName, code);
+    });
+  }
+}
+
+class _NoFeatureModelDataImplementationImports extends DartLintRule {
+  const _NoFeatureModelDataImplementationImports() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_feature_model_data_implementation_imports',
+    problemMessage:
+        'Feature model files must not import data db/repository/service implementation layers.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!RegExp(r'/lib/features/[^/]+/model/').hasMatch(path)) return;
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null) return;
+      if (!_isDataImplementationImport(uri)) return;
+      reporter.atNode(node.uri, code);
+    });
+  }
+}
+
+class _NoEnumValuesByName extends DartLintRule {
+  const _NoEnumValuesByName() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_enum_values_by_name',
+    problemMessage:
+        'Do not parse external enum input with enum.values.byName; use an explicit safe parser.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    context.registry.addMethodInvocation((node) {
+      if (node.methodName.name != 'byName') return;
+      final target = node.target?.toSource().trim() ?? '';
+      if (!target.endsWith('.values')) return;
+      reporter.atNode(node.methodName, code);
+    });
+  }
+}
+
 String _normalizePath(String path) => path.replaceAll('\\', '/');
 
 bool _isDataOrStateFile(String path) {
@@ -162,6 +251,28 @@ bool _isTypographyTextStyleAllowed(String path) {
   return path.contains(
     '/lib/patterns/account/account_overview_card_pattern.dart',
   );
+}
+
+bool _isCoreProjectIdentityPath(String path) {
+  return path.contains('/lib/features/timing/use_cases/') ||
+      path.contains('/lib/data/repositories/timing_repository.dart');
+}
+
+bool _isDataImplementationImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  if (normalized.startsWith('package:')) {
+    if (!normalized.startsWith('package:asset_ledger/')) return false;
+    return _isDataImplementationPath(
+      normalized.substring('package:asset_ledger/'.length),
+    );
+  }
+  return _isDataImplementationPath(normalized);
+}
+
+bool _isDataImplementationPath(String path) {
+  return path.contains('data/db/') ||
+      path.contains('data/repositories/') ||
+      path.contains('data/services/');
 }
 
 bool _isForbiddenUiImport(String uri) {

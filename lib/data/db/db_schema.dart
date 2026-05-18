@@ -3,6 +3,32 @@ import 'package:sqflite/sqflite.dart';
 /// 数据库首次创建（onCreate）所需的全量 schema。
 class DbSchema {
   static Future<void> create(Database db) async {
+    // ----------------------------- projects -----------------------------
+    await db.execute('''
+      CREATE TABLE projects (
+        id TEXT PRIMARY KEY,
+        contact TEXT NOT NULL,
+        site TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        settled_at TEXT,
+        settled_snapshot TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        legacy_project_key TEXT UNIQUE
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_projects_legacy_key
+      ON projects(legacy_project_key);
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_projects_active_contact_site
+      ON projects(contact, site)
+      WHERE status = 'active';
+    ''');
+
     // ----------------------------- devices -----------------------------
     await db.execute('''
       CREATE TABLE devices (
@@ -24,6 +50,7 @@ class DbSchema {
     await db.execute('''
       CREATE TABLE timing_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id TEXT NOT NULL,
         device_id INTEGER NOT NULL,
         start_date INTEGER NOT NULL,
         contact TEXT NOT NULL,
@@ -34,7 +61,9 @@ class DbSchema {
         hours REAL NOT NULL,
         income REAL NOT NULL,
         exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0,
-        is_breaking INTEGER NOT NULL DEFAULT 0
+        is_breaking INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE RESTRICT
       );
     ''');
 
@@ -85,6 +114,7 @@ class DbSchema {
     await db.execute('''
       CREATE TABLE account_payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id TEXT NOT NULL,
         project_key TEXT NOT NULL,
         ymd INTEGER NOT NULL,
         amount REAL NOT NULL,
@@ -94,29 +124,34 @@ class DbSchema {
         merge_batch_id TEXT,
         merge_batch_total_amount REAL,
         merge_batch_note TEXT,
-        created_at TEXT
+        created_at TEXT,
+        FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE RESTRICT
       );
     ''');
 
     await db.execute('''
       CREATE INDEX idx_account_payments_project_ymd
-      ON account_payments(project_key, ymd);
+      ON account_payments(project_id, ymd);
     ''');
 
     // --------------------- project_device_rates ------------------------
     await db.execute('''
       CREATE TABLE project_device_rates (
+        project_id TEXT NOT NULL,
         project_key TEXT NOT NULL,
         device_id INTEGER NOT NULL,
         is_breaking INTEGER NOT NULL DEFAULT 0,
         rate REAL NOT NULL,
-        PRIMARY KEY (project_key, device_id, is_breaking)
+        PRIMARY KEY (project_id, device_id, is_breaking),
+        FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE RESTRICT
       );
     ''');
 
     await db.execute('''
       CREATE INDEX idx_project_device_rates_project
-      ON project_device_rates(project_key);
+      ON project_device_rates(project_id);
     ''');
 
     // ------------------ account_project_merge_groups ------------------
@@ -142,6 +177,7 @@ class DbSchema {
       CREATE TABLE account_project_merge_members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         group_id INTEGER NOT NULL,
+        project_id TEXT NOT NULL,
         project_key TEXT NOT NULL,
         contact TEXT NOT NULL,
         site TEXT NOT NULL,
@@ -149,7 +185,9 @@ class DbSchema {
         created_at TEXT NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (group_id)
-          REFERENCES account_project_merge_groups(id) ON DELETE CASCADE
+          REFERENCES account_project_merge_groups(id) ON DELETE CASCADE,
+        FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE RESTRICT
       );
     ''');
 
@@ -160,12 +198,12 @@ class DbSchema {
 
     await db.execute('''
       CREATE UNIQUE INDEX idx_account_project_merge_members_group_project
-      ON account_project_merge_members(group_id, project_key);
+      ON account_project_merge_members(group_id, project_id);
     ''');
 
     await db.execute('''
       CREATE UNIQUE INDEX idx_account_project_merge_members_active_project
-      ON account_project_merge_members(project_key)
+      ON account_project_merge_members(project_id)
       WHERE is_active = 1;
     ''');
   }

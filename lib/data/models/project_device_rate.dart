@@ -1,4 +1,6 @@
 // =====================================================================
+
+import 'project_id.dart';
 // ============================== ProjectDeviceRate（项目×设备单价） ==============================
 // =====================================================================
 //
@@ -10,12 +12,14 @@
 // =====================================================================
 
 class ProjectDeviceRate {
+  final String projectId;
   final String projectKey;
   final int deviceId;
   final bool isBreaking;
   final double rate;
 
   const ProjectDeviceRate({
+    this.projectId = '',
     required this.projectKey,
     required this.deviceId,
     this.isBreaking = false,
@@ -24,6 +28,7 @@ class ProjectDeviceRate {
 
   Map<String, Object?> toMap() {
     return {
+      'project_id': effectiveProjectId,
       'project_key': projectKey,
       'device_id': deviceId,
       'is_breaking': isBreaking ? 1 : 0,
@@ -33,10 +38,15 @@ class ProjectDeviceRate {
 
   static ProjectDeviceRate fromMap(Map<String, Object?> m) {
     return ProjectDeviceRate(
+      projectId: (m['project_id'] as String?) ?? '',
       projectKey: (m['project_key'] as String?) ?? '',
       deviceId: (m['device_id'] as int?) ?? 0,
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
       rate: (m['rate'] as num?)?.toDouble() ?? 0.0,
     );
+  }
+
+  String get effectiveProjectId {
+    return ProjectId.ensure(projectId: projectId, legacyProjectKey: projectKey);
   }
 }

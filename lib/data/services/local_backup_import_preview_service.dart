@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
 import '../models/backup_preview.dart';
+import '../models/project_key.dart';
 import 'local_backup_file_naming.dart';
 
 class LocalBackupFile {
@@ -47,6 +48,7 @@ class LocalBackupImportPreviewService {
     'timing_calculation_history',
     'account_project_merge_groups',
     'account_project_merge_members',
+    'projects',
   ];
 
   Future<BackupPreview> pickAndPreviewBackup() async {
@@ -246,6 +248,7 @@ class LocalBackupImportPreviewService {
       tableCounts[tableName] = rows.length;
     }
 
+    final projects = data['projects'];
     final timingRecords = data['timing_records'] as List;
     final accountPayments = data['account_payments'] as List;
     final projectDeviceRates = data['project_device_rates'] as List;
@@ -253,27 +256,36 @@ class LocalBackupImportPreviewService {
     final projectKeys = <String>{};
     final accountNames = <String>{};
 
-    for (final row in timingRecords.whereType<Map<String, dynamic>>()) {
-      final contact = (row['contact'] as String?)?.trim() ?? '';
-      final site = (row['site'] as String?)?.trim() ?? '';
-      if (contact.isNotEmpty) accountNames.add(contact);
-      if (contact.isNotEmpty || site.isNotEmpty) {
-        projectKeys.add('$contact||$site');
+    if (projects is List) {
+      for (final row in projects.whereType<Map<String, dynamic>>()) {
+        final id = (row['id'] as String?)?.trim() ?? '';
+        final contact = (row['contact'] as String?)?.trim() ?? '';
+        if (id.isNotEmpty) projectKeys.add(id);
+        if (contact.isNotEmpty) accountNames.add(contact);
       }
-    }
+    } else {
+      for (final row in timingRecords.whereType<Map<String, dynamic>>()) {
+        final contact = (row['contact'] as String?)?.trim() ?? '';
+        final site = (row['site'] as String?)?.trim() ?? '';
+        if (contact.isNotEmpty) accountNames.add(contact);
+        if (contact.isNotEmpty || site.isNotEmpty) {
+          projectKeys.add(ProjectKey.buildKey(contact: contact, site: site));
+        }
+      }
 
-    for (final row in accountPayments.whereType<Map<String, dynamic>>()) {
-      _addProjectKey(row['project_key'], projectKeys, accountNames);
-    }
-
-    for (final row in projectDeviceRates.whereType<Map<String, dynamic>>()) {
-      _addProjectKey(row['project_key'], projectKeys, accountNames);
-    }
-
-    final mergeMembers = data['account_project_merge_members'];
-    if (mergeMembers is List) {
-      for (final row in mergeMembers.whereType<Map<String, dynamic>>()) {
+      for (final row in accountPayments.whereType<Map<String, dynamic>>()) {
         _addProjectKey(row['project_key'], projectKeys, accountNames);
+      }
+
+      for (final row in projectDeviceRates.whereType<Map<String, dynamic>>()) {
+        _addProjectKey(row['project_key'], projectKeys, accountNames);
+      }
+
+      final mergeMembers = data['account_project_merge_members'];
+      if (mergeMembers is List) {
+        for (final row in mergeMembers.whereType<Map<String, dynamic>>()) {
+          _addProjectKey(row['project_key'], projectKeys, accountNames);
+        }
       }
     }
 
@@ -320,10 +332,7 @@ class LocalBackupImportPreviewService {
     if (projectKey.isEmpty) return;
 
     projectKeys.add(projectKey);
-    final separatorIndex = projectKey.indexOf('||');
-    final contact = separatorIndex >= 0
-        ? projectKey.substring(0, separatorIndex).trim()
-        : projectKey;
+    final contact = ProjectKey.fromKey(projectKey).contact.trim();
     if (contact.isNotEmpty) accountNames.add(contact);
   }
 }

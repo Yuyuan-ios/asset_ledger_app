@@ -7,6 +7,15 @@ import '../../data/models/device.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../core/utils/format_utils.dart';
 import '../../tokens/mapper/account_tokens.dart';
+import '../../tokens/mapper/color_tokens.dart';
+
+const _addPaymentPillBackground = Color(0xFFEAF7F5);
+const _addPaymentPillBorder = Color(0xFF8AD5CC);
+const _addPaymentPillText = Color(0xFF147C73);
+const _projectActionPillBackground = Color(0xFFF5F2EE);
+const _projectActionPillBorder = Color(0xFFD8C8B8);
+const _projectActionPillText = Color(0xFF7A5A3A);
+const _fallbackActionTextStyle = TextStyle();
 
 class ProjectAccountDetailRateRow {
   final String projectKey;
@@ -119,10 +128,10 @@ class ProjectAccountDetailContent extends StatelessWidget {
         : (received / receivable).clamp(0.0, 1.0);
     final projectNameStyle = AppTypography.sectionTitle(
       context,
-      fontSize: AccountTokens.projectDetailProjectNameSize,
-      fontWeight: AccountTokens.projectDetailProjectNameWeight,
+      fontSize: AccountTokens.projectCardTitleFontSize,
+      fontWeight: FontWeight.w600,
       height: 1,
-      color: Colors.black,
+      color: SheetColors.textPrimary,
     );
     final actionStyle = AppTypography.actionText(
       context,
@@ -130,43 +139,87 @@ class ProjectAccountDetailContent extends StatelessWidget {
       fontWeight: FontWeight.w400,
       color: AccountTokens.projectDetailActionColor,
     );
-    final labelStyle = AppTypography.body(
+    final resolvedActionStyle = actionStyle ?? _fallbackActionTextStyle;
+    final siteStyle = AppTypography.body(
       context,
-      fontSize: AccountTokens.projectDetailLabelSize,
-      fontWeight: FontWeight.w400,
-      color: Colors.black,
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+      height: 1,
+      color: SheetColors.textPrimary,
     );
     final rowTextStyle = AppTypography.body(
       context,
-      fontSize: AccountTokens.projectDetailRowTextSize,
+      fontSize: 15,
       fontWeight: FontWeight.w400,
-      color: Colors.black,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final rowMetricStyle = AppTypography.body(
+      context,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      height: 1,
+      color: SheetColors.textPrimary,
     );
     final progressTextStyle = AppTypography.body(
       context,
-      fontSize: AccountTokens.projectDetailProgressTextSize,
+      fontSize: AccountTokens.projectCardStatusFontSize,
       fontWeight: FontWeight.w400,
-      color: Colors.black,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final progressAmountStyle = AppTypography.body(
+      context,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final progressMetaStyle = AppTypography.body(
+      context,
+      fontSize: AccountTokens.projectCardStatusFontSize,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      color: SheetColors.textPrimary,
     );
     final sectionTitleStyle = AppTypography.body(
       context,
-      fontSize: AccountTokens.projectDetailSectionTitleSize,
-      fontWeight: AccountTokens.projectDetailSectionTitleWeight,
-      color: Colors.black,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: SheetColors.textPrimary,
     );
     final emptyStyle = AppTypography.caption(
       context,
       color: Colors.grey.shade600,
     );
-    final paymentTitleStyle = AppTypography.body(
+    final paymentDateStyle = AppTypography.body(
       context,
-      fontWeight: FontWeight.w700,
-      color: Colors.black,
+      fontSize: 15,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      color: SheetColors.textPrimary,
     );
-    final paymentNoteStyle = AppTypography.caption(
+    final paymentRemarkStyle = AppTypography.caption(
+      context,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      color: SheetColors.hint,
+    );
+    final paymentAmountStyle = AppTypography.body(
+      context,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final paymentTagStyle = AppTypography.caption(
       context,
       fontSize: 12,
-      color: Colors.grey.shade600,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: TimingColors.chartIncome,
     );
 
     final visibleDetailRows =
@@ -177,200 +230,52 @@ class ProjectAccountDetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ───────────────── 顶部：项目名 + 日期 ─────────────────
+        _buildProjectCard(
+          rows: visibleDetailRows,
+          isMergedProject: detailRows != null,
+          projectNameStyle: projectNameStyle,
+          siteStyle: siteStyle,
+          rowTextStyle: rowTextStyle,
+          rowMetricStyle: rowMetricStyle,
+          actionStyle: resolvedActionStyle,
+        ),
+
+        const SizedBox(height: AccountTokens.projectCardBottomMargin),
+
+        _buildProgressCard(
+          ratio: ratio,
+          received: received,
+          progressTextStyle: progressTextStyle,
+          progressAmountStyle: progressAmountStyle,
+          progressMetaStyle: progressMetaStyle,
+        ),
+
+        const SizedBox(height: AppSpace.md),
+
+        // ───────────────── 收款记录 ─────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AccountTokens.projectDetailSectionHorizontalPadding,
-            AccountTokens.projectDetailSectionTopPadding,
-            AccountTokens.projectDetailSectionHorizontalPadding,
-            0,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
           ),
           child: Row(
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  '收款记录',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: projectNameStyle,
+                  softWrap: false,
+                  style: sectionTitleStyle,
                 ),
               ),
-              SizedBox(
-                width: AccountTokens.projectDetailBatchActionWidth,
-                child: showBatchAction
-                    ? Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: onBatchEditRate,
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            foregroundColor:
-                                AccountTokens.projectDetailActionColor,
-                          ),
-                          child: Text(batchActionText, style: actionStyle),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
+              if (showAddPayment) const SizedBox(width: 12),
+              if (showAddPayment)
+                _buildAddPaymentPillButton(actionStyle: resolvedActionStyle),
             ],
           ),
         ),
 
-        const SizedBox(height: AccountTokens.projectDetailTopSectionGap),
-
-        ...visibleDetailRows.asMap().entries.map((entry) {
-          final row = entry.value;
-          return SizedBox(
-            height: AccountTokens.projectDetailRowHeight,
-            child: Stack(
-              children: [
-                if (row.label.trim().isNotEmpty)
-                  Positioned(
-                    left: AccountTokens.projectDetailLabelLeft,
-                    top: 0,
-                    bottom: 0,
-                    width: AccountTokens.projectDetailLabelWidth,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(row.label, style: labelStyle),
-                    ),
-                  ),
-                Positioned(
-                  left: AccountTokens.projectDetailDeviceLeft,
-                  top: 0,
-                  bottom: 0,
-                  width: AccountTokens.projectDetailDeviceWidth,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      row.deviceLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: rowTextStyle,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: AccountTokens.projectDetailHoursLeft,
-                  top: 0,
-                  bottom: 0,
-                  width: AccountTokens.projectDetailHoursWidth,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      _hoursText(row.hours),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: rowTextStyle,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: AccountTokens.projectDetailAmountLeft,
-                  top: 0,
-                  bottom: 0,
-                  width: AccountTokens.projectDetailAmountWidth,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      FormatUtils.money(row.rate),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: rowTextStyle,
-                    ),
-                  ),
-                ),
-                if (row.showEdit)
-                  Positioned(
-                    right: AccountTokens.projectDetailActionRightInset,
-                    top: 0,
-                    bottom: 0,
-                    width: AccountTokens.projectDetailActionWidth,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          final editRow = onEditRateRow;
-                          if (editRow != null) {
-                            editRow(row);
-                            return;
-                          }
-                          onEditDeviceRate(row.deviceId, row.isBreaking);
-                        },
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          foregroundColor:
-                              AccountTokens.projectDetailActionColor,
-                        ),
-                        child: Text('修改', style: actionStyle),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        }),
-
-        const SizedBox(height: AccountTokens.projectDetailProgressTopGap),
-
-        Padding(
-          padding: const EdgeInsets.only(
-            left: AccountTokens.projectDetailProgressLeftInset,
-          ),
-          child: Row(
-            children: [
-              Text(
-                '${(ratio * 100).toStringAsFixed(1)}%实收',
-                style: progressTextStyle,
-              ),
-              const Spacer(),
-              Text(
-                '余: ${FormatUtils.money(remaining)} / ${FormatUtils.money(receivable)}',
-                style: progressTextStyle,
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: AppSpace.xs),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(
-            AccountTokens.projectDetailProgressRadius,
-          ),
-          child: SizedBox(
-            height: AccountTokens.projectDetailProgressHeight,
-            width: double.infinity,
-            child: Stack(
-              children: [
-                Container(color: AccountTokens.projectCardProgressTrack),
-                FractionallySizedBox(
-                  widthFactor: ratio,
-                  child: Container(
-                    color: AccountTokens.projectCardProgressFill,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: AccountTokens.projectDetailDividerTopGap),
-        const Divider(height: 1),
-        const SizedBox(height: AccountTokens.projectDetailSectionTitleTopGap),
-
-        // ───────────────── 收款记录 ─────────────────
-        Padding(
-          padding: const EdgeInsets.only(
-            left: AccountTokens.projectDetailSectionHorizontalPadding,
-          ),
-          child: Text('收款记录', style: sectionTitleStyle),
-        ),
-
-        const SizedBox(height: AppSpace.sm),
+        const SizedBox(height: 6),
 
         if (visiblePaymentItems.isEmpty)
           Padding(
@@ -378,95 +283,595 @@ class ProjectAccountDetailContent extends StatelessWidget {
             child: Center(child: Text('暂无收款记录', style: emptyStyle)),
           )
         else
-          ...visiblePaymentItems.map((item) {
-            final title =
-                '${FormatUtils.date(item.ymd)}  —  ${FormatUtils.money(item.amount)}';
-            final sourceLabel = item.sourceLabel.trim();
-            final note = item.note;
-            final rawPayment =
-                item.type ==
-                    AccountProjectPaymentDisplayType.normalMemberPayment
-                ? _paymentByDisplayItem(item)
-                : null;
-            final canEditRawPayment =
-                showPaymentActions &&
-                showRawPaymentActions &&
-                rawPayment != null;
-            final canEditDisplayItem =
-                showPaymentActions &&
-                rawPayment == null &&
-                item.type ==
-                    AccountProjectPaymentDisplayType.mergeBatchPayment &&
-                onEditPaymentDisplayItem != null;
-            final canDeleteDisplayItem =
-                showPaymentActions &&
-                rawPayment == null &&
-                item.type ==
-                    AccountProjectPaymentDisplayType.mergeBatchPayment &&
-                onDeletePaymentDisplayItem != null;
-            final showEditButton = canEditRawPayment || canEditDisplayItem;
-            final showDeleteButton = canEditRawPayment || canDeleteDisplayItem;
-
-            return Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(text: title, style: paymentTitleStyle),
-                            if (sourceLabel.isNotEmpty)
-                              TextSpan(
-                                text: '  $sourceLabel',
-                                style: paymentNoteStyle,
-                              ),
-                            if (note != null)
-                              TextSpan(
-                                text: '  备注:$note',
-                                style: paymentNoteStyle,
-                              ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (showEditButton)
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        onPressed: rawPayment != null
-                            ? () => onEditPayment(rawPayment)
-                            : () => onEditPaymentDisplayItem?.call(item),
-                      ),
-                    if (showDeleteButton)
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        onPressed: rawPayment != null
-                            ? () => onDeletePayment(rawPayment)
-                            : () => onDeletePaymentDisplayItem?.call(item),
-                      ),
-                  ],
-                ),
-                const Divider(height: 1),
-              ],
-            );
-          }),
-
-        const SizedBox(height: AppSpace.md),
-
-        if (showAddPayment)
-          Center(
-            child: TextButton.icon(
-              onPressed: onAddPayment,
-              icon: const Icon(Icons.add),
-              label: const Text('新增收款'),
+          ...visiblePaymentItems.map(
+            (item) => _buildPaymentCard(
+              item: item,
+              dateStyle: paymentDateStyle,
+              remarkStyle: paymentRemarkStyle,
+              amountStyle: paymentAmountStyle,
+              tagStyle: paymentTagStyle,
             ),
           ),
 
-        const SizedBox(height: AppSpace.xxl),
+        SizedBox(height: MediaQuery.of(context).viewPadding.bottom + 16),
       ],
     );
+  }
+
+  Widget _buildProjectCard({
+    required List<ProjectAccountDetailRateRow> rows,
+    required bool isMergedProject,
+    required TextStyle? projectNameStyle,
+    required TextStyle? siteStyle,
+    required TextStyle? rowTextStyle,
+    required TextStyle? rowMetricStyle,
+    required TextStyle actionStyle,
+  }) {
+    final children = <Widget>[];
+    var lastSiteLabel = _fallbackSiteLabel();
+    for (var index = 0; index < rows.length; index++) {
+      final row = rows[index];
+      final rawLabel = row.label.trim();
+      if (rawLabel.isNotEmpty && rawLabel != '设备单价') {
+        lastSiteLabel = rawLabel;
+      }
+      final siteRowLabel = _siteRowLabel(
+        isMergedProject: isMergedProject,
+        projectTitle: title,
+        siteName: lastSiteLabel,
+      );
+
+      children.add(
+        _buildProjectDetailRow(
+          row: row,
+          siteLabel: siteRowLabel ?? '',
+          showSiteRow: siteRowLabel != null,
+          showDivider: index != rows.length - 1,
+          siteStyle: siteStyle,
+          rowTextStyle: rowTextStyle,
+          rowMetricStyle: rowMetricStyle,
+          actionStyle: actionStyle,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AccountTokens.projectCardPaddingHorizontal,
+          vertical: AccountTokens.projectCardPaddingTop,
+        ),
+        decoration: _cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    style: projectNameStyle,
+                  ),
+                ),
+                if (showBatchAction) ...[
+                  const SizedBox(width: AppSpace.sm),
+                  _buildProjectActionPill(actionStyle: actionStyle),
+                ],
+              ],
+            ),
+            if (children.isNotEmpty) ...[
+              const SizedBox(height: AccountTokens.projectCardSectionGap),
+              ...children,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectDetailRow({
+    required ProjectAccountDetailRateRow row,
+    required String siteLabel,
+    required bool showSiteRow,
+    required bool showDivider,
+    required TextStyle? siteStyle,
+    required TextStyle? rowTextStyle,
+    required TextStyle? rowMetricStyle,
+    required TextStyle actionStyle,
+  }) {
+    final editButton = row.showEdit
+        ? SizedBox(
+            width: 48,
+            height: 36,
+            child: TextButton(
+              onPressed: () {
+                final editRow = onEditRateRow;
+                if (editRow != null) {
+                  editRow(row);
+                  return;
+                }
+                onEditDeviceRate(row.deviceId, row.isBreaking);
+              },
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(48, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AccountTokens.projectDetailActionColor,
+              ),
+              child: Text(
+                '修改',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: actionStyle,
+              ),
+            ),
+          )
+        : const SizedBox(width: 48, height: 36);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showSiteRow) ...[
+          Row(
+            children: [
+              Icon(
+                siteLabel == '设备'
+                    ? Icons.settings_outlined
+                    : Icons.location_on_outlined,
+                size: 18,
+                color: AccountTokens.projectDetailActionColor,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  siteLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: siteStyle,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.xs),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                row.deviceLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: rowTextStyle,
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            SizedBox(
+              width: 58,
+              child: Text(
+                _hoursText(row.hours),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                textAlign: TextAlign.right,
+                style: rowMetricStyle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 62,
+              child: Text(
+                FormatUtils.money(row.rate),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                textAlign: TextAlign.right,
+                style: rowMetricStyle,
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            editButton,
+          ],
+        ),
+        if (showDivider) ...[
+          const SizedBox(height: 6),
+          const Divider(height: 1, color: TimingColors.cardBorder),
+          const SizedBox(height: 6),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAddPaymentPillButton({required TextStyle actionStyle}) {
+    final pillStyle = actionStyle.copyWith(
+      color: _addPaymentPillText,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    );
+
+    return InkWell(
+      onTap: onAddPayment,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: _addPaymentPillBackground,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: _addPaymentPillBorder),
+        ),
+        child: Text(
+          '+ 新增收款',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: pillStyle,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectActionPill({required TextStyle actionStyle}) {
+    final pillStyle = actionStyle.copyWith(
+      color: _projectActionPillText,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    );
+
+    return InkWell(
+      onTap: onBatchEditRate,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: _projectActionPillBackground,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: _projectActionPillBorder),
+        ),
+        child: Text(
+          batchActionText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: pillStyle,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentSourceBadge({
+    required String sourceLabel,
+    required TextStyle? tagStyle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F5E8),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        sourceLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: tagStyle,
+      ),
+    );
+  }
+
+  Widget _buildProgressCard({
+    required double ratio,
+    required double received,
+    required TextStyle? progressTextStyle,
+    required TextStyle? progressAmountStyle,
+    required TextStyle? progressMetaStyle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AccountTokens.projectCardPaddingHorizontal,
+          vertical: AccountTokens.projectCardPaddingTop,
+        ),
+        decoration: _cardDecoration(),
+        child: Column(
+          children: [
+            SizedBox(
+              height: AccountTokens.projectCardProgressHeight,
+              width: double.infinity,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Stack(
+                  children: [
+                    Container(
+                      height: AccountTokens.projectCardProgressFillHeight,
+                      decoration: BoxDecoration(
+                        color: AccountTokens.projectCardProgressTrack,
+                        borderRadius: BorderRadius.circular(
+                          AccountTokens.projectCardProgressRadius,
+                        ),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: ratio,
+                      child: Container(
+                        height: AccountTokens.projectCardProgressFillHeight,
+                        decoration: BoxDecoration(
+                          color: AccountTokens.projectCardProgressFill,
+                          borderRadius: BorderRadius.circular(
+                            AccountTokens.projectCardProgressRadius,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '已收 ${(ratio * 100).toStringAsFixed(1)}%',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    style: progressTextStyle,
+                  ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: Text(
+                    '待收 ${FormatUtils.money(remaining)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    textAlign: TextAlign.right,
+                    style: progressTextStyle,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    FormatUtils.money(received),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    style: progressAmountStyle,
+                  ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: Text(
+                    '项目总额 ${FormatUtils.money(receivable)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    textAlign: TextAlign.right,
+                    style: progressMetaStyle,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentCard({
+    required AccountProjectPaymentDisplayVM item,
+    required TextStyle? dateStyle,
+    required TextStyle? remarkStyle,
+    required TextStyle? amountStyle,
+    required TextStyle? tagStyle,
+  }) {
+    final dateText = FormatUtils.date(item.ymd);
+    final amountText = FormatUtils.money(item.amount);
+    final sourceLabel = item.sourceLabel.trim();
+    final remarkText = item.note?.trim() ?? '';
+    final rawPayment =
+        item.type == AccountProjectPaymentDisplayType.normalMemberPayment
+        ? _paymentByDisplayItem(item)
+        : null;
+    final canEditRawPayment =
+        showPaymentActions && showRawPaymentActions && rawPayment != null;
+    final canEditDisplayItem =
+        showPaymentActions &&
+        rawPayment == null &&
+        item.type == AccountProjectPaymentDisplayType.mergeBatchPayment &&
+        onEditPaymentDisplayItem != null;
+    final canDeleteDisplayItem =
+        showPaymentActions &&
+        rawPayment == null &&
+        item.type == AccountProjectPaymentDisplayType.mergeBatchPayment &&
+        onDeletePaymentDisplayItem != null;
+    final showEditButton = canEditRawPayment || canEditDisplayItem;
+    final showDeleteButton = canEditRawPayment || canDeleteDisplayItem;
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AccountTokens.projectDetailSectionHorizontalPadding,
+        right: AccountTokens.projectDetailSectionHorizontalPadding,
+        bottom: AccountTokens.projectCardBottomMargin,
+      ),
+      child: Container(
+        height: 66,
+        width: double.infinity,
+        clipBehavior: Clip.antiAlias,
+        decoration: _cardDecoration(),
+        child: Row(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AccountTokens.projectCardPaddingHorizontal,
+                  7,
+                  AppSpace.sm,
+                  7,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 92),
+                          child: Text(
+                            dateText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: dateStyle,
+                          ),
+                        ),
+                        if (sourceLabel.isNotEmpty) ...[
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: _buildPaymentSourceBadge(
+                              sourceLabel: sourceLabel,
+                              tagStyle: tagStyle,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: AppSpace.xs),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            amountText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: amountStyle,
+                          ),
+                        ),
+                        if (remarkText.isNotEmpty) ...[
+                          const SizedBox(width: AppSpace.md),
+                          Expanded(
+                            child: Text(
+                              '备注：$remarkText',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: remarkStyle,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (showEditButton)
+              _buildPaymentAction(
+                icon: Icons.edit_outlined,
+                backgroundColor: const Color(0xFFFFF7F0),
+                onPressed: rawPayment != null
+                    ? () => onEditPayment(rawPayment)
+                    : () => onEditPaymentDisplayItem?.call(item),
+              ),
+            if (showDeleteButton)
+              _buildPaymentAction(
+                icon: Icons.delete_outline,
+                backgroundColor: const Color(0xFFFFF0E6),
+                onPressed: rawPayment != null
+                    ? () => onDeletePayment(rawPayment)
+                    : () => onDeletePaymentDisplayItem?.call(item),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentAction({
+    required IconData icon,
+    required Color backgroundColor,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: 52,
+      height: double.infinity,
+      child: ColoredBox(
+        color: backgroundColor,
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(
+            icon,
+            size: 21,
+            color: AccountTokens.projectDetailActionColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: SheetColors.background,
+      border: Border.all(
+        color: AccountTokens.projectCardBorderColor,
+        width: AccountTokens.projectCardBorderWidth,
+      ),
+      borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(
+            alpha: AccountTokens.projectCardShadowOpacity,
+          ),
+          blurRadius: AccountTokens.projectCardShadowBlur,
+          offset: const Offset(
+            AccountTokens.projectCardShadowOffsetX,
+            AccountTokens.projectCardShadowOffsetY,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _fallbackSiteLabel() {
+    final parts = title.split('+');
+    if (parts.length >= 2) {
+      final site = parts.last.trim();
+      if (site.isNotEmpty) return site;
+    }
+    return '';
+  }
+
+  String? _siteRowLabel({
+    required bool isMergedProject,
+    required String projectTitle,
+    required String siteName,
+  }) {
+    final normalizedSite = siteName.trim();
+    if (normalizedSite.isEmpty) return null;
+
+    if (isMergedProject) return normalizedSite;
+
+    final normalizedTitle = projectTitle.trim();
+    if (normalizedTitle.contains(normalizedSite)) return '设备';
+
+    return normalizedSite;
   }
 
   List<ProjectAccountDetailRateRow> _buildDeviceDetailRows({

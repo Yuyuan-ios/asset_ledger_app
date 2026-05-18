@@ -284,6 +284,7 @@ class _FakeProjectRateRepository implements ProjectRateRepository {
   Future<int> delete(
     String projectKey,
     int deviceId, {
+    String? projectId,
     bool isBreaking = false,
   }) async => 1;
 
@@ -335,6 +336,13 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   @override
   Future<List<AccountProjectMergeMember>> listActiveMembersByProjectKeys(
     List<String> projectKeys,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
+    List<String> projectIds,
   ) {
     throw UnimplementedError();
   }

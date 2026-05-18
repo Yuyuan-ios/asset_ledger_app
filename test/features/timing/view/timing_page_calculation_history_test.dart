@@ -4,15 +4,18 @@ import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/fuel_log.dart';
 import 'package:asset_ledger/data/models/maintenance_record.dart';
+import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
+import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
+import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
@@ -44,8 +47,11 @@ void main() {
     await tester.tap(find.byTooltip('工时计算依据'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('[已保存]'), findsOneWidget);
-    expect(find.text('8 + 8 = 16.0 h'), findsOneWidget);
+    expect(find.textContaining('[已保存]'), findsNothing);
+    expect(
+      find.textContaining('8 + 8 = 16.0 h', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('does not query calculation histories for new records', (
@@ -122,35 +128,71 @@ void main() {
     expect(timingRepository.savedCalculationHistories, isEmpty);
   });
 
-  testWidgets('dissolves active merge group after editing project address', (
-    WidgetTester tester,
-  ) async {
-    final timingRepository = _FakeTimingRepository(seed: [_record()]);
-    final mergeRepository = _FakeAccountProjectMergeRepository(
-      group: _mergeGroup(),
-      members: _mergeMembers(),
-    );
+  testWidgets(
+    'keeps merge group after editing project address on same projectId',
+    (WidgetTester tester) async {
+      final timingRepository = _FakeTimingRepository(seed: [_record()]);
+      final mergeRepository = _FakeAccountProjectMergeRepository(
+        group: _mergeGroup(),
+        members: _mergeMembers(),
+      );
 
-    await _pumpTimingPage(
-      tester,
-      timingRepository: timingRepository,
-      historyRepository: _FakeCalculationHistoryRepository(),
-      mergeRepository: mergeRepository,
-    );
+      await _pumpTimingPage(
+        tester,
+        timingRepository: timingRepository,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        mergeRepository: mergeRepository,
+      );
 
-    await tester.tap(find.text('甲方·一号工地'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('甲方·一号工地'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
+      await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pumpAndSettle();
 
-    expect(timingRepository.saveCalls, 1);
-    expect(timingRepository.savedRecords.single.site, '一号工地新址');
-    expect(mergeRepository.dissolvedGroupIds, [1]);
-    expect(mergeRepository.group?.isActive, isFalse);
-    expect(mergeRepository.members.every((member) => !member.isActive), isTrue);
-  });
+      expect(timingRepository.saveCalls, 1);
+      expect(timingRepository.savedRecords.single.site, '一号工地新址');
+      expect(mergeRepository.dissolvedGroupIds, isEmpty);
+      expect(mergeRepository.group?.isActive, isTrue);
+      expect(
+        mergeRepository.members.every((member) => member.isActive),
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
+    'does not show dissolve retry when only project attributes change',
+    (WidgetTester tester) async {
+      final timingRepository = _FakeTimingRepository(seed: [_record()]);
+      final mergeRepository = _FakeAccountProjectMergeRepository(
+        group: _mergeGroup(),
+        members: _mergeMembers(),
+        failDissolveCount: 1,
+      );
+
+      await _pumpTimingPage(
+        tester,
+        timingRepository: timingRepository,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        mergeRepository: mergeRepository,
+      );
+
+      await tester.tap(find.text('甲方·一号工地'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pumpAndSettle();
+
+      expect(timingRepository.saveCalls, 1);
+      expect(mergeRepository.dissolvedGroupIds, isEmpty);
+      expect(mergeRepository.group?.isActive, isTrue);
+      expect(find.text('合并项目未解除'), findsNothing);
+      expect(find.text('编辑计时'), findsNothing);
+    },
+  );
 
   testWidgets(
     'keeps merge group when editing hours without project key change',
@@ -201,6 +243,10 @@ Future<void> _pumpTimingPage(
   final fuelRepository = _FakeFuelRepository();
   final maintenanceRepository = _FakeMaintenanceRepository();
   final rateRepository = _FakeProjectRateRepository();
+  final projectResolver = ProjectResolver(
+    projectRepository: _FakeProjectRepository(),
+    now: () => DateTime.utc(2026, 5, 15),
+  );
 
   final deviceStore = DeviceStore(deviceRepository);
   final timingStore = TimingStore(resolvedTimingRepository);
@@ -232,6 +278,7 @@ Future<void> _pumpTimingPage(
           ),
           ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
           Provider<AccountProjectMergeService>.value(value: mergeService),
+          Provider<ProjectResolver>.value(value: projectResolver),
         ],
         child: TimingPage(calculationHistoryRepository: historyRepository),
       ),
@@ -432,6 +479,7 @@ class _FakeProjectRateRepository implements ProjectRateRepository {
   Future<int> delete(
     String projectKey,
     int deviceId, {
+    String? projectId,
     bool isBreaking = false,
   }) async {
     return 1;
@@ -439,6 +487,53 @@ class _FakeProjectRateRepository implements ProjectRateRepository {
 
   @override
   Future<int> deleteByProjectKey(String projectKey) async => 1;
+}
+
+class _FakeProjectRepository implements ProjectRepository {
+  final inserted = <Project>[];
+
+  @override
+  Future<List<Project>> listAll() async => inserted;
+
+  @override
+  Future<Project?> findById(String id) async {
+    for (final project in inserted) {
+      if (project.id == id) return project;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSite({
+    required String contact,
+    required String site,
+  }) async {
+    return inserted
+        .where((project) {
+          return project.contact == contact.trim() &&
+              project.site == site.trim() &&
+              project.status == ProjectStatus.active;
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> insert(Project project) async {
+    inserted.add(project);
+  }
+
+  @override
+  Future<Project> findOrCreateLegacyProject({
+    required String contact,
+    required String site,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> upsert(Project project) async {
+    inserted.add(project);
+  }
 }
 
 AccountProjectMergeGroup _mergeGroup() {
@@ -477,10 +572,12 @@ class _FakeAccountProjectMergeRepository
   _FakeAccountProjectMergeRepository({
     this.group,
     List<AccountProjectMergeMember> members = const [],
+    this.failDissolveCount = 0,
   }) : members = List.of(members);
 
   AccountProjectMergeGroup? group;
   List<AccountProjectMergeMember> members;
+  int failDissolveCount;
   final List<int> dissolvedGroupIds = [];
 
   @override
@@ -496,6 +593,10 @@ class _FakeAccountProjectMergeRepository
     required int groupId,
     required String dissolvedAt,
   }) async {
+    if (failDissolveCount > 0) {
+      failDissolveCount -= 1;
+      throw StateError('dissolve failed');
+    }
     dissolvedGroupIds.add(groupId);
     group = group?.copyWith(isActive: false, dissolvedAt: dissolvedAt);
     members = [
@@ -526,6 +627,17 @@ class _FakeAccountProjectMergeRepository
     final keySet = projectKeys.map((key) => key.trim()).toSet();
     return members.where((member) {
       return member.isActive && keySet.contains(member.projectKey);
+    }).toList();
+  }
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
+    List<String> projectIds,
+  ) async {
+    final projectIdSet = projectIds.map((id) => id.trim()).toSet();
+    return members.where((member) {
+      return member.isActive &&
+          projectIdSet.contains(member.effectiveProjectId);
     }).toList();
   }
 

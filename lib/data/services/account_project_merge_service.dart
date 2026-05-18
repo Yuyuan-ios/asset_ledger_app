@@ -1,6 +1,7 @@
 import '../models/account_project_merge_group.dart';
 import '../models/account_project_merge_group_with_members.dart';
 import '../models/account_project_merge_member.dart';
+import '../models/project_id.dart';
 import '../models/project_key.dart';
 import '../repositories/account_project_merge_repository.dart';
 
@@ -31,8 +32,8 @@ class AccountProjectMergeService {
       throw ArgumentError.value(projectKeys, 'projectKeys', '至少选择 2 个项目');
     }
 
-    final existing = await _repository.listActiveMembersByProjectKeys(
-      parsed.map((item) => item.key).toList(),
+    final existing = await _repository.listActiveMembersByProjectIds(
+      parsed.map((item) => ProjectId.legacyFromKey(item.key)).toList(),
     );
     if (existing.isNotEmpty) {
       throw StateError('项目已属于其他合并组');
@@ -48,6 +49,7 @@ class AccountProjectMergeService {
       for (var index = 0; index < parsed.length; index += 1)
         AccountProjectMergeMember(
           groupId: 0,
+          projectId: ProjectId.legacyFromKey(parsed[index].key),
           projectKey: parsed[index].key,
           contact: parsed[index].contact,
           site: parsed[index].site,
@@ -77,7 +79,18 @@ class AccountProjectMergeService {
     final key = projectKey.trim();
     if (key.isEmpty) return null;
 
-    final members = await _repository.listActiveMembersByProjectKeys([key]);
+    final members = await _repository.listActiveMembersByProjectIds([
+      ProjectId.legacyFromKey(key),
+    ]);
+    if (members.isEmpty) return null;
+    return members.first.groupId;
+  }
+
+  Future<int?> findActiveGroupIdByProjectId(String projectId) async {
+    final id = projectId.trim();
+    if (id.isEmpty) return null;
+
+    final members = await _repository.listActiveMembersByProjectIds([id]);
     if (members.isEmpty) return null;
     return members.first.groupId;
   }
@@ -91,6 +104,21 @@ class AccountProjectMergeService {
     if (oldKey.isEmpty || oldKey == newKey) return false;
 
     final groupId = await findActiveGroupIdByProjectKey(oldKey);
+    if (groupId == null) return false;
+
+    await dissolveMergeGroup(groupId);
+    return true;
+  }
+
+  Future<bool> dissolveMergeGroupIfProjectIdChanged({
+    required String oldProjectId,
+    required String newProjectId,
+  }) async {
+    final oldId = oldProjectId.trim();
+    final newId = newProjectId.trim();
+    if (oldId.isEmpty || oldId == newId) return false;
+
+    final groupId = await findActiveGroupIdByProjectId(oldId);
     if (groupId == null) return false;
 
     await dissolveMergeGroup(groupId);

@@ -8,6 +8,7 @@ import '../repositories/account_payment_repository.dart';
 import '../repositories/device_repository.dart';
 import '../repositories/fuel_repository.dart';
 import '../repositories/maintenance_repository.dart';
+import '../repositories/project_repository.dart';
 import '../repositories/project_rate_repository.dart';
 import '../repositories/timing_repository.dart';
 import 'local_backup_file_naming.dart';
@@ -34,7 +35,7 @@ class LocalBackupExportService {
   static const String _calculationHistoryTable = 'timing_calculation_history';
   static const String _mergeGroupsTable = 'account_project_merge_groups';
   static const String _mergeMembersTable = 'account_project_merge_members';
-  static const int _exportFormatVersion = 1;
+  static const int _exportFormatVersion = 2;
   static const String _appName = '机账通';
   static const String _appVersion = 'unknown';
   static const String _backupDirName = 'backups';
@@ -50,8 +51,10 @@ class LocalBackupExportService {
       final maintenanceRepository = SqfliteMaintenanceRepository();
       final accountPaymentRepository = SqfliteAccountPaymentRepository();
       final projectRateRepository = SqfliteProjectRateRepository();
+      final projectRepository = SqfliteProjectRepository();
 
       final results = await Future.wait([
+        projectRepository.listAll(),
         deviceRepository.listAll(),
         timingRepository.listAll(),
         fuelRepository.listAll(),
@@ -63,20 +66,24 @@ class LocalBackupExportService {
         _listMergeMemberRows(),
       ]);
 
-      final devices = results[0].cast<dynamic>();
-      final timingRecords = results[1].cast<dynamic>();
-      final fuelLogs = results[2].cast<dynamic>();
-      final maintenanceRecords = results[3].cast<dynamic>();
-      final accountPayments = results[4].cast<dynamic>();
-      final projectDeviceRates = results[5].cast<dynamic>();
-      final timingCalculationHistoryRows = results[6]
+      final projects = results[0].cast<dynamic>();
+      final devices = results[1].cast<dynamic>();
+      final timingRecords = results[2].cast<dynamic>();
+      final fuelLogs = results[3].cast<dynamic>();
+      final maintenanceRecords = results[4].cast<dynamic>();
+      final accountPayments = results[5].cast<dynamic>();
+      final projectDeviceRates = results[6].cast<dynamic>();
+      final timingCalculationHistoryRows = results[7]
           .cast<Map<String, Object?>>();
-      final mergeGroupRows = results[7].cast<Map<String, Object?>>();
-      final mergeMemberRows = results[8].cast<Map<String, Object?>>();
+      final mergeGroupRows = results[8].cast<Map<String, Object?>>();
+      final mergeMemberRows = results[9].cast<Map<String, Object?>>();
 
       final exportedAt = DateTime.now().toUtc();
 
       final data = <String, Object?>{
+        'projects': projects
+            .map((item) => item.toMap())
+            .toList(growable: false),
         'devices': devices.map((item) => item.toMap()).toList(growable: false),
         'timing_records': timingRecords
             .map((item) => item.toMap())
@@ -120,6 +127,7 @@ class LocalBackupExportService {
         },
         'summary': <String, Object?>{
           'table_counts': <String, int>{
+            'projects': projects.length,
             'devices': devices.length,
             'timing_records': timingRecords.length,
             'fuel_logs': fuelLogs.length,

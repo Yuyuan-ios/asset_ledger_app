@@ -271,7 +271,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('李杰 + 合并2项目'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('新增收款'));
+      final addPaymentButton = find.widgetWithText(InkWell, '+ 新增收款');
+      await tester.ensureVisible(addPaymentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addPaymentButton);
       await tester.pumpAndSettle();
       await tester.enterText(_textFieldByLabel('金额（整数）'), '1500');
       await tester.enterText(_textFieldByLabel('备注（可填）'), '微信收款');
@@ -300,12 +303,12 @@ void main() {
       );
       expect(find.text('保存成功'), findsOneWidget);
       expect(find.textContaining('合并分摊'), findsOneWidget);
-      expect(find.textContaining('75.0%实收'), findsWidgets);
+      expect(find.textContaining('已收 75.0%'), findsWidgets);
     },
   );
 
   testWidgets(
-    'AccountPage keeps project detail footer actions reachable with many payments',
+    'AccountPage hides project detail footer while keeping inline actions reachable',
     (tester) async {
       final mergeRepository = _FakeMergeRepository();
       final mergeService = AccountProjectMergeService(
@@ -364,8 +367,20 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('项目详情'), findsOneWidget);
-      expect(find.text('新增收款'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, '确定'), findsOneWidget);
+      expect(find.text('+ 新增收款'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '+ 新增收款'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '确定'), findsNothing);
+      expect(find.widgetWithText(TextButton, '取消'), findsNothing);
+
+      final addPaymentButton = find.widgetWithText(InkWell, '+ 新增收款');
+      await tester.ensureVisible(addPaymentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addPaymentButton);
+      await tester.pumpAndSettle();
+
+      expect(_textFieldByLabel('金额（整数）'), findsOneWidget);
+      await tester.tap(find.text('取消').last);
+      await tester.pumpAndSettle();
 
       await tester.drag(
         find.byType(SingleChildScrollView).last,
@@ -373,15 +388,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('新增收款'), findsOneWidget);
-      await tester.tap(find.text('新增收款'));
-      await tester.pumpAndSettle();
-
-      expect(_textFieldByLabel('金额（整数）'), findsOneWidget);
-      await tester.tap(find.text('取消').last);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.tap(find.byIcon(Icons.close).last);
       await tester.pumpAndSettle();
 
       expect(find.text('项目详情'), findsNothing);
@@ -439,11 +446,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('李杰 + 合并2项目'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.edit_outlined));
+    final editButton = find.byIcon(Icons.edit_outlined);
+    await tester.ensureVisible(editButton);
+    await tester.pumpAndSettle();
+    await tester.tap(editButton);
     await tester.pumpAndSettle();
 
     expect(find.text('编辑收款'), findsOneWidget);
-    expect(find.text('2026.05.15'), findsOneWidget);
+    expect(find.text('2026.05.15'), findsWidgets);
     expect(
       tester.widget<TextField>(_textFieldByLabel('金额（整数）')).controller?.text,
       '1500',
@@ -470,10 +480,10 @@ void main() {
       '2026-05-16T01:03:00.000Z',
     });
     expect(find.text('已保存'), findsOneWidget);
-    expect(
-      find.textContaining('2026.05.15  —  ¥1200  合并分摊  备注:改收款'),
-      findsOneWidget,
-    );
+    expect(find.text('2026.05.15'), findsOneWidget);
+    expect(find.text('¥1200'), findsWidgets);
+    expect(find.text('合并分摊'), findsOneWidget);
+    expect(find.text('备注：改收款'), findsOneWidget);
   });
 
   testWidgets('AccountPage deletes a merged payment batch only', (
@@ -535,7 +545,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('李杰 + 合并2项目'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    final deleteButton = find.byIcon(Icons.delete_outline);
+    await tester.ensureVisible(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除').last);
     await tester.pumpAndSettle();
@@ -754,6 +767,7 @@ class _FakeRateRepository implements ProjectRateRepository {
   Future<int> delete(
     String projectKey,
     int deviceId, {
+    String? projectId,
     bool isBreaking = false,
   }) async => 1;
 
@@ -807,6 +821,19 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   Future<List<AccountProjectMergeMember>> listActiveMembersByProjectKeys(
     List<String> projectKeys,
   ) async => const [];
+
+  @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
+    List<String> projectIds,
+  ) async {
+    final projectIdSet = projectIds.map((id) => id.trim()).toSet();
+    final created = _created;
+    if (created == null) return const [];
+    return created.members.where((member) {
+      return member.isActive &&
+          projectIdSet.contains(member.effectiveProjectId);
+    }).toList();
+  }
 
   @override
   Future<void> dissolveGroup({
