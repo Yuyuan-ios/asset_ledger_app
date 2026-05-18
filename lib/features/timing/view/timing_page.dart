@@ -29,6 +29,7 @@ import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/timing/use_cases/compute_timing_chart_finance_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
+import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -370,7 +371,9 @@ class _TimingPageState extends State<TimingPage> {
           onSubmit: (record, calculationHistories) async {
             final saveUseCase = SaveTimingRecordUseCase(
               timingStore: timingStore,
-              mergeService: context.read<AccountProjectMergeService>(),
+              mergeDissolve: AccountMergeDissolveAdapter(
+                context.read<AccountProjectMergeService>(),
+              ),
               projectResolver: context.read<ProjectResolver>(),
             );
             SaveTimingRecordResult result;

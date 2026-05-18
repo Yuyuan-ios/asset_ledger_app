@@ -1,20 +1,21 @@
-import '../../../data/models/timing_record.dart';
-import '../../../data/services/account_project_merge_service.dart';
-import '../../../data/services/project_resolver.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+
+import '../../../data/models/timing_record.dart';
+import '../../../data/services/project_resolver.dart';
 import '../state/timing_store.dart';
+import 'timing_merge_dissolve_port.dart';
 
 class SaveTimingRecordUseCase {
   const SaveTimingRecordUseCase({
     required TimingStore timingStore,
-    required AccountProjectMergeService mergeService,
+    required TimingMergeDissolvePort mergeDissolve,
     required ProjectResolver projectResolver,
   }) : _timingStore = timingStore,
-       _mergeService = mergeService,
+       _mergeDissolve = mergeDissolve,
        _projectResolver = projectResolver;
 
   final TimingStore _timingStore;
-  final AccountProjectMergeService _mergeService;
+  final TimingMergeDissolvePort _mergeDissolve;
   final ProjectResolver _projectResolver;
 
   Future<SaveTimingRecordResult> execute({
@@ -48,7 +49,7 @@ class SaveTimingRecordUseCase {
   }
 
   Future<bool> retryMergeDissolve(PendingTimingMergeDissolve pending) {
-    return _mergeService.dissolveMergeGroupIfProjectIdChanged(
+    return _mergeDissolve.dissolveMergeGroupIfProjectIdChanged(
       oldProjectId: pending.oldProjectId,
       newProjectId: pending.newProjectId,
     );
