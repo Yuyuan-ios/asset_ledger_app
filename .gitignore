@@ -97,3 +97,4 @@ secrets/
 *.trace
 *.crash
 *.ips
+.claude/
