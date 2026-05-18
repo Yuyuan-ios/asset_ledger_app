@@ -15,6 +15,7 @@ class _AssetLedgerArchitectureLints extends PluginBase {
     _NoTextStyleInMigratedModules(),
     _NoProjectKeyInCoreIdentityPath(),
     _NoFeatureModelDataImplementationImports(),
+    _NoDataLayerImportsFromFeatures(),
     _NoEnumValuesByName(),
   ];
 }
@@ -192,6 +193,34 @@ class _NoFeatureModelDataImplementationImports extends DartLintRule {
   }
 }
 
+class _NoDataLayerImportsFromFeatures extends DartLintRule {
+  const _NoDataLayerImportsFromFeatures() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_data_layer_imports_from_features',
+    problemMessage:
+        'Data layer files must not import the features layer; persistence '
+        'concerns belong in data/, not under features/.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!path.contains('/lib/data/')) return;
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null || !_isFeaturesImport(uri)) return;
+      reporter.atNode(node.uri, code);
+    });
+  }
+}
+
 class _NoEnumValuesByName extends DartLintRule {
   const _NoEnumValuesByName() : super(code: _code);
 
@@ -291,4 +320,15 @@ bool _isUiLayerPath(String path) {
   return path.contains('components/') ||
       path.contains('patterns/') ||
       RegExp(r'(^|/)features/[^/]+/view/').hasMatch(path);
+}
+
+bool _isFeaturesImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  if (normalized.startsWith('package:')) {
+    if (!normalized.startsWith('package:asset_ledger/')) return false;
+    return normalized
+        .substring('package:asset_ledger/'.length)
+        .startsWith('features/');
+  }
+  return normalized.contains('features/');
 }
