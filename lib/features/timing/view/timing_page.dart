@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/money/amount_policy.dart';
 import 'package:asset_ledger/data/models/device_maps.dart';
 import 'package:asset_ledger/data/services/device_label.dart';
 import '../../../core/utils/format_utils.dart';
@@ -11,10 +10,7 @@ import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/models/project_device_rate.dart';
-import '../../../data/models/project_id.dart';
-import '../../../data/models/project_key.dart';
 import '../../../data/services/account_project_merge_service.dart';
-import '../../../data/services/account_service.dart';
 import '../../../data/services/project_resolver.dart';
 import '../../../data/services/timing_monthly_expense_service.dart';
 import '../../../data/services/timing_monthly_income_service.dart';
@@ -29,6 +25,7 @@ import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/timing/use_cases/compute_timing_chart_finance_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
+import '../../../features/timing/use_cases/timing_preview_income_use_case.dart';
 import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
@@ -278,6 +275,9 @@ class _TimingPageState extends State<TimingPage> {
     final timingStore = context.read<TimingStore>();
     final rateStore = context.read<ProjectRateStore>();
     final formKey = GlobalKey<TimingDetailContentState>();
+    final previewIncomeUseCase = TimingPreviewIncomeUseCase(
+      projectResolver: context.read<ProjectResolver>(),
+    );
     final existingCalculationHistories =
         await _loadExistingCalculationHistories(editing);
     if (!mounted) return;
@@ -320,25 +320,16 @@ class _TimingPageState extends State<TimingPage> {
                 required bool isBreaking,
                 required double hours,
               }) {
-                final projectKey = ProjectKey.buildKey(
+                return previewIncomeUseCase.execute(
+                  editing: editing,
+                  deviceId: deviceId,
                   contact: contact,
                   site: site,
-                );
-                final projectId =
-                    editing?.effectiveProjectId ??
-                    ProjectId.legacyFromKey(projectKey);
-                final effectiveRate = AccountService.buildEffectiveRateMap(
-                  projectId: projectId,
-                  projectKey: projectKey,
+                  isBreaking: isBreaking,
+                  hours: hours,
                   devices: deviceStore.allDevices,
                   rates: rateStore.rates,
-                  isBreaking: isBreaking,
                 );
-                final rate = effectiveRate[deviceId] ?? 0.0;
-                return AmountPolicy.calculateAmount(
-                  hours: WorkHours.fromHours(hours),
-                  unitPrice: UnitPrice.fromYuanPerHour(rate),
-                ).yuan;
               },
           validateMeterBounds:
               ({
