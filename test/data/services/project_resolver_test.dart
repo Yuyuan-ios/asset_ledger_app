@@ -69,6 +69,71 @@ void main() {
         expect(repository.inserted.single.site, '同一工地');
       },
     );
+
+    test(
+      'preview lookup returns unique active project id without creating',
+      () async {
+        final repository = _FakeProjectRepository([
+          _project(id: 'project:uuid', contact: '甲方', site: '一号工地'),
+        ]);
+        final resolver = _resolver(repository);
+
+        final projectId = await resolver.resolveExistingActiveProjectId(
+          contact: ' 甲方 ',
+          site: ' 一号工地 ',
+        );
+
+        expect(projectId, 'project:uuid');
+        expect(repository.inserted, isEmpty);
+      },
+    );
+
+    test('preview lookup returns null when no active project exists', () async {
+      final repository = _FakeProjectRepository([]);
+      final resolver = _resolver(repository);
+
+      final projectId = await resolver.resolveExistingActiveProjectId(
+        contact: '甲方',
+        site: '一号工地',
+      );
+
+      expect(projectId, isNull);
+      expect(repository.inserted, isEmpty);
+    });
+
+    test('preview lookup ignores settled projects', () async {
+      final repository = _FakeProjectRepository([
+        _project(
+          id: 'project:settled',
+          contact: '甲方',
+          site: '一号工地',
+          status: ProjectStatus.settled,
+        ),
+      ]);
+      final resolver = _resolver(repository);
+
+      final projectId = await resolver.resolveExistingActiveProjectId(
+        contact: '甲方',
+        site: '一号工地',
+      );
+
+      expect(projectId, isNull);
+      expect(repository.inserted, isEmpty);
+    });
+
+    test('preview lookup rejects duplicate active matches', () async {
+      final repository = _FakeProjectRepository([
+        _project(id: 'project:first', contact: '甲方', site: '一号工地'),
+        _project(id: 'project:second', contact: '甲方', site: '一号工地'),
+      ]);
+      final resolver = _resolver(repository);
+
+      await expectLater(
+        resolver.resolveExistingActiveProjectId(contact: '甲方', site: '一号工地'),
+        throwsA(isA<StateError>()),
+      );
+      expect(repository.inserted, isEmpty);
+    });
   });
 }
 

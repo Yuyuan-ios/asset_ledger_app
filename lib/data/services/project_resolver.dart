@@ -65,5 +65,35 @@ class ProjectResolver {
     return ProjectResolveResult(project: project, created: true);
   }
 
+  Future<String?> resolveExistingActiveProjectId({
+    required String contact,
+    required String site,
+  }) async {
+    final activeProject = await resolveExistingActiveProject(
+      contact: contact,
+      site: site,
+    );
+    return activeProject?.id;
+  }
+
+  Future<Project?> resolveExistingActiveProject({
+    required String contact,
+    required String site,
+  }) async {
+    final normalizedContact = contact.trim();
+    final normalizedSite = site.trim();
+    if (normalizedContact.isEmpty || normalizedSite.isEmpty) return null;
+
+    final activeMatches = await _projectRepository.findActiveByContactSite(
+      contact: normalizedContact,
+      site: normalizedSite,
+    );
+    if (activeMatches.length == 1) return activeMatches.single;
+    if (activeMatches.length > 1) {
+      throw StateError('存在多个 active 项目匹配同一联系人和工地');
+    }
+    return null;
+  }
+
   String _timestamp() => _now().toUtc().toIso8601String();
 }

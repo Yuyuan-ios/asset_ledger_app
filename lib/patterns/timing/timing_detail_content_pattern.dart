@@ -36,7 +36,7 @@ const _workHourCalculatorIconAsset =
 const _timingFieldIconSize = 30.0;
 
 typedef TimingIncomeResolver =
-    double Function({
+    FutureOr<double> Function({
       required int deviceId,
       required String contact,
       required String site,
@@ -507,7 +507,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final income = isRent
         ? _d(_incomeCtrl.text)
-        : widget.resolveIncome(
+        : await widget.resolveIncome(
             deviceId: deviceId,
             contact: contact,
             site: site,
