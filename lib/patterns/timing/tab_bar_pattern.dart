@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
@@ -30,35 +32,63 @@ class ComponentTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
+      decoration: const BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: NavigationTokens.shadowOpacity,
-            ),
-            blurRadius: NavigationTokens.shadowBlur,
-            offset: const Offset(0, NavigationTokens.shadowOffsetY),
+            color: NavigationTokens.topShadowColor,
+            blurRadius: 18,
+            offset: Offset(0, -6),
+          ),
+          BoxShadow(
+            color: NavigationTokens.ambientShadowColor,
+            blurRadius: 28,
+            offset: Offset(0, -10),
           ),
         ],
       ),
-      child: SizedBox(
-        height: NavigationTokens.barHeight,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            NavigationTokens.barHorizontalPadding,
-            NavigationTokens.contentTopPadding,
-            NavigationTokens.barHorizontalPadding,
-            NavigationTokens.contentBottomPadding,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: NavigationTokens.glassBlur,
+            sigmaY: NavigationTokens.glassBlur,
           ),
-          child: Row(
-            children: List.generate(
-              _tabs.length,
-              (index) => Expanded(
-                child: _TabButton(
-                  spec: _tabs[index],
-                  selected: index == currentIndex,
-                  onTap: () => onTap(index),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  NavigationTokens.glassTopBackground,
+                  NavigationTokens.glassBottomBackground,
+                ],
+              ),
+              border: Border(
+                top: BorderSide(
+                  color: NavigationTokens.topBorderColor,
+                  width: NavigationTokens.topBorderWidth,
+                ),
+              ),
+            ),
+            child: SizedBox(
+              height: NavigationTokens.barHeight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  NavigationTokens.barHorizontalPadding,
+                  NavigationTokens.contentTopPadding,
+                  NavigationTokens.barHorizontalPadding,
+                  NavigationTokens.contentBottomPadding,
+                ),
+                child: Row(
+                  children: List.generate(
+                    _tabs.length,
+                    (index) => Expanded(
+                      child: _TabButton(
+                        spec: _tabs[index],
+                        selected: index == currentIndex,
+                        onTap: () => onTap(index),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -102,6 +102,7 @@ class _AppRouterEntryState extends State<AppRouterEntry> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
         children: List<Widget>.generate(
