@@ -6,8 +6,8 @@ import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/text_field_utils.dart';
 import '../../../../components/fields/app_date_field.dart';
 import '../../../../components/pickers/app_date_picker_dialog.dart';
-import '../../../../data/models/account_payment.dart';
-import '../../../../data/services/account_service.dart';
+import '../../domain/entities/account_entities.dart';
+import '../../domain/services/account_payment_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
@@ -72,7 +72,7 @@ class _AccountPaymentEditorDialogState
   double _received({int? excludePaymentId}) {
     final override = widget.receivedOverride;
     if (override != null) return override;
-    return AccountService.sumReceivedByProject(
+    return AccountPaymentCalculator.sumReceivedByProject(
       projectKey: widget.project.projectKey,
       projectId: widget.project.effectiveProjectId,
       payments: widget.allPayments,

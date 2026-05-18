@@ -1,8 +1,8 @@
-import 'package:asset_ledger/data/services/device_label.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/models/fuel_log.dart';
-import '../../../data/services/fuel_stats_service.dart';
+import '../../device/domain/services/device_label.dart';
+import '../domain/entities/fuel_entities.dart';
+import '../domain/entities/fuel_summary.dart';
 import '../../device/state/device_store.dart';
 import '../../fuel/model/fuel_efficiency_agg.dart';
 import '../../fuel/state/fuel_store.dart';

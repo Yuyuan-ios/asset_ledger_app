@@ -7,6 +7,7 @@ import '../../data/repositories/account_project_merge_repository.dart';
 import '../../data/repositories/project_write_off_repository.dart';
 import '../../data/repositories/project_rate_repository.dart';
 import '../../data/services/account_project_merge_service.dart';
+import '../../features/account/application/controllers/account_action_controller.dart';
 import '../../features/account/domain/repositories/project_settlement_repository.dart';
 import '../../features/account/state/account_filter_store.dart';
 import '../../features/account/state/account_payment_store.dart';
@@ -54,6 +55,11 @@ class AccountMergeProviders {
     final projectSettlementUseCase = ProjectSettlementUseCase(
       repository: projectSettlementRepository,
     );
+    final accountActionController = AccountActionController(
+      paymentRepository: accountPaymentRepository,
+      mergeService: accountProjectMergeService,
+      settlementUseCase: projectSettlementUseCase,
+    );
 
     return AccountMergeProviders._(
       paymentStore: paymentStore,
@@ -73,6 +79,7 @@ class AccountMergeProviders {
         Provider<ProjectSettlementUseCase>.value(
           value: projectSettlementUseCase,
         ),
+        Provider<AccountActionController>.value(value: accountActionController),
         Provider<AccountProjectMergeRepository>.value(
           value: accountProjectMergeRepository,
         ),

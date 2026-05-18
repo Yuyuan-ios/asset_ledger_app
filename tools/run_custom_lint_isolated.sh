@@ -28,4 +28,18 @@ rsync -a \
   "$lint_root/"
 
 cd "$lint_root"
+
+if ! grep -q '^[[:space:]]*-[[:space:]]*custom_lint[[:space:]]*$' analysis_options.yaml; then
+  awk '
+    /^analyzer:[[:space:]]*$/ {
+      print
+      print "  plugins:"
+      print "    - custom_lint"
+      next
+    }
+    { print }
+  ' analysis_options.yaml > analysis_options.yaml.tmp
+  mv analysis_options.yaml.tmp analysis_options.yaml
+fi
+
 dart run custom_lint "$@"

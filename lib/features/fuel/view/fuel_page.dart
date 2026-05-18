@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../core/foundation/typography.dart';
-import '../../../data/models/fuel_log.dart';
-import '../../../data/services/fuel_suggest_service.dart';
+import '../domain/entities/fuel_entities.dart';
+import '../domain/services/fuel_suggestions.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
@@ -81,7 +81,7 @@ class _FuelPageState extends State<FuelPage> {
           activeDevices: deviceStore.activeDevices,
           deviceById: editorContext.deviceById,
           deviceItems: editorContext.deviceItems,
-          supplierSuggestions: (q) => FuelSuggestService.supplierSuggestions(
+          supplierSuggestions: (q) => FuelSuggestions.supplierSuggestions(
             fuelStore.logs,
             q,
             limit: 9999,
@@ -197,7 +197,7 @@ class _FuelPageState extends State<FuelPage> {
     final filter = FuelSupplierFilter(
       controller: _supplierFilterCtrl,
       suggestionsBuilder: (query) =>
-          FuelSuggestService.supplierSuggestions(fuelStore.logs, query),
+          FuelSuggestions.supplierSuggestions(fuelStore.logs, query),
       onChanged: (v) => setState(() => _supplierFilter = v.trim()),
       onSelected: (v) {
         _supplierFilterCtrl.text = v;

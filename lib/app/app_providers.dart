@@ -19,7 +19,9 @@ class AppProviders {
   static AppProviderBundle build() {
     final deviceFleet = DeviceFleetProviders.build();
     final project = ProjectProviders.build();
-    final timing = TimingProviders.build();
+    final timing = TimingProviders.build(
+      projectResolver: project.projectResolver,
+    );
     final accountMerge = AccountMergeProviders.build();
 
     return AppProviderBundle(

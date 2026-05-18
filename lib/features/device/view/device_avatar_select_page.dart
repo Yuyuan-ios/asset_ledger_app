@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/foundation/typography.dart';
-import '../../../data/models/device.dart';
+import '../domain/entities/device.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_avatar_select_view_data.dart';

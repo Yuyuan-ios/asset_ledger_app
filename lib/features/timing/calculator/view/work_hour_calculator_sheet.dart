@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 // [新增] 满足 no_textstyle_in_migrated_modules：用 AppTypography 替代 TextStyle 构造
 import '../../../../core/foundation/typography.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
-import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import '../../domain/entities/timing_entities.dart';
 
 import '../model/staged_timing_calculation_history.dart';
 import '../service/work_hour_calculator_service.dart';

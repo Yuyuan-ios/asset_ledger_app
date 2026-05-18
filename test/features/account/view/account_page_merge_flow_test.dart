@@ -11,10 +11,13 @@ import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
+import 'package:asset_ledger/features/account/application/controllers/account_action_controller.dart';
+import 'package:asset_ledger/features/account/domain/repositories/project_settlement_repository.dart';
 import 'package:asset_ledger/features/account/state/account_filter_store.dart';
 import 'package:asset_ledger/features/account/state/account_payment_store.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
+import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
 import 'package:asset_ledger/features/account/view/account_page.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
@@ -52,6 +55,7 @@ void main() {
           providers: [
             Provider<AccountProjectMergeService>.value(value: mergeService),
             Provider<AccountPaymentRepository>.value(value: paymentRepository),
+            _accountActionControllerProvider(paymentRepository, mergeService),
             ChangeNotifierProvider<TimingStore>.value(value: timingStore),
             ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
             ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -115,6 +119,7 @@ void main() {
         providers: [
           Provider<AccountProjectMergeService>.value(value: mergeService),
           Provider<AccountPaymentRepository>.value(value: paymentRepository),
+          _accountActionControllerProvider(paymentRepository, mergeService),
           ChangeNotifierProvider<TimingStore>.value(value: timingStore),
           ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
           ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -195,6 +200,7 @@ void main() {
           providers: [
             Provider<AccountProjectMergeService>.value(value: mergeService),
             Provider<AccountPaymentRepository>.value(value: paymentRepository),
+            _accountActionControllerProvider(paymentRepository, mergeService),
             ChangeNotifierProvider<TimingStore>.value(value: timingStore),
             ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
             ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -253,6 +259,7 @@ void main() {
           providers: [
             Provider<AccountProjectMergeService>.value(value: mergeService),
             Provider<AccountPaymentRepository>.value(value: paymentRepository),
+            _accountActionControllerProvider(paymentRepository, mergeService),
             ChangeNotifierProvider<TimingStore>.value(value: timingStore),
             ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
             ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -346,6 +353,7 @@ void main() {
           providers: [
             Provider<AccountProjectMergeService>.value(value: mergeService),
             Provider<AccountPaymentRepository>.value(value: paymentRepository),
+            _accountActionControllerProvider(paymentRepository, mergeService),
             ChangeNotifierProvider<TimingStore>.value(value: timingStore),
             ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
             ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -428,6 +436,7 @@ void main() {
         providers: [
           Provider<AccountProjectMergeService>.value(value: mergeService),
           Provider<AccountPaymentRepository>.value(value: paymentRepository),
+          _accountActionControllerProvider(paymentRepository, mergeService),
           ChangeNotifierProvider<TimingStore>.value(value: timingStore),
           ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
           ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -527,6 +536,7 @@ void main() {
         providers: [
           Provider<AccountProjectMergeService>.value(value: mergeService),
           Provider<AccountPaymentRepository>.value(value: paymentRepository),
+          _accountActionControllerProvider(paymentRepository, mergeService),
           ChangeNotifierProvider<TimingStore>.value(value: timingStore),
           ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
           ChangeNotifierProvider<AccountPaymentStore>.value(
@@ -570,6 +580,21 @@ Finder _textFieldByLabel(String label) {
   return find.byWidgetPredicate((widget) {
     return widget is TextField && widget.decoration?.labelText == label;
   });
+}
+
+Provider<AccountActionController> _accountActionControllerProvider(
+  AccountPaymentRepository paymentRepository,
+  AccountProjectMergeService mergeService,
+) {
+  return Provider<AccountActionController>.value(
+    value: AccountActionController(
+      paymentRepository: paymentRepository,
+      mergeService: mergeService,
+      settlementUseCase: ProjectSettlementUseCase(
+        repository: _FakeProjectSettlementRepository(),
+      ),
+    ),
+  );
 }
 
 class _FakeTimingRepository implements TimingRepository {
@@ -734,6 +759,50 @@ class _FakePaymentRepository implements AccountPaymentRepository {
 
   @override
   Future<int> deleteById(int id) async => 1;
+}
+
+class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
+  @override
+  Future<ProjectSettlementResult> settle(ProjectSettlementRequest request) {
+    final receivedAfter = request.paymentAmount;
+    final writeOffAfter = request.writeOffAmount;
+    return Future.value(
+      ProjectSettlementResult(
+        projectId: request.projectId,
+        receivable: request.receivable,
+        receivedBefore: 0,
+        writeOffBefore: 0,
+        remainingBefore: request.receivable,
+        paymentAmount: request.paymentAmount,
+        writeOffAmount: request.writeOffAmount,
+        receivedAfter: receivedAfter,
+        writeOffAfter: writeOffAfter,
+        remainingAfter: request.receivable - receivedAfter - writeOffAfter,
+        settled:
+            request.receivable - receivedAfter - writeOffAfter <=
+            projectSettlementEpsilon,
+      ),
+    );
+  }
+
+  @override
+  Future<DeleteProjectWriteOffResult> deleteWriteOff(
+    DeleteProjectWriteOffRequest request,
+  ) {
+    return Future.value(
+      DeleteProjectWriteOffResult(
+        projectId: request.projectId,
+        writeOffId: request.writeOffId,
+        deletedAmount: 0,
+        receivable: request.receivable,
+        received: 0,
+        writeOffBefore: 0,
+        writeOffAfter: 0,
+        remainingAfter: request.receivable,
+        restoredActive: request.receivable > projectSettlementEpsilon,
+      ),
+    );
+  }
 }
 
 AccountPayment _mergeAllocation({

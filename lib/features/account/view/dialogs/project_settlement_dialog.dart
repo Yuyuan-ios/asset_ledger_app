@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/text_field_utils.dart';
-import '../../../../data/models/project_write_off.dart';
+import '../../domain/entities/account_entities.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../../../tokens/mapper/account_tokens.dart';

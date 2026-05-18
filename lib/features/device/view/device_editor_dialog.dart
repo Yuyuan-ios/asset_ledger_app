@@ -4,11 +4,11 @@ import 'package:provider/provider.dart';
 
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/pro_gate.dart';
-import 'package:asset_ledger/data/services/device_label.dart';
-import '../../../data/models/device.dart';
-import '../../../data/services/avatar_storage_service.dart';
-import '../../../data/services/device_service.dart';
-import '../../../data/services/subscription_service.dart';
+import '../application/controllers/device_avatar_controller.dart';
+import '../application/controllers/subscription_controller.dart';
+import '../domain/entities/device.dart';
+import '../domain/services/device_avatar_policy.dart';
+import '../domain/services/device_label.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../patterns/device/device_editor_actions_pattern.dart';
 import '../../../patterns/device/device_editor_brand_row_pattern.dart';
@@ -34,6 +34,9 @@ class DeviceEditorDialog extends StatefulWidget {
 }
 
 class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
+  static const _subscriptionController = SubscriptionController();
+  static const _avatarController = DeviceAvatarController();
+
   late String? _selectedBrand;
   late String _previewName;
   late EquipmentType _equipmentType;
@@ -125,9 +128,9 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
       context,
       title: '需要升级',
       message: '自定义设备头像是 Pro 功能，升级后可为设备设置专属头像。',
-      isAllowed: SubscriptionService.snapshot.allowsProFeatures,
+      isAllowed: _subscriptionController.snapshot.allowsProFeatures,
       isAllowedAfterUpgrade: () =>
-          SubscriptionService.snapshot.allowsProFeatures,
+          _subscriptionController.snapshot.allowsProFeatures,
       openUpgrade: (context) => Navigator.of(
         context,
       ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage())),
@@ -145,7 +148,7 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
     );
     if (file == null || !mounted) return;
     try {
-      final savedPath = await AvatarStorageService.saveXFile(file);
+      final savedPath = await _avatarController.savePickedAvatar(file);
       if (!mounted) return;
       setState(() => _customAvatarPath = savedPath);
       _showMsg('已从相册更换头像');
@@ -191,7 +194,7 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
                 equipmentType: _equipmentType,
                 previewLabel: previewLabel,
                 saving: _saving,
-                canUseCustomAvatar: SubscriptionService.canUseCustomAvatar,
+                canUseCustomAvatar: _subscriptionController.canUseCustomAvatar,
                 customAvatarPath: _customAvatarPath,
                 onSelectBrand: _openBrandSheet,
                 onPickFromGallery: _pickCustomAvatarFromGallery,
@@ -268,9 +271,10 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
               equipmentType: _equipmentType,
             );
 
-            final resolved = DeviceService.applyCustomAvatar(
+            final resolved = DeviceAvatarPolicy.applyCustomAvatar(
               device: d,
               customAvatarPath: _customAvatarPath,
+              canUseCustomAvatar: _subscriptionController.canUseCustomAvatar,
             );
             _close(resolved);
           } catch (e) {

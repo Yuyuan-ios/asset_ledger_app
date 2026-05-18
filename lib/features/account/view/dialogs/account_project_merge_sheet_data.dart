@@ -1,5 +1,4 @@
-import '../../../../data/models/account_project_merge_group_with_members.dart';
-import '../../../../data/models/project_key.dart';
+import '../../domain/entities/account_entities.dart';
 import '../../model/account_view_model.dart';
 
 class MergeProjectSheetContactGroup {

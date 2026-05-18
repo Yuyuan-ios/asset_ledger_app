@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // [新增] 引入语义化排版令牌；项目 lint(no_textstyle_in_migrated_modules)
 // 禁止 timing/ 等已迁移模块直接调用 TextStyle 构造器。
 import '../../../../core/foundation/typography.dart';
-import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import '../../domain/entities/timing_entities.dart';
 
 import '../model/staged_timing_calculation_history.dart';
 

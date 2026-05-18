@@ -7,6 +7,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
+
 // =====================================================================
 // ============================== 二、BrandAvatar（品牌头像渲染） ==============================
 // =====================================================================
@@ -102,6 +104,7 @@ class BrandAvatar extends StatelessWidget {
     final text = brand.trim().isEmpty ? '?' : brand.trim().characters.first;
 
     return _badge(
+      context: context,
       label: text.toUpperCase(),
       top: _fallbackTop,
       center: _fallbackCenter,
@@ -110,6 +113,7 @@ class BrandAvatar extends StatelessWidget {
   }
 
   Widget _badge({
+    required BuildContext context,
     required String label,
     required Color top,
     required Color center,
@@ -197,7 +201,8 @@ class BrandAvatar extends StatelessWidget {
                       child: Text(
                         label,
                         maxLines: 1,
-                        style: TextStyle(
+                        style: AppTypography.body(
+                          context,
                           color: Colors.white,
                           fontSize: radius * 0.52,
                           fontWeight: FontWeight.w800,
@@ -299,6 +304,7 @@ class BrandAvatar extends StatelessWidget {
     final badgeSpec = _brandBadgeSpec(brand);
     if (badgeSpec != null) {
       return _badge(
+        context: context,
         label: badgeSpec.label,
         top: badgeSpec.top,
         center: badgeSpec.center,
