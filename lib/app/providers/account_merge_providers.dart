@@ -7,11 +7,14 @@ import '../../data/repositories/account_project_merge_repository.dart';
 import '../../data/repositories/project_write_off_repository.dart';
 import '../../data/repositories/project_rate_repository.dart';
 import '../../data/services/account_project_merge_service.dart';
+import '../../features/account/domain/repositories/project_settlement_repository.dart';
 import '../../features/account/state/account_filter_store.dart';
 import '../../features/account/state/account_payment_store.dart';
 import '../../features/account/state/account_store.dart';
 import '../../features/account/state/project_rate_store.dart';
+import '../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../features/timing/use_cases/timing_merge_dissolve_port.dart';
+import '../../infrastructure/local/account/local_project_settlement_repository.dart';
 
 /// Account + project-merge composition slice: payment / rate / merge
 /// repositories, merge service and the account-side stores.
@@ -32,6 +35,7 @@ class AccountMergeProviders {
     final accountPaymentRepository = SqfliteAccountPaymentRepository();
     final projectRateRepository = SqfliteProjectRateRepository();
     final projectWriteOffRepository = SqfliteProjectWriteOffRepository();
+    const projectSettlementRepository = LocalProjectSettlementRepository();
     final accountProjectMergeRepository =
         SqfliteAccountProjectMergeRepository();
     final accountProjectMergeService = AccountProjectMergeService(
@@ -47,6 +51,9 @@ class AccountMergeProviders {
       mergeService: accountProjectMergeService,
       writeOffRepository: projectWriteOffRepository,
     );
+    final projectSettlementUseCase = ProjectSettlementUseCase(
+      repository: projectSettlementRepository,
+    );
 
     return AccountMergeProviders._(
       paymentStore: paymentStore,
@@ -59,6 +66,12 @@ class AccountMergeProviders {
         Provider<ProjectRateRepository>.value(value: projectRateRepository),
         Provider<ProjectWriteOffRepository>.value(
           value: projectWriteOffRepository,
+        ),
+        Provider<ProjectSettlementRepository>.value(
+          value: projectSettlementRepository,
+        ),
+        Provider<ProjectSettlementUseCase>.value(
+          value: projectSettlementUseCase,
         ),
         Provider<AccountProjectMergeRepository>.value(
           value: accountProjectMergeRepository,

@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/project.dart';
 import '../models/project_key.dart';
 import 'schema/external_work_schema.dart';
+import 'schema/sync_schema.dart';
 
 /// 数据库增量迁移链（onUpgrade）。
 ///
@@ -259,10 +260,19 @@ class DbMigrations {
     if (oldVersion < 16) {
       await ensureProjectWriteOffSchema(db);
     }
+
+    // v16 -> v17：新增云端同步与小程序司机端工时预留表。
+    if (oldVersion < 17) {
+      await ensureSyncSchema(db);
+    }
   }
 
   static Future<void> ensureExternalWorkSchema(Database db) async {
     await ExternalWorkSchema.create(db);
+  }
+
+  static Future<void> ensureSyncSchema(Database db) async {
+    await SyncSchema.create(db);
   }
 
   static Future<void> ensureProjectWriteOffSchema(Database db) async {

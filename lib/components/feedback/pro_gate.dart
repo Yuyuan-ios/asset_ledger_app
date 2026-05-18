@@ -5,17 +5,18 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/radius.dart';
 import '../../core/foundation/spacing.dart';
-import '../../data/services/subscription_service.dart';
-import '../../features/device/view/upgrade_page.dart';
 
 Future<bool> requireProFeature(
   BuildContext context, {
   required String title,
   required String message,
+  required bool isAllowed,
+  required bool Function() isAllowedAfterUpgrade,
+  required Future<void> Function(BuildContext context) openUpgrade,
   String confirmText = '去升级',
   String cancelText = '取消',
 }) async {
-  if (SubscriptionService.snapshot.allowsProFeatures) return true;
+  if (isAllowed) return true;
 
   final goUpgrade = await showDialog<bool>(
     context: context,
@@ -36,10 +37,8 @@ Future<bool> requireProFeature(
   );
 
   if (goUpgrade != true || !context.mounted) return false;
-  await Navigator.of(
-    context,
-  ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage()));
-  return SubscriptionService.snapshot.allowsProFeatures;
+  await openUpgrade(context);
+  return isAllowedAfterUpgrade();
 }
 
 // =====================================================================

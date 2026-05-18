@@ -7,6 +7,7 @@ import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
+import 'package:asset_ledger/infrastructure/local/account/local_project_settlement_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -328,6 +329,7 @@ void main() {
 
 ProjectSettlementUseCase _useCase() {
   return ProjectSettlementUseCase(
+    repository: const LocalProjectSettlementRepository(),
     now: () => DateTime.utc(2026, 5, 18, 1, 2, 3),
     writeOffIdFactory: (_, _) => 'write-off-1',
   );

@@ -6,9 +6,8 @@ import '../../../data/models/project_write_off.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/account_service.dart';
 import 'package:asset_ledger/data/models/device_maps.dart';
+import '../domain/services/project_finance_calculator.dart';
 import '../model/account_view_model.dart';
-
-const double _accountSummaryEpsilon = 0.0000001;
 
 class ComputeAccountSummaryUseCase {
   const ComputeAccountSummaryUseCase();
@@ -45,9 +44,15 @@ class ComputeAccountSummaryUseCase {
         payments: payments,
         writeOffs: writeOffs,
       );
+      final finance = ProjectFinanceCalculator.summarizeTotals(
+        receivableFen: ProjectFinanceCalculator.yuanToFen(money.receivable),
+        receivedFen: ProjectFinanceCalculator.yuanToFen(money.received),
+        writeOffFen: ProjectFinanceCalculator.yuanToFen(money.writeOff),
+        toleranceFen: 1,
+      );
 
-      totalReceivable += money.receivable;
-      totalReceived += money.received;
+      totalReceivable += finance.receivable;
+      totalReceived += finance.received;
 
       final rateInfo = AccountService.calcRateInfo(
         agg: agg,
@@ -67,12 +72,12 @@ class ComputeAccountSummaryUseCase {
           minRate: rateInfo.minRate,
           isMultiDevice: rateInfo.isMultiDevice,
           isMultiMode: rateInfo.isMultiMode,
-          receivable: money.receivable,
-          received: money.received,
-          writeOff: money.writeOff,
-          remaining: money.remaining,
-          ratio: money.ratio,
-          settlementRatio: money.settlementRatio,
+          receivable: finance.receivable,
+          received: finance.received,
+          writeOff: finance.writeOff,
+          remaining: finance.remaining,
+          ratio: finance.cashRate,
+          settlementRatio: finance.settlementRate,
           payments: payments.where((payment) {
             return payment.effectiveProjectId == agg.projectId;
           }).toList()..sort((a, b) => b.ymd.compareTo(a.ymd)),
@@ -84,16 +89,12 @@ class ComputeAccountSummaryUseCase {
       0.0,
       (sum, item) => sum + item.writeOff,
     );
-    final rawRemaining = totalReceivable - totalReceived - totalWriteOff;
-    final remaining = rawRemaining.abs() <= _accountSummaryEpsilon
-        ? 0.0
-        : rawRemaining;
-    final ratio = (totalReceivable <= _accountSummaryEpsilon)
-        ? null
-        : (totalReceived / totalReceivable);
-    final settlementRate = (totalReceivable <= _accountSummaryEpsilon)
-        ? null
-        : ((totalReceived + totalWriteOff) / totalReceivable);
+    final totalFinance = ProjectFinanceCalculator.summarizeTotals(
+      receivableFen: ProjectFinanceCalculator.yuanToFen(totalReceivable),
+      receivedFen: ProjectFinanceCalculator.yuanToFen(totalReceived),
+      writeOffFen: ProjectFinanceCalculator.yuanToFen(totalWriteOff),
+      toleranceFen: 1,
+    );
 
     final items = _applyMergeGroups(
       normalItems: normalItems,
@@ -132,9 +133,9 @@ class ComputeAccountSummaryUseCase {
       totalReceivable: totalReceivable,
       totalReceived: totalReceived,
       totalWriteOff: totalWriteOff,
-      totalRemaining: remaining,
-      totalRatio: ratio,
-      settlementRate: settlementRate,
+      totalRemaining: totalFinance.remaining,
+      totalRatio: totalFinance.cashRate,
+      settlementRate: totalFinance.settlementRate,
       deviceReceivables: deviceReceivables,
     );
   }
@@ -241,16 +242,12 @@ class ComputeAccountSummaryUseCase {
     }
 
     payments.sort((a, b) => b.ymd.compareTo(a.ymd));
-    final rawRemaining = receivable - received - writeOff;
-    final remaining = rawRemaining.abs() <= _accountSummaryEpsilon
-        ? 0.0
-        : rawRemaining;
-    final ratio = receivable <= _accountSummaryEpsilon
-        ? null
-        : received / receivable;
-    final settlementRatio = receivable <= _accountSummaryEpsilon
-        ? null
-        : (received + writeOff) / receivable;
+    final finance = ProjectFinanceCalculator.summarizeTotals(
+      receivableFen: ProjectFinanceCalculator.yuanToFen(receivable),
+      receivedFen: ProjectFinanceCalculator.yuanToFen(received),
+      writeOffFen: ProjectFinanceCalculator.yuanToFen(writeOff),
+      toleranceFen: 1,
+    );
     final sortedDeviceIds = deviceIds.toList()..sort();
 
     return AccountProjectVM(
@@ -270,12 +267,12 @@ class ComputeAccountSummaryUseCase {
       minRate: minRate,
       isMultiDevice: sortedDeviceIds.length > 1,
       isMultiMode: isMultiMode,
-      receivable: receivable,
-      received: received,
-      writeOff: writeOff,
-      remaining: remaining,
-      ratio: ratio,
-      settlementRatio: settlementRatio,
+      receivable: finance.receivable,
+      received: finance.received,
+      writeOff: finance.writeOff,
+      remaining: finance.remaining,
+      ratio: finance.cashRate,
+      settlementRatio: finance.settlementRate,
       payments: payments,
     );
   }

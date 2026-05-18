@@ -153,16 +153,18 @@ class _AccountPageState extends State<AccountPage> {
           if (!mounted) throw StateError('页面已关闭');
 
           final latestProject = _latestProjectForSettlement(project);
-          final settlement = await ProjectSettlementUseCase().execute(
-            projectId: latestProject.effectiveProjectId,
-            projectKey: latestProject.projectKey,
-            receivable: latestProject.receivable,
-            paymentAmount: input.paymentAmount,
-            writeOffAmount: input.writeOffAmount,
-            writeOffReason: input.writeOffReason,
-            ymd: input.ymd,
-            note: input.note,
-          );
+          final settlement = await context
+              .read<ProjectSettlementUseCase>()
+              .execute(
+                projectId: latestProject.effectiveProjectId,
+                projectKey: latestProject.projectKey,
+                receivable: latestProject.receivable,
+                paymentAmount: input.paymentAmount,
+                writeOffAmount: input.writeOffAmount,
+                writeOffReason: input.writeOffReason,
+                ymd: input.ymd,
+                note: input.note,
+              );
 
           if (!mounted) return settlement;
           final paymentStore = context.read<AccountPaymentStore>();
@@ -499,11 +501,13 @@ class _AccountPageState extends State<AccountPage> {
 
     try {
       final latestProject = _latestProjectByProjectId(writeOff.projectId);
-      final result = await ProjectSettlementUseCase().deleteWriteOff(
-        projectId: latestProject.effectiveProjectId,
-        writeOffId: writeOff.id,
-        receivable: latestProject.receivable,
-      );
+      final result = await context
+          .read<ProjectSettlementUseCase>()
+          .deleteWriteOff(
+            projectId: latestProject.effectiveProjectId,
+            writeOffId: writeOff.id,
+            receivable: latestProject.receivable,
+          );
 
       if (!mounted) return;
       final accountStore = context.read<AccountStore>();

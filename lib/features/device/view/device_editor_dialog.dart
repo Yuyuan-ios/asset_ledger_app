@@ -15,6 +15,7 @@ import '../../../patterns/device/device_editor_brand_row_pattern.dart';
 import '../../../patterns/device/device_editor_fields_group_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_avatar_select_page.dart';
+import 'upgrade_page.dart';
 
 class DeviceEditorDialog extends StatefulWidget {
   const DeviceEditorDialog({
@@ -124,6 +125,12 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
       context,
       title: '需要升级',
       message: '自定义设备头像是 Pro 功能，升级后可为设备设置专属头像。',
+      isAllowed: SubscriptionService.snapshot.allowsProFeatures,
+      isAllowedAfterUpgrade: () =>
+          SubscriptionService.snapshot.allowsProFeatures,
+      openUpgrade: (context) => Navigator.of(
+        context,
+      ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage())),
     );
   }
 
