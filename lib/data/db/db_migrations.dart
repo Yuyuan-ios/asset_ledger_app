@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/project.dart';
 import '../models/project_key.dart';
+import 'schema/external_work_schema.dart';
 
 /// 数据库增量迁移链（onUpgrade）。
 ///
@@ -248,6 +249,15 @@ class DbMigrations {
     if (oldVersion < 14) {
       await ensureProjectIdentitySchema(db);
     }
+
+    // v14 -> v15：新增单层项目外协导入基础表。
+    if (oldVersion < 15) {
+      await ensureExternalWorkSchema(db);
+    }
+  }
+
+  static Future<void> ensureExternalWorkSchema(Database db) async {
+    await ExternalWorkSchema.create(db);
   }
 
   static Future<void> ensureProjectIdentitySchema(

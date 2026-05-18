@@ -444,6 +444,58 @@ void main() {
         await deleteDatabase(path);
       },
     );
+
+    test('upgrades v14 databases with external work import tables', () async {
+      final path = await _testDbPath('v14_to_v15_external_work');
+      await deleteDatabase(path);
+
+      final legacyDb = await openDatabase(
+        path,
+        version: 14,
+        onConfigure: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON');
+        },
+        onCreate: (db, _) async {
+          await DbSchema.create(db);
+          await db.execute('DROP TABLE external_work_records;');
+          await db.execute('DROP TABLE external_import_batches;');
+        },
+      );
+      await legacyDb.close();
+
+      final db = await _openCurrentDb(path);
+
+      expect(await _tableExists(db, 'external_import_batches'), isTrue);
+      expect(await _tableExists(db, 'external_work_records'), isTrue);
+      expect(
+        await _columnNames(db, 'external_work_records'),
+        containsAll([
+          'hours_milli',
+          'source_unit_price_fen',
+          'local_unit_price_fen',
+          'amount_fen',
+          'linked_project_id',
+        ]),
+      );
+
+      final fks = await db.rawQuery(
+        'PRAGMA foreign_key_list(external_work_records);',
+      );
+      expect(
+        fks,
+        contains(
+          predicate<Map<String, Object?>>((row) {
+            return row['table'] == 'projects' &&
+                row['from'] == 'linked_project_id' &&
+                row['on_delete'] == 'RESTRICT';
+          }),
+        ),
+      );
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+      await db.close();
+      await deleteDatabase(path);
+    });
   });
 }
 

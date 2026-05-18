@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'schema/account_merge_schema.dart';
 import 'schema/account_schema.dart';
 import 'schema/calculator_schema.dart';
+import 'schema/external_work_schema.dart';
 import 'schema/fleet_schema.dart';
 import 'schema/project_schema.dart';
 import 'schema/timing_schema.dart';
@@ -20,5 +21,6 @@ class DbSchema {
     await CalculatorSchema.create(db);
     await AccountSchema.create(db);
     await AccountMergeSchema.create(db);
+    await ExternalWorkSchema.create(db);
   }
 }
