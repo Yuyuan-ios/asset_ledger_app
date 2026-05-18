@@ -92,6 +92,7 @@ class DbSchemaCompat {
       db,
       enforceForeignKeys: true,
     );
+    await DbMigrations.ensureExternalWorkSchema(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
