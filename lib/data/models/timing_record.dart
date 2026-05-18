@@ -1,4 +1,7 @@
 // ==============================================================================
+
+import 'project_id.dart';
+import 'project_key.dart';
 // 📁 文件说明：计时记录模型 (timing_record.dart)
 // 设计目标：
 // 1. 表达单条设备计时/租赁记录
@@ -20,6 +23,9 @@ class TimingRecord {
 
   /// 开始日期（YYYYMMDD）
   final int startDate;
+
+  /// 稳定项目身份。旧数据为空时由 contact/site 兼容生成。
+  final String projectId;
 
   /// 联系人
   final String contact;
@@ -56,6 +62,7 @@ class TimingRecord {
     this.id,
     required this.deviceId,
     required this.startDate,
+    this.projectId = '',
     required this.contact,
     required this.site,
     required this.type,
@@ -74,6 +81,7 @@ class TimingRecord {
     int? id,
     int? deviceId,
     int? startDate,
+    String? projectId,
     String? contact,
     String? site,
     TimingType? type,
@@ -88,6 +96,7 @@ class TimingRecord {
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       startDate: startDate ?? this.startDate,
+      projectId: projectId ?? this.projectId,
       contact: contact ?? this.contact,
       site: site ?? this.site,
       type: type ?? this.type,
@@ -107,6 +116,7 @@ class TimingRecord {
   Map<String, Object?> toMap() {
     return {
       'id': id,
+      'project_id': effectiveProjectId,
       'device_id': deviceId,
       'start_date': startDate,
       'contact': contact,
@@ -131,9 +141,10 @@ class TimingRecord {
       id: m['id'] as int?,
       deviceId: m['device_id'] as int,
       startDate: m['start_date'] as int,
+      projectId: (m['project_id'] as String?) ?? '',
       contact: (m['contact'] as String?) ?? '',
       site: (m['site'] as String?) ?? '',
-      type: TimingType.values.byName((m['type'] as String?) ?? 'hours'),
+      type: _parseType(m['type']),
       startMeter: (m['start_meter'] as num).toDouble(),
       endMeter: (m['end_meter'] as num).toDouble(),
       hours: (m['hours'] as num).toDouble(),
@@ -141,6 +152,26 @@ class TimingRecord {
       excludeFromFuelEfficiency:
           ((m['exclude_from_fuel_eff'] as int?) ?? 0) == 1,
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
+    );
+  }
+
+  static TimingType _parseType(Object? value) {
+    if (value is String) {
+      for (final type in TimingType.values) {
+        if (type.name == value) return type;
+      }
+    }
+    return TimingType.hours;
+  }
+
+  String get legacyProjectKey {
+    return ProjectKey.buildKey(contact: contact, site: site);
+  }
+
+  String get effectiveProjectId {
+    return ProjectId.ensure(
+      projectId: projectId,
+      legacyProjectKey: legacyProjectKey,
     );
   }
 

@@ -43,19 +43,6 @@ class AccountOverviewCard extends StatelessWidget {
       letterSpacing: AccountTokens.overviewTitleLetterSpacing,
       color: Colors.black,
     );
-    final summaryStyle = AppTypography.body(
-      context,
-      fontSize: AccountTokens.overviewLegendValueSize,
-      height: 1,
-      color: Colors.black,
-    );
-    const singleLegendTopPadding = 18.0;
-    final emptyStyle = AppTypography.caption(
-      context,
-      fontSize: 12,
-      color: SheetColors.hint,
-    );
-
     final baseOverviewContentWidth =
         AccountTokens.homeFixedContentWidth -
         (AccountTokens.homePageHorizontalPadding * 2) -
@@ -121,144 +108,10 @@ class AccountOverviewCard extends StatelessWidget {
                   ),
                   const SizedBox(height: AccountTokens.overviewMiddleTopGap),
                   Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: AccountTokens.overviewLeftColumnWidth,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AccountTokens.overviewChartColumnPadding,
-                              AccountTokens.overviewChartColumnPadding,
-                              AccountTokens.overviewChartColumnPadding,
-                              0,
-                            ),
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: SizedBox(
-                                width: AccountTokens.overviewChartSize,
-                                height: AccountTokens.overviewChartSize,
-                                child: _OverviewDonut(items: items),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          width: AccountTokens.overviewChartListGap,
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AccountTokens.overviewRightPaddingLeft,
-                              AccountTokens.overviewRightPaddingTop,
-                              AccountTokens.overviewRightPaddingRight,
-                              AccountTokens.overviewRightPaddingBottom,
-                            ),
-                            child: items.isEmpty
-                                ? Text('暂无设备数据', style: emptyStyle)
-                                : SingleChildScrollView(
-                                    physics: BouncingScrollPhysics(),
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        top: items.length == 1
-                                            ? singleLegendTopPadding
-                                            : 0,
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          for (final item in items) ...[
-                                            _OverviewLegendRow(item: item),
-                                            if (item != items.last)
-                                              const SizedBox(
-                                                height: AccountTokens
-                                                    .overviewLegendRowGap,
-                                              ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _OverviewDeviceReceivableSection(items: items),
                   ),
                   const SizedBox(height: AccountTokens.overviewPieTopGap),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: AccountTokens.overviewLeftColumnWidth,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal:
-                                  AccountTokens.overviewChartColumnPadding,
-                            ),
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: SizedBox(
-                                width: AccountTokens.overviewPieSize,
-                                height: AccountTokens.overviewPieSize,
-                                child: _OverviewPie(
-                                  received: vm.totalReceived,
-                                  remaining: vm.totalRemaining,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          width: AccountTokens.overviewChartListGap,
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AccountTokens.overviewRightPaddingLeft,
-                              AccountTokens.overviewRightPaddingTop,
-                              AccountTokens.overviewRightPaddingRight,
-                              AccountTokens.overviewRightPaddingBottom,
-                            ),
-                            child: Column(
-                              children: [
-                                const SizedBox(
-                                  height:
-                                      AccountTokens.overviewSummaryTopPadding,
-                                ),
-                                _kv(
-                                  context,
-                                  '总应收',
-                                  FormatUtils.money(vm.totalReceivable),
-                                  summaryStyle,
-                                ),
-                                const SizedBox(height: SpaceTokens.sm),
-                                _kv(
-                                  context,
-                                  '已收',
-                                  FormatUtils.money(vm.totalReceived),
-                                  summaryStyle,
-                                ),
-                                const SizedBox(height: SpaceTokens.sm),
-                                _kv(
-                                  context,
-                                  '剩余',
-                                  FormatUtils.money(vm.totalRemaining),
-                                  summaryStyle,
-                                ),
-                                const SizedBox(height: SpaceTokens.sm),
-                                _kv(
-                                  context,
-                                  '回款',
-                                  FormatUtils.percent1(vm.totalRatio),
-                                  summaryStyle,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  Expanded(child: _OverviewPaymentSummarySection(vm: vm)),
                 ],
               ),
             ),
@@ -293,12 +146,188 @@ class AccountOverviewCard extends StatelessWidget {
     }
     return items;
   }
+}
 
-  Widget _kv(BuildContext context, String k, String v, TextStyle? bodyStyle) {
+class _OverviewDeviceReceivableSection extends StatelessWidget {
+  const _OverviewDeviceReceivableSection({required this.items});
+
+  final List<_DeviceReceivable> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final emptyStyle = AppTypography.caption(
+      context,
+      fontSize: 12,
+      color: SheetColors.hint,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: AccountTokens.overviewLeftColumnWidth,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AccountTokens.overviewChartColumnPadding,
+              AccountTokens.overviewChartColumnPadding,
+              AccountTokens.overviewChartColumnPadding,
+              0,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: AccountTokens.overviewChartSize,
+                height: AccountTokens.overviewChartSize,
+                child: _OverviewDonut(items: items),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: AccountTokens.overviewChartListGap),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AccountTokens.overviewRightPaddingLeft,
+              AccountTokens.overviewRightPaddingTop,
+              AccountTokens.overviewRightPaddingRight,
+              AccountTokens.overviewRightPaddingBottom,
+            ),
+            child: items.isEmpty
+                ? Text('暂无设备数据', style: emptyStyle)
+                : _OverviewLegendList(items: items),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OverviewLegendList extends StatelessWidget {
+  const _OverviewLegendList({required this.items});
+
+  static const double _singleLegendTopPadding = 18;
+
+  final List<_DeviceReceivable> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: EdgeInsets.only(
+          top: items.length == 1 ? _singleLegendTopPadding : 0,
+        ),
+        child: Column(
+          children: [
+            for (final item in items) ...[
+              _OverviewLegendRow(item: item),
+              if (item != items.last)
+                const SizedBox(height: AccountTokens.overviewLegendRowGap),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewPaymentSummarySection extends StatelessWidget {
+  const _OverviewPaymentSummarySection({required this.vm});
+
+  final AccountOverviewVm vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final summaryStyle = AppTypography.body(
+      context,
+      fontSize: AccountTokens.overviewLegendValueSize,
+      height: 1,
+      color: Colors.black,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: AccountTokens.overviewLeftColumnWidth,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AccountTokens.overviewChartColumnPadding,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: AccountTokens.overviewPieSize,
+                height: AccountTokens.overviewPieSize,
+                child: _OverviewPie(
+                  received: vm.totalReceived,
+                  remaining: vm.totalRemaining,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: AccountTokens.overviewChartListGap),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AccountTokens.overviewRightPaddingLeft,
+              AccountTokens.overviewRightPaddingTop,
+              AccountTokens.overviewRightPaddingRight,
+              AccountTokens.overviewRightPaddingBottom,
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: AccountTokens.overviewSummaryTopPadding),
+                _OverviewSummaryRow(
+                  label: '总应收',
+                  value: FormatUtils.money(vm.totalReceivable),
+                  style: summaryStyle,
+                ),
+                const SizedBox(height: SpaceTokens.sm),
+                _OverviewSummaryRow(
+                  label: '已收',
+                  value: FormatUtils.money(vm.totalReceived),
+                  style: summaryStyle,
+                ),
+                const SizedBox(height: SpaceTokens.sm),
+                _OverviewSummaryRow(
+                  label: '剩余',
+                  value: FormatUtils.money(vm.totalRemaining),
+                  style: summaryStyle,
+                ),
+                const SizedBox(height: SpaceTokens.sm),
+                _OverviewSummaryRow(
+                  label: '回款',
+                  value: FormatUtils.percent1(vm.totalRatio),
+                  style: summaryStyle,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OverviewSummaryRow extends StatelessWidget {
+  const _OverviewSummaryRow({
+    required this.label,
+    required this.value,
+    required this.style,
+  });
+
+  final String label;
+  final String value;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text(k, style: bodyStyle)),
-        Text(v, style: bodyStyle),
+        Expanded(child: Text(label, style: style)),
+        Text(value, style: style),
       ],
     );
   }

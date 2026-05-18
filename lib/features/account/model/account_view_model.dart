@@ -1,4 +1,5 @@
 import '../../../data/models/account_payment.dart';
+import '../../../data/models/project_id.dart';
 
 enum AccountProjectKind { normal, merged }
 
@@ -29,11 +30,13 @@ class AccountComputed {
 }
 
 class AccountProjectVM {
+  final String projectId;
   final String projectKey;
   final String displayName;
   final AccountProjectKind kind;
   final int? mergeGroupId;
   final List<String> memberProjectKeys;
+  final List<String> memberProjectIds;
   final List<String> includedSites;
   final String? includedSitesText;
 
@@ -56,11 +59,13 @@ class AccountProjectVM {
   final List<AccountPayment> payments;
 
   const AccountProjectVM({
+    this.projectId = '',
     required this.projectKey,
     required this.displayName,
     this.kind = AccountProjectKind.normal,
     this.mergeGroupId,
     this.memberProjectKeys = const [],
+    this.memberProjectIds = const [],
     this.includedSites = const [],
     this.includedSitesText,
     required this.minYmd,
@@ -76,6 +81,11 @@ class AccountProjectVM {
     required this.ratio,
     required this.payments,
   });
+
+  String get effectiveProjectId {
+    if (projectId.trim().isNotEmpty) return projectId.trim();
+    return ProjectId.legacyFromKey(projectKey);
+  }
 }
 
 class AccountDeviceReceivable {

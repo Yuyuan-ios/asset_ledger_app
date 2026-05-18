@@ -22,6 +22,9 @@ void main() {
 
       await tester.tap(find.text('打开'));
       await tester.pumpAndSettle();
+
+      expect(_softHeaderDivider(), findsOneWidget);
+
       await tester.tap(find.text('李杰 + 新村'));
       await tester.tap(find.text('李杰 + 高桥'));
       await tester.pumpAndSettle();
@@ -59,6 +62,21 @@ void main() {
       expect(find.text('合并项目'), findsOneWidget);
       expect(errors.single, contains('项目已属于其他合并组'));
     });
+  });
+}
+
+Finder _softHeaderDivider() {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    if (decoration is! BoxDecoration) return false;
+    final gradient = decoration.gradient;
+    if (gradient is! LinearGradient) return false;
+    return gradient.colors.length == 4 &&
+        gradient.colors.first == const Color(0x00D8CEC4) &&
+        gradient.colors[1] == const Color(0x78D8CEC4) &&
+        gradient.colors[2] == const Color(0x78D8CEC4) &&
+        gradient.colors.last == const Color(0x00D8CEC4) &&
+        gradient.stops.toString() == const [0.0, 0.06, 0.94, 1.0].toString();
   });
 }
 

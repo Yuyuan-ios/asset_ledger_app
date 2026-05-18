@@ -668,11 +668,15 @@ class _CountingProjectRateRepository implements ProjectRateRepository {
   Future<int> delete(
     String projectKey,
     int deviceId, {
+    String? projectId,
     bool isBreaking = false,
   }) async {
+    final targetProjectId = projectId?.trim();
     _rates.removeWhere(
       (item) =>
-          item.projectKey == projectKey &&
+          ((targetProjectId != null && targetProjectId.isNotEmpty)
+              ? item.effectiveProjectId == targetProjectId
+              : item.projectKey == projectKey) &&
           item.deviceId == deviceId &&
           item.isBreaking == isBreaking,
     );

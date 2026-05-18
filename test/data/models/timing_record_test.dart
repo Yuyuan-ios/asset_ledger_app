@@ -1,4 +1,5 @@
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -48,6 +49,7 @@ void main() {
 
       expect(record.toMap(), {
         'id': 2,
+        'project_id': ProjectId.legacyFromParts(contact: 'Bob', site: 'Yard B'),
         'device_id': 3,
         'start_date': 20260302,
         'contact': 'Bob',
@@ -78,6 +80,10 @@ void main() {
       expect(rebuilt.deviceId, 7);
       expect(rebuilt.contact, '');
       expect(rebuilt.site, '');
+      expect(
+        rebuilt.effectiveProjectId,
+        ProjectId.legacyFromParts(contact: '', site: ''),
+      );
       expect(rebuilt.type, TimingType.hours);
       expect(rebuilt.startMeter, 10);
       expect(rebuilt.endMeter, 15);
@@ -85,6 +91,23 @@ void main() {
       expect(rebuilt.income, 300);
       expect(rebuilt.excludeFromFuelEfficiency, isFalse);
       expect(rebuilt.toString(), contains('excludeFuel:false'));
+    });
+
+    test('fromMap falls back to hours for unknown timing type', () {
+      final rebuilt = TimingRecord.fromMap({
+        'id': 4,
+        'device_id': 7,
+        'start_date': 20260305,
+        'contact': 'Alice',
+        'site': 'Yard A',
+        'type': 'monthly',
+        'start_meter': 10,
+        'end_meter': 15,
+        'hours': 5,
+        'income': 300,
+      });
+
+      expect(rebuilt.type, TimingType.hours);
     });
   });
 }

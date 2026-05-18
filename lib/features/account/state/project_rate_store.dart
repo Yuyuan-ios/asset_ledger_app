@@ -1,4 +1,5 @@
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_id.dart';
 import '../../../data/repositories/project_rate_repository.dart';
 import '../../../core/utils/base_store.dart';
 
@@ -43,7 +44,7 @@ class ProjectRateStore extends BaseStore {
       patch: (nextRate) {
         final index = _rates.indexWhere(
           (item) =>
-              item.projectKey == nextRate.projectKey &&
+              item.effectiveProjectId == nextRate.effectiveProjectId &&
               item.deviceId == nextRate.deviceId &&
               item.isBreaking == nextRate.isBreaking,
         );
@@ -58,24 +59,28 @@ class ProjectRateStore extends BaseStore {
     );
   }
 
-  /// 根据项目标识和设备ID删除单价配置
-  /// [projectKey] 项目唯一标识（联系人+工地）
+  /// 根据项目标识和设备ID删除单价配置。
+  /// [projectId] 是新身份；[projectKey] 只作为 legacy fallback。
   /// [deviceId] 设备ID
   Future<void> delete(
     String projectKey,
     int deviceId, {
+    String? projectId,
     bool isBreaking = false,
   }) async {
+    final targetProjectId = projectId?.trim().isNotEmpty == true
+        ? projectId!.trim()
+        : ProjectId.legacyFromKey(projectKey);
     await writeAndPatchLocalState(
       write: () => _repository.delete(
         projectKey,
         deviceId,
+        projectId: targetProjectId,
         isBreaking: isBreaking,
       ),
       patch: (_) {
         _rates = _rates.where((item) {
-          return !(
-              item.projectKey == projectKey &&
+          return !(item.effectiveProjectId == targetProjectId &&
               item.deviceId == deviceId &&
               item.isBreaking == isBreaking);
         }).toList();

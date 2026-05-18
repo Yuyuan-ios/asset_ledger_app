@@ -6,9 +6,11 @@ import '../data/repositories/account_project_merge_repository.dart';
 import '../data/repositories/device_repository.dart';
 import '../data/repositories/fuel_repository.dart';
 import '../data/repositories/maintenance_repository.dart';
+import '../data/repositories/project_repository.dart';
 import '../data/repositories/project_rate_repository.dart';
 import '../data/repositories/timing_repository.dart';
 import '../data/services/account_project_merge_service.dart';
+import '../data/services/project_resolver.dart';
 import '../features/account/state/account_store.dart';
 import '../features/account/state/account_filter_store.dart';
 import '../features/account/state/account_payment_store.dart';
@@ -26,6 +28,10 @@ class AppProviders {
     final maintenanceRepository = SqfliteMaintenanceRepository();
     final accountPaymentRepository = SqfliteAccountPaymentRepository();
     final projectRateRepository = SqfliteProjectRateRepository();
+    final projectRepository = SqfliteProjectRepository();
+    final projectResolver = ProjectResolver(
+      projectRepository: projectRepository,
+    );
     final accountProjectMergeRepository =
         SqfliteAccountProjectMergeRepository();
     final accountProjectMergeService = AccountProjectMergeService(
@@ -53,6 +59,8 @@ class AppProviders {
         Provider<TimingRepository>.value(value: timingRepository),
         Provider<FuelRepository>.value(value: fuelRepository),
         Provider<MaintenanceRepository>.value(value: maintenanceRepository),
+        Provider<ProjectRepository>.value(value: projectRepository),
+        Provider<ProjectResolver>.value(value: projectResolver),
         Provider<AccountPaymentRepository>.value(
           value: accountPaymentRepository,
         ),

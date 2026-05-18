@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
+import 'package:asset_ledger/data/models/project_key.dart';
 import 'package:asset_ledger/data/services/local_backup_export_service.dart';
 import 'package:asset_ledger/data/services/local_backup_import_preview_service.dart';
 import 'package:asset_ledger/data/services/local_backup_restore_service.dart';
@@ -145,6 +147,7 @@ void main() {
     expect(payments, hasLength(1));
     expect(payments.single, {
       'id': 1,
+      'project_id': _projectIdForKey('甲方||一号工地'),
       'project_key': '甲方||一号工地',
       'ymd': 20260515,
       'amount': 500.0,
@@ -156,6 +159,34 @@ void main() {
       'merge_batch_note': '微信收款',
       'created_at': '2026-05-16T01:02:03.000Z',
     });
+  });
+
+  test('export includes projects and project_id child links', () async {
+    final db = await _openCurrentInMemoryDb();
+    await _seedDevice(db, id: 1);
+    await _seedTimingRecord(db, id: 7, deviceId: 1);
+    await _seedAccountPayment(db, _paymentMap(includeProjectId: true));
+    await db.insert(
+      'project_device_rates',
+      _projectRateMap(includeProjectId: true),
+    );
+
+    final result = await LocalBackupExportService.exportJsonBackup();
+
+    expect(result.success, isTrue);
+    final rawJson = await File(result.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final projects = data['projects'] as List<dynamic>;
+    final timings = data['timing_records'] as List<dynamic>;
+    final payments = data['account_payments'] as List<dynamic>;
+    final rates = data['project_device_rates'] as List<dynamic>;
+
+    expect(projects, hasLength(1));
+    expect(projects.single['id'], _projectIdForKey('甲方||一号工地'));
+    expect(timings.single['project_id'], projects.single['id']);
+    expect(payments.single['project_id'], projects.single['id']);
+    expect(rates.single['project_id'], projects.single['id']);
   });
 
   test('preview counts timing_calculation_history when present', () {
@@ -196,6 +227,30 @@ void main() {
     expect(preview.tableCounts['account_project_merge_members'], 2);
     expect(preview.projectCount, 2);
     expect(preview.accountCount, 1);
+  });
+
+  test('preview counts new projects table without splitting project ids', () {
+    final preview = const LocalBackupImportPreviewService()
+        .previewFromDecodedJson(
+          _backupJson(
+            exportFormatVersion: 2,
+            schemaVersion: AppDatabase.schemaVersion,
+            projects: [
+              _projectMap(
+                projectKey: ProjectKey.buildKey(
+                  contact: '甲方||分公司',
+                  site: '一号||二号工地',
+                ),
+              ),
+            ],
+            timingRecords: [
+              _timingRecordMap(id: 7, deviceId: 1, includeProjectId: true),
+            ],
+          ),
+        );
+
+    expect(preview.isValid, isTrue);
+    expect(preview.projectCount, 1);
   });
 
   test('preview accepts old backups without account payment merge fields', () {
@@ -343,6 +398,162 @@ void main() {
     },
   );
 
+  test('restore accepts old backups without device equipment type', () async {
+    final db = await _openCurrentInMemoryDb();
+    final legacyDevice = _deviceMap(id: 1)..remove('equipment_type');
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(schemaVersion: 9, devices: [legacyDevice]),
+    );
+
+    expect(result.success, isTrue);
+    final device = (await db.query('devices')).single;
+    expect(device['equipment_type'], 'excavator');
+  });
+
+  test(
+    'restore accepts old backups without project rate breaking flag',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      final legacyRate = _projectRateMap()..remove('is_breaking');
+
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(schemaVersion: 7, projectDeviceRates: [legacyRate]),
+      );
+
+      expect(result.success, isTrue);
+      final rate = (await db.query('project_device_rates')).single;
+      expect(rate['is_breaking'], 0);
+    },
+  );
+
+  test('restore accepts old backups without timing contact and site', () async {
+    final db = await _openCurrentInMemoryDb();
+    final legacyTimingRecord = _timingRecordMap(id: 7, deviceId: 1)
+      ..remove('contact')
+      ..remove('site');
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(schemaVersion: 8, timingRecords: [legacyTimingRecord]),
+    );
+
+    expect(result.success, isTrue);
+    final record = (await db.query('timing_records')).single;
+    expect(record['contact'], '');
+    expect(record['site'], '');
+  });
+
+  test(
+    'restore creates projects and project_id links for old backups',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(
+          schemaVersion: 8,
+          accountPayments: [_legacyPaymentMap()],
+          projectDeviceRates: [_projectRateMap()],
+          mergeGroups: [_mergeGroupMap()],
+          mergeMembers: [
+            _mergeMemberMap(id: 11, projectKey: '甲方||一号工地', site: '一号工地'),
+          ],
+        ),
+      );
+
+      expect(result.success, isTrue);
+      final projects = await db.query('projects');
+      expect(projects, hasLength(1));
+      final projectId = projects.single['id'];
+      expect(
+        (await db.query('timing_records')).single['project_id'],
+        projectId,
+      );
+      expect(
+        (await db.query('account_payments')).single['project_id'],
+        projectId,
+      );
+      expect(
+        (await db.query('project_device_rates')).single['project_id'],
+        projectId,
+      );
+      expect(
+        (await db.query('account_project_merge_members')).single['project_id'],
+        projectId,
+      );
+    },
+  );
+
+  test('restore rejects invalid timing type before database insert', () async {
+    final invalidTimingRecord = _timingRecordMap(id: 7, deviceId: 1)
+      ..['type'] = 'monthly';
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(timingRecords: [invalidTimingRecord]),
+    );
+
+    expect(result.success, isFalse);
+    expect(result.errorCode, 'invalid_timing_records_type');
+  });
+
+  test(
+    'restore rejects invalid boolean and source values without clearing db',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedDevice(db, id: 99);
+
+      final invalidTimingRecord = _timingRecordMap(id: 7, deviceId: 1)
+        ..['is_breaking'] = 2;
+      final timingResult = await _restoreService().restoreFromDecodedJson(
+        _backupJson(timingRecords: [invalidTimingRecord]),
+      );
+      expect(timingResult.success, isFalse);
+      expect(timingResult.errorCode, 'invalid_timing_records_is_breaking');
+      expect(await db.query('devices', where: 'id = 99'), hasLength(1));
+
+      final invalidPayment = _paymentMap(sourceType: 'unknown_source');
+      final paymentResult = await _restoreService().restoreFromDecodedJson(
+        _backupJson(accountPayments: [invalidPayment]),
+      );
+      expect(paymentResult.success, isFalse);
+      expect(paymentResult.errorCode, 'invalid_account_payments_source_type');
+      expect(await db.query('devices', where: 'id = 99'), hasLength(1));
+
+      final invalidRate = _projectRateMap(isBreaking: -1);
+      final rateResult = await _restoreService().restoreFromDecodedJson(
+        _backupJson(projectDeviceRates: [invalidRate]),
+      );
+      expect(rateResult.success, isFalse);
+      expect(rateResult.errorCode, 'invalid_project_device_rates_is_breaking');
+      expect(await db.query('devices', where: 'id = 99'), hasLength(1));
+    },
+  );
+
+  test(
+    'restore rejects orphan project_id before clearing existing db',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedDevice(db, id: 99);
+      final orphanTimingRecord = _timingRecordMap(
+        id: 7,
+        deviceId: 1,
+        includeProjectId: true,
+      )..['project_id'] = 'project:missing';
+
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(
+          exportFormatVersion: 2,
+          schemaVersion: AppDatabase.schemaVersion,
+          projects: [_projectMap()],
+          timingRecords: [orphanTimingRecord],
+        ),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.errorCode, 'orphan_project_id_timing_records');
+      expect(await db.query('devices', where: 'id = 99'), hasLength(1));
+    },
+  );
+
   test('restore preserves account payment merge batch fields', () async {
     final db = await _openCurrentInMemoryDb();
 
@@ -372,6 +583,49 @@ void main() {
     expect(payment['merge_batch_total_amount'], 5000.0);
     expect(payment['merge_batch_note'], '微信收款');
     expect(payment['created_at'], '2026-05-16T01:02:03.000Z');
+  });
+
+  test('exported backup restores in a round trip', () async {
+    final db = await _openCurrentInMemoryDb();
+    await _seedDevice(db, id: 1);
+    await _seedTimingRecord(db, id: 7, deviceId: 1);
+    await _seedCalculationHistory(
+      db,
+      id: 'history-1',
+      timingRecordId: 7,
+      expression: '8+8',
+      result: 16.0,
+      ticketCount: 2,
+    );
+    await _seedAccountPayment(db, _paymentMap());
+    await db.insert(
+      'project_device_rates',
+      _projectRateMap(includeProjectId: true),
+    );
+    await _seedMergeGroup(db);
+    await _seedMergeMember(
+      db,
+      id: 11,
+      projectKey: '甲方||一号工地',
+      site: '一号工地',
+      sortOrder: 0,
+    );
+
+    final export = await LocalBackupExportService.exportJsonBackup();
+    expect(export.success, isTrue);
+    final rawJson = await File(export.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+
+    final result = await _restoreService().restoreFromDecodedJson(decoded);
+
+    expect(result.success, isTrue);
+    expect(result.restoredCounts['devices'], 1);
+    expect(result.restoredCounts['timing_records'], 1);
+    expect(result.restoredCounts['timing_calculation_history'], 1);
+    expect(result.restoredCounts['account_payments'], 1);
+    expect(result.restoredCounts['project_device_rates'], 1);
+    expect(result.restoredCounts['account_project_merge_groups'], 1);
+    expect(result.restoredCounts['account_project_merge_members'], 1);
   });
 
   test(
@@ -477,20 +731,26 @@ LocalBackupRestoreService _restoreService() {
 }
 
 Map<String, dynamic> _backupJson({
+  int exportFormatVersion = 1,
   int schemaVersion = 10,
   bool includeCalculationHistoryTable = true,
+  List<Map<String, Object?>>? projects,
+  List<Map<String, Object?>>? devices,
+  List<Map<String, Object?>>? timingRecords,
   List<Map<String, Object?>> calculationHistories = const [],
   List<Map<String, Object?>> accountPayments = const [],
+  List<Map<String, Object?>> projectDeviceRates = const [],
   List<Map<String, Object?>>? mergeGroups,
   List<Map<String, Object?>>? mergeMembers,
 }) {
   final data = <String, Object?>{
-    'devices': [_deviceMap(id: 1)],
-    'timing_records': [_timingRecordMap(id: 7, deviceId: 1)],
+    ...projects == null ? const {} : {'projects': projects},
+    'devices': devices ?? [_deviceMap(id: 1)],
+    'timing_records': timingRecords ?? [_timingRecordMap(id: 7, deviceId: 1)],
     'fuel_logs': const [],
     'maintenance_records': const [],
     'account_payments': accountPayments,
-    'project_device_rates': const [],
+    'project_device_rates': projectDeviceRates,
   };
 
   if (includeCalculationHistoryTable) {
@@ -505,7 +765,7 @@ Map<String, dynamic> _backupJson({
 
   return <String, dynamic>{
     'meta': <String, Object?>{
-      'export_format_version': 1,
+      'export_format_version': exportFormatVersion,
       'schema_version': schemaVersion,
       'exported_at': '2026-05-14T15:32:00.000Z',
       'app_version': 'test',
@@ -513,12 +773,13 @@ Map<String, dynamic> _backupJson({
     },
     'summary': <String, Object?>{
       'table_counts': <String, int>{
+        if (projects != null) 'projects': projects.length,
         'devices': 1,
         'timing_records': 1,
         'fuel_logs': 0,
         'maintenance_records': 0,
         'account_payments': accountPayments.length,
-        'project_device_rates': 0,
+        'project_device_rates': projectDeviceRates.length,
         if (includeCalculationHistoryTable)
           'timing_calculation_history': calculationHistories.length,
         if (mergeGroups != null)
@@ -528,6 +789,21 @@ Map<String, dynamic> _backupJson({
       },
     },
     'data': data,
+  };
+}
+
+Map<String, Object?> _projectMap({
+  String projectKey = '甲方||一号工地',
+  String createdAt = '2026-05-14T15:32:00.000Z',
+}) {
+  final parsed = ProjectKey.fromKey(projectKey);
+  return {
+    'id': _projectIdForKey(projectKey),
+    'contact': parsed.contact,
+    'site': parsed.site,
+    'created_at': createdAt,
+    'updated_at': createdAt,
+    'legacy_project_key': projectKey,
   };
 }
 
@@ -549,9 +825,11 @@ Map<String, Object?> _deviceMap({required int id}) {
 Map<String, Object?> _timingRecordMap({
   required int id,
   required int deviceId,
+  bool includeProjectId = false,
 }) {
   return {
     'id': id,
+    if (includeProjectId) 'project_id': _projectIdForKey('甲方||一号工地'),
     'device_id': deviceId,
     'start_date': 20260514,
     'contact': '甲方',
@@ -563,6 +841,22 @@ Map<String, Object?> _timingRecordMap({
     'income': 1600.0,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,
+  };
+}
+
+Map<String, Object?> _projectRateMap({
+  String projectKey = '甲方||一号工地',
+  int deviceId = 1,
+  int isBreaking = 0,
+  double rate = 120.0,
+  bool includeProjectId = false,
+}) {
+  return {
+    if (includeProjectId) 'project_id': _projectIdForKey(projectKey),
+    'project_key': projectKey,
+    'device_id': deviceId,
+    'is_breaking': isBreaking,
+    'rate': rate,
   };
 }
 
@@ -612,9 +906,11 @@ Map<String, Object?> _paymentMap({
   double? mergeBatchTotalAmount,
   String? mergeBatchNote,
   String? createdAt,
+  bool includeProjectId = false,
 }) {
   return {
     'id': id,
+    if (includeProjectId) 'project_id': _projectIdForKey(projectKey),
     'project_key': projectKey,
     'ymd': ymd,
     'amount': amount,
@@ -657,10 +953,12 @@ Map<String, Object?> _mergeMemberMap({
   int sortOrder = 0,
   String createdAt = '2026-05-14T15:32:00.000Z',
   int isActive = 1,
+  bool includeProjectId = false,
 }) {
   return {
     'id': id,
     'group_id': groupId,
+    if (includeProjectId) 'project_id': _projectIdForKey(projectKey),
     'project_key': projectKey,
     'contact': contact,
     'site': site,
@@ -679,9 +977,10 @@ Future<void> _seedTimingRecord(
   required int id,
   required int deviceId,
 }) async {
+  await _seedProject(db, projectKey: '甲方||一号工地');
   await db.insert(
     'timing_records',
-    _timingRecordMap(id: id, deviceId: deviceId),
+    _timingRecordMap(id: id, deviceId: deviceId, includeProjectId: true),
   );
 }
 
@@ -709,7 +1008,12 @@ Future<void> _seedAccountPayment(
   Database db,
   Map<String, Object?> payment,
 ) async {
-  await db.insert('account_payments', payment);
+  final projectKey = payment['project_key'] as String;
+  await _seedProject(db, projectKey: projectKey);
+  await db.insert('account_payments', {
+    ...payment,
+    'project_id': payment['project_id'] ?? _projectIdForKey(projectKey),
+  });
 }
 
 Future<void> _seedMergeGroup(Database db) async {
@@ -723,6 +1027,7 @@ Future<void> _seedMergeMember(
   required String site,
   required int sortOrder,
 }) async {
+  await _seedProject(db, projectKey: projectKey);
   await db.insert(
     'account_project_merge_members',
     _mergeMemberMap(
@@ -730,6 +1035,22 @@ Future<void> _seedMergeMember(
       projectKey: projectKey,
       site: site,
       sortOrder: sortOrder,
+      includeProjectId: true,
     ),
   );
 }
+
+Future<void> _seedProject(Database db, {required String projectKey}) async {
+  final parsed = ProjectKey.fromKey(projectKey);
+  await db.insert('projects', {
+    'id': _projectIdForKey(projectKey),
+    'contact': parsed.contact,
+    'site': parsed.site,
+    'created_at': '2026-05-14T15:32:00.000Z',
+    'updated_at': '2026-05-14T15:32:00.000Z',
+    'legacy_project_key': projectKey,
+  }, conflictAlgorithm: ConflictAlgorithm.ignore);
+}
+
+String _projectIdForKey(String projectKey) =>
+    ProjectId.legacyFromKey(projectKey);

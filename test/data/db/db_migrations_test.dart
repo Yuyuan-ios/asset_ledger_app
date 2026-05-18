@@ -2,6 +2,7 @@ import 'package:asset_ledger/data/db/db_migrations.dart';
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/db/db_schema_compat.dart';
+import 'package:asset_ledger/data/models/project.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -14,7 +15,7 @@ void main() {
 
   group('Db migrations', () {
     test(
-      'upgrades a v3 database to v12 and creates missing tables with safe defaults',
+      'upgrades a v3 database to v13 and creates project identity with safe defaults',
       () async {
         final path = await _testDbPath('v3_to_v9');
         await deleteDatabase(path);
@@ -41,8 +42,27 @@ void main() {
           where: 'id = 1',
         )).single;
         expect(timingRow['contact'], '张三');
+        expect(timingRow['project_id'], isA<String>());
+        expect((timingRow['project_id'] as String).isNotEmpty, isTrue);
         expect(timingRow['exclude_from_fuel_eff'], 0);
         expect(timingRow['is_breaking'], 0);
+
+        final projects = await db.query('projects');
+        expect(projects, hasLength(1));
+        expect(projects.single['contact'], '张三');
+        expect(projects.single['site'], '一号工地');
+        expect(projects.single['status'], 'active');
+        expect(projects.single['id'], timingRow['project_id']);
+        expect(
+          await _projectForeignKeyTables(db),
+          containsAll([
+            'timing_records',
+            'account_payments',
+            'project_device_rates',
+            'account_project_merge_members',
+          ]),
+        );
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
 
         expect(await _tableExists(db, 'maintenance_records'), isTrue);
         expect(await _tableExists(db, 'account_payments'), isTrue);
@@ -78,7 +98,7 @@ void main() {
         );
 
         expect(await _primaryKeyColumns(db, 'project_device_rates'), [
-          'project_key',
+          'project_id',
           'device_id',
           'is_breaking',
         ]);
@@ -111,34 +131,38 @@ void main() {
           orderBy: 'project_key ASC, device_id ASC, is_breaking ASC',
         );
         expect(rows, hasLength(2));
-        expect(
-          rows
-              .map(
-                (row) => (
-                  row['project_key'] as String,
-                  row['device_id'] as int,
-                  row['is_breaking'] as int,
-                  row['rate'] as double,
-                ),
-              )
-              .toList(),
-          unorderedEquals([
-            ('李四||二号工地', 1, 0, 510.0),
-            ('李四||三号工地', 2, 0, 610.0),
-          ]),
-        );
+        final rowByKey = {
+          for (final row in rows) row['project_key'] as String: row,
+        };
+        final secondSiteRate = rowByKey['李四||二号工地']!;
+        final thirdSiteRate = rowByKey['李四||三号工地']!;
+        expect(secondSiteRate['project_id'], isA<String>());
+        expect((secondSiteRate['project_id'] as String).isNotEmpty, isTrue);
+        expect(secondSiteRate['device_id'], 1);
+        expect(secondSiteRate['is_breaking'], 0);
+        expect(secondSiteRate['rate'], 510.0);
+        expect(thirdSiteRate['project_id'], isA<String>());
+        expect((thirdSiteRate['project_id'] as String).isNotEmpty, isTrue);
+        expect(thirdSiteRate['device_id'], 2);
+        expect(thirdSiteRate['is_breaking'], 0);
+        expect(thirdSiteRate['rate'], 610.0);
         expect(await _primaryKeyColumns(db, 'project_device_rates'), [
-          'project_key',
+          'project_id',
           'device_id',
           'is_breaking',
         ]);
         expect(await _tableExists(db, 'timing_calculation_history'), isTrue);
+
+        final projects = await db.query('projects');
+        expect(projects, hasLength(2));
+        expect(projects.map((row) => row['site']).toSet(), {'二号工地', '三号工地'});
 
         final paymentRow = (await db.query(
           'account_payments',
           where: 'id = ?',
           whereArgs: [1],
         )).single;
+        expect(paymentRow['project_id'], secondSiteRate['project_id']);
         expect(paymentRow['source_type'], 'manual');
         expect(paymentRow['merge_group_id'], isNull);
         expect(paymentRow['merge_batch_id'], isNull);
@@ -172,7 +196,7 @@ void main() {
         containsAll(['breaking_unit_price', 'equipment_type']),
       );
       expect(await _primaryKeyColumns(db, 'project_device_rates'), [
-        'project_key',
+        'project_id',
         'device_id',
         'is_breaking',
       ]);
@@ -199,14 +223,82 @@ void main() {
       expect(repairedDevice['breaking_unit_price'], isNull);
 
       final repairedRate = (await db.query('project_device_rates')).single;
+      final repairedProject = (await db.query('projects')).single;
+      expect(repairedRate['project_id'], repairedProject['id']);
       expect(repairedRate['project_key'], '王五||老工地');
       expect(repairedRate['device_id'], 7);
       expect(repairedRate['is_breaking'], 0);
       expect(repairedRate['rate'], 699.0);
+      expect(await _primaryKeyColumns(db, 'project_device_rates'), [
+        'project_id',
+        'device_id',
+        'is_breaking',
+      ]);
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
 
       await db.close();
       await deleteDatabase(path);
     });
+
+    test(
+      'project_id foreign keys reject orphan timing rows and restrict delete',
+      () async {
+        final path = await _testDbPath('project_fk');
+        await deleteDatabase(path);
+
+        final db = await _openCurrentDb(path);
+        final project = Project(
+          id: 'project:fk',
+          contact: '甲方',
+          site: '一号工地',
+          createdAt: '2026-05-17T00:00:00.000Z',
+          updatedAt: '2026-05-17T00:00:00.000Z',
+        );
+        await db.insert('projects', project.toMap());
+
+        await expectLater(
+          db.insert('timing_records', {
+            'project_id': 'project:missing',
+            'device_id': 1,
+            'start_date': 20260517,
+            'contact': '甲方',
+            'site': '一号工地',
+            'type': 'hours',
+            'start_meter': 0.0,
+            'end_meter': 1.0,
+            'hours': 1.0,
+            'income': 380.0,
+            'exclude_from_fuel_eff': 0,
+            'is_breaking': 0,
+          }),
+          throwsA(isA<DatabaseException>()),
+        );
+
+        await db.insert('timing_records', {
+          'project_id': project.id,
+          'device_id': 1,
+          'start_date': 20260517,
+          'contact': '甲方',
+          'site': '一号工地',
+          'type': 'hours',
+          'start_meter': 0.0,
+          'end_meter': 1.0,
+          'hours': 1.0,
+          'income': 380.0,
+          'exclude_from_fuel_eff': 0,
+          'is_breaking': 0,
+        });
+
+        await expectLater(
+          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+          throwsA(isA<DatabaseException>()),
+        );
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
   });
 }
 
@@ -262,6 +354,25 @@ Future<List<String>> _primaryKeyColumns(Database db, String table) async {
       .where((row) => ((row['pk'] as int?) ?? 0) > 0)
       .map((row) => row['name'] as String)
       .toList();
+}
+
+Future<Set<String>> _projectForeignKeyTables(Database db) async {
+  final tables = <String>{
+    'timing_records',
+    'account_payments',
+    'project_device_rates',
+    'account_project_merge_members',
+  };
+  final out = <String>{};
+  for (final table in tables) {
+    final rows = await db.rawQuery('PRAGMA foreign_key_list($table);');
+    if (rows.any((row) {
+      return row['table'] == 'projects' && row['from'] == 'project_id';
+    })) {
+      out.add(table);
+    }
+  }
+  return out;
 }
 
 Future<bool> _tableExists(Database db, String table) async {

@@ -11,10 +11,14 @@ class AccountProjectPinnedHeader extends StatelessWidget {
     super.key,
     required this.projectCount,
     required this.trailing,
+    this.isCompactProjectList = false,
+    this.onToggleCompactProjectList,
   });
 
   final int projectCount;
   final Widget trailing;
+  final bool isCompactProjectList;
+  final VoidCallback? onToggleCompactProjectList;
 
   @override
   Widget build(BuildContext context) {
@@ -30,19 +34,90 @@ class AccountProjectPinnedHeader extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: AccountTokens.projectListTopGap),
         child: Row(
           children: [
-            Text(
-              '项目($projectCount)',
-              style: AppTypography.sectionTitle(
-                context,
-                fontSize: AccountTokens.projectTitleFontSize,
-                fontWeight: AccountTokens.projectTitleWeight,
-                height: AccountTokens.projectTitleLineHeight,
+            InkWell(
+              onTap: onToggleCompactProjectList,
+              borderRadius: BorderRadius.circular(1),
+              child: Container(
+                padding: EdgeInsets.only(
+                  right: onToggleCompactProjectList == null ? 0 : 2,
+                ),
+                decoration: BoxDecoration(
+                  color: isCompactProjectList
+                      ? const Color(0xFFECECEC)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '项目($projectCount)',
+                      style: AppTypography.sectionTitle(
+                        context,
+                        fontSize: AccountTokens.projectTitleFontSize,
+                        fontWeight: AccountTokens.projectTitleWeight,
+                        height: AccountTokens.projectTitleLineHeight,
+                      ),
+                    ),
+                    if (onToggleCompactProjectList != null) ...[
+                      const SizedBox(width: 2),
+                      _ProjectDensityToggleIcon(
+                        isCompact: isCompactProjectList,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             const Spacer(),
             trailing,
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProjectDensityToggleIcon extends StatelessWidget {
+  const _ProjectDensityToggleIcon({required this.isCompact});
+
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: isCompact ? '普通显示' : '紧凑显示',
+      child: SizedBox(
+        width: 22,
+        height: 28,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _ProjectDensityLine(isCompact: isCompact),
+            const SizedBox(height: 2.5),
+            _ProjectDensityLine(isCompact: isCompact),
+            const SizedBox(height: 2.5),
+            _ProjectDensityLine(isCompact: isCompact),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectDensityLine extends StatelessWidget {
+  const _ProjectDensityLine({required this.isCompact});
+
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 14,
+      height: 3,
+      decoration: BoxDecoration(
+        color: isCompact ? const Color(0xFF666666) : const Color(0xFF8A8A8A),
+        borderRadius: BorderRadius.circular(1.2),
       ),
     );
   }
@@ -135,6 +210,8 @@ class AccountProjectSection extends StatelessWidget {
     required this.onOpenFilter,
     required this.onClearFilter,
     required this.onTapProject,
+    this.isCompactProjectList = false,
+    this.onToggleCompactProjectList,
   });
 
   final List<AccountProjectVM> projects;
@@ -142,6 +219,8 @@ class AccountProjectSection extends StatelessWidget {
   final VoidCallback onOpenFilter;
   final VoidCallback onClearFilter;
   final ValueChanged<AccountProjectVM> onTapProject;
+  final bool isCompactProjectList;
+  final VoidCallback? onToggleCompactProjectList;
 
   @override
   Widget build(BuildContext context) {
@@ -150,13 +229,19 @@ class AccountProjectSection extends StatelessWidget {
       children: [
         AccountProjectPinnedHeader(
           projectCount: projects.length,
+          isCompactProjectList: isCompactProjectList,
+          onToggleCompactProjectList: onToggleCompactProjectList,
           trailing: AccountProjectFilterButton(
             hasActiveFilter: hasActiveFilter,
             onOpenFilter: onOpenFilter,
             onClearFilter: onClearFilter,
           ),
         ),
-        AccountProjectList(projects: projects, onTap: onTapProject),
+        AccountProjectList(
+          projects: projects,
+          isCompact: isCompactProjectList,
+          onTap: onTapProject,
+        ),
         const SizedBox(height: AccountTokens.homeBottomGap),
       ],
     );

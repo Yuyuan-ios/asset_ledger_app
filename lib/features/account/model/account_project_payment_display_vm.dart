@@ -10,6 +10,7 @@ class AccountProjectPaymentDisplayVM {
   final double amount;
   final String? note;
   final String sourceLabel;
+  final String? relatedProjectId;
   final String? relatedProjectKey;
   final String? relatedSite;
   final String? mergeBatchId;
@@ -23,6 +24,7 @@ class AccountProjectPaymentDisplayVM {
     required this.amount,
     this.note,
     required this.sourceLabel,
+    this.relatedProjectId,
     this.relatedProjectKey,
     this.relatedSite,
     this.mergeBatchId,
@@ -76,6 +78,7 @@ AccountProjectPaymentDisplayVM _normalMemberPaymentItem(
     amount: payment.amount,
     note: _cleanNote(payment.note),
     sourceLabel: sourceLabel,
+    relatedProjectId: payment.effectiveProjectId,
     relatedProjectKey: payment.projectKey,
     relatedSite: site.isEmpty ? null : site,
     sortCreatedAt: payment.createdAt,

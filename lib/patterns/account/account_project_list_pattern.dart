@@ -6,29 +6,87 @@ import '../../features/account/model/account_view_model.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 
+enum _PriceBadgeKind { single, multi, rent }
+
+class _PriceBadgeStyle {
+  const _PriceBadgeStyle({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.textColor,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color textColor;
+}
+
 class AccountProjectList extends StatelessWidget {
   const AccountProjectList({
     super.key,
     required this.projects,
     required this.onTap,
+    this.isCompact = false,
   });
 
   final List<AccountProjectVM> projects;
   final ValueChanged<AccountProjectVM> onTap;
+  final bool isCompact;
 
   String _priceText(AccountProjectVM p) {
     final rate = p.minRate;
     if (rate == null) {
       if (p.rentIncomeTotal > 0) return '租金(台班)';
-      return '单价：—';
+      return '单价:—';
     }
     if (p.isMultiDevice) {
-      return '单价：${FormatUtils.money(rate)}起(多设备)';
+      return '单价:${FormatUtils.money(rate)}(多设备)';
     }
     if (p.isMultiMode) {
-      return '单价：${FormatUtils.money(rate)}起(多模式)';
+      return '单价:${FormatUtils.money(rate)}起(多模式)';
     }
-    return '单价：${FormatUtils.money(rate)}';
+    return '单价:${FormatUtils.money(rate)}';
+  }
+
+  _PriceBadgeKind _priceBadgeKind(AccountProjectVM p, String priceText) {
+    if (p.rentIncomeTotal > 0 ||
+        priceText.contains('租金') ||
+        priceText.contains('台班')) {
+      return _PriceBadgeKind.rent;
+    }
+
+    if (p.isMultiDevice ||
+        p.isMultiMode ||
+        priceText.contains('起') ||
+        priceText.contains('多设备') ||
+        priceText.contains('多模式') ||
+        priceText.contains('多单价')) {
+      return _PriceBadgeKind.multi;
+    }
+
+    return _PriceBadgeKind.single;
+  }
+
+  _PriceBadgeStyle _priceBadgeStyle(_PriceBadgeKind kind) {
+    switch (kind) {
+      case _PriceBadgeKind.rent:
+        return const _PriceBadgeStyle(
+          backgroundColor: AccountTokens.projectCardRentBadgeBackground,
+          borderColor: AccountTokens.projectCardRentBadgeBorder,
+          textColor: AccountTokens.projectCardRentBadgeText,
+        );
+      case _PriceBadgeKind.multi:
+        return const _PriceBadgeStyle(
+          backgroundColor: AccountTokens.projectCardMultiRateBadgeBackground,
+          borderColor: AccountTokens.projectCardMultiRateBadgeBorder,
+          textColor: AccountTokens.projectCardMultiRateBadgeText,
+        );
+      case _PriceBadgeKind.single:
+        return const _PriceBadgeStyle(
+          backgroundColor: AccountTokens.projectCardSingleRateBadgeBackground,
+          borderColor: AccountTokens.projectCardSingleRateBadgeBorder,
+          textColor: AccountTokens.projectCardSingleRateBadgeText,
+        );
+    }
   }
 
   String? _totalHoursText(AccountProjectVM p) {
@@ -84,7 +142,7 @@ class AccountProjectList extends StatelessWidget {
     final joined = effectiveSites.join('+');
     if (joined.isEmpty) return '';
 
-    final maxPrefixLength = '家里+成都+鲜滩+'.length;
+    const maxPrefixLength = AccountTokens.projectCardMergedSitesPreviewMaxChars;
     if (joined.length <= maxPrefixLength) return joined;
     return '${joined.substring(0, maxPrefixLength)}...';
   }
@@ -145,12 +203,16 @@ class AccountProjectList extends StatelessWidget {
           Builder(
             builder: (context) {
               final totalHoursText = _totalHoursText(p);
+              final priceText = _priceText(p);
+              final badgeStyle = _priceBadgeStyle(
+                _priceBadgeKind(p, priceText),
+              );
               return Container(
                 margin: const EdgeInsets.only(
                   bottom: AccountTokens.projectCardBottomMargin,
                 ),
-                constraints: const BoxConstraints(
-                  minHeight: AccountTokens.projectCardMinHeight,
+                constraints: BoxConstraints(
+                  minHeight: isCompact ? 0 : AccountTokens.projectCardMinHeight,
                 ),
                 decoration: BoxDecoration(
                   color: SheetColors.background,
@@ -180,10 +242,13 @@ class AccountProjectList extends StatelessWidget {
                   ),
                   onTap: () => onTap(p),
                   child: Padding(
-                    padding: const EdgeInsets.only(
+                    padding: EdgeInsets.only(
                       left: AccountTokens.projectCardPaddingHorizontal,
                       right: AccountTokens.projectCardPaddingHorizontal,
                       top: AccountTokens.projectCardPaddingTop,
+                      bottom: isCompact
+                          ? AccountTokens.projectCardProgressBottomGap
+                          : 0,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,41 +267,79 @@ class AccountProjectList extends StatelessWidget {
                             const SizedBox(
                               width: AccountTokens.projectCardTitleDateGap,
                             ),
-                            Text(FormatUtils.date(p.minYmd), style: dateStyle),
+                            Flexible(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  isCompact
+                                      ? '项目总额 ${FormatUtils.money(p.receivable)}'
+                                      : FormatUtils.date(p.minYmd),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: dateStyle,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(
                           height: AccountTokens.projectCardSectionGap,
                         ),
-                        Row(
-                          children: [
-                            Container(
-                              constraints: const BoxConstraints(
-                                minWidth: AccountTokens.projectCardChipWidth,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AccountTokens
-                                    .projectCardChipPaddingHorizontal,
-                                vertical: AccountTokens
-                                    .projectCardChipPaddingVertical,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AccountTokens.projectCardChipColor,
-                                borderRadius: BorderRadius.circular(
-                                  AccountTokens.projectCardChipRadius,
+                        if (!isCompact) ...[
+                          Row(
+                            children: [
+                              Container(
+                                constraints: const BoxConstraints(
+                                  minWidth: AccountTokens.projectCardChipWidth,
+                                  maxWidth: 220,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeStyle.backgroundColor,
+                                  border: Border.all(
+                                    color: badgeStyle.borderColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AccountTokens.projectCardChipRadius,
+                                  ),
+                                ),
+                                child: Text(
+                                  priceText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                  style: chipStyle?.copyWith(
+                                    color: badgeStyle.textColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                              child: Text(_priceText(p), style: chipStyle),
-                            ),
-                            if (totalHoursText != null) ...[
-                              const Spacer(),
-                              Text(totalHoursText, style: totalHoursStyle),
+                              if (totalHoursText != null) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      totalHoursText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                      textAlign: TextAlign.right,
+                                      style: totalHoursStyle,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(
-                          height: AccountTokens.projectCardRateToStatusGap,
-                        ),
+                          ),
+                          const SizedBox(
+                            height: AccountTokens.projectCardRateToStatusGap,
+                          ),
+                        ],
                         Row(
                           children: [
                             Expanded(child: _receivedText(p, statusStyle)),
@@ -245,7 +348,9 @@ class AccountProjectList extends StatelessWidget {
                               child: Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
+                                  isCompact
+                                      ? '待收 ${FormatUtils.money(p.remaining)}'
+                                      : '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.right,

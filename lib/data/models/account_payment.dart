@@ -1,14 +1,17 @@
 // =====================================================================
+
+import 'project_id.dart';
 // ============================== AccountPayment（收款记录） ==============================
 // =====================================================================
 //
 // 口径：
-// - payment 只能属于一个 projectKey（联系人+工地）
-// - 不允许项目不存在于计时记录（由 Store 校验）
+// - payment 归属于一个 project_id
+// - projectKey 仅保留为旧备份和展示兜底
 //
 // 字段：
 // - id：DB 自增
-// - projectKey："$contact||$site"
+// - projectId：稳定项目身份
+// - projectKey：legacy 联系人+工地快照
 // - ymd：YYYYMMDD int
 // - amount：金额
 // - note：可空
@@ -22,6 +25,7 @@ class AccountPayment {
   static const String sourceTypeMergeAllocation = 'merge_allocation';
 
   final int? id;
+  final String projectId;
   final String projectKey;
   final int ymd;
   final double amount;
@@ -35,6 +39,7 @@ class AccountPayment {
 
   const AccountPayment({
     this.id,
+    this.projectId = '',
     required this.projectKey,
     required this.ymd,
     required this.amount,
@@ -49,6 +54,7 @@ class AccountPayment {
 
   AccountPayment copyWith({
     int? id,
+    String? projectId,
     String? projectKey,
     int? ymd,
     double? amount,
@@ -62,6 +68,7 @@ class AccountPayment {
   }) {
     return AccountPayment(
       id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
       projectKey: projectKey ?? this.projectKey,
       ymd: ymd ?? this.ymd,
       amount: amount ?? this.amount,
@@ -79,6 +86,7 @@ class AccountPayment {
   Map<String, Object?> toMap() {
     return {
       'id': id,
+      'project_id': effectiveProjectId,
       'project_key': projectKey,
       'ymd': ymd,
       'amount': amount,
@@ -95,6 +103,7 @@ class AccountPayment {
   static AccountPayment fromMap(Map<String, Object?> m) {
     return AccountPayment(
       id: m['id'] as int?,
+      projectId: (m['project_id'] as String?) ?? '',
       projectKey: (m['project_key'] as String?) ?? '',
       ymd: (m['ymd'] as int?) ?? 0,
       amount: (m['amount'] as num?)?.toDouble() ?? 0.0,
@@ -108,5 +117,9 @@ class AccountPayment {
       mergeBatchNote: m['merge_batch_note'] as String?,
       createdAt: m['created_at'] as String?,
     );
+  }
+
+  String get effectiveProjectId {
+    return ProjectId.ensure(projectId: projectId, legacyProjectKey: projectKey);
   }
 }

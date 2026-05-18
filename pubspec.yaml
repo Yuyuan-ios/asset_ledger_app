@@ -55,6 +55,7 @@ flutter:
     - assets/brands/
     - assets/navigation/
     - assets/images/
+    - assets/icons/timing/
 
 patrol:
   test_directory: integration_test

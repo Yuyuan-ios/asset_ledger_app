@@ -4,9 +4,11 @@ import 'package:asset_ledger/data/repositories/account_project_merge_repository.
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
+import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
+import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
@@ -26,6 +28,8 @@ void main() {
       late TimingRepository timingRepository;
       late FuelRepository fuelRepository;
       late MaintenanceRepository maintenanceRepository;
+      late ProjectRepository projectRepository;
+      late ProjectResolver projectResolver;
       late AccountPaymentRepository accountPaymentRepository;
       late ProjectRateRepository projectRateRepository;
       late AccountProjectMergeRepository accountProjectMergeRepository;
@@ -47,6 +51,8 @@ void main() {
                 timingRepository = context.read<TimingRepository>();
                 fuelRepository = context.read<FuelRepository>();
                 maintenanceRepository = context.read<MaintenanceRepository>();
+                projectRepository = context.read<ProjectRepository>();
+                projectResolver = context.read<ProjectResolver>();
                 accountPaymentRepository = context
                     .read<AccountPaymentRepository>();
                 projectRateRepository = context.read<ProjectRateRepository>();
@@ -70,6 +76,8 @@ void main() {
       expect(timingRepository, isA<TimingRepository>());
       expect(fuelRepository, isA<FuelRepository>());
       expect(maintenanceRepository, isA<MaintenanceRepository>());
+      expect(projectRepository, isA<ProjectRepository>());
+      expect(projectResolver, isA<ProjectResolver>());
       expect(accountPaymentRepository, isA<AccountPaymentRepository>());
       expect(projectRateRepository, isA<ProjectRateRepository>());
       expect(

@@ -52,6 +52,7 @@ class ComputeAccountSummaryUseCase {
 
       normalItems.add(
         AccountProjectVM(
+          projectId: agg.projectId,
           projectKey: agg.projectKey,
           displayName: agg.pk.displayName,
           minYmd: agg.minYmd,
@@ -65,11 +66,9 @@ class ComputeAccountSummaryUseCase {
           received: money.received,
           remaining: money.remaining,
           ratio: money.ratio,
-          payments:
-              payments
-                  .where((payment) => payment.projectKey == agg.projectKey)
-                  .toList()
-                ..sort((a, b) => b.ymd.compareTo(a.ymd)),
+          payments: payments.where((payment) {
+            return payment.effectiveProjectId == agg.projectId;
+          }).toList()..sort((a, b) => b.ymd.compareTo(a.ymd)),
         ),
       );
     }
@@ -127,7 +126,9 @@ class ComputeAccountSummaryUseCase {
   }) {
     if (activeMergeGroups.isEmpty || normalItems.isEmpty) return normalItems;
 
-    final normalByKey = {for (final item in normalItems) item.projectKey: item};
+    final normalByProjectId = {
+      for (final item in normalItems) item.projectId: item,
+    };
     final hiddenKeys = <String>{};
     final mergedItems = <AccountProjectVM>[];
 
@@ -147,22 +148,25 @@ class ComputeAccountSummaryUseCase {
       final memberItems = <AccountProjectVM>[];
       final memberSites = <String>[];
       final memberKeys = <String>[];
+      final memberProjectIds = <String>[];
       for (final member in activeMembers) {
-        final item = normalByKey[member.projectKey];
+        final item = normalByProjectId[member.effectiveProjectId];
         if (item == null) continue;
         memberItems.add(item);
         memberSites.add(member.site);
         memberKeys.add(member.projectKey);
+        memberProjectIds.add(member.effectiveProjectId);
       }
 
       if (memberItems.length < 2) continue;
-      hiddenKeys.addAll(memberKeys);
+      hiddenKeys.addAll(memberProjectIds);
       mergedItems.add(
         _buildMergedProjectVM(
           groupId: groupId,
           contact: group.contact,
           memberItems: memberItems,
           memberProjectKeys: memberKeys,
+          memberProjectIds: memberProjectIds,
           includedSites: memberSites,
         ),
       );
@@ -171,7 +175,7 @@ class ComputeAccountSummaryUseCase {
     if (mergedItems.isEmpty) return normalItems;
 
     final visibleNormalItems = normalItems.where((item) {
-      return !hiddenKeys.contains(item.projectKey);
+      return !hiddenKeys.contains(item.projectId);
     });
 
     return [...visibleNormalItems, ...mergedItems]
@@ -183,6 +187,7 @@ class ComputeAccountSummaryUseCase {
     required String contact,
     required List<AccountProjectVM> memberItems,
     required List<String> memberProjectKeys,
+    required List<String> memberProjectIds,
     required List<String> includedSites,
   }) {
     final deviceIds = <int>{};
@@ -220,11 +225,13 @@ class ComputeAccountSummaryUseCase {
     final sortedDeviceIds = deviceIds.toList()..sort();
 
     return AccountProjectVM(
+      projectId: 'merge:$groupId',
       projectKey: 'merge:$groupId',
       displayName: '${contact.trim()} + 合并${memberItems.length}项目',
       kind: AccountProjectKind.merged,
       mergeGroupId: groupId,
       memberProjectKeys: List.unmodifiable(memberProjectKeys),
+      memberProjectIds: List.unmodifiable(memberProjectIds),
       includedSites: List.unmodifiable(includedSites),
       includedSitesText: _includedSitesText(includedSites),
       minYmd: minYmd,

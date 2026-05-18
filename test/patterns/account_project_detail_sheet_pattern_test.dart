@@ -207,27 +207,32 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('李杰 + 合并2项目'), findsOneWidget);
-      expect(find.text('尚义'), findsOneWidget);
-      expect(find.text('鲜滩'), findsOneWidget);
+      expect(find.text('尚义'), findsWidgets);
+      expect(find.text('鲜滩'), findsWidgets);
       expect(find.text('HITACHI 1#'), findsNWidgets(2));
       expect(find.text('SANY 1#'), findsOneWidget);
       expect(find.text('64.9 h'), findsOneWidget);
       expect(find.text('239 h'), findsOneWidget);
       expect(find.text('20 h'), findsOneWidget);
-      expect(find.text('50.0%实收'), findsOneWidget);
-      expect(find.textContaining('余: ¥5000 / ¥10000'), findsOneWidget);
+      expect(find.text('已收 50.0%'), findsOneWidget);
+      expect(find.text('待收 ¥5000'), findsOneWidget);
+      expect(find.text('项目总额 ¥10000'), findsOneWidget);
+      expect(find.text('2026.05.15'), findsOneWidget);
+      expect(find.text('合并分摊'), findsOneWidget);
+      expect(find.text('备注：微信收款'), findsOneWidget);
       expect(
-        find.textContaining('2026.05.15  —  ¥5000  合并分摊  备注:微信收款'),
-        findsOneWidget,
+        tester.getTopLeft(find.text('合并分摊')).dy,
+        lessThan(tester.getTopLeft(find.text('备注：微信收款')).dy),
       );
-      expect(find.textContaining('2026.05.02  —  ¥300  鲜滩'), findsOneWidget);
-      expect(
-        find.textContaining('2026.05.01  —  ¥5000  尚义  备注:现金'),
-        findsOneWidget,
-      );
-      expect(find.text('新增收款'), findsOneWidget);
+      expect(find.text('2026.05.02'), findsOneWidget);
+      expect(find.text('¥300'), findsOneWidget);
+      expect(find.text('2026.05.01'), findsOneWidget);
+      expect(find.text('备注：现金'), findsOneWidget);
+      expect(find.text('+ 新增收款'), findsOneWidget);
+      expect(_containerWithColor(const Color(0xFFEAF7F5)), findsOneWidget);
       expect(find.text('批量修改'), findsNothing);
       expect(find.text('解除合并'), findsOneWidget);
+      expect(_containerWithColor(const Color(0xFFF5F2EE)), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(find.byIcon(Icons.delete_outline), findsOneWidget);
 
@@ -335,12 +340,15 @@ void main() {
     );
 
     expect(find.text('李杰 + 尚义'), findsOneWidget);
+    expect(find.text('尚义'), findsNothing);
+    expect(find.text('设备'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.location_on_outlined), findsNothing);
     expect(find.text('批量修改'), findsOneWidget);
-    expect(find.text('新增收款'), findsOneWidget);
-    expect(
-      find.textContaining('2026.05.03  —  ¥1000  备注:普通收款'),
-      findsOneWidget,
-    );
+    expect(find.text('+ 新增收款'), findsOneWidget);
+    expect(find.text('2026.05.03'), findsOneWidget);
+    expect(find.text('¥1000'), findsOneWidget);
+    expect(find.text('备注：普通收款'), findsOneWidget);
     expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
 
@@ -348,5 +356,12 @@ void main() {
     await tester.pump();
 
     expect(editedProject?.projectKey, normalKey);
+  });
+}
+
+Finder _containerWithColor(Color color) {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    return decoration is BoxDecoration && decoration.color == color;
   });
 }

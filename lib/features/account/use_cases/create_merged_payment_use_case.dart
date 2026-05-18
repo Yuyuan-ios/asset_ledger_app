@@ -38,14 +38,18 @@ class CreateMergedPaymentUseCase {
       );
     }
 
+    final memberProjectIds = mergedProject.memberProjectIds.toSet();
     final memberKeys = mergedProject.memberProjectKeys.toSet();
     final createdAt = _now().toUtc().toIso8601String();
     final batchId = _batchIdFactory?.call() ?? _defaultBatchId(groupId);
     final allocations = buildMergedPaymentAllocationRows(
       candidates: [
         for (final project in memberProjects)
-          if (memberKeys.contains(project.projectKey))
+          if (memberProjectIds.isNotEmpty
+              ? memberProjectIds.contains(project.effectiveProjectId)
+              : memberKeys.contains(project.projectKey))
             MergedPaymentAllocationCandidate(
+              projectId: project.effectiveProjectId,
               projectKey: project.projectKey,
               minYmd: project.minYmd,
               remaining: project.remaining,

@@ -1,7 +1,12 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../db/database.dart';
 import '../models/account_project_merge_group.dart';
 import '../models/account_project_merge_group_with_members.dart';
 import '../models/account_project_merge_member.dart';
+import '../models/project.dart';
+import '../models/project_key.dart';
+import 'project_repository.dart';
 
 abstract class AccountProjectMergeRepository {
   Future<AccountProjectMergeGroupWithMembers> createGroupWithMembers({
@@ -23,6 +28,12 @@ abstract class AccountProjectMergeRepository {
   Future<List<AccountProjectMergeMember>> listActiveMembersByProjectKeys(
     List<String> projectKeys,
   );
+
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
+    List<String> projectIds,
+  ) {
+    return listActiveMembersByProjectKeys(projectIds);
+  }
 
   Future<void> dissolveGroup({
     required int groupId,
@@ -46,6 +57,7 @@ class SqfliteAccountProjectMergeRepository
 
       for (final member in members) {
         final next = member.copyWith(groupId: groupId);
+        await _ensureProjectWithExecutor(txn, next);
         final memberId = await txn.insert(memberTable, next.toMap());
         savedMembers.add(next.copyWith(id: memberId));
       }
@@ -149,6 +161,26 @@ class SqfliteAccountProjectMergeRepository
   }
 
   @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
+    List<String> projectIds,
+  ) async {
+    final ids = projectIds.map((id) => id.trim()).where((id) {
+      return id.isNotEmpty;
+    }).toList();
+    if (ids.isEmpty) return const [];
+
+    final db = await AppDatabase.database;
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    final rows = await db.query(
+      memberTable,
+      where: 'is_active = ? AND project_id IN ($placeholders)',
+      whereArgs: [1, ...ids],
+      orderBy: 'group_id ASC, sort_order ASC, id ASC',
+    );
+    return rows.map(AccountProjectMergeMember.fromMap).toList();
+  }
+
+  @override
   Future<void> dissolveGroup({
     required int groupId,
     required String dissolvedAt,
@@ -171,5 +203,28 @@ class SqfliteAccountProjectMergeRepository
         whereArgs: [groupId, 1],
       );
     });
+  }
+
+  static Future<void> _ensureProjectWithExecutor(
+    DatabaseExecutor executor,
+    AccountProjectMergeMember member,
+  ) {
+    final parsed = ProjectKey.fromKey(member.projectKey);
+    final timestamp = DateTime.now().toUtc().toIso8601String();
+    return SqfliteProjectRepository.upsertWithExecutor(
+      executor,
+      Project(
+        id: member.effectiveProjectId,
+        contact: parsed.contact.trim().isNotEmpty
+            ? parsed.contact.trim()
+            : member.contact.trim(),
+        site: parsed.site.trim().isNotEmpty
+            ? parsed.site.trim()
+            : member.site.trim(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        legacyProjectKey: member.projectKey,
+      ),
+    );
   }
 }

@@ -209,6 +209,13 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   }
 
   @override
+  Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
+    List<String> projectIds,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<List<AccountProjectMergeMember>> listMembersByGroupId(int groupId) {
     throw UnimplementedError();
   }

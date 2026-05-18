@@ -4,12 +4,14 @@ import '../../../data/models/account_payment.dart';
 const double mergedPaymentAllocationEpsilon = 0.000001;
 
 class MergedPaymentAllocationCandidate {
+  final String projectId;
   final String projectKey;
   final int minYmd;
   final double remaining;
   final String? site;
 
   const MergedPaymentAllocationCandidate({
+    this.projectId = '',
     required this.projectKey,
     required this.minYmd,
     required this.remaining,
@@ -79,6 +81,7 @@ List<AccountPayment> buildMergedPaymentAllocationRows({
     if (take <= mergedPaymentAllocationEpsilon) continue;
     allocations.add(
       AccountPayment(
+        projectId: candidate.projectId,
         projectKey: candidate.projectKey,
         ymd: ymd,
         amount: take,

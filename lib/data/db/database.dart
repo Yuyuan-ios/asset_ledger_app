@@ -54,10 +54,12 @@ class AppDatabase {
   // - v10：新增 timing_calculation_history（计时记录工时计算依据）
   // - v11：新增 account_project_merge_groups / members（账户项目合并关系）
   // - v12：account_payments 增加合并收款分摊批次字段
+  // - v13：新增 projects；核心业务表增加 project_id
+  // - v14：projects 增加状态；核心 project_id 外键硬化
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 12;
+  static const int _dbVersion = 14;
 
   static int get schemaVersion => _dbVersion;
 

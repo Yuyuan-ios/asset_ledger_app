@@ -1,4 +1,5 @@
 import 'package:asset_ledger/data/models/account_payment.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -46,6 +47,7 @@ void main() {
 
       expect(payment.toMap(), {
         'id': 2,
+        'project_id': ProjectId.legacyFromKey('Bob||Yard B'),
         'project_key': 'Bob||Yard B',
         'ymd': 20260302,
         'amount': 88.5,
@@ -61,6 +63,7 @@ void main() {
       final rebuilt = AccountPayment.fromMap({'id': 3, 'amount': 120});
 
       expect(rebuilt.id, 3);
+      expect(rebuilt.projectId, '');
       expect(rebuilt.projectKey, '');
       expect(rebuilt.ymd, 0);
       expect(rebuilt.amount, 120);

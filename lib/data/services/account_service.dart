@@ -1,5 +1,7 @@
+import '../../core/money/amount_policy.dart';
 import '../models/account_payment.dart';
 import '../models/project_device_rate.dart';
+import '../models/project_id.dart';
 import '../models/project_key.dart';
 import '../models/timing_record.dart';
 import '../models/device.dart';
@@ -13,7 +15,8 @@ import '../models/device.dart';
 // - 不读 DB、不依赖 Store
 //
 // 口径（你已确认）：
-// - 项目 = contact + site
+// - 项目身份 = project_id
+// - contact/site 只做展示属性和 legacy fallback
 // - 应收：sum(hours * 有效单价)
 // - 有效单价：项目×设备覆盖优先，否则用 device 默认单价
 // - 回款：来自 AccountPayment
@@ -23,6 +26,7 @@ import '../models/device.dart';
 // =====================================================================
 
 class ProjectAgg {
+  final String projectId;
   final String projectKey;
   final String contact;
   final String site;
@@ -42,6 +46,7 @@ class ProjectAgg {
   final double rentIncomeTotal;
 
   const ProjectAgg({
+    this.projectId = '',
     required this.projectKey,
     required this.contact,
     required this.site,
@@ -99,7 +104,11 @@ class AccountService {
       if (contact.isEmpty || site.isEmpty) continue;
 
       final key = ProjectKey.buildKey(contact: contact, site: site);
-      final mut = m.putIfAbsent(key, () => _MutAgg(key, contact, site));
+      final projectId = t.effectiveProjectId;
+      final mut = m.putIfAbsent(
+        projectId,
+        () => _MutAgg(projectId, key, contact, site),
+      );
 
       // minYmd：项目首次计时日期（取最小 startDate）
       final ymd = t.startDate;
@@ -129,6 +138,7 @@ class AccountService {
       final deviceIds = mut.hoursByDevice.keys.toList()..sort();
 
       out[e.key] = ProjectAgg(
+        projectId: mut.projectId,
         projectKey: mut.projectKey,
         contact: mut.contact,
         site: mut.site,
@@ -151,12 +161,14 @@ class AccountService {
   }) {
     final effectiveRate = buildEffectiveRateMap(
       projectKey: agg.projectKey,
+      projectId: agg.projectId,
       devices: devices,
       rates: rates,
       isBreaking: false,
     );
     final effectiveBreakingRate = buildEffectiveRateMap(
       projectKey: agg.projectKey,
+      projectId: agg.projectId,
       devices: devices,
       rates: rates,
       isBreaking: true,
@@ -170,13 +182,13 @@ class AccountService {
       final hours = entry.value;
 
       final effRate = effectiveRate[deviceId] ?? 0.0;
-      receivable += hours * effRate;
+      receivable += _calculateHoursAmount(hours: hours, rate: effRate);
     }
     for (final entry in agg.breakingHoursByDevice.entries) {
       final deviceId = entry.key;
       final hours = entry.value;
       final effRate = effectiveBreakingRate[deviceId] ?? 0.0;
-      receivable += hours * effRate;
+      receivable += _calculateHoursAmount(hours: hours, rate: effRate);
     }
 
     // rent：纳入应收（月租金额属于应收，不属于已收）
@@ -185,6 +197,7 @@ class AccountService {
     // 2) 已收：仅收款记录累计
     final received = sumReceivedByProject(
       projectKey: agg.projectKey,
+      projectId: agg.projectId,
       payments: payments,
     );
 
@@ -211,12 +224,14 @@ class AccountService {
     for (final agg in projects.values) {
       final effectiveRate = buildEffectiveRateMap(
         projectKey: agg.projectKey,
+        projectId: agg.projectId,
         devices: devices,
         rates: rates,
         isBreaking: false,
       );
       final effectiveBreakingRate = buildEffectiveRateMap(
         projectKey: agg.projectKey,
+        projectId: agg.projectId,
         devices: devices,
         rates: rates,
         isBreaking: true,
@@ -225,13 +240,17 @@ class AccountService {
         final deviceId = entry.key;
         final hours = entry.value;
         final rate = effectiveRate[deviceId] ?? 0.0;
-        totals[deviceId] = (totals[deviceId] ?? 0.0) + hours * rate;
+        totals[deviceId] =
+            (totals[deviceId] ?? 0.0) +
+            _calculateHoursAmount(hours: hours, rate: rate);
       }
       for (final entry in agg.breakingHoursByDevice.entries) {
         final deviceId = entry.key;
         final hours = entry.value;
         final rate = effectiveBreakingRate[deviceId] ?? 0.0;
-        totals[deviceId] = (totals[deviceId] ?? 0.0) + hours * rate;
+        totals[deviceId] =
+            (totals[deviceId] ?? 0.0) +
+            _calculateHoursAmount(hours: hours, rate: rate);
       }
     }
     for (final t in timingRecords) {
@@ -243,7 +262,8 @@ class AccountService {
   }
 
   static Map<int, double> buildEffectiveRateMap({
-    required String projectKey,
+    String? projectKey,
+    String? projectId,
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
     bool isBreaking = false,
@@ -259,8 +279,12 @@ class AccountService {
     }
 
     final override = <int, double>{};
+    final targetProjectId = _resolveProjectId(
+      projectId: projectId,
+      projectKey: projectKey,
+    );
     for (final r in rates) {
-      if (r.projectKey != projectKey) continue;
+      if (r.effectiveProjectId != targetProjectId) continue;
       if (r.isBreaking != isBreaking) continue;
       override[r.deviceId] = r.rate;
     }
@@ -284,6 +308,7 @@ class AccountService {
     final used = <double>[];
     final effectiveRate = buildEffectiveRateMap(
       projectKey: agg.projectKey,
+      projectId: agg.projectId,
       devices: devices,
       rates: rates,
     );
@@ -306,6 +331,7 @@ class AccountService {
 
     final effectiveBreakingRate = buildEffectiveRateMap(
       projectKey: agg.projectKey,
+      projectId: agg.projectId,
       devices: devices,
       rates: rates,
       isBreaking: true,
@@ -333,21 +359,43 @@ class AccountService {
   }
 
   static double sumReceivedByProject({
-    required String projectKey,
+    String? projectKey,
+    String? projectId,
     required List<AccountPayment> payments,
     int? excludePaymentId,
   }) {
     double sum = 0.0;
+    final targetProjectId = _resolveProjectId(
+      projectId: projectId,
+      projectKey: projectKey,
+    );
     for (final p in payments) {
-      if (p.projectKey != projectKey) continue;
+      if (p.effectiveProjectId != targetProjectId) continue;
       if (excludePaymentId != null && p.id == excludePaymentId) continue;
       sum += p.amount;
     }
     return sum;
   }
+
+  static String _resolveProjectId({String? projectId, String? projectKey}) {
+    final normalizedId = projectId?.trim() ?? '';
+    if (normalizedId.isNotEmpty) return normalizedId;
+    return ProjectId.legacyFromKey(projectKey ?? '');
+  }
+
+  static double _calculateHoursAmount({
+    required double hours,
+    required double rate,
+  }) {
+    return AmountPolicy.calculateAmount(
+      hours: WorkHours.fromHours(hours),
+      unitPrice: UnitPrice.fromYuanPerHour(rate),
+    ).yuan;
+  }
 }
 
 class _MutAgg {
+  final String projectId;
   final String projectKey;
   final String contact;
   final String site;
@@ -360,5 +408,5 @@ class _MutAgg {
   final Map<int, double> breakingHoursByDevice = {};
   double rentIncomeTotal = 0.0;
 
-  _MutAgg(this.projectKey, this.contact, this.site);
+  _MutAgg(this.projectId, this.projectKey, this.contact, this.site);
 }

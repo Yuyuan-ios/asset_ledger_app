@@ -3,7 +3,11 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/database.dart';
+import '../models/account_payment.dart';
 import '../models/backup_restore_result.dart';
+import '../models/project.dart';
+import '../models/project_key.dart';
+import '../models/timing_record.dart';
 import 'local_backup_export_service.dart';
 import 'local_backup_import_preview_service.dart';
 
@@ -16,7 +20,7 @@ class LocalBackupRestoreService {
        _exportBackup = exportBackup;
 
   static const String _expectedAppName = '机账通';
-  static const int _supportedExportFormatVersion = 1;
+  static const int _supportedExportFormatVersion = 2;
 
   static const List<String> _clearOrder = [
     'account_project_merge_members',
@@ -28,9 +32,11 @@ class LocalBackupRestoreService {
     'fuel_logs',
     'timing_records',
     'devices',
+    'projects',
   ];
 
   static const List<String> _insertOrder = [
+    'projects',
     'devices',
     'timing_records',
     'timing_calculation_history',
@@ -43,6 +49,7 @@ class LocalBackupRestoreService {
   ];
 
   static const Map<String, List<String>> _requiredColumns = {
+    'projects': ['id', 'contact', 'site', 'created_at', 'updated_at'],
     'devices': [
       'id',
       'name',
@@ -54,6 +61,7 @@ class LocalBackupRestoreService {
     ],
     'timing_records': [
       'id',
+      'project_id',
       'device_id',
       'start_date',
       'type',
@@ -64,8 +72,14 @@ class LocalBackupRestoreService {
     ],
     'fuel_logs': ['id', 'device_id', 'date', 'liters', 'cost'],
     'maintenance_records': ['id', 'device_id', 'ymd', 'item', 'amount'],
-    'account_payments': ['id', 'project_key', 'ymd', 'amount'],
-    'project_device_rates': ['project_key', 'device_id', 'is_breaking', 'rate'],
+    'account_payments': ['id', 'project_id', 'project_key', 'ymd', 'amount'],
+    'project_device_rates': [
+      'project_id',
+      'project_key',
+      'device_id',
+      'is_breaking',
+      'rate',
+    ],
     'timing_calculation_history': [
       'id',
       'timing_record_id',
@@ -84,6 +98,7 @@ class LocalBackupRestoreService {
     'account_project_merge_members': [
       'id',
       'group_id',
+      'project_id',
       'project_key',
       'contact',
       'site',
@@ -248,7 +263,8 @@ class LocalBackupRestoreService {
       );
     }
 
-    if (exportFormatVersion != _supportedExportFormatVersion) {
+    if (exportFormatVersion < 1 ||
+        exportFormatVersion > _supportedExportFormatVersion) {
       return _RestoreValidation.failure(
         BackupRestoreResult.failure(
           message: '当前版本暂不支持该备份格式',
@@ -259,10 +275,16 @@ class LocalBackupRestoreService {
 
     final rowsByTable = <String, List<Map<String, Object?>>>{};
     final restoredCounts = <String, int>{};
+    final hasProjectsTable = data['projects'] is List;
 
     for (final tableName in _insertOrder) {
       final rows = data[tableName];
       if (rows == null) {
+        if (tableName == 'projects' && !hasProjectsTable) {
+          rowsByTable[tableName] = const <Map<String, Object?>>[];
+          restoredCounts[tableName] = 0;
+          continue;
+        }
         if (_optionalTables.contains(tableName)) {
           rowsByTable[tableName] = const <Map<String, Object?>>[];
           restoredCounts[tableName] = 0;
@@ -297,7 +319,11 @@ class LocalBackupRestoreService {
           );
         }
 
-        final normalizedRow = _normalizeRow(tableName, row);
+        final normalizedRow = _normalizeRow(
+          tableName,
+          row,
+          allowLegacyProjectIdentity: !hasProjectsTable,
+        );
         final missingColumn = _firstMissingColumn(tableName, normalizedRow);
         if (missingColumn != null) {
           return _RestoreValidation.failure(
@@ -325,13 +351,33 @@ class LocalBackupRestoreService {
       restoredCounts[tableName] = normalizedRows.length;
     }
 
+    if (!hasProjectsTable) {
+      final projectRows = _deriveLegacyProjectRows(rowsByTable);
+      rowsByTable['projects'] = projectRows;
+      restoredCounts['projects'] = projectRows.length;
+    }
+
+    final referenceError = _validateProjectReferences(rowsByTable);
+    if (referenceError != null) {
+      return _RestoreValidation.failure(
+        BackupRestoreResult.failure(
+          message: '备份数据存在无效项目关联，无法恢复',
+          errorCode: referenceError,
+        ),
+      );
+    }
+
     return _RestoreValidation.success(
       rowsByTable: rowsByTable,
       restoredCounts: restoredCounts,
     );
   }
 
-  static Map<String, Object?> _normalizeRow(String tableName, Map row) {
+  static Map<String, Object?> _normalizeRow(
+    String tableName,
+    Map row, {
+    required bool allowLegacyProjectIdentity,
+  }) {
     final normalized = <String, Object?>{};
     for (final entry in row.entries) {
       final key = entry.key;
@@ -339,13 +385,57 @@ class LocalBackupRestoreService {
         normalized[key] = entry.value;
       }
     }
-    if (tableName == 'account_payments') {
-      normalized['source_type'] ??= 'manual';
-      normalized.putIfAbsent('merge_group_id', () => null);
-      normalized.putIfAbsent('merge_batch_id', () => null);
-      normalized.putIfAbsent('merge_batch_total_amount', () => null);
-      normalized.putIfAbsent('merge_batch_note', () => null);
-      normalized.putIfAbsent('created_at', () => null);
+    switch (tableName) {
+      case 'projects':
+        final contact = (normalized['contact'] as String?) ?? '';
+        final site = (normalized['site'] as String?) ?? '';
+        normalized['legacy_project_key'] ??= ProjectKey.buildKey(
+          contact: contact,
+          site: site,
+        );
+        break;
+      case 'devices':
+        normalized['equipment_type'] ??= 'excavator';
+        break;
+      case 'timing_records':
+        normalized['contact'] ??= '';
+        normalized['site'] ??= '';
+        if (allowLegacyProjectIdentity) {
+          normalized['project_id'] ??= Project.legacy(
+            contact: normalized['contact'] as String,
+            site: normalized['site'] as String,
+            timestamp: _legacyProjectTimestamp,
+          ).id;
+        }
+        break;
+      case 'account_payments':
+        if (allowLegacyProjectIdentity) {
+          normalized['project_id'] ??= _legacyProjectIdFromKey(
+            normalized['project_key'],
+          );
+        }
+        normalized['source_type'] ??= 'manual';
+        normalized.putIfAbsent('merge_group_id', () => null);
+        normalized.putIfAbsent('merge_batch_id', () => null);
+        normalized.putIfAbsent('merge_batch_total_amount', () => null);
+        normalized.putIfAbsent('merge_batch_note', () => null);
+        normalized.putIfAbsent('created_at', () => null);
+        break;
+      case 'project_device_rates':
+        if (allowLegacyProjectIdentity) {
+          normalized['project_id'] ??= _legacyProjectIdFromKey(
+            normalized['project_key'],
+          );
+        }
+        normalized['is_breaking'] ??= 0;
+        break;
+      case 'account_project_merge_members':
+        if (allowLegacyProjectIdentity) {
+          normalized['project_id'] ??= _legacyProjectIdFromKey(
+            normalized['project_key'],
+          );
+        }
+        break;
     }
     return normalized;
   }
@@ -368,6 +458,8 @@ class LocalBackupRestoreService {
     switch (tableName) {
       case 'devices':
         return _validateDevicesRow(row);
+      case 'projects':
+        return _validateProjectRow(row);
       case 'timing_records':
         return _validateTimingRow(row);
       case 'fuel_logs':
@@ -403,7 +495,7 @@ class LocalBackupRestoreService {
     if (!_isNumber(row['base_meter_hours'])) {
       return 'invalid_devices_base_meter_hours';
     }
-    if (!_isInt(row['is_active'])) return 'invalid_devices_is_active';
+    if (!_isBooleanInt(row['is_active'])) return 'invalid_devices_is_active';
     if (!_isNullableString(row['custom_avatar_path'])) {
       return 'invalid_devices_custom_avatar_path';
     }
@@ -413,8 +505,23 @@ class LocalBackupRestoreService {
     return null;
   }
 
+  static String? _validateProjectRow(Map<String, Object?> row) {
+    if (!_isNonEmptyString(row['id'])) return 'invalid_projects_id';
+    if (!_isString(row['contact'])) return 'invalid_projects_contact';
+    if (!_isString(row['site'])) return 'invalid_projects_site';
+    if (!_isString(row['created_at'])) return 'invalid_projects_created_at';
+    if (!_isString(row['updated_at'])) return 'invalid_projects_updated_at';
+    if (!_isNullableString(row['legacy_project_key'])) {
+      return 'invalid_projects_legacy_project_key';
+    }
+    return null;
+  }
+
   static String? _validateTimingRow(Map<String, Object?> row) {
     if (!_isNullableInt(row['id'])) return 'invalid_timing_records_id';
+    if (!_isNonEmptyString(row['project_id'])) {
+      return 'invalid_timing_records_project_id';
+    }
     if (!_isInt(row['device_id'])) return 'invalid_timing_records_device_id';
     if (!_isInt(row['start_date'])) {
       return 'invalid_timing_records_start_date';
@@ -423,7 +530,11 @@ class LocalBackupRestoreService {
       return 'invalid_timing_records_contact';
     }
     if (!_isNullableString(row['site'])) return 'invalid_timing_records_site';
-    if (!_isString(row['type'])) return 'invalid_timing_records_type';
+    final type = row['type'];
+    if (type is! String) return 'invalid_timing_records_type';
+    if (!TimingType.values.any((value) => value.name == type)) {
+      return 'invalid_timing_records_type';
+    }
     if (!_isNumber(row['start_meter'])) {
       return 'invalid_timing_records_start_meter';
     }
@@ -433,7 +544,7 @@ class LocalBackupRestoreService {
     if (!_isNullableInt(row['exclude_from_fuel_eff'])) {
       return 'invalid_timing_records_exclude_from_fuel_eff';
     }
-    if (!_isNullableInt(row['is_breaking'])) {
+    if (!_isNullableBooleanInt(row['is_breaking'])) {
       return 'invalid_timing_records_is_breaking';
     }
     return null;
@@ -467,6 +578,9 @@ class LocalBackupRestoreService {
 
   static String? _validateAccountPaymentRow(Map<String, Object?> row) {
     if (!_isNullableInt(row['id'])) return 'invalid_account_payments_id';
+    if (!_isNonEmptyString(row['project_id'])) {
+      return 'invalid_account_payments_project_id';
+    }
     if (!_isString(row['project_key'])) {
       return 'invalid_account_payments_project_key';
     }
@@ -474,6 +588,13 @@ class LocalBackupRestoreService {
     if (!_isNumber(row['amount'])) return 'invalid_account_payments_amount';
     if (!_isNullableString(row['note'])) return 'invalid_account_payments_note';
     if (!_isString(row['source_type'])) {
+      return 'invalid_account_payments_source_type';
+    }
+    const sourceTypes = {
+      AccountPayment.sourceTypeManual,
+      AccountPayment.sourceTypeMergeAllocation,
+    };
+    if (!sourceTypes.contains(row['source_type'])) {
       return 'invalid_account_payments_source_type';
     }
     if (!_isNullableInt(row['merge_group_id'])) {
@@ -495,13 +616,16 @@ class LocalBackupRestoreService {
   }
 
   static String? _validateProjectDeviceRateRow(Map<String, Object?> row) {
+    if (!_isNonEmptyString(row['project_id'])) {
+      return 'invalid_project_device_rates_project_id';
+    }
     if (!_isString(row['project_key'])) {
       return 'invalid_project_device_rates_project_key';
     }
     if (!_isInt(row['device_id'])) {
       return 'invalid_project_device_rates_device_id';
     }
-    if (!_isInt(row['is_breaking'])) {
+    if (!_isBooleanInt(row['is_breaking'])) {
       return 'invalid_project_device_rates_is_breaking';
     }
     if (!_isNumber(row['rate'])) return 'invalid_project_device_rates_rate';
@@ -545,13 +669,16 @@ class LocalBackupRestoreService {
     if (!_isNullableString(row['updated_at'])) {
       return 'invalid_account_project_merge_groups_updated_at';
     }
-    if (!_isInt(row['is_active'])) {
+    if (!_isBooleanInt(row['is_active'])) {
       return 'invalid_account_project_merge_groups_is_active';
     }
     if (!_isNullableString(row['dissolved_at'])) {
       return 'invalid_account_project_merge_groups_dissolved_at';
     }
     if (!_isString(row['source_type'])) {
+      return 'invalid_account_project_merge_groups_source_type';
+    }
+    if (row['source_type'] != 'local') {
       return 'invalid_account_project_merge_groups_source_type';
     }
     return null;
@@ -565,6 +692,9 @@ class LocalBackupRestoreService {
     }
     if (!_isInt(row['group_id'])) {
       return 'invalid_account_project_merge_members_group_id';
+    }
+    if (!_isNonEmptyString(row['project_id'])) {
+      return 'invalid_account_project_merge_members_project_id';
     }
     if (!_isString(row['project_key'])) {
       return 'invalid_account_project_merge_members_project_key';
@@ -581,10 +711,106 @@ class LocalBackupRestoreService {
     if (!_isString(row['created_at'])) {
       return 'invalid_account_project_merge_members_created_at';
     }
-    if (!_isInt(row['is_active'])) {
+    if (!_isBooleanInt(row['is_active'])) {
       return 'invalid_account_project_merge_members_is_active';
     }
     return null;
+  }
+
+  static List<Map<String, Object?>> _deriveLegacyProjectRows(
+    Map<String, List<Map<String, Object?>>> rowsByTable,
+  ) {
+    final projectsById = <String, Map<String, Object?>>{};
+
+    void addProject({
+      required String projectId,
+      required String contact,
+      required String site,
+      String? legacyProjectKey,
+    }) {
+      if (projectId.trim().isEmpty || projectsById.containsKey(projectId)) {
+        return;
+      }
+      final key =
+          legacyProjectKey ?? ProjectKey.buildKey(contact: contact, site: site);
+      projectsById[projectId] = Project(
+        id: projectId,
+        contact: contact.trim(),
+        site: site.trim(),
+        createdAt: _legacyProjectTimestamp,
+        updatedAt: _legacyProjectTimestamp,
+        legacyProjectKey: key,
+      ).toMap();
+    }
+
+    for (final row in rowsByTable['timing_records'] ?? const []) {
+      final contact = (row['contact'] as String?) ?? '';
+      final site = (row['site'] as String?) ?? '';
+      addProject(
+        projectId: row['project_id'] as String,
+        contact: contact,
+        site: site,
+      );
+    }
+
+    for (final tableName in const [
+      'account_payments',
+      'project_device_rates',
+      'account_project_merge_members',
+    ]) {
+      for (final row in rowsByTable[tableName] ?? const []) {
+        final projectKey = (row['project_key'] as String?) ?? '';
+        final parsed = ProjectKey.fromKey(projectKey);
+        final contact = (row['contact'] as String?)?.trim().isNotEmpty == true
+            ? row['contact'] as String
+            : parsed.contact;
+        final site = (row['site'] as String?)?.trim().isNotEmpty == true
+            ? row['site'] as String
+            : parsed.site;
+        addProject(
+          projectId: row['project_id'] as String,
+          contact: contact,
+          site: site,
+          legacyProjectKey: projectKey,
+        );
+      }
+    }
+
+    return projectsById.values.toList(growable: false);
+  }
+
+  static String? _validateProjectReferences(
+    Map<String, List<Map<String, Object?>>> rowsByTable,
+  ) {
+    final projectIds = <String>{
+      for (final row in rowsByTable['projects'] ?? const [])
+        if (row['id'] is String) row['id'] as String,
+    };
+    for (final tableName in const [
+      'timing_records',
+      'account_payments',
+      'project_device_rates',
+      'account_project_merge_members',
+    ]) {
+      for (final row in rowsByTable[tableName] ?? const []) {
+        final projectId = row['project_id'];
+        if (projectId is! String || !projectIds.contains(projectId)) {
+          return 'orphan_project_id_$tableName';
+        }
+      }
+    }
+    return null;
+  }
+
+  static String? _legacyProjectIdFromKey(Object? value) {
+    final projectKey = value is String ? value : '';
+    if (projectKey.trim().isEmpty) return null;
+    final parsed = ProjectKey.fromKey(projectKey);
+    return Project.legacy(
+      contact: parsed.contact,
+      site: parsed.site,
+      timestamp: _legacyProjectTimestamp,
+    ).id;
   }
 
   static int? _readInt(Object? value) {
@@ -596,6 +822,9 @@ class LocalBackupRestoreService {
 
   static bool _isString(Object? value) => value is String;
 
+  static bool _isNonEmptyString(Object? value) =>
+      value is String && value.trim().isNotEmpty;
+
   static bool _isNullableString(Object? value) =>
       value == null || value is String;
 
@@ -603,9 +832,18 @@ class LocalBackupRestoreService {
 
   static bool _isNullableInt(Object? value) => value == null || value is int;
 
+  static bool _isBooleanInt(Object? value) => value == 0 || value == 1;
+
+  static bool _isNullableBooleanInt(Object? value) =>
+      value == null || _isBooleanInt(value);
+
   static bool _isNumber(Object? value) => value is num;
 
   static bool _isNullableNumber(Object? value) => value == null || value is num;
+
+  static final String _legacyProjectTimestamp = DateTime(
+    1970,
+  ).toUtc().toIso8601String();
 }
 
 class _RestoreValidation {

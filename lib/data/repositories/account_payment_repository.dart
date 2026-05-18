@@ -1,5 +1,10 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../db/database.dart';
 import '../models/account_payment.dart';
+import '../models/project.dart';
+import '../models/project_key.dart';
+import 'project_repository.dart';
 
 abstract class AccountPaymentRepository {
   Future<List<AccountPayment>> listAll();
@@ -44,8 +49,10 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
 
   @override
   Future<int> insert(AccountPayment p) async {
-    final db = await AppDatabase.database;
-    return db.insert(table, p.toMap());
+    return AppDatabase.inTransaction((txn) async {
+      await _ensureProjectWithExecutor(txn, p);
+      return txn.insert(table, p.toMap());
+    });
   }
 
   @override
@@ -53,6 +60,7 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
     if (payments.isEmpty) return;
     await AppDatabase.inTransaction<void>((txn) async {
       for (final payment in payments) {
+        await _ensureProjectWithExecutor(txn, payment);
         await txn.insert(table, payment.toMap());
       }
     });
@@ -93,6 +101,7 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
         whereArgs: [AccountPayment.sourceTypeMergeAllocation, batchId],
       );
       for (final payment in newRows) {
+        await _ensureProjectWithExecutor(txn, payment);
         await txn.insert(table, payment.toMap());
       }
     });
@@ -128,7 +137,8 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
       if (row.mergeGroupId != mergeGroupId) {
         throw StateError('合并收款合并组 ID 不一致');
       }
-      if (row.projectKey.startsWith('merge:')) {
+      if (row.projectKey.startsWith('merge:') ||
+          row.effectiveProjectId.startsWith('merge:')) {
         throw StateError('合并收款不能写入合并项目 key');
       }
       if (row.amount <= 0) {
@@ -167,13 +177,34 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
 
   @override
   Future<int> update(AccountPayment p) async {
-    final db = await AppDatabase.database;
-    return db.update(table, p.toMap(), where: 'id = ?', whereArgs: [p.id]);
+    return AppDatabase.inTransaction((txn) async {
+      await _ensureProjectWithExecutor(txn, p);
+      return txn.update(table, p.toMap(), where: 'id = ?', whereArgs: [p.id]);
+    });
   }
 
   @override
   Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
     return db.delete(table, where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> _ensureProjectWithExecutor(
+    DatabaseExecutor executor,
+    AccountPayment payment,
+  ) {
+    final parsed = ProjectKey.fromKey(payment.projectKey);
+    final timestamp = DateTime.now().toUtc().toIso8601String();
+    return SqfliteProjectRepository.upsertWithExecutor(
+      executor,
+      Project(
+        id: payment.effectiveProjectId,
+        contact: parsed.contact.trim(),
+        site: parsed.site.trim(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        legacyProjectKey: payment.projectKey,
+      ),
+    );
   }
 }

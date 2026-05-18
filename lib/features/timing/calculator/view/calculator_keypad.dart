@@ -4,6 +4,18 @@ import 'package:flutter/material.dart';
 // 代替按键的 textStyle 直接 TextStyle 构造。
 import '../../../../core/foundation/typography.dart';
 
+const _keyHeight = 62.0;
+const _keyRadius = 20.0;
+const _keypadBackground = Color(0xFF050505);
+const _digitBackground = Color(0xFF242424);
+const _digitText = Color(0xFFF2F2F2);
+const _neutralBackground = Color(0xFF2D2D2D);
+const _neutralText = Color(0xFFD0C8BE);
+const _operatorText = Color(0xFFF58220);
+const _equalBackground = Color(0xFFF58220);
+
+enum _KeyTone { digit, neutral, operator }
+
 class CalculatorKeypad extends StatelessWidget {
   const CalculatorKeypad({
     super.key,
@@ -24,44 +36,50 @@ class CalculatorKeypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _KeyRow(
-          children: [
-            _DigitKey(label: '7', onPressed: () => onDigit('7')),
-            _DigitKey(label: '8', onPressed: () => onDigit('8')),
-            _DigitKey(label: '9', onPressed: () => onDigit('9')),
-            _IconKey(icon: Icons.backspace_outlined, onPressed: onBackspace),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _KeyRow(
-          children: [
-            _DigitKey(label: '4', onPressed: () => onDigit('4')),
-            _DigitKey(label: '5', onPressed: () => onDigit('5')),
-            _DigitKey(label: '6', onPressed: () => onDigit('6')),
-            _TextKey(label: 'C', onPressed: onClear),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _KeyRow(
-          children: [
-            _DigitKey(label: '1', onPressed: () => onDigit('1')),
-            _DigitKey(label: '2', onPressed: () => onDigit('2')),
-            _DigitKey(label: '3', onPressed: () => onDigit('3')),
-            _TextKey(label: '+', onPressed: onPlus),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _KeyRow(
-          children: [
-            _DigitKey(label: '0', onPressed: () => onDigit('0')),
-            _TextKey(label: '.', onPressed: onDecimal),
-            _EqualKey(onPressed: onEqual),
-          ],
-        ),
-      ],
+    final bottomSafePadding = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(20, 14, 20, bottomSafePadding + 14),
+      decoration: const BoxDecoration(color: _keypadBackground),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _KeyRow(
+            children: [
+              _DigitKey(label: '7', onPressed: () => onDigit('7')),
+              _DigitKey(label: '8', onPressed: () => onDigit('8')),
+              _DigitKey(label: '9', onPressed: () => onDigit('9')),
+              _IconKey(icon: Icons.backspace_outlined, onPressed: onBackspace),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _KeyRow(
+            children: [
+              _DigitKey(label: '4', onPressed: () => onDigit('4')),
+              _DigitKey(label: '5', onPressed: () => onDigit('5')),
+              _DigitKey(label: '6', onPressed: () => onDigit('6')),
+              _TextKey(label: 'C', tone: _KeyTone.neutral, onPressed: onClear),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _KeyRow(
+            children: [
+              _DigitKey(label: '1', onPressed: () => onDigit('1')),
+              _DigitKey(label: '2', onPressed: () => onDigit('2')),
+              _DigitKey(label: '3', onPressed: () => onDigit('3')),
+              _TextKey(label: '+', tone: _KeyTone.operator, onPressed: onPlus),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _KeyRow(
+            children: [
+              _EqualKey(onPressed: onEqual),
+              _DigitKey(label: '0', onPressed: () => onDigit('0')),
+              _TextKey(label: '.', onPressed: onDecimal),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -97,27 +115,45 @@ class _DigitKey extends StatelessWidget {
 }
 
 class _TextKey extends StatelessWidget {
-  const _TextKey({required this.label, required this.onPressed});
+  const _TextKey({
+    required this.label,
+    required this.onPressed,
+    this.tone = _KeyTone.digit,
+  });
 
   final String label;
   final VoidCallback onPressed;
+  final _KeyTone tone;
 
   @override
   Widget build(BuildContext context) {
+    final colors = _keyColors(tone);
     return SizedBox(
-      height: 48,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          // [修改] TextStyle → AppTypography.actionText
-          textStyle: AppTypography.actionText(
-            context,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
+      height: _keyHeight,
+      child: DecoratedBox(
+        decoration: _keyShadowDecoration(),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: colors.background,
+            foregroundColor: colors.foreground,
+            side: BorderSide.none,
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: const Size.fromHeight(_keyHeight),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_keyRadius),
+            ),
+            textStyle: AppTypography.actionText(
+              context,
+              fontSize: tone == _KeyTone.digit ? 32 : 30,
+              fontWeight: tone == _KeyTone.digit
+                  ? FontWeight.w600
+                  : FontWeight.w700,
+            ),
           ),
+          child: Text(label),
         ),
-        child: Text(label),
       ),
     );
   }
@@ -132,13 +168,24 @@ class _IconKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      height: _keyHeight,
+      child: DecoratedBox(
+        decoration: _keyShadowDecoration(),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: _neutralBackground,
+            foregroundColor: _neutralText,
+            side: BorderSide.none,
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: const Size.fromHeight(_keyHeight),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_keyRadius),
+            ),
+          ),
+          child: Icon(icon, size: 25),
         ),
-        child: Icon(icon),
       ),
     );
   }
@@ -152,20 +199,78 @@ class _EqualKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
-      child: FilledButton(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          // [修改] TextStyle → AppTypography.actionText（=号键与数字键同字号字重）
-          textStyle: AppTypography.actionText(
-            context,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
+      height: _keyHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_keyRadius),
+          boxShadow: [
+            BoxShadow(
+              color: _equalBackground.withValues(alpha: 0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        child: const Text('='),
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: _equalBackground,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: const Size.fromHeight(_keyHeight),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_keyRadius),
+            ),
+            textStyle: AppTypography.actionText(
+              context,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: const Text('='),
+        ),
       ),
     );
   }
+}
+
+_KeyColors _keyColors(_KeyTone tone) {
+  switch (tone) {
+    case _KeyTone.digit:
+      return const _KeyColors(
+        background: _digitBackground,
+        foreground: _digitText,
+      );
+    case _KeyTone.neutral:
+      return const _KeyColors(
+        background: _neutralBackground,
+        foreground: _neutralText,
+      );
+    case _KeyTone.operator:
+      return const _KeyColors(
+        background: _digitBackground,
+        foreground: _operatorText,
+      );
+  }
+}
+
+BoxDecoration _keyShadowDecoration() {
+  return BoxDecoration(
+    borderRadius: BorderRadius.circular(_keyRadius),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.white.withValues(alpha: 0.035),
+        blurRadius: 3,
+        offset: const Offset(0, 1),
+      ),
+    ],
+  );
+}
+
+class _KeyColors {
+  const _KeyColors({required this.background, required this.foreground});
+
+  final Color background;
+  final Color foreground;
 }

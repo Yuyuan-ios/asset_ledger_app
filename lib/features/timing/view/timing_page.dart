@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/money/amount_policy.dart';
 import '../../../core/utils/device_maps.dart';
 import '../../../core/utils/device_label.dart';
 import '../../../core/utils/format_utils.dart';
@@ -10,9 +11,11 @@ import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_id.dart';
 import '../../../data/models/project_key.dart';
 import '../../../data/services/account_project_merge_service.dart';
 import '../../../data/services/account_service.dart';
+import '../../../data/services/project_resolver.dart';
 import '../../../data/services/timing_monthly_expense_service.dart';
 import '../../../data/services/timing_monthly_income_service.dart';
 import '../../../data/services/timing_service.dart';
@@ -25,6 +28,7 @@ import '../../../features/timing/calculator/repository/timing_calculation_histor
 import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/timing/use_cases/compute_timing_chart_finance_use_case.dart';
+import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -222,29 +226,6 @@ class _TimingPageState extends State<TimingPage> {
     }
   }
 
-  Future<bool> _autoDissolveMergeGroupIfProjectKeyChanged({
-    required TimingRecord? editing,
-    required TimingRecord record,
-  }) async {
-    if (editing == null) return false;
-
-    final oldProjectKey = ProjectKey.buildKey(
-      contact: editing.contact,
-      site: editing.site,
-    );
-    final newProjectKey = ProjectKey.buildKey(
-      contact: record.contact,
-      site: record.site,
-    );
-    if (oldProjectKey == newProjectKey) return false;
-
-    final mergeService = context.read<AccountProjectMergeService>();
-    return mergeService.dissolveMergeGroupIfProjectKeyChanged(
-      oldProjectKey: oldProjectKey,
-      newProjectKey: newProjectKey,
-    );
-  }
-
   Future<void> _retryLoad() async {
     final timingStore = context.read<TimingStore>();
     final deviceStore = context.read<DeviceStore>();
@@ -256,6 +237,39 @@ class _TimingPageState extends State<TimingPage> {
       fuelStore.loadAll(),
       maintenanceStore.loadAll(),
     ]);
+  }
+
+  Future<bool> _retryPendingMergeDissolve({
+    required SaveTimingRecordUseCase useCase,
+    required PendingTimingMergeDissolve pending,
+  }) async {
+    final shouldRetry = await showAppConfirmDialog(
+      context: context,
+      title: '合并项目未解除',
+      content: '计时记录已保存，但联系人或地址变化后的合并项目尚未解除。请重试解除后再关闭。',
+      cancelText: '留在编辑',
+      confirmText: '重试解除',
+    );
+    if (!mounted) return false;
+    if (!shouldRetry) {
+      _toast('合并项目尚未解除，可再次点击“确定”重试。');
+      return false;
+    }
+
+    try {
+      final dissolved = await useCase.retryMergeDissolve(pending);
+      if (!mounted) return false;
+      if (dissolved) {
+        _toast('记录已移动到其他项目，系统已自动解除相关合并项目。');
+      } else {
+        _toast('合并项目已无需解除。');
+      }
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      _toast('自动解除合并仍失败，请再次重试。');
+      return false;
+    }
   }
 
   Future<void> _openTimingEditor({TimingRecord? editing}) async {
@@ -309,14 +323,21 @@ class _TimingPageState extends State<TimingPage> {
                   contact: contact,
                   site: site,
                 );
+                final projectId =
+                    editing?.effectiveProjectId ??
+                    ProjectId.legacyFromKey(projectKey);
                 final effectiveRate = AccountService.buildEffectiveRateMap(
+                  projectId: projectId,
                   projectKey: projectKey,
                   devices: deviceStore.allDevices,
                   rates: rateStore.rates,
                   isBreaking: isBreaking,
                 );
                 final rate = effectiveRate[deviceId] ?? 0.0;
-                return hours * rate;
+                return AmountPolicy.calculateAmount(
+                  hours: WorkHours.fromHours(hours),
+                  unitPrice: UnitPrice.fromYuanPerHour(rate),
+                ).yuan;
               },
           validateMeterBounds:
               ({
@@ -347,10 +368,24 @@ class _TimingPageState extends State<TimingPage> {
               },
           onToast: _toast,
           onSubmit: (record, calculationHistories) async {
-            await timingStore.save(
-              record,
-              calculationHistories: calculationHistories,
+            final saveUseCase = SaveTimingRecordUseCase(
+              timingStore: timingStore,
+              mergeService: context.read<AccountProjectMergeService>(),
+              projectResolver: context.read<ProjectResolver>(),
             );
+            SaveTimingRecordResult result;
+            try {
+              result = await saveUseCase.execute(
+                editing: editing,
+                record: record,
+                calculationHistories: calculationHistories,
+              );
+            } catch (_) {
+              if (!mounted) return;
+              final feedback = storeActionFeedback(timingStore, action: '保存');
+              _toast(feedback.message);
+              return;
+            }
             if (!mounted) return;
 
             final feedback = storeActionFeedback(timingStore, action: '保存');
@@ -358,21 +393,26 @@ class _TimingPageState extends State<TimingPage> {
               _toast(feedback.message);
               return;
             }
-            var toastMessage = feedback.message;
-            try {
-              final dissolved =
-                  await _autoDissolveMergeGroupIfProjectKeyChanged(
-                    editing: editing,
-                    record: record,
-                  );
-              if (dissolved) {
-                toastMessage = '该项目联系人或地址已变更，系统已自动解除相关合并项目。';
+            String? toastMessage = feedback.message;
+            final pending = result.pendingMergeDissolve;
+            if (pending != null) {
+              _toast('项目已保存，但自动解除合并失败，请重试解除。');
+              final resolved = await _retryPendingMergeDissolve(
+                useCase: saveUseCase,
+                pending: pending,
+              );
+              if (!mounted) return;
+              if (!resolved) {
+                return;
               }
-            } catch (_) {
-              toastMessage = '项目已保存，但自动解除合并失败，请稍后重试。';
+              toastMessage = null;
+            } else if (result.mergeDissolved) {
+              toastMessage = '记录已移动到其他项目，系统已自动解除相关合并项目。';
             }
             if (!mounted) return;
-            _toast(toastMessage);
+            if (toastMessage != null) {
+              _toast(toastMessage);
+            }
             if (!sheetContext.mounted) return;
             Navigator.of(sheetContext).pop();
           },

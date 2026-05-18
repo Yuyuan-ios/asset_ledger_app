@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
+import 'db_migrations.dart';
+
 /// 打开数据库后的结构兼容修复（历史库兜底）。
 class DbSchemaCompat {
   static Future<void> ensure(Database db) async {
@@ -85,6 +87,11 @@ class DbSchemaCompat {
         ON project_device_rates(project_key);
       ''');
     }
+
+    await DbMigrations.ensureProjectIdentitySchema(
+      db,
+      enforceForeignKeys: true,
+    );
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

@@ -1,5 +1,6 @@
 import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/services/account_service.dart';
@@ -51,9 +52,14 @@ void main() {
           ],
         );
 
-        final project = projects['Alice||Yard A']!;
+        final projectId = ProjectId.legacyFromParts(
+          contact: 'Alice',
+          site: 'Yard A',
+        );
+        final project = projects[projectId]!;
 
-        expect(projects.keys, ['Alice||Yard A']);
+        expect(projects.keys, [projectId]);
+        expect(project.projectKey, 'Alice||Yard A');
         expect(project.minYmd, 20260301);
         expect(project.deviceIds, [2]);
         expect(project.hoursByDevice[2], 4);
@@ -131,7 +137,8 @@ void main() {
           ],
         );
 
-        final project = projects['Mix||Site']!;
+        final project =
+            projects[ProjectId.legacyFromParts(contact: 'Mix', site: 'Site')]!;
 
         expect(project.deviceIds, [1, 2]);
         expect(project.minYmd, 20260228);

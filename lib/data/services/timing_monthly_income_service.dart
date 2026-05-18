@@ -1,3 +1,4 @@
+import '../../core/money/amount_policy.dart';
 import '../../core/utils/format_utils.dart';
 import '../models/device.dart';
 import '../models/project_device_rate.dart';
@@ -79,7 +80,10 @@ class TimingMonthlyIncomeService {
           cache: rateCache,
         );
         // 工时收入按当前有效单价实时重算，不读取 record.income。
-        final realtimeIncome = current.hours * rate;
+        final realtimeIncome = AmountPolicy.calculateAmount(
+          hours: WorkHours.fromHours(current.hours),
+          unitPrice: UnitPrice.fromYuanPerHour(rate),
+        ).yuan;
 
         // 新口径：收入统一由实时单价重算；<= 0 跳过
         if (realtimeIncome <= 0) {
@@ -214,10 +218,12 @@ class TimingMonthlyIncomeService {
       contact: record.contact.trim(),
       site: record.site.trim(),
     );
-    final cacheKey = '$projectKey#${record.isBreaking ? 1 : 0}';
+    final cacheKey =
+        '${record.effectiveProjectId}#$projectKey#${record.isBreaking ? 1 : 0}';
     final effectiveRateMap = cache.putIfAbsent(
       cacheKey,
       () => AccountService.buildEffectiveRateMap(
+        projectId: record.effectiveProjectId,
         projectKey: projectKey,
         devices: devices,
         rates: rates,
