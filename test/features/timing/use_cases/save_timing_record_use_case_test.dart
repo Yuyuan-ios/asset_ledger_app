@@ -8,7 +8,7 @@ import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
-import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_use_case.dart';
 import 'package:flutter_test/flutter_test.dart';

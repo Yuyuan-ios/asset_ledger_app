@@ -9,7 +9,7 @@ import 'package:asset_ledger/data/models/project_key.dart';
 import 'package:asset_ledger/data/services/local_backup_export_service.dart';
 import 'package:asset_ledger/data/services/local_backup_import_preview_service.dart';
 import 'package:asset_ledger/data/services/local_backup_restore_service.dart';
-import 'package:asset_ledger/features/timing/calculator/repository/timing_calculation_history_repository.dart';
+import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;

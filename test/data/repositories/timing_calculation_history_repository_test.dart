@@ -4,12 +4,12 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
-import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
-import 'package:asset_ledger/features/timing/calculator/repository/timing_calculation_history_repository.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
-import '../../../../test_setup.dart';
+import '../../test_setup.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

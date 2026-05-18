@@ -1,7 +1,7 @@
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/account_project_merge_service.dart';
 import '../../../data/services/project_resolver.dart';
-import '../calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import '../state/timing_store.dart';
 
 class SaveTimingRecordUseCase {

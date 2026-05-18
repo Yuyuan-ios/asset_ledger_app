@@ -17,7 +17,7 @@ import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/account/view/account_page.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
-import 'package:asset_ledger/features/timing/calculator/model/timing_calculation_history.dart';
+import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
