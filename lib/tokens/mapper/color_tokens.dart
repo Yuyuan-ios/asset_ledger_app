@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// 全局颜色（跨模块通用）
 class AppColors {
   static const Color brand = Color(0xFFE67E22); // 品牌主色
-  static const Color scaffoldBg = Color(0xFFF8F8F8); // 页面基础背景色
+  static const Color scaffoldBg = Color(0xFFF7F5F1); // 页面基础背景色
   static const Color divider = Color(0xFFE6DED8); // 全局分割线颜色
 
   static const Color cardFill = Color(0xFFF7F4F1); // 卡片填充色
