@@ -101,6 +101,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final void Function(AccountProjectPaymentDisplayVM item)?
   onDeletePaymentDisplayItem;
   final void Function(ProjectAccountDetailRateRow row)? onEditRateRow;
+  final void Function(ProjectWriteOff item)? onDeleteWriteOff;
 
   const ProjectAccountDetailContent({
     super.key,
@@ -132,6 +133,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.showRawPaymentActions = true,
     this.showAddPayment = true,
     this.onEditRateRow,
+    this.onDeleteWriteOff,
   });
 
   @override
@@ -845,6 +847,18 @@ class ProjectAccountDetailContent extends StatelessWidget {
                   ),
                 ),
                 Text(FormatUtils.money(item.amount), style: amountStyle),
+                if (onDeleteWriteOff != null) ...[
+                  const SizedBox(width: AppSpace.xs),
+                  IconButton(
+                    tooltip: '删除核销记录',
+                    onPressed: () => onDeleteWriteOff?.call(item),
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 21,
+                      color: AccountTokens.projectDetailActionColor,
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpace.xs),

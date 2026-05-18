@@ -76,6 +76,7 @@ void main() {
     AccountOpenMergedPaymentBatchEditor? onEditMergedPaymentBatch,
     AccountOpenMergedPaymentBatchEditor? onDeleteMergedPaymentBatch,
     AccountOpenProjectSettlement? onSettleProject,
+    AccountDeleteProjectWriteOff? onDeleteWriteOff,
     List<ProjectWriteOff> writeOffs = const [],
   }) {
     return MaterialApp(
@@ -100,6 +101,7 @@ void main() {
             onEditPayment:
                 ({required project, required allPayments, editing}) async {},
             onDeletePayment: (_) async {},
+            onDeleteWriteOff: onDeleteWriteOff,
             onSettleProject: onSettleProject,
             onDissolveMergeGroup: onDissolveMergeGroup,
             onAddMergedPayment: onAddMergedPayment,
@@ -377,6 +379,7 @@ void main() {
     tester,
   ) async {
     final normalKey = ProjectKey.buildKey(contact: '甲方', site: '一号工地');
+    ProjectWriteOff? deletedWriteOff;
 
     await tester.pumpWidget(
       buildSheet(
@@ -425,6 +428,9 @@ void main() {
         ],
         onEditDeviceRate: (_, _, _, _, _) async {},
         onSettleProject: (_) async {},
+        onDeleteWriteOff: (writeOff) async {
+          deletedWriteOff = writeOff;
+        },
       ),
     );
 
@@ -436,6 +442,12 @@ void main() {
     expect(find.text('核销记录'), findsOneWidget);
     expect(find.text('抹零'), findsOneWidget);
     expect(find.text('备注：尾款抹零'), findsOneWidget);
+    expect(find.byTooltip('删除核销记录'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('删除核销记录'));
+    await tester.pump();
+
+    expect(deletedWriteOff?.id, 'write-off-1');
   });
 }
 

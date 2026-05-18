@@ -8,6 +8,8 @@ import '../../tokens/mapper/color_tokens.dart';
 
 enum _PriceBadgeKind { single, multi, rent }
 
+const double _projectCardMoneyEpsilon = 0.000001;
+
 class _PriceBadgeStyle {
   const _PriceBadgeStyle({
     required this.backgroundColor,
@@ -100,6 +102,9 @@ class AccountProjectList extends StatelessWidget {
   }
 
   String _receivedBaseText(AccountProjectVM p) {
+    if (_isSettled(p)) {
+      return '实收 ${FormatUtils.money(p.received)} / ${FormatUtils.money(p.receivable)}';
+    }
     return '${FormatUtils.percent1(p.ratio)}实收';
   }
 
@@ -145,6 +150,23 @@ class AccountProjectList extends StatelessWidget {
     const maxPrefixLength = AccountTokens.projectCardMergedSitesPreviewMaxChars;
     if (joined.length <= maxPrefixLength) return joined;
     return '${joined.substring(0, maxPrefixLength)}...';
+  }
+
+  bool _isSettled(AccountProjectVM p) {
+    return p.receivable > _projectCardMoneyEpsilon &&
+        p.remaining <= _projectCardMoneyEpsilon;
+  }
+
+  String _settlementStatusText(AccountProjectVM p, {required bool compact}) {
+    if (_isSettled(p)) {
+      if (p.writeOff > _projectCardMoneyEpsilon) {
+        return '已结清 · 核销 ${FormatUtils.money(p.writeOff)}';
+      }
+      return '已结清';
+    }
+    return compact
+        ? '待收 ${FormatUtils.money(p.remaining)}'
+        : '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}';
   }
 
   @override
@@ -349,8 +371,11 @@ class AccountProjectList extends StatelessWidget {
                                 alignment: Alignment.centerRight,
                                 child: Text(
                                   isCompact
-                                      ? '待收 ${FormatUtils.money(p.remaining)}'
-                                      : '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}',
+                                      ? _settlementStatusText(p, compact: true)
+                                      : _settlementStatusText(
+                                          p,
+                                          compact: false,
+                                        ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.right,

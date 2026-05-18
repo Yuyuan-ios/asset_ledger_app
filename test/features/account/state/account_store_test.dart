@@ -160,6 +160,50 @@ void main() {
       expect(result.totalWriteOff, 1000);
       expect(result.totalRemaining, 1000);
     });
+
+    test('refreshes account totals after a write-off is deleted', () async {
+      final writeOffItems = <ProjectWriteOff>[
+        ProjectWriteOff(
+          id: 'write-off-1',
+          projectId: ProjectId.legacyFromKey('李杰||鲜滩'),
+          amount: 1000,
+          reason: ProjectWriteOffReason.settlement.dbValue,
+          writeOffDate: '2026-05-16',
+          createdAt: '2026-05-16T00:00:00.000Z',
+          updatedAt: '2026-05-16T00:00:00.000Z',
+        ),
+      ];
+      final store = AccountStore(
+        mergeService: AccountProjectMergeService(
+          repository: _FakeMergeRepository(activeGroups: const []),
+        ),
+        writeOffRepository: _FakeWriteOffRepository(items: writeOffItems),
+      );
+
+      await store.loadAll();
+      final before = store.compute(
+        timingRecords: _timingRecords,
+        devices: _devices,
+        rates: const [],
+        payments: const [],
+      );
+
+      writeOffItems.clear();
+      await store.loadAll();
+      final after = store.compute(
+        timingRecords: _timingRecords,
+        devices: _devices,
+        rates: const [],
+        payments: const [],
+      );
+
+      expect(before.totalReceivable, 2000);
+      expect(before.totalWriteOff, 1000);
+      expect(before.totalRemaining, 1000);
+      expect(after.totalReceivable, 2000);
+      expect(after.totalWriteOff, 0);
+      expect(after.totalRemaining, 2000);
+    });
   });
 }
 
@@ -271,7 +315,7 @@ class _FakeWriteOffRepository implements ProjectWriteOffRepository {
   final List<ProjectWriteOff> items;
 
   @override
-  Future<List<ProjectWriteOff>> listAll() async => items;
+  Future<List<ProjectWriteOff>> listAll() async => List.of(items);
 
   @override
   Future<int> clearAllForRestore() {

@@ -109,6 +109,77 @@ void main() {
     expect(find.text('总共:  0 h'), findsNothing);
   });
 
+  testWidgets('shows settled card text without pending amount', (tester) async {
+    const cashSettled = AccountProjectVM(
+      projectKey: 'cash',
+      displayName: '甲方 + 现金结清',
+      minYmd: 20260501,
+      deviceIds: [1],
+      hoursByDevice: {1: 12.6},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1260,
+      remaining: 0,
+      ratio: 1,
+      payments: [],
+    );
+    const writeOffSettled = AccountProjectVM(
+      projectKey: 'write-off',
+      displayName: '甲方 + 核销结清',
+      minYmd: 20260502,
+      deviceIds: [1],
+      hoursByDevice: {1: 12.6},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1200,
+      writeOff: 60,
+      remaining: 0,
+      ratio: 1200 / 1260,
+      settlementRatio: 1,
+      payments: [],
+    );
+    const pending = AccountProjectVM(
+      projectKey: 'pending',
+      displayName: '甲方 + 未结清',
+      minYmd: 20260503,
+      deviceIds: [1],
+      hoursByDevice: {1: 12},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1200,
+      remaining: 60,
+      ratio: 1200 / 1260,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [cashSettled, writeOffSettled, pending],
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('实收 ¥1260 / ¥1260'), findsOneWidget);
+    expect(find.text('实收 ¥1200 / ¥1260'), findsOneWidget);
+    expect(find.text('已结清'), findsOneWidget);
+    expect(find.text('已结清 · 核销 ¥60'), findsOneWidget);
+    expect(find.text('余: ¥60 / ¥1260'), findsOneWidget);
+    expect(find.text('余: ¥0 / ¥1260'), findsNothing);
+  });
+
   testWidgets('styles price badges by pricing state', (tester) async {
     const singleProject = AccountProjectVM(
       projectKey: 'single',
