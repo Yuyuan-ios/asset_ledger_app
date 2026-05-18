@@ -64,7 +64,7 @@ class TimingTokens {
   static const double dateHeaderLineHeight = 1.2; // 日期分组标题行高
   static const double dateHeaderLeftInset = 10; // 日期分组标题左偏移
   static const double recordRowHeight = 58; // 单条记录行高
-  static const double recordRowPaddingLeft = 8; // 单条记录左内边距
+  static const double recordRowPaddingLeft = 6; // 单条记录左内边距
   static const double recordRowPaddingRight = 4; // 单条记录右内边距
   static const double recordAvatarSize = 45; // 记录头像占位圆尺寸
   static const double recordAvatarOffsetY = -1; // 记录头像纵向微调
