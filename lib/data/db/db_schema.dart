@@ -6,6 +6,7 @@ import 'schema/calculator_schema.dart';
 import 'schema/external_work_schema.dart';
 import 'schema/fleet_schema.dart';
 import 'schema/project_schema.dart';
+import 'schema/sync_schema.dart';
 import 'schema/timing_schema.dart';
 
 /// 数据库首次创建（onCreate）所需的全量 schema。
@@ -22,5 +23,6 @@ class DbSchema {
     await AccountSchema.create(db);
     await AccountMergeSchema.create(db);
     await ExternalWorkSchema.create(db);
+    await SyncSchema.create(db);
   }
 }

@@ -94,6 +94,7 @@ class DbSchemaCompat {
     );
     await DbMigrations.ensureProjectWriteOffSchema(db);
     await DbMigrations.ensureExternalWorkSchema(db);
+    await DbMigrations.ensureSyncSchema(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

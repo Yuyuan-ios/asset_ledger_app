@@ -10,7 +10,9 @@ import 'package:asset_ledger/data/repositories/project_write_off_repository.dart
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
+import 'package:asset_ledger/features/account/domain/repositories/project_settlement_repository.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
+import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
@@ -35,6 +37,8 @@ void main() {
       late AccountPaymentRepository accountPaymentRepository;
       late ProjectRateRepository projectRateRepository;
       late ProjectWriteOffRepository projectWriteOffRepository;
+      late ProjectSettlementRepository projectSettlementRepository;
+      late ProjectSettlementUseCase projectSettlementUseCase;
       late AccountProjectMergeRepository accountProjectMergeRepository;
       late AccountProjectMergeService accountProjectMergeService;
       late TimingMergeDissolvePort timingMergeDissolvePort;
@@ -62,6 +66,10 @@ void main() {
                 projectRateRepository = context.read<ProjectRateRepository>();
                 projectWriteOffRepository = context
                     .read<ProjectWriteOffRepository>();
+                projectSettlementRepository = context
+                    .read<ProjectSettlementRepository>();
+                projectSettlementUseCase = context
+                    .read<ProjectSettlementUseCase>();
                 accountProjectMergeRepository = context
                     .read<AccountProjectMergeRepository>();
                 accountProjectMergeService = context
@@ -89,6 +97,8 @@ void main() {
       expect(accountPaymentRepository, isA<AccountPaymentRepository>());
       expect(projectRateRepository, isA<ProjectRateRepository>());
       expect(projectWriteOffRepository, isA<ProjectWriteOffRepository>());
+      expect(projectSettlementRepository, isA<ProjectSettlementRepository>());
+      expect(projectSettlementUseCase, isA<ProjectSettlementUseCase>());
       expect(
         accountProjectMergeRepository,
         isA<AccountProjectMergeRepository>(),

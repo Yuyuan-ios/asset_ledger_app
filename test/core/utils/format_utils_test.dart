@@ -3,15 +3,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('FormatUtils basic formatting', () {
-    test('formats money hours liters and percent with the shared precision', () {
-      expect(FormatUtils.money(1234.6), '¥1235');
-      expect(FormatUtils.hours(12.34), '12.3 h');
-      expect(FormatUtils.liters(8), '8.0');
-      expect(FormatUtils.meter(9.96), '10.0');
-      expect(FormatUtils.moneyNumber(15), '15.0');
-      expect(FormatUtils.percent1(0.126), '12.6%');
-      expect(FormatUtils.percent1(null), '-');
-    });
+    test(
+      'formats money hours liters and percent with the shared precision',
+      () {
+        expect(FormatUtils.money(1234.6), '¥1235');
+        expect(FormatUtils.hours(12.34), '12.3 h');
+        expect(FormatUtils.liters(8), '8.0');
+        expect(FormatUtils.meter(9.96), '10.0');
+        expect(FormatUtils.moneyNumber(15), '15.0');
+        expect(FormatUtils.percent1(0.126), '12.6%');
+        expect(FormatUtils.percent1(null), '-');
+      },
+    );
   });
 
   group('FormatUtils date formatting', () {
@@ -22,6 +25,8 @@ void main() {
       expect(FormatUtils.parseDate('2026.03.01'), 20260301);
       expect(FormatUtils.parseDate('2026/03/01'), 20260301);
       expect(FormatUtils.parseDate('2026/3/1'), isNull);
+      expect(FormatUtils.parseDate('2025.02.31'), isNull);
+      expect(FormatUtils.parseDate('2024.13.01'), isNull);
     });
 
     test('builds today values and round-trips ymd conversions', () {
@@ -42,10 +47,7 @@ void main() {
     test('exposes input copy that matches the configured date style', () {
       expect(FormatUtils.ymdInputLabel, '日期（YYYY.MM.DD）');
       expect(FormatUtils.ymdInputHint, '例如：2026.02.08');
-      expect(
-        FormatUtils.ymdInvalidMsg,
-        '日期格式应为 YYYY.MM.DD（例如 2026.02.08）',
-      );
+      expect(FormatUtils.ymdInvalidMsg, '日期格式应为 YYYY.MM.DD（例如 2026.02.08）');
     });
   });
 }

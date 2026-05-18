@@ -11,6 +11,9 @@
 // - 展示层默认今天日期：FormatUtils.todayDisplayDate()
 // =====================================================================
 
+import '../date/ymd_date.dart';
+import '../money/money_formatter.dart';
+
 enum DateDisplayStyle { yyyymmdd, yyyyMmDd, yyyyDotMmDotDd }
 
 class FormatUtils {
@@ -49,7 +52,7 @@ class FormatUtils {
   // 1. 金额：¥1,234.5（当前简化版：不做千分位）
   // -------------------------------------------------------------------
   static String money(double amount) {
-    return '¥${amount.toStringAsFixed(0)}';
+    return MoneyFormatter.yuan(amount);
   }
 
   // -------------------------------------------------------------------
@@ -70,19 +73,16 @@ class FormatUtils {
   // 4. 日期：int (20250101) -> String (2025-01-01)
   // -------------------------------------------------------------------
   static String date(int dateInt) {
-    final s = dateInt.toString();
-    if (s.length != 8) return s; // 容错：如果不满8位直接返回原样
+    final ymdDate = YmdDate.fromInt(dateInt);
+    if (ymdDate == null) return dateInt.toString();
 
-    final y = s.substring(0, 4);
-    final m = s.substring(4, 6);
-    final d = s.substring(6, 8);
     switch (dateDisplayStyle) {
       case DateDisplayStyle.yyyymmdd:
-        return '$y$m$d';
+        return ymdDate.compact;
       case DateDisplayStyle.yyyyMmDd:
-        return '$y-$m-$d';
+        return ymdDate.dashed;
       case DateDisplayStyle.yyyyDotMmDotDd:
-        return '$y.$m.$d';
+        return ymdDate.dotted;
     }
   }
 
@@ -91,14 +91,7 @@ class FormatUtils {
   // - 返回 int (20250101)
   // -------------------------------------------------------------------
   static int? parseDate(String s) {
-    final clean = s
-        .trim()
-        .replaceAll('-', '')
-        .replaceAll('.', '')
-        .replaceAll('/', '');
-
-    if (clean.length != 8) return null; // 强口径：必须8位
-    return int.tryParse(clean);
+    return YmdDate.tryParseStrict(s)?.value;
   }
 
   // -------------------------------------------------------------------
@@ -120,7 +113,7 @@ class FormatUtils {
   // 7. 金额纯数字：1234.5（用于表单输入框，不带 ¥）
   // -------------------------------------------------------------------
   static String moneyNumber(double amount) {
-    return amount.toStringAsFixed(1);
+    return MoneyFormatter.number(amount);
   }
 
   // =====================================================================
@@ -148,10 +141,11 @@ class FormatUtils {
 
   /// YYYYMMDD(int) -> DateTime
   static DateTime dateFromYmd(int ymd) {
-    final y = ymd ~/ 10000;
-    final m = (ymd ~/ 100) % 100;
-    final d = ymd % 100;
-    return DateTime(y, m, d);
+    final parsed = YmdDate.fromInt(ymd);
+    if (parsed == null) {
+      throw ArgumentError.value(ymd, 'ymd', '非法 YYYYMMDD 日期');
+    }
+    return parsed.toDateTime();
   }
 
   /// DateTime -> YYYYMMDD(int)
