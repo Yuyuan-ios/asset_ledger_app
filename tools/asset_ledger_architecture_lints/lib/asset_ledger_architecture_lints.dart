@@ -15,10 +15,132 @@ class _AssetLedgerArchitectureLints extends PluginBase {
     _NoTextStyleInMigratedModules(),
     _NoProjectKeyInCoreIdentityPath(),
     _NoFeatureModelDataImplementationImports(),
+    _NoPresentationImportsFromData(),
+    _NoPresentationDatabaseAccess(),
+    _NoUseCaseImportsDatabaseImplementation(),
+    _NoComponentsImportLocalInfrastructure(),
     _NoDataLayerImportsFromFeatures(),
     _NoCoreLayerImportsFromUpperLayers(),
     _NoEnumValuesByName(),
   ];
+}
+
+class _NoPresentationImportsFromData extends DartLintRule {
+  const _NoPresentationImportsFromData() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_presentation_imports_from_data',
+    problemMessage:
+        'Feature view/presentation files and components must not import lib/data directly.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!_isFeatureViewOrPresentationFile(path) &&
+        !path.contains('/lib/components/')) {
+      return;
+    }
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null || !_isAnyDataImport(uri)) return;
+      reporter.atNode(node.uri, code);
+    });
+  }
+}
+
+class _NoPresentationDatabaseAccess extends DartLintRule {
+  const _NoPresentationDatabaseAccess() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_presentation_database_access',
+    problemMessage:
+        'Feature view/presentation files must not reference AppDatabase or sqflite symbols.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!_isFeatureViewOrPresentationFile(path)) return;
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null || !_isSqfliteImport(uri)) return;
+      reporter.atNode(node.uri, code);
+    });
+    context.registry.addSimpleIdentifier((node) {
+      if (node.name != 'AppDatabase') return;
+      reporter.atNode(node, code);
+    });
+  }
+}
+
+class _NoUseCaseImportsDatabaseImplementation extends DartLintRule {
+  const _NoUseCaseImportsDatabaseImplementation() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_use_case_imports_database_implementation',
+    problemMessage:
+        'Feature use cases must not import AppDatabase, sqflite, or data/db implementation files.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!_isFeatureUseCaseFile(path)) return;
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null) return;
+      if (!_isDatabaseImplementationImport(uri) && !_isSqfliteImport(uri)) {
+        return;
+      }
+      reporter.atNode(node.uri, code);
+    });
+  }
+}
+
+class _NoComponentsImportLocalInfrastructure extends DartLintRule {
+  const _NoComponentsImportLocalInfrastructure() : super(code: _code);
+
+  static const _code = LintCode(
+    name: 'no_components_import_local_infrastructure',
+    problemMessage:
+        'Shared components must not import infrastructure/local implementation files.',
+    errorSeverity: ErrorSeverity.ERROR,
+  );
+
+  @override
+  void run(
+    CustomLintResolver resolver,
+    ErrorReporter reporter,
+    CustomLintContext context,
+  ) {
+    final path = _normalizePath(resolver.path);
+    if (!path.contains('/lib/components/')) return;
+
+    context.registry.addImportDirective((node) {
+      final uri = node.uri.stringValue;
+      if (uri == null || !_isLocalInfrastructureImport(uri)) return;
+      reporter.atNode(node.uri, code);
+    });
+  }
 }
 
 class _NoUiImportsFromDataOrState extends DartLintRule {
@@ -319,12 +441,47 @@ bool _isCoreProjectIdentityPath(String path) {
 bool _isDataImplementationImport(String uri) {
   final normalized = uri.replaceAll('\\', '/');
   if (normalized.startsWith('package:')) {
-    if (!normalized.startsWith('package:asset_ledger/')) return false;
-    return _isDataImplementationPath(
-      normalized.substring('package:asset_ledger/'.length),
-    );
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
+    return _isDataImplementationPath(packagePath);
   }
   return _isDataImplementationPath(normalized);
+}
+
+bool _isAnyDataImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  if (normalized.startsWith('package:')) {
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
+    return packagePath.startsWith('data/');
+  }
+  return normalized.contains('data/');
+}
+
+bool _isDatabaseImplementationImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  if (normalized.startsWith('package:')) {
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
+    return packagePath.startsWith('data/db/');
+  }
+  return normalized.contains('data/db/');
+}
+
+bool _isSqfliteImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  return normalized == 'package:sqflite/sqflite.dart' ||
+      normalized.startsWith('package:sqflite/');
+}
+
+bool _isLocalInfrastructureImport(String uri) {
+  final normalized = uri.replaceAll('\\', '/');
+  if (normalized.startsWith('package:')) {
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
+    return packagePath.startsWith('infrastructure/local/');
+  }
+  return normalized.contains('infrastructure/local/');
 }
 
 bool _isDataImplementationPath(String path) {
@@ -337,8 +494,8 @@ bool _isForbiddenUiImport(String uri) {
   final normalized = uri.replaceAll('\\', '/');
 
   if (normalized.startsWith('package:')) {
-    if (!normalized.startsWith('package:asset_ledger/')) return false;
-    final packagePath = normalized.substring('package:asset_ledger/'.length);
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
     return _isUiLayerPath(packagePath);
   }
 
@@ -348,16 +505,25 @@ bool _isForbiddenUiImport(String uri) {
 bool _isUiLayerPath(String path) {
   return path.contains('components/') ||
       path.contains('patterns/') ||
-      RegExp(r'(^|/)features/[^/]+/view/').hasMatch(path);
+      RegExp(r'(^|/)features/[^/]+/(view|presentation)/').hasMatch(path);
+}
+
+bool _isFeatureViewOrPresentationFile(String path) {
+  return RegExp(r'/lib/features/[^/]+/(view|presentation)/').hasMatch(path);
+}
+
+bool _isFeatureUseCaseFile(String path) {
+  return RegExp(
+    r'/lib/features/[^/]+/(use_cases|application/use_cases)/',
+  ).hasMatch(path);
 }
 
 bool _isFeaturesImport(String uri) {
   final normalized = uri.replaceAll('\\', '/');
   if (normalized.startsWith('package:')) {
-    if (!normalized.startsWith('package:asset_ledger/')) return false;
-    return normalized
-        .substring('package:asset_ledger/'.length)
-        .startsWith('features/');
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
+    return packagePath.startsWith('features/');
   }
   return normalized.contains('features/');
 }
@@ -372,8 +538,22 @@ bool _isUpperLayerImport(String uri) {
       path.contains('/app/') ||
       path.contains('/features/');
   if (normalized.startsWith('package:')) {
-    if (!normalized.startsWith('package:asset_ledger/')) return false;
-    return hitsUpper(normalized.substring('package:asset_ledger/'.length));
+    final packagePath = _assetLedgerPackagePath(normalized);
+    if (packagePath == null) return false;
+    return hitsUpper(packagePath);
   }
   return hitsUpper(normalized);
+}
+
+String? _assetLedgerPackagePath(String normalizedPackageUri) {
+  const packagePrefixes = [
+    'package:asset_ledger/',
+    'package:asset_ledger_app/',
+  ];
+  for (final prefix in packagePrefixes) {
+    if (normalizedPackageUri.startsWith(prefix)) {
+      return normalizedPackageUri.substring(prefix.length);
+    }
+  }
+  return null;
 }

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/config/support_feedback_config.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/models/device.dart';
-import '../../../data/services/rate_app_service.dart';
-import '../../../data/services/support_feedback_service.dart';
+import '../application/controllers/device_action_controller.dart';
+import '../domain/entities/device.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import 'device_avatar_select_page.dart';
@@ -85,9 +83,9 @@ class DevicePageActions {
     required DevicePageMounted isMounted,
     required DevicePageToast toast,
   }) async {
-    final ok = await RateAppService.openSystemRateEntry();
+    final message = await const DeviceActionController().openRateApp();
     if (!isMounted()) return;
-    toast(ok ? '已打开评分入口' : '评分入口暂不可用');
+    toast(message);
   }
 
   static Future<void> openTermsPage(BuildContext context) async {
@@ -106,20 +104,9 @@ class DevicePageActions {
     required DevicePageMounted isMounted,
     required DevicePageToast toast,
   }) async {
-    final result = await SupportFeedbackService.openSupportEntry();
+    final message = await const DeviceActionController().openSupportEntry();
     if (!isMounted()) return;
-
-    switch (result) {
-      case SupportFeedbackOpenResult.supportSite:
-        toast('已打开技术支持网页');
-        break;
-      case SupportFeedbackOpenResult.email:
-        toast('暂时无法打开支持页，已切换到邮件联系');
-        break;
-      case SupportFeedbackOpenResult.unavailable:
-        toast('暂时无法打开支持页，请稍后重试或发送邮件到 ${SupportFeedbackConfig.supportEmail}');
-        break;
-    }
+    toast(message);
   }
 
   static Future<void> openUpgradePage(BuildContext context) async {

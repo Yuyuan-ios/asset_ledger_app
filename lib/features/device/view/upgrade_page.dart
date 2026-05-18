@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/config/subscription_config.dart';
-import '../../../data/services/subscription_service.dart';
-import '../../../data/services/subscription_verification_repository_factory.dart';
 import '../../../core/foundation/typography.dart';
 import '../../../patterns/device/upgrade_benefit_item_pattern.dart';
 import '../../../patterns/device/upgrade_footer_links_pattern.dart';
 import '../../../patterns/device/upgrade_header_pattern.dart';
 import '../../../patterns/device/upgrade_plan_card_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../application/controllers/subscription_controller.dart';
+import '../domain/entities/subscription.dart';
 import 'privacy_page.dart';
 import 'terms_page.dart';
 
@@ -31,20 +30,22 @@ class UpgradePage extends StatefulWidget {
 }
 
 class _UpgradePageState extends State<UpgradePage> {
+  static const _subscriptionController = SubscriptionController();
+
   _UpgradePlan _selectedPlan = _UpgradePlan.annual;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(SubscriptionService.init);
+    Future.microtask(_subscriptionController.init);
   }
 
   Future<void> _submit() async {
-    await SubscriptionService.buySelectedProduct(_selectedPlan.productKind);
+    await _subscriptionController.buySelectedProduct(_selectedPlan.productKind);
   }
 
   Future<void> _restorePurchases() async {
-    await SubscriptionService.restorePurchases();
+    await _subscriptionController.restorePurchases();
   }
 
   void _openTermsPage() {
@@ -73,9 +74,7 @@ class _UpgradePageState extends State<UpgradePage> {
     BuildContext context,
     SubscriptionSnapshot snapshot,
   ) {
-    final canUsePurchaseFlow =
-        SubscriptionConfig.fromEnvironment.isConfigured ||
-        kUseLocalIapVerification;
+    final canUsePurchaseFlow = _subscriptionController.canUsePurchaseFlow;
     String? message = snapshot.errorMessage;
     if (!canUsePurchaseFlow) {
       message = '当前版本暂未开放订阅购买';
@@ -110,16 +109,15 @@ class _UpgradePageState extends State<UpgradePage> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<SubscriptionSnapshot>(
-      valueListenable: SubscriptionService.notifier,
+      valueListenable: _subscriptionController.notifier,
       builder: (context, snapshot, _) {
         final selectedProduct = snapshot.productFor(_selectedPlan.productKind);
         final subscriptionVerificationConfigured =
-            SubscriptionConfig.fromEnvironment.isConfigured;
+            _subscriptionController.canUsePurchaseFlow;
         // In TestFlight / sandbox smoke tests we allow the purchase flow to run
         // with local entitlement verification. Production builds must keep
         // server-side verification enabled.
-        final canUsePurchaseFlow =
-            subscriptionVerificationConfigured || kUseLocalIapVerification;
+        final canUsePurchaseFlow = subscriptionVerificationConfigured;
         final yearlyPrice = _planPrice(
           snapshot: snapshot,
           kind: SubscriptionProductKind.yearly,

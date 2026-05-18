@@ -5,6 +5,7 @@ import '../../core/foundation/typography.dart';
 import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_write_off.dart';
+import '../../features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../core/utils/format_utils.dart';
 import '../../tokens/mapper/account_tokens.dart';
@@ -13,16 +14,9 @@ import '../../tokens/mapper/color_tokens.dart';
 const _addPaymentPillBackground = Color(0xFFEAF7F5);
 const _addPaymentPillBorder = Color(0xFF8AD5CC);
 const _addPaymentPillText = Color(0xFF147C73);
-const _settlementPillBackground = Color(0xFFE4F6EF);
-const _settlementPillBorder = Color(0xFF77C8A5);
-const _settlementPillText = Color(0xFF16714F);
-const _settledPillBackground = Color(0xFFF1F5F3);
-const _settledPillBorder = Color(0xFFD7E2DC);
-const _settledPillText = Color(0xFF6E8277);
 const _projectActionPillBackground = Color(0xFFF5F2EE);
 const _projectActionPillBorder = Color(0xFFD8C8B8);
 const _projectActionPillText = Color(0xFF7A5A3A);
-const _fallbackActionTextStyle = TextStyle();
 const _moneyEpsilon = 0.000001;
 
 class ProjectAccountDetailRateRow {
@@ -155,7 +149,8 @@ class ProjectAccountDetailContent extends StatelessWidget {
       fontWeight: FontWeight.w400,
       color: AccountTokens.projectDetailActionColor,
     );
-    final resolvedActionStyle = actionStyle ?? _fallbackActionTextStyle;
+    final resolvedActionStyle =
+        actionStyle ?? DefaultTextStyle.of(context).style;
     final siteStyle = AppTypography.body(
       context,
       fontSize: 15,
@@ -266,6 +261,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
         const SizedBox(height: AccountTokens.projectCardBottomMargin),
 
         _buildProgressCard(
+          context: context,
           ratio: ratio,
           received: received,
           progressTextStyle: progressTextStyle,
@@ -602,6 +598,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   }
 
   Widget _buildProgressCard({
+    required BuildContext context,
     required double ratio,
     required double received,
     required TextStyle? progressTextStyle,
@@ -701,7 +698,10 @@ class ProjectAccountDetailContent extends StatelessWidget {
                 ),
                 if (canSettle || isSettled) ...[
                   const SizedBox(width: AppSpace.sm),
-                  _buildSettlementPill(enabled: canSettle),
+                  ProjectAccountSettlementPill(
+                    enabled: canSettle,
+                    onTap: onSettleProject,
+                  ),
                 ],
                 const SizedBox(width: AppSpace.md),
                 Expanded(
@@ -734,42 +734,6 @@ class ProjectAccountDetailContent extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettlementPill({required bool enabled}) {
-    final text = enabled ? '结清' : '已结清';
-    final textColor = enabled ? _settlementPillText : _settledPillText;
-    final backgroundColor = enabled
-        ? _settlementPillBackground
-        : _settledPillBackground;
-    final borderColor = enabled ? _settlementPillBorder : _settledPillBorder;
-
-    return InkWell(
-      onTap: enabled ? onSettleProject : null,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: borderColor),
-        ),
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1,
-          ),
         ),
       ),
     );

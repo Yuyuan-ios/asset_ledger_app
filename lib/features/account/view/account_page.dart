@@ -12,20 +12,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// ------------------------------ Models ------------------------------
-import '../../../data/models/account_payment.dart';
-import '../../../data/models/device.dart';
-import '../../../data/models/project_device_rate.dart';
-import '../../../data/models/project_key.dart';
-import '../../../data/models/project_write_off.dart';
-import '../../../data/repositories/account_payment_repository.dart';
+import '../application/controllers/account_action_controller.dart';
+import '../domain/entities/account_entities.dart';
+import '../domain/entities/project_settlement_result.dart';
 import '../../../features/account/model/account_project_payment_display_vm.dart';
-import '../../../data/services/account_project_merge_service.dart';
 import '../../../features/account/model/account_view_model.dart';
-import '../../../features/account/use_cases/create_merged_payment_use_case.dart';
-import '../../../features/account/use_cases/delete_merged_payment_batch_use_case.dart';
-import '../../../features/account/use_cases/project_settlement_use_case.dart';
-import '../../../features/account/use_cases/update_merged_payment_batch_use_case.dart';
 
 // ------------------------------ UI / Utils ------------------------------
 import '../../../core/utils/format_utils.dart';
@@ -54,6 +45,7 @@ import '../../../features/timing/state/timing_store.dart';
 import 'actions/account_rate_edit_actions.dart';
 import 'account_page_view_data.dart';
 import 'dialogs/account_payment_editor_dialog.dart';
+import 'dialogs/account_dissolve_merge_confirm_dialog.dart';
 import 'dialogs/account_project_merge_sheet.dart';
 import 'dialogs/account_project_merge_sheet_data.dart';
 import 'dialogs/account_project_filter_sheet.dart';
@@ -154,22 +146,18 @@ class _AccountPageState extends State<AccountPage> {
 
           final latestProject = _latestProjectForSettlement(project);
           final settlement = await context
-              .read<ProjectSettlementUseCase>()
-              .execute(
-                projectId: latestProject.effectiveProjectId,
-                projectKey: latestProject.projectKey,
-                receivable: latestProject.receivable,
+              .read<AccountActionController>()
+              .settleProject(
+                project: latestProject,
                 paymentAmount: input.paymentAmount,
                 writeOffAmount: input.writeOffAmount,
                 writeOffReason: input.writeOffReason,
                 ymd: input.ymd,
                 note: input.note,
+                paymentStore: context.read<AccountPaymentStore>(),
+                accountStore: context.read<AccountStore>(),
               );
 
-          if (!mounted) return settlement;
-          final paymentStore = context.read<AccountPaymentStore>();
-          final accountStore = context.read<AccountStore>();
-          await Future.wait([paymentStore.loadAll(), accountStore.loadAll()]);
           return settlement;
         },
       ),
@@ -226,31 +214,23 @@ class _AccountPageState extends State<AccountPage> {
       final paymentStore = context.read<AccountPaymentStore>();
       final rateStore = context.read<ProjectRateStore>();
       final accountStore = context.read<AccountStore>();
-      final paymentRepository = context.read<AccountPaymentRepository>();
-      final memberProjects = _memberProjectsForMerged(
-        project: project,
-        timingStore: timingStore,
-        deviceStore: deviceStore,
-        paymentStore: paymentStore,
-        rateStore: rateStore,
-        accountStore: accountStore,
-      );
+      final controller = context.read<AccountActionController>();
 
       try {
-        await CreateMergedPaymentUseCase(repository: paymentRepository).execute(
-          mergedProject: project,
-          memberProjects: memberProjects,
-          ymd: payment.ymd,
-          amount: payment.amount,
-          note: payment.note,
+        await controller.createMergedPayment(
+          project: project,
+          payment: payment,
+          timingStore: timingStore,
+          deviceStore: deviceStore,
+          paymentStore: paymentStore,
+          rateStore: rateStore,
+          accountStore: accountStore,
         );
-        await paymentStore.loadAll();
-        await accountStore.loadAll();
         if (!mounted) return;
         _toast('保存成功');
       } catch (error) {
         if (!mounted) return;
-        _toast('保存失败：${_friendlyMergedPaymentError(error)}');
+        _toast('保存失败：${controller.friendlyMergedPaymentError(error)}');
       }
     });
   }
@@ -292,34 +272,24 @@ class _AccountPageState extends State<AccountPage> {
       final paymentStore = context.read<AccountPaymentStore>();
       final rateStore = context.read<ProjectRateStore>();
       final accountStore = context.read<AccountStore>();
-      final paymentRepository = context.read<AccountPaymentRepository>();
-      final memberProjects = _memberProjectsForMerged(
-        project: project,
-        timingStore: timingStore,
-        deviceStore: deviceStore,
-        paymentStore: paymentStore,
-        rateStore: rateStore,
-        accountStore: accountStore,
-      );
+      final controller = context.read<AccountActionController>();
 
       try {
-        await UpdateMergedPaymentBatchUseCase(
-          repository: paymentRepository,
-        ).execute(
-          mergedProject: project,
-          memberProjects: memberProjects,
-          mergeBatchId: batchId,
-          ymd: payment.ymd,
-          amount: payment.amount,
-          note: payment.note,
+        await controller.updateMergedPaymentBatch(
+          project: project,
+          paymentItem: paymentItem,
+          payment: payment,
+          timingStore: timingStore,
+          deviceStore: deviceStore,
+          paymentStore: paymentStore,
+          rateStore: rateStore,
+          accountStore: accountStore,
         );
-        await paymentStore.loadAll();
-        await accountStore.loadAll();
         if (!mounted) return;
         _toast('已保存');
       } catch (error) {
         if (!mounted) return;
-        _toast('保存失败：${_friendlyMergedPaymentError(error)}');
+        _toast('保存失败：${controller.friendlyMergedPaymentError(error)}');
       }
     });
   }
@@ -345,57 +315,20 @@ class _AccountPageState extends State<AccountPage> {
 
     final paymentStore = context.read<AccountPaymentStore>();
     final accountStore = context.read<AccountStore>();
-    final paymentRepository = context.read<AccountPaymentRepository>();
+    final controller = context.read<AccountActionController>();
 
     try {
-      await DeleteMergedPaymentBatchUseCase(
-        repository: paymentRepository,
-      ).execute(mergeBatchId: batchId);
-      await paymentStore.loadAll();
-      await accountStore.loadAll();
+      await controller.deleteMergedPaymentBatch(
+        mergeBatchId: batchId,
+        paymentStore: paymentStore,
+        accountStore: accountStore,
+      );
       if (!mounted) return;
       _toast('已删除');
     } catch (error) {
       if (!mounted) return;
-      _toast('删除失败：${_friendlyMergedPaymentError(error)}');
+      _toast('删除失败：${controller.friendlyMergedPaymentError(error)}');
     }
-  }
-
-  String _friendlyMergedPaymentError(Object error) {
-    final message = error.toString();
-    if (message.contains('不存在或已被删除')) {
-      return '这笔合并收款不存在或已被删除，请刷新后重试。';
-    }
-    if (message.contains('合并状态已变化')) {
-      return '合并状态已变化，请重新打开项目详情后再操作。';
-    }
-    if (message.contains('超出剩余应收')) {
-      final index = message.indexOf('超出剩余应收');
-      return index < 0 ? '超出剩余应收' : message.substring(index);
-    }
-    return '操作失败，请稍后重试。';
-  }
-
-  List<AccountProjectVM> _memberProjectsForMerged({
-    required AccountProjectVM project,
-    required TimingStore timingStore,
-    required DeviceStore deviceStore,
-    required AccountPaymentStore paymentStore,
-    required ProjectRateStore rateStore,
-    required AccountStore accountStore,
-  }) {
-    final normalComputed = accountStore.compute(
-      timingRecords: timingStore.records,
-      devices: deviceStore.allDevices,
-      rates: rateStore.rates,
-      payments: paymentStore.records,
-      activeMergeGroups: const [],
-    );
-
-    final memberKeys = project.memberProjectKeys.toSet();
-    return normalComputed.projects.where((item) {
-      return memberKeys.contains(item.projectKey);
-    }).toList();
   }
 
   // =====================================================================
@@ -438,18 +371,20 @@ class _AccountPageState extends State<AccountPage> {
     if (groupId == null) return;
 
     final sheetNavigator = Navigator.of(sheetContext);
-    final mergeService = context.read<AccountProjectMergeService>();
+    final controller = context.read<AccountActionController>();
     final accountStore = context.read<AccountStore>();
 
     final dissolved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _DissolveMergeConfirmDialog(
+      builder: (_) => DissolveMergeConfirmDialog(
         project: project,
         onError: _toast,
         onConfirm: () async {
-          await mergeService.dissolveMergeGroup(groupId);
-          await accountStore.loadAll();
+          await controller.dissolveMergeGroup(
+            groupId: groupId,
+            accountStore: accountStore,
+          );
         },
       ),
     );
@@ -501,31 +436,21 @@ class _AccountPageState extends State<AccountPage> {
 
     try {
       final latestProject = _latestProjectByProjectId(writeOff.projectId);
-      final result = await context
-          .read<ProjectSettlementUseCase>()
-          .deleteWriteOff(
-            projectId: latestProject.effectiveProjectId,
-            writeOffId: writeOff.id,
-            receivable: latestProject.receivable,
-          );
+      final controller = context.read<AccountActionController>();
+      final result = await controller.deleteWriteOff(
+        project: latestProject,
+        writeOff: writeOff,
+        accountStore: context.read<AccountStore>(),
+      );
 
-      if (!mounted) return;
-      final accountStore = context.read<AccountStore>();
-      await accountStore.loadAll();
       if (!mounted) return;
       _toast(result.successMessage);
     } catch (error) {
       if (!mounted) return;
-      _toast('删除核销失败：${_friendlyWriteOffError(error)}');
+      _toast(
+        '删除核销失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+      );
     }
-  }
-
-  String _friendlyWriteOffError(Object error) {
-    if (error is StateError) return error.message;
-    if (error is ArgumentError) {
-      return error.message?.toString() ?? '输入不合法';
-    }
-    return '操作失败，请稍后重试。';
   }
 
   // =====================================================================
@@ -580,7 +505,7 @@ class _AccountPageState extends State<AccountPage> {
     final paymentStore = context.read<AccountPaymentStore>();
     final rateStore = context.read<ProjectRateStore>();
     final accountStore = context.read<AccountStore>();
-    final mergeService = context.read<AccountProjectMergeService>();
+    final controller = context.read<AccountActionController>();
 
     final computed = accountStore.compute(
       timingRecords: timingStore.records,
@@ -598,11 +523,11 @@ class _AccountPageState extends State<AccountPage> {
       groups: groups,
       onError: _toast,
       onConfirmMerge: (result) async {
-        await mergeService.createMergeGroup(
+        await controller.createMergeGroup(
           contact: result.contact,
           projectKeys: result.projectKeys,
+          accountStore: accountStore,
         );
-        await accountStore.loadAll();
       },
     );
 
@@ -818,78 +743,5 @@ class _AccountPageState extends State<AccountPage> {
         ),
       ),
     );
-  }
-}
-
-class _DissolveMergeConfirmDialog extends StatefulWidget {
-  const _DissolveMergeConfirmDialog({
-    required this.project,
-    required this.onConfirm,
-    required this.onError,
-  });
-
-  final AccountProjectVM project;
-  final Future<void> Function() onConfirm;
-  final void Function(String message) onError;
-
-  @override
-  State<_DissolveMergeConfirmDialog> createState() =>
-      _DissolveMergeConfirmDialogState();
-}
-
-class _DissolveMergeConfirmDialogState
-    extends State<_DissolveMergeConfirmDialog> {
-  bool _submitting = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final projects = widget.project.memberProjectKeys.map((key) {
-      return ProjectKey.fromKey(key).displayName;
-    }).toList();
-
-    return AlertDialog(
-      title: const Text('解除合并？'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('解除后将恢复为普通项目：'),
-          const SizedBox(height: 8),
-          for (final project in projects) Text(project),
-          const SizedBox(height: 12),
-          const Text('原始计时记录不会删除。\n设备、工时、单价不会改变。'),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting
-              ? null
-              : () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _submitting ? null : _confirm,
-          child: Text(_submitting ? '解除中' : '解除合并'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _confirm() async {
-    setState(() {
-      _submitting = true;
-    });
-
-    try {
-      await widget.onConfirm();
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _submitting = false;
-      });
-      widget.onError('解除合并失败：$error');
-    }
   }
 }

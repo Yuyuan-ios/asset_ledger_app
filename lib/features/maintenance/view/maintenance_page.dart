@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 import '../../../core/foundation/spacing.dart';
 import '../../../core/foundation/typography.dart';
 
-import '../../../data/models/maintenance_record.dart';
+import '../domain/entities/maintenance_entities.dart';
 
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';

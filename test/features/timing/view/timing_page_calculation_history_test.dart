@@ -22,6 +22,7 @@ import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
+import 'package:asset_ledger/features/timing/application/controllers/timing_action_controller.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
@@ -288,6 +289,12 @@ Future<void> _pumpTimingPage(
             value: AccountMergeDissolveAdapter(mergeService),
           ),
           Provider<ProjectResolver>.value(value: projectResolver),
+          Provider<TimingActionController>.value(
+            value: TimingActionController(
+              calculationHistoryRepository: historyRepository,
+              projectResolver: projectResolver,
+            ),
+          ),
         ],
         child: TimingPage(calculationHistoryRepository: historyRepository),
       ),

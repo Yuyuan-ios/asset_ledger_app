@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/utils/interaction_feedback.dart';
 import '../../../../core/utils/store_feedback.dart';
-import '../../../../data/models/device.dart';
-import '../../../../data/models/project_device_rate.dart';
+import '../../domain/entities/account_entities.dart';
 import '../../model/account_view_model.dart';
 import '../../state/project_rate_store.dart';
 import '../dialogs/account_rate_dialogs.dart';

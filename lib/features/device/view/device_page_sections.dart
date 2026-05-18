@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../data/models/device.dart';
+import '../domain/entities/device.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
 import '../../../patterns/device/device_management_section_pattern.dart';

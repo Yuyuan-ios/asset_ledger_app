@@ -6,15 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/db/database.dart';
-import '../../../data/models/backup_preview.dart';
-import '../../../data/models/backup_restore_result.dart';
-import '../../../data/models/device.dart';
-import '../../../data/services/local_backup_export_service.dart';
-import '../../../data/services/local_backup_file_naming.dart';
-import '../../../data/services/local_backup_import_preview_service.dart';
-import '../../../data/services/local_backup_restore_service.dart';
-import '../../../data/services/local_backup_share_service.dart';
+import '../application/controllers/local_backup_controller.dart';
+import '../domain/entities/device.dart';
+import '../domain/entities/local_backup_entities.dart';
 import '../../../features/account/state/account_payment_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
 import '../../../features/device/state/device_store.dart';
@@ -22,14 +16,14 @@ import '../../../features/fuel/state/fuel_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../patterns/device/device_page_header_search_pattern.dart';
-import '../../../patterns/device/device_action_card_pattern.dart';
-import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/store_error_banner.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_page_actions.dart';
 import 'device_page_sections.dart';
+import 'device_account_center_page.dart';
+import 'device_backup_widgets.dart';
 
 // =====================================================================
 // ============================== 二、DevicePage：设备页入口 ==============================
@@ -49,6 +43,8 @@ enum _ManualBackupAction { backupOnly, backupAndShare }
 // =====================================================================
 
 class _DevicePageState extends State<DevicePage> {
+  static const _localBackupController = LocalBackupController();
+
   bool _isExportingBackup = false;
 
   // -------------------------------------------------------------------
@@ -151,7 +147,7 @@ class _DevicePageState extends State<DevicePage> {
         reverseTransitionDuration: const Duration(
           milliseconds: DeviceTokens.avatarPickerReverseDurationMs,
         ),
-        pageBuilder: (context, animation, secondaryAnimation) => _AccountCenterPage(
+        pageBuilder: (context, animation, secondaryAnimation) => AccountCenterPage(
           onOpenUpgradePage: _openUpgradePage,
           onOpenLocalBackup: _openLocalBackup,
           onOpenLocalRestore: _openLocalRestorePreview,
@@ -187,7 +183,7 @@ class _DevicePageState extends State<DevicePage> {
     });
 
     try {
-      final result = await LocalBackupExportService.exportJsonBackup();
+      final result = await _localBackupController.exportJsonBackup();
       if (!mounted) return;
 
       if (!result.success) {
@@ -265,11 +261,11 @@ class _DevicePageState extends State<DevicePage> {
 
   Future<void> _shareManualBackup(String filePath) async {
     try {
-      await const LocalBackupShareService().shareBackupFile(
+      await _localBackupController.shareBackupFile(
         filePath: filePath,
         sharePositionOrigin: _sharePositionOrigin(),
       );
-    } on LocalBackupShareException catch (_) {
+    } catch (_) {
       if (!mounted) return;
       await _showAccountSyncPlaceholder(
         title: '本地备份已生成',
@@ -286,8 +282,7 @@ class _DevicePageState extends State<DevicePage> {
   }
 
   Future<void> _openLocalRestorePreview() async {
-    final importService = const LocalBackupImportPreviewService();
-    final previewResult = await _selectBackupForPreview(importService);
+    final previewResult = await _selectBackupForPreview();
     if (!mounted) return;
 
     final preview = previewResult.preview;
@@ -316,15 +311,13 @@ class _DevicePageState extends State<DevicePage> {
     await _showBackupPreviewDialog(preview, backupJson);
   }
 
-  Future<BackupPreviewLoadResult> _selectBackupForPreview(
-    LocalBackupImportPreviewService importService,
-  ) async {
-    final localBackups = await importService.listLocalBackups();
+  Future<BackupPreviewLoadResult> _selectBackupForPreview() async {
+    final localBackups = await _localBackupController.listLocalBackups();
     if (!mounted) {
       return const BackupPreviewLoadResult(preview: BackupPreview.cancelled());
     }
 
-    final selection = await showDialog<_BackupFileSelection>(
+    final selection = await showDialog<BackupFileSelection>(
       context: context,
       builder: (dialogContext) {
         final manualBackups = _backupsOfKind(
@@ -358,28 +351,28 @@ class _DevicePageState extends State<DevicePage> {
                 if (!hasRecognizedBackups)
                   const Text('暂无可识别的本地备份文件，可点击“从文件选择”选择其他位置的 JSON 备份。'),
                 if (manualBackups.isNotEmpty)
-                  _BackupFileSection(
+                  BackupFileSection(
                     title: '手动备份',
                     backups: manualBackups,
                     onSelected: (backup) => Navigator.of(
                       dialogContext,
-                    ).pop(_BackupFileSelection.local(backup)),
+                    ).pop(BackupFileSelection.local(backup)),
                   ),
                 if (preRestoreBackups.isNotEmpty)
-                  _BackupFileSection(
+                  BackupFileSection(
                     title: '恢复前备份（防误操）',
                     backups: preRestoreBackups,
                     onSelected: (backup) => Navigator.of(
                       dialogContext,
-                    ).pop(_BackupFileSelection.local(backup)),
+                    ).pop(BackupFileSelection.local(backup)),
                   ),
                 if (legacyBackups.isNotEmpty)
-                  _BackupFileSection(
+                  BackupFileSection(
                     title: '旧版备份',
                     backups: legacyBackups,
                     onSelected: (backup) => Navigator.of(
                       dialogContext,
-                    ).pop(_BackupFileSelection.local(backup)),
+                    ).pop(BackupFileSelection.local(backup)),
                   ),
               ],
             ),
@@ -392,7 +385,7 @@ class _DevicePageState extends State<DevicePage> {
             TextButton(
               onPressed: () => Navigator.of(
                 dialogContext,
-              ).pop(const _BackupFileSelection.filePicker()),
+              ).pop(const BackupFileSelection.filePicker()),
               child: const Text('从文件选择'),
             ),
           ],
@@ -405,14 +398,14 @@ class _DevicePageState extends State<DevicePage> {
     }
 
     if (selection.useFilePicker) {
-      return importService.pickAndPreviewBackupWithJson();
+      return _localBackupController.pickAndPreviewBackupWithJson();
     }
 
     final backup = selection.backup;
     if (backup == null) {
       return const BackupPreviewLoadResult(preview: BackupPreview.cancelled());
     }
-    return importService.previewLocalBackupFile(backup);
+    return _localBackupController.previewLocalBackupFile(backup);
   }
 
   List<LocalBackupFile> _backupsOfKind(
@@ -451,8 +444,8 @@ class _DevicePageState extends State<DevicePage> {
                   children: [
                     const Text('这是一个机账通本地备份文件。'),
                     const SizedBox(height: 12),
-                    _BackupPreviewLine(label: '备份时间', value: exportedAtText),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(label: '备份时间', value: exportedAtText),
+                    BackupPreviewLine(
                       label: '数据库版本',
                       value: preview.schemaVersion?.toString() ?? '未知',
                     ),
@@ -462,27 +455,27 @@ class _DevicePageState extends State<DevicePage> {
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(
                       label: '设备',
                       value: '${preview.deviceCount} 台',
                     ),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(
                       label: '计时记录',
                       value: '${preview.timingRecordCount} 条',
                     ),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(
                       label: '油费记录',
                       value: '${preview.fuelRecordCount} 条',
                     ),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(
                       label: '维修记录',
                       value: '${preview.maintenanceRecordCount} 条',
                     ),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(
                       label: '收款记录',
                       value: '${preview.incomeRecordCount} 条',
                     ),
-                    _BackupPreviewLine(
+                    BackupPreviewLine(
                       label: '项目相关设置',
                       value:
                           '${preview.tableCounts['project_device_rates'] ?? 0} 条',
@@ -539,9 +532,8 @@ class _DevicePageState extends State<DevicePage> {
                               isRestoring = true;
                             });
 
-                            final result =
-                                await const LocalBackupRestoreService()
-                                    .restoreFromDecodedJson(backupJson);
+                            final result = await _localBackupController
+                                .restoreFromDecodedJson(backupJson);
                             if (!mounted || !dialogContext.mounted) return;
 
                             if (result.success) {
@@ -574,15 +566,7 @@ class _DevicePageState extends State<DevicePage> {
   }
 
   String? _restoreBlockReason(BackupPreview preview) {
-    final schemaVersion = preview.schemaVersion;
-    if (schemaVersion == null) return '备份文件格式不完整，暂不能恢复。';
-    if (schemaVersion < AppDatabase.schemaVersion) {
-      return '当前版本暂不支持恢复旧版备份，请使用相同版本导出的备份。';
-    }
-    if (schemaVersion > AppDatabase.schemaVersion) {
-      return '备份文件版本较新，请升级 App 后再试。';
-    }
-    return null;
+    return _localBackupController.restoreBlockReason(preview);
   }
 
   Future<bool> _confirmLocalRestore() async {
@@ -657,7 +641,7 @@ class _DevicePageState extends State<DevicePage> {
   }
 
   String _formatDateTime(DateTime value) {
-    return LocalBackupFileNaming.formatBackupTimeForDisplay(value);
+    return _localBackupController.formatBackupTimeForDisplay(value);
   }
 
   // =====================================================================
@@ -724,302 +708,6 @@ class _DevicePageState extends State<DevicePage> {
           },
         ),
       ),
-    );
-  }
-}
-
-class _BackupFileSelection {
-  const _BackupFileSelection.local(this.backup) : useFilePicker = false;
-  const _BackupFileSelection.filePicker() : backup = null, useFilePicker = true;
-
-  final LocalBackupFile? backup;
-  final bool useFilePicker;
-}
-
-class _BackupFileSection extends StatelessWidget {
-  const _BackupFileSection({
-    required this.title,
-    required this.backups,
-    required this.onSelected,
-  });
-
-  final String title;
-  final List<LocalBackupFile> backups;
-  final ValueChanged<LocalBackupFile> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: TimingColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          for (var index = 0; index < backups.length; index += 1)
-            _BackupFileTile(
-              backup: backups[index],
-              onTap: () => onSelected(backups[index]),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BackupFileTile extends StatelessWidget {
-  const _BackupFileTile({required this.backup, required this.onTap});
-
-  final LocalBackupFile backup;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = backup.backupTime ?? backup.modifiedAt;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        _titleForKind(backup.kind),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        '${LocalBackupFileNaming.formatBackupTimeForDisplay(time)} · ${_formatFileSize(backup.size)}',
-      ),
-      onTap: onTap,
-    );
-  }
-
-  static String _titleForKind(LocalBackupFileKind kind) {
-    switch (kind) {
-      case LocalBackupFileKind.manual:
-        return '机账通手动备份';
-      case LocalBackupFileKind.preRestore:
-        return '恢复前备份';
-      case LocalBackupFileKind.legacy:
-        return '旧版机账通备份';
-      case LocalBackupFileKind.unknown:
-        return '机账通备份';
-    }
-  }
-
-  static String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    final kb = bytes / 1024;
-    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
-    final mb = kb / 1024;
-    return '${mb.toStringAsFixed(1)} MB';
-  }
-}
-
-class _BackupPreviewLine extends StatelessWidget {
-  const _BackupPreviewLine({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 88,
-            child: Text(
-              '$label：',
-              style: const TextStyle(color: TimingColors.textSecondary),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: AppColors.textPrimary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountCenterPage extends StatelessWidget {
-  const _AccountCenterPage({
-    required this.onOpenUpgradePage,
-    required this.onOpenLocalBackup,
-    required this.onOpenLocalRestore,
-    required this.onOpenSyncInfo,
-    required this.onOpenLoginSyncInfo,
-  });
-
-  final VoidCallback onOpenUpgradePage;
-  final VoidCallback onOpenLocalBackup;
-  final VoidCallback onOpenLocalRestore;
-  final VoidCallback onOpenSyncInfo;
-  final VoidCallback onOpenLoginSyncInfo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.scaffoldBg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: const Text(
-          '账户中心',
-          style: TextStyle(
-            fontSize: DeviceTokens.avatarPickerTitleFontSize,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = PhonePageLayout.resolveHorizontalPadding(
-              constraints.maxWidth,
-              basePadding: DeviceTokens.pageHorizontalPadding,
-            );
-
-            return ListView(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                12,
-                horizontalPadding,
-                DeviceTokens.pageBottomPadding,
-              ),
-              children: [
-                _AccountCenterContent(
-                  onOpenUpgradePage: onOpenUpgradePage,
-                  onOpenLocalBackup: onOpenLocalBackup,
-                  onOpenLocalRestore: onOpenLocalRestore,
-                  onOpenSyncInfo: onOpenSyncInfo,
-                  onOpenLoginSyncInfo: onOpenLoginSyncInfo,
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountCenterContent extends StatelessWidget {
-  const _AccountCenterContent({
-    required this.onOpenUpgradePage,
-    required this.onOpenLocalBackup,
-    required this.onOpenLocalRestore,
-    required this.onOpenSyncInfo,
-    required this.onOpenLoginSyncInfo,
-  });
-
-  final VoidCallback onOpenUpgradePage;
-  final VoidCallback onOpenLocalBackup;
-  final VoidCallback onOpenLocalRestore;
-  final VoidCallback onOpenSyncInfo;
-  final VoidCallback onOpenLoginSyncInfo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DeviceSectionGroup(
-          title: '个人资料',
-          children: [
-            DeviceActionCard(
-              title: '升级 Pro，支持持续维护',
-              leading: const _UpgradeLeadingIcon(),
-              trailingIcon: Icons.chevron_right,
-              onTap: onOpenUpgradePage,
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        DeviceSectionGroup(
-          title: '数据安全',
-          children: [
-            DeviceActionCard(
-              title: '云端备份与协作记录',
-              subtitle: 'Pro 功能，即将上线',
-              leading: const _AccountCenterIcon(Icons.account_circle_outlined),
-              onTap: onOpenLoginSyncInfo,
-            ),
-            DeviceActionCard(
-              title: '手动本地备份',
-              subtitle: '导出当前数据，便于保存与迁移',
-              leading: const _AccountCenterIcon(Icons.ios_share),
-              onTap: onOpenLocalBackup,
-            ),
-            DeviceActionCard(
-              title: '本地恢复',
-              subtitle: '从备份文件恢复本机数据',
-              leading: const _AccountCenterIcon(Icons.restore),
-              onTap: onOpenLocalRestore,
-            ),
-            DeviceActionCard(
-              title: '多端同步说明',
-              subtitle: '当前版本暂不支持自动多端同步',
-              leading: const _AccountCenterIcon(Icons.cloud_outlined),
-              onTap: onOpenSyncInfo,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _UpgradeLeadingIcon extends StatelessWidget {
-  const _UpgradeLeadingIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: DeviceActionCardTokens.premiumBadgeSize,
-      height: DeviceActionCardTokens.premiumBadgeSize,
-      decoration: BoxDecoration(
-        color: AppColors.brand,
-        borderRadius: BorderRadius.circular(
-          DeviceActionCardTokens.premiumBadgeRadius,
-        ),
-      ),
-      child: const Icon(
-        Icons.workspace_premium,
-        color: Colors.white,
-        size: DeviceActionCardTokens.premiumBadgeIconSize,
-      ),
-    );
-  }
-}
-
-class _AccountCenterIcon extends StatelessWidget {
-  const _AccountCenterIcon(this.icon);
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.brand.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, color: AppColors.brand, size: 22),
     );
   }
 }

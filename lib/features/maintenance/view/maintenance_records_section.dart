@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../components/feedback/app_records_empty_hint.dart';
 import '../../../core/foundation/spacing.dart';
 import '../../../core/foundation/typography.dart';
-import '../../../data/models/maintenance_record.dart';
+import '../domain/entities/maintenance_entities.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
 import '../../../tokens/mapper/timing_tokens.dart';

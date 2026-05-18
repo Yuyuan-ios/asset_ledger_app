@@ -1,6 +1,6 @@
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/models/maintenance_record.dart';
+import '../domain/entities/maintenance_entities.dart';
 import '../../device/state/device_store.dart';
 import '../state/maintenance_store.dart';
 

@@ -1,32 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:asset_ledger/data/models/device_maps.dart';
-import 'package:asset_ledger/data/services/device_label.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
-import '../../../data/models/timing_record.dart';
-import '../../../data/models/device.dart';
-import '../../../data/models/fuel_log.dart';
-import '../../../data/models/maintenance_record.dart';
-import '../../../data/models/project_device_rate.dart';
-import '../../../data/models/project_write_off.dart';
-import '../../../data/services/project_resolver.dart';
-import '../../../data/services/timing_monthly_expense_service.dart';
-import '../../../data/services/timing_monthly_income_service.dart';
-import '../../../data/services/timing_service.dart';
-import '../../../data/services/timing_suggest_service.dart';
+import '../../device/domain/services/device_label.dart';
+import '../../device/domain/services/device_lookup.dart';
 import '../../account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
-import 'package:asset_ledger/data/models/timing_calculation_history.dart';
-import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
+import '../application/controllers/timing_action_controller.dart';
+import '../domain/entities/timing_entities.dart';
+import '../domain/repositories/timing_calculation_history_repository.dart';
 import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/state/timing_store.dart';
-import '../../../features/timing/use_cases/compute_timing_chart_finance_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
-import '../../../features/timing/use_cases/timing_preview_income_use_case.dart';
 import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
@@ -68,42 +55,6 @@ class _TimingPageState extends State<TimingPage> {
     return year < now.year ? 12 : now.month;
   }
 
-  /// 计时图表目标月正式策略：
-  /// - 显式传入 [TimingPage.initialTargetMonth]：严格按传入值统计；
-  /// - 未显式传入：以“当前自然月”为下限，再扩展到目标年份内三类数据
-  ///   (Timing/Fuel/Maintenance) 的最大月份，避免某一类数据被提前截断。
-  int _resolveEffectiveTargetMonth({
-    required List<TimingRecord> records,
-    required List<FuelLog> fuelLogs,
-    required List<MaintenanceRecord> maintenanceRecords,
-  }) {
-    // 显式传入目标月时，保持调用方语义，不做自动扩展。
-    if (widget.initialTargetMonth != null) {
-      return _targetMonth;
-    }
-
-    var maxMonth = _targetMonth;
-    for (final record in records) {
-      final date = FormatUtils.dateFromYmd(record.startDate);
-      if (date.year == _targetYear && date.month > maxMonth) {
-        maxMonth = date.month;
-      }
-    }
-    for (final fuel in fuelLogs) {
-      final date = FormatUtils.dateFromYmd(fuel.date);
-      if (date.year == _targetYear && date.month > maxMonth) {
-        maxMonth = date.month;
-      }
-    }
-    for (final maintenance in maintenanceRecords) {
-      final date = FormatUtils.dateFromYmd(maintenance.ymd);
-      if (date.year == _targetYear && date.month > maxMonth) {
-        maxMonth = date.month;
-      }
-    }
-    return maxMonth;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -126,74 +77,16 @@ class _TimingPageState extends State<TimingPage> {
     required List<MaintenanceRecord> maintenanceRecords,
     required List<ProjectWriteOff> projectWriteOffs,
   }) {
-    // Page 只负责组装图表输入数据；收入口径与分摊规则由 service 统一承载，
-    // Pattern 层只渲染，不参与业务计算。
-    const monthLabels = [
-      '1月',
-      '2月',
-      '3月',
-      '4月',
-      '5月',
-      '6月',
-      '7月',
-      '8月',
-      '9月',
-      '10月',
-      '11月',
-      '12月',
-    ];
-    const maxBarHeight = 150.0;
-
-    final effectiveTargetMonth = _resolveEffectiveTargetMonth(
-      records: records,
-      fuelLogs: fuelLogs,
-      maintenanceRecords: maintenanceRecords,
-    );
-    // 柱图和图例共用同一份核销后净收入，避免经营收入虚高。
-    final monthlyIncome =
-        TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: records,
-          devices: devices,
-          rates: rates,
-          targetYear: _targetYear,
-          targetMonth: effectiveTargetMonth,
-          projectWriteOffs: projectWriteOffs,
-        );
-    final maxIncome = monthlyIncome.fold<double>(0.0, (acc, value) {
-      return value > acc ? value : acc;
-    });
-    final incomeBars = maxIncome <= 0
-        ? List<double>.filled(12, 0.0)
-        : monthlyIncome
-              .map((income) => (income / maxIncome) * maxBarHeight)
-              .toList();
-
-    final expenseStats = TimingMonthlyExpenseService.computeMonthlyExpense(
-      fuelLogs: fuelLogs,
-      maintenanceRecords: maintenanceRecords,
+    return context.read<TimingActionController>().buildChartData(
       targetYear: _targetYear,
-      targetMonth: effectiveTargetMonth,
-    );
-    final finance = const ComputeTimingChartFinanceUseCase().execute(
-      monthlyIncome: monthlyIncome,
-      expenseStats: expenseStats,
-    );
-
-    final expenseBars = maxIncome <= 0
-        ? List<double>.filled(12, 0.0)
-        : expenseStats.monthlyTotal.map((expense) {
-            final height = (expense / maxIncome) * maxBarHeight;
-            return height.clamp(0.0, maxBarHeight).toDouble();
-          }).toList();
-
-    return TimingChartData(
-      year: _targetYear,
-      targetMonth: effectiveTargetMonth,
-      monthLabels: monthLabels,
-      incomeBars: incomeBars,
-      expenseBars: expenseBars,
-      totalIncomeText: FormatUtils.money(finance.displayIncome),
-      totalExpenseText: FormatUtils.money(expenseStats.totalExpense),
+      targetMonth: _targetMonth,
+      hasExplicitTargetMonth: widget.initialTargetMonth != null,
+      records: records,
+      devices: devices,
+      rates: rates,
+      fuelLogs: fuelLogs,
+      maintenanceRecords: maintenanceRecords,
+      projectWriteOffs: projectWriteOffs,
     );
   }
 
@@ -202,9 +95,13 @@ class _TimingPageState extends State<TimingPage> {
     AppToast.show(context, msg);
   }
 
-  TimingCalculationHistoryRepository get _calculationHistoryRepository =>
-      widget.calculationHistoryRepository ??
-      SqfliteTimingCalculationHistoryRepository();
+  TimingActionController _actionController() {
+    final controller = context.read<TimingActionController>();
+    final repository = widget.calculationHistoryRepository;
+    return repository == null
+        ? controller
+        : controller.copyWith(calculationHistoryRepository: repository);
+  }
 
   Future<List<TimingCalculationHistory>> _loadExistingCalculationHistories(
     TimingRecord? editing,
@@ -217,7 +114,9 @@ class _TimingPageState extends State<TimingPage> {
     if (recordId == null) return const <TimingCalculationHistory>[];
 
     try {
-      return await _calculationHistoryRepository.findByTimingRecordId(recordId);
+      return await _actionController().loadExistingCalculationHistories(
+        editing,
+      );
     } catch (_) {
       _toast('工时计算历史加载失败，仍可继续编辑');
       return const <TimingCalculationHistory>[];
@@ -277,9 +176,8 @@ class _TimingPageState extends State<TimingPage> {
     final timingStore = context.read<TimingStore>();
     final rateStore = context.read<ProjectRateStore>();
     final formKey = GlobalKey<TimingDetailContentState>();
-    final previewIncomeUseCase = TimingPreviewIncomeUseCase(
-      projectResolver: context.read<ProjectResolver>(),
-    );
+    final actionController = _actionController();
+    final previewIncomeUseCase = actionController.createPreviewIncomeUseCase();
     final existingCalculationHistories =
         await _loadExistingCalculationHistories(editing);
     if (!mounted) return;
@@ -308,12 +206,9 @@ class _TimingPageState extends State<TimingPage> {
           projectRates: rateStore.rates,
           existingCalculationHistories: existingCalculationHistories,
           contactSuggestions: (query) =>
-              TimingSuggestService.contactSuggestions(
-                timingStore.records,
-                query,
-              ),
+              actionController.contactSuggestions(timingStore.records, query),
           siteSuggestions: (query) =>
-              TimingSuggestService.siteSuggestions(timingStore.records, query),
+              actionController.siteSuggestions(timingStore.records, query),
           resolveIncome:
               ({
                 required int deviceId,
@@ -340,32 +235,19 @@ class _TimingPageState extends State<TimingPage> {
                 required double endMeter,
                 int? excludeId,
               }) {
-                final lower = TimingService.lowerBound(
+                return actionController.validateMeterBounds(
                   records: timingStore.records,
                   deviceId: deviceId,
                   startDate: startDate,
+                  endMeter: endMeter,
                   excludeId: excludeId,
                 );
-                if (endMeter < lower) {
-                  return '结束码表($endMeter) < 下界($lower)';
-                }
-                final upper = TimingService.upperBound(
-                  records: timingStore.records,
-                  deviceId: deviceId,
-                  startDate: startDate,
-                  excludeId: excludeId,
-                );
-                if (upper != double.infinity && endMeter > upper) {
-                  return '结束码表($endMeter) > 上界($upper)';
-                }
-                return null;
               },
           onToast: _toast,
           onSubmit: (record, calculationHistories) async {
-            final saveUseCase = SaveTimingRecordUseCase(
+            final saveUseCase = actionController.createSaveUseCase(
               timingStore: timingStore,
               mergeDissolve: context.read<TimingMergeDissolvePort>(),
-              projectResolver: context.read<ProjectResolver>(),
             );
             SaveTimingRecordResult result;
             try {

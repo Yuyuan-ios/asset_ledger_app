@@ -1,4 +1,4 @@
-import '../../../data/models/device.dart';
+import '../domain/entities/device.dart';
 import '../model/brand_catalog.dart';
 
 /// 设备头像选择页的轻量视图数据：
