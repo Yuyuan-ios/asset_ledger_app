@@ -10,11 +10,13 @@ import '../../../data/models/device.dart';
 import '../../../data/models/fuel_log.dart';
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/models/project_device_rate.dart';
+import '../../../data/models/project_write_off.dart';
 import '../../../data/services/project_resolver.dart';
 import '../../../data/services/timing_monthly_expense_service.dart';
 import '../../../data/services/timing_monthly_income_service.dart';
 import '../../../data/services/timing_service.dart';
 import '../../../data/services/timing_suggest_service.dart';
+import '../../account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
@@ -122,6 +124,7 @@ class _TimingPageState extends State<TimingPage> {
     required List<ProjectDeviceRate> rates,
     required List<FuelLog> fuelLogs,
     required List<MaintenanceRecord> maintenanceRecords,
+    required List<ProjectWriteOff> projectWriteOffs,
   }) {
     // Page 只负责组装图表输入数据；收入口径与分摊规则由 service 统一承载，
     // Pattern 层只渲染，不参与业务计算。
@@ -146,8 +149,7 @@ class _TimingPageState extends State<TimingPage> {
       fuelLogs: fuelLogs,
       maintenanceRecords: maintenanceRecords,
     );
-    // 柱图仍使用原有月度动态收入分布，只把图例中的总收入文案切换为
-    // 账户页总应收 - 计时页支出，避免改变历史柱形视觉。
+    // 柱图和图例共用同一份核销后净收入，避免经营收入虚高。
     final monthlyIncome =
         TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
           records: records,
@@ -155,6 +157,7 @@ class _TimingPageState extends State<TimingPage> {
           rates: rates,
           targetYear: _targetYear,
           targetMonth: effectiveTargetMonth,
+          projectWriteOffs: projectWriteOffs,
         );
     final maxIncome = monthlyIncome.fold<double>(0.0, (acc, value) {
       return value > acc ? value : acc;
@@ -172,9 +175,7 @@ class _TimingPageState extends State<TimingPage> {
       targetMonth: effectiveTargetMonth,
     );
     final finance = const ComputeTimingChartFinanceUseCase().execute(
-      timingRecords: records,
-      devices: devices,
-      rates: rates,
+      monthlyIncome: monthlyIncome,
       expenseStats: expenseStats,
     );
 
@@ -228,11 +229,13 @@ class _TimingPageState extends State<TimingPage> {
     final deviceStore = context.read<DeviceStore>();
     final fuelStore = context.read<FuelStore>();
     final maintenanceStore = context.read<MaintenanceStore>();
+    final accountStore = context.read<AccountStore>();
     await Future.wait([
       timingStore.loadAll(),
       deviceStore.loadAll(),
       fuelStore.loadAll(),
       maintenanceStore.loadAll(),
+      accountStore.loadAll(),
     ]);
   }
 
@@ -483,17 +486,20 @@ class _TimingPageState extends State<TimingPage> {
     final deviceStore = context.watch<DeviceStore>();
     final fuelStore = context.watch<FuelStore>();
     final maintenanceStore = context.watch<MaintenanceStore>();
+    final accountStore = context.watch<AccountStore>();
 
     final loading =
         timingStore.loading ||
         deviceStore.loading ||
         fuelStore.loading ||
-        maintenanceStore.loading;
+        maintenanceStore.loading ||
+        accountStore.loading;
     final error = firstStoreErrorMessage([
       timingStore,
       deviceStore,
       fuelStore,
       maintenanceStore,
+      accountStore,
     ], action: '读取');
     final deviceById = buildDeviceByIdMap(deviceStore.allDevices);
     final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
@@ -504,6 +510,7 @@ class _TimingPageState extends State<TimingPage> {
       rates: rateStore.rates,
       fuelLogs: fuelStore.logs,
       maintenanceRecords: maintenanceStore.records,
+      projectWriteOffs: accountStore.writeOffs,
     );
     final canGoPrevYear = _targetYear > _minChartYear;
     final canGoNextYear = _targetYear < _maxChartYear;

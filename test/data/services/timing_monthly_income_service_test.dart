@@ -1,12 +1,25 @@
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/project_key.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/services/timing_monthly_income_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('TimingMonthlyIncomeService.computeMonthlyIncomeRealtime', () {
+    ProjectWriteOff writeOff(String projectId, double amount) {
+      return ProjectWriteOff(
+        id: 'wo-$projectId-$amount',
+        projectId: projectId,
+        amount: amount,
+        reason: ProjectWriteOffReason.settlement.dbValue,
+        writeOffDate: '2026-05-31',
+        createdAt: '2026-05-31T10:00:00.000',
+        updatedAt: '2026-05-31T10:00:00.000',
+      );
+    }
+
     test('dynamically amortizes across months by target month end', () {
       final monthlyAtFeb =
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
@@ -614,6 +627,340 @@ void main() {
         expect(monthly[0], closeTo(1364.5161, 0.001)); // 1月
         expect(monthly[1], closeTo(1735.4839, 0.001)); // 2月
         expect(monthly.sublist(2).every((v) => v == 0.0), isTrue);
+      },
+    );
+
+    test('keeps monthly income unchanged when there is no write-off', () {
+      const projectId = 'project:no-write-off';
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 1,
+            projectId: projectId,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: 'A',
+            site: 'X',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 12.6,
+            hours: 12.6,
+            income: 9999,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 31),
+      );
+
+      expect(monthly[4], closeTo(1260.0, 0.001));
+      expect(monthly.where((value) => value > 0), hasLength(1));
+    });
+
+    test('deducts a single-month project write-off from that month', () {
+      const projectId = 'project:single-month-write-off';
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 1,
+            projectId: projectId,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: 'A',
+            site: 'X',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 12.6,
+            hours: 12.6,
+            income: 9999,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 31),
+        projectWriteOffs: [writeOff(projectId, 60)],
+      );
+
+      expect(monthly[4], closeTo(1200.0, 0.001));
+      expect(monthly.where((value) => value > 0), hasLength(1));
+    });
+
+    test(
+      'allocates cross-month project write-off by original income ratio',
+      () {
+        const projectId = 'project:cross-month-write-off';
+        final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+          records: const [
+            TimingRecord(
+              id: 1,
+              projectId: projectId,
+              deviceId: 1,
+              startDate: 20260501,
+              contact: 'A',
+              site: 'X',
+              type: TimingType.hours,
+              startMeter: 0,
+              endMeter: 10,
+              hours: 10,
+              income: 0,
+            ),
+            TimingRecord(
+              id: 2,
+              projectId: projectId,
+              deviceId: 1,
+              startDate: 20260601,
+              contact: 'A',
+              site: 'X',
+              type: TimingType.hours,
+              startMeter: 10,
+              endMeter: 12.6,
+              hours: 2.6,
+              income: 0,
+            ),
+          ],
+          devices: const [
+            Device(
+              id: 1,
+              name: 'SANY 1#',
+              brand: 'SANY',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+          ],
+          rates: const [],
+          targetYear: 2026,
+          targetMonth: 6,
+          asOfDate: DateTime(2026, 6, 30),
+          projectWriteOffs: [writeOff(projectId, 60)],
+        );
+
+        final mayWriteOff = 60 * 1000 / 1260;
+        final juneWriteOff = 60 * 260 / 1260;
+        expect(monthly[4], closeTo(1000 - mayWriteOff, 0.001));
+        expect(monthly[5], closeTo(260 - juneWriteOff, 0.001));
+        expect(monthly[4] + monthly[5], closeTo(1200.0, 0.001));
+      },
+    );
+
+    test('reduces annual income by a large project write-off', () {
+      const projectId = 'project:large-write-off';
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 1,
+            projectId: projectId,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: 'A',
+            site: 'X',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 200,
+            hours: 200,
+            income: 0,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 31),
+        projectWriteOffs: [writeOff(projectId, 10000)],
+      );
+
+      expect(monthly[4], closeTo(10000.0, 0.001));
+      expect(monthly.fold<double>(0.0, (sum, value) => sum + value), 10000);
+    });
+
+    test(
+      'keeps fully cash-settled projects unchanged when write-off is zero',
+      () {
+        const projectId = 'project:cash-settled';
+        final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+          records: const [
+            TimingRecord(
+              id: 1,
+              projectId: projectId,
+              deviceId: 1,
+              startDate: 20260501,
+              contact: 'A',
+              site: 'X',
+              type: TimingType.hours,
+              startMeter: 0,
+              endMeter: 12.6,
+              hours: 12.6,
+              income: 0,
+            ),
+          ],
+          devices: const [
+            Device(
+              id: 1,
+              name: 'SANY 1#',
+              brand: 'SANY',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+          ],
+          rates: const [],
+          targetYear: 2026,
+          targetMonth: 5,
+          asOfDate: DateTime(2026, 5, 31),
+          projectWriteOffs: const [],
+        );
+
+        expect(monthly[4], closeTo(1260.0, 0.001));
+      },
+    );
+
+    test('includes rent income in project write-off allocation', () {
+      const projectId = 'project:rent-write-off';
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 1,
+            projectId: projectId,
+            deviceId: 1,
+            startDate: 20260515,
+            contact: 'A',
+            site: 'X',
+            type: TimingType.rent,
+            startMeter: 0,
+            endMeter: 0,
+            hours: 0,
+            income: 1260,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 31),
+        projectWriteOffs: [writeOff(projectId, 60)],
+      );
+
+      expect(monthly[4], closeTo(1200.0, 0.001));
+    });
+
+    test('clamps monthly income at zero when write-off exceeds income', () {
+      const projectId = 'project:over-write-off';
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 1,
+            projectId: projectId,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: 'A',
+            site: 'X',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 10,
+            hours: 10,
+            income: 0,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 31),
+        projectWriteOffs: [writeOff(projectId, 1500)],
+      );
+
+      expect(monthly[4], 0.0);
+      expect(monthly.every((value) => value >= 0), isTrue);
+    });
+
+    test(
+      'does not mutate timing records or rates while applying write-off',
+      () {
+        const projectId = 'project:immutable-input';
+        const record = TimingRecord(
+          id: 1,
+          projectId: projectId,
+          deviceId: 1,
+          startDate: 20260501,
+          contact: 'A',
+          site: 'X',
+          type: TimingType.hours,
+          startMeter: 0,
+          endMeter: 12.6,
+          hours: 12.6,
+          income: 9999,
+        );
+        const rate = ProjectDeviceRate(
+          projectId: projectId,
+          projectKey: 'A||X',
+          deviceId: 1,
+          rate: 100,
+        );
+
+        final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+          records: const [record],
+          devices: const [
+            Device(
+              id: 1,
+              name: 'SANY 1#',
+              brand: 'SANY',
+              defaultUnitPrice: 200,
+              baseMeterHours: 0,
+            ),
+          ],
+          rates: const [rate],
+          targetYear: 2026,
+          targetMonth: 5,
+          asOfDate: DateTime(2026, 5, 31),
+          projectWriteOffs: [writeOff(projectId, 60)],
+        );
+
+        expect(monthly[4], closeTo(1200.0, 0.001));
+        expect(record.hours, 12.6);
+        expect(record.income, 9999);
+        expect(rate.rate, 100);
       },
     );
   });
