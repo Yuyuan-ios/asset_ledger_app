@@ -36,6 +36,9 @@ typedef AccountOpenPaymentEditor =
 
 typedef AccountDeletePayment = Future<void> Function(AccountPayment payment);
 
+typedef AccountDeleteProjectWriteOff =
+    Future<void> Function(ProjectWriteOff writeOff);
+
 typedef AccountOpenProjectSettlement =
     Future<void> Function(AccountProjectVM project);
 
@@ -66,6 +69,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     required this.onAddPayment,
     required this.onEditPayment,
     required this.onDeletePayment,
+    this.onDeleteWriteOff,
     this.onSettleProject,
     this.onDissolveMergeGroup,
     this.onAddMergedPayment,
@@ -86,6 +90,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final AccountOpenPaymentEditor onAddPayment;
   final AccountOpenPaymentEditor onEditPayment;
   final AccountDeletePayment onDeletePayment;
+  final AccountDeleteProjectWriteOff? onDeleteWriteOff;
   final AccountOpenProjectSettlement? onSettleProject;
   final AccountDissolveMergeGroup? onDissolveMergeGroup;
   final AccountOpenMergedPaymentEditor? onAddMergedPayment;
@@ -152,6 +157,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         onSettleProject: null,
         onEditPayment: (_) {},
         onDeletePayment: (_) {},
+        onDeleteWriteOff: onDeleteWriteOff,
         onEditPaymentDisplayItem: (payment) =>
             onEditMergedPaymentBatch?.call(project, payment),
         onDeletePaymentDisplayItem: (payment) =>
@@ -220,6 +226,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         editing: payment,
       ),
       onDeletePayment: onDeletePayment,
+      onDeleteWriteOff: onDeleteWriteOff,
     );
   }
 

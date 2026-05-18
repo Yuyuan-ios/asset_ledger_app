@@ -251,6 +251,78 @@ void main() {
         expect(await _projectStatus(db), ProjectStatus.settled);
       },
     );
+
+    test(
+      'deletes write-off and restores a settled project to active',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProject(db, status: ProjectStatus.settled);
+        await _seedPayment(db, amount: 1200);
+        await _seedWriteOff(db, amount: 60);
+        final useCase = _useCase();
+
+        final result = await useCase.deleteWriteOff(
+          projectId: 'project:1',
+          writeOffId: 'write-off-1',
+          receivable: 1260,
+        );
+
+        expect(result.deletedAmount, 60);
+        expect(result.receivable, 1260);
+        expect(result.received, 1200);
+        expect(result.writeOffBefore, 60);
+        expect(result.writeOffAfter, 0);
+        expect(result.remainingAfter, 60);
+        expect(result.restoredActive, isTrue);
+        expect(await _paymentCount(db), 1);
+        expect(await _paymentSum(db), 1200);
+        expect(await _writeOffCount(db), 0);
+        expect(await _writeOffSum(db), 0);
+        final project = await _projectRow(db);
+        expect(project.status, ProjectStatus.active);
+        expect(project.settledAt, isNull);
+      },
+    );
+
+    test('deleting write-off does not change payments or receivable', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProject(db, status: ProjectStatus.settled);
+      await _seedPayment(db, amount: 1200);
+      await _seedWriteOff(db, amount: 60);
+      final useCase = _useCase();
+
+      final result = await useCase.deleteWriteOff(
+        projectId: 'project:1',
+        writeOffId: 'write-off-1',
+        receivable: 1260,
+      );
+
+      expect(result.receivable, 1260);
+      expect(result.received, 1200);
+      expect(await _paymentCount(db), 1);
+      expect(await _paymentSum(db), 1200);
+      expect(await _writeOffCount(db), 0);
+    });
+
+    test('rolls back status when write-off delete target is missing', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProject(db, status: ProjectStatus.settled);
+      await _seedPayment(db, amount: 1200);
+      await _seedWriteOff(db, amount: 60);
+      final useCase = _useCase();
+
+      await expectLater(
+        useCase.deleteWriteOff(
+          projectId: 'project:1',
+          writeOffId: 'missing-write-off',
+          receivable: 1260,
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _writeOffCount(db), 1);
+      expect(await _projectStatus(db), ProjectStatus.settled);
+    });
   });
 }
 
@@ -286,9 +358,27 @@ Future<void> _seedProject(
       contact: '甲方',
       site: '一号工地',
       status: status,
+      settledAt: status == ProjectStatus.settled
+          ? '2026-05-18T00:00:00.000Z'
+          : null,
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: '2026-05-01T00:00:00.000Z',
       legacyProjectKey: '甲方||一号工地',
+    ).toMap(),
+  );
+}
+
+Future<void> _seedWriteOff(Database db, {required double amount}) async {
+  await db.insert(
+    SqfliteProjectWriteOffRepository.table,
+    ProjectWriteOff(
+      id: 'write-off-1',
+      projectId: 'project:1',
+      amount: amount,
+      reason: ProjectWriteOffReason.rounding.dbValue,
+      writeOffDate: '2026-05-18',
+      createdAt: '2026-05-18T00:00:00.000Z',
+      updatedAt: '2026-05-18T00:00:00.000Z',
     ).toMap(),
   );
 }
@@ -340,10 +430,14 @@ Future<List<ProjectWriteOff>> _writeOffRows(Database db) async {
 }
 
 Future<ProjectStatus> _projectStatus(Database db) async {
+  return (await _projectRow(db)).status;
+}
+
+Future<Project> _projectRow(Database db) async {
   final rows = await db.query(
     SqfliteProjectRepository.table,
     where: 'id = ?',
     whereArgs: ['project:1'],
   );
-  return Project.fromMap(rows.single).status;
+  return Project.fromMap(rows.single);
 }

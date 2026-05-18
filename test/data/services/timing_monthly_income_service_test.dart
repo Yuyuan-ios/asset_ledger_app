@@ -963,5 +963,59 @@ void main() {
         expect(rate.rate, 100);
       },
     );
+
+    test('restores monthly income after project write-off is deleted', () {
+      const projectId = 'project:delete-write-off-restore-income';
+      const records = [
+        TimingRecord(
+          id: 1,
+          projectId: projectId,
+          deviceId: 1,
+          startDate: 20260501,
+          contact: 'A',
+          site: 'X',
+          type: TimingType.hours,
+          startMeter: 0,
+          endMeter: 12.6,
+          hours: 12.6,
+          income: 0,
+        ),
+      ];
+      const devices = [
+        Device(
+          id: 1,
+          name: 'SANY 1#',
+          brand: 'SANY',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+        ),
+      ];
+
+      final withWriteOff =
+          TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+            records: records,
+            devices: devices,
+            rates: const [],
+            targetYear: 2026,
+            targetMonth: 5,
+            asOfDate: DateTime(2026, 5, 31),
+            projectWriteOffs: [writeOff(projectId, 60)],
+          );
+      final afterDelete =
+          TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+            records: records,
+            devices: devices,
+            rates: const [],
+            targetYear: 2026,
+            targetMonth: 5,
+            asOfDate: DateTime(2026, 5, 31),
+            projectWriteOffs: const [],
+          );
+
+      expect(withWriteOff[4], closeTo(1200.0, 0.001));
+      expect(afterDelete[4], closeTo(1260.0, 0.001));
+      expect(records.single.income, 0);
+      expect(devices.single.defaultUnitPrice, 100);
+    });
   });
 }

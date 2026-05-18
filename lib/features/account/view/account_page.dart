@@ -17,6 +17,7 @@ import '../../../data/models/account_payment.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/project_key.dart';
+import '../../../data/models/project_write_off.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../features/account/model/account_project_payment_display_vm.dart';
 import '../../../data/services/account_project_merge_service.dart';
@@ -177,6 +178,11 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   AccountProjectVM _latestProjectForSettlement(AccountProjectVM project) {
+    return _latestProjectByProjectId(project.effectiveProjectId);
+  }
+
+  AccountProjectVM _latestProjectByProjectId(String projectId) {
+    final normalizedProjectId = projectId.trim();
     final timingStore = context.read<TimingStore>();
     final deviceStore = context.read<DeviceStore>();
     final paymentStore = context.read<AccountPaymentStore>();
@@ -190,7 +196,7 @@ class _AccountPageState extends State<AccountPage> {
       activeMergeGroups: const [],
     );
     for (final item in computed.projects) {
-      if (item.effectiveProjectId == project.effectiveProjectId) {
+      if (item.effectiveProjectId == normalizedProjectId) {
         return item;
       }
     }
@@ -478,6 +484,46 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
+  Future<void> _confirmDeleteWriteOff(ProjectWriteOff writeOff) async {
+    final ok = await showAppConfirmDialog(
+      context: context,
+      title: '删除核销记录？',
+      content:
+          '删除后，该金额会重新计入待收；如果项目因此未结清，项目状态会恢复为未结清。\n\n'
+          '核销金额：${FormatUtils.money(writeOff.amount)}',
+      confirmText: '删除',
+    );
+
+    if (ok != true) return;
+    if (!mounted) return;
+
+    try {
+      final latestProject = _latestProjectByProjectId(writeOff.projectId);
+      final result = await ProjectSettlementUseCase().deleteWriteOff(
+        projectId: latestProject.effectiveProjectId,
+        writeOffId: writeOff.id,
+        receivable: latestProject.receivable,
+      );
+
+      if (!mounted) return;
+      final accountStore = context.read<AccountStore>();
+      await accountStore.loadAll();
+      if (!mounted) return;
+      _toast(result.successMessage);
+    } catch (error) {
+      if (!mounted) return;
+      _toast('删除核销失败：${_friendlyWriteOffError(error)}');
+    }
+  }
+
+  String _friendlyWriteOffError(Object error) {
+    if (error is StateError) return error.message;
+    if (error is ArgumentError) {
+      return error.message?.toString() ?? '输入不合法';
+    }
+    return '操作失败，请稍后重试。';
+  }
+
   // =====================================================================
   // ============================== E) 项目筛选 BottomSheet ==============================
   // =====================================================================
@@ -620,6 +666,7 @@ class _AccountPageState extends State<AccountPage> {
                     onAddPayment: _openPaymentEditor,
                     onEditPayment: _openPaymentEditor,
                     onDeletePayment: _deletePayment,
+                    onDeleteWriteOff: _confirmDeleteWriteOff,
                     onSettleProject: _openProjectSettlement,
                     onDissolveMergeGroup: (project) =>
                         _confirmDissolveMergeGroup(project, sheetContext),

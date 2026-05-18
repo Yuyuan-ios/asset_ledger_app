@@ -57,6 +57,37 @@ class ProjectSettlementResult {
   }
 }
 
+class DeleteProjectWriteOffResult {
+  const DeleteProjectWriteOffResult({
+    required this.projectId,
+    required this.writeOffId,
+    required this.deletedAmount,
+    required this.receivable,
+    required this.received,
+    required this.writeOffBefore,
+    required this.writeOffAfter,
+    required this.remainingAfter,
+    required this.restoredActive,
+  });
+
+  final String projectId;
+  final String writeOffId;
+  final double deletedAmount;
+  final double receivable;
+  final double received;
+  final double writeOffBefore;
+  final double writeOffAfter;
+  final double remainingAfter;
+  final bool restoredActive;
+
+  String get successMessage {
+    if (restoredActive) {
+      return '已删除核销，待收恢复 ${FormatUtils.money(remainingAfter)}';
+    }
+    return '已删除核销';
+  }
+}
+
 class ProjectSettlementUseCase {
   ProjectSettlementUseCase({
     DateTime Function()? now,
@@ -216,6 +247,104 @@ class ProjectSettlementUseCase {
         settled: settled,
         paymentId: paymentId,
         writeOffId: writeOffId,
+      );
+    });
+  }
+
+  Future<DeleteProjectWriteOffResult> deleteWriteOff({
+    required String projectId,
+    required String writeOffId,
+    required double receivable,
+  }) async {
+    final normalizedProjectId = projectId.trim();
+    final normalizedWriteOffId = writeOffId.trim();
+    if (normalizedProjectId.isEmpty) {
+      throw StateError('项目缺少稳定 ID');
+    }
+    if (normalizedWriteOffId.isEmpty) {
+      throw StateError('核销记录 ID 不能为空');
+    }
+    if (receivable <= projectSettlementEpsilon) {
+      throw StateError('项目总额必须大于 0');
+    }
+
+    final nowIso = _now().toUtc().toIso8601String();
+    return AppDatabase.inTransaction((txn) async {
+      final projectRows = await txn.query(
+        SqfliteProjectRepository.table,
+        where: 'id = ?',
+        whereArgs: [normalizedProjectId],
+        limit: 1,
+      );
+      if (projectRows.isEmpty) {
+        throw StateError('项目不存在，无法删除核销');
+      }
+      final project = Project.fromMap(projectRows.single);
+
+      final writeOffRows = await txn.query(
+        SqfliteProjectWriteOffRepository.table,
+        where: 'id = ? AND project_id = ?',
+        whereArgs: [normalizedWriteOffId, normalizedProjectId],
+        limit: 1,
+      );
+      if (writeOffRows.isEmpty) {
+        throw StateError('核销记录不存在或已被删除');
+      }
+      final writeOff = ProjectWriteOff.fromMap(writeOffRows.single);
+
+      final received = await _sumByProjectId(
+        txn,
+        table: SqfliteAccountPaymentRepository.table,
+        projectId: normalizedProjectId,
+      );
+      final writeOffBefore = await _sumByProjectId(
+        txn,
+        table: SqfliteProjectWriteOffRepository.table,
+        projectId: normalizedProjectId,
+      );
+
+      final deleted = await txn.delete(
+        SqfliteProjectWriteOffRepository.table,
+        where: 'id = ? AND project_id = ?',
+        whereArgs: [normalizedWriteOffId, normalizedProjectId],
+      );
+      if (deleted != 1) {
+        throw StateError('核销记录删除失败，请刷新后重试');
+      }
+
+      final writeOffAfter = await _sumByProjectId(
+        txn,
+        table: SqfliteProjectWriteOffRepository.table,
+        projectId: normalizedProjectId,
+      );
+      final remainingAfter = _normalizeRemaining(
+        receivable - received - writeOffAfter,
+      );
+      final shouldRestoreActive =
+          remainingAfter > projectSettlementEpsilon &&
+          project.status == ProjectStatus.settled;
+      if (shouldRestoreActive) {
+        await SqfliteProjectRepository.upsertWithExecutor(
+          txn,
+          project.copyWith(
+            status: ProjectStatus.active,
+            settledAt: null,
+            settledSnapshot: null,
+            updatedAt: nowIso,
+          ),
+        );
+      }
+
+      return DeleteProjectWriteOffResult(
+        projectId: normalizedProjectId,
+        writeOffId: normalizedWriteOffId,
+        deletedAmount: writeOff.amount,
+        receivable: receivable,
+        received: received,
+        writeOffBefore: writeOffBefore,
+        writeOffAfter: writeOffAfter,
+        remainingAfter: remainingAfter,
+        restoredActive: shouldRestoreActive,
       );
     });
   }
