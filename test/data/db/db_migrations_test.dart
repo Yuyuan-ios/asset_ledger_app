@@ -299,6 +299,151 @@ void main() {
         await deleteDatabase(path);
       },
     );
+
+    test(
+      'account_payments project_id foreign key rejects orphans and '
+      'restricts delete',
+      () async {
+        final path = await _testDbPath('account_payments_fk');
+        await deleteDatabase(path);
+
+        final db = await _openCurrentDb(path);
+        final project = Project(
+          id: 'project:fk',
+          contact: '甲方',
+          site: '一号工地',
+          createdAt: '2026-05-17T00:00:00.000Z',
+          updatedAt: '2026-05-17T00:00:00.000Z',
+        );
+        await db.insert('projects', project.toMap());
+
+        await expectLater(
+          db.insert('account_payments', {
+            'project_id': 'project:missing',
+            'project_key': '甲方||一号工地',
+            'ymd': 20260517,
+            'amount': 100.0,
+          }),
+          throwsA(isA<DatabaseException>()),
+        );
+
+        await db.insert('account_payments', {
+          'project_id': project.id,
+          'project_key': '甲方||一号工地',
+          'ymd': 20260517,
+          'amount': 100.0,
+        });
+
+        await expectLater(
+          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+          throwsA(isA<DatabaseException>()),
+        );
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
+
+    test(
+      'project_device_rates project_id foreign key rejects orphans and '
+      'restricts delete',
+      () async {
+        final path = await _testDbPath('project_device_rates_fk');
+        await deleteDatabase(path);
+
+        final db = await _openCurrentDb(path);
+        final project = Project(
+          id: 'project:fk',
+          contact: '甲方',
+          site: '一号工地',
+          createdAt: '2026-05-17T00:00:00.000Z',
+          updatedAt: '2026-05-17T00:00:00.000Z',
+        );
+        await db.insert('projects', project.toMap());
+
+        await expectLater(
+          db.insert('project_device_rates', {
+            'project_id': 'project:missing',
+            'project_key': '甲方||一号工地',
+            'device_id': 1,
+            'is_breaking': 0,
+            'rate': 380.0,
+          }),
+          throwsA(isA<DatabaseException>()),
+        );
+
+        await db.insert('project_device_rates', {
+          'project_id': project.id,
+          'project_key': '甲方||一号工地',
+          'device_id': 1,
+          'is_breaking': 0,
+          'rate': 380.0,
+        });
+
+        await expectLater(
+          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+          throwsA(isA<DatabaseException>()),
+        );
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
+
+    test(
+      'account_project_merge_members project_id foreign key rejects '
+      'orphans and restricts delete',
+      () async {
+        final path = await _testDbPath('merge_members_fk');
+        await deleteDatabase(path);
+
+        final db = await _openCurrentDb(path);
+        final project = Project(
+          id: 'project:fk',
+          contact: '甲方',
+          site: '一号工地',
+          createdAt: '2026-05-17T00:00:00.000Z',
+          updatedAt: '2026-05-17T00:00:00.000Z',
+        );
+        await db.insert('projects', project.toMap());
+        final groupId = await db.insert('account_project_merge_groups', {
+          'contact': '甲方',
+          'created_at': '2026-05-17T00:00:00.000Z',
+        });
+
+        await expectLater(
+          db.insert('account_project_merge_members', {
+            'group_id': groupId,
+            'project_id': 'project:missing',
+            'project_key': '甲方||一号工地',
+            'contact': '甲方',
+            'site': '一号工地',
+            'created_at': '2026-05-17T00:00:00.000Z',
+          }),
+          throwsA(isA<DatabaseException>()),
+        );
+
+        await db.insert('account_project_merge_members', {
+          'group_id': groupId,
+          'project_id': project.id,
+          'project_key': '甲方||一号工地',
+          'contact': '甲方',
+          'site': '一号工地',
+          'created_at': '2026-05-17T00:00:00.000Z',
+        });
+
+        await expectLater(
+          db.delete('projects', where: 'id = ?', whereArgs: [project.id]),
+          throwsA(isA<DatabaseException>()),
+        );
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
   });
 }
 
