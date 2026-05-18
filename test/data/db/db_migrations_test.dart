@@ -74,6 +74,8 @@ void main() {
             'merge_group_id',
             'merge_batch_id',
             'merge_batch_total_amount',
+            'amount_fen',
+            'merge_batch_total_amount_fen',
             'merge_batch_note',
             'created_at',
           ]),
@@ -177,6 +179,8 @@ void main() {
         expect(paymentRow['merge_group_id'], isNull);
         expect(paymentRow['merge_batch_id'], isNull);
         expect(paymentRow['merge_batch_total_amount'], isNull);
+        expect(paymentRow['amount_fen'], 50000);
+        expect(paymentRow['merge_batch_total_amount_fen'], isNull);
         expect(paymentRow['merge_batch_note'], isNull);
         expect(paymentRow['created_at'], isNull);
 
@@ -220,6 +224,8 @@ void main() {
           'merge_group_id',
           'merge_batch_id',
           'merge_batch_total_amount',
+          'amount_fen',
+          'merge_batch_total_amount_fen',
           'merge_batch_note',
           'created_at',
         ]),
@@ -511,6 +517,7 @@ void main() {
           'id',
           'project_id',
           'amount',
+          'amount_fen',
           'reason',
           'note',
           'write_off_date',
@@ -569,6 +576,80 @@ void main() {
       await db.close();
       await deleteDatabase(path);
     });
+
+    test(
+      'upgrades v17 databases by backfilling first money fen fields',
+      () async {
+        final path = await _testDbPath('v17_to_v18_money_fen');
+        await deleteDatabase(path);
+
+        final legacyDb = await openDatabase(
+          path,
+          version: 17,
+          onConfigure: (db) async {
+            await db.execute('PRAGMA foreign_keys = ON');
+          },
+          onCreate: (db, _) async {
+            await DbSchema.create(db);
+            await _recreateMoneyTablesWithoutFen(db);
+            await db.insert(
+              'projects',
+              const Project(
+                id: 'project:money',
+                contact: '甲方',
+                site: '金额工地',
+                createdAt: '2026-05-18T00:00:00.000Z',
+                updatedAt: '2026-05-18T00:00:00.000Z',
+              ).toMap(),
+            );
+            await db.insert('account_payments', {
+              'id': 1,
+              'project_id': 'project:money',
+              'project_key': '甲方||金额工地',
+              'ymd': 20260518,
+              'amount': 123.45,
+              'source_type': 'merge_allocation',
+              'merge_batch_id': 'batch-money',
+              'merge_batch_total_amount': 5000.01,
+            });
+            await db.insert('project_write_offs', {
+              'id': 'write-off-money',
+              'project_id': 'project:money',
+              'amount': 6.78,
+              'reason': 'rounding',
+              'write_off_date': '2026-05-18',
+              'created_at': '2026-05-18T00:00:00.000Z',
+              'updated_at': '2026-05-18T00:00:00.000Z',
+            });
+          },
+        );
+        await legacyDb.close();
+
+        final db = await _openCurrentDb(path);
+
+        expect(
+          await _columnNames(db, 'account_payments'),
+          contains('amount_fen'),
+        );
+        expect(
+          await _columnNames(db, 'account_payments'),
+          contains('merge_batch_total_amount_fen'),
+        );
+        expect(
+          await _columnNames(db, 'project_write_offs'),
+          contains('amount_fen'),
+        );
+
+        final payment = (await db.query('account_payments')).single;
+        expect(payment['amount_fen'], 12345);
+        expect(payment['merge_batch_total_amount_fen'], 500001);
+        final writeOff = (await db.query('project_write_offs')).single;
+        expect(writeOff['amount_fen'], 678);
+
+        await db.close();
+        await deleteDatabase(path);
+      },
+    );
   });
 }
 
@@ -655,6 +736,62 @@ Future<bool> _tableExists(Database db, String table) async {
     limit: 1,
   );
   return rows.isNotEmpty;
+}
+
+Future<void> _recreateMoneyTablesWithoutFen(Database db) async {
+  await db.execute('DROP INDEX IF EXISTS idx_account_payments_project_ymd;');
+  await db.execute('DROP INDEX IF EXISTS idx_project_write_offs_project_id;');
+  await db.execute(
+    'DROP INDEX IF EXISTS idx_project_write_offs_write_off_date;',
+  );
+  await db.execute('DROP TABLE IF EXISTS account_payments;');
+  await db.execute('DROP TABLE IF EXISTS project_write_offs;');
+
+  await db.execute('''
+    CREATE TABLE account_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      project_key TEXT NOT NULL,
+      ymd INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      note TEXT,
+      source_type TEXT NOT NULL DEFAULT 'manual',
+      merge_group_id INTEGER,
+      merge_batch_id TEXT,
+      merge_batch_total_amount REAL,
+      merge_batch_note TEXT,
+      created_at TEXT,
+      FOREIGN KEY (project_id)
+        REFERENCES projects(id) ON DELETE RESTRICT
+    );
+  ''');
+  await db.execute('''
+    CREATE INDEX idx_account_payments_project_ymd
+    ON account_payments(project_id, ymd);
+  ''');
+
+  await db.execute('''
+    CREATE TABLE project_write_offs (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      amount REAL NOT NULL CHECK (amount > 0),
+      reason TEXT NOT NULL,
+      note TEXT,
+      write_off_date TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (project_id)
+        REFERENCES projects(id) ON DELETE RESTRICT
+    );
+  ''');
+  await db.execute('''
+    CREATE INDEX idx_project_write_offs_project_id
+    ON project_write_offs(project_id);
+  ''');
+  await db.execute('''
+    CREATE INDEX idx_project_write_offs_write_off_date
+    ON project_write_offs(write_off_date);
+  ''');
 }
 
 Future<void> _createV3Schema(Database db) async {

@@ -90,36 +90,62 @@ class AccountPayment {
       'project_key': projectKey,
       'ymd': ymd,
       'amount': amount,
+      'amount_fen': amountFen,
       'note': note,
       'source_type': sourceType,
       'merge_group_id': mergeGroupId,
       'merge_batch_id': mergeBatchId,
       'merge_batch_total_amount': mergeBatchTotalAmount,
+      'merge_batch_total_amount_fen': mergeBatchTotalAmountFen,
       'merge_batch_note': mergeBatchNote,
       'created_at': createdAt,
     };
   }
 
   static AccountPayment fromMap(Map<String, Object?> m) {
+    final amountFen = _readFen(m['amount_fen']);
+    final mergeBatchTotalAmountFen = _readFen(
+      m['merge_batch_total_amount_fen'],
+    );
     return AccountPayment(
       id: m['id'] as int?,
       projectId: (m['project_id'] as String?) ?? '',
       projectKey: (m['project_key'] as String?) ?? '',
       ymd: (m['ymd'] as int?) ?? 0,
-      amount: (m['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: amountFen == null
+          ? (m['amount'] as num?)?.toDouble() ?? 0.0
+          : _fenToYuan(amountFen),
       note: m['note'] as String?,
       sourceType:
           (m['source_type'] as String?) ?? AccountPayment.sourceTypeManual,
       mergeGroupId: m['merge_group_id'] as int?,
       mergeBatchId: m['merge_batch_id'] as String?,
-      mergeBatchTotalAmount: (m['merge_batch_total_amount'] as num?)
-          ?.toDouble(),
+      mergeBatchTotalAmount: mergeBatchTotalAmountFen == null
+          ? (m['merge_batch_total_amount'] as num?)?.toDouble()
+          : _fenToYuan(mergeBatchTotalAmountFen),
       mergeBatchNote: m['merge_batch_note'] as String?,
       createdAt: m['created_at'] as String?,
     );
   }
 
+  int get amountFen => _yuanToFen(amount);
+
+  int? get mergeBatchTotalAmountFen {
+    final value = mergeBatchTotalAmount;
+    return value == null ? null : _yuanToFen(value);
+  }
+
   String get effectiveProjectId {
     return ProjectId.ensure(projectId: projectId, legacyProjectKey: projectKey);
   }
+}
+
+int _yuanToFen(num value) => (value * 100).round();
+
+double _fenToYuan(int value) => value / 100.0;
+
+int? _readFen(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return null;
 }

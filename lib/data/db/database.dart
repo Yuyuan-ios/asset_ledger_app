@@ -59,10 +59,11 @@ class AppDatabase {
   // - v15：新增 external import / external work record 基础表
   // - v16：新增 project_write_offs（项目核销记录）
   // - v17：新增 sync_outbox / sync_state / entity_sync_meta / work_records
+  // - v18：account_payments / project_write_offs 第一批核心金额 fen 字段
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 17;
+  static const int _dbVersion = 18;
 
   static int get schemaVersion => _dbVersion;
 

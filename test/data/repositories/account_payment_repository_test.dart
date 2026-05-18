@@ -41,13 +41,18 @@ void main() {
       );
 
       final rows = await repo.listAll();
+      final rawRows = await (await AppDatabase.database).query(
+        'account_payments',
+      );
 
       expect(rows, hasLength(1));
       expect(rows.single.projectKey, '李杰||尚义');
+      expect(rawRows.single['amount_fen'], 149000);
       expect(rows.single.sourceType, AccountPayment.sourceTypeMergeAllocation);
       expect(rows.single.mergeGroupId, 3);
       expect(rows.single.mergeBatchId, 'batch-1');
       expect(rows.single.mergeBatchTotalAmount, 5000);
+      expect(rawRows.single['merge_batch_total_amount_fen'], 500000);
       expect(rows.single.mergeBatchNote, '微信收款');
       expect(rows.single.createdAt, '2026-05-16T01:02:03.000Z');
     });

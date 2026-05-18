@@ -1,6 +1,4 @@
 import '../../../../core/utils/format_utils.dart';
-import '../../../../data/repositories/timing_calculation_history_repository.dart'
-    show SqfliteTimingCalculationHistoryRepository;
 import '../../../../data/services/project_resolver.dart';
 import '../../../../data/services/timing_monthly_expense_service.dart';
 import '../../../../data/services/timing_monthly_income_service.dart';
@@ -21,15 +19,6 @@ class TimingActionController {
     required ProjectResolver projectResolver,
   }) : _calculationHistoryRepository = calculationHistoryRepository,
        _projectResolver = projectResolver;
-
-  factory TimingActionController.local({
-    required ProjectResolver projectResolver,
-  }) {
-    return TimingActionController(
-      calculationHistoryRepository: SqfliteTimingCalculationHistoryRepository(),
-      projectResolver: projectResolver,
-    );
-  }
 
   final TimingCalculationHistoryRepository _calculationHistoryRepository;
   final ProjectResolver _projectResolver;
