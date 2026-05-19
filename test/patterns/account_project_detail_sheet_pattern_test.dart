@@ -78,6 +78,7 @@ void main() {
     AccountOpenMergedPaymentBatchEditor? onDeleteMergedPaymentBatch,
     AccountOpenProjectSettlement? onSettleProject,
     AccountDeleteProjectWriteOff? onDeleteWriteOff,
+    AccountRevokeProjectWriteOff? onRevokeProjectWriteOff,
     List<ProjectWriteOff> writeOffs = const [],
   }) {
     return MaterialApp(
@@ -104,6 +105,7 @@ void main() {
                 ({required project, required allPayments, editing}) async {},
             onDeletePayment: (_) async {},
             onDeleteWriteOff: onDeleteWriteOff,
+            onRevokeProjectWriteOff: onRevokeProjectWriteOff,
             onSettleProject: onSettleProject,
             onDissolveMergeGroup: onDissolveMergeGroup,
             onAddMergedPayment: onAddMergedPayment,
@@ -535,6 +537,64 @@ void main() {
 
     expect(deletedWriteOff?.id, 'write-off-settled');
   });
+
+  testWidgets(
+    'settled detail can revoke by project callback from write-off total',
+    (tester) async {
+      final normalKey = ProjectKey.buildKey(contact: '甲方', site: '一号工地');
+      AccountProjectVM? revokedProject;
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: normalKey,
+          computed: AccountComputed(
+            projects: [
+              AccountProjectVM(
+                projectId: 'project:1',
+                projectKey: normalKey,
+                displayName: '甲方 + 一号工地',
+                minYmd: 20260501,
+                deviceIds: const [1],
+                hoursByDevice: const {1: 12.6},
+                rentIncomeTotal: 0,
+                minRate: 100,
+                isMultiDevice: false,
+                isMultiMode: false,
+                receivable: 1260,
+                received: 1200,
+                writeOff: 60,
+                remaining: 0,
+                ratio: 1200 / 1260,
+                settlementRatio: 1,
+                payments: const [],
+              ),
+            ],
+            totalReceivable: 1260,
+            totalReceived: 1200,
+            totalWriteOff: 60,
+            totalRemaining: 0,
+            totalRatio: 1200 / 1260,
+            settlementRate: 1,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onSettleProject: (_) async {},
+          onRevokeProjectWriteOff: (project) async {
+            revokedProject = project;
+          },
+        ),
+      );
+
+      expect(find.text('撤销'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+
+      await tester.tap(find.text('撤销'));
+      await tester.pump();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(revokedProject?.effectiveProjectId, 'project:1');
+    },
+  );
 
   testWidgets(
     'settled detail without write-off shows total without cash claim',
