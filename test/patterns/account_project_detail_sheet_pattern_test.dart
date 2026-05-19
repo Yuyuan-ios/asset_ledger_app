@@ -122,6 +122,7 @@ void main() {
 
   AccountProjectVM mergedProject({int? mergeGroupId = 1}) {
     return AccountProjectVM(
+      projectId: 'merge:1',
       projectKey: 'merge:1',
       displayName: '李杰 + 合并2项目',
       kind: AccountProjectKind.merged,
@@ -185,10 +186,11 @@ void main() {
   }
 
   testWidgets(
-    'merged detail renders member rows and exposes merge batch actions only',
+    'merged detail renders member rows and exposes merge settlement action',
     (tester) async {
       AccountProjectVM? editedProject;
       AccountProjectVM? dissolvedProject;
+      AccountProjectVM? settledProject;
       AccountProjectPaymentDisplayVM? editedPaymentBatch;
       AccountProjectPaymentDisplayVM? deletedPaymentBatch;
 
@@ -208,6 +210,9 @@ void main() {
           },
           onDissolveMergeGroup: (project) async {
             dissolvedProject = project;
+          },
+          onSettleProject: (project) async {
+            settledProject = project;
           },
           onAddMergedPayment: (_) async {},
           onEditMergedPaymentBatch: (project, payment) async {
@@ -231,6 +236,11 @@ void main() {
       expect(find.text('已收 50.0%'), findsOneWidget);
       expect(find.text('待收 ¥5000'), findsOneWidget);
       expect(find.text('项目总额 ¥10000'), findsOneWidget);
+      expect(find.text('结清'), findsOneWidget);
+      expect(
+        find.widgetWithText(ProjectAccountSettlementPill, '结清'),
+        findsNothing,
+      );
       expect(find.text('2026.05.15'), findsOneWidget);
       expect(find.text('合并分摊'), findsOneWidget);
       expect(find.text('备注：微信收款'), findsOneWidget);
@@ -278,6 +288,11 @@ void main() {
       await tester.pump();
 
       expect(dissolvedProject?.mergeGroupId, 1);
+
+      await tester.tap(find.text('结清'));
+      await tester.pump();
+
+      expect(settledProject?.effectiveProjectId, 'merge:1');
     },
   );
 
@@ -586,6 +601,17 @@ void main() {
             settlementRate: 1,
             deviceReceivables: const [],
           ),
+          writeOffs: const [
+            ProjectWriteOff(
+              id: 'write-off-1',
+              projectId: 'project:1',
+              amount: 60,
+              reason: 'settlement',
+              writeOffDate: '2026-05-18',
+              createdAt: '2026-05-18T00:00:00.000Z',
+              updatedAt: '2026-05-18T00:00:00.000Z',
+            ),
+          ],
           settledProjectIds: const {'project:1'},
           onEditDeviceRate: (_, _, _, _, _) async {},
           onSettleProject: (_) async {},
@@ -610,7 +636,6 @@ void main() {
     'settled detail without write-off shows total without cash claim',
     (tester) async {
       final normalKey = ProjectKey.buildKey(contact: '甲方', site: '一号工地');
-      AccountProjectVM? revokedProject;
 
       await tester.pumpWidget(
         buildSheet(
@@ -647,9 +672,7 @@ void main() {
           settledProjectIds: const {'project:1'},
           onEditDeviceRate: (_, _, _, _, _) async {},
           onSettleProject: (_) async {},
-          onRevokeProjectWriteOff: (project) async {
-            revokedProject = project;
-          },
+          onRevokeProjectWriteOff: (_) async {},
         ),
       );
 
@@ -658,13 +681,7 @@ void main() {
       expect(find.text('实收 100.0%'), findsNothing);
       expect(find.text('待收 ¥0'), findsNothing);
       expect(find.text('撤销'), findsNothing);
-      expect(find.text('已结清，点此撤销'), findsOneWidget);
-
-      await tester.tap(find.text('已结清，点此撤销'));
-      await tester.pump();
-
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(revokedProject?.effectiveProjectId, 'project:1');
+      expect(find.text('已结清，点此撤销'), findsNothing);
     },
   );
 
@@ -714,7 +731,8 @@ void main() {
 
     expect(find.text('已结清，点此撤销'), findsNothing);
     expect(find.text('项目总额 ¥1260'), findsOneWidget);
-    expect(find.text('已收 100.0%'), findsOneWidget);
+    expect(find.text('已结清'), findsWidgets);
+    expect(find.text('已收 100.0%'), findsNothing);
   });
 }
 

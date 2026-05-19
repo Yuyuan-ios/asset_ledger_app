@@ -284,13 +284,18 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     final effectiveSettled =
         isProjectSettled ??
         (hasProjectTotal && displayRemaining <= _moneyEpsilon);
+    final visuallySettled =
+        hasProjectTotal &&
+        (effectiveSettled || displayRemaining <= _moneyEpsilon);
     final canSettle =
         hasProjectTotal &&
-        !effectiveSettled &&
+        !visuallySettled &&
         displayRemaining > _moneyEpsilon &&
         onSettleProject != null;
-    final isSettled = hasProjectTotal && effectiveSettled;
-    final canRevokeSettlement = isSettled && onRevokeWriteOff != null;
+    final canRevokeSettlement =
+        visuallySettled &&
+        hasUniqueWriteOffForRevoke &&
+        onRevokeWriteOff != null;
     final settledSummary = '项目总额 ${FormatUtils.money(receivable)}';
 
     return Padding(
@@ -339,7 +344,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               ),
             ),
             const SizedBox(height: AppSpace.sm),
-            if (isSettled) ...[
+            if (visuallySettled) ...[
               Row(
                 children: [
                   Expanded(
@@ -366,7 +371,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               Align(
                 alignment: Alignment.centerRight,
                 child: ProjectAccountSettlementPill(
-                  label: '已结清，点此撤销',
+                  label: canRevokeSettlement ? '已结清，点此撤销' : '已结清',
                   enabled: canRevokeSettlement,
                   onTap: canRevokeSettlement ? onRevokeWriteOff : null,
                 ),
@@ -400,6 +405,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               Row(
                 children: [
                   Expanded(
+                    flex: 3,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -414,9 +420,12 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                         ),
                         if (canSettle) ...[
                           const SizedBox(width: 9),
-                          _buildInlineSettleAction(
-                            context: context,
-                            style: progressMetaStyle,
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 38),
+                            child: _buildInlineSettleAction(
+                              context: context,
+                              style: progressMetaStyle,
+                            ),
                           ),
                         ],
                       ],
@@ -424,6 +433,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                   ),
                   const SizedBox(width: AppSpace.sm),
                   Expanded(
+                    flex: 2,
                     child: Text(
                       '项目总额 ${FormatUtils.money(receivable)}',
                       maxLines: 1,

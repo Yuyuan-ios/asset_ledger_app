@@ -130,6 +130,9 @@ class AccountProjectDetailSheet extends StatelessWidget {
     final projectWriteOffs = _writeOffsForProject(project);
     final revokeWriteOff = _revokeWriteOffAction(project, projectWriteOffs);
     final projectIsSettled = _isProjectSettled(project);
+    final hasUniqueWriteOffForRevoke =
+        project.writeOff > _detailSheetMoneyEpsilon &&
+        projectWriteOffs.length == 1;
     if (project.kind == AccountProjectKind.merged) {
       final detailRows = _buildMergedDetailRows(project);
       final paymentDisplayItems = buildMergedPaymentDisplayItems(
@@ -148,6 +151,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         writeOff: project.writeOff,
         remaining: project.remaining,
         isProjectSettled: projectIsSettled,
+        hasUniqueWriteOffForRevoke: hasUniqueWriteOffForRevoke,
         payments: project.payments,
         writeOffs: projectWriteOffs,
         paymentDisplayItems: paymentDisplayItems,
@@ -173,7 +177,9 @@ class AccountProjectDetailSheet extends StatelessWidget {
           );
         },
         onAddPayment: () => onAddMergedPayment?.call(project),
-        onSettleProject: null,
+        onSettleProject: onSettleProject == null
+            ? null
+            : () => onSettleProject?.call(project),
         onEditPayment: (_) {},
         onDeletePayment: (_) {},
         onDeleteWriteOff: onDeleteWriteOff,
@@ -230,6 +236,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       writeOff: project.writeOff,
       remaining: project.remaining,
       isProjectSettled: projectIsSettled,
+      hasUniqueWriteOffForRevoke: hasUniqueWriteOffForRevoke,
       payments: project.payments,
       writeOffs: projectWriteOffs,
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
