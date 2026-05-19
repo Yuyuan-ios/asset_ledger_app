@@ -9,6 +9,44 @@
 // - 真实金额永远在 records[].income_fen（来自 TimingRecord.income，不重算）。
 //   export_lines[] 仅是能无损通过旧 AmountPolicy 校验的兼容子集。
 // - 本文件不写文件、不计算 envelope/payloadSha256（属既有/5C）。
+//
+// 导入端（6+）：本文件额外提供 fromMap 工厂，作为 v1 富事实层 schema 的
+// 唯一解析来源（与导出 toMap 同源，避免双份 schema 漂移）。fromMap 为纯加法，
+// 不改变任何导出行为。
+
+import '../../models/external_work_parse.dart';
+import 'jztshare_errors.dart';
+
+JztShareParseException _richParseError(String message, Object? source) {
+  return JztShareParseException(
+    JztShareErrorCodes.invalidPayload,
+    message,
+    source,
+  );
+}
+
+Map<String, Object?> _requireObject(Object? raw, String label) {
+  if (raw is! Map<String, Object?>) {
+    throw _richParseError('$label must be an object', raw);
+  }
+  return raw;
+}
+
+double? _optionalDouble(Object? value, String key, Object? source) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  throw _richParseError('Invalid number: $key', source);
+}
+
+double _requiredDouble(Object? value, String key, Object? source) {
+  if (value is num) return value.toDouble();
+  throw _richParseError('Missing required number: $key', source);
+}
+
+bool _requiredBool(Object? value, String key, Object? source) {
+  if (value is bool) return value;
+  throw _richParseError('Missing required bool: $key', source);
+}
 
 class ProjectExternalWorkShareRichPayload {
   const ProjectExternalWorkShareRichPayload({
@@ -80,6 +118,20 @@ class ProjectExternalWorkShareSummary {
   final int totalIncomeFen;
   final int totalHoursMilli;
 
+  static ProjectExternalWorkShareSummary fromMap(Map<String, Object?> map) {
+    final reader = ExternalFieldReader(map);
+    try {
+      return ProjectExternalWorkShareSummary(
+        deviceCount: reader.requiredNonNegativeInt('device_count'),
+        recordCount: reader.requiredNonNegativeInt('record_count'),
+        totalIncomeFen: reader.requiredNonNegativeInt('total_income_fen'),
+        totalHoursMilli: reader.requiredNonNegativeInt('total_hours_milli'),
+      );
+    } on ExternalDataParseException catch (error) {
+      throw _richParseError(error.message, map);
+    }
+  }
+
   Map<String, Object?> toMap() {
     return {
       'device_count': deviceCount,
@@ -104,6 +156,22 @@ class ProjectExternalWorkShareProjectSnapshot {
   /// 仅作来源追踪；导入列表/详情不展示。
   final String contactSnapshot;
   final String siteSnapshot;
+
+  static ProjectExternalWorkShareProjectSnapshot fromMap(
+    Map<String, Object?> map,
+  ) {
+    final reader = ExternalFieldReader(map);
+    try {
+      return ProjectExternalWorkShareProjectSnapshot(
+        sourceProjectId: reader.requiredString('source_project_id'),
+        sourceProjectKey: reader.requiredString('source_project_key'),
+        contactSnapshot: reader.requiredString('contact_snapshot'),
+        siteSnapshot: reader.requiredString('site_snapshot'),
+      );
+    } on ExternalDataParseException catch (error) {
+      throw _richParseError(error.message, map);
+    }
+  }
 
   Map<String, Object?> toMap() {
     return {
@@ -141,6 +209,27 @@ class ProjectExternalWorkShareDeviceSnapshot {
   final int totalHoursMilli;
   final int totalIncomeFen;
 
+  static ProjectExternalWorkShareDeviceSnapshot fromMap(
+    Map<String, Object?> map,
+  ) {
+    final reader = ExternalFieldReader(map);
+    try {
+      return ProjectExternalWorkShareDeviceSnapshot(
+        sourceDeviceId: reader.requiredNonNegativeInt('source_device_id'),
+        name: reader.requiredString('name'),
+        brand: reader.requiredString('brand'),
+        model: reader.optionalString('model'),
+        type: reader.optionalString('type'),
+        displayName: reader.requiredString('display_name'),
+        recordCount: reader.requiredNonNegativeInt('record_count'),
+        totalHoursMilli: reader.requiredNonNegativeInt('total_hours_milli'),
+        totalIncomeFen: reader.requiredNonNegativeInt('total_income_fen'),
+      );
+    } on ExternalDataParseException catch (error) {
+      throw _richParseError(error.message, map);
+    }
+  }
+
   Map<String, Object?> toMap() {
     return {
       'source_device_id': sourceDeviceId,
@@ -176,6 +265,24 @@ class ProjectExternalWorkShareFilledCalculation {
 
   /// 派生：result 保留 1 位小数 + " h"（如 "37.0 h"）。
   final String resultDisplay;
+
+  static ProjectExternalWorkShareFilledCalculation fromMap(
+    Map<String, Object?> map,
+  ) {
+    final reader = ExternalFieldReader(map);
+    try {
+      return ProjectExternalWorkShareFilledCalculation(
+        calculatedAt: reader.requiredString('calculated_at'),
+        expression: reader.requiredString('expression'),
+        result: _requiredDouble(map['result'], 'result', map),
+        ticketCount: reader.requiredNonNegativeInt('ticket_count'),
+        resultMilliHours: reader.requiredNonNegativeInt('result_milli_hours'),
+        resultDisplay: reader.requiredString('result_display'),
+      );
+    } on ExternalDataParseException catch (error) {
+      throw _richParseError(error.message, map);
+    }
+  }
 
   Map<String, Object?> toMap() {
     return {
@@ -226,6 +333,36 @@ class ProjectExternalWorkShareRecord {
   final bool isBreaking;
   final String originFingerprint;
   final ProjectExternalWorkShareFilledCalculation? filledCalculation;
+
+  static ProjectExternalWorkShareRecord fromMap(Map<String, Object?> map) {
+    final reader = ExternalFieldReader(map);
+    try {
+      final rawFilled = map['filled_calculation'];
+      return ProjectExternalWorkShareRecord(
+        sourceRecordUuid: reader.requiredString('source_record_uuid'),
+        sourceTimingRecordId: reader.requiredNonNegativeInt(
+          'source_timing_record_id',
+        ),
+        sourceProjectId: reader.requiredString('source_project_id'),
+        sourceDeviceId: reader.requiredNonNegativeInt('source_device_id'),
+        workDate: reader.requiredNonNegativeInt('work_date'),
+        type: reader.requiredString('type'),
+        startMeter: _optionalDouble(map['start_meter'], 'start_meter', map),
+        endMeter: _optionalDouble(map['end_meter'], 'end_meter', map),
+        hoursMilli: reader.requiredNonNegativeInt('hours_milli'),
+        incomeFen: reader.requiredNonNegativeInt('income_fen'),
+        isBreaking: _requiredBool(map['is_breaking'], 'is_breaking', map),
+        originFingerprint: reader.requiredString('origin_fingerprint'),
+        filledCalculation: rawFilled == null
+            ? null
+            : ProjectExternalWorkShareFilledCalculation.fromMap(
+                _requireObject(rawFilled, 'filled_calculation'),
+              ),
+      );
+    } on ExternalDataParseException catch (error) {
+      throw _richParseError(error.message, map);
+    }
+  }
 
   Map<String, Object?> toMap() {
     return {
