@@ -172,8 +172,8 @@ void main() {
       ),
     );
 
-    expect(find.text('项目总额¥1260'), findsOneWidget);
-    expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsOneWidget);
+    expect(find.text('总额 ¥1260'), findsOneWidget);
+    expect(find.text('总额 ¥1260-核销 ¥60'), findsOneWidget);
     expect(find.text('已结清'), findsNWidgets(2));
     expect(find.text('余: ¥60 / ¥1260'), findsOneWidget);
     expect(find.text('余: ¥0 / ¥1260'), findsNothing);
@@ -366,7 +366,7 @@ void main() {
     expect(find.text('余: ¥22000 / ¥22000'), findsNothing);
   });
 
-  testWidgets('compact settled cards show write-off text or blank left side', (
+  testWidgets('compact settled cards show total and write-off text', (
     tester,
   ) async {
     const cashSettled = AccountProjectVM(
@@ -432,10 +432,12 @@ void main() {
       ),
     );
 
-    expect(find.text('核销(减免) ¥60'), findsOneWidget);
+    expect(find.text('总额 ¥1260-核销 ¥60'), findsOneWidget);
+    expect(find.text('总额 ¥1260'), findsOneWidget);
     expect(find.text('已结清'), findsNWidgets(2));
     expect(find.text('项目总额¥1260'), findsNothing);
     expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsNothing);
+    expect(find.text('核销(减免) ¥60'), findsNothing);
     expect(find.text('95.2%实收'), findsNothing);
     expect(find.text('47.6%实收'), findsOneWidget);
     expect(find.text('余: ¥660 / ¥1260'), findsNothing);
