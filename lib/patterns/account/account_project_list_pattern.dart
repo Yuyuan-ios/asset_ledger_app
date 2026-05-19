@@ -11,7 +11,7 @@ enum _PriceBadgeKind { single, multi, rent }
 const double _projectCardMoneyEpsilon = 0.000001;
 const Color _settledCardBg = Color(0xFFF7FCF8);
 const Color _settledCardBorder = Color(0xFFD8EEDF);
-const Color _settledCheckGreen = Color(0xFF3FA36B);
+const Color _settledCheckBlue = Color(0xFF4AAFD8);
 const Color _settledTextGreen = Color(0xFF3F8F5D);
 
 class _PriceBadgeStyle {
@@ -309,9 +309,9 @@ class AccountProjectList extends StatelessWidget {
                                   if (isSettled) ...[
                                     const SizedBox(width: 6),
                                     const Icon(
-                                      Icons.check_circle_rounded,
+                                      Icons.verified_rounded,
                                       size: 18,
-                                      color: _settledCheckGreen,
+                                      color: _settledCheckBlue,
                                     ),
                                   ],
                                 ],
