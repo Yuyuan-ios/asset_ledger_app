@@ -186,7 +186,7 @@ void main() {
     final settledIcons = tester.widgetList<Icon>(_settledCheckIcons()).toList();
     expect(settledIcons, hasLength(2));
     expect(
-      settledIcons.every((icon) => icon.color == const Color(0xFF3FA36B)),
+      settledIcons.every((icon) => icon.color == const Color(0xFF4AAFD8)),
       isTrue,
     );
   });
@@ -509,7 +509,7 @@ Finder _containerWithBorder(Color color) {
 Finder _settledCheckIcons() {
   return find.byWidgetPredicate((widget) {
     return widget is Icon &&
-        widget.icon == Icons.check_circle_rounded &&
+        widget.icon == Icons.verified_rounded &&
         widget.size == 18;
   });
 }
