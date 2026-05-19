@@ -9,6 +9,7 @@ import '../features/maintenance/state/maintenance_store.dart';
 import '../features/timing/state/timing_store.dart';
 import 'providers/account_merge_providers.dart';
 import 'providers/device_fleet_providers.dart';
+import 'providers/external_work_providers.dart';
 import 'providers/project_providers.dart';
 import 'providers/timing_providers.dart';
 
@@ -23,6 +24,7 @@ class AppProviders {
       projectResolver: project.projectResolver,
     );
     final accountMerge = AccountMergeProviders.build();
+    final externalWork = ExternalWorkProviders.build();
 
     return AppProviderBundle(
       deviceStore: deviceFleet.deviceStore,
@@ -37,6 +39,7 @@ class AppProviders {
         ...project.providers,
         ...timing.providers,
         ...accountMerge.providers,
+        ...externalWork.providers,
       ],
     );
   }

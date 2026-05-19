@@ -14,6 +14,8 @@ import 'package:asset_ledger/features/account/domain/repositories/project_settle
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
+import 'package:asset_ledger/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart';
+import 'package:asset_ledger/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
@@ -42,6 +44,8 @@ void main() {
       late AccountProjectMergeRepository accountProjectMergeRepository;
       late AccountProjectMergeService accountProjectMergeService;
       late TimingMergeDissolvePort timingMergeDissolvePort;
+      late ExternalWorkImportPreviewPreparer externalWorkPreviewPreparer;
+      late ExternalWorkImportConfirmer externalWorkImportConfirmer;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
       late FuelStore fuelStore;
@@ -76,6 +80,10 @@ void main() {
                     .read<AccountProjectMergeService>();
                 timingMergeDissolvePort = context
                     .read<TimingMergeDissolvePort>();
+                externalWorkPreviewPreparer = context
+                    .read<ExternalWorkImportPreviewPreparer>();
+                externalWorkImportConfirmer = context
+                    .read<ExternalWorkImportConfirmer>();
                 deviceStore = context.read<DeviceStore>();
                 timingStore = context.read<TimingStore>();
                 fuelStore = context.read<FuelStore>();
@@ -105,6 +113,14 @@ void main() {
       );
       expect(accountProjectMergeService, isA<AccountProjectMergeService>());
       expect(timingMergeDissolvePort, isA<TimingMergeDissolvePort>());
+      expect(
+        externalWorkPreviewPreparer,
+        isA<PrepareExternalWorkImportPreviewUseCase>(),
+      );
+      expect(
+        externalWorkImportConfirmer,
+        isA<ConfirmExternalWorkImportUseCase>(),
+      );
 
       expect(identical(deviceStore, bundle.deviceStore), isTrue);
       expect(identical(timingStore, bundle.timingStore), isTrue);
