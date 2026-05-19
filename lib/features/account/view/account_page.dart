@@ -31,6 +31,8 @@ import '../../../patterns/account/account_overview_card_pattern.dart';
 import '../../../patterns/account/account_project_detail_sheet_pattern.dart';
 import '../../../patterns/account/account_project_list_pattern.dart';
 import '../../../patterns/account/account_project_section_pattern.dart';
+import '../use_cases/project_share_export_use_case.dart';
+import 'dialogs/project_share_export_dialog.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../components/feedback/store_error_banner.dart';
@@ -595,6 +597,10 @@ class _AccountPageState extends State<AccountPage> {
       ),
       footerEnabled: false,
       onConfirm: () => Navigator.of(context).maybePop(),
+      headerTrailingBuilder: (headerContext) => ProjectDetailHeaderActions(
+        onShare: () => _openProjectShare(project),
+        onClose: () => Navigator.of(headerContext).maybePop(),
+      ),
       childBuilder: (sheetContext) =>
           Consumer5<
             TimingStore,
@@ -652,6 +658,23 @@ class _AccountPageState extends State<AccountPage> {
                 },
           ),
     );
+  }
+
+  // 项目详情右上角“分享项目”：输入分享人/包名 → 生成 .jztshare 文件。
+  // 仅生成文件 + 成功提示；系统分享面板留待 5E。
+  Future<void> _openProjectShare(AccountProjectVM project) async {
+    final senderName = await showProjectShareNameDialog(context);
+    if (senderName == null || !mounted) return;
+
+    final outcome = await context.read<ProjectShareExportUseCase>().execute(
+      projectId: project.effectiveProjectId,
+      projectKey: project.projectKey,
+      senderName: senderName,
+      allRecords: context.read<TimingStore>().records,
+      allDevices: context.read<DeviceStore>().allDevices,
+    );
+    if (!mounted) return;
+    _toast(outcome.message);
   }
 
   // =====================================================================

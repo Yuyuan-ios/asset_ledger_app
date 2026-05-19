@@ -280,4 +280,88 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test(
+    'records spanning multiple projects are rejected (no silent filter)',
+    () {
+      const other = TimingRecord(
+        id: 21,
+        deviceId: 1,
+        startDate: 20240105,
+        contact: '王五', // 不同项目
+        site: '工地B',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+      expect(
+        () => builder.build(
+          shareId: 's',
+          senderName: '李工',
+          sourceInstallationUuid: 'u',
+          records: const [r1, other],
+          deviceMap: {1: deviceA},
+          calcHistoryMap: const {},
+        ),
+        throwsArgumentError,
+      );
+    },
+  );
+
+  test('expectedProjectId mismatch is rejected', () {
+    expect(
+      () => builder.build(
+        shareId: 's',
+        senderName: '李工',
+        sourceInstallationUuid: 'u',
+        records: const [r1],
+        deviceMap: {1: deviceA},
+        calcHistoryMap: const {},
+        expectedProjectId: 'some-other-project',
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('rent originFingerprint ignores internal meter (exported null)', () {
+    const rentZero = TimingRecord(
+      id: 31,
+      deviceId: 2,
+      startDate: 20240106,
+      contact: '赵六',
+      site: '工地C',
+      type: TimingType.rent,
+      startMeter: 0.0,
+      endMeter: 0.0,
+      hours: 1.0,
+      income: 600.0,
+    );
+    const rentNoisyMeter = TimingRecord(
+      id: 31,
+      deviceId: 2,
+      startDate: 20240106,
+      contact: '赵六',
+      site: '工地C',
+      type: TimingType.rent,
+      startMeter: 88.0, // 内部噪声码表
+      endMeter: 99.0,
+      hours: 1.0,
+      income: 600.0,
+    );
+    String fp(TimingRecord r) => builder
+        .build(
+          shareId: 's',
+          senderName: '李工',
+          sourceInstallationUuid: 'u',
+          records: [r],
+          deviceMap: const {},
+          calcHistoryMap: const {},
+        )
+        .records
+        .single
+        .originFingerprint;
+    expect(fp(rentZero), fp(rentNoisyMeter));
+  });
 }

@@ -36,7 +36,10 @@ class ProjectExternalWorkShareExportResult {
   /// 写盘后才有；仅生成内容时为 null。
   final String? filePath;
 
-  ProjectExternalWorkShareExportResult withFilePath(String path) {
+  ProjectExternalWorkShareExportResult withFile({
+    required String fileName,
+    required String filePath,
+  }) {
     return ProjectExternalWorkShareExportResult(
       content: content,
       fileName: fileName,
@@ -45,7 +48,7 @@ class ProjectExternalWorkShareExportResult {
       recordCount: recordCount,
       deviceCount: deviceCount,
       totalIncomeFen: totalIncomeFen,
-      filePath: path,
+      filePath: filePath,
     );
   }
 }
@@ -116,10 +119,33 @@ class ProjectExternalWorkShareExportService {
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
-    final path = '${directory.path}${Platform.pathSeparator}${result.fileName}';
+    // 避免同名文件被静默覆盖：冲突时追加 _2 / _3 …，保留历史导出。
+    final uniqueName = await _resolveNonCollidingName(
+      directory,
+      result.fileName,
+    );
+    final path = '${directory.path}${Platform.pathSeparator}$uniqueName';
     final file = File(path);
     await file.writeAsString(result.content, flush: true);
-    return result.withFilePath(file.path);
+    return result.withFile(fileName: uniqueName, filePath: file.path);
+  }
+
+  static Future<String> _resolveNonCollidingName(
+    Directory directory,
+    String fileName,
+  ) async {
+    final stem = fileName.endsWith(fileExtension)
+        ? fileName.substring(0, fileName.length - fileExtension.length)
+        : fileName;
+    var candidate = fileName;
+    var seq = 1;
+    while (await File(
+      '${directory.path}${Platform.pathSeparator}$candidate',
+    ).exists()) {
+      seq += 1;
+      candidate = '${stem}_$seq$fileExtension';
+    }
+    return candidate;
   }
 
   static String _buildFileName(String senderName, DateTime createdAt) {

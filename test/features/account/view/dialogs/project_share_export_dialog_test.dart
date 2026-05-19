@@ -1,0 +1,72 @@
+import 'package:asset_ledger/features/account/view/dialogs/project_share_export_dialog.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('header actions show share + close and fire callbacks', (
+    tester,
+  ) async {
+    var shared = false;
+    var closed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProjectDetailHeaderActions(
+            onShare: () => shared = true,
+            onClose: () => closed = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.ios_share), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.ios_share));
+    expect(shared, isTrue);
+    await tester.tap(find.byIcon(Icons.close));
+    expect(closed, isTrue);
+  });
+
+  testWidgets('name dialog blocks empty and returns trimmed value', (
+    tester,
+  ) async {
+    String? captured = 'unset';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                captured = await showProjectShareNameDialog(context);
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('分享项目'), findsOneWidget);
+
+    // 空输入：点“生成分享包”不关闭，显示错误
+    await tester.tap(find.text('生成分享包'));
+    await tester.pump();
+    expect(find.text('请输入分享人姓名或包名'), findsOneWidget);
+    expect(find.text('分享项目'), findsOneWidget); // 仍开着
+
+    await tester.enterText(find.byType(TextField), '  老王外协  ');
+    await tester.tap(find.text('生成分享包'));
+    await tester.pumpAndSettle();
+    expect(captured, '老王外协'); // trim 后返回
+
+    // 再开一次测试取消
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(captured, isNull);
+  });
+}

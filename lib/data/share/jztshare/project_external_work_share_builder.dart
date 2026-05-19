@@ -27,6 +27,7 @@ class ProjectExternalWorkShareBuilder {
     required List<TimingRecord> records,
     required Map<int, Device> deviceMap,
     required Map<int, List<TimingCalculationHistory>> calcHistoryMap,
+    String? expectedProjectId,
   }) {
     final safeShareId = _requireNonBlank(shareId, 'shareId');
     final safeSenderName = _requireNonBlank(senderName, 'senderName');
@@ -36,6 +37,25 @@ class ProjectExternalWorkShareBuilder {
     );
     if (records.isEmpty) {
       throw ArgumentError.value(records, 'records', 'must not be empty');
+    }
+
+    // 防御调用方误把多个项目的记录混进同一个分享包：显式失败，不静默过滤
+    // （静默过滤会让用户误以为已完整导出）。
+    final projectIds = records.map((r) => r.effectiveProjectId).toSet();
+    if (projectIds.length > 1) {
+      throw ArgumentError.value(
+        records,
+        'records',
+        'records span multiple projects: $projectIds',
+      );
+    }
+    final expected = expectedProjectId?.trim() ?? '';
+    if (expected.isNotEmpty && projectIds.first != expected) {
+      throw ArgumentError.value(
+        records,
+        'records',
+        'records project ${projectIds.first} != expected $expected',
+      );
     }
 
     // 稳定排序：先 workDate(startDate)，再 timingRecordId。
@@ -131,20 +151,32 @@ class ProjectExternalWorkShareBuilder {
       'timing:$timingRecordId';
 
   // 来源指纹：稳定字段整数归一化后 sha256(hex)。导入端只比对、不重算，
-  // 字段顺序与口径在此固化，禁止随意调整。
+  // 字段顺序与口径在此固化，禁止随意调整。fingerprint_version 仍为 1：
+  // 算法仍是首个真实发布版（无任何已发布/已导入数据依赖旧 rent 口径），
+  // 故不升版本。
   // 顺序：sourceProjectKey | deviceId | workDate | startMeterMilli |
   //       endMeterMilli | hoursMilli | incomeFen | type | isBreaking(0/1)
+  // 码表口径：使用「导出后规范字段」参与指纹——hours 用千分整数码表；
+  // rent/台班导出 start/end_meter 为 null，故指纹中按空串归一化，
+  // 不泄漏 UI 不展示的内部 meter 值（有意设计，由测试锁定）。
   static String _originFingerprint(
     TimingRecord record,
     int hoursMilli,
     int incomeFen,
   ) {
+    final isHours = record.type == TimingType.hours;
+    final startMeterToken = isHours
+        ? (record.startMeter * 1000).round().toString()
+        : '';
+    final endMeterToken = isHours
+        ? (record.endMeter * 1000).round().toString()
+        : '';
     final canonical = [
       record.legacyProjectKey,
       record.deviceId,
       record.startDate,
-      (record.startMeter * 1000).round(),
-      (record.endMeter * 1000).round(),
+      startMeterToken,
+      endMeterToken,
       hoursMilli,
       incomeFen,
       record.type.name,
@@ -164,7 +196,8 @@ class ProjectExternalWorkShareBuilder {
         .where((h) => h.timingRecordId == recordId)
         .toList(growable: false);
     if (bound.isEmpty) return null;
-    // 取 createdAt 最新一条；createdAt 相同则按 id 升序做确定性 tie-break。
+    // 取 createdAt 最新一条；createdAt 相同则取 id 字典序较大的一条，
+    // 保证确定性（与入参顺序无关）。
     final latest = bound.reduce((a, b) {
       if (a.createdAt.isAfter(b.createdAt)) return a;
       if (b.createdAt.isAfter(a.createdAt)) return b;

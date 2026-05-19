@@ -257,6 +257,42 @@ void main() {
     expect(parsed.envelope.shareId, 'share-5c');
   });
 
+  test('same-name exports do not silently overwrite (_2, _3)', () async {
+    final dir = await Directory.systemTemp.createTemp('jztshare_5d_');
+    addTearDown(() => dir.delete(recursive: true));
+
+    final r1res = await service.exportToDirectory(
+      payload: payload(),
+      producer: producer,
+      createdAt: createdAt,
+      directory: dir,
+    );
+    final r2res = await service.exportToDirectory(
+      payload: payload(),
+      producer: producer,
+      createdAt: createdAt,
+      directory: dir,
+    );
+    final r3res = await service.exportToDirectory(
+      payload: payload(),
+      producer: producer,
+      createdAt: createdAt,
+      directory: dir,
+    );
+    expect(r1res.fileName, '李工_20240501.jztshare');
+    expect(r2res.fileName, '李工_20240501_2.jztshare');
+    expect(r3res.fileName, '李工_20240501_3.jztshare');
+    for (final r in [r1res, r2res, r3res]) {
+      expect(await File(r.filePath!).exists(), isTrue);
+    }
+    final files = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.jztshare'))
+        .toList();
+    expect(files.length, 3); // 三个文件都在，没被覆盖
+  });
+
   test('file name strips illegal characters', () {
     final p = builder.build(
       shareId: 's',
