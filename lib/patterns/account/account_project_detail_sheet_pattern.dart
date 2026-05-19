@@ -57,6 +57,7 @@ typedef AccountOpenMergedPaymentBatchEditor =
 class AccountProjectDetailSheet extends StatelessWidget {
   const AccountProjectDetailSheet({
     super.key,
+    this.projectId,
     required this.projectKey,
     required this.timingRecords,
     required this.allDevices,
@@ -78,6 +79,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     this.showInlineAddPayment = true,
   });
 
+  final String? projectId;
   final String projectKey;
   final List<TimingRecord> timingRecords;
   final List<Device> allDevices;
@@ -100,9 +102,13 @@ class AccountProjectDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hit = computed.projects
-        .where((project) => project.projectKey == projectKey)
-        .toList();
+    final normalizedProjectId = projectId?.trim() ?? '';
+    final hit = computed.projects.where((project) {
+      if (normalizedProjectId.isNotEmpty) {
+        return project.effectiveProjectId == normalizedProjectId;
+      }
+      return project.projectKey == projectKey;
+    }).toList();
 
     if (hit.isEmpty) {
       return const Padding(

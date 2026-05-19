@@ -68,6 +68,7 @@ void main() {
   ];
 
   Widget buildSheet({
+    String? projectId,
     required String projectKey,
     required AccountComputed computed,
     required AccountOpenSingleRateEditor onEditDeviceRate,
@@ -83,6 +84,7 @@ void main() {
       home: Scaffold(
         body: SingleChildScrollView(
           child: AccountProjectDetailSheet(
+            projectId: projectId,
             projectKey: projectKey,
             timingRecords: records,
             allDevices: devices,
@@ -449,6 +451,89 @@ void main() {
     await tester.pump();
 
     expect(deletedWriteOff?.id, 'write-off-1');
+  });
+
+  testWidgets('detail matches write-off by stable project id', (tester) async {
+    const sharedKey = '甲方||一号工地';
+    ProjectWriteOff? deletedWriteOff;
+
+    await tester.pumpWidget(
+      buildSheet(
+        projectId: 'project:settled',
+        projectKey: sharedKey,
+        computed: AccountComputed(
+          projects: const [
+            AccountProjectVM(
+              projectId: 'project:active',
+              projectKey: sharedKey,
+              displayName: '甲方 + 一号工地',
+              minYmd: 20260502,
+              deviceIds: [1],
+              hoursByDevice: {1: 10},
+              rentIncomeTotal: 0,
+              minRate: 100,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 1000,
+              received: 0,
+              remaining: 1000,
+              ratio: 0,
+              payments: [],
+            ),
+            AccountProjectVM(
+              projectId: 'project:settled',
+              projectKey: sharedKey,
+              displayName: '甲方 + 一号工地',
+              minYmd: 20260501,
+              deviceIds: [1],
+              hoursByDevice: {1: 12.6},
+              rentIncomeTotal: 0,
+              minRate: 100,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 1260,
+              received: 1200,
+              writeOff: 60,
+              remaining: 0,
+              ratio: 1200 / 1260,
+              settlementRatio: 1,
+              payments: [],
+            ),
+          ],
+          totalReceivable: 2260,
+          totalReceived: 1200,
+          totalWriteOff: 60,
+          totalRemaining: 1000,
+          totalRatio: 1200 / 2260,
+          settlementRate: 1260 / 2260,
+          deviceReceivables: const [],
+        ),
+        writeOffs: const [
+          ProjectWriteOff(
+            id: 'write-off-settled',
+            projectId: 'project:settled',
+            amount: 60,
+            reason: 'settlement',
+            writeOffDate: '2026-05-18',
+            createdAt: '2026-05-18T00:00:00.000Z',
+            updatedAt: '2026-05-18T00:00:00.000Z',
+          ),
+        ],
+        onEditDeviceRate: (_, _, _, _, _) async {},
+        onSettleProject: (_) async {},
+        onDeleteWriteOff: (writeOff) async {
+          deletedWriteOff = writeOff;
+        },
+      ),
+    );
+
+    expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsOneWidget);
+    expect(find.text('撤销'), findsOneWidget);
+
+    await tester.tap(find.text('撤销'));
+    await tester.pump();
+
+    expect(deletedWriteOff?.id, 'write-off-settled');
   });
 
   testWidgets(

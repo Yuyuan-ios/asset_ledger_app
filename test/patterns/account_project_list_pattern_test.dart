@@ -366,6 +366,84 @@ void main() {
     expect(find.text('余: ¥22000 / ¥22000'), findsNothing);
   });
 
+  testWidgets('compact settled cards show write-off text or blank left side', (
+    tester,
+  ) async {
+    const cashSettled = AccountProjectVM(
+      projectKey: 'cash',
+      displayName: '甲方 + 现金结清',
+      minYmd: 20260501,
+      deviceIds: [1],
+      hoursByDevice: {1: 12.6},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1260,
+      remaining: 0,
+      ratio: 1,
+      payments: [],
+    );
+    const writeOffSettled = AccountProjectVM(
+      projectKey: 'write-off',
+      displayName: '甲方 + 核销结清',
+      minYmd: 20260502,
+      deviceIds: [1],
+      hoursByDevice: {1: 12.6},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1200,
+      writeOff: 60,
+      remaining: 0,
+      ratio: 1200 / 1260,
+      settlementRatio: 1,
+      payments: [],
+    );
+    const pending = AccountProjectVM(
+      projectKey: 'pending',
+      displayName: '甲方 + 未结清',
+      minYmd: 20260503,
+      deviceIds: [1],
+      hoursByDevice: {1: 12},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 600,
+      remaining: 660,
+      ratio: 600 / 1260,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [cashSettled, writeOffSettled, pending],
+            isCompact: true,
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('核销(减免) ¥60'), findsOneWidget);
+    expect(find.text('已结清'), findsNWidgets(2));
+    expect(find.text('项目总额¥1260'), findsNothing);
+    expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsNothing);
+    expect(find.text('95.2%实收'), findsNothing);
+    expect(find.text('47.6%实收'), findsOneWidget);
+    expect(find.text('余: ¥660 / ¥1260'), findsNothing);
+    expect(find.text('待收 ¥660'), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFF7FCF8)), findsNWidgets(2));
+    expect(_settledCheckIcons(), findsNWidgets(2));
+  });
+
   testWidgets('project header toggles compact mode from title group only', (
     tester,
   ) async {
