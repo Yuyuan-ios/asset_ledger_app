@@ -602,36 +602,6 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     return null;
   }
 
-  String _formatWriteOffDate(String value) {
-    final normalized = value
-        .trim()
-        .replaceAll('-', '')
-        .replaceAll('.', '')
-        .replaceAll('/', '');
-    final ymd = int.tryParse(normalized);
-    if (ymd == null || normalized.length != 8) return value;
-    return FormatUtils.date(ymd);
-  }
-
-  String _writeOffReasonLabel(String value) {
-    switch (ProjectWriteOffReasonX.fromDbValue(value)) {
-      case ProjectWriteOffReason.rounding:
-        return '抹零';
-      case ProjectWriteOffReason.qualityDeduction:
-        return '质量扣款';
-      case ProjectWriteOffReason.underpaid:
-        return '客户少付';
-      case ProjectWriteOffReason.badDebt:
-        return '坏账核销';
-      case ProjectWriteOffReason.settlement:
-        return '协商结清';
-      case ProjectWriteOffReason.offset:
-        return '抵账';
-      case ProjectWriteOffReason.other:
-        return '其他';
-    }
-  }
-
   String _hoursText(double h) {
     final rounded = h.toStringAsFixed(1);
     final normalized = rounded.endsWith('.0')

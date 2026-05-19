@@ -241,14 +241,6 @@ class ProjectAccountDetailContent extends StatelessWidget {
       height: 1,
       color: TimingColors.chartIncome,
     );
-    final writeOffReasonStyle = AppTypography.body(
-      context,
-      fontSize: 15,
-      fontWeight: FontWeight.w500,
-      height: 1,
-      color: SheetColors.textPrimary,
-    );
-
     final visibleDetailRows =
         detailRows ?? _buildDeviceDetailRows(devices: devices);
     final visiblePaymentItems =
@@ -279,17 +271,6 @@ class ProjectAccountDetailContent extends StatelessWidget {
         ),
 
         const SizedBox(height: AppSpace.md),
-
-        if (writeOffs.isNotEmpty) ...[
-          _buildWriteOffSection(
-            sectionTitleStyle: sectionTitleStyle,
-            dateStyle: paymentDateStyle,
-            amountStyle: paymentAmountStyle,
-            reasonStyle: writeOffReasonStyle,
-            remarkStyle: paymentRemarkStyle,
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
 
         // ───────────────── 收款记录 ─────────────────
         Padding(
