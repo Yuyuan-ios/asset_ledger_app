@@ -1,35 +1,32 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-/// 顶部标题右侧的“分享 + 关闭”动作组。
-///
-/// 注意：AppBottomSheetShell 在提供 headerTrailing 时会替换默认关闭按钮，
-/// 因此这里必须同时承载分享与关闭，保证原关闭行为不丢。
-class ProjectDetailHeaderActions extends StatelessWidget {
-  const ProjectDetailHeaderActions({
-    super.key,
-    required this.onShare,
-    required this.onClose,
-  });
+class ProjectDetailShareButton extends StatelessWidget {
+  const ProjectDetailShareButton({super.key, required this.onPressed});
 
-  final VoidCallback onShare;
-  final VoidCallback onClose;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip: '分享项目',
-          icon: const Icon(Icons.ios_share),
-          onPressed: onShare,
+    return SizedBox.square(
+      dimension: 38,
+      child: IconButton(
+        key: const Key('project-detail-share-button'),
+        tooltip: '分享项目',
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+        style: IconButton.styleFrom(
+          foregroundColor: const Color(0xFF111111),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        IconButton(
-          tooltip: '关闭',
-          icon: const Icon(Icons.close),
-          onPressed: onClose,
+        icon: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.rotationY(math.pi),
+          child: const Icon(Icons.reply_rounded, size: 32),
         ),
-      ],
+        onPressed: onPressed,
+      ),
     );
   }
 }
