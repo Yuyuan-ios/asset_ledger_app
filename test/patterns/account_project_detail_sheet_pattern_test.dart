@@ -467,9 +467,9 @@ void main() {
     expect(find.text('已收 95.2%'), findsNothing);
     expect(find.text('待收 ¥0'), findsNothing);
     expect(find.text('已核销 ¥60'), findsNothing);
-    expect(find.text('核销记录'), findsOneWidget);
-    expect(find.text('抹零'), findsOneWidget);
-    expect(find.text('备注：尾款抹零'), findsOneWidget);
+    expect(find.text('核销记录'), findsNothing);
+    expect(find.text('抹零'), findsNothing);
+    expect(find.text('备注：尾款抹零'), findsNothing);
     expect(find.byTooltip('删除核销记录'), findsNothing);
 
     await tester.tap(find.text('已结清，点此撤销'));
