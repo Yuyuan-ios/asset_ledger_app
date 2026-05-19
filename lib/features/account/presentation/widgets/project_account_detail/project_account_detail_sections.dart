@@ -459,7 +459,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     final actionStyle = (style ?? DefaultTextStyle.of(context).style).copyWith(
       color: AccountTokens.projectDetailActionColor,
       fontSize: 14,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w400,
     );
     return InkWell(
       onTap: onSettleProject,
