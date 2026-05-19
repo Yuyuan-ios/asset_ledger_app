@@ -261,7 +261,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('暂无项目外协记录'), findsOneWidget);
-    expect(find.text('从他人分享包导入的项目记录会显示在这里'), findsOneWidget);
+    expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsNothing);
   });
 

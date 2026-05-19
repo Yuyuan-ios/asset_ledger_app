@@ -27,6 +27,7 @@ class TimingHomePattern extends StatefulWidget {
     required this.deviceIndexById,
     this.onTapRecord,
     this.onTapExternalWorkRecord,
+    this.onImportExternalWork,
     required this.loading,
     this.error,
     this.onRetry,
@@ -43,6 +44,7 @@ class TimingHomePattern extends StatefulWidget {
   final Map<int, String> deviceIndexById;
   final ValueChanged<TimingRecord>? onTapRecord;
   final ValueChanged<TimingExternalWorkRecordItem>? onTapExternalWorkRecord;
+  final VoidCallback? onImportExternalWork;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
@@ -171,6 +173,7 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
                           ...buildTimingExternalWorkRecordSlivers(
                             items: widget.externalWorkItems,
                             onTapRecord: widget.onTapExternalWorkRecord,
+                            onImportShareFile: widget.onImportExternalWork,
                           ),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: TimingTokens.homeBottomGap),

@@ -10,19 +10,35 @@ import '../../tokens/mapper/timing_tokens.dart';
 List<Widget> buildTimingExternalWorkRecordSlivers({
   required List<TimingExternalWorkRecordItem> items,
   ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
+  VoidCallback? onImportShareFile,
 }) {
   if (items.isEmpty) {
-    return const <Widget>[
+    return <Widget>[
       SliverToBoxAdapter(
-        child: AppRecentRecordsEmptyState(
-          title: '暂无项目外协记录',
-          subtitle: '从他人分享包导入的项目记录会显示在这里',
+        child: Column(
+          children: [
+            const AppRecentRecordsEmptyState(
+              title: '暂无项目外协记录',
+              subtitle: '从他人分享的 .jzt 文件导入后，会显示在这里',
+            ),
+            if (onImportShareFile != null) ...[
+              const SizedBox(height: 12),
+              _ImportShareFileButton(onPressed: onImportShareFile),
+            ],
+          ],
         ),
       ),
     ];
   }
 
   return <Widget>[
+    if (onImportShareFile != null)
+      SliverToBoxAdapter(
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: _ImportShareFileButton(onPressed: onImportShareFile),
+        ),
+      ),
     SliverToBoxAdapter(
       child: _ExternalWorkRecordGroupCard(
         rows: [
@@ -35,6 +51,22 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
       ),
     ),
   ];
+}
+
+class _ImportShareFileButton extends StatelessWidget {
+  const _ImportShareFileButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      key: const Key('timing-external-work-import-share-file'),
+      onPressed: onPressed,
+      icon: const Icon(Icons.file_download_outlined, size: 18),
+      label: const Text('导入项目外协包'),
+    );
+  }
 }
 
 class ExternalWorkRecordDetailContent extends StatelessWidget {

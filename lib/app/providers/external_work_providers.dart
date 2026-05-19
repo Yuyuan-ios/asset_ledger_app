@@ -3,7 +3,9 @@ import 'package:provider/single_child_widget.dart';
 
 import '../../data/repositories/external_import_repository.dart';
 import '../../data/repositories/external_work_record_repository.dart';
+import '../../data/services/project_share_file_picker.dart';
 import '../../features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart';
+import '../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
 import '../../features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
 
@@ -26,6 +28,9 @@ class ExternalWorkProviders {
     );
     const prepareImportPreview = PrepareExternalWorkImportPreviewUseCase();
     const confirmImport = ConfirmExternalWorkImportUseCase();
+    const pickShareFile = PickExternalWorkShareFileUseCase(
+      FilePickerProjectShareFilePicker(),
+    );
 
     return ExternalWorkProviders._(
       timingExternalWorkStore: timingExternalWorkStore,
@@ -39,6 +44,7 @@ class ExternalWorkProviders {
           value: prepareImportPreview,
         ),
         Provider<ExternalWorkImportConfirmer>.value(value: confirmImport),
+        Provider<PickExternalWorkShareFileUseCase>.value(value: pickShareFile),
       ],
     );
   }
