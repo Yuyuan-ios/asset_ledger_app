@@ -308,7 +308,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           horizontal: AccountTokens.projectCardPaddingHorizontal,
           vertical: AccountTokens.projectCardPaddingTop,
         ),
-        decoration: _cardDecoration(),
+        decoration: _progressCardDecoration(),
         child: Column(
           children: [
             SizedBox(
@@ -478,6 +478,29 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   }
 
   BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: SheetColors.background,
+      border: Border.all(
+        color: AccountTokens.projectCardBorderColor,
+        width: AccountTokens.projectCardBorderWidth,
+      ),
+      borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(
+            alpha: AccountTokens.projectCardShadowOpacity,
+          ),
+          blurRadius: AccountTokens.projectCardShadowBlur,
+          offset: const Offset(
+            AccountTokens.projectCardShadowOffsetX,
+            AccountTokens.projectCardShadowOffsetY,
+          ),
+        ),
+      ],
+    );
+  }
+
+  BoxDecoration _progressCardDecoration() {
     return BoxDecoration(
       color: SheetColors.background,
       border: Border.all(
