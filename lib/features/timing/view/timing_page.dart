@@ -16,6 +16,8 @@ import '../domain/repositories/timing_calculation_history_repository.dart';
 import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
+import '../../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
+import '../../../features/external_work/import_preview/view/external_work_import_preview_page.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
 import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
@@ -378,6 +380,30 @@ class _TimingPageState extends State<TimingPage> {
     );
   }
 
+  // 阶段6：选择 .jzt(/历史 .jztshare) 文件 → 读取文本 → 进入现有外协导入预览。
+  // 不解析 envelope（交给现有 parser/duplicate checker/importer）。
+  Future<void> _openImportExternalWorkShare() async {
+    final result = await context
+        .read<PickExternalWorkShareFileUseCase>()
+        .pick();
+    if (!mounted) return;
+    switch (result) {
+      case PickShareFileCancelled():
+        return;
+      case PickShareFileError(:final message):
+        _toast(message);
+      case PickShareFileContent(:final content):
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ExternalWorkImportPreviewPage(initialContent: content),
+          ),
+        );
+        if (!mounted) return;
+        unawaited(context.read<TimingExternalWorkStore>().loadAll());
+    }
+  }
+
   void _moveTargetYear(int delta) {
     final next = _targetYear + delta;
     if (next < _minChartYear || next > _maxChartYear) {
@@ -447,6 +473,7 @@ class _TimingPageState extends State<TimingPage> {
       deviceIndexById: deviceIndexById,
       onTapRecord: (r) => _openTimingEditor(editing: r),
       onTapExternalWorkRecord: _openExternalWorkDetail,
+      onImportExternalWork: _openImportExternalWorkShare,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),
