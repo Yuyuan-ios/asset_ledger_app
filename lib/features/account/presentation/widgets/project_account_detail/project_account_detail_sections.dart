@@ -287,10 +287,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         onSettleProject != null;
     final isSettled = hasProjectTotal && displayRemaining <= _moneyEpsilon;
     final canRevokeWriteOff =
-        isSettled &&
-        writeOff > _moneyEpsilon &&
-        writeOffs.isNotEmpty &&
-        onDeleteWriteOff != null;
+        isSettled && writeOff > _moneyEpsilon && onRevokeWriteOff != null;
     final settlementPillLabel = canRevokeWriteOff
         ? '撤销'
         : canSettle
@@ -298,7 +295,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         : '已结清';
     final settlementPillEnabled = canSettle || canRevokeWriteOff;
     final settlementPillTap = canRevokeWriteOff
-        ? () => onDeleteWriteOff?.call(writeOffs.first)
+        ? onRevokeWriteOff
         : onSettleProject;
     final settledSummary = writeOff > _moneyEpsilon
         ? '项目总额 ${FormatUtils.money(receivable)} 核销(减免) ${FormatUtils.money(writeOff)}'

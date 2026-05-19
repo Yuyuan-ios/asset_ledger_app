@@ -42,6 +42,9 @@ typedef AccountDeleteProjectWriteOff =
 typedef AccountOpenProjectSettlement =
     Future<void> Function(AccountProjectVM project);
 
+typedef AccountRevokeProjectWriteOff =
+    Future<void> Function(AccountProjectVM project);
+
 typedef AccountDissolveMergeGroup =
     Future<void> Function(AccountProjectVM project);
 
@@ -71,6 +74,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     required this.onEditPayment,
     required this.onDeletePayment,
     this.onDeleteWriteOff,
+    this.onRevokeProjectWriteOff,
     this.onSettleProject,
     this.onDissolveMergeGroup,
     this.onAddMergedPayment,
@@ -93,6 +97,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final AccountOpenPaymentEditor onEditPayment;
   final AccountDeletePayment onDeletePayment;
   final AccountDeleteProjectWriteOff? onDeleteWriteOff;
+  final AccountRevokeProjectWriteOff? onRevokeProjectWriteOff;
   final AccountOpenProjectSettlement? onSettleProject;
   final AccountDissolveMergeGroup? onDissolveMergeGroup;
   final AccountOpenMergedPaymentEditor? onAddMergedPayment;
@@ -118,6 +123,8 @@ class AccountProjectDetailSheet extends StatelessWidget {
     }
 
     final project = hit.first;
+    final projectWriteOffs = _writeOffsForProject(project);
+    final revokeWriteOff = _revokeWriteOffAction(project, projectWriteOffs);
     if (project.kind == AccountProjectKind.merged) {
       final detailRows = _buildMergedDetailRows(project);
       final paymentDisplayItems = buildMergedPaymentDisplayItems(
@@ -136,7 +143,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         writeOff: project.writeOff,
         remaining: project.remaining,
         payments: project.payments,
-        writeOffs: _writeOffsForProject(project),
+        writeOffs: projectWriteOffs,
         paymentDisplayItems: paymentDisplayItems,
         detailRows: detailRows,
         showBatchAction:
@@ -164,6 +171,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         onEditPayment: (_) {},
         onDeletePayment: (_) {},
         onDeleteWriteOff: onDeleteWriteOff,
+        onRevokeWriteOff: revokeWriteOff,
         onEditPaymentDisplayItem: (payment) =>
             onEditMergedPaymentBatch?.call(project, payment),
         onDeletePaymentDisplayItem: (payment) =>
@@ -216,7 +224,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       writeOff: project.writeOff,
       remaining: project.remaining,
       payments: project.payments,
-      writeOffs: _writeOffsForProject(project),
+      writeOffs: projectWriteOffs,
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
       onEditDeviceRate: (deviceId, isBreaking) =>
           onEditDeviceRate(project, deviceId, isBreaking, allDevices, allRates),
@@ -233,15 +241,31 @@ class AccountProjectDetailSheet extends StatelessWidget {
       ),
       onDeletePayment: onDeletePayment,
       onDeleteWriteOff: onDeleteWriteOff,
+      onRevokeWriteOff: revokeWriteOff,
     );
   }
 
+  VoidCallback? _revokeWriteOffAction(
+    AccountProjectVM project,
+    List<ProjectWriteOff> projectWriteOffs,
+  ) {
+    final revokeProject = onRevokeProjectWriteOff;
+    if (revokeProject != null) {
+      return () => revokeProject(project);
+    }
+    final deleteWriteOff = onDeleteWriteOff;
+    if (deleteWriteOff == null || projectWriteOffs.isEmpty) return null;
+    return () => deleteWriteOff(projectWriteOffs.first);
+  }
+
   List<ProjectWriteOff> _writeOffsForProject(AccountProjectVM project) {
-    final projectIds = project.kind == AccountProjectKind.merged
-        ? project.memberProjectIds.toSet()
-        : {project.effectiveProjectId};
+    final projectIds = {
+      project.effectiveProjectId.trim(),
+      if (project.kind == AccountProjectKind.merged)
+        ...project.memberProjectIds.map((id) => id.trim()),
+    }..removeWhere((id) => id.isEmpty);
     return allWriteOffs
-        .where((item) => projectIds.contains(item.projectId))
+        .where((item) => projectIds.contains(item.projectId.trim()))
         .toList(growable: false);
   }
 

@@ -441,6 +441,27 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
+  Future<void> _revokeProjectWriteOff(AccountProjectVM project) async {
+    final projectIds = {
+      project.effectiveProjectId.trim(),
+      if (project.kind == AccountProjectKind.merged)
+        ...project.memberProjectIds.map((id) => id.trim()),
+    }..removeWhere((id) => id.isEmpty);
+    final writeOffs = context
+        .read<AccountStore>()
+        .writeOffs
+        .where((item) {
+          return projectIds.contains(item.projectId.trim());
+        })
+        .toList(growable: false);
+
+    if (writeOffs.length != 1) {
+      _toast('该项目核销记录异常，请先检查核销记录。');
+      return;
+    }
+    await _revokeWriteOff(writeOffs.single);
+  }
+
   // =====================================================================
   // ============================== E) 项目筛选 BottomSheet ==============================
   // =====================================================================
@@ -587,6 +608,7 @@ class _AccountPageState extends State<AccountPage> {
                     onEditPayment: _openPaymentEditor,
                     onDeletePayment: _deletePayment,
                     onDeleteWriteOff: _revokeWriteOff,
+                    onRevokeProjectWriteOff: _revokeProjectWriteOff,
                     onSettleProject: _openProjectSettlement,
                     onDissolveMergeGroup: (project) =>
                         _confirmDissolveMergeGroup(project, sheetContext),

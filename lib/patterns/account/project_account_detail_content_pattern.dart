@@ -99,6 +99,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   onDeletePaymentDisplayItem;
   final void Function(ProjectAccountDetailRateRow row)? onEditRateRow;
   final void Function(ProjectWriteOff item)? onDeleteWriteOff;
+  final VoidCallback? onRevokeWriteOff;
 
   const ProjectAccountDetailContent({
     super.key,
@@ -131,6 +132,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.showAddPayment = true,
     this.onEditRateRow,
     this.onDeleteWriteOff,
+    this.onRevokeWriteOff,
   });
 
   @override
