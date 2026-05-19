@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
@@ -26,6 +27,7 @@ class _FakeSharePresenter implements ProjectShareFilePresenter {
   String? fileName;
   String? text;
   String? subject;
+  Rect? sharePositionOrigin;
 
   @override
   Future<void> share({
@@ -33,12 +35,14 @@ class _FakeSharePresenter implements ProjectShareFilePresenter {
     required String fileName,
     required String text,
     required String subject,
+    Rect? sharePositionOrigin,
   }) async {
     calls++;
     this.filePath = filePath;
     this.fileName = fileName;
     this.text = text;
     this.subject = subject;
+    this.sharePositionOrigin = sharePositionOrigin;
     final err = throwError;
     if (err != null) throw err;
   }
@@ -87,13 +91,18 @@ void main() {
     );
 
     expect(outcome.ok, isTrue);
-    expect(outcome.message, contains('分享包已生成'));
+    expect(outcome.message, '分享包已生成，已打开分享面板');
     expect(presenter.calls, 1);
-    expect(presenter.filePath, endsWith('.jztshare'));
+    expect(presenter.filePath, endsWith('.jzt'));
+    expect(presenter.filePath, isNot(contains('.jztshare')));
     expect(presenter.fileName, outcome.fileName);
+    expect(presenter.fileName, endsWith('.jzt'));
     expect(presenter.subject, '分享项目外协记录');
     expect(presenter.text, contains('机账通'));
-    expect(presenter.text, contains('项目外协记录包'));
+    expect(presenter.text, contains('项目外协记录'));
+    expect(presenter.text, contains('.jzt'));
+    expect(presenter.text, isNot(contains('.jztshare')));
+    expect(presenter.sharePositionOrigin, isNull); // 暂不传，默认透传 null
     expect(await File('${dir.path}/${outcome.fileName}').exists(), isTrue);
   });
 
@@ -121,10 +130,10 @@ void main() {
       );
 
       expect(outcome.ok, isFalse);
-      expect(outcome.message, '分享面板打开失败，可稍后重试');
-      // 文件仍保留在 jztshare_exports/，不删除
+      expect(outcome.message, '分享面板打开失败，分享包已保留，可稍后重试');
+      // 文件仍保留在导出目录，不删除
       final files = dir.listSync().whereType<File>().where(
-        (f) => f.path.endsWith('.jztshare'),
+        (f) => f.path.endsWith('.jzt'),
       );
       expect(files.length, 1);
     },

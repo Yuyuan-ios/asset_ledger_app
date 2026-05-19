@@ -22,7 +22,7 @@ class ProjectExternalWorkShareExportResult {
     this.filePath,
   });
 
-  /// 完整 .jztshare 文件内容（合法 JSON envelope）。
+  /// 完整 .jzt 文件内容（合法 JSON envelope）。
   final String content;
   final String fileName;
 
@@ -53,7 +53,7 @@ class ProjectExternalWorkShareExportResult {
   }
 }
 
-/// 把 5B 富 payload 包成合法 .jztshare envelope，并可写入指定目录。
+/// 把 5B 富 payload 包成合法 JSON envelope（对外 .jzt 文件），并写入指定目录。
 ///
 /// - 复用既有 [JztShareEnvelope] 常量与 [JztShareEnvelopeValidator] 的
 ///   规范化 sha256，保证现有 parser/validator 能识别、且与 backup 包不混淆。
@@ -62,7 +62,8 @@ class ProjectExternalWorkShareExportResult {
 class ProjectExternalWorkShareExportService {
   const ProjectExternalWorkShareExportService();
 
-  static const String fileExtension = '.jztshare';
+  // 分享包对外文件扩展名统一为 .jzt；envelope/payload 结构不变。
+  static const String fileExtension = '.jzt';
 
   /// 仅生成 envelope 内容，不写盘（纯函数，便于测试）。
   /// [createdAt] 由调用方注入以保证可测/确定。

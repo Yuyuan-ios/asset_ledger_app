@@ -660,8 +660,7 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  // 项目详情右上角“分享项目”：输入分享人/包名 → 生成 .jztshare 文件。
-  // 仅生成文件 + 成功提示；系统分享面板留待 5E。
+  // 项目详情右上角“分享项目”：输入分享人/包名 → 生成 .jzt 文件并调起系统分享面板。
   Future<void> _openProjectShare(AccountProjectVM project) async {
     final senderName = await showProjectShareNameDialog(context);
     if (senderName == null || !mounted) return;

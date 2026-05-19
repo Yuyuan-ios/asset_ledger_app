@@ -237,7 +237,7 @@ void main() {
     expect(g1.meterErrorMilli, 2000);
   });
 
-  test('exportToDirectory writes a parseable .jztshare file', () async {
+  test('exportToDirectory writes a parseable .jzt file', () async {
     final dir = await Directory.systemTemp.createTemp('jztshare_5c_');
     addTearDown(() => dir.delete(recursive: true));
 
@@ -248,7 +248,7 @@ void main() {
       directory: dir,
     );
     expect(result.filePath, isNotNull);
-    expect(result.fileName, '李工_20240501.jztshare');
+    expect(result.fileName, '李工_20240501.jzt');
     final file = File(result.filePath!);
     expect(await file.exists(), isTrue);
     final content = await file.readAsString();
@@ -279,16 +279,16 @@ void main() {
       createdAt: createdAt,
       directory: dir,
     );
-    expect(r1res.fileName, '李工_20240501.jztshare');
-    expect(r2res.fileName, '李工_20240501_2.jztshare');
-    expect(r3res.fileName, '李工_20240501_3.jztshare');
+    expect(r1res.fileName, '李工_20240501.jzt');
+    expect(r2res.fileName, '李工_20240501_2.jzt');
+    expect(r3res.fileName, '李工_20240501_3.jzt');
     for (final r in [r1res, r2res, r3res]) {
       expect(await File(r.filePath!).exists(), isTrue);
     }
     final files = dir
         .listSync()
         .whereType<File>()
-        .where((f) => f.path.endsWith('.jztshare'))
+        .where((f) => f.path.endsWith('.jzt'))
         .toList();
     expect(files.length, 3); // 三个文件都在，没被覆盖
   });
@@ -307,9 +307,10 @@ void main() {
       producer: producer,
       createdAt: createdAt,
     );
-    expect(result.fileName, endsWith('.jztshare'));
+    expect(result.fileName, endsWith('.jzt'));
+    expect(result.fileName, isNot(contains('.jztshare')));
     expect(result.fileName, isNot(contains('/')));
-    expect(result.fileName, matches(RegExp(r'^[^\\/:*?"<>|]+\.jztshare$')));
-    expect(result.fileName, 'a_b_c_d_e_20240501.jztshare');
+    expect(result.fileName, matches(RegExp(r'^[^\\/:*?"<>|]+\.jzt$')));
+    expect(result.fileName, 'a_b_c_d_e_20240501.jzt');
   });
 }

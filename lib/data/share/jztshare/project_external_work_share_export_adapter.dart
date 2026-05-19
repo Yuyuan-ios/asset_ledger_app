@@ -25,7 +25,7 @@ class ProjectShareExportException implements Exception {
   String toString() => 'ProjectShareExportException($code): $message';
 }
 
-/// 把“当前项目”的计时数据组装成 .jztshare 文件的协调层。
+/// 把“当前项目”的计时数据组装成 .jzt 分享文件的协调层。
 ///
 /// 集中放置：项目记录过滤、deviceMap/calcHistoryMap 组装、id 派生、
 /// builder + export service 调用、错误归一。Widget 不做这些。
