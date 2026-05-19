@@ -73,6 +73,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final double writeOff;
   final double remaining;
   final bool? isProjectSettled;
+  final bool hasUniqueWriteOffForRevoke;
 
   final List<AccountPayment> payments;
   final List<ProjectWriteOff> writeOffs;
@@ -115,6 +116,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.writeOff = 0,
     required this.remaining,
     this.isProjectSettled,
+    this.hasUniqueWriteOffForRevoke = false,
     required this.payments,
     this.writeOffs = const [],
     required this.onBatchEditRate,

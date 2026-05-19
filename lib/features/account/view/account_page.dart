@@ -131,11 +131,6 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   Future<void> _openProjectSettlement(AccountProjectVM project) async {
-    if (project.kind != AccountProjectKind.normal) {
-      _toast('合并项目暂不支持直接结清');
-      return;
-    }
-
     final result = await showDialog<ProjectSettlementResult>(
       context: context,
       barrierDismissible: false,
@@ -168,10 +163,19 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   AccountProjectVM _latestProjectForSettlement(AccountProjectVM project) {
+    if (project.kind == AccountProjectKind.merged) {
+      return _latestProjectByProjectId(
+        project.effectiveProjectId,
+        includeMergeGroups: true,
+      );
+    }
     return _latestProjectByProjectId(project.effectiveProjectId);
   }
 
-  AccountProjectVM _latestProjectByProjectId(String projectId) {
+  AccountProjectVM _latestProjectByProjectId(
+    String projectId, {
+    bool includeMergeGroups = false,
+  }) {
     final normalizedProjectId = projectId.trim();
     final timingStore = context.read<TimingStore>();
     final deviceStore = context.read<DeviceStore>();
@@ -183,7 +187,7 @@ class _AccountPageState extends State<AccountPage> {
       devices: deviceStore.allDevices,
       rates: rateStore.rates,
       payments: paymentStore.records,
-      activeMergeGroups: const [],
+      activeMergeGroups: includeMergeGroups ? null : const [],
     );
     for (final item in computed.projects) {
       if (item.effectiveProjectId == normalizedProjectId) {
