@@ -146,7 +146,7 @@ class _ExternalWorkImportPreviewContentState
                   maxLines: 6,
                   minLines: 4,
                   decoration: const InputDecoration(
-                    labelText: '.jztshare 内容',
+                    labelText: '.jzt 内容',
                     border: OutlineInputBorder(),
                   ),
                 ),

@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:share_plus/share_plus.dart';
 
-/// 调起系统分享面板分享 .jztshare 文件失败时抛出。
+/// 调起系统分享面板分享 .jzt 文件失败时抛出。
 class ProjectShareSheetException implements Exception {
   const ProjectShareSheetException(this.message);
 
@@ -12,15 +13,18 @@ class ProjectShareSheetException implements Exception {
   String toString() => message;
 }
 
-/// 把已生成的 .jztshare 文件交给系统分享面板。
+/// 把已生成的 .jzt 文件交给系统分享面板。
 ///
 /// 抽象出来便于在 widget/use case 测试中注入 fake，避免触发平台插件。
 abstract class ProjectShareFilePresenter {
+  /// [sharePositionOrigin] 仅用于 iPad 分享面板锚点，可选；data/service
+  /// 层只接受 dart:ui Rect，不反向依赖 Flutter Widget context。
   Future<void> share({
     required String filePath,
     required String fileName,
     required String text,
     required String subject,
+    Rect? sharePositionOrigin,
   });
 }
 
@@ -34,6 +38,7 @@ class SystemProjectShareFilePresenter implements ProjectShareFilePresenter {
     required String fileName,
     required String text,
     required String subject,
+    Rect? sharePositionOrigin,
   }) async {
     final normalizedPath = filePath.trim();
     if (normalizedPath.isEmpty) {
@@ -45,12 +50,13 @@ class SystemProjectShareFilePresenter implements ProjectShareFilePresenter {
     try {
       await SharePlus.instance.share(
         ShareParams(
-          // .jztshare 本质是 JSON 数据包；分享真实文件，而非文本/路径串。
+          // .jzt 本质是 JSON 数据包；分享真实文件，而非文本/路径串。
           files: [XFile(normalizedPath, mimeType: 'application/json')],
           fileNameOverrides: [fileName],
           subject: subject,
           title: subject,
           text: text,
+          sharePositionOrigin: sharePositionOrigin,
         ),
       );
       // 用户取消（dismissed）不会抛异常，按非错误处理。
