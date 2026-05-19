@@ -47,6 +47,7 @@ class _TimingPageState extends State<TimingPage> {
 
   late int _targetYear;
   late int _targetMonth;
+  var _recordsSection = TimingRecordsSection.recent;
 
   int get _maxChartYear => DateTime.now().year;
 
@@ -395,6 +396,10 @@ class _TimingPageState extends State<TimingPage> {
         onNextYear: () => _moveTargetYear(1),
       ),
       recordsTitle: RecordsTitle(count: timingStore.records.length),
+      recordsSection: _recordsSection,
+      onRecordsSectionChanged: (section) {
+        setState(() => _recordsSection = section);
+      },
       records: timingStore.records,
       deviceById: deviceById,
       deviceIndexById: deviceIndexById,

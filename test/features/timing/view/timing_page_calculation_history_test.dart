@@ -229,6 +229,88 @@ void main() {
     expect(find.byType(Dismissible), findsNothing);
   });
 
+  testWidgets('timing records section defaults to recent records', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    expect(find.text('最近记录(1)'), findsOneWidget);
+    expect(find.text('最近记录'), findsOneWidget);
+    expect(find.text('外协项目'), findsOneWidget);
+    expect(find.text('甲方·一号工地'), findsOneWidget);
+    expect(find.text('暂无外协项目记录'), findsNothing);
+  });
+
+  testWidgets('external work section shows empty scaffold', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('外协项目'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无外协项目记录'), findsOneWidget);
+    expect(find.text('从他人分享包导入的项目记录会显示在这里'), findsOneWidget);
+    expect(find.text('甲方·一号工地'), findsNothing);
+  });
+
+  testWidgets('can switch from external work section back to recent records', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('外协项目'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最近记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无外协项目记录'), findsNothing);
+    expect(find.text('甲方·一号工地'), findsOneWidget);
+  });
+
+  testWidgets('recent records remain editable after switching sections', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('外协项目'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最近记录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('甲方·一号工地'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑计时'), findsOneWidget);
+  });
+
+  testWidgets('external work empty scaffold has no edit or delete entry', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('外协项目'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新增'), findsNothing);
+    expect(find.text('编辑计时'), findsNothing);
+    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+  });
+
   testWidgets(
     'keeps merge group after editing project address on same projectId',
     (WidgetTester tester) async {
