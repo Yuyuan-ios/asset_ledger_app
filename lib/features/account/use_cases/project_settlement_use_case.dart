@@ -104,6 +104,22 @@ class ProjectSettlementUseCase {
     );
   }
 
+  Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus({
+    required String projectId,
+  }) async {
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) {
+      throw StateError('项目缺少稳定 ID');
+    }
+
+    return _repository.revokeSettlementStatus(
+      RevokeProjectSettlementStatusRequest(
+        projectId: normalizedProjectId,
+        updatedAtIso: _now().toUtc().toIso8601String(),
+      ),
+    );
+  }
+
   String _writeOffId(String projectId, DateTime now) {
     final factory = _writeOffIdFactory;
     if (factory != null) return factory(projectId, now);

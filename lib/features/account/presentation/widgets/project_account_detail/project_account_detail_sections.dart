@@ -281,25 +281,17 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     final rawRemaining = remaining.abs() <= _moneyEpsilon ? 0.0 : remaining;
     final displayRemaining = rawRemaining < 0 ? 0.0 : rawRemaining;
     final hasProjectTotal = receivable > _moneyEpsilon;
+    final effectiveSettled =
+        isProjectSettled ??
+        (hasProjectTotal && displayRemaining <= _moneyEpsilon);
     final canSettle =
         hasProjectTotal &&
+        !effectiveSettled &&
         displayRemaining > _moneyEpsilon &&
         onSettleProject != null;
-    final isSettled = hasProjectTotal && displayRemaining <= _moneyEpsilon;
-    final canRevokeWriteOff =
-        isSettled && writeOff > _moneyEpsilon && onRevokeWriteOff != null;
-    final settlementPillLabel = canRevokeWriteOff
-        ? '撤销'
-        : canSettle
-        ? '结清'
-        : '已结清';
-    final settlementPillEnabled = canSettle || canRevokeWriteOff;
-    final settlementPillTap = canRevokeWriteOff
-        ? onRevokeWriteOff
-        : onSettleProject;
-    final settledSummary = writeOff > _moneyEpsilon
-        ? '项目总额 ${FormatUtils.money(receivable)} 核销(减免) ${FormatUtils.money(writeOff)}'
-        : '项目总额${FormatUtils.money(receivable)}';
+    final isSettled = hasProjectTotal && effectiveSettled;
+    final canRevokeSettlement = isSettled && onRevokeWriteOff != null;
+    final settledSummary = '项目总额 ${FormatUtils.money(receivable)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -370,17 +362,15 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                   ),
                 ],
               ),
-              if (onSettleProject != null || onDeleteWriteOff != null) ...[
-                const SizedBox(height: AppSpace.xs),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ProjectAccountSettlementPill(
-                    label: settlementPillLabel,
-                    enabled: settlementPillEnabled,
-                    onTap: settlementPillTap,
-                  ),
+              const SizedBox(height: AppSpace.xs),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ProjectAccountSettlementPill(
+                  label: '已结清，点此撤销',
+                  enabled: canRevokeSettlement,
+                  onTap: canRevokeSettlement ? onRevokeWriteOff : null,
                 ),
-              ],
+              ),
             ] else ...[
               Row(
                 children: [
@@ -410,22 +400,28 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      FormatUtils.money(received),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      style: progressAmountStyle,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            FormatUtils.money(received),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: progressAmountStyle,
+                          ),
+                        ),
+                        if (canSettle) ...[
+                          const SizedBox(width: 9),
+                          _buildInlineSettleAction(
+                            context: context,
+                            style: progressMetaStyle,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (canSettle) ...[
-                    const SizedBox(width: AppSpace.sm),
-                    ProjectAccountSettlementPill(
-                      label: settlementPillLabel,
-                      enabled: settlementPillEnabled,
-                      onTap: settlementPillTap,
-                    ),
-                  ],
                   const SizedBox(width: AppSpace.sm),
                   Expanded(
                     child: Text(
@@ -441,6 +437,31 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInlineSettleAction({
+    required BuildContext context,
+    required TextStyle? style,
+  }) {
+    final actionStyle = (style ?? DefaultTextStyle.of(context).style).copyWith(
+      color: AccountTokens.projectDetailActionColor,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    );
+    return InkWell(
+      onTap: onSettleProject,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        child: Text(
+          '结清',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: actionStyle,
         ),
       ),
     );

@@ -57,6 +57,8 @@ typedef AccountOpenMergedPaymentBatchEditor =
       AccountProjectPaymentDisplayVM payment,
     );
 
+const double _detailSheetMoneyEpsilon = 0.000001;
+
 class AccountProjectDetailSheet extends StatelessWidget {
   const AccountProjectDetailSheet({
     super.key,
@@ -68,6 +70,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     this.allWriteOffs = const [],
     required this.allRates,
     required this.computed,
+    this.settledProjectIds,
     required this.onBatchEditRate,
     required this.onEditDeviceRate,
     required this.onAddPayment,
@@ -91,6 +94,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final List<ProjectWriteOff> allWriteOffs;
   final List<ProjectDeviceRate> allRates;
   final AccountComputed computed;
+  final Set<String>? settledProjectIds;
   final AccountOpenBatchRateEditor onBatchEditRate;
   final AccountOpenSingleRateEditor onEditDeviceRate;
   final AccountOpenPaymentEditor onAddPayment;
@@ -125,6 +129,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     final project = hit.first;
     final projectWriteOffs = _writeOffsForProject(project);
     final revokeWriteOff = _revokeWriteOffAction(project, projectWriteOffs);
+    final projectIsSettled = _isProjectSettled(project);
     if (project.kind == AccountProjectKind.merged) {
       final detailRows = _buildMergedDetailRows(project);
       final paymentDisplayItems = buildMergedPaymentDisplayItems(
@@ -142,6 +147,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         receivable: project.receivable,
         writeOff: project.writeOff,
         remaining: project.remaining,
+        isProjectSettled: projectIsSettled,
         payments: project.payments,
         writeOffs: projectWriteOffs,
         paymentDisplayItems: paymentDisplayItems,
@@ -223,6 +229,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       receivable: project.receivable,
       writeOff: project.writeOff,
       remaining: project.remaining,
+      isProjectSettled: projectIsSettled,
       payments: project.payments,
       writeOffs: projectWriteOffs,
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
@@ -259,14 +266,27 @@ class AccountProjectDetailSheet extends StatelessWidget {
   }
 
   List<ProjectWriteOff> _writeOffsForProject(AccountProjectVM project) {
-    final projectIds = {
+    final projectIds = _projectIdentityIds(project);
+    return allWriteOffs
+        .where((item) => projectIds.contains(item.projectId.trim()))
+        .toList(growable: false);
+  }
+
+  bool _isProjectSettled(AccountProjectVM project) {
+    final explicitSettledIds = settledProjectIds;
+    if (explicitSettledIds == null) {
+      return project.remaining.abs() <= _detailSheetMoneyEpsilon;
+    }
+    final projectIds = _projectIdentityIds(project);
+    return projectIds.any(explicitSettledIds.contains);
+  }
+
+  Set<String> _projectIdentityIds(AccountProjectVM project) {
+    return {
       project.effectiveProjectId.trim(),
       if (project.kind == AccountProjectKind.merged)
         ...project.memberProjectIds.map((id) => id.trim()),
     }..removeWhere((id) => id.isEmpty);
-    return allWriteOffs
-        .where((item) => projectIds.contains(item.projectId.trim()))
-        .toList(growable: false);
   }
 
   List<ProjectAccountDetailRateRow> _buildMergedDetailRows(

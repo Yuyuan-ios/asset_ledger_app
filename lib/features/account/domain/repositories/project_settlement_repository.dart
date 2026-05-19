@@ -42,10 +42,24 @@ class DeleteProjectWriteOffRequest {
   final String updatedAtIso;
 }
 
+class RevokeProjectSettlementStatusRequest {
+  const RevokeProjectSettlementStatusRequest({
+    required this.projectId,
+    required this.updatedAtIso,
+  });
+
+  final String projectId;
+  final String updatedAtIso;
+}
+
 abstract class ProjectSettlementRepository {
   Future<ProjectSettlementResult> settle(ProjectSettlementRequest request);
 
   Future<DeleteProjectWriteOffResult> deleteWriteOff(
     DeleteProjectWriteOffRequest request,
+  );
+
+  Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus(
+    RevokeProjectSettlementStatusRequest request,
   );
 }

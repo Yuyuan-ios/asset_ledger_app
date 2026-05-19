@@ -803,6 +803,18 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
       ),
     );
   }
+
+  @override
+  Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus(
+    RevokeProjectSettlementStatusRequest request,
+  ) {
+    return Future.value(
+      RevokeProjectSettlementStatusResult(
+        projectId: request.projectId,
+        restoredActive: true,
+      ),
+    );
+  }
 }
 
 AccountPayment _mergeAllocation({
