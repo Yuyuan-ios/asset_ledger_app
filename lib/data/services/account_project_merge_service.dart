@@ -1,23 +1,31 @@
 import '../models/account_project_merge_group.dart';
 import '../models/account_project_merge_group_with_members.dart';
 import '../models/account_project_merge_member.dart';
+import '../models/project.dart';
 import '../models/project_id.dart';
 import '../models/project_key.dart';
 import '../repositories/account_project_merge_repository.dart';
+import '../repositories/project_repository.dart';
+
+const String settledProjectMergeBlockedMessage = '已结清项目不能参与合并，请先撤销结清后再操作。';
 
 class AccountProjectMergeService {
   AccountProjectMergeService({
     required AccountProjectMergeRepository repository,
+    ProjectRepository? projectRepository,
     DateTime Function()? now,
   }) : _repository = repository,
+       _projectRepository = projectRepository,
        _now = now ?? DateTime.now;
 
   final AccountProjectMergeRepository _repository;
+  final ProjectRepository? _projectRepository;
   final DateTime Function() _now;
 
   Future<AccountProjectMergeGroupWithMembers> createMergeGroup({
     required String contact,
     required List<String> projectKeys,
+    List<String>? projectIds,
   }) async {
     final normalizedContact = contact.trim();
     if (normalizedContact.isEmpty) {
@@ -32,8 +40,14 @@ class AccountProjectMergeService {
       throw ArgumentError.value(projectKeys, 'projectKeys', '至少选择 2 个项目');
     }
 
+    final effectiveProjectIds = _effectiveProjectIds(
+      parsed: parsed,
+      projectIds: projectIds,
+    );
+    await _assertProjectsCanMerge(effectiveProjectIds);
+
     final existing = await _repository.listActiveMembersByProjectIds(
-      parsed.map((item) => ProjectId.legacyFromKey(item.key)).toList(),
+      effectiveProjectIds,
     );
     if (existing.isNotEmpty) {
       throw StateError('项目已属于其他合并组');
@@ -49,7 +63,7 @@ class AccountProjectMergeService {
       for (var index = 0; index < parsed.length; index += 1)
         AccountProjectMergeMember(
           groupId: 0,
-          projectId: ProjectId.legacyFromKey(parsed[index].key),
+          projectId: effectiveProjectIds[index],
           projectKey: parsed[index].key,
           contact: parsed[index].contact,
           site: parsed[index].site,
@@ -162,6 +176,40 @@ class AccountProjectMergeService {
     }
 
     return parsed;
+  }
+
+  List<String> _effectiveProjectIds({
+    required List<ProjectKey> parsed,
+    required List<String>? projectIds,
+  }) {
+    if (projectIds == null) {
+      return parsed.map((item) => ProjectId.legacyFromKey(item.key)).toList();
+    }
+
+    if (projectIds.length != parsed.length) {
+      throw ArgumentError.value(projectIds, 'projectIds', '项目 ID 数量不匹配');
+    }
+
+    return [
+      for (final id in projectIds)
+        if (id.trim().isNotEmpty)
+          id.trim()
+        else
+          throw ArgumentError.value(projectIds, 'projectIds', '项目 ID 不能为空'),
+    ];
+  }
+
+  Future<void> _assertProjectsCanMerge(List<String> projectIds) async {
+    final projectRepository = _projectRepository;
+    if (projectRepository == null) return;
+
+    for (final projectId in projectIds) {
+      final project = await projectRepository.findById(projectId);
+      if (project == null) continue;
+      if (project.status != ProjectStatus.active) {
+        throw StateError(settledProjectMergeBlockedMessage);
+      }
+    }
   }
 
   String _timestamp() => _now().toUtc().toIso8601String();

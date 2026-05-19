@@ -14,11 +14,13 @@ class MergeProjectSheetContactGroup {
 }
 
 class MergeProjectSheetItem {
+  final String projectId;
   final String projectKey;
   final String displayName;
   final bool isMerged;
 
   const MergeProjectSheetItem({
+    required this.projectId,
     required this.projectKey,
     required this.displayName,
     required this.isMerged,
@@ -28,8 +30,15 @@ class MergeProjectSheetItem {
 List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
   required List<AccountProjectVM> normalProjects,
   required List<AccountProjectMergeGroupWithMembers> activeMergeGroups,
+  Set<String> excludedProjectIds = const {},
 }) {
   final groupsByContact = <String, _MutableMergeSheetContactGroup>{};
+  final activeMemberProjectIds = <String>{
+    for (final groupWithMembers in activeMergeGroups)
+      if (groupWithMembers.group.isActive)
+        for (final member in groupWithMembers.members)
+          if (member.isActive) member.effectiveProjectId,
+  };
   final activeMemberProjectKeys = <String>{
     for (final groupWithMembers in activeMergeGroups)
       if (groupWithMembers.group.isActive)
@@ -39,8 +48,14 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
 
   for (final project in normalProjects) {
     if (project.kind != AccountProjectKind.normal) continue;
+    final projectId = project.effectiveProjectId;
+    if (excludedProjectIds.contains(projectId)) continue;
+
     final projectKey = project.projectKey.trim();
-    if (activeMemberProjectKeys.contains(projectKey)) continue;
+    if (activeMemberProjectIds.contains(projectId) ||
+        activeMemberProjectKeys.contains(projectKey)) {
+      continue;
+    }
 
     final key = ProjectKey.fromKey(projectKey);
     final contact = key.contact.trim();
@@ -54,6 +69,7 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
         .unmergedItems
         .add(
           MergeProjectSheetItem(
+            projectId: projectId,
             projectKey: projectKey,
             displayName: project.displayName,
             isMerged: false,
@@ -85,6 +101,7 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
           .mergedItems
           .add(
             MergeProjectSheetItem(
+              projectId: member.effectiveProjectId,
               projectKey: member.projectKey,
               displayName: ProjectKey(contact: contact, site: site).displayName,
               isMerged: true,

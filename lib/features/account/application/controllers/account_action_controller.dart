@@ -107,11 +107,13 @@ class AccountActionController {
 
   Future<void> createMergeGroup({
     required String contact,
+    required List<String> projectIds,
     required List<String> projectKeys,
     required AccountStore accountStore,
   }) async {
     await _mergeService.createMergeGroup(
       contact: contact,
+      projectIds: projectIds,
       projectKeys: projectKeys,
     );
     await accountStore.loadAll();

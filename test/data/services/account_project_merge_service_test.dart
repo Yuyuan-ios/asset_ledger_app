@@ -1,6 +1,9 @@
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
+import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
+import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -12,6 +15,7 @@ void main() {
   configureTestDatabase();
 
   late SqfliteAccountProjectMergeRepository repository;
+  late SqfliteProjectRepository projectRepository;
   late AccountProjectMergeService service;
 
   setUp(() async {
@@ -27,8 +31,10 @@ void main() {
       );
     };
     repository = SqfliteAccountProjectMergeRepository();
+    projectRepository = SqfliteProjectRepository();
     service = AccountProjectMergeService(
       repository: repository,
+      projectRepository: projectRepository,
       now: () => DateTime.utc(2026, 5, 15, 1, 2, 3),
     );
   });
@@ -204,6 +210,95 @@ void main() {
     );
   });
 
+  test(
+    'allows active projects to merge when project rows are active',
+    () async {
+      await _insertProject('李杰', '尚义', ProjectStatus.active);
+      await _insertProject('李杰', '鲜滩', ProjectStatus.active);
+
+      final created = await service.createMergeGroup(
+        contact: '李杰',
+        projectIds: [_projectId('李杰', '尚义'), _projectId('李杰', '鲜滩')],
+        projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+      );
+
+      expect(created.members.map((member) => member.projectId), [
+        _projectId('李杰', '尚义'),
+        _projectId('李杰', '鲜滩'),
+      ]);
+    },
+  );
+
+  test('rejects merging settled and active projects', () async {
+    await _insertProject('李杰', '尚义', ProjectStatus.settled);
+    await _insertProject('李杰', '鲜滩', ProjectStatus.active);
+
+    expect(
+      () => service.createMergeGroup(
+        contact: '李杰',
+        projectIds: [_projectId('李杰', '尚义'), _projectId('李杰', '鲜滩')],
+        projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          settledProjectMergeBlockedMessage,
+        ),
+      ),
+    );
+
+    expect(await service.getActiveMergeGroupsWithMembers(), isEmpty);
+  });
+
+  test('rejects merging two settled projects', () async {
+    await _insertProject('李杰', '尚义', ProjectStatus.settled);
+    await _insertProject('李杰', '鲜滩', ProjectStatus.settled);
+
+    expect(
+      () => service.createMergeGroup(
+        contact: '李杰',
+        projectIds: [_projectId('李杰', '尚义'), _projectId('李杰', '鲜滩')],
+        projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(await service.getActiveMergeGroupsWithMembers(), isEmpty);
+  });
+
+  test(
+    'rejecting settled projects preserves write-offs statuses timings and payments',
+    () async {
+      final settledId = _projectId('李杰', '尚义');
+      final activeId = _projectId('李杰', '鲜滩');
+      await _insertProject('李杰', '尚义', ProjectStatus.settled);
+      await _insertProject('李杰', '鲜滩', ProjectStatus.active);
+      await _insertWriteOff(settledId);
+      await _insertTiming(settledId, contact: '李杰', site: '尚义');
+      await _insertPayment(activeId, projectKey: '李杰||鲜滩');
+
+      final beforeProjects = await _tableRows('projects');
+      final beforeWriteOffs = await _tableRows('project_write_offs');
+      final beforeTimings = await _tableRows('timing_records');
+      final beforePayments = await _tableRows('account_payments');
+
+      await expectLater(
+        service.createMergeGroup(
+          contact: '李杰',
+          projectIds: [settledId, activeId],
+          projectKeys: ['李杰||尚义', '李杰||鲜滩'],
+        ),
+        throwsStateError,
+      );
+
+      expect(await _tableRows('projects'), beforeProjects);
+      expect(await _tableRows('project_write_offs'), beforeWriteOffs);
+      expect(await _tableRows('timing_records'), beforeTimings);
+      expect(await _tableRows('account_payments'), beforePayments);
+    },
+  );
+
   test('allows a dissolved project key to join a new active group', () async {
     final first = await service.createMergeGroup(
       contact: '李杰',
@@ -224,4 +319,87 @@ void main() {
     expect(activeMembers, hasLength(1));
     expect(activeMembers.single.groupId, second.group.id);
   });
+}
+
+String _projectId(String contact, String site) {
+  return ProjectId.legacyFromParts(contact: contact, site: site);
+}
+
+Future<void> _insertProject(
+  String contact,
+  String site,
+  ProjectStatus status,
+) async {
+  final timestamp = DateTime.utc(2026, 5, 15).toIso8601String();
+  await SqfliteProjectRepository().insert(
+    Project(
+      id: _projectId(contact, site),
+      contact: contact,
+      site: site,
+      status: status,
+      settledAt: status == ProjectStatus.settled ? timestamp : null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      legacyProjectKey: '$contact||$site',
+    ),
+  );
+}
+
+Future<void> _insertWriteOff(String projectId) async {
+  final db = await AppDatabase.database;
+  await db.insert('project_write_offs', {
+    'id': 'writeoff-1',
+    'project_id': projectId,
+    'amount': 120,
+    'amount_fen': 12000,
+    'reason': 'settlement',
+    'note': '结清',
+    'write_off_date': '2026-05-15T00:00:00.000Z',
+    'created_at': '2026-05-15T00:00:00.000Z',
+    'updated_at': '2026-05-15T00:00:00.000Z',
+  });
+}
+
+Future<void> _insertTiming(
+  String projectId, {
+  required String contact,
+  required String site,
+}) async {
+  final db = await AppDatabase.database;
+  await db.insert('timing_records', {
+    'project_id': projectId,
+    'device_id': 1,
+    'start_date': 20260515,
+    'contact': contact,
+    'site': site,
+    'type': 'hours',
+    'start_meter': 0,
+    'end_meter': 1,
+    'hours': 1,
+    'income': 100,
+    'exclude_from_fuel_eff': 0,
+    'is_breaking': 0,
+  });
+}
+
+Future<void> _insertPayment(
+  String projectId, {
+  required String projectKey,
+}) async {
+  final db = await AppDatabase.database;
+  await db.insert('account_payments', {
+    'project_id': projectId,
+    'project_key': projectKey,
+    'ymd': 20260515,
+    'amount': 50,
+    'amount_fen': 5000,
+    'note': '收款',
+    'source_type': 'manual',
+    'created_at': '2026-05-15T00:00:00.000Z',
+  });
+}
+
+Future<List<Map<String, Object?>>> _tableRows(String table) async {
+  final db = await AppDatabase.database;
+  return db.query(table, orderBy: 'rowid ASC');
 }

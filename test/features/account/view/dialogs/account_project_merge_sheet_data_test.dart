@@ -10,9 +10,9 @@ void main() {
     test('only returns contact groups with at least two projects', () {
       final groups = buildMergeSheetGroups(
         normalProjects: [
-          _project('李杰||新村', '李杰 + 新村'),
-          _project('李杰||高桥', '李杰 + 高桥'),
-          _project('王涛||独山', '王涛 + 独山'),
+          _project('project:lijie-xincun', '李杰||新村', '李杰 + 新村'),
+          _project('project:lijie-gaoqiao', '李杰||高桥', '李杰 + 高桥'),
+          _project('project:wangtao-dushan', '王涛||独山', '王涛 + 独山'),
         ],
         activeMergeGroups: const [],
       );
@@ -22,11 +22,15 @@ void main() {
         '李杰||新村',
         '李杰||高桥',
       ]);
+      expect(groups.single.unmergedItems.map((item) => item.projectId), [
+        'project:lijie-xincun',
+        'project:lijie-gaoqiao',
+      ]);
     });
 
     test('keeps unmerged items before merged items in each group', () {
       final groups = buildMergeSheetGroups(
-        normalProjects: [_project('李杰||新村', '李杰 + 新村')],
+        normalProjects: [_project('project:lijie-xincun', '李杰||新村', '李杰 + 新村')],
         activeMergeGroups: const [_activeGroup],
       );
 
@@ -52,8 +56,8 @@ void main() {
     test('excludes active merge members from unmerged items', () {
       final groups = buildMergeSheetGroups(
         normalProjects: [
-          _project('李杰||鲜滩', '李杰 + 鲜滩'),
-          _project('李杰||新地址', '李杰 + 新地址'),
+          _project('project:lijie-xiantan', '李杰||鲜滩', '李杰 + 鲜滩'),
+          _project('project:lijie-new', '李杰||新地址', '李杰 + 新地址'),
         ],
         activeMergeGroups: const [_activeGroup],
       );
@@ -75,8 +79,8 @@ void main() {
       () {
         final groups = buildMergeSheetGroups(
           normalProjects: [
-            _project('李杰||鲜滩', '李杰 + 鲜滩'),
-            _project('李杰||新地址', '李杰 + 新地址'),
+            _project('project:lijie-xiantan', '李杰||鲜滩', '李杰 + 鲜滩'),
+            _project('project:lijie-new', '李杰||新地址', '李杰 + 新地址'),
           ],
           activeMergeGroups: const [_activeGroupWithStaleMember],
         );
@@ -94,9 +98,78 @@ void main() {
       },
     );
 
+    test('excludes settled project ids from merge candidates', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: [
+          _project('project:settled', '李杰||尚义', '李杰 + 尚义'),
+          _project('project:active-a', '李杰||鲜滩', '李杰 + 鲜滩'),
+          _project('project:active-b', '李杰||高桥', '李杰 + 高桥'),
+        ],
+        activeMergeGroups: const [],
+        excludedProjectIds: const {'project:settled'},
+      );
+
+      expect(groups, hasLength(1));
+      expect(groups.single.unmergedItems.map((item) => item.projectId), [
+        'project:active-a',
+        'project:active-b',
+      ]);
+      expect(
+        groups.single.unmergedItems.map((item) => item.projectKey),
+        isNot(contains('李杰||尚义')),
+      );
+    });
+
+    test(
+      'active projects can rejoin recommendations after exclusion is removed',
+      () {
+        final projects = [
+          _project('project:restored', '李杰||尚义', '李杰 + 尚义'),
+          _project('project:active', '李杰||鲜滩', '李杰 + 鲜滩'),
+        ];
+
+        final excluded = buildMergeSheetGroups(
+          normalProjects: projects,
+          activeMergeGroups: const [],
+          excludedProjectIds: const {'project:restored'},
+        );
+        final restored = buildMergeSheetGroups(
+          normalProjects: projects,
+          activeMergeGroups: const [],
+          excludedProjectIds: const {},
+        );
+
+        expect(excluded, isEmpty);
+        expect(restored.single.unmergedItems.map((item) => item.projectId), [
+          'project:restored',
+          'project:active',
+        ]);
+      },
+    );
+
+    test(
+      'does not connect active replacement projects to settled old projects',
+      () {
+        final groups = buildMergeSheetGroups(
+          normalProjects: [
+            _project('project:settled-old', '李杰||尚义', '李杰 + 尚义'),
+            _project('project:active-new', '李杰||尚义', '李杰 + 尚义'),
+            _project('project:active-other', '李杰||鲜滩', '李杰 + 鲜滩'),
+          ],
+          activeMergeGroups: const [],
+          excludedProjectIds: const {'project:settled-old'},
+        );
+
+        expect(groups.single.unmergedItems.map((item) => item.projectId), [
+          'project:active-new',
+          'project:active-other',
+        ]);
+      },
+    );
+
     test('does not include a contact with only one project', () {
       final groups = buildMergeSheetGroups(
-        normalProjects: [_project('赵六||尚义', '赵六 + 尚义')],
+        normalProjects: [_project('project:zhaoliu', '赵六||尚义', '赵六 + 尚义')],
         activeMergeGroups: const [],
       );
 
@@ -105,8 +178,13 @@ void main() {
   });
 }
 
-AccountProjectVM _project(String projectKey, String displayName) {
+AccountProjectVM _project(
+  String projectId,
+  String projectKey,
+  String displayName,
+) {
   return AccountProjectVM(
+    projectId: projectId,
     projectKey: projectKey,
     displayName: displayName,
     minYmd: 20260515,
