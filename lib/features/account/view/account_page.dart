@@ -516,6 +516,7 @@ class _AccountPageState extends State<AccountPage> {
     final groups = buildMergeSheetGroups(
       normalProjects: computed.projects,
       activeMergeGroups: accountStore.activeMergeGroups,
+      excludedProjectIds: accountStore.settledProjectIds,
     );
 
     final result = await showAccountProjectMergeSheet(
@@ -525,6 +526,7 @@ class _AccountPageState extends State<AccountPage> {
       onConfirmMerge: (result) async {
         await controller.createMergeGroup(
           contact: result.contact,
+          projectIds: result.projectIds,
           projectKeys: result.projectKeys,
           accountStore: accountStore,
         );

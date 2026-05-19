@@ -10,10 +10,12 @@ import 'account_project_merge_sheet_store.dart';
 
 class MergeProjectSheetResult {
   final String contact;
+  final List<String> projectIds;
   final List<String> projectKeys;
 
   const MergeProjectSheetResult({
     required this.contact,
+    required this.projectIds,
     required this.projectKeys,
   });
 }
@@ -75,6 +77,7 @@ class _AccountProjectMergeSheetState extends State<AccountProjectMergeSheet> {
 
     final result = MergeProjectSheetResult(
       contact: _store.selectedContact!,
+      projectIds: _store.selectedProjectIds.toList(growable: false),
       projectKeys: _store.selectedProjectKeys.toList(growable: false),
     );
 
@@ -126,10 +129,8 @@ class _AccountProjectMergeSheetState extends State<AccountProjectMergeSheet> {
                         selectedProjectKeys: _store.selectedProjectKeys,
                         onToggle: _submitting
                             ? null
-                            : (item) => _store.toggleProject(
-                                item.projectKey,
-                                group.contact,
-                              ),
+                            : (item) =>
+                                  _store.toggleProject(item, group.contact),
                       ),
                   ],
                 ),

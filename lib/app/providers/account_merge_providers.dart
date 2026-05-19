@@ -4,6 +4,7 @@ import 'package:provider/single_child_widget.dart';
 import '../adapters/account_merge_dissolve_adapter.dart';
 import '../../data/repositories/account_payment_repository.dart';
 import '../../data/repositories/account_project_merge_repository.dart';
+import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/project_write_off_repository.dart';
 import '../../data/repositories/project_rate_repository.dart';
 import '../../data/services/account_project_merge_service.dart';
@@ -37,10 +38,12 @@ class AccountMergeProviders {
     final projectRateRepository = SqfliteProjectRateRepository();
     final projectWriteOffRepository = SqfliteProjectWriteOffRepository();
     const projectSettlementRepository = LocalProjectSettlementRepository();
+    final projectRepository = SqfliteProjectRepository();
     final accountProjectMergeRepository =
         SqfliteAccountProjectMergeRepository();
     final accountProjectMergeService = AccountProjectMergeService(
       repository: accountProjectMergeRepository,
+      projectRepository: projectRepository,
     );
     final timingMergeDissolvePort = AccountMergeDissolveAdapter(
       accountProjectMergeService,
@@ -50,6 +53,7 @@ class AccountMergeProviders {
     final projectRateStore = ProjectRateStore(projectRateRepository);
     final accountStore = AccountStore(
       mergeService: accountProjectMergeService,
+      projectRepository: projectRepository,
       writeOffRepository: projectWriteOffRepository,
     );
     final projectSettlementUseCase = ProjectSettlementUseCase(

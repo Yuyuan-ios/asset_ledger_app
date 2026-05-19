@@ -2,10 +2,12 @@ import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
+import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
@@ -161,6 +163,24 @@ void main() {
       expect(result.totalRemaining, 1000);
     });
 
+    test('loads settled project ids for merge candidate filtering', () async {
+      final store = AccountStore(
+        mergeService: AccountProjectMergeService(
+          repository: _FakeMergeRepository(activeGroups: const []),
+        ),
+        projectRepository: _FakeProjectRepository(
+          projects: [
+            _project('project:active', ProjectStatus.active),
+            _project('project:settled', ProjectStatus.settled),
+          ],
+        ),
+      );
+
+      await store.loadAll();
+
+      expect(store.settledProjectIds, {'project:settled'});
+    });
+
     test('refreshes account totals after a write-off is deleted', () async {
       final writeOffItems = <ProjectWriteOff>[
         ProjectWriteOff(
@@ -205,6 +225,17 @@ void main() {
       expect(after.totalRemaining, 2000);
     });
   });
+}
+
+Project _project(String id, ProjectStatus status) {
+  return Project(
+    id: id,
+    contact: '李杰',
+    site: id,
+    status: status,
+    createdAt: '2026-05-15T00:00:00.000Z',
+    updatedAt: '2026-05-15T00:00:00.000Z',
+  );
 }
 
 const _timingRecords = [
@@ -349,6 +380,49 @@ class _FakeWriteOffRepository implements ProjectWriteOffRepository {
 
   @override
   Future<int> update(ProjectWriteOff item) {
+    throw UnimplementedError();
+  }
+}
+
+class _FakeProjectRepository implements ProjectRepository {
+  _FakeProjectRepository({required this.projects});
+
+  final List<Project> projects;
+
+  @override
+  Future<List<Project>> listAll() async => List.of(projects);
+
+  @override
+  Future<Project?> findById(String id) async {
+    for (final project in projects) {
+      if (project.id == id) return project;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSite({
+    required String contact,
+    required String site,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Project> findOrCreateLegacyProject({
+    required String contact,
+    required String site,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> insert(Project project) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> upsert(Project project) {
     throw UnimplementedError();
   }
 }

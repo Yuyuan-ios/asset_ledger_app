@@ -32,6 +32,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(submitted?.contact, '李杰');
+      expect(submitted?.projectIds, [
+        'project:lijie-xincun',
+        'project:lijie-gaoqiao',
+      ]);
       expect(submitted?.projectKeys, ['李杰||新村', '李杰||高桥']);
       expect(refreshed, isTrue);
       expect(find.text('合并项目'), findsNothing);
@@ -115,11 +119,13 @@ const _groups = [
     contact: '李杰',
     unmergedItems: [
       MergeProjectSheetItem(
+        projectId: 'project:lijie-xincun',
         projectKey: '李杰||新村',
         displayName: '李杰 + 新村',
         isMerged: false,
       ),
       MergeProjectSheetItem(
+        projectId: 'project:lijie-gaoqiao',
         projectKey: '李杰||高桥',
         displayName: '李杰 + 高桥',
         isMerged: false,
@@ -127,6 +133,7 @@ const _groups = [
     ],
     mergedItems: [
       MergeProjectSheetItem(
+        projectId: 'project:lijie-shangyi',
         projectKey: '李杰||尚义',
         displayName: '李杰 + 尚义',
         isMerged: true,
