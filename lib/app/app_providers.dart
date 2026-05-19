@@ -6,6 +6,7 @@ import '../features/account/state/project_rate_store.dart';
 import '../features/device/state/device_store.dart';
 import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
+import '../features/timing/state/timing_external_work_store.dart';
 import '../features/timing/state/timing_store.dart';
 import 'providers/account_merge_providers.dart';
 import 'providers/device_fleet_providers.dart';
@@ -34,6 +35,7 @@ class AppProviders {
       paymentStore: accountMerge.paymentStore,
       projectRateStore: accountMerge.projectRateStore,
       accountStore: accountMerge.accountStore,
+      timingExternalWorkStore: externalWork.timingExternalWorkStore,
       providers: [
         ...deviceFleet.providers,
         ...project.providers,
@@ -53,6 +55,7 @@ class AppProviderBundle {
   final AccountPaymentStore paymentStore;
   final ProjectRateStore projectRateStore;
   final AccountStore accountStore;
+  final TimingExternalWorkStore timingExternalWorkStore;
   final List<SingleChildWidget> providers;
 
   const AppProviderBundle({
@@ -63,6 +66,7 @@ class AppProviderBundle {
     required this.paymentStore,
     required this.projectRateStore,
     required this.accountStore,
+    required this.timingExternalWorkStore,
     required this.providers,
   });
 }
