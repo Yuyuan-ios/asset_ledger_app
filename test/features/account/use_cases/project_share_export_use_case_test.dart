@@ -71,7 +71,7 @@ void main() {
     ),
   ];
 
-  test('success opens share sheet with the .jztshare file', () async {
+  test('success opens share sheet with the .jzt file', () async {
     final dir = await Directory.systemTemp.createTemp('jztshare_uc_');
     addTearDown(() => dir.delete(recursive: true));
     final presenter = _FakeSharePresenter();
