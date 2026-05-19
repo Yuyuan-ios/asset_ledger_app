@@ -9,6 +9,7 @@ Future<bool> showAppConfirmDialog({
   Widget? contentWidget,
   String cancelText = '取消',
   String confirmText = '确定',
+  bool confirmDestructive = false,
   bool barrierDismissible = false,
 }) async {
   assert(content != null || contentWidget != null);
@@ -22,6 +23,7 @@ Future<bool> showAppConfirmDialog({
       contentWidget: contentWidget,
       cancelText: cancelText,
       confirmText: confirmText,
+      confirmDestructive: confirmDestructive,
     ),
   );
   return ok == true;
@@ -35,6 +37,7 @@ class AppConfirmDialog extends StatelessWidget {
     this.contentWidget,
     this.cancelText = '取消',
     this.confirmText = '确定',
+    this.confirmDestructive = false,
   }) : assert(content != null || contentWidget != null);
 
   final String title;
@@ -42,6 +45,7 @@ class AppConfirmDialog extends StatelessWidget {
   final Widget? contentWidget;
   final String cancelText;
   final String confirmText;
+  final bool confirmDestructive;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +75,12 @@ class AppConfirmDialog extends StatelessWidget {
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
+          style: confirmDestructive
+              ? FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                )
+              : null,
           child: Text(confirmText),
         ),
       ],

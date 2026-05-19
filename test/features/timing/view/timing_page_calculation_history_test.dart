@@ -125,11 +125,108 @@ void main() {
 
     await tester.tap(find.text('甲方·一号工地'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.tap(find.byTooltip('关闭'));
     await tester.pumpAndSettle();
 
     expect(timingRepository.saveCalls, 0);
     expect(timingRepository.savedCalculationHistories, isEmpty);
+  });
+
+  testWidgets('new timing editor keeps cancel action and hides delete', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('+ 新建'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建计时'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '取消'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+  });
+
+  testWidgets('editing timing shows destructive delete action', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('甲方·一号工地'));
+    await tester.pumpAndSettle();
+
+    final deleteButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, '删除'),
+    );
+    expect(
+      deleteButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+      Colors.red.shade600,
+    );
+  });
+
+  testWidgets('editing delete opens confirm dialog and cancel keeps record', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('甲方·一号工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除计时记录'), findsOneWidget);
+    expect(find.text('删除后不可恢复，确认删除这条记录吗？'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, '取消').last);
+    await tester.pumpAndSettle();
+
+    expect(timingRepository.deletedIds, isEmpty);
+    expect(find.text('编辑计时'), findsOneWidget);
+    expect(find.text('甲方·一号工地'), findsOneWidget);
+  });
+
+  testWidgets('editing delete confirmation removes record and closes sheet', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('甲方·一号工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(timingRepository.deletedIds, [7]);
+    expect(find.text('编辑计时'), findsNothing);
+    expect(find.text('甲方·一号工地'), findsNothing);
+  });
+
+  testWidgets('recent timing records no longer expose swipe delete', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    expect(find.byType(Dismissible), findsNothing);
   });
 
   testWidgets(
@@ -384,6 +481,7 @@ class _FakeTimingRepository implements TimingRepository {
   final List<TimingRecord> _records;
   final List<TimingRecord> savedRecords = [];
   final List<List<TimingCalculationHistory>> savedCalculationHistories = [];
+  final List<int> deletedIds = [];
   var saveCalls = 0;
 
   @override
@@ -407,7 +505,10 @@ class _FakeTimingRepository implements TimingRepository {
   }
 
   @override
-  Future<int> deleteById(int id) async => 1;
+  Future<int> deleteById(int id) async {
+    deletedIds.add(id);
+    return 1;
+  }
 
   @override
   Future<int> deleteByIds(Iterable<int> ids) async => ids.length;

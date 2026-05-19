@@ -19,10 +19,6 @@ class TimingHomePattern extends StatefulWidget {
     required this.deviceById,
     required this.deviceIndexById,
     this.onTapRecord,
-    this.onConfirmDeleteRecord,
-    this.onDeleteRecord,
-    this.onConfirmDeleteRecords,
-    this.onDeleteRecords,
     required this.loading,
     this.error,
     this.onRetry,
@@ -35,10 +31,6 @@ class TimingHomePattern extends StatefulWidget {
   final Map<int, Device> deviceById;
   final Map<int, String> deviceIndexById;
   final ValueChanged<TimingRecord>? onTapRecord;
-  final Future<bool> Function(TimingRecord)? onConfirmDeleteRecord;
-  final DeleteRecordCallback? onDeleteRecord;
-  final Future<bool> Function(List<TimingRecord>)? onConfirmDeleteRecords;
-  final DeleteRecordsCallback? onDeleteRecords;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
@@ -85,32 +77,6 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
         _expandedAggregateKeys.add(key);
       }
     });
-  }
-
-  Future<void> _deleteWithOptimisticRemove(TimingRecord record) async {
-    if (widget.onDeleteRecord == null) return;
-    final key = timingRecentRecordKey(record);
-    setState(() => _locallyRemovedRecordKeys.add(key));
-    final ok = await widget.onDeleteRecord!(record);
-    if (!ok && mounted) {
-      setState(() => _locallyRemovedRecordKeys.remove(key));
-    }
-  }
-
-  Future<void> _deleteAggregateWithOptimisticRemove(
-    List<TimingRecord> records,
-    String aggregateKey,
-  ) async {
-    if (widget.onDeleteRecords == null) return;
-    final keys = records.map(timingRecentRecordKey).toSet();
-    setState(() {
-      _locallyRemovedRecordKeys.addAll(keys);
-      _expandedAggregateKeys.remove(aggregateKey);
-    });
-    final ok = await widget.onDeleteRecords!(records);
-    if (!ok && mounted) {
-      setState(() => _locallyRemovedRecordKeys.removeAll(keys));
-    }
   }
 
   @override
@@ -187,10 +153,6 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
                           expandedAggregateKeys: _expandedAggregateKeys,
                           onToggleAggregate: _toggleAggregate,
                           onTapRecord: widget.onTapRecord,
-                          onConfirmDeleteRecord: widget.onConfirmDeleteRecord,
-                          onDeleteRecord: _deleteWithOptimisticRemove,
-                          onConfirmDeleteRecords: widget.onConfirmDeleteRecords,
-                          onDeleteRecords: _deleteAggregateWithOptimisticRemove,
                         ),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: TimingTokens.homeBottomGap),

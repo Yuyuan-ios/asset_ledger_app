@@ -193,6 +193,11 @@ class _TimingPageState extends State<TimingPage> {
       context: context,
       title: editing == null ? '新建计时' : '编辑计时',
       useSafeArea: false,
+      cancelText: editing == null ? '取消' : '删除',
+      cancelForegroundColor: editing == null ? null : Colors.red.shade600,
+      onCancel: editing == null
+          ? null
+          : (sheetContext) => _deleteEditingRecord(sheetContext, editing),
       onConfirm: () => formKey.currentState?.submit(),
       childBuilder: (sheetContext) {
         return TimingDetailContent(
@@ -297,26 +302,25 @@ class _TimingPageState extends State<TimingPage> {
     );
   }
 
+  void _deleteEditingRecord(BuildContext sheetContext, TimingRecord editing) {
+    () async {
+      final confirmed = await _confirmDeleteRecord(editing);
+      if (!confirmed) return;
+      final deleted = await _deleteRecord(editing);
+      if (!deleted || !sheetContext.mounted) return;
+      Navigator.of(sheetContext).pop();
+    }();
+  }
+
   Future<bool> _confirmDeleteRecord(TimingRecord record) async {
     if (record.id == null) return false;
 
     return showAppConfirmDialog(
       context: context,
-      title: '删除记录',
-      contentWidget: const _TimingDeleteConfirmContent(),
+      title: '删除计时记录',
+      content: '删除后不可恢复，确认删除这条记录吗？',
       confirmText: '删除',
-    );
-  }
-
-  Future<bool> _confirmDeleteRecords(List<TimingRecord> records) async {
-    final count = records.where((record) => record.id != null).length;
-    if (count == 0) return false;
-
-    return showAppConfirmDialog(
-      context: context,
-      title: '删除记录',
-      contentWidget: _TimingDeleteConfirmContent(recordCount: count),
-      confirmText: '删除',
+      confirmDestructive: true,
     );
   }
 
@@ -326,22 +330,6 @@ class _TimingPageState extends State<TimingPage> {
 
     final store = context.read<TimingStore>();
     await store.deleteById(record.id!);
-    if (!mounted) return false;
-    final feedback = storeActionFeedback(store, action: '删除');
-    _toast(feedback.message);
-    if (!feedback.isSuccess) {
-      return false;
-    }
-    return true;
-  }
-
-  Future<bool> _deleteRecords(List<TimingRecord> records) async {
-    final ids = records.map((record) => record.id).whereType<int>().toSet();
-    if (ids.isEmpty) return false;
-    if (!mounted) return false;
-
-    final store = context.read<TimingStore>();
-    await store.deleteByIds(ids);
     if (!mounted) return false;
     final feedback = storeActionFeedback(store, action: '删除');
     _toast(feedback.message);
@@ -411,80 +399,9 @@ class _TimingPageState extends State<TimingPage> {
       deviceById: deviceById,
       deviceIndexById: deviceIndexById,
       onTapRecord: (r) => _openTimingEditor(editing: r),
-      onConfirmDeleteRecord: _confirmDeleteRecord,
-      onDeleteRecord: _deleteRecord,
-      onConfirmDeleteRecords: _confirmDeleteRecords,
-      onDeleteRecords: _deleteRecords,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),
-    );
-  }
-}
-
-class _TimingDeleteConfirmContent extends StatelessWidget {
-  const _TimingDeleteConfirmContent({this.recordCount});
-
-  final int? recordCount;
-
-  bool get _isGroupDelete => recordCount != null;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = DefaultTextStyle.of(context).style;
-    final dangerStyle = style.copyWith(
-      color: Colors.red.shade600,
-      fontWeight: FontWeight.w700,
-    );
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('⚠️  删除此记录将产生以下影响：'),
-        const SizedBox(height: 16),
-        if (_isGroupDelete) ...[
-          _DeleteImpactLine(
-            children: [
-              const TextSpan(text: '计时页：这将删除'),
-              TextSpan(text: '$recordCount', style: dangerStyle),
-              const TextSpan(text: '条记录，无法恢复'),
-            ],
-          ),
-          const SizedBox(height: 14),
-        ],
-        const _DeleteImpactLine(
-          children: [TextSpan(text: '燃油页：工时模式下对应的燃油效率数据')],
-        ),
-        const SizedBox(height: 14),
-        const _DeleteImpactLine(children: [TextSpan(text: '账户页：对应项目的统计数据')]),
-        const SizedBox(height: 22),
-        Text(_isGroupDelete ? '确定删除这组记录吗？' : '确定删除这条记录吗？'),
-      ],
-    );
-  }
-}
-
-class _DeleteImpactLine extends StatelessWidget {
-  const _DeleteImpactLine({required this.children});
-
-  final List<InlineSpan> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = DefaultTextStyle.of(context).style;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('•', style: style),
-        const SizedBox(width: 8),
-        Expanded(
-          child: RichText(
-            text: TextSpan(style: style, children: children),
-          ),
-        ),
-      ],
     );
   }
 }

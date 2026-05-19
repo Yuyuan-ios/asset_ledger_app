@@ -35,6 +35,8 @@ Future<T?> openEditorSheet<T>({
   VoidCallback? onConfirm,
   void Function(BuildContext sheetContext)? onCancel,
   WidgetBuilder? footerCenterBuilder,
+  String cancelText = '取消',
+  Color? cancelForegroundColor,
   bool footerEnabled = true,
   bool useSafeArea = true,
   bool scrollable = false,
@@ -59,6 +61,8 @@ Future<T?> openEditorSheet<T>({
         },
         onConfirm: onConfirm,
         footerCenter: footerCenterBuilder?.call(sheetContext),
+        cancelText: cancelText,
+        cancelForegroundColor: cancelForegroundColor,
         footerEnabled: footerEnabled,
         child: childBuilder(sheetContext),
       );
@@ -104,6 +108,7 @@ class AppBottomSheetShell extends StatelessWidget {
   final Widget? footerCenter;
   final String cancelText;
   final String confirmText;
+  final Color? cancelForegroundColor;
   final bool footerEnabled;
 
   const AppBottomSheetShell({
@@ -133,6 +138,7 @@ class AppBottomSheetShell extends StatelessWidget {
     this.footerCenter,
     this.cancelText = '取消',
     this.confirmText = '确定',
+    this.cancelForegroundColor,
     this.footerEnabled = true,
   });
 
@@ -223,6 +229,7 @@ class AppBottomSheetShell extends StatelessWidget {
                   center: footerCenter,
                   cancelText: cancelText,
                   confirmText: confirmText,
+                  cancelForegroundColor: cancelForegroundColor,
                 ),
                 _FooterKeyboardCompensation(),
               ],
@@ -300,6 +307,7 @@ class _BottomSheetFooter extends StatelessWidget {
     this.center,
     required this.cancelText,
     required this.confirmText,
+    this.cancelForegroundColor,
   });
 
   final VoidCallback? onCancel;
@@ -307,6 +315,7 @@ class _BottomSheetFooter extends StatelessWidget {
   final Widget? center;
   final String cancelText;
   final String confirmText;
+  final Color? cancelForegroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -331,7 +340,9 @@ class _BottomSheetFooter extends StatelessWidget {
               textStyle: const TextStyle(
                 fontSize: BottomSheetTokens.actionTextSize,
               ),
-              foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+              foregroundColor:
+                  cancelForegroundColor ??
+                  AppColors.brand.withValues(alpha: 0.8),
             ),
             child: Text(cancelText),
           ),

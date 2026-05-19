@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/foundation/spacing.dart';
 import '../../data/models/device.dart';
 import '../../data/models/timing_record.dart';
 import '../../tokens/mapper/core_tokens.dart';
@@ -11,10 +10,6 @@ import '../../components/feedback/app_records_empty_hint.dart';
 import '../../components/layout/pinned_header_delegate.dart';
 
 part 'timing_recent_records_slivers.dart';
-
-typedef DeleteRecordCallback = Future<bool> Function(TimingRecord record);
-typedef DeleteRecordsCallback =
-    Future<bool> Function(List<TimingRecord> records);
 
 String _recordKey(TimingRecord r) {
   return 'timing-${r.id ?? '${r.startDate}-${r.deviceId}-${r.contact}-${r.site}'}';
@@ -148,10 +143,6 @@ class SectionRecentRecords extends StatefulWidget {
   final Map<int, Device> deviceById;
   final Map<int, String> deviceIndexById;
   final ValueChanged<TimingRecord>? onTapRecord;
-  final Future<bool> Function(TimingRecord)? onConfirmDeleteRecord;
-  final DeleteRecordCallback? onDeleteRecord;
-  final Future<bool> Function(List<TimingRecord>)? onConfirmDeleteRecords;
-  final DeleteRecordsCallback? onDeleteRecords;
 
   const SectionRecentRecords({
     super.key,
@@ -159,10 +150,6 @@ class SectionRecentRecords extends StatefulWidget {
     required this.deviceById,
     required this.deviceIndexById,
     this.onTapRecord,
-    this.onConfirmDeleteRecord,
-    this.onDeleteRecord,
-    this.onConfirmDeleteRecords,
-    this.onDeleteRecords,
   });
 
   @override
@@ -187,31 +174,6 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
     _expandedAggregateKeys.removeWhere(
       (key) => !currentAggregateKeys.contains(key),
     );
-  }
-
-  Future<void> _deleteWithOptimisticRemove(TimingRecord record) async {
-    if (widget.onDeleteRecord == null) return;
-    final key = _recordKey(record);
-    setState(() => _locallyRemovedKeys.add(key));
-    final ok = await widget.onDeleteRecord!(record);
-    if (!ok && mounted) {
-      setState(() => _locallyRemovedKeys.remove(key));
-    }
-  }
-
-  Future<void> _deleteAggregateWithOptimisticRemove(
-    _AggregateRecordSection aggregate,
-  ) async {
-    if (widget.onDeleteRecords == null) return;
-    final keys = aggregate.records.map(_recordKey).toSet();
-    setState(() {
-      _locallyRemovedKeys.addAll(keys);
-      _expandedAggregateKeys.remove(aggregate.key);
-    });
-    final ok = await widget.onDeleteRecords!(aggregate.records);
-    if (!ok && mounted) {
-      setState(() => _locallyRemovedKeys.removeAll(keys));
-    }
   }
 
   @override
@@ -248,10 +210,6 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
             deviceById: widget.deviceById,
             deviceIndexById: widget.deviceIndexById,
             onTapRecord: widget.onTapRecord,
-            onConfirmDeleteRecord: widget.onConfirmDeleteRecord,
-            onDeleteRecord: _deleteWithOptimisticRemove,
-            onConfirmDeleteRecords: widget.onConfirmDeleteRecords,
-            onDeleteRecords: _deleteAggregateWithOptimisticRemove,
           );
         }
 
@@ -261,8 +219,6 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
           deviceById: widget.deviceById,
           deviceIndexById: widget.deviceIndexById,
           onTapRecord: widget.onTapRecord,
-          onConfirmDeleteRecord: widget.onConfirmDeleteRecord,
-          onDeleteRecord: _deleteWithOptimisticRemove,
         );
       }).toList(),
     );
@@ -387,10 +343,6 @@ class _DateGroup extends StatelessWidget {
   final Map<int, Device> deviceById;
   final Map<int, String> deviceIndexById;
   final ValueChanged<TimingRecord>? onTapRecord;
-  final Future<bool> Function(TimingRecord)? onConfirmDeleteRecord;
-  final Future<void> Function(TimingRecord)? onDeleteRecord;
-  final Future<bool> Function(List<TimingRecord>)? onConfirmDeleteRecords;
-  final Future<void> Function(_AggregateRecordSection)? onDeleteRecords;
 
   const _DateGroup({
     required this.ymd,
@@ -401,10 +353,6 @@ class _DateGroup extends StatelessWidget {
     required this.deviceById,
     required this.deviceIndexById,
     this.onTapRecord,
-    this.onConfirmDeleteRecord,
-    this.onDeleteRecord,
-    this.onConfirmDeleteRecords,
-    this.onDeleteRecords,
   });
 
   @override
@@ -439,18 +387,11 @@ class _DateGroup extends StatelessWidget {
             record: aggregate.summaryRecord,
             device: deviceById[aggregate.deviceId],
             deviceIndexText: deviceIndexById[aggregate.deviceId] ?? '?',
-            dismissibleKey: aggregate.key,
             subtitleEmphasis: deviceIndexById[aggregate.deviceId] ?? '?',
             subtitleSecondary: ' 工时调整',
             bottomRightOverride:
                 '误差 ${FormatUtils.meter(aggregate.meterError)}，累计 ${FormatUtils.hours(aggregate.totalHours)}',
             onTap: onToggleAggregate,
-            onConfirmDelete: onConfirmDeleteRecords == null
-                ? null
-                : () => onConfirmDeleteRecords!(aggregate.records),
-            onDelete: onDeleteRecords == null
-                ? null
-                : () => onDeleteRecords!(aggregate),
           ),
           if (aggregateExpanded)
             ...aggregate.records.map(
@@ -468,12 +409,6 @@ class _DateGroup extends StatelessWidget {
                     ? '破碎 ${FormatUtils.hours(record.hours)}'
                     : FormatUtils.hours(record.hours),
                 onTap: onTapRecord == null ? null : () => onTapRecord!(record),
-                onConfirmDelete: onConfirmDeleteRecord == null
-                    ? null
-                    : () => onConfirmDeleteRecord!(record),
-                onDelete: onDeleteRecord == null
-                    ? null
-                    : () => onDeleteRecord!(record),
               ),
             ),
         ] else
@@ -483,12 +418,6 @@ class _DateGroup extends StatelessWidget {
               device: deviceById[record.deviceId],
               deviceIndexText: deviceIndexById[record.deviceId] ?? '?',
               onTap: onTapRecord == null ? null : () => onTapRecord!(record),
-              onConfirmDelete: onConfirmDeleteRecord == null
-                  ? null
-                  : () => onConfirmDeleteRecord!(record),
-              onDelete: onDeleteRecord == null
-                  ? null
-                  : () => onDeleteRecord!(record),
             ),
           ),
       ],
@@ -507,10 +436,7 @@ class _RecordRow extends StatelessWidget {
   final String? subtitleSecondary;
   final bool subtitleEmphasized;
   final String? bottomRightOverride;
-  final String? dismissibleKey;
   final VoidCallback? onTap;
-  final Future<bool> Function()? onConfirmDelete;
-  final Future<void> Function()? onDelete;
 
   const _RecordRow({
     required this.record,
@@ -523,10 +449,7 @@ class _RecordRow extends StatelessWidget {
     this.subtitleSecondary,
     this.subtitleEmphasized = true,
     this.bottomRightOverride,
-    this.dismissibleKey,
     this.onTap,
-    this.onConfirmDelete,
-    this.onDelete,
   });
 
   @override
@@ -706,25 +629,6 @@ class _RecordRow extends StatelessWidget {
       ),
     );
 
-    if (onConfirmDelete == null || onDelete == null) return content;
-
-    return Dismissible(
-      key: ValueKey(
-        dismissibleKey ??
-            'timing-${record.id ?? '${record.startDate}-${record.deviceId}-${record.contact}-${record.site}'}',
-      ),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Colors.red.shade500,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
-      confirmDismiss: (_) => onConfirmDelete!(),
-      onDismissed: (_) {
-        onDelete!();
-      },
-      child: content,
-    );
+    return content;
   }
 }
