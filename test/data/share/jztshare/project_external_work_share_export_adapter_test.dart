@@ -181,4 +181,88 @@ void main() {
       throwsA(isA<ProjectShareExportException>()),
     );
   });
+
+  test(
+    'explicit projectId does not legacy-fallback into old project',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('jztshare_adapter_');
+      addTearDown(() => dir.delete(recursive: true));
+
+      // 同联系人/同地址 → legacyProjectKey 相同，但 projectId 不同。
+      const current = TimingRecord(
+        id: 41,
+        deviceId: 1,
+        startDate: 20260601,
+        projectId: 'P-NEW',
+        contact: '李杰',
+        site: '尚义',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 8,
+        hours: 8,
+        income: 800,
+      );
+      const old = TimingRecord(
+        id: 42,
+        deviceId: 1,
+        startDate: 20260101,
+        projectId: 'P-OLD',
+        contact: '李杰',
+        site: '尚义',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 5,
+        hours: 5,
+        income: 500,
+      );
+      expect(current.legacyProjectKey, old.legacyProjectKey);
+      expect(current.effectiveProjectId, isNot(old.effectiveProjectId));
+
+      final result = await adapter.export(
+        projectId: current.effectiveProjectId,
+        projectKey: current.legacyProjectKey,
+        senderName: '老王',
+        allRecords: const [current, old],
+        allDevices: devices,
+        calcHistoryRepository: _FakeCalcRepo(const {}),
+        producer: producer,
+        createdAt: createdAt,
+        directoryResolver: () async => dir,
+      );
+
+      // 只含当前 projectId 的一条；不被 builder 拦成“分享数据异常”。
+      expect(result.recordCount, 1);
+      final parsed = parser.parseProjectExternalWorkShare(
+        await File(result.filePath!).readAsString(),
+      );
+      final records = parsed.envelope.payload['records'] as List<Object?>;
+      expect(records.length, 1);
+      expect(
+        (records.single as Map<String, Object?>)['source_timing_record_id'],
+        41,
+      );
+    },
+  );
+
+  test(
+    'legacy project without projectId still matches by projectKey',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('jztshare_adapter_');
+      addTearDown(() => dir.delete(recursive: true));
+
+      // a1/a2 的 projectId 为空 → effectiveProjectId 由 legacyProjectKey 派生。
+      final result = await adapter.export(
+        projectId: '', // legacy 场景：无明确 projectId
+        projectKey: a1.legacyProjectKey,
+        senderName: '老王',
+        allRecords: const [a1, a2, b1],
+        allDevices: devices,
+        calcHistoryRepository: _FakeCalcRepo(const {}),
+        producer: producer,
+        createdAt: createdAt,
+        directoryResolver: () async => dir,
+      );
+      expect(result.recordCount, 2); // 只 A 的两条，B 不混入
+    },
+  );
 }

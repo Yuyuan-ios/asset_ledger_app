@@ -66,10 +66,13 @@ class ProjectExternalWorkShareExportAdapter {
     }
     final trimmedProjectId = projectId.trim();
 
+    // 有明确 projectId：仅按 effectiveProjectId 严格匹配，不再 fallback 到
+    // legacyProjectKey——否则同联系人同地址但不同 projectId 的旧项目记录
+    // 会混入候选，再被 builder 跨项目防御拦成“分享数据异常”。
+    // 仅当无明确 projectId 的 legacy 场景，才用 legacyProjectKey 兼容匹配。
     bool belongsToProject(TimingRecord r) {
-      if (trimmedProjectId.isNotEmpty &&
-          r.effectiveProjectId == trimmedProjectId) {
-        return true;
+      if (trimmedProjectId.isNotEmpty) {
+        return r.effectiveProjectId == trimmedProjectId;
       }
       return r.legacyProjectKey == projectKey;
     }
