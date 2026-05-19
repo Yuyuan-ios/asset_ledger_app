@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +14,7 @@ import '../application/controllers/timing_action_controller.dart';
 import '../domain/entities/timing_entities.dart';
 import '../domain/repositories/timing_calculation_history_repository.dart';
 import '../../../features/timing/model/timing_chart_data.dart';
+import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
 import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
@@ -21,6 +24,7 @@ import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../patterns/timing/timing_detail_content_pattern.dart';
+import '../../../patterns/timing/external_work_records_pattern.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
@@ -48,12 +52,24 @@ class _TimingPageState extends State<TimingPage> {
   late int _targetYear;
   late int _targetMonth;
   var _recordsSection = TimingRecordsSection.recent;
+  var _externalWorkLoadRequested = false;
 
   int get _maxChartYear => DateTime.now().year;
 
   int _defaultMonthForYear(int year) {
     final now = DateTime.now();
     return year < now.year ? 12 : now.month;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_externalWorkLoadRequested) return;
+    _externalWorkLoadRequested = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(context.read<TimingExternalWorkStore>().loadAll());
+    });
   }
 
   @override
@@ -130,12 +146,14 @@ class _TimingPageState extends State<TimingPage> {
     final fuelStore = context.read<FuelStore>();
     final maintenanceStore = context.read<MaintenanceStore>();
     final accountStore = context.read<AccountStore>();
+    final externalWorkStore = context.read<TimingExternalWorkStore>();
     await Future.wait([
       timingStore.loadAll(),
       deviceStore.loadAll(),
       fuelStore.loadAll(),
       maintenanceStore.loadAll(),
       accountStore.loadAll(),
+      externalWorkStore.loadAll(),
     ]);
   }
 
@@ -340,6 +358,26 @@ class _TimingPageState extends State<TimingPage> {
     return true;
   }
 
+  Future<void> _openExternalWorkDetail(
+    TimingExternalWorkRecordItem item,
+  ) async {
+    await showAppBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return AppBottomSheetShell(
+          title: '项目外协记录',
+          scrollable: true,
+          footerEnabled: false,
+          contentPadding: EdgeInsets.zero,
+          child: ExternalWorkRecordDetailContent(
+            item: item,
+            onClose: () => Navigator.of(sheetContext).pop(),
+          ),
+        );
+      },
+    );
+  }
+
   void _moveTargetYear(int delta) {
     final next = _targetYear + delta;
     if (next < _minChartYear || next > _maxChartYear) {
@@ -358,19 +396,22 @@ class _TimingPageState extends State<TimingPage> {
     final fuelStore = context.watch<FuelStore>();
     final maintenanceStore = context.watch<MaintenanceStore>();
     final accountStore = context.watch<AccountStore>();
+    final externalWorkStore = context.watch<TimingExternalWorkStore>();
 
     final loading =
         timingStore.loading ||
         deviceStore.loading ||
         fuelStore.loading ||
         maintenanceStore.loading ||
-        accountStore.loading;
+        accountStore.loading ||
+        externalWorkStore.loading;
     final error = firstStoreErrorMessage([
       timingStore,
       deviceStore,
       fuelStore,
       maintenanceStore,
       accountStore,
+      externalWorkStore,
     ], action: '读取');
     final deviceById = buildDeviceByIdMap(deviceStore.allDevices);
     final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
@@ -401,9 +442,11 @@ class _TimingPageState extends State<TimingPage> {
         setState(() => _recordsSection = section);
       },
       records: timingStore.records,
+      externalWorkItems: externalWorkStore.items,
       deviceById: deviceById,
       deviceIndexById: deviceIndexById,
       onTapRecord: (r) => _openTimingEditor(editing: r),
+      onTapExternalWorkRecord: _openExternalWorkDetail,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),

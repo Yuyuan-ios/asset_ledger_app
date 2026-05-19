@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../components/feedback/app_records_empty_hint.dart';
 import '../../components/feedback/store_error_banner.dart';
 import '../../components/layout/pinned_header_delegate.dart';
 import '../../data/models/device.dart';
 import '../../data/models/timing_record.dart';
+import '../../features/timing/state/timing_external_work_store.dart';
 import '../layout/phone_page_layout.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
+import 'external_work_records_pattern.dart';
 import 'recent_records_pattern.dart';
 
 enum TimingRecordsSection { recent, externalWork }
@@ -21,9 +22,11 @@ class TimingHomePattern extends StatefulWidget {
     required this.recordsSection,
     required this.onRecordsSectionChanged,
     required this.records,
+    required this.externalWorkItems,
     required this.deviceById,
     required this.deviceIndexById,
     this.onTapRecord,
+    this.onTapExternalWorkRecord,
     required this.loading,
     this.error,
     this.onRetry,
@@ -35,9 +38,11 @@ class TimingHomePattern extends StatefulWidget {
   final TimingRecordsSection recordsSection;
   final ValueChanged<TimingRecordsSection> onRecordsSectionChanged;
   final List<TimingRecord> records;
+  final List<TimingExternalWorkRecordItem> externalWorkItems;
   final Map<int, Device> deviceById;
   final Map<int, String> deviceIndexById;
   final ValueChanged<TimingRecord>? onTapRecord;
+  final ValueChanged<TimingExternalWorkRecordItem>? onTapExternalWorkRecord;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
@@ -163,11 +168,9 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
                             onTapRecord: widget.onTapRecord,
                           )
                         else
-                          const SliverToBoxAdapter(
-                            child: AppRecentRecordsEmptyState(
-                              title: '暂无外协项目记录',
-                              subtitle: '从他人分享包导入的项目记录会显示在这里',
-                            ),
+                          ...buildTimingExternalWorkRecordSlivers(
+                            items: widget.externalWorkItems,
+                            onTapRecord: widget.onTapExternalWorkRecord,
                           ),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: TimingTokens.homeBottomGap),
@@ -242,7 +245,7 @@ class _RecordsSectionSwitch extends StatelessWidget {
               onTap: () => onSectionChanged(TimingRecordsSection.recent),
             ),
             _RecordsSectionButton(
-              label: '外协项目',
+              label: '项目外协',
               selected: selectedSection == TimingRecordsSection.externalWork,
               onTap: () => onSectionChanged(TimingRecordsSection.externalWork),
             ),

@@ -2,6 +2,8 @@ import 'package:asset_ledger/app/app_providers.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
+import 'package:asset_ledger/data/repositories/external_import_repository.dart';
+import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
@@ -18,6 +20,7 @@ import 'package:asset_ledger/features/external_work/import_preview/use_cases/con
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
+import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:flutter/widgets.dart';
@@ -44,8 +47,11 @@ void main() {
       late AccountProjectMergeRepository accountProjectMergeRepository;
       late AccountProjectMergeService accountProjectMergeService;
       late TimingMergeDissolvePort timingMergeDissolvePort;
+      late ExternalImportRepository externalImportRepository;
+      late ExternalWorkRecordRepository externalWorkRecordRepository;
       late ExternalWorkImportPreviewPreparer externalWorkPreviewPreparer;
       late ExternalWorkImportConfirmer externalWorkImportConfirmer;
+      late TimingExternalWorkStore timingExternalWorkStore;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
       late FuelStore fuelStore;
@@ -80,10 +86,16 @@ void main() {
                     .read<AccountProjectMergeService>();
                 timingMergeDissolvePort = context
                     .read<TimingMergeDissolvePort>();
+                externalImportRepository = context
+                    .read<ExternalImportRepository>();
+                externalWorkRecordRepository = context
+                    .read<ExternalWorkRecordRepository>();
                 externalWorkPreviewPreparer = context
                     .read<ExternalWorkImportPreviewPreparer>();
                 externalWorkImportConfirmer = context
                     .read<ExternalWorkImportConfirmer>();
+                timingExternalWorkStore = context
+                    .read<TimingExternalWorkStore>();
                 deviceStore = context.read<DeviceStore>();
                 timingStore = context.read<TimingStore>();
                 fuelStore = context.read<FuelStore>();
@@ -113,6 +125,8 @@ void main() {
       );
       expect(accountProjectMergeService, isA<AccountProjectMergeService>());
       expect(timingMergeDissolvePort, isA<TimingMergeDissolvePort>());
+      expect(externalImportRepository, isA<ExternalImportRepository>());
+      expect(externalWorkRecordRepository, isA<ExternalWorkRecordRepository>());
       expect(
         externalWorkPreviewPreparer,
         isA<PrepareExternalWorkImportPreviewUseCase>(),
@@ -127,6 +141,10 @@ void main() {
       expect(identical(fuelStore, bundle.fuelStore), isTrue);
       expect(identical(maintenanceStore, bundle.maintenanceStore), isTrue);
       expect(identical(accountStore, bundle.accountStore), isTrue);
+      expect(
+        identical(timingExternalWorkStore, bundle.timingExternalWorkStore),
+        isTrue,
+      );
     },
   );
 }

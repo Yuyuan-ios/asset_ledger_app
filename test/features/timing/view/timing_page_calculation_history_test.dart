@@ -3,6 +3,8 @@ import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/external_import_batch.dart';
+import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/fuel_log.dart';
 import 'package:asset_ledger/data/models/maintenance_record.dart';
 import 'package:asset_ledger/data/models/project.dart';
@@ -10,6 +12,8 @@ import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
+import 'package:asset_ledger/data/repositories/external_import_repository.dart';
+import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
@@ -25,6 +29,7 @@ import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/application/controllers/timing_action_controller.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
+import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
@@ -239,9 +244,9 @@ void main() {
 
     expect(find.text('最近记录(1)'), findsOneWidget);
     expect(find.text('最近记录'), findsOneWidget);
-    expect(find.text('外协项目'), findsOneWidget);
+    expect(find.text('项目外协'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsOneWidget);
-    expect(find.text('暂无外协项目记录'), findsNothing);
+    expect(find.text('暂无项目外协记录'), findsNothing);
   });
 
   testWidgets('external work section shows empty scaffold', (
@@ -252,10 +257,10 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('外协项目'));
+    await tester.tap(find.text('项目外协'));
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无外协项目记录'), findsOneWidget);
+    expect(find.text('暂无项目外协记录'), findsOneWidget);
     expect(find.text('从他人分享包导入的项目记录会显示在这里'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsNothing);
   });
@@ -268,12 +273,12 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('外协项目'));
+    await tester.tap(find.text('项目外协'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('最近记录'));
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无外协项目记录'), findsNothing);
+    expect(find.text('暂无项目外协记录'), findsNothing);
     expect(find.text('甲方·一号工地'), findsOneWidget);
   });
 
@@ -285,7 +290,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('外协项目'));
+    await tester.tap(find.text('项目外协'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('最近记录'));
     await tester.pumpAndSettle();
@@ -303,12 +308,101 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('外协项目'));
+    await tester.tap(find.text('项目外协'));
     await tester.pumpAndSettle();
 
     expect(find.text('新增'), findsNothing);
     expect(find.text('编辑计时'), findsNothing);
     expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+  });
+
+  testWidgets('external work section renders imported records read-only list', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord()],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
+    expect(find.text('CAT 320D'), findsOneWidget);
+    expect(find.text('2026.05.12'), findsOneWidget);
+    expect(find.text('8.5 h'), findsOneWidget);
+    expect(find.text('¥987.65'), findsNothing);
+    expect(find.text('¥123.45'), findsNothing);
+    expect(find.text('batch-1'), findsNothing);
+    expect(find.text('share-1'), findsNothing);
+    expect(find.text('source-record-1'), findsNothing);
+    expect(find.text('payload-sha256-hidden'), findsNothing);
+  });
+
+  testWidgets('external work linked state controls link icon', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord()],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.link), findsNothing);
+
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord(linkedProjectId: 'project-1')],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.link), findsOneWidget);
+  });
+
+  testWidgets('external work item opens read-only detail sheet', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord(linkedProjectId: 'project-1')],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('项目外协记录'), findsOneWidget);
+    expect(find.text('从分享包导入'), findsOneWidget);
+    expect(find.text('王师傅分享包'), findsOneWidget);
+    expect(find.text('东区工地'), findsOneWidget);
+    expect(find.text('CAT / 320D / 挖机'), findsOneWidget);
+    expect(find.text('2026.05.12'), findsWidgets);
+    expect(find.text('8.5 h'), findsWidgets);
+    expect(find.text('¥123'), findsOneWidget);
+    expect(find.text('¥1049'), findsOneWidget);
+    expect(find.text('2026-05-13T10:00:00.000Z'), findsOneWidget);
+    expect(find.text('已关联'), findsOneWidget);
+    expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
+    expect(find.text('不应展示的联系人'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '知道了'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '保存'), findsNothing);
+    expect(find.widgetWithText(TextButton, '编辑'), findsNothing);
+    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+    expect(find.widgetWithText(TextButton, '关联项目'), findsNothing);
+    expect(find.widgetWithText(TextButton, '合并'), findsNothing);
+    expect(find.widgetWithText(TextButton, '抵扣'), findsNothing);
+    expect(find.widgetWithText(TextButton, '核销'), findsNothing);
   });
 
   testWidgets(
@@ -414,6 +508,8 @@ Future<void> _pumpTimingPage(
   _FakeTimingRepository? timingRepository,
   required TimingCalculationHistoryRepository historyRepository,
   _FakeAccountProjectMergeRepository? mergeRepository,
+  List<ExternalImportBatch> externalBatches = const [],
+  List<ExternalWorkRecord> externalRecords = const [],
 }) async {
   tester.view.physicalSize = const Size(800, 1000);
   tester.view.devicePixelRatio = 1;
@@ -426,6 +522,10 @@ Future<void> _pumpTimingPage(
   final fuelRepository = _FakeFuelRepository();
   final maintenanceRepository = _FakeMaintenanceRepository();
   final rateRepository = _FakeProjectRateRepository();
+  final externalWorkStore = TimingExternalWorkStore(
+    importRepository: _FakeExternalImportRepository(seed: externalBatches),
+    recordRepository: _FakeExternalWorkRecordRepository(seed: externalRecords),
+  );
   final projectResolver = ProjectResolver(
     projectRepository: _FakeProjectRepository(),
     now: () => DateTime.utc(2026, 5, 15),
@@ -450,6 +550,7 @@ Future<void> _pumpTimingPage(
   await maintenanceStore.loadAll();
   await rateStore.loadAll();
   await accountStore.loadAll();
+  await externalWorkStore.loadAll();
 
   await tester.pumpWidget(
     MaterialApp(
@@ -463,6 +564,9 @@ Future<void> _pumpTimingPage(
           ),
           ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
           ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+          ChangeNotifierProvider<TimingExternalWorkStore>.value(
+            value: externalWorkStore,
+          ),
           Provider<AccountProjectMergeService>.value(value: mergeService),
           Provider<TimingMergeDissolvePort>.value(
             value: AccountMergeDissolveAdapter(mergeService),
@@ -521,6 +625,46 @@ TimingCalculationHistory _history() {
     expression: '8+8',
     result: 16.0,
     ticketCount: 2,
+  );
+}
+
+ExternalImportBatch _externalBatch() {
+  return const ExternalImportBatch(
+    id: 'batch-1',
+    sourceShareId: 'share-1',
+    sourceDisplayName: '王师傅分享包',
+    recordCount: 1,
+    totalHoursMilli: 8500,
+    totalAmountFen: 104933,
+    siteSummary: '东区工地',
+    importedAt: '2026-05-13T10:00:00.000Z',
+    createdAt: '2026-05-13T10:00:00.000Z',
+    updatedAt: '2026-05-13T10:00:00.000Z',
+  );
+}
+
+ExternalWorkRecord _externalRecord({String? linkedProjectId}) {
+  return ExternalWorkRecord(
+    id: 'external-1',
+    importBatchId: 'batch-1',
+    sourceShareId: 'share-1',
+    sourceRecordUuid: 'source-record-1',
+    sourceInstallationUuid: 'source-installation-1',
+    originFingerprint: 'payload-sha256-hidden',
+    collaboratorName: '王师傅',
+    contactSnapshot: '不应展示的联系人',
+    siteSnapshot: '东区工地',
+    equipmentBrand: 'CAT',
+    equipmentModel: '320D',
+    equipmentType: '挖机',
+    workDate: 20260512,
+    hoursMilli: 8500,
+    sourceUnitPriceFen: 12000,
+    localUnitPriceFen: 12345,
+    amountFen: 104933,
+    linkedProjectId: linkedProjectId,
+    createdAt: '2026-05-13T10:05:00.000Z',
+    updatedAt: '2026-05-13T10:05:00.000Z',
   );
 }
 
@@ -598,6 +742,77 @@ class _FakeTimingRepository implements TimingRepository {
   @override
   Future<int> deleteByDeviceId(int deviceId) async => 1;
 }
+
+class _FakeExternalImportRepository implements ExternalImportRepository {
+  _FakeExternalImportRepository({required List<ExternalImportBatch> seed})
+    : _batches = List.of(seed);
+
+  final List<ExternalImportBatch> _batches;
+
+  @override
+  Future<void> insertBatch(ExternalImportBatch batch) async {
+    _batches.add(batch);
+  }
+
+  @override
+  Future<ExternalImportBatch?> findBatchById(String id) async {
+    for (final batch in _batches) {
+      if (batch.id == id) return batch;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<ExternalImportBatch>> listBatches() async => List.of(_batches);
+}
+
+class _FakeExternalWorkRecordRepository
+    implements ExternalWorkRecordRepository {
+  _FakeExternalWorkRecordRepository({required List<ExternalWorkRecord> seed})
+    : _records = List.of(seed);
+
+  final List<ExternalWorkRecord> _records;
+
+  @override
+  Future<void> insertRecord(ExternalWorkRecord record) async {
+    _records.add(record);
+  }
+
+  @override
+  Future<void> insertRecords(List<ExternalWorkRecord> records) async {
+    _records.addAll(records);
+  }
+
+  @override
+  Future<List<ExternalWorkRecord>> listByBatchId(String batchId) async {
+    return _records
+        .where((record) => record.importBatchId == batchId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ExternalWorkRecord>> listByLinkedProjectId(
+    String projectId,
+  ) async {
+    return _records
+        .where((record) => record.linkedProjectId == projectId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<int> updateLocalFields({
+    required String recordId,
+    int? localUnitPriceFen,
+    Object? linkedProjectId = _externalSentinel,
+    ExternalWorkRecordStatus? status,
+    Object? note = _externalSentinel,
+    required String updatedAt,
+  }) async {
+    return 0;
+  }
+}
+
+const _externalSentinel = Object();
 
 class _FakeDeviceRepository implements DeviceRepository {
   _FakeDeviceRepository({required List<Device> seed}) : _devices = seed;
