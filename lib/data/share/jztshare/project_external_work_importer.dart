@@ -73,8 +73,35 @@ class ProjectExternalWorkImporter {
     required ExternalWorkImportPreviewLine line,
     required String now,
   }) {
+    final id = 'external:${preview.shareId}:${line.exportLineUuid}';
+    if (line.amountIsAuthoritative) {
+      // 富事实层：amountFen 来自真实 income_fen，原样写入，不重算。
+      return ExternalWorkRecord.imported(
+        id: id,
+        importBatchId: preview.shareId,
+        sourceShareId: preview.shareId,
+        sourceRecordUuid: line.exportLineUuid,
+        sourceInstallationUuid: preview.sourceInstallationUuid,
+        originFingerprint: line.originFingerprint,
+        collaboratorName: preview.senderName,
+        contactSnapshot: line.contactSnapshot,
+        siteSnapshot: line.siteSnapshot,
+        equipmentBrand: line.equipmentBrand,
+        equipmentModel: line.equipmentModel,
+        equipmentType: line.equipmentType,
+        workDate: line.workDate,
+        hoursMilli: line.hoursMilli,
+        amountFen: line.amountFen,
+        sourceUnitPriceFen: line.sourceUnitPriceFen,
+        localUnitPriceFen: line.localUnitPriceFen,
+        linkedProjectId: null,
+        note: line.note,
+        createdAt: now,
+        updatedAt: now,
+      );
+    }
     return ExternalWorkRecord.create(
-      id: 'external:${preview.shareId}:${line.exportLineUuid}',
+      id: id,
       importBatchId: preview.shareId,
       sourceShareId: preview.shareId,
       sourceRecordUuid: line.exportLineUuid,

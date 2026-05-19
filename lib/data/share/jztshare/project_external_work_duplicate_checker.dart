@@ -23,6 +23,7 @@ class ProjectExternalWorkDuplicateChecker {
   ) async {
     final payload = parsed.payload;
     final shareId = payload.shareId;
+    final isRich = payload.hasRichRecords;
     final sameShareImported = await _exists(
       executor,
       'external_import_batches',
@@ -34,33 +35,62 @@ class ProjectExternalWorkDuplicateChecker {
     var sameSourceRecordCount = 0;
     var sameOriginFingerprintCount = 0;
 
-    for (final line in payload.exportLines) {
-      _verifyAmount(line);
+    Future<ExternalWorkDuplicateStatus> resolve({
+      required String sourceRecordUuid,
+      required String originFingerprint,
+    }) async {
       final sameSourceRecord = await _exists(
         executor,
         'external_work_records',
         where: 'source_share_id = ? AND source_record_uuid = ?',
-        whereArgs: [shareId, line.exportLineUuid],
+        whereArgs: [shareId, sourceRecordUuid],
       );
       final sameOriginFingerprint = await _exists(
         executor,
         'external_work_records',
         where: 'origin_fingerprint = ?',
-        whereArgs: [line.originFingerprint],
+        whereArgs: [originFingerprint],
       );
       if (sameSourceRecord) sameSourceRecordCount++;
       if (sameOriginFingerprint) sameOriginFingerprintCount++;
-
-      previewLines.add(
-        ExternalWorkImportPreviewLine.fromShareLine(
-          line: line,
-          duplicateStatus: _resolveDuplicateStatus(
-            sameShareImported: sameShareImported,
-            sameSourceRecord: sameSourceRecord,
-            sameOriginFingerprint: sameOriginFingerprint,
-          ),
-        ),
+      return _resolveDuplicateStatus(
+        sameShareImported: sameShareImported,
+        sameSourceRecord: sameSourceRecord,
+        sameOriginFingerprint: sameOriginFingerprint,
       );
+    }
+
+    if (isRich) {
+      final projectSnapshot = payload.projectSnapshot!;
+      final deviceById = payload.deviceById;
+      for (final record in payload.richRecords!) {
+        final status = await resolve(
+          sourceRecordUuid: record.sourceRecordUuid,
+          originFingerprint: record.originFingerprint,
+        );
+        previewLines.add(
+          ExternalWorkImportPreviewLine.fromRichRecord(
+            record: record,
+            projectSnapshot: projectSnapshot,
+            device: deviceById[record.sourceDeviceId],
+            duplicateStatus: status,
+          ),
+        );
+      }
+    } else {
+      for (final line in payload.exportLines) {
+        _verifyAmount(line);
+        final status = await resolve(
+          sourceRecordUuid: line.exportLineUuid,
+          originFingerprint: line.originFingerprint,
+        );
+        previewLines.add(
+          ExternalWorkImportPreviewLine.fromShareLine(
+            line: line,
+            duplicateStatus: status,
+          ),
+        );
+      }
     }
 
     return ExternalWorkImportPreview(
@@ -83,6 +113,7 @@ class ProjectExternalWorkDuplicateChecker {
         sameOriginFingerprintCount: sameOriginFingerprintCount,
       ),
       lines: List.unmodifiable(previewLines),
+      isRich: isRich,
     );
   }
 

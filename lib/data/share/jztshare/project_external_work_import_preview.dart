@@ -1,4 +1,5 @@
 import 'project_external_work_share_line.dart';
+import 'project_external_work_share_rich_payload.dart';
 
 enum ExternalWorkDuplicateStatus {
   none,
@@ -18,6 +19,7 @@ class ExternalWorkImportPreview {
     required this.siteSummary,
     required this.duplicateSummary,
     required this.lines,
+    this.isRich = false,
   });
 
   final String shareId;
@@ -29,6 +31,10 @@ class ExternalWorkImportPreview {
   final String siteSummary;
   final ExternalWorkDuplicateSummary duplicateSummary;
   final List<ExternalWorkImportPreviewLine> lines;
+
+  /// 本预览基于富事实层 `records[]` 构建（true），还是 legacy
+  /// `export_lines[]`（false）。importer 据此决定金额来源。
+  final bool isRich;
 }
 
 class ExternalWorkImportPreviewLine {
@@ -47,6 +53,7 @@ class ExternalWorkImportPreviewLine {
     required this.amountFen,
     required this.duplicateStatus,
     this.note,
+    this.amountIsAuthoritative = false,
   });
 
   factory ExternalWorkImportPreviewLine.fromShareLine({
@@ -71,6 +78,34 @@ class ExternalWorkImportPreviewLine {
     );
   }
 
+  /// 富事实层记录 → 预览行。金额取真实 `income_fen`（authoritative），
+  /// 不按 hours×单价重算；单价来源未知时不伪造（置 0）。设备快照缺失时
+  /// equipment* 留空，不崩溃。
+  factory ExternalWorkImportPreviewLine.fromRichRecord({
+    required ProjectExternalWorkShareRecord record,
+    required ProjectExternalWorkShareProjectSnapshot projectSnapshot,
+    ProjectExternalWorkShareDeviceSnapshot? device,
+    required ExternalWorkDuplicateStatus duplicateStatus,
+  }) {
+    return ExternalWorkImportPreviewLine(
+      exportLineUuid: record.sourceRecordUuid,
+      originFingerprint: record.originFingerprint,
+      contactSnapshot: projectSnapshot.contactSnapshot,
+      siteSnapshot: projectSnapshot.siteSnapshot,
+      equipmentBrand: device?.brand,
+      equipmentModel: device?.model,
+      equipmentType: device?.type,
+      workDate: record.workDate,
+      hoursMilli: record.hoursMilli,
+      sourceUnitPriceFen: 0,
+      localUnitPriceFen: 0,
+      amountFen: record.incomeFen,
+      duplicateStatus: duplicateStatus,
+      note: null,
+      amountIsAuthoritative: true,
+    );
+  }
+
   final String exportLineUuid;
   final String originFingerprint;
   final String contactSnapshot;
@@ -85,6 +120,10 @@ class ExternalWorkImportPreviewLine {
   final int amountFen;
   final ExternalWorkDuplicateStatus duplicateStatus;
   final String? note;
+
+  /// true 表示 amountFen 来自真实来源金额（rich `income_fen`），
+  /// importer 必须原样写入，禁止按 AmountPolicy 重算。
+  final bool amountIsAuthoritative;
 }
 
 class ExternalWorkDuplicateSummary {

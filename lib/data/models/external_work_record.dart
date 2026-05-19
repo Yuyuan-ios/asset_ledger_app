@@ -27,6 +27,7 @@ class ExternalWorkRecord {
     this.note,
     required this.createdAt,
     required this.updatedAt,
+    this.amountOverridesPolicy = false,
   });
 
   factory ExternalWorkRecord.create({
@@ -83,6 +84,60 @@ class ExternalWorkRecord {
     )..validate();
   }
 
+  /// 富事实层导入路径：amountFen 为来源真实金额（rich `income_fen`），
+  /// 原样写入，禁止按 AmountPolicy 重算。rent/台班/人工覆写金额记录走此路径。
+  /// 单价来源未知时不伪造，sourceUnitPriceFen/localUnitPriceFen 默认 0。
+  factory ExternalWorkRecord.imported({
+    required String id,
+    required String importBatchId,
+    required String sourceShareId,
+    required String sourceRecordUuid,
+    required String sourceInstallationUuid,
+    required String originFingerprint,
+    required String collaboratorName,
+    required String contactSnapshot,
+    required String siteSnapshot,
+    String? equipmentBrand,
+    String? equipmentModel,
+    String? equipmentType,
+    required int workDate,
+    required int hoursMilli,
+    required int amountFen,
+    int sourceUnitPriceFen = 0,
+    int localUnitPriceFen = 0,
+    String? linkedProjectId,
+    ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
+    String? note,
+    required String createdAt,
+    required String updatedAt,
+  }) {
+    return ExternalWorkRecord(
+      id: id,
+      importBatchId: importBatchId,
+      sourceShareId: sourceShareId,
+      sourceRecordUuid: sourceRecordUuid,
+      sourceInstallationUuid: sourceInstallationUuid,
+      originFingerprint: originFingerprint,
+      collaboratorName: collaboratorName,
+      contactSnapshot: contactSnapshot,
+      siteSnapshot: siteSnapshot,
+      equipmentBrand: equipmentBrand,
+      equipmentModel: equipmentModel,
+      equipmentType: equipmentType,
+      workDate: workDate,
+      hoursMilli: hoursMilli,
+      sourceUnitPriceFen: sourceUnitPriceFen,
+      localUnitPriceFen: localUnitPriceFen,
+      amountFen: amountFen,
+      linkedProjectId: linkedProjectId,
+      status: status,
+      note: note,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      amountOverridesPolicy: true,
+    )..validate();
+  }
+
   final String id;
   final String importBatchId;
   final String sourceShareId;
@@ -105,6 +160,10 @@ class ExternalWorkRecord {
   final String? note;
   final String createdAt;
   final String updatedAt;
+
+  /// true：amountFen 为来源真实金额，validate() 跳过 AmountPolicy 一致性校验。
+  /// 仅内存态，不入库列；持久化读回（fromMap）后为 false（读路径不重校金额）。
+  final bool amountOverridesPolicy;
 
   ExternalWorkRecord copyWith({
     String? id,
@@ -129,6 +188,7 @@ class ExternalWorkRecord {
     Object? note = _sentinel,
     String? createdAt,
     String? updatedAt,
+    bool? amountOverridesPolicy,
   }) {
     return ExternalWorkRecord(
       id: id ?? this.id,
@@ -162,6 +222,8 @@ class ExternalWorkRecord {
       note: identical(note, _sentinel) ? this.note : note as String?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      amountOverridesPolicy:
+          amountOverridesPolicy ?? this.amountOverridesPolicy,
     );
   }
 
@@ -234,6 +296,7 @@ class ExternalWorkRecord {
 
   void validate() {
     ExternalWorkRecord.fromMap(toUncheckedMap());
+    if (amountOverridesPolicy) return;
     final expectedAmountFen = calculateAmountFen(
       hoursMilli: hoursMilli,
       unitPriceFen: localUnitPriceFen,
