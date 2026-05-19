@@ -2,6 +2,10 @@ import 'dart:convert';
 
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
+import 'package:asset_ledger/data/models/external_work_record.dart';
+import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
+import 'package:asset_ledger/data/share/jztshare/jztshare_errors.dart';
 import 'package:asset_ledger/data/share/jztshare/project_external_work_import_result.dart';
 import 'package:asset_ledger/data/share/jztshare/project_external_work_importer.dart';
 import 'package:asset_ledger/data/share/jztshare/share_envelope.dart';
@@ -50,6 +54,57 @@ void main() {
       // recordCount 取 rich records，不是 export_lines
       expect(preview.recordCount, 2);
       expect(preview.totalAmountFen, 130000);
+    });
+
+    test('summary mismatch uses actual records and keeps rich path', () async {
+      await _openDb();
+      final records = [
+        _record(
+          uuid: 'timing:21',
+          fingerprint: 'fp-summary-21',
+          hoursMilli: 1250,
+          incomeFen: 11111,
+        ),
+        _record(
+          uuid: 'timing:22',
+          fingerprint: 'fp-summary-22',
+          hoursMilli: 2750,
+          incomeFen: 22222,
+        ),
+      ];
+      final parsed = _parsedRich(
+        shareId: 'summary-mismatch-share',
+        records: records,
+        exportLines: [_legacyLine(uuid: 'legacy-only')],
+        summary: const {
+          'device_count': 99,
+          'record_count': 99,
+          'total_income_fen': 1,
+          'total_hours_milli': 2,
+        },
+      );
+
+      expect(parsed.payload.hasRichRecords, isTrue);
+      expect(parsed.payload.summary?.recordCount, 99);
+      expect(parsed.payload.richRecords!.map((record) => record.incomeFen), [
+        11111,
+        22222,
+      ]);
+      expect(parsed.payload.richRecords!.map((record) => record.hoursMilli), [
+        1250,
+        2750,
+      ]);
+
+      final preview = await importer.buildPreview(parsed);
+      expect(preview.isRich, isTrue);
+      expect(preview.recordCount, records.length);
+      expect(preview.totalAmountFen, 33333);
+      expect(preview.totalHoursMilli, 4000);
+      expect(preview.lines.map((line) => line.exportLineUuid), [
+        'timing:21',
+        'timing:22',
+      ]);
+      expect(preview.lines.every((line) => line.amountIsAuthoritative), isTrue);
     });
 
     test('falls back to export_lines when records[] absent', () async {
@@ -130,6 +185,111 @@ void main() {
       },
     );
 
+    test(
+      'missing required rich record field fails without legacy fallback',
+      () async {
+        final db = await _openDb();
+        const requiredFields = [
+          'source_record_uuid',
+          'work_date',
+          'income_fen',
+          'hours_milli',
+          'source_device_id',
+        ];
+
+        for (final field in requiredFields) {
+          final brokenRecord = _record(
+            uuid: 'timing:missing-$field',
+            fingerprint: 'fp-missing-$field',
+            incomeFen: 12345,
+          )..remove(field);
+
+          expect(
+            () => _parsedRich(
+              shareId: 'missing-$field',
+              records: [brokenRecord],
+              exportLines: [_legacyLine(uuid: 'legacy-$field')],
+            ),
+            throwsA(
+              isA<JztShareParseException>()
+                  .having(
+                    (error) => error.code,
+                    'code',
+                    JztShareErrorCodes.invalidPayload,
+                  )
+                  .having((error) => error.message, 'message', contains(field)),
+            ),
+          );
+        }
+
+        expect(await db.query('external_import_batches'), isEmpty);
+        expect(await db.query('external_work_records'), isEmpty);
+      },
+    );
+
+    test(
+      'rich override amount survives readback and local field update',
+      () async {
+        final db = await _openDb();
+        const recordId = 'external:rich-update-share:timing:31';
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        final parsed = _parsedRich(
+          shareId: 'rich-update-share',
+          records: [
+            _record(
+              uuid: 'timing:31',
+              fingerprint: 'fp-rich-update',
+              hoursMilli: 3000,
+              incomeFen: 33334,
+            ),
+          ],
+          exportLines: const [],
+        );
+
+        final result = await importer.importParsed(
+          parsed,
+          importedAt: '2026-05-19T00:00:00.000Z',
+        );
+        expect(result.status, ProjectExternalWorkImportStatus.imported);
+
+        final readBack = (await recordRepo.listByBatchId(
+          'rich-update-share',
+        )).single;
+        expect(readBack.id, recordId);
+        expect(readBack.amountFen, 33334);
+        expect(readBack.amountOverridesPolicy, isFalse);
+
+        await db.insert(
+          'projects',
+          const Project(
+            id: 'project:rich-linked',
+            contact: '张三',
+            site: '工地A',
+            createdAt: '2026-05-19T00:00:00.000Z',
+            updatedAt: '2026-05-19T00:00:00.000Z',
+          ).toMap(),
+        );
+        final updated = await recordRepo.updateLocalFields(
+          recordId: recordId,
+          linkedProjectId: 'project:rich-linked',
+          status: ExternalWorkRecordStatus.ignored,
+          note: '本机复核',
+          updatedAt: '2026-05-19T01:00:00.000Z',
+        );
+
+        expect(updated, 1);
+        final updatedRecord = (await recordRepo.listByBatchId(
+          'rich-update-share',
+        )).single;
+        expect(updatedRecord.amountFen, 33334);
+        expect(updatedRecord.localUnitPriceFen, 0);
+        expect(updatedRecord.linkedProjectId, 'project:rich-linked');
+        expect(updatedRecord.status, ExternalWorkRecordStatus.ignored);
+        expect(updatedRecord.note, '本机复核');
+        expect(updatedRecord.updatedAt, '2026-05-19T01:00:00.000Z');
+      },
+    );
+
     test('duplicate: re-importing same rich package is rejected '
         '(export_lines empty but records non-empty)', () async {
       final db = await _openDb();
@@ -179,6 +339,7 @@ ParsedProjectExternalWorkShare _parsedRich({
   String shareId = 'rich-share-1',
   required List<Map<String, Object?>>? records,
   required List<Map<String, Object?>> exportLines,
+  Map<String, Object?>? summary,
 }) {
   final payload = <String, Object?>{
     'share_id': shareId,
@@ -188,12 +349,14 @@ ParsedProjectExternalWorkShare _parsedRich({
     if (records != null) ...{
       'protocol_version': 1,
       'fingerprint_version': 1,
-      'summary': {
-        'device_count': 1,
-        'record_count': records.length,
-        'total_income_fen': 0,
-        'total_hours_milli': 0,
-      },
+      'summary':
+          summary ??
+          {
+            'device_count': 1,
+            'record_count': records.length,
+            'total_income_fen': 0,
+            'total_hours_milli': 0,
+          },
       'project_snapshot': {
         'source_project_id': 'p-1',
         'source_project_key': '张三|工地A',
