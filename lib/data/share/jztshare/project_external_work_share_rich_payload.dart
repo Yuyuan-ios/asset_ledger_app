@@ -16,6 +16,7 @@ class ProjectExternalWorkShareRichPayload {
     required this.senderName,
     required this.sourceInstallationUuid,
     required this.protocolVersion,
+    required this.fingerprintVersion,
     required this.summary,
     required this.projectSnapshot,
     required this.devices,
@@ -27,10 +28,15 @@ class ProjectExternalWorkShareRichPayload {
   /// 富事实层版本号；与 envelope.formatVersion 相互独立。
   static const int currentProtocolVersion = 1;
 
+  /// originFingerprint 算法版本：字段集合/顺序/口径变更时递增，
+  /// 供导入端判断指纹可比性。
+  static const int currentFingerprintVersion = 1;
+
   final String shareId;
   final String senderName;
   final String sourceInstallationUuid;
   final int protocolVersion;
+  final int fingerprintVersion;
   final ProjectExternalWorkShareSummary summary;
   final ProjectExternalWorkShareProjectSnapshot projectSnapshot;
   final List<ProjectExternalWorkShareDeviceSnapshot> devices;
@@ -49,6 +55,7 @@ class ProjectExternalWorkShareRichPayload {
           .toList(growable: false),
       // ---- 富事实层键 ----
       'protocol_version': protocolVersion,
+      'fingerprint_version': fingerprintVersion,
       'summary': summary.toMap(),
       'project_snapshot': projectSnapshot.toMap(),
       'devices': devices.map((d) => d.toMap()).toList(growable: false),

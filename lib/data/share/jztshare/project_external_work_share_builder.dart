@@ -70,7 +70,10 @@ class ProjectExternalWorkShareBuilder {
           incomeFen: incomeFen,
           isBreaking: record.isBreaking,
           originFingerprint: fingerprint,
-          filledCalculation: _filledCalculation(calcHistoryMap[recordId]),
+          filledCalculation: _filledCalculation(
+            recordId,
+            calcHistoryMap[recordId],
+          ),
         ),
       );
 
@@ -103,6 +106,8 @@ class ProjectExternalWorkShareBuilder {
       sourceInstallationUuid: safeInstallationUuid,
       protocolVersion:
           ProjectExternalWorkShareRichPayload.currentProtocolVersion,
+      fingerprintVersion:
+          ProjectExternalWorkShareRichPayload.currentFingerprintVersion,
       summary: ProjectExternalWorkShareSummary(
         deviceCount: deviceIds.length,
         recordCount: shareRecords.length,
@@ -149,13 +154,22 @@ class ProjectExternalWorkShareBuilder {
   }
 
   static ProjectExternalWorkShareFilledCalculation? _filledCalculation(
+    int recordId,
     List<TimingCalculationHistory>? histories,
   ) {
     if (histories == null || histories.isEmpty) return null;
-    // 多条绑定时取 createdAt 最新一条（不依赖入参顺序）。
-    final latest = histories.reduce(
-      (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
-    );
+    // 防御性过滤：即便入参 map 误装(misbucket)了别的记录历史，也只认
+    // timingRecordId == 当前记录 的条目。
+    final bound = histories
+        .where((h) => h.timingRecordId == recordId)
+        .toList(growable: false);
+    if (bound.isEmpty) return null;
+    // 取 createdAt 最新一条；createdAt 相同则按 id 升序做确定性 tie-break。
+    final latest = bound.reduce((a, b) {
+      if (a.createdAt.isAfter(b.createdAt)) return a;
+      if (b.createdAt.isAfter(a.createdAt)) return b;
+      return a.id.compareTo(b.id) >= 0 ? a : b;
+    });
     return ProjectExternalWorkShareFilledCalculation(
       calculatedAt: latest.createdAt.toIso8601String(),
       expression: latest.expression,
