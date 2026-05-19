@@ -105,8 +105,14 @@ class AccountProjectList extends StatelessWidget {
     return '总共:  $normalized h';
   }
 
-  String _receivedBaseText(AccountProjectVM p) {
+  String _receivedBaseText(AccountProjectVM p, {required bool compact}) {
     if (_isSettled(p)) {
+      if (compact) {
+        if (p.writeOff > _projectCardMoneyEpsilon) {
+          return '核销(减免) ${FormatUtils.money(p.writeOff)}';
+        }
+        return '';
+      }
       if (p.writeOff > _projectCardMoneyEpsilon) {
         return '项目总额 ${FormatUtils.money(p.receivable)} 核销(减免) ${FormatUtils.money(p.writeOff)}';
       }
@@ -115,12 +121,17 @@ class AccountProjectList extends StatelessWidget {
     return '${FormatUtils.percent1(p.ratio)}实收';
   }
 
-  Widget _receivedText(AccountProjectVM p, TextStyle? style) {
-    final base = _receivedBaseText(p);
+  Widget _receivedText(
+    AccountProjectVM p,
+    TextStyle? style, {
+    required bool compact,
+  }) {
+    final base = _receivedBaseText(p, compact: compact);
     final sitesSuffix = !_isSettled(p) && p.kind == AccountProjectKind.merged
         ? _mergedSitesSuffix(p.includedSites)
         : '';
     if (sitesSuffix.isEmpty) {
+      if (base.isEmpty) return const SizedBox.shrink();
       return Text(
         base,
         maxLines: 1,
@@ -391,7 +402,11 @@ class AccountProjectList extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: _receivedText(p, resolvedStatusStyle),
+                              child: _receivedText(
+                                p,
+                                resolvedStatusStyle,
+                                compact: isCompact,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Flexible(

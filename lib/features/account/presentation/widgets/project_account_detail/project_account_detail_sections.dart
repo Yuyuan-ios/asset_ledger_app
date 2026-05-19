@@ -287,7 +287,10 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         onSettleProject != null;
     final isSettled = hasProjectTotal && displayRemaining <= _moneyEpsilon;
     final canRevokeWriteOff =
-        isSettled && writeOffs.isNotEmpty && onDeleteWriteOff != null;
+        isSettled &&
+        writeOff > _moneyEpsilon &&
+        writeOffs.isNotEmpty &&
+        onDeleteWriteOff != null;
     final settlementPillLabel = canRevokeWriteOff
         ? '撤销'
         : canSettle

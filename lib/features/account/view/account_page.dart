@@ -533,7 +533,7 @@ class _AccountPageState extends State<AccountPage> {
   // - 这里用 sheetCtx.watch(...)：保证详情里“保存/删除/改单价”后自动刷新 UI
   // - “新增收款”由详情内容区触发，并限定在当前项目范围内
   //
-  void _openProjectDetail(String projectKey) {
+  void _openProjectDetail(AccountProjectVM project) {
     openEditorSheet<void>(
       context: context,
       title: '项目详情',
@@ -573,7 +573,8 @@ class _AccountPageState extends State<AccountPage> {
                   );
 
                   return AccountProjectDetailSheet(
-                    projectKey: projectKey,
+                    projectId: project.effectiveProjectId,
+                    projectKey: project.projectKey,
                     timingRecords: timing,
                     allDevices: devices,
                     allPayments: payments,
@@ -717,7 +718,7 @@ class _AccountPageState extends State<AccountPage> {
                           child: AccountProjectList(
                             projects: viewData.filteredProjects,
                             isCompact: _isCompactProjectList,
-                            onTap: (p) => _openProjectDetail(p.projectKey),
+                            onTap: _openProjectDetail,
                           ),
                         ),
                         const SliverToBoxAdapter(
