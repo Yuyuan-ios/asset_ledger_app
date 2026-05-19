@@ -78,3 +78,13 @@ class DeleteProjectWriteOffResult {
     return '已删除核销';
   }
 }
+
+class RevokeProjectSettlementStatusResult {
+  const RevokeProjectSettlementStatusResult({
+    required this.projectId,
+    required this.restoredActive,
+  });
+
+  final String projectId;
+  final bool restoredActive;
+}

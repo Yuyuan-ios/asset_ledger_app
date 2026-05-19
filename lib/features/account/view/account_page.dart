@@ -447,19 +447,46 @@ class _AccountPageState extends State<AccountPage> {
       if (project.kind == AccountProjectKind.merged)
         ...project.memberProjectIds.map((id) => id.trim()),
     }..removeWhere((id) => id.isEmpty);
-    final writeOffs = context
-        .read<AccountStore>()
-        .writeOffs
+    final accountStore = context.read<AccountStore>();
+    final writeOffs = accountStore.writeOffs
         .where((item) {
           return projectIds.contains(item.projectId.trim());
         })
         .toList(growable: false);
 
-    if (writeOffs.length != 1) {
+    if (writeOffs.length > 1) {
       _toast('该项目核销记录异常，请先检查核销记录。');
       return;
     }
-    await _revokeWriteOff(writeOffs.single);
+    if (writeOffs.length == 1) {
+      await _revokeWriteOff(writeOffs.single);
+      return;
+    }
+
+    final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
+    if (!isSettled) {
+      _toast('该项目核销记录异常，请先检查核销记录。');
+      return;
+    }
+
+    try {
+      final latestProject = _latestProjectByProjectId(
+        project.effectiveProjectId,
+      );
+      final controller = context.read<AccountActionController>();
+      await controller.revokeSettlementStatus(
+        project: latestProject,
+        accountStore: accountStore,
+      );
+
+      if (!mounted) return;
+      _toast('已撤销结清状态');
+    } catch (error) {
+      if (!mounted) return;
+      _toast(
+        '撤销结清状态失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+      );
+    }
   }
 
   // =====================================================================
@@ -602,6 +629,7 @@ class _AccountPageState extends State<AccountPage> {
                     allWriteOffs: accountStore.writeOffs,
                     allRates: rates,
                     computed: computed,
+                    settledProjectIds: accountStore.settledProjectIds,
                     onBatchEditRate: _openBatchRateEditor,
                     onEditDeviceRate: _openSingleRateEditor,
                     onAddPayment: _openPaymentEditor,

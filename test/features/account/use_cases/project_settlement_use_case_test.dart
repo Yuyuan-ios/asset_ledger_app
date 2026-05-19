@@ -388,6 +388,56 @@ void main() {
         expect(await _projectStatus(db), ProjectStatus.settled);
       },
     );
+
+    test(
+      'revokes settled status without changing payments or write-offs',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProject(db, status: ProjectStatus.settled);
+        await _seedPayment(db, amount: 1260);
+        final useCase = _useCase();
+
+        final result = await useCase.revokeSettlementStatus(
+          projectId: 'project:1',
+        );
+
+        expect(result.projectId, 'project:1');
+        expect(result.restoredActive, isTrue);
+        expect(await _paymentCount(db), 1);
+        expect(await _paymentSum(db), 1260);
+        expect(await _writeOffCount(db), 0);
+        final project = await _projectRow(db);
+        expect(project.status, ProjectStatus.active);
+        expect(project.settledAt, isNull);
+      },
+    );
+
+    test(
+      'rejects settled status revoke when write-off records still exist',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProject(db, status: ProjectStatus.settled);
+        await _seedPayment(db, amount: 1200);
+        await _seedWriteOff(db, amount: 60);
+        final useCase = _useCase();
+
+        await expectLater(
+          useCase.revokeSettlementStatus(projectId: 'project:1'),
+          throwsA(
+            predicate(
+              (error) =>
+                  error is StateError &&
+                  error.message == '该项目存在核销记录，请先撤销核销后再处理。',
+            ),
+          ),
+        );
+
+        expect(await _paymentCount(db), 1);
+        expect(await _paymentSum(db), 1200);
+        expect(await _writeOffCount(db), 1);
+        expect(await _projectStatus(db), ProjectStatus.settled);
+      },
+    );
   });
 }
 

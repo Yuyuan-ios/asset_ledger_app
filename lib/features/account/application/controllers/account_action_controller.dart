@@ -157,6 +157,17 @@ class AccountActionController {
     return result;
   }
 
+  Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus({
+    required AccountProjectVM project,
+    required AccountStore accountStore,
+  }) async {
+    final result = await _settlementUseCase.revokeSettlementStatus(
+      projectId: project.effectiveProjectId,
+    );
+    await accountStore.loadAll();
+    return result;
+  }
+
   List<AccountProjectVM> memberProjectsForMerged({
     required AccountProjectVM project,
     required TimingStore timingStore,

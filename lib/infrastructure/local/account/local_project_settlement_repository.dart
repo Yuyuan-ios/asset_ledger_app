@@ -232,6 +232,50 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     });
   }
 
+  @override
+  Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus(
+    RevokeProjectSettlementStatusRequest request,
+  ) async {
+    return AppDatabase.inTransaction((txn) async {
+      final projectRows = await txn.query(
+        SqfliteProjectRepository.table,
+        where: 'id = ?',
+        whereArgs: [request.projectId],
+        limit: 1,
+      );
+      if (projectRows.isEmpty) {
+        throw StateError('项目不存在，无法撤销结清状态');
+      }
+      final project = Project.fromMap(projectRows.single);
+      final writeOffCount = await _countByProjectId(
+        txn,
+        table: SqfliteProjectWriteOffRepository.table,
+        projectId: request.projectId,
+      );
+      if (writeOffCount > 0) {
+        throw StateError('该项目存在核销记录，请先撤销核销后再处理。');
+      }
+
+      final shouldRestoreActive = project.status == ProjectStatus.settled;
+      if (shouldRestoreActive) {
+        await SqfliteProjectRepository.upsertWithExecutor(
+          txn,
+          project.copyWith(
+            status: ProjectStatus.active,
+            settledAt: null,
+            settledSnapshot: null,
+            updatedAt: request.updatedAtIso,
+          ),
+        );
+      }
+
+      return RevokeProjectSettlementStatusResult(
+        projectId: request.projectId,
+        restoredActive: shouldRestoreActive,
+      );
+    });
+  }
+
   Future<double> _sumByProjectId(
     DatabaseExecutor executor, {
     required String table,
