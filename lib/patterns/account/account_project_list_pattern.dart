@@ -107,16 +107,10 @@ class AccountProjectList extends StatelessWidget {
 
   String _receivedBaseText(AccountProjectVM p, {required bool compact}) {
     if (_isSettled(p)) {
-      if (compact) {
-        if (p.writeOff > _projectCardMoneyEpsilon) {
-          return '核销(减免) ${FormatUtils.money(p.writeOff)}';
-        }
-        return '';
-      }
       if (p.writeOff > _projectCardMoneyEpsilon) {
-        return '项目总额 ${FormatUtils.money(p.receivable)} 核销(减免) ${FormatUtils.money(p.writeOff)}';
+        return '总额 ${FormatUtils.money(p.receivable)}-核销 ${FormatUtils.money(p.writeOff)}';
       }
-      return '项目总额${FormatUtils.money(p.receivable)}';
+      return '总额 ${FormatUtils.money(p.receivable)}';
     }
     return '${FormatUtils.percent1(p.ratio)}实收';
   }
