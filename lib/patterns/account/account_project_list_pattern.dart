@@ -229,6 +229,7 @@ class AccountProjectList extends StatelessWidget {
               final badgeStyle = _priceBadgeStyle(
                 _priceBadgeKind(p, priceText),
               );
+              final isSettled = _isSettled(p);
               return Container(
                 margin: const EdgeInsets.only(
                   bottom: AccountTokens.projectCardBottomMargin,
@@ -279,11 +280,28 @@ class AccountProjectList extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: Text(
-                                p.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: titleStyle,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      p.displayName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: titleStyle,
+                                    ),
+                                  ),
+                                  if (isSettled) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      size: 18,
+                                      color:
+                                          AccountTokens.projectCardProgressFill,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             const SizedBox(

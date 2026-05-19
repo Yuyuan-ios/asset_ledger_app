@@ -178,6 +178,49 @@ void main() {
     expect(find.text('已结清 · 核销 ¥60'), findsOneWidget);
     expect(find.text('余: ¥60 / ¥1260'), findsOneWidget);
     expect(find.text('余: ¥0 / ¥1260'), findsNothing);
+
+    final settledIcons = tester.widgetList<Icon>(_settledCheckIcons()).toList();
+    expect(settledIcons, hasLength(2));
+    expect(
+      settledIcons.every((icon) => icon.color == const Color(0xFF459A63)),
+      isTrue,
+    );
+  });
+
+  testWidgets('settled check keeps long project title and date in one row', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'long-settled',
+      displayName: '特别特别长的联系人名称 + 特别特别长的项目地址名称',
+      minYmd: 20260501,
+      deviceIds: [1],
+      hoursByDevice: {1: 12.6},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1260,
+      remaining: 0,
+      ratio: 1,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 240,
+            child: AccountProjectList(projects: const [project], onTap: (_) {}),
+          ),
+        ),
+      ),
+    );
+
+    expect(_settledCheckIcons(), findsOneWidget);
+    expect(find.text('2026.05.01'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('styles price badges by pricing state', (tester) async {
@@ -360,5 +403,13 @@ Finder _badgeWithColor(Color color) {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration && decoration.color == color;
+  });
+}
+
+Finder _settledCheckIcons() {
+  return find.byWidgetPredicate((widget) {
+    return widget is Icon &&
+        widget.icon == Icons.check_circle_rounded &&
+        widget.size == 18;
   });
 }
