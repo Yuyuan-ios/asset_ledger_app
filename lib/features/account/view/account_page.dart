@@ -597,9 +597,12 @@ class _AccountPageState extends State<AccountPage> {
       ),
       footerEnabled: false,
       onConfirm: () => Navigator.of(context).maybePop(),
-      headerTrailingBuilder: (headerContext) => ProjectDetailHeaderActions(
-        onShare: () => _openProjectShare(project),
-        onClose: () => Navigator.of(headerContext).maybePop(),
+      titleTrailingBuilder: (_) =>
+          ProjectDetailShareButton(onPressed: () => _openProjectShare(project)),
+      headerTrailingBuilder: (headerContext) => IconButton(
+        tooltip: '关闭',
+        icon: const Icon(Icons.close),
+        onPressed: () => Navigator.of(headerContext).maybePop(),
       ),
       childBuilder: (sheetContext) =>
           Consumer5<

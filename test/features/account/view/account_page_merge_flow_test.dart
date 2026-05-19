@@ -375,6 +375,17 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('项目详情'), findsOneWidget);
+      expect(
+        find.byKey(const Key('project-detail-share-button')),
+        findsOneWidget,
+      );
+      final titleRect = tester.getRect(find.text('项目详情'));
+      final shareRect = tester.getRect(
+        find.byKey(const Key('project-detail-share-button')),
+      );
+      final closeRect = tester.getRect(find.byIcon(Icons.close).last);
+      expect(shareRect.left, greaterThan(titleRect.right));
+      expect(shareRect.right, lessThan(closeRect.left));
       expect(find.text('+ 新增收款'), findsOneWidget);
       expect(find.widgetWithText(TextButton, '+ 新增收款'), findsNothing);
       expect(find.widgetWithText(FilledButton, '确定'), findsNothing);

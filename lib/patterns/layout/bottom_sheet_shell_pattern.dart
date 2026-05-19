@@ -34,6 +34,7 @@ Future<T?> openEditorSheet<T>({
   required WidgetBuilder childBuilder,
   VoidCallback? onConfirm,
   void Function(BuildContext sheetContext)? onCancel,
+  WidgetBuilder? titleTrailingBuilder,
   WidgetBuilder? headerTrailingBuilder,
   WidgetBuilder? footerCenterBuilder,
   String cancelText = '取消',
@@ -61,6 +62,7 @@ Future<T?> openEditorSheet<T>({
           Navigator.of(sheetContext).pop();
         },
         onConfirm: onConfirm,
+        titleTrailing: titleTrailingBuilder?.call(sheetContext),
         headerTrailing: headerTrailingBuilder?.call(sheetContext),
         footerCenter: footerCenterBuilder?.call(sheetContext),
         cancelText: cancelText,
@@ -97,6 +99,7 @@ class AppBottomSheetShell extends StatelessWidget {
   final EdgeInsetsGeometry contentPadding;
   final double radius;
   final TextStyle? titleStyle;
+  final Widget? titleTrailing;
   final Widget? headerTrailing;
   final double handleWidth;
   final Color? handleColor;
@@ -127,6 +130,7 @@ class AppBottomSheetShell extends StatelessWidget {
     ),
     this.radius = BottomSheetTokens.radius,
     this.titleStyle,
+    this.titleTrailing,
     this.headerTrailing,
     this.handleWidth = BottomSheetTokens.handleWidth,
     this.handleColor,
@@ -183,16 +187,26 @@ class AppBottomSheetShell extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          title!.trim(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              titleStyle ??
-                              const TextStyle(
-                                fontSize: BottomSheetTokens.titleSize,
-                                fontWeight: FontWeight.w700,
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                title!.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style:
+                                    titleStyle ??
+                                    const TextStyle(
+                                      fontSize: BottomSheetTokens.titleSize,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                               ),
+                            ),
+                            if (titleTrailing != null) ...[
+                              const SizedBox(width: 6),
+                              titleTrailing!,
+                            ],
+                          ],
                         ),
                       ),
                       if (headerTrailing != null)

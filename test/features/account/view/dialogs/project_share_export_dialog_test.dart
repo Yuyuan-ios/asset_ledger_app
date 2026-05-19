@@ -3,29 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('header actions show share + close and fire callbacks', (
+  testWidgets('project detail share button uses curved arrow style', (
     tester,
   ) async {
     var shared = false;
-    var closed = false;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ProjectDetailHeaderActions(
-            onShare: () => shared = true,
-            onClose: () => closed = true,
-          ),
+          body: ProjectDetailShareButton(onPressed: () => shared = true),
         ),
       ),
     );
 
-    expect(find.byIcon(Icons.ios_share), findsOneWidget);
-    expect(find.byIcon(Icons.close), findsOneWidget);
+    final icon = tester.widget<Icon>(find.byIcon(Icons.reply_rounded));
+    expect(icon.size, 32);
 
-    await tester.tap(find.byIcon(Icons.ios_share));
+    await tester.tap(find.byKey(const Key('project-detail-share-button')));
     expect(shared, isTrue);
-    await tester.tap(find.byIcon(Icons.close));
-    expect(closed, isTrue);
   });
 
   testWidgets('name dialog blocks empty and returns trimmed value', (
