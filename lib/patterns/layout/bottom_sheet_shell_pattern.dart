@@ -34,6 +34,7 @@ Future<T?> openEditorSheet<T>({
   required WidgetBuilder childBuilder,
   VoidCallback? onConfirm,
   void Function(BuildContext sheetContext)? onCancel,
+  WidgetBuilder? headerTrailingBuilder,
   WidgetBuilder? footerCenterBuilder,
   String cancelText = '取消',
   Color? cancelForegroundColor,
@@ -60,6 +61,7 @@ Future<T?> openEditorSheet<T>({
           Navigator.of(sheetContext).pop();
         },
         onConfirm: onConfirm,
+        headerTrailing: headerTrailingBuilder?.call(sheetContext),
         footerCenter: footerCenterBuilder?.call(sheetContext),
         cancelText: cancelText,
         cancelForegroundColor: cancelForegroundColor,

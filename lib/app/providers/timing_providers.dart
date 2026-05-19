@@ -4,6 +4,7 @@ import 'package:provider/single_child_widget.dart';
 import '../../data/repositories/timing_calculation_history_repository.dart';
 import '../../data/repositories/timing_repository.dart';
 import '../../data/services/project_resolver.dart';
+import '../../features/account/use_cases/project_share_export_use_case.dart';
 import '../../features/timing/application/controllers/timing_action_controller.dart';
 import '../../features/timing/state/timing_store.dart';
 
@@ -43,6 +44,9 @@ class TimingProviders {
           value: calculationHistoryRepository,
         ),
         Provider<TimingActionController>.value(value: timingActionController),
+        Provider<ProjectShareExportUseCase>.value(
+          value: ProjectShareExportUseCase(calculationHistoryRepository),
+        ),
         ChangeNotifierProvider<TimingStore>.value(value: timingStore),
       ],
     );
