@@ -172,17 +172,21 @@ void main() {
       ),
     );
 
-    expect(find.text('实收 ¥1260 / ¥1260'), findsOneWidget);
-    expect(find.text('实收 ¥1200 / ¥1260'), findsOneWidget);
-    expect(find.text('已结清'), findsOneWidget);
-    expect(find.text('已结清 · 核销 ¥60'), findsOneWidget);
+    expect(find.text('项目总额¥1260'), findsOneWidget);
+    expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsOneWidget);
+    expect(find.text('已结清'), findsNWidgets(2));
     expect(find.text('余: ¥60 / ¥1260'), findsOneWidget);
     expect(find.text('余: ¥0 / ¥1260'), findsNothing);
+    expect(find.text('实收 ¥1260 / ¥1260'), findsNothing);
+    expect(find.text('实收 ¥1200 / ¥1260'), findsNothing);
+    expect(find.text('已结清 · 核销 ¥60'), findsNothing);
+    expect(_containerWithColor(const Color(0xFFF7FCF8)), findsNWidgets(2));
+    expect(_containerWithBorder(const Color(0xFFD8EEDF)), findsNWidgets(2));
 
     final settledIcons = tester.widgetList<Icon>(_settledCheckIcons()).toList();
     expect(settledIcons, hasLength(2));
     expect(
-      settledIcons.every((icon) => icon.color == const Color(0xFF459A63)),
+      settledIcons.every((icon) => icon.color == const Color(0xFF3FA36B)),
       isTrue,
     );
   });
@@ -403,6 +407,22 @@ Finder _badgeWithColor(Color color) {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration && decoration.color == color;
+  });
+}
+
+Finder _containerWithColor(Color color) {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    return decoration is BoxDecoration && decoration.color == color;
+  });
+}
+
+Finder _containerWithBorder(Color color) {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    return decoration is BoxDecoration &&
+        decoration.border is Border &&
+        (decoration.border as Border).top.color == color;
   });
 }
 

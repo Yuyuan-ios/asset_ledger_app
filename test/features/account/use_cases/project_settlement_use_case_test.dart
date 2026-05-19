@@ -253,6 +253,38 @@ void main() {
       },
     );
 
+    test('rejects a new write-off when the project already has one', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProject(db);
+      await _seedPayment(db, amount: 1200);
+      await _seedWriteOff(db, id: 'existing-write-off', amount: 10);
+      final useCase = _useCase();
+
+      await expectLater(
+        useCase.execute(
+          projectId: 'project:1',
+          projectKey: '甲方||一号工地',
+          receivable: 1260,
+          paymentAmount: 0,
+          writeOffAmount: 50,
+          writeOffReason: ProjectWriteOffReason.settlement,
+          ymd: 20260518,
+        ),
+        throwsA(
+          predicate(
+            (error) =>
+                error is StateError && error.message == '该项目已存在核销记录，请先撤销后再处理。',
+          ),
+        ),
+      );
+
+      expect(await _paymentCount(db), 1);
+      expect(await _paymentSum(db), 1200);
+      expect(await _writeOffCount(db), 1);
+      expect(await _writeOffSum(db), 10);
+      expect(await _projectStatus(db), ProjectStatus.active);
+    });
+
     test(
       'deletes write-off and restores a settled project to active',
       () async {
@@ -324,6 +356,38 @@ void main() {
       expect(await _writeOffCount(db), 1);
       expect(await _projectStatus(db), ProjectStatus.settled);
     });
+
+    test(
+      'rejects deleting a write-off when the project has multiple write-offs',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProject(db, status: ProjectStatus.settled);
+        await _seedPayment(db, amount: 1100);
+        await _seedWriteOff(db, id: 'write-off-1', amount: 60);
+        await _seedWriteOff(db, id: 'write-off-2', amount: 100);
+        final useCase = _useCase();
+
+        await expectLater(
+          useCase.deleteWriteOff(
+            projectId: 'project:1',
+            writeOffId: 'write-off-1',
+            receivable: 1260,
+          ),
+          throwsA(
+            predicate(
+              (error) =>
+                  error is StateError && error.message == '该项目核销记录异常，请先检查核销记录。',
+            ),
+          ),
+        );
+
+        expect(await _paymentCount(db), 1);
+        expect(await _paymentSum(db), 1100);
+        expect(await _writeOffCount(db), 2);
+        expect(await _writeOffSum(db), 160);
+        expect(await _projectStatus(db), ProjectStatus.settled);
+      },
+    );
   });
 }
 
@@ -370,11 +434,15 @@ Future<void> _seedProject(
   );
 }
 
-Future<void> _seedWriteOff(Database db, {required double amount}) async {
+Future<void> _seedWriteOff(
+  Database db, {
+  String id = 'write-off-1',
+  required double amount,
+}) async {
   await db.insert(
     SqfliteProjectWriteOffRepository.table,
     ProjectWriteOff(
-      id: 'write-off-1',
+      id: id,
       projectId: 'project:1',
       amount: amount,
       reason: ProjectWriteOffReason.rounding.dbValue,

@@ -57,6 +57,16 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           '结清金额超出当前待收（待收约 ${FormatUtils.money(remainingBefore)}）',
         );
       }
+      if (request.writeOffAmount > projectSettlementEpsilon) {
+        final existingWriteOffCount = await _countByProjectId(
+          txn,
+          table: SqfliteProjectWriteOffRepository.table,
+          projectId: request.projectId,
+        );
+        if (existingWriteOffCount > 0) {
+          throw StateError('该项目已存在核销记录，请先撤销后再处理。');
+        }
+      }
 
       int? paymentId;
       String? writeOffId;
@@ -145,6 +155,14 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         throw StateError('项目不存在，无法删除核销');
       }
       final project = Project.fromMap(projectRows.single);
+      final writeOffCount = await _countByProjectId(
+        txn,
+        table: SqfliteProjectWriteOffRepository.table,
+        projectId: request.projectId,
+      );
+      if (writeOffCount > 1) {
+        throw StateError('该项目核销记录异常，请先检查核销记录。');
+      }
 
       final writeOffRows = await txn.query(
         SqfliteProjectWriteOffRepository.table,
@@ -224,6 +242,18 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       [projectId],
     );
     return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<int> _countByProjectId(
+    DatabaseExecutor executor, {
+    required String table,
+    required String projectId,
+  }) async {
+    final rows = await executor.rawQuery(
+      'SELECT COUNT(*) AS count FROM $table WHERE project_id = ?',
+      [projectId],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
   }
 
   static double _normalizeRemaining(double value) {

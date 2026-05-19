@@ -12,16 +12,17 @@ const _settledPillText = Color(0xFF6E8277);
 class ProjectAccountSettlementPill extends StatelessWidget {
   const ProjectAccountSettlementPill({
     super.key,
+    required this.label,
     required this.enabled,
     required this.onTap,
   });
 
+  final String label;
   final bool enabled;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final text = enabled ? '结清' : '已结清';
     final textColor = enabled ? _settlementPillText : _settledPillText;
     final backgroundColor = enabled
         ? _settlementPillBackground
@@ -41,7 +42,7 @@ class ProjectAccountSettlementPill extends StatelessWidget {
           border: Border.all(color: borderColor),
         ),
         child: Text(
-          text,
+          label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
