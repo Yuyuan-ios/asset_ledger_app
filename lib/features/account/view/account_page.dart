@@ -421,34 +421,22 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
-  Future<void> _confirmDeleteWriteOff(ProjectWriteOff writeOff) async {
-    final ok = await showAppConfirmDialog(
-      context: context,
-      title: '删除核销记录？',
-      content:
-          '删除后，该金额会重新计入待收；如果项目因此未结清，项目状态会恢复为未结清。\n\n'
-          '核销金额：${FormatUtils.money(writeOff.amount)}',
-      confirmText: '删除',
-    );
-
-    if (ok != true) return;
-    if (!mounted) return;
-
+  Future<void> _revokeWriteOff(ProjectWriteOff writeOff) async {
     try {
       final latestProject = _latestProjectByProjectId(writeOff.projectId);
       final controller = context.read<AccountActionController>();
-      final result = await controller.deleteWriteOff(
+      await controller.deleteWriteOff(
         project: latestProject,
         writeOff: writeOff,
         accountStore: context.read<AccountStore>(),
       );
 
       if (!mounted) return;
-      _toast(result.successMessage);
+      _toast('已撤销核销，待收已恢复');
     } catch (error) {
       if (!mounted) return;
       _toast(
-        '删除核销失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+        '撤销核销失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
       );
     }
   }
@@ -597,7 +585,7 @@ class _AccountPageState extends State<AccountPage> {
                     onAddPayment: _openPaymentEditor,
                     onEditPayment: _openPaymentEditor,
                     onDeletePayment: _deletePayment,
-                    onDeleteWriteOff: _confirmDeleteWriteOff,
+                    onDeleteWriteOff: _revokeWriteOff,
                     onSettleProject: _openProjectSettlement,
                     onDissolveMergeGroup: (project) =>
                         _confirmDissolveMergeGroup(project, sheetContext),

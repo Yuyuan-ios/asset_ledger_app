@@ -286,6 +286,20 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         displayRemaining > _moneyEpsilon &&
         onSettleProject != null;
     final isSettled = hasProjectTotal && displayRemaining <= _moneyEpsilon;
+    final canRevokeWriteOff =
+        isSettled && writeOffs.isNotEmpty && onDeleteWriteOff != null;
+    final settlementPillLabel = canRevokeWriteOff
+        ? '撤销'
+        : canSettle
+        ? '结清'
+        : '已结清';
+    final settlementPillEnabled = canSettle || canRevokeWriteOff;
+    final settlementPillTap = canRevokeWriteOff
+        ? () => onDeleteWriteOff?.call(writeOffs.first)
+        : onSettleProject;
+    final settledSummary = writeOff > _moneyEpsilon
+        ? '项目总额 ${FormatUtils.money(receivable)} 核销(减免) ${FormatUtils.money(writeOff)}'
+        : '项目总额${FormatUtils.money(receivable)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -333,77 +347,97 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               ),
             ),
             const SizedBox(height: AppSpace.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '已收 ${(ratio * 100).toStringAsFixed(1)}%',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                    style: progressTextStyle,
+            if (isSettled) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      settledSummary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: progressTextStyle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpace.md),
-                Expanded(
-                  child: Text(
-                    '待收 ${FormatUtils.money(displayRemaining)}',
+                  const SizedBox(width: AppSpace.md),
+                  Text(
+                    '已结清',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
                     textAlign: TextAlign.right,
                     style: progressTextStyle,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpace.xs),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    FormatUtils.money(received),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                    style: progressAmountStyle,
-                  ),
-                ),
-                if (canSettle || isSettled) ...[
-                  const SizedBox(width: AppSpace.sm),
-                  ProjectAccountSettlementPill(
-                    enabled: canSettle,
-                    onTap: onSettleProject,
                   ),
                 ],
-                const SizedBox(width: AppSpace.md),
-                Expanded(
-                  child: Text(
-                    '项目总额 ${FormatUtils.money(receivable)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                    textAlign: TextAlign.right,
-                    style: progressMetaStyle,
+              ),
+              if (onSettleProject != null || onDeleteWriteOff != null) ...[
+                const SizedBox(height: AppSpace.xs),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ProjectAccountSettlementPill(
+                    label: settlementPillLabel,
+                    enabled: settlementPillEnabled,
+                    onTap: settlementPillTap,
                   ),
                 ),
               ],
-            ),
-            if (writeOff > _moneyEpsilon) ...[
-              const SizedBox(height: AppSpace.xs),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '已核销 ${FormatUtils.money(writeOff)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: false,
-                  textAlign: TextAlign.right,
-                  style: progressMetaStyle?.copyWith(
-                    color: SheetColors.hint,
-                    fontWeight: FontWeight.w500,
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '已收 ${(ratio * 100).toStringAsFixed(1)}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: progressTextStyle,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    child: Text(
+                      '待收 ${FormatUtils.money(displayRemaining)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      textAlign: TextAlign.right,
+                      style: progressTextStyle,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      FormatUtils.money(received),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: progressAmountStyle,
+                    ),
+                  ),
+                  if (canSettle) ...[
+                    const SizedBox(width: AppSpace.sm),
+                    ProjectAccountSettlementPill(
+                      label: settlementPillLabel,
+                      enabled: settlementPillEnabled,
+                      onTap: settlementPillTap,
+                    ),
+                  ],
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: Text(
+                      '项目总额 ${FormatUtils.money(receivable)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      textAlign: TextAlign.right,
+                      style: progressMetaStyle,
+                    ),
+                  ),
+                ],
               ),
             ],
           ],

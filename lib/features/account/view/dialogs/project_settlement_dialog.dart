@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/format_utils.dart';
-import '../../../../core/utils/text_field_utils.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/use_cases/project_settlement_use_case.dart';
@@ -44,54 +43,22 @@ class ProjectSettlementDialog extends StatefulWidget {
 }
 
 class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
-  late final TextEditingController _paymentController;
-  late final TextEditingController _noteController;
-  ProjectWriteOffReason? _reason;
+  late final TextEditingController _reasonController;
   String? _errorMessage;
   bool _saving = false;
 
   double get _remaining => widget.project.remaining;
 
-  double get _paymentAmount {
-    final raw = _paymentController.text.trim();
-    if (raw.isEmpty) return 0.0;
-    return double.tryParse(raw) ?? double.nan;
-  }
-
-  double get _writeOffAmount {
-    final payment = _paymentAmount;
-    if (payment.isNaN) return double.nan;
-    final value = _remaining - payment;
-    return value.abs() <= projectSettlementEpsilon ? 0.0 : value;
-  }
-
-  bool get _requiresReason {
-    final amount = _writeOffAmount;
-    return !amount.isNaN && amount > projectSettlementEpsilon;
-  }
-
   @override
   void initState() {
     super.initState();
-    _paymentController = TextEditingController(
-      text: widget.project.remaining.round().toString(),
-    )..addListener(_onPaymentChanged);
-    _noteController = TextEditingController();
+    _reasonController = TextEditingController();
   }
 
   @override
   void dispose() {
-    _paymentController.removeListener(_onPaymentChanged);
-    _paymentController.dispose();
-    _noteController.dispose();
+    _reasonController.dispose();
     super.dispose();
-  }
-
-  void _onPaymentChanged() {
-    if (!mounted) return;
-    setState(() {
-      _errorMessage = null;
-    });
   }
 
   void _showError(String message) {
@@ -103,27 +70,8 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
 
   Future<void> _save() async {
     if (_saving) return;
-    final payment = _paymentAmount;
-    if (payment.isNaN) {
-      _showError('本次实收金额格式不正确');
-      return;
-    }
-    if (payment < -projectSettlementEpsilon) {
-      _showError('本次实收不能为负数');
-      return;
-    }
-    if (payment > _remaining + projectSettlementEpsilon) {
-      _showError('本次实收不能超过当前待收');
-      return;
-    }
-
-    final writeOff = _writeOffAmount;
-    if (writeOff.isNaN || writeOff < -projectSettlementEpsilon) {
-      _showError('核销金额不能为负数');
-      return;
-    }
-    if (writeOff > projectSettlementEpsilon && _reason == null) {
-      _showError('请选择核销原因');
+    if (_remaining <= projectSettlementEpsilon) {
+      _showError('项目已结清，不能重复结清');
       return;
     }
 
@@ -135,13 +83,13 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
     try {
       final result = await widget.onSave(
         ProjectSettlementDialogInput(
-          paymentAmount: payment,
-          writeOffAmount: writeOff,
-          writeOffReason: writeOff > projectSettlementEpsilon ? _reason : null,
+          paymentAmount: 0,
+          writeOffAmount: _remaining,
+          writeOffReason: ProjectWriteOffReason.settlement,
           ymd: int.parse(FormatUtils.todayYmd()),
-          note: _noteController.text.trim().isEmpty
+          note: _reasonController.text.trim().isEmpty
               ? null
-              : _noteController.text.trim(),
+              : _reasonController.text.trim(),
         ),
       );
       if (!mounted) return;
@@ -191,86 +139,25 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.project.displayName, style: labelStyle),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            _buildMoneyRow('项目总额', widget.project.receivable, valueStyle),
-            _buildMoneyRow('已收金额', widget.project.received, valueStyle),
-            _buildMoneyRow('已核销金额', widget.project.writeOff, valueStyle),
-            _buildMoneyRow('当前待收', _remaining, valueStyle),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            TextField(
-              controller: _paymentController,
-              enabled: !_saving,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              onTap: () => selectAllIfZeroLike(_paymentController),
-              decoration: const InputDecoration(
-                labelText: '本次实收金额',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            InputDecorator(
-              decoration: const InputDecoration(
-                labelText: '核销金额',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              child: Text(
-                _writeOffAmount.isNaN
-                    ? '金额格式不正确'
-                    : FormatUtils.money(
-                        _writeOffAmount.clamp(0.0, _remaining).toDouble(),
-                      ),
-                style: valueStyle,
-              ),
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            DropdownButtonFormField<ProjectWriteOffReason>(
-              initialValue: _reason,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: '核销原因',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: [
-                for (final reason in ProjectWriteOffReason.values)
-                  DropdownMenuItem(
-                    value: reason,
-                    child: Text(_reasonLabel(reason)),
-                  ),
+            Row(
+              children: [
+                Expanded(child: Text('核销金额', style: labelStyle)),
+                Text(FormatUtils.money(_remaining), style: valueStyle),
               ],
-              onChanged: _saving
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _reason = value;
-                        _errorMessage = null;
-                      });
-                    },
             ),
-            if (_requiresReason) ...[
-              const SizedBox(height: 6),
-              Text('核销金额大于 0 时必须选择原因', style: helperStyle),
-            ],
             const SizedBox(height: SpaceTokens.sectionGap),
             TextField(
-              controller: _noteController,
+              controller: _reasonController,
               enabled: !_saving,
               maxLines: 2,
               decoration: const InputDecoration(
-                labelText: '备注（可填）',
+                labelText: '核销/减免原因（可填）',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),
-            if (_writeOffAmount > 1000) ...[
-              const SizedBox(height: 6),
-              Text('核销金额较大，建议填写备注', style: helperStyle),
-            ],
+            const SizedBox(height: SpaceTokens.sectionGap),
+            Text('确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。', style: helperStyle),
             if (_errorMessage != null) ...[
               const SizedBox(height: 10),
               Text(
@@ -301,40 +188,9 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('保存结清'),
+              : const Text('确认结清'),
         ),
       ],
     );
-  }
-
-  Widget _buildMoneyRow(String label, double amount, TextStyle? valueStyle) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(label)),
-          Text(FormatUtils.money(amount), style: valueStyle),
-        ],
-      ),
-    );
-  }
-
-  String _reasonLabel(ProjectWriteOffReason reason) {
-    switch (reason) {
-      case ProjectWriteOffReason.rounding:
-        return '抹零';
-      case ProjectWriteOffReason.qualityDeduction:
-        return '质量扣款';
-      case ProjectWriteOffReason.underpaid:
-        return '客户少付';
-      case ProjectWriteOffReason.badDebt:
-        return '坏账核销';
-      case ProjectWriteOffReason.settlement:
-        return '协商结清';
-      case ProjectWriteOffReason.offset:
-        return '抵账';
-      case ProjectWriteOffReason.other:
-        return '其他';
-    }
   }
 }

@@ -9,6 +9,10 @@ import '../../tokens/mapper/color_tokens.dart';
 enum _PriceBadgeKind { single, multi, rent }
 
 const double _projectCardMoneyEpsilon = 0.000001;
+const Color _settledCardBg = Color(0xFFF7FCF8);
+const Color _settledCardBorder = Color(0xFFD8EEDF);
+const Color _settledCheckGreen = Color(0xFF3FA36B);
+const Color _settledTextGreen = Color(0xFF3F8F5D);
 
 class _PriceBadgeStyle {
   const _PriceBadgeStyle({
@@ -103,14 +107,17 @@ class AccountProjectList extends StatelessWidget {
 
   String _receivedBaseText(AccountProjectVM p) {
     if (_isSettled(p)) {
-      return '实收 ${FormatUtils.money(p.received)} / ${FormatUtils.money(p.receivable)}';
+      if (p.writeOff > _projectCardMoneyEpsilon) {
+        return '项目总额 ${FormatUtils.money(p.receivable)} 核销(减免) ${FormatUtils.money(p.writeOff)}';
+      }
+      return '项目总额${FormatUtils.money(p.receivable)}';
     }
     return '${FormatUtils.percent1(p.ratio)}实收';
   }
 
   Widget _receivedText(AccountProjectVM p, TextStyle? style) {
     final base = _receivedBaseText(p);
-    final sitesSuffix = p.kind == AccountProjectKind.merged
+    final sitesSuffix = !_isSettled(p) && p.kind == AccountProjectKind.merged
         ? _mergedSitesSuffix(p.includedSites)
         : '';
     if (sitesSuffix.isEmpty) {
@@ -159,9 +166,6 @@ class AccountProjectList extends StatelessWidget {
 
   String _settlementStatusText(AccountProjectVM p, {required bool compact}) {
     if (_isSettled(p)) {
-      if (p.writeOff > _projectCardMoneyEpsilon) {
-        return '已结清 · 核销 ${FormatUtils.money(p.writeOff)}';
-      }
       return '已结清';
     }
     return compact
@@ -230,6 +234,9 @@ class AccountProjectList extends StatelessWidget {
                 _priceBadgeKind(p, priceText),
               );
               final isSettled = _isSettled(p);
+              final resolvedStatusStyle = isSettled
+                  ? statusStyle?.copyWith(color: _settledTextGreen)
+                  : statusStyle;
               return Container(
                 margin: const EdgeInsets.only(
                   bottom: AccountTokens.projectCardBottomMargin,
@@ -238,9 +245,11 @@ class AccountProjectList extends StatelessWidget {
                   minHeight: isCompact ? 0 : AccountTokens.projectCardMinHeight,
                 ),
                 decoration: BoxDecoration(
-                  color: SheetColors.background,
+                  color: isSettled ? _settledCardBg : SheetColors.background,
                   border: Border.all(
-                    color: AccountTokens.projectCardBorderColor,
+                    color: isSettled
+                        ? _settledCardBorder
+                        : AccountTokens.projectCardBorderColor,
                     width: AccountTokens.projectCardBorderWidth,
                   ),
                   borderRadius: BorderRadius.circular(
@@ -297,8 +306,7 @@ class AccountProjectList extends StatelessWidget {
                                     const Icon(
                                       Icons.check_circle_rounded,
                                       size: 18,
-                                      color:
-                                          AccountTokens.projectCardProgressFill,
+                                      color: _settledCheckGreen,
                                     ),
                                   ],
                                 ],
@@ -382,7 +390,9 @@ class AccountProjectList extends StatelessWidget {
                         ],
                         Row(
                           children: [
-                            Expanded(child: _receivedText(p, statusStyle)),
+                            Expanded(
+                              child: _receivedText(p, resolvedStatusStyle),
+                            ),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Align(
@@ -397,7 +407,7 @@ class AccountProjectList extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.right,
-                                  style: statusStyle,
+                                  style: resolvedStatusStyle,
                                 ),
                               ),
                             ),

@@ -375,7 +375,7 @@ void main() {
     expect(settledProject?.projectKey, normalKey);
   });
 
-  testWidgets('normal detail separates received and write-off amounts', (
+  testWidgets('settled detail shows project total and revoke action', (
     tester,
   ) async {
     final normalKey = ProjectKey.buildKey(contact: '甲方', site: '一号工地');
@@ -434,21 +434,72 @@ void main() {
       ),
     );
 
-    expect(find.text('已收 95.2%'), findsOneWidget);
-    expect(find.text('待收 ¥0'), findsOneWidget);
-    expect(find.text('¥1200'), findsOneWidget);
-    expect(find.text('已核销 ¥60'), findsOneWidget);
+    expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsOneWidget);
     expect(find.text('已结清'), findsOneWidget);
+    expect(find.text('撤销'), findsOneWidget);
+    expect(find.text('已收 95.2%'), findsNothing);
+    expect(find.text('待收 ¥0'), findsNothing);
+    expect(find.text('已核销 ¥60'), findsNothing);
     expect(find.text('核销记录'), findsOneWidget);
     expect(find.text('抹零'), findsOneWidget);
     expect(find.text('备注：尾款抹零'), findsOneWidget);
-    expect(find.byTooltip('删除核销记录'), findsOneWidget);
+    expect(find.byTooltip('删除核销记录'), findsNothing);
 
-    await tester.tap(find.byTooltip('删除核销记录'));
+    await tester.tap(find.text('撤销'));
     await tester.pump();
 
     expect(deletedWriteOff?.id, 'write-off-1');
   });
+
+  testWidgets(
+    'settled detail without write-off shows total without cash claim',
+    (tester) async {
+      final normalKey = ProjectKey.buildKey(contact: '甲方', site: '一号工地');
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: normalKey,
+          computed: AccountComputed(
+            projects: [
+              AccountProjectVM(
+                projectId: 'project:1',
+                projectKey: normalKey,
+                displayName: '甲方 + 一号工地',
+                minYmd: 20260501,
+                deviceIds: const [1],
+                hoursByDevice: const {1: 12.6},
+                rentIncomeTotal: 0,
+                minRate: 100,
+                isMultiDevice: false,
+                isMultiMode: false,
+                receivable: 1260,
+                received: 1260,
+                writeOff: 0,
+                remaining: 0,
+                ratio: 1,
+                settlementRatio: 1,
+                payments: const [],
+              ),
+            ],
+            totalReceivable: 1260,
+            totalReceived: 1260,
+            totalRemaining: 0,
+            totalRatio: 1,
+            settlementRate: 1,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onSettleProject: (_) async {},
+        ),
+      );
+
+      expect(find.text('项目总额¥1260'), findsOneWidget);
+      expect(find.text('已结清'), findsWidgets);
+      expect(find.text('实收 100.0%'), findsNothing);
+      expect(find.text('待收 ¥0'), findsNothing);
+      expect(find.text('撤销'), findsNothing);
+    },
+  );
 }
 
 Finder _containerWithColor(Color color) {

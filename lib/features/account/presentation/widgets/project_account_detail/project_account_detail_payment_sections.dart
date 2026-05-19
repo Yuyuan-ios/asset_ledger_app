@@ -73,18 +73,6 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
                   ),
                 ),
                 Text(FormatUtils.money(item.amount), style: amountStyle),
-                if (onDeleteWriteOff != null) ...[
-                  const SizedBox(width: AppSpace.xs),
-                  IconButton(
-                    tooltip: '删除核销记录',
-                    onPressed: () => onDeleteWriteOff?.call(item),
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 21,
-                      color: AccountTokens.projectDetailActionColor,
-                    ),
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: AppSpace.xs),
