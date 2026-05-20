@@ -180,8 +180,8 @@ void main() {
     expect(find.text('实收 ¥1260 / ¥1260'), findsNothing);
     expect(find.text('实收 ¥1200 / ¥1260'), findsNothing);
     expect(find.text('已结清 · 核销 ¥60'), findsNothing);
-    expect(_containerWithColor(const Color(0xFFF7FCF8)), findsNWidgets(2));
-    expect(_containerWithBorder(const Color(0xFFD8EEDF)), findsNWidgets(2));
+    expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
+    expect(_containerWithBorder(const Color(0x4D000000)), findsNWidgets(3));
 
     final settledIcons = tester.widgetList<Icon>(_settledCheckIcons()).toList();
     expect(settledIcons, hasLength(2));
@@ -442,7 +442,7 @@ void main() {
     expect(find.text('47.6%实收'), findsOneWidget);
     expect(find.text('余: ¥660 / ¥1260'), findsNothing);
     expect(find.text('待收 ¥660'), findsOneWidget);
-    expect(_containerWithColor(const Color(0xFFF7FCF8)), findsNWidgets(2));
+    expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
     expect(_settledCheckIcons(), findsNWidgets(2));
   });
 
