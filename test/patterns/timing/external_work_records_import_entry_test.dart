@@ -24,7 +24,7 @@ void main() {
     final btn = find.byKey(const Key('timing-external-work-import-share-file'));
     expect(btn, findsOneWidget);
     expect(find.text('导入项目外协包'), findsOneWidget);
-    // 主文案使用 .jzt，不暴露历史 .jztshare
+    // 主文案使用 .jzt，不暴露 .jztshare 扩展名（regression）
     expect(find.textContaining('.jztshare'), findsNothing);
 
     await tester.tap(btn);

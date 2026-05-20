@@ -25,29 +25,27 @@ class PickShareFileContent extends PickShareFileResult {
   final String content;
 }
 
-/// 选择 .jzt / 历史 .jztshare 文件并按 UTF-8 读取文本内容。
+/// 选择 .jzt 文件并按 UTF-8 读取文本内容。
 /// 只负责“选择 → 读取文本”，不解析 envelope（解析仍由现有 parser 负责）。
 class PickExternalWorkShareFileUseCase {
   const PickExternalWorkShareFileUseCase(this._picker);
 
   final ProjectShareFilePicker _picker;
 
-  static const String _invalidTypeMessage = '请选择机账通 .jzt 分享包';
-  static const String _readErrorMessage = '读取分享包失败，请重新选择文件';
+  static const String invalidTypeMessage = '请选择机账通 .jzt 分享包';
+  static const String readErrorMessage = '读取分享包失败，请重新选择文件';
 
   Future<PickShareFileResult> pick() async {
     final PickedShareFile? picked;
     try {
       picked = await _picker.pick();
     } catch (_) {
-      return const PickShareFileError(_readErrorMessage);
+      return const PickShareFileError(readErrorMessage);
     }
     if (picked == null) return const PickShareFileCancelled();
 
-    final lower = picked.name.toLowerCase();
-    // 主扩展名 .jzt；兼容历史 .jztshare（不在主文案强化旧扩展名）。
-    if (!lower.endsWith('.jzt') && !lower.endsWith('.jztshare')) {
-      return const PickShareFileError(_invalidTypeMessage);
+    if (!isJztExtension(picked.name)) {
+      return const PickShareFileError(invalidTypeMessage);
     }
 
     try {
@@ -56,13 +54,16 @@ class PickExternalWorkShareFileUseCase {
           ? utf8.decode(bytes)
           : await _readFromPath(picked.path);
       if (content.trim().isEmpty) {
-        return const PickShareFileError(_readErrorMessage);
+        return const PickShareFileError(readErrorMessage);
       }
       return PickShareFileContent(content);
     } catch (_) {
-      return const PickShareFileError(_readErrorMessage);
+      return const PickShareFileError(readErrorMessage);
     }
   }
+
+  static bool isJztExtension(String name) =>
+      name.toLowerCase().endsWith('.jzt');
 
   Future<String> _readFromPath(String? path) async {
     if (path == null || path.trim().isEmpty) {

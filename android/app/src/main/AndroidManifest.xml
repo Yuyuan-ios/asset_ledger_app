@@ -24,6 +24,26 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!--
+                .jzt 项目分享包打开入口。
+                Android 不支持仅凭自定义扩展名精准匹配 content:// URI 的 MIME 类型，
+                这里使用 mimeType="*/*" + pathPattern 兜底；Flutter 侧的
+                InboundShareFileGate 会再次校验扩展名（.jzt）和 envelope，
+                避免错误地接管普通 JSON 文件。
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.jzt" />
+                <data android:pathPattern=".*\\..*\\.jzt" />
+                <data android:pathPattern=".*\\..*\\..*\\.jzt" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.jzt" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
