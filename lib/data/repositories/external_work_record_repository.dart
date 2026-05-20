@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../db/database.dart';
 import '../models/external_work_record.dart';
+import 'external_import_repository.dart';
 
 abstract class ExternalWorkRecordRepository {
   Future<void> insertRecord(ExternalWorkRecord record);
@@ -11,6 +12,8 @@ abstract class ExternalWorkRecordRepository {
   Future<List<ExternalWorkRecord>> listByBatchId(String batchId);
 
   Future<List<ExternalWorkRecord>> listByLinkedProjectId(String projectId);
+
+  Future<int> deleteById(String recordId);
 
   Future<int> updateLocalFields({
     required String recordId,
@@ -70,6 +73,46 @@ class SqfliteExternalWorkRecordRepository
       orderBy: 'work_date ASC, id ASC',
     );
     return rows.map(ExternalWorkRecord.fromMap).toList();
+  }
+
+  @override
+  Future<int> deleteById(String recordId) async {
+    final normalized = recordId.trim();
+    if (normalized.isEmpty) return 0;
+    return AppDatabase.inTransaction<int>((txn) async {
+      final rows = await txn.query(
+        table,
+        columns: const ['import_batch_id'],
+        where: 'id = ?',
+        whereArgs: [normalized],
+        limit: 1,
+      );
+      if (rows.isEmpty) return 0;
+
+      final batchId = rows.single['import_batch_id'] as String;
+      final deleted = await txn.delete(
+        table,
+        where: 'id = ?',
+        whereArgs: [normalized],
+      );
+      if (deleted == 0) return 0;
+
+      final remaining = await txn.query(
+        table,
+        columns: const ['id'],
+        where: 'import_batch_id = ?',
+        whereArgs: [batchId],
+        limit: 1,
+      );
+      if (remaining.isEmpty) {
+        await txn.delete(
+          SqfliteExternalImportRepository.table,
+          where: 'id = ?',
+          whereArgs: [batchId],
+        );
+      }
+      return deleted;
+    });
   }
 
   @override

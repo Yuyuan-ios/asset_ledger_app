@@ -74,10 +74,12 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
     super.key,
     required this.item,
     required this.onClose,
+    this.onDelete,
   });
 
   final TimingExternalWorkRecordItem item;
   final VoidCallback onClose;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +139,21 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
             height: 44,
             child: FilledButton(onPressed: onClose, child: const Text('知道了')),
           ),
+          if (onDelete != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('删除记录'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade600,
+                  side: BorderSide(color: Colors.red.shade200),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

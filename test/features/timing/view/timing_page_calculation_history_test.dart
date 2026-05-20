@@ -396,6 +396,7 @@ void main() {
     expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
     expect(find.text('不应展示的联系人'), findsNothing);
     expect(find.widgetWithText(FilledButton, '知道了'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '删除记录'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '保存'), findsNothing);
     expect(find.widgetWithText(TextButton, '编辑'), findsNothing);
     expect(find.widgetWithText(TextButton, '删除'), findsNothing);
@@ -403,6 +404,34 @@ void main() {
     expect(find.widgetWithText(TextButton, '合并'), findsNothing);
     expect(find.widgetWithText(TextButton, '抵扣'), findsNothing);
     expect(find.widgetWithText(TextButton, '核销'), findsNothing);
+  });
+
+  testWidgets('external work detail delete removes record from section', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord()],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+    expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
+
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '删除记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除项目外协记录'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('王师傅分享包 · 东区工地'), findsNothing);
+    expect(find.text('暂无项目外协记录'), findsOneWidget);
+    expect(find.text('已删除'), findsOneWidget);
   });
 
   testWidgets(
@@ -797,6 +826,13 @@ class _FakeExternalWorkRecordRepository
     return _records
         .where((record) => record.linkedProjectId == projectId)
         .toList(growable: false);
+  }
+
+  @override
+  Future<int> deleteById(String recordId) async {
+    final before = _records.length;
+    _records.removeWhere((record) => record.id == recordId);
+    return before - _records.length;
   }
 
   @override

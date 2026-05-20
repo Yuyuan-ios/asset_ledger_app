@@ -172,6 +172,30 @@ void main() {
 
       expect(linked.map((record) => record.id).toList(), ['external-record-a']);
     });
+
+    test(
+      'deleteById removes record and prunes only empty import batch',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+
+        await importRepo.insertBatch(_batch());
+        await recordRepo.insertRecords([
+          _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+          _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+        ]);
+
+        expect(await recordRepo.deleteById('external-record-a'), 1);
+        expect(await recordRepo.listByBatchId('batch-1'), hasLength(1));
+        expect(await db.query('external_import_batches'), hasLength(1));
+
+        expect(await recordRepo.deleteById('external-record-b'), 1);
+        expect(await recordRepo.listByBatchId('batch-1'), isEmpty);
+        expect(await db.query('external_import_batches'), isEmpty);
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+      },
+    );
   });
 }
 
