@@ -13,26 +13,7 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let channel = FlutterMethodChannel(
-        name: AppDelegate.shareChannelName,
-        binaryMessenger: controller.binaryMessenger
-      )
-      channel.setMethodCallHandler { [weak self] call, result in
-        guard let self = self else {
-          result(FlutterError(code: "unavailable", message: "AppDelegate released", details: nil))
-          return
-        }
-        switch call.method {
-        case "consumePending":
-          result(self.takeNextPendingShareFile())
-        default:
-          result(FlutterMethodNotImplemented)
-        }
-      }
-      shareChannel = channel
-    }
+    registerShareChannel()
 
     if let url = launchOptions?[.url] as? URL {
       _ = handleIncomingShareFile(url: url)
@@ -44,12 +25,35 @@ import UIKit
   override func application(
     _ app: UIApplication,
     open url: URL,
-    options: [UIApplication.OpenURLOptions: Any] = [:]
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     if handleIncomingShareFile(url: url) {
       return true
     }
     return super.application(app, open: url, options: options)
+  }
+
+  private func registerShareChannel() {
+    guard let registrar = registrar(forPlugin: "AssetLedgerShareInboxPlugin") else {
+      return
+    }
+    let channel = FlutterMethodChannel(
+      name: AppDelegate.shareChannelName,
+      binaryMessenger: registrar.messenger()
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterError(code: "unavailable", message: "AppDelegate released", details: nil))
+        return
+      }
+      switch call.method {
+      case "consumePending":
+        result(self.takeNextPendingShareFile())
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    shareChannel = channel
   }
 
   private func handleIncomingShareFile(url: URL) -> Bool {
