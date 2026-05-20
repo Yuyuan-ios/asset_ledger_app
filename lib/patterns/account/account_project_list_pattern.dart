@@ -9,8 +9,8 @@ import '../../tokens/mapper/color_tokens.dart';
 enum _PriceBadgeKind { single, multi, rent }
 
 const double _projectCardMoneyEpsilon = 0.000001;
-const Color _settledCardBg = Color(0xFFF7FCF8);
-const Color _settledCardBorder = Color(0xFFD8EEDF);
+const Color _settledCardBg = SheetColors.background;
+const Color _settledCardBorder = AccountTokens.projectCardBorderColor;
 const Color _settledCheckBlue = Color(0xFF4AAFD8);
 const Color _settledTextGreen = Color(0xFF3F8F5D);
 
