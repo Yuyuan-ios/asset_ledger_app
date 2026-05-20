@@ -374,10 +374,35 @@ class _TimingPageState extends State<TimingPage> {
           child: ExternalWorkRecordDetailContent(
             item: item,
             onClose: () => Navigator.of(sheetContext).pop(),
+            onDelete: () => _deleteExternalWorkRecord(sheetContext, item),
           ),
         );
       },
     );
+  }
+
+  void _deleteExternalWorkRecord(
+    BuildContext sheetContext,
+    TimingExternalWorkRecordItem item,
+  ) {
+    () async {
+      final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '删除项目外协记录',
+        content: '删除后不可恢复，确认删除这条项目外协记录吗？',
+        confirmText: '删除',
+        confirmDestructive: true,
+      );
+      if (!confirmed || !mounted) return;
+
+      final store = context.read<TimingExternalWorkStore>();
+      await store.deleteById(item.record.id);
+      if (!mounted) return;
+      final feedback = storeActionFeedback(store, action: '删除');
+      _toast(feedback.message);
+      if (!feedback.isSuccess || !sheetContext.mounted) return;
+      Navigator.of(sheetContext).pop();
+    }();
   }
 
   // 阶段6：选择 .jzt 文件 → 读取文本 → 进入现有外协导入预览。

@@ -37,6 +37,20 @@ class TimingExternalWorkStore extends BaseStore {
 
   List<TimingExternalWorkRecordItem> get items => List.unmodifiable(_items);
 
+  Future<void> deleteById(String recordId) async {
+    final normalized = recordId.trim();
+    if (normalized.isEmpty) return;
+    await writeAndPatchLocalState<int>(
+      write: () => _recordRepository.deleteById(normalized),
+      patch: (deleted) {
+        if (deleted == 0) return;
+        _items = _items
+            .where((item) => item.record.id != normalized)
+            .toList(growable: false);
+      },
+    );
+  }
+
   Future<void> loadAll() async {
     await run(() async {
       final batches = await _importRepository.listBatches();
