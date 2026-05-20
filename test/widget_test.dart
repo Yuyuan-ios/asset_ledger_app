@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asset_ledger/app/app.dart';
+import 'package:asset_ledger/app/inbound_share_file_gate.dart';
 import 'package:asset_ledger/app/router.dart';
 
 void main() {
@@ -21,6 +22,8 @@ void main() {
 
     expect(app.title, '机账通');
     expect(app.debugShowCheckedModeBanner, isFalse);
-    expect(app.home, isA<AppRouterEntry>());
+    final gate = app.home;
+    expect(gate, isA<InboundShareFileGate>());
+    expect((gate as InboundShareFileGate).child, isA<AppRouterEntry>());
   });
 }

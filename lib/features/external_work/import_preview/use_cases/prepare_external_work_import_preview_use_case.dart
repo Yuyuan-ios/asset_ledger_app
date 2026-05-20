@@ -33,8 +33,6 @@ class PrepareExternalWorkImportPreviewUseCase
   Future<ExternalWorkImportPreviewSession> execute(String content) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty) {
-      // 文案统一为 .jzt。解析按 JSON 内容、与扩展名无关；历史 .jztshare
-      // 文件的选择/识别兼容留待阶段6文件选择导入，不在本阶段扩大改动。
       throw const ExternalWorkImportPreviewFailure(
         'empty_content',
         '请先选择或粘贴 .jzt 内容',

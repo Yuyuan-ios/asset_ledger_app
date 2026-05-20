@@ -8,7 +8,7 @@ import 'project_external_work_share_rich_payload.dart';
 /// 加法式升级（6+）：在保留 legacy `export_lines[]` 的同时，可选解析富事实层
 /// `records[]` / `project_snapshot` / `devices[]` / `summary`。
 /// 当 `records[]` 非空时导入端应优先消费 rich 记录（见 hasRichRecords），
-/// 否则 fallback 到 legacy `export_lines[]`。旧 `.jztshare` / legacy payload
+/// 否则 fallback 到 legacy `export_lines[]`。legacy payload
 /// 不含富键，richRecords 为 null，行为与升级前一致。
 class ProjectExternalWorkSharePayload {
   const ProjectExternalWorkSharePayload({

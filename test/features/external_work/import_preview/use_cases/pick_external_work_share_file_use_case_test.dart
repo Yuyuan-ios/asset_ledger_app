@@ -34,16 +34,22 @@ void main() {
     expect((r as PickShareFileContent).content, sample);
   });
 
-  test('historical .jztshare file is still accepted', () async {
-    final useCase = PickExternalWorkShareFileUseCase(
-      _FakePicker(
-        result: PickedShareFile(name: 'old.jztshare', bytes: _utf8(sample)),
-      ),
-    );
-    final r = await useCase.pick();
-    expect(r, isA<PickShareFileContent>());
-    expect((r as PickShareFileContent).content, sample);
-  });
+  test(
+    'legacy .jztshare extension is rejected (no historical compat)',
+    () async {
+      final useCase = PickExternalWorkShareFileUseCase(
+        _FakePicker(
+          result: PickedShareFile(name: 'old.jztshare', bytes: _utf8(sample)),
+        ),
+      );
+      final r = await useCase.pick();
+      expect(r, isA<PickShareFileError>());
+      expect(
+        (r as PickShareFileError).message,
+        PickExternalWorkShareFileUseCase.invalidTypeMessage,
+      );
+    },
+  );
 
   test('unsupported extension returns a friendly error', () async {
     final useCase = PickExternalWorkShareFileUseCase(
@@ -53,7 +59,10 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect((r as PickShareFileError).message, '请选择机账通 .jzt 分享包');
+    expect(
+      (r as PickShareFileError).message,
+      PickExternalWorkShareFileUseCase.invalidTypeMessage,
+    );
   });
 
   test('unreadable file (no bytes, no path) returns read error', () async {
@@ -62,7 +71,10 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect((r as PickShareFileError).message, '读取分享包失败，请重新选择文件');
+    expect(
+      (r as PickShareFileError).message,
+      PickExternalWorkShareFileUseCase.readErrorMessage,
+    );
   });
 
   test('empty content returns read error', () async {
@@ -73,7 +85,10 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect((r as PickShareFileError).message, '读取分享包失败，请重新选择文件');
+    expect(
+      (r as PickShareFileError).message,
+      PickExternalWorkShareFileUseCase.readErrorMessage,
+    );
   });
 
   test('cancelled selection is not an error', () async {
@@ -88,6 +103,9 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect((r as PickShareFileError).message, '读取分享包失败，请重新选择文件');
+    expect(
+      (r as PickShareFileError).message,
+      PickExternalWorkShareFileUseCase.readErrorMessage,
+    );
   });
 }

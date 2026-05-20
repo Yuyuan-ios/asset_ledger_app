@@ -25,8 +25,7 @@ class FilePickerProjectShareFilePicker implements ProjectShareFilePicker {
   Future<PickedShareFile?> pick() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      // 主扩展名 .jzt；兼容历史 .jztshare。
-      allowedExtensions: const ['jzt', 'jztshare'],
+      allowedExtensions: const ['jzt'],
       allowMultiple: false,
       withData: true,
     );
