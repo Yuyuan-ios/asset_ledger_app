@@ -28,6 +28,9 @@ extension TimingDetailFormSections on TimingDetailContentState {
         );
       },
     );
+    if (mounted) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
   }
 
   InputDecoration _sheetDecoration({
@@ -93,6 +96,9 @@ extension TimingDetailFormSections on TimingDetailContentState {
     VoidCallback? onTap,
     Widget? suffixIcon,
     bool readOnly = false,
+    bool canRequestFocus = true,
+    bool? showCursor,
+    bool enableInteractiveSelection = true,
     bool selectAllOnTap = false,
   }) {
     final fieldStyle = AppTypography.body(
@@ -103,6 +109,9 @@ extension TimingDetailFormSections on TimingDetailContentState {
     return TextField(
       controller: controller,
       readOnly: readOnly,
+      canRequestFocus: canRequestFocus,
+      showCursor: showCursor,
+      enableInteractiveSelection: enableInteractiveSelection,
       keyboardType: keyboardType,
       onTap:
           onTap ??

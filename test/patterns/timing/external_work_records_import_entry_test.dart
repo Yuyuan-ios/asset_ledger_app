@@ -15,6 +15,8 @@ void main() {
       _host(
         buildTimingExternalWorkRecordSlivers(
           items: const [],
+          expandedAggregateKeys: const {},
+          onToggleAggregate: (_) {},
           onImportShareFile: () => tapped = true,
         ),
       ),
@@ -35,7 +37,13 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _host(buildTimingExternalWorkRecordSlivers(items: const [])),
+      _host(
+        buildTimingExternalWorkRecordSlivers(
+          items: const [],
+          expandedAggregateKeys: const {},
+          onToggleAggregate: (_) {},
+        ),
+      ),
     );
 
     expect(find.text('暂无项目外协记录'), findsOneWidget);

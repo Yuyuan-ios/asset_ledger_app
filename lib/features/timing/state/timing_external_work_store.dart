@@ -51,6 +51,20 @@ class TimingExternalWorkStore extends BaseStore {
     );
   }
 
+  Future<void> deleteByBatchId(String batchId) async {
+    final normalized = batchId.trim();
+    if (normalized.isEmpty) return;
+    await writeAndPatchLocalState<int>(
+      write: () => _recordRepository.deleteByBatchId(normalized),
+      patch: (deleted) {
+        if (deleted == 0) return;
+        _items = _items
+            .where((item) => item.record.importBatchId != normalized)
+            .toList(growable: false);
+      },
+    );
+  }
+
   Future<void> loadAll() async {
     await run(() async {
       final batches = await _importRepository.listBatches();

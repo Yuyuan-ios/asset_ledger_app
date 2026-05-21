@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../components/surfaces/app_glass_surface.dart';
 import '../../core/foundation/radius.dart' as foundation;
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
@@ -162,97 +163,99 @@ class AppBottomSheetShell extends StatelessWidget {
     );
     final sheetHeight = h * factor;
 
-    final sheet = Material(
-      color: backgroundColor ?? SheetColors.background,
-      borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: SizedBox(
-          height: sheetHeight,
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              const SizedBox(height: BottomSheetTokens.shellTopGap),
-              _DragHandle(width: handleWidth, color: handleColor),
-              const SizedBox(height: BottomSheetTokens.shellHandleBottomGap),
+    final sheetBorderRadius = BorderRadius.vertical(
+      top: Radius.circular(radius),
+    );
+    final sheetContent = SafeArea(
+      top: false,
+      bottom: false,
+      child: SizedBox(
+        height: sheetHeight,
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            const SizedBox(height: BottomSheetTokens.shellTopGap),
+            _DragHandle(width: handleWidth, color: handleColor),
+            const SizedBox(height: BottomSheetTokens.shellHandleBottomGap),
 
-              if (title != null && title!.trim().isNotEmpty) ...[
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal:
-                        BottomSheetTokens.outerHPadding + headerSideInset,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                title!.trim(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style:
-                                    titleStyle ??
-                                    const TextStyle(
-                                      fontSize: BottomSheetTokens.titleSize,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ),
-                            if (titleTrailing != null) ...[
-                              const SizedBox(width: 6),
-                              titleTrailing!,
-                            ],
-                          ],
-                        ),
-                      ),
-                      if (headerTrailing != null)
-                        headerTrailing!
-                      else
-                        IconButton(
-                          tooltip: '关闭',
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                    ],
-                  ),
+            if (title != null && title!.trim().isNotEmpty) ...[
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: BottomSheetTokens.outerHPadding + headerSideInset,
                 ),
-                SizedBox(height: headerToDividerGap),
-                _SoftHeaderDivider(horizontalInset: dividerSideInset),
-                SizedBox(height: dividerToContentGap),
-              ],
-
-              Expanded(
-                child: Padding(
-                  padding: contentPadding,
-                  child: scrollable
-                      ? SingleChildScrollView(
-                          // 让 sheet 内部滚动更顺滑
-                          physics: const BouncingScrollPhysics(),
-                          child: child,
-                        )
-                      : child,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title!.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  titleStyle ??
+                                  const TextStyle(
+                                    fontSize: BottomSheetTokens.titleSize,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          if (titleTrailing != null) ...[
+                            const SizedBox(width: 6),
+                            titleTrailing!,
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (headerTrailing != null)
+                      headerTrailing!
+                    else
+                      IconButton(
+                        tooltip: '关闭',
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                  ],
                 ),
               ),
-              if (hasFooter) ...[
-                const SizedBox(height: BottomSheetTokens.footerContentGap),
-                _BottomSheetFooter(
-                  onCancel: onCancel,
-                  onConfirm: onConfirm,
-                  center: footerCenter,
-                  cancelText: cancelText,
-                  confirmText: confirmText,
-                  cancelForegroundColor: cancelForegroundColor,
-                ),
-                _FooterKeyboardCompensation(),
-              ],
+              SizedBox(height: headerToDividerGap),
+              _SoftHeaderDivider(horizontalInset: dividerSideInset),
+              SizedBox(height: dividerToContentGap),
             ],
-          ),
+
+            Expanded(
+              child: Padding(
+                padding: contentPadding,
+                child: scrollable
+                    ? SingleChildScrollView(
+                        // 让 sheet 内部滚动更顺滑
+                        physics: const BouncingScrollPhysics(),
+                        child: child,
+                      )
+                    : child,
+              ),
+            ),
+            if (hasFooter) ...[
+              const SizedBox(height: BottomSheetTokens.footerContentGap),
+              _BottomSheetFooter(
+                onCancel: onCancel,
+                onConfirm: onConfirm,
+                center: footerCenter,
+                cancelText: cancelText,
+                confirmText: confirmText,
+                cancelForegroundColor: cancelForegroundColor,
+              ),
+              _FooterKeyboardCompensation(),
+            ],
+          ],
         ),
       ),
+    );
+    final sheet = _BottomSheetSurface(
+      backgroundColor: backgroundColor,
+      borderRadius: sheetBorderRadius,
+      child: sheetContent,
     );
 
     return Padding(
@@ -265,6 +268,36 @@ class AppBottomSheetShell extends StatelessWidget {
             : 0.0,
       ),
       child: Align(alignment: Alignment.bottomCenter, child: sheet),
+    );
+  }
+}
+
+class _BottomSheetSurface extends StatelessWidget {
+  const _BottomSheetSurface({
+    required this.backgroundColor,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final Color? backgroundColor;
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final explicitBackground = backgroundColor;
+    if (explicitBackground != null) {
+      return Material(
+        color: explicitBackground,
+        borderRadius: borderRadius,
+        clipBehavior: Clip.antiAlias,
+        child: child,
+      );
+    }
+
+    return AppGlassSurface(
+      borderRadius: borderRadius,
+      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }

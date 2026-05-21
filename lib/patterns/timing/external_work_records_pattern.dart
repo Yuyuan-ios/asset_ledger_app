@@ -9,6 +9,8 @@ import '../../tokens/mapper/timing_tokens.dart';
 
 List<Widget> buildTimingExternalWorkRecordSlivers({
   required List<TimingExternalWorkRecordItem> items,
+  required Set<String> expandedAggregateKeys,
+  required ValueChanged<String> onToggleAggregate,
   ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
   VoidCallback? onImportShareFile,
 }) {
@@ -31,6 +33,13 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
     ];
   }
 
+  final displayRows = _buildExternalWorkDisplayRows(
+    items: items,
+    expandedAggregateKeys: expandedAggregateKeys,
+    onToggleAggregate: onToggleAggregate,
+    onTapRecord: onTapRecord,
+  );
+
   return <Widget>[
     if (onImportShareFile != null)
       SliverToBoxAdapter(
@@ -39,18 +48,156 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
           child: _ImportShareFileButton(onPressed: onImportShareFile),
         ),
       ),
-    SliverToBoxAdapter(
-      child: _ExternalWorkRecordGroupCard(
-        rows: [
-          for (final item in items)
-            _ExternalWorkRecordRow(
-              item: item,
-              onTap: onTapRecord == null ? null : () => onTapRecord(item),
-            ),
-        ],
-      ),
-    ),
+    SliverToBoxAdapter(child: _ExternalWorkRecordGroupCard(rows: displayRows)),
   ];
+}
+
+Set<String> timingExternalWorkAggregateKeys(
+  List<TimingExternalWorkRecordItem> items,
+) {
+  return _buildExternalWorkAggregateGroups(
+    items,
+  ).map((group) => group.key).toSet();
+}
+
+List<Widget> _buildExternalWorkDisplayRows({
+  required List<TimingExternalWorkRecordItem> items,
+  required Set<String> expandedAggregateKeys,
+  required ValueChanged<String> onToggleAggregate,
+  required ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
+}) {
+  final aggregateGroups = _buildExternalWorkAggregateGroups(items);
+  final groupedItemKeys = <String>{
+    for (final group in aggregateGroups)
+      for (final item in group.items) _externalWorkItemKey(item),
+  };
+
+  final rows = <Widget>[];
+  for (final group in aggregateGroups) {
+    final expanded = expandedAggregateKeys.contains(group.key);
+    rows.add(
+      _ExternalWorkAggregateRow(
+        group: group,
+        expanded: expanded,
+        onTap: () => onToggleAggregate(group.key),
+      ),
+    );
+    if (expanded) {
+      rows.addAll(
+        group.items.map(
+          (item) => _ExternalWorkRecordRow(
+            item: item,
+            hideAvatar: true,
+            titleOverride: FormatUtils.date(item.record.workDate),
+            valueDateOverride: '',
+            onTap: onTapRecord == null ? null : () => onTapRecord(item),
+          ),
+        ),
+      );
+    }
+  }
+
+  rows.addAll(
+    items
+        .where((item) => !groupedItemKeys.contains(_externalWorkItemKey(item)))
+        .map(
+          (item) => _ExternalWorkRecordRow(
+            item: item,
+            onTap: onTapRecord == null ? null : () => onTapRecord(item),
+          ),
+        ),
+  );
+  return rows;
+}
+
+List<_ExternalWorkAggregateGroup> _buildExternalWorkAggregateGroups(
+  List<TimingExternalWorkRecordItem> items,
+) {
+  final grouped = <String, List<TimingExternalWorkRecordItem>>{};
+  for (final item in items) {
+    grouped.putIfAbsent(_externalWorkAggregateKey(item), () => []).add(item);
+  }
+
+  final groups = <_ExternalWorkAggregateGroup>[];
+  for (final entry in grouped.entries) {
+    if (entry.value.length < 2) continue;
+    groups.add(_ExternalWorkAggregateGroup.fromItems(entry.key, entry.value));
+  }
+
+  groups.sort((a, b) {
+    final byDate = b.latestWorkDate.compareTo(a.latestWorkDate);
+    if (byDate != 0) return byDate;
+    return b.latestCreatedAt.compareTo(a.latestCreatedAt);
+  });
+  return groups;
+}
+
+String _externalWorkItemKey(TimingExternalWorkRecordItem item) {
+  return 'external-${item.record.id}';
+}
+
+String _externalWorkAggregateKey(TimingExternalWorkRecordItem item) {
+  final record = item.record;
+  return [
+    record.importBatchId,
+    item.displayName,
+    record.siteSnapshot,
+    record.equipmentBrand ?? '',
+    record.equipmentModel ?? '',
+    record.equipmentType ?? '',
+    record.linkedProjectId ?? '',
+  ].map((part) => part.trim()).join('|');
+}
+
+class _ExternalWorkAggregateGroup {
+  _ExternalWorkAggregateGroup._({
+    required this.key,
+    required this.items,
+    required this.displayName,
+    required this.site,
+    required this.equipment,
+    required this.earliestWorkDate,
+    required this.latestWorkDate,
+    required this.latestCreatedAt,
+    required this.totalHoursMilli,
+  });
+
+  final String key;
+  final List<TimingExternalWorkRecordItem> items;
+  final String displayName;
+  final String site;
+  final String equipment;
+  final int earliestWorkDate;
+  final int latestWorkDate;
+  final String latestCreatedAt;
+  final int totalHoursMilli;
+
+  factory _ExternalWorkAggregateGroup.fromItems(
+    String key,
+    List<TimingExternalWorkRecordItem> items,
+  ) {
+    final sortedItems = [...items]
+      ..sort((a, b) {
+        final byDate = a.record.workDate.compareTo(b.record.workDate);
+        if (byDate != 0) return byDate;
+        return a.record.createdAt.compareTo(b.record.createdAt);
+      });
+    final first = sortedItems.first;
+    return _ExternalWorkAggregateGroup._(
+      key: key,
+      items: sortedItems,
+      displayName: first.displayName,
+      site: first.record.siteSnapshot.trim(),
+      equipment: _listEquipmentText(first.record),
+      earliestWorkDate: sortedItems.first.record.workDate,
+      latestWorkDate: sortedItems.last.record.workDate,
+      latestCreatedAt: sortedItems.last.record.createdAt,
+      totalHoursMilli: sortedItems.fold<int>(
+        0,
+        (sum, item) => sum + item.record.hoursMilli,
+      ),
+    );
+  }
 }
 
 class _ImportShareFileButton extends StatelessWidget {
@@ -92,7 +239,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
           _ExternalWorkDetailCard(
             children: [
               const _ExternalWorkDetailRow(label: '来源', value: '从分享包导入'),
-              _ExternalWorkDetailRow(label: '分享包', value: item.displayName),
+              _ExternalWorkDetailRow(label: '分享人', value: item.displayName),
               _ExternalWorkDetailRow(
                 label: '地址',
                 value: _blankFallback(record.siteSnapshot),
@@ -118,8 +265,9 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
                 value: _moneyFen(record.amountFen),
               ),
               if (record.projectReceivedFen > 0)
-                _ExternalWorkDetailNotice(
-                  text: '已收到项目款：${_moneyFen(record.projectReceivedFen)}',
+                _ExternalWorkDetailRow(
+                  label: '已收项目款',
+                  value: _moneyFen(record.projectReceivedFen),
                 ),
               _ExternalWorkDetailRow(
                 label: '导入时间',
@@ -144,7 +292,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
             child: FilledButton(onPressed: onClose, child: const Text('知道了')),
           ),
           if (onDelete != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             SizedBox(
               height: 44,
               child: OutlinedButton.icon(
@@ -212,15 +360,88 @@ class _ExternalWorkInnerDivider extends StatelessWidget {
   }
 }
 
+class _ExternalWorkAggregateRow extends StatelessWidget {
+  const _ExternalWorkAggregateRow({
+    required this.group,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final _ExternalWorkAggregateGroup group;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ExternalWorkRecordRowBase(
+      title: _externalWorkTitle(group.displayName, group.site),
+      subtitle: group.equipment,
+      valueTop: _dateRangeText(group.earliestWorkDate, group.latestWorkDate),
+      valueBottom:
+          '${group.items.length}条 / ${_hoursText(group.totalHoursMilli)}',
+      trailingIcon: Icon(
+        expanded ? Icons.expand_less : Icons.expand_more,
+        size: 18,
+        color: TimingColors.textSecondary,
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
 class _ExternalWorkRecordRow extends StatelessWidget {
-  const _ExternalWorkRecordRow({required this.item, this.onTap});
+  const _ExternalWorkRecordRow({
+    required this.item,
+    this.onTap,
+    this.hideAvatar = false,
+    this.titleOverride,
+    this.valueDateOverride,
+  });
 
   final TimingExternalWorkRecordItem item;
   final VoidCallback? onTap;
+  final bool hideAvatar;
+  final String? titleOverride;
+  final String? valueDateOverride;
 
   @override
   Widget build(BuildContext context) {
     final record = item.record;
+    return _ExternalWorkRecordRowBase(
+      title: titleOverride ?? _titleText(item),
+      subtitle: _listEquipmentText(record),
+      valueTop: valueDateOverride ?? FormatUtils.date(record.workDate),
+      valueBottom: _hoursText(record.hoursMilli),
+      hideAvatar: hideAvatar,
+      linked: !hideAvatar && item.isLinked,
+      onTap: onTap,
+    );
+  }
+}
+
+class _ExternalWorkRecordRowBase extends StatelessWidget {
+  const _ExternalWorkRecordRowBase({
+    required this.title,
+    required this.subtitle,
+    required this.valueTop,
+    required this.valueBottom,
+    this.onTap,
+    this.hideAvatar = false,
+    this.linked = false,
+    this.trailingIcon,
+  });
+
+  final String title;
+  final String subtitle;
+  final String valueTop;
+  final String valueBottom;
+  final VoidCallback? onTap;
+  final bool hideAvatar;
+  final bool linked;
+  final Widget? trailingIcon;
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final titleStyle = textTheme.bodyMedium?.copyWith(
       fontSize: TimingTokens.recordTitleFontSize,
@@ -254,10 +475,13 @@ class _ExternalWorkRecordRow extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Transform.translate(
-                  offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
-                  child: const _ExternalWorkAvatar(),
-                ),
+                if (hideAvatar)
+                  const SizedBox(width: TimingTokens.recordAvatarSize)
+                else
+                  Transform.translate(
+                    offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
+                    child: const _ExternalWorkAvatar(),
+                  ),
                 const SizedBox(width: TimingTokens.recordAvatarRightGap),
                 Expanded(
                   child: Column(
@@ -268,13 +492,13 @@ class _ExternalWorkRecordRow extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              _titleText(item),
+                              title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: titleStyle,
                             ),
                           ),
-                          if (item.isLinked) ...[
+                          if (linked) ...[
                             const SizedBox(width: 4),
                             Tooltip(
                               message: '已关联本地项目',
@@ -289,7 +513,7 @@ class _ExternalWorkRecordRow extends StatelessWidget {
                       ),
                       const SizedBox(height: TimingTokens.recordSubTitleTopGap),
                       Text(
-                        _listEquipmentText(record),
+                        subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: subTitleStyle,
@@ -302,9 +526,20 @@ class _ExternalWorkRecordRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(FormatUtils.date(record.workDate), style: valueStyle),
-                    const SizedBox(height: TimingTokens.recordValueBottomGap),
-                    Text(_hoursText(record.hoursMilli), style: valueStyle),
+                    if (valueTop.isNotEmpty) ...[
+                      Text(valueTop, style: valueStyle),
+                      const SizedBox(height: TimingTokens.recordValueBottomGap),
+                    ],
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(valueBottom, style: valueStyle),
+                        if (trailingIcon != null) ...[
+                          const SizedBox(width: 2),
+                          trailingIcon!,
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ],
@@ -400,34 +635,19 @@ class _ExternalWorkDetailRow extends StatelessWidget {
   }
 }
 
-class _ExternalWorkDetailNotice extends StatelessWidget {
-  const _ExternalWorkDetailNotice({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          style: textTheme.bodyMedium?.copyWith(
-            color: AppColors.textPrimary,
-            height: 1.25,
-          ),
-        ),
-      ),
-    );
-  }
+String _titleText(TimingExternalWorkRecordItem item) {
+  return _externalWorkTitle(item.displayName, item.record.siteSnapshot);
 }
 
-String _titleText(TimingExternalWorkRecordItem item) {
-  final site = item.record.siteSnapshot.trim();
-  if (site.isEmpty) return item.displayName;
-  return '${item.displayName} · $site';
+String _externalWorkTitle(String displayName, String site) {
+  final normalizedSite = site.trim();
+  if (normalizedSite.isEmpty) return displayName;
+  return '$displayName · $normalizedSite';
+}
+
+String _dateRangeText(int earliestYmd, int latestYmd) {
+  if (earliestYmd == latestYmd) return FormatUtils.date(earliestYmd);
+  return '${FormatUtils.date(earliestYmd)}-${FormatUtils.date(latestYmd)}';
 }
 
 String _listEquipmentText(ExternalWorkRecord record) {
