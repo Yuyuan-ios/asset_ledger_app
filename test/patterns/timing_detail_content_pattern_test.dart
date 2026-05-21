@@ -171,7 +171,7 @@ void main() {
     expect(find.text('破碎'), findsNothing);
   });
 
-  testWidgets('selects the full hours value when tapping the hours field', (
+  testWidgets('opens the calculator sheet when tapping the hours field', (
     WidgetTester tester,
   ) async {
     final device = buildDevice(id: 1);
@@ -181,12 +181,11 @@ void main() {
 
     final hoursField = find.widgetWithText(TextField, '工时（小时）');
     await tester.tap(hoursField);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    final field = tester.widget<TextField>(hoursField);
-    expect(field.controller?.text, '2.0');
-    expect(field.controller?.selection.baseOffset, 0);
-    expect(field.controller?.selection.extentOffset, 3);
+    expect(find.widgetWithText(FilledButton, '='), findsOneWidget);
+    expect(find.text('填入'), findsOneWidget);
+    expect(find.text('未计算'), findsOneWidget);
   });
 
   testWidgets('submits an empty calculation history list by default', (

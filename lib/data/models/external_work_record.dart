@@ -40,6 +40,7 @@ class ExternalWorkRecord {
     required this.sourceUnitPriceFen,
     required this.localUnitPriceFen,
     required this.amountFen,
+    this.projectReceivedFen = 0,
     this.linkedProjectId,
     this.recordKind = ExternalWorkRecordKind.hours,
     this.status = ExternalWorkRecordStatus.active,
@@ -66,6 +67,7 @@ class ExternalWorkRecord {
     required int hoursMilli,
     required int sourceUnitPriceFen,
     int? localUnitPriceFen,
+    int projectReceivedFen = 0,
     String? linkedProjectId,
     ExternalWorkRecordKind recordKind = ExternalWorkRecordKind.hours,
     ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
@@ -96,6 +98,7 @@ class ExternalWorkRecord {
       sourceUnitPriceFen: sourceUnitPriceFen,
       localUnitPriceFen: localPriceFen,
       amountFen: amountFen,
+      projectReceivedFen: projectReceivedFen,
       linkedProjectId: linkedProjectId,
       recordKind: recordKind,
       status: status,
@@ -126,6 +129,7 @@ class ExternalWorkRecord {
     required int amountFen,
     int? sourceUnitPriceFen,
     int? localUnitPriceFen,
+    int projectReceivedFen = 0,
     ExternalWorkRecordKind recordKind = ExternalWorkRecordKind.hours,
     String? linkedProjectId,
     ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
@@ -151,6 +155,7 @@ class ExternalWorkRecord {
       sourceUnitPriceFen: sourceUnitPriceFen,
       localUnitPriceFen: localUnitPriceFen,
       amountFen: amountFen,
+      projectReceivedFen: projectReceivedFen,
       linkedProjectId: linkedProjectId,
       recordKind: recordKind,
       status: status,
@@ -190,6 +195,9 @@ class ExternalWorkRecord {
   /// 注意：计时页详情**不**展示这个字段，避免把"接收方复核值"伪装为"来源"。
   final int? localUnitPriceFen;
   final int amountFen;
+
+  /// 来源项目在导出时的累计实收款（分）。旧分享包 / 本地旧库默认为 0。
+  final int projectReceivedFen;
   final String? linkedProjectId;
 
   /// 计价种类。legacy 导入路径恒为 hours；rich 导入路径按来源 type 保留。
@@ -221,6 +229,7 @@ class ExternalWorkRecord {
     Object? sourceUnitPriceFen = _sentinel,
     Object? localUnitPriceFen = _sentinel,
     int? amountFen,
+    int? projectReceivedFen,
     Object? linkedProjectId = _sentinel,
     ExternalWorkRecordKind? recordKind,
     ExternalWorkRecordStatus? status,
@@ -258,6 +267,7 @@ class ExternalWorkRecord {
           ? this.localUnitPriceFen
           : localUnitPriceFen as int?,
       amountFen: amountFen ?? this.amountFen,
+      projectReceivedFen: projectReceivedFen ?? this.projectReceivedFen,
       linkedProjectId: identical(linkedProjectId, _sentinel)
           ? this.linkedProjectId
           : linkedProjectId as String?,
@@ -295,6 +305,7 @@ class ExternalWorkRecord {
       'source_unit_price_fen': sourceUnitPriceFen,
       'local_unit_price_fen': localUnitPriceFen,
       'amount_fen': amountFen,
+      'project_received_fen': projectReceivedFen,
       'linked_project_id': linkedProjectId,
       'record_kind': recordKind.name,
       'status': status.name,
@@ -330,6 +341,8 @@ class ExternalWorkRecord {
         'local_unit_price_fen',
       ),
       amountFen: reader.requiredNonNegativeInt('amount_fen'),
+      projectReceivedFen:
+          _optionalNonNegativeIntCell(map, 'project_received_fen') ?? 0,
       linkedProjectId: reader.optionalString('linked_project_id'),
       recordKind: externalWorkRecordKindFromName(map['record_kind'] as String?),
       status: parseExternalStatus<ExternalWorkRecordStatus>(

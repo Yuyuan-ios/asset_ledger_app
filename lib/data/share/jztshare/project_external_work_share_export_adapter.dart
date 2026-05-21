@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../../models/account_payment.dart';
 import '../../models/device.dart';
 import '../../models/project_device_rate.dart';
 import '../../models/timing_calculation_history.dart';
@@ -58,6 +59,7 @@ class ProjectExternalWorkShareExportAdapter {
     required DateTime createdAt,
     required Future<Directory> Function() directoryResolver,
     List<ProjectDeviceRate> allRates = const [],
+    List<AccountPayment> allPayments = const [],
   }) async {
     final trimmedSender = senderName.trim();
     if (trimmedSender.isEmpty) {
@@ -115,6 +117,10 @@ class ProjectExternalWorkShareExportAdapter {
         calcHistoryMap: calcHistoryMap,
         projectDeviceRates: allRates,
         expectedProjectId: effectiveProjectId,
+        projectReceivedFen: _projectReceivedFen(
+          projectId: effectiveProjectId,
+          payments: allPayments,
+        ),
       );
       return _exportService.exportToDirectory(
         payload: payload,
@@ -145,6 +151,16 @@ class ProjectExternalWorkShareExportAdapter {
 
   static String _installationUuid(String projectId) {
     return 'inst-${_shortHash('project:$projectId', 16)}';
+  }
+
+  static int _projectReceivedFen({
+    required String projectId,
+    required List<AccountPayment> payments,
+  }) {
+    return payments.fold<int>(0, (sum, payment) {
+      if (payment.effectiveProjectId != projectId) return sum;
+      return sum + payment.amountFen;
+    });
   }
 
   static String _shortHash(String input, int length) {

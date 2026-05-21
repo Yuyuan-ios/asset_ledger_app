@@ -53,6 +53,8 @@ class ExternalWorkSchema {
         local_unit_price_fen INTEGER
           CHECK (local_unit_price_fen IS NULL OR local_unit_price_fen >= 0),
         amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
+        project_received_fen INTEGER NOT NULL DEFAULT 0
+          CHECK (project_received_fen >= 0),
         linked_project_id TEXT,
         record_kind TEXT NOT NULL DEFAULT 'hours'
           CHECK (record_kind IN ('hours', 'rent')),

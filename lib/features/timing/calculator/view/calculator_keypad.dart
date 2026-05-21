@@ -228,7 +228,32 @@ class _EqualKey extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          child: const Text('='),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '=',
+                style: AppTypography.actionText(
+                  context,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                  height: 0.95,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                '填入',
+                style: AppTypography.actionText(
+                  context,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.05,
+                  color: Colors.white.withValues(alpha: 0.78),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

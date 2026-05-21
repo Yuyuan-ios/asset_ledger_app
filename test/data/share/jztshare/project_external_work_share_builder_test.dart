@@ -439,9 +439,27 @@ void main() {
     final p = buildAll();
     expect(p.projectSnapshot.contactSnapshot, '张三');
     expect(p.projectSnapshot.siteSnapshot, '工地A');
+    expect(p.projectSnapshot.projectReceivedFen, 0);
     expect(p.toMap()['project_snapshot'], isA<Map<String, Object?>>());
     final snap = p.toMap()['project_snapshot'] as Map<String, Object?>;
+    expect(snap['project_received_fen'], 0);
     expect(snap.containsKey('project_status_snapshot'), isFalse);
+  });
+
+  test('project_snapshot carries cumulative project received amount', () {
+    final p = builder.build(
+      shareId: 'share-with-paid',
+      senderName: '李工',
+      sourceInstallationUuid: 'install-uuid',
+      records: const [r1],
+      deviceMap: {1: deviceA},
+      calcHistoryMap: const {},
+      projectReceivedFen: 123456,
+    );
+
+    expect(p.projectSnapshot.projectReceivedFen, 123456);
+    final snap = p.toMap()['project_snapshot'] as Map<String, Object?>;
+    expect(snap['project_received_fen'], 123456);
   });
 
   test('toMap stays parseable by legacy import payload parser', () {

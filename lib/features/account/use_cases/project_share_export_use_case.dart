@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../../data/models/device.dart';
+import '../../../data/models/account_payment.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/timing_calculation_history_repository.dart';
@@ -81,6 +82,7 @@ class ProjectShareExportUseCase {
     required String senderName,
     required List<TimingRecord> allRecords,
     required List<Device> allDevices,
+    List<AccountPayment> allPayments = const [],
     List<ProjectDeviceRate> allRates = const [],
     DateTime? now,
   }) async {
@@ -91,6 +93,7 @@ class ProjectShareExportUseCase {
         senderName: senderName,
         allRecords: allRecords,
         allDevices: allDevices,
+        allPayments: allPayments,
         allRates: allRates,
         calcHistoryRepository: _calcHistoryRepository,
         producer: JztShareProducer(

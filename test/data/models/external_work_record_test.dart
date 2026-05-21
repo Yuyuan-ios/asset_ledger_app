@@ -44,6 +44,24 @@ void main() {
       expect(record.toMap()['local_unit_price_fen'], 38000);
     });
 
+    test('project received amount is stored as a non-negative snapshot', () {
+      final record = _record(projectReceivedFen: 123456);
+
+      expect(record.projectReceivedFen, 123456);
+      expect(record.toMap()['project_received_fen'], 123456);
+      expect(
+        ExternalWorkRecord.fromMap(record.toMap()).projectReceivedFen,
+        123456,
+      );
+      expect(
+        ExternalWorkRecord.fromMap(
+          Map<String, Object?>.from(record.toMap())
+            ..remove('project_received_fen'),
+        ).projectReceivedFen,
+        0,
+      );
+    });
+
     test('fromMap parses status defensively', () {
       final record = ExternalWorkRecord.fromMap(_recordMap(status: 'archived'));
 
@@ -63,6 +81,7 @@ void main() {
         'amount_fen',
         'source_unit_price_fen',
         'local_unit_price_fen',
+        'project_received_fen',
       ]) {
         final map = _recordMap();
         map[field] = -1;
@@ -96,6 +115,7 @@ ExternalWorkRecord _record({
   int hoursMilli = 1500,
   int sourceUnitPriceFen = 30000,
   int? localUnitPriceFen,
+  int projectReceivedFen = 0,
 }) {
   return ExternalWorkRecord.create(
     id: 'external-record-1',
@@ -114,6 +134,7 @@ ExternalWorkRecord _record({
     hoursMilli: hoursMilli,
     sourceUnitPriceFen: sourceUnitPriceFen,
     localUnitPriceFen: localUnitPriceFen,
+    projectReceivedFen: projectReceivedFen,
     createdAt: '2026-05-18T00:00:00.000Z',
     updatedAt: '2026-05-18T00:00:00.000Z',
   );

@@ -14,12 +14,12 @@ import 'calculator_keypad.dart';
 
 const _sheetBackground = Color(0xFF050505);
 const _sheetHandle = Color(0xFF5A514A);
-const _displayBackground = Color(0xFF11140F);
-const _displayBorder = Color(0xFF2B3529);
-const _displayTextPrimary = Color(0xFFF2F2F2);
-const _displayTextResult = Color(0xFFFFFFFF);
-const _displayTextSecondary = Color(0xFF9A9A9A);
-const _displayError = Color(0xFFFF7A6A);
+const _displayBackground = Color(0xFFAABCA1);
+const _displayBorder = Color(0xFF90A783);
+const _displayTextPrimary = Color(0xFF1F2B1E);
+const _displayTextResult = Color(0xFF172416);
+const _displayTextSecondary = Color(0xFF465541);
+const _displayError = Color(0xFF8F3328);
 
 class WorkHourCalculatorSheet extends StatelessWidget {
   const WorkHourCalculatorSheet({
@@ -177,7 +177,7 @@ class _CalculatorDisplay extends StatelessWidget {
               textAlign: TextAlign.left,
               style: AppTypography.pageTitle(
                 context,
-                fontSize: result == null || store.hasError ? 18 : 32,
+                fontSize: result == null || store.hasError ? 18 : 26,
                 fontWeight: result == null || store.hasError
                     ? FontWeight.w600
                     : FontWeight.w700,

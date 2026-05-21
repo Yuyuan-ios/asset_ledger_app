@@ -359,7 +359,9 @@ void main() {
       tester,
       historyRepository: _FakeCalculationHistoryRepository(),
       externalBatches: [_externalBatch()],
-      externalRecords: [_externalRecord(linkedProjectId: 'project-1')],
+      externalRecords: [
+        _externalRecord(linkedProjectId: 'project-1', projectReceivedFen: 0),
+      ],
     );
 
     await tester.tap(find.text('项目外协'));
@@ -395,6 +397,7 @@ void main() {
     expect(find.text('¥120 / h'), findsOneWidget);
     expect(find.text('¥123 / h'), findsNothing);
     expect(find.text('¥1049'), findsOneWidget);
+    expect(find.textContaining('已收到项目款'), findsNothing);
     expect(find.text('2026-05-13T10:00:00.000Z'), findsOneWidget);
     expect(find.text('已关联'), findsOneWidget);
     expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
@@ -409,6 +412,25 @@ void main() {
     expect(find.widgetWithText(TextButton, '抵扣'), findsNothing);
     expect(find.widgetWithText(TextButton, '核销'), findsNothing);
   });
+
+  testWidgets(
+    'external work detail shows project received payment when shared',
+    (WidgetTester tester) async {
+      await _pumpTimingPage(
+        tester,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        externalBatches: [_externalBatch()],
+        externalRecords: [_externalRecord(projectReceivedFen: 98765)],
+      );
+
+      await tester.tap(find.text('项目外协'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('王师傅分享包 · 东区工地'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已收到项目款：¥988'), findsOneWidget);
+    },
+  );
 
   testWidgets('external work detail delete removes record from section', (
     WidgetTester tester,
@@ -676,7 +698,10 @@ ExternalImportBatch _externalBatch() {
   );
 }
 
-ExternalWorkRecord _externalRecord({String? linkedProjectId}) {
+ExternalWorkRecord _externalRecord({
+  String? linkedProjectId,
+  int projectReceivedFen = 0,
+}) {
   return ExternalWorkRecord(
     id: 'external-1',
     importBatchId: 'batch-1',
@@ -695,6 +720,7 @@ ExternalWorkRecord _externalRecord({String? linkedProjectId}) {
     sourceUnitPriceFen: 12000,
     localUnitPriceFen: 12345,
     amountFen: 104933,
+    projectReceivedFen: projectReceivedFen,
     linkedProjectId: linkedProjectId,
     createdAt: '2026-05-13T10:05:00.000Z',
     updatedAt: '2026-05-13T10:05:00.000Z',
