@@ -117,6 +117,10 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
                 label: '金额',
                 value: _moneyFen(record.amountFen),
               ),
+              if (record.projectReceivedFen > 0)
+                _ExternalWorkDetailNotice(
+                  text: '已收到项目款：${_moneyFen(record.projectReceivedFen)}',
+                ),
               _ExternalWorkDetailRow(
                 label: '导入时间',
                 value: _blankFallback(
@@ -391,6 +395,30 @@ class _ExternalWorkDetailRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ExternalWorkDetailNotice extends StatelessWidget {
+  const _ExternalWorkDetailNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text,
+          style: textTheme.bodyMedium?.copyWith(
+            color: AppColors.textPrimary,
+            height: 1.25,
+          ),
+        ),
       ),
     );
   }

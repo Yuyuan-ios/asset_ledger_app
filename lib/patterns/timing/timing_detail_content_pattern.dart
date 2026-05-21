@@ -576,6 +576,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
+                              onTap: _submitting
+                                  ? null
+                                  : _openWorkHourCalculator,
                               onChanged: (_) => _recalcEndFromHours(),
                               suffixIcon: _TimingFieldAssetIconButton(
                                 tooltip: '工时计算依据',

@@ -26,6 +26,7 @@ class ProjectExternalWorkShareBuilder {
   ///                      用此还原"按当前项目+isBreaking 解析后的有效单价"再过
   ///                      AmountPolicy 校验，确保项目覆盖价（如 200）能被写入。
   ///                      为空表示该项目不存在任何覆盖，回落到设备默认单价。
+  /// [projectReceivedFen] 该项目累计实收款（分），随项目快照进入分享包。
   ProjectExternalWorkShareRichPayload build({
     required String shareId,
     required String senderName,
@@ -35,6 +36,7 @@ class ProjectExternalWorkShareBuilder {
     required Map<int, List<TimingCalculationHistory>> calcHistoryMap,
     List<ProjectDeviceRate> projectDeviceRates = const [],
     String? expectedProjectId,
+    int projectReceivedFen = 0,
   }) {
     final safeShareId = _requireNonBlank(shareId, 'shareId');
     final safeSenderName = _requireNonBlank(senderName, 'senderName');
@@ -179,6 +181,7 @@ class ProjectExternalWorkShareBuilder {
         sourceProjectKey: first.legacyProjectKey,
         contactSnapshot: first.contact,
         siteSnapshot: first.site,
+        projectReceivedFen: projectReceivedFen < 0 ? 0 : projectReceivedFen,
       ),
       devices: _buildDevices(sorted, shareRecords, deviceMap),
       records: shareRecords,

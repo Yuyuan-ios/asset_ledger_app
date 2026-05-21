@@ -96,6 +96,7 @@ class ProjectExternalWorkImporter {
         amountFen: line.amountFen,
         sourceUnitPriceFen: line.sourceUnitPriceFen,
         localUnitPriceFen: line.localUnitPriceFen,
+        projectReceivedFen: line.projectReceivedFen,
         recordKind: line.recordKind,
         linkedProjectId: null,
         note: line.note,
@@ -126,6 +127,7 @@ class ProjectExternalWorkImporter {
       workDate: line.workDate,
       hoursMilli: line.hoursMilli,
       sourceUnitPriceFen: sourcePrice,
+      projectReceivedFen: line.projectReceivedFen,
       // legacy 路径恒为 hours（builder _tryBuildExportLine 过滤了 rent）。
       recordKind: ExternalWorkRecordKind.hours,
       linkedProjectId: null,

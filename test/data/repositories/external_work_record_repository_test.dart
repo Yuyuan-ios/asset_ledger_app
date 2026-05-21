@@ -142,6 +142,21 @@ void main() {
       expect(record.sourceRecordUuid, 'source-record-1');
     });
 
+    test(
+      'project received amount snapshot round-trips through storage',
+      () async {
+        await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+
+        await importRepo.insertBatch(_batch());
+        await recordRepo.insertRecord(_record(projectReceivedFen: 65432));
+
+        final records = await recordRepo.listByBatchId('batch-1');
+        expect(records.single.projectReceivedFen, 65432);
+      },
+    );
+
     test('listByLinkedProjectId returns only linked project rows', () async {
       final db = await _openCurrentInMemoryDb();
       final importRepo = SqfliteExternalImportRepository();
@@ -233,6 +248,7 @@ ExternalWorkRecord _record({
   String sourceRecordUuid = 'source-record-1',
   int sourceUnitPriceFen = 30000,
   int? localUnitPriceFen,
+  int projectReceivedFen = 0,
   String? linkedProjectId,
 }) {
   return ExternalWorkRecord.create(
@@ -252,6 +268,7 @@ ExternalWorkRecord _record({
     hoursMilli: 1500,
     sourceUnitPriceFen: sourceUnitPriceFen,
     localUnitPriceFen: localUnitPriceFen,
+    projectReceivedFen: projectReceivedFen,
     linkedProjectId: linkedProjectId,
     createdAt: '2026-05-18T00:00:00.000Z',
     updatedAt: '2026-05-18T00:00:00.000Z',

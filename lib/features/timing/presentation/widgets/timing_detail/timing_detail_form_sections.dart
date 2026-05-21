@@ -90,6 +90,7 @@ extension TimingDetailFormSections on TimingDetailContentState {
     String? label,
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
+    VoidCallback? onTap,
     Widget? suffixIcon,
     bool readOnly = false,
     bool selectAllOnTap = false,
@@ -103,11 +104,13 @@ extension TimingDetailFormSections on TimingDetailContentState {
       controller: controller,
       readOnly: readOnly,
       keyboardType: keyboardType,
-      onTap: selectAllOnTap
-          ? () => selectAllText(controller)
-          : (keyboardType == null
-                ? null
-                : () => selectAllIfZeroLike(controller)),
+      onTap:
+          onTap ??
+          (selectAllOnTap
+              ? () => selectAllText(controller)
+              : (keyboardType == null
+                    ? null
+                    : () => selectAllIfZeroLike(controller))),
       onChanged: onChanged,
       style: fieldStyle,
       decoration: _sheetDecoration(

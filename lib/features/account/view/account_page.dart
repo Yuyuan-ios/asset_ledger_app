@@ -674,6 +674,7 @@ class _AccountPageState extends State<AccountPage> {
       senderName: senderName,
       allRecords: context.read<TimingStore>().records,
       allDevices: context.read<DeviceStore>().allDevices,
+      allPayments: context.read<AccountPaymentStore>().records,
       // 项目对设备的覆盖单价（如设备默认 180、项目覆盖 200）需要带进去，
       // builder 才能把可信单价写入 rich record source_unit_price_fen。
       allRates: context.read<ProjectRateStore>().rates,
