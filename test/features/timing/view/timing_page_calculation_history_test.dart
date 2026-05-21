@@ -389,8 +389,11 @@ void main() {
     expect(find.text('CAT / 320D / 挖机'), findsOneWidget);
     expect(find.text('2026.05.12'), findsWidgets);
     expect(find.text('8.5 h'), findsWidgets);
-    // 协议升级后单价行带 ' / h' 后缀；金额行仍是 ¥xxx。
-    expect(find.text('¥123 / h'), findsOneWidget);
+    // 计时页外协详情显示来源事实单价（sourceUnitPriceFen=12000 → ¥120 / h），
+    // 不显示接收方复核值 localUnitPriceFen=12345 → ¥123（那是账户页字段）。
+    // 金额行仍是 ¥xxx。
+    expect(find.text('¥120 / h'), findsOneWidget);
+    expect(find.text('¥123 / h'), findsNothing);
     expect(find.text('¥1049'), findsOneWidget);
     expect(find.text('2026-05-13T10:00:00.000Z'), findsOneWidget);
     expect(find.text('已关联'), findsOneWidget);

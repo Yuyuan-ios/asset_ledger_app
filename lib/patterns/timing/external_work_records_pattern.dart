@@ -111,7 +111,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               ),
               _ExternalWorkDetailRow(
                 label: '单价',
-                value: _unitPriceText(record),
+                value: _sourceUnitPriceText(record),
               ),
               _ExternalWorkDetailRow(
                 label: '金额',
@@ -424,16 +424,23 @@ String _hoursText(int hoursMilli) {
   return FormatUtils.hours(hoursMilli / 1000);
 }
 
-/// 单价显示：
-/// - rent / 台班：永远显示"不适用"（不存在单价语义）。
-/// - hours 且 localUnitPriceFen 或 sourceUnitPriceFen 有值：显示真实单价 / h。
-/// - hours 但来源未提供（两者均 null）：显示"未知"。
-/// 永远不要再把 null 当 0 来展示成 ¥0（0 已保留给"真实单价为 0"语义）。
-String _unitPriceText(ExternalWorkRecord record) {
+/// 计时页 "项目外协记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
+///
+/// 规则：
+/// - rent / 台班：永远显示"不适用"（来源无单价语义）。
+/// - hours + sourceUnitPriceFen 有值：显示 ¥xxx / h。
+/// - hours + sourceUnitPriceFen 为 null：显示"未知"。
+/// 0 是合法的"真实来源单价为 0"语义，仍按 ¥0 / h 显示。
+///
+/// 重要：这里**不要**回退到 `localUnitPriceFen`。
+/// localUnitPriceFen 是接收方未来本地复核的外协应付/结算单价，账户页
+/// 外协卡片才走 `localUnitPriceFen ?? sourceUnitPriceFen` 作为有效应付价；
+/// 在计时页详情拉它会把"接收方复核值"伪装成"来源事实"，破坏审计语义。
+String _sourceUnitPriceText(ExternalWorkRecord record) {
   if (record.recordKind == ExternalWorkRecordKind.rent) {
     return '不适用';
   }
-  final price = record.localUnitPriceFen ?? record.sourceUnitPriceFen;
+  final price = record.sourceUnitPriceFen;
   if (price == null) return '未知';
   return '${_moneyFen(price)} / h';
 }
