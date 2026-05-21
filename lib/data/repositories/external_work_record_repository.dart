@@ -15,6 +15,8 @@ abstract class ExternalWorkRecordRepository {
 
   Future<int> deleteById(String recordId);
 
+  Future<int> deleteByBatchId(String batchId);
+
   Future<int> updateLocalFields({
     required String recordId,
     int? localUnitPriceFen,
@@ -111,6 +113,27 @@ class SqfliteExternalWorkRecordRepository
           whereArgs: [batchId],
         );
       }
+      return deleted;
+    });
+  }
+
+  @override
+  Future<int> deleteByBatchId(String batchId) async {
+    final normalized = batchId.trim();
+    if (normalized.isEmpty) return 0;
+    return AppDatabase.inTransaction<int>((txn) async {
+      final deleted = await txn.delete(
+        table,
+        where: 'import_batch_id = ?',
+        whereArgs: [normalized],
+      );
+      if (deleted == 0) return 0;
+
+      await txn.delete(
+        SqfliteExternalImportRepository.table,
+        where: 'id = ?',
+        whereArgs: [normalized],
+      );
       return deleted;
     });
   }

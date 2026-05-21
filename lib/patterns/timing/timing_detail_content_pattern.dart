@@ -572,10 +572,6 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                               controller: _hoursCtrl,
                               hint: _hoursCtrl.text,
                               label: '工时（小时）',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
                               onTap: _submitting
                                   ? null
                                   : _openWorkHourCalculator,
@@ -587,6 +583,10 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                                     ? null
                                     : _openWorkHourCalculator,
                               ),
+                              readOnly: true,
+                              canRequestFocus: false,
+                              showCursor: false,
+                              enableInteractiveSelection: false,
                               selectAllOnTap: true,
                             ),
                           ),

@@ -211,6 +211,45 @@ void main() {
         expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
       },
     );
+
+    test(
+      'deleteByBatchId removes only records from one import batch',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+
+        await importRepo.insertBatch(_batch());
+        await importRepo.insertBatch(
+          _batch(id: 'batch-2', sourceShareId: 'share-2'),
+        );
+        await recordRepo.insertRecords([
+          _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+          _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+          _record(
+            id: 'external-record-c',
+            importBatchId: 'batch-2',
+            sourceShareId: 'share-2',
+            sourceRecordUuid: 'source-c',
+          ),
+        ]);
+
+        expect(await recordRepo.deleteByBatchId('batch-1'), 2);
+
+        expect(await recordRepo.listByBatchId('batch-1'), isEmpty);
+        expect(
+          (await recordRepo.listByBatchId(
+            'batch-2',
+          )).map((record) => record.id),
+          ['external-record-c'],
+        );
+        expect(
+          (await db.query('external_import_batches')).map((row) => row['id']),
+          ['batch-2'],
+        );
+        expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+      },
+    );
   });
 }
 
@@ -228,10 +267,13 @@ Future<Database> _openCurrentInMemoryDb() {
   return AppDatabase.database;
 }
 
-ExternalImportBatch _batch() {
-  return const ExternalImportBatch(
-    id: 'batch-1',
-    sourceShareId: 'share-1',
+ExternalImportBatch _batch({
+  String id = 'batch-1',
+  String sourceShareId = 'share-1',
+}) {
+  return ExternalImportBatch(
+    id: id,
+    sourceShareId: sourceShareId,
     sourceDisplayName: '王师傅',
     recordCount: 1,
     totalHoursMilli: 1500,
@@ -245,6 +287,8 @@ ExternalImportBatch _batch() {
 
 ExternalWorkRecord _record({
   String id = 'external-record-1',
+  String importBatchId = 'batch-1',
+  String sourceShareId = 'share-1',
   String sourceRecordUuid = 'source-record-1',
   int sourceUnitPriceFen = 30000,
   int? localUnitPriceFen,
@@ -253,8 +297,8 @@ ExternalWorkRecord _record({
 }) {
   return ExternalWorkRecord.create(
     id: id,
-    importBatchId: 'batch-1',
-    sourceShareId: 'share-1',
+    importBatchId: importBatchId,
+    sourceShareId: sourceShareId,
     sourceRecordUuid: sourceRecordUuid,
     sourceInstallationUuid: 'install-1',
     originFingerprint: 'fingerprint-$sourceRecordUuid',

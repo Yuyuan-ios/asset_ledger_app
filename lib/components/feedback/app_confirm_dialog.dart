@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
@@ -59,31 +61,42 @@ class AppConfirmDialog extends StatelessWidget {
           fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji'],
         );
 
-    return AlertDialog(
-      title: Text(title, style: titleStyle),
-      content: DefaultTextStyle.merge(
-        style: contentStyle,
-        child: contentWidget ?? Text(content ?? ''),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: GlassTokens.blur,
+          sigmaY: GlassTokens.blur,
+        ),
+        child: AlertDialog(
+          backgroundColor: GlassTokens.surfaceBottomBackground,
+          surfaceTintColor: Colors.transparent,
+          title: Text(title, style: titleStyle),
+          content: DefaultTextStyle.merge(
+            style: contentStyle,
+            child: contentWidget ?? Text(content ?? ''),
           ),
-          child: Text(cancelText),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.brand.withValues(alpha: 0.8),
+              ),
+              child: Text(cancelText),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: confirmDestructive
+                  ? FilledButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                    )
+                  : null,
+              child: Text(confirmText),
+            ),
+          ],
         ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: confirmDestructive
-              ? FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  foregroundColor: Colors.white,
-                )
-              : null,
-          child: Text(confirmText),
-        ),
-      ],
+      ),
     );
   }
 }
