@@ -153,9 +153,10 @@ void main() {
       expect(rows.single['source_record_uuid'], 'timing:13');
       expect(rows.single['amount_fen'], 120000);
       expect(rows.single['hours_milli'], 1000);
-      // 单价未知不伪造
-      expect(rows.single['source_unit_price_fen'], 0);
-      expect(rows.single['local_unit_price_fen'], 0);
+      // rent 没有单价语义；rich path 必须用 null 表达，绝不伪造 0。
+      expect(rows.single['source_unit_price_fen'], isNull);
+      expect(rows.single['local_unit_price_fen'], isNull);
+      expect(rows.single['record_kind'], 'rent');
     });
 
     test(
@@ -282,7 +283,9 @@ void main() {
           'rich-update-share',
         )).single;
         expect(updatedRecord.amountFen, 33334);
-        expect(updatedRecord.localUnitPriceFen, 0);
+        // 人工覆写金额：rich path 不写伪造单价；本测试也未通过 updateLocalFields
+        // 设置单价，应保持 null。
+        expect(updatedRecord.localUnitPriceFen, isNull);
         expect(updatedRecord.linkedProjectId, 'project:rich-linked');
         expect(updatedRecord.status, ExternalWorkRecordStatus.ignored);
         expect(updatedRecord.note, '本机复核');
@@ -332,6 +335,131 @@ void main() {
       expect(await db.query('external_work_records'), isEmpty);
       expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
     });
+
+    test(
+      'rich source_unit_price_fen (incl. project override) is preserved end-to-end',
+      () async {
+        final db = await _openDb();
+        // 模拟导出端写入 200元/h 的项目覆盖单价：source_unit_price_fen = 20000。
+        // 导入端必须原样保留，绝不反推、绝不替换为 0。
+        final parsed = _parsedRich(
+          records: [
+            _record(
+              uuid: 'timing:71',
+              fingerprint: 'fp-override',
+              hoursMilli: 7000,
+              incomeFen: 140000,
+              sourceUnitPriceFen: 20000,
+            ),
+          ],
+          exportLines: const [],
+        );
+        final result = await importer.importParsed(
+          parsed,
+          importedAt: '2026-05-19T00:00:00.000Z',
+        );
+        expect(result.status, ProjectExternalWorkImportStatus.imported);
+
+        final rows = await db.query('external_work_records');
+        expect(rows, hasLength(1));
+        expect(rows.single['source_unit_price_fen'], 20000);
+        expect(rows.single['local_unit_price_fen'], 20000);
+        expect(rows.single['amount_fen'], 140000);
+        expect(rows.single['record_kind'], 'hours');
+      },
+    );
+
+    test('rich record without source_unit_price_fen lands as NULL '
+        '(import side does not derive from income÷hours)', () async {
+      final db = await _openDb();
+      // 人工覆写金额：income 不等于任何 hours×price 的整数解。导出端会写 null。
+      // 导入端必须落 NULL，绝不反推 (33334/3=11111.33→11111) 后伪造写入。
+      final parsed = _parsedRich(
+        records: [
+          _record(
+            uuid: 'timing:73',
+            fingerprint: 'fp-manual',
+            hoursMilli: 3000,
+            incomeFen: 33334,
+            sourceUnitPriceFen: null,
+          ),
+        ],
+        exportLines: const [],
+      );
+      final result = await importer.importParsed(
+        parsed,
+        importedAt: '2026-05-19T00:00:00.000Z',
+      );
+      expect(result.status, ProjectExternalWorkImportStatus.imported);
+
+      final rows = await db.query('external_work_records');
+      expect(rows, hasLength(1));
+      expect(rows.single['source_unit_price_fen'], isNull);
+      expect(rows.single['local_unit_price_fen'], isNull);
+      expect(rows.single['amount_fen'], 33334);
+      expect(rows.single['record_kind'], 'hours');
+      // 双重防御：即便有人手动用 income÷hours 算了 11111，也必须不在 DB 里。
+      expect(rows.single['source_unit_price_fen'], isNot(11111));
+    });
+
+    test(
+      'rent rich record lands as record_kind=rent with NULL unit price',
+      () async {
+        final db = await _openDb();
+        final parsed = _parsedRich(
+          records: [
+            _record(
+              uuid: 'timing:81',
+              fingerprint: 'fp-rent',
+              type: 'rent',
+              hoursMilli: 1000,
+              incomeFen: 120000,
+              startMeter: null,
+              endMeter: null,
+              sourceUnitPriceFen: null,
+            ),
+          ],
+          exportLines: const [],
+        );
+        final result = await importer.importParsed(
+          parsed,
+          importedAt: '2026-05-19T00:00:00.000Z',
+        );
+        expect(result.status, ProjectExternalWorkImportStatus.imported);
+
+        final rows = await db.query('external_work_records');
+        expect(rows.single['record_kind'], 'rent');
+        expect(rows.single['source_unit_price_fen'], isNull);
+        expect(rows.single['local_unit_price_fen'], isNull);
+      },
+    );
+
+    test(
+      'legacy payload (no source_unit_price_fen key) still imports under hours kind',
+      () async {
+        final db = await _openDb();
+        // 加法式兼容：老 payload 完全没有 source_unit_price_fen 字段。
+        final parsed = _parsedRich(
+          records: [
+            _record(
+              uuid: 'timing:91',
+              fingerprint: 'fp-legacy',
+              hoursMilli: 8000,
+              incomeFen: 80000,
+              // sourceUnitPriceFen 未提供（_missing）= key 不存在
+            ),
+          ],
+          exportLines: const [],
+        );
+        await importer.importParsed(
+          parsed,
+          importedAt: '2026-05-19T00:00:00.000Z',
+        );
+        final rows = await db.query('external_work_records');
+        expect(rows.single['record_kind'], 'hours');
+        expect(rows.single['source_unit_price_fen'], isNull);
+      },
+    );
   });
 }
 
@@ -404,6 +532,7 @@ Map<String, Object?> _record({
   String type = 'hours',
   int hoursMilli = 8000,
   required int incomeFen,
+  Object? sourceUnitPriceFen = _missing,
   double? startMeter = 100.0,
   double? endMeter = 108.0,
 }) {
@@ -420,8 +549,12 @@ Map<String, Object?> _record({
     'income_fen': incomeFen,
     'is_breaking': false,
     'origin_fingerprint': fingerprint,
+    if (!identical(sourceUnitPriceFen, _missing))
+      'source_unit_price_fen': sourceUnitPriceFen,
   };
 }
+
+const _missing = Object();
 
 Map<String, Object?> _legacyLine({required String uuid}) {
   return {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 import '../../models/device.dart';
+import '../../models/project_device_rate.dart';
 import '../../models/timing_calculation_history.dart';
 import '../../models/timing_record.dart';
 import '../../repositories/timing_calculation_history_repository.dart';
@@ -56,6 +57,7 @@ class ProjectExternalWorkShareExportAdapter {
     required JztShareProducer producer,
     required DateTime createdAt,
     required Future<Directory> Function() directoryResolver,
+    List<ProjectDeviceRate> allRates = const [],
   }) async {
     final trimmedSender = senderName.trim();
     if (trimmedSender.isEmpty) {
@@ -111,6 +113,7 @@ class ProjectExternalWorkShareExportAdapter {
         records: projectRecords,
         deviceMap: deviceMap,
         calcHistoryMap: calcHistoryMap,
+        projectDeviceRates: allRates,
         expectedProjectId: effectiveProjectId,
       );
       return _exportService.exportToDirectory(

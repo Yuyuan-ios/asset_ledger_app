@@ -1,3 +1,4 @@
+import '../../models/external_work_record.dart';
 import 'project_external_work_share_line.dart';
 import 'project_external_work_share_rich_payload.dart';
 
@@ -52,6 +53,7 @@ class ExternalWorkImportPreviewLine {
     required this.localUnitPriceFen,
     required this.amountFen,
     required this.duplicateStatus,
+    this.recordKind = ExternalWorkRecordKind.hours,
     this.note,
     this.amountIsAuthoritative = false,
   });
@@ -74,13 +76,16 @@ class ExternalWorkImportPreviewLine {
       localUnitPriceFen: line.sourceUnitPriceFen,
       amountFen: line.amountFen,
       duplicateStatus: duplicateStatus,
+      // legacy export_lines 路径只产出 hours 行（builder _tryBuildExportLine
+      // 已过滤 rent），这里固定为 hours。
+      recordKind: ExternalWorkRecordKind.hours,
       note: line.note,
     );
   }
 
   /// 富事实层记录 → 预览行。金额取真实 `income_fen`（authoritative），
-  /// 不按 hours×单价重算；单价来源未知时不伪造（置 0）。设备快照缺失时
-  /// equipment* 留空，不崩溃。
+  /// 不按 hours×单价重算；单价透传 `source_unit_price_fen`，null 即未知，
+  /// 绝不伪造为 0。设备快照缺失时 equipment* 留空，不崩溃。
   factory ExternalWorkImportPreviewLine.fromRichRecord({
     required ProjectExternalWorkShareRecord record,
     required ProjectExternalWorkShareProjectSnapshot projectSnapshot,
@@ -97,10 +102,11 @@ class ExternalWorkImportPreviewLine {
       equipmentType: device?.type,
       workDate: record.workDate,
       hoursMilli: record.hoursMilli,
-      sourceUnitPriceFen: 0,
-      localUnitPriceFen: 0,
+      sourceUnitPriceFen: record.sourceUnitPriceFen,
+      localUnitPriceFen: record.sourceUnitPriceFen,
       amountFen: record.incomeFen,
       duplicateStatus: duplicateStatus,
+      recordKind: externalWorkRecordKindFromName(record.type),
       note: null,
       amountIsAuthoritative: true,
     );
@@ -115,10 +121,14 @@ class ExternalWorkImportPreviewLine {
   final String? equipmentType;
   final int workDate;
   final int hoursMilli;
-  final int sourceUnitPriceFen;
-  final int localUnitPriceFen;
+
+  /// 单价（分）。null 代表未知（rent / 人工覆写金额 / 设备缺失），
+  /// 0 代表真实单价为 0。两者不可互换。
+  final int? sourceUnitPriceFen;
+  final int? localUnitPriceFen;
   final int amountFen;
   final ExternalWorkDuplicateStatus duplicateStatus;
+  final ExternalWorkRecordKind recordKind;
   final String? note;
 
   /// true 表示 amountFen 来自真实来源金额（rich `income_fen`），

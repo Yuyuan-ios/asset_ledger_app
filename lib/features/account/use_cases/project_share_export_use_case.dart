@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../../data/models/device.dart';
+import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/timing_calculation_history_repository.dart';
 import '../../../data/services/project_share_file_presenter.dart';
@@ -80,6 +81,7 @@ class ProjectShareExportUseCase {
     required String senderName,
     required List<TimingRecord> allRecords,
     required List<Device> allDevices,
+    List<ProjectDeviceRate> allRates = const [],
     DateTime? now,
   }) async {
     try {
@@ -89,6 +91,7 @@ class ProjectShareExportUseCase {
         senderName: senderName,
         allRecords: allRecords,
         allDevices: allDevices,
+        allRates: allRates,
         calcHistoryRepository: _calcHistoryRepository,
         producer: JztShareProducer(
           appName: '机账通',
