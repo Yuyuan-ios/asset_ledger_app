@@ -389,7 +389,8 @@ void main() {
     expect(find.text('CAT / 320D / 挖机'), findsOneWidget);
     expect(find.text('2026.05.12'), findsWidgets);
     expect(find.text('8.5 h'), findsWidgets);
-    expect(find.text('¥123'), findsOneWidget);
+    // 协议升级后单价行带 ' / h' 后缀；金额行仍是 ¥xxx。
+    expect(find.text('¥123 / h'), findsOneWidget);
     expect(find.text('¥1049'), findsOneWidget);
     expect(find.text('2026-05-13T10:00:00.000Z'), findsOneWidget);
     expect(find.text('已关联'), findsOneWidget);

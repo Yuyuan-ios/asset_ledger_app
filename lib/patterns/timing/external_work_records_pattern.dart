@@ -111,7 +111,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               ),
               _ExternalWorkDetailRow(
                 label: '单价',
-                value: _moneyFen(_preferredUnitPriceFen(record)),
+                value: _unitPriceText(record),
               ),
               _ExternalWorkDetailRow(
                 label: '金额',
@@ -424,10 +424,18 @@ String _hoursText(int hoursMilli) {
   return FormatUtils.hours(hoursMilli / 1000);
 }
 
-int _preferredUnitPriceFen(ExternalWorkRecord record) {
-  return record.localUnitPriceFen > 0
-      ? record.localUnitPriceFen
-      : record.sourceUnitPriceFen;
+/// 单价显示：
+/// - rent / 台班：永远显示"不适用"（不存在单价语义）。
+/// - hours 且 localUnitPriceFen 或 sourceUnitPriceFen 有值：显示真实单价 / h。
+/// - hours 但来源未提供（两者均 null）：显示"未知"。
+/// 永远不要再把 null 当 0 来展示成 ¥0（0 已保留给"真实单价为 0"语义）。
+String _unitPriceText(ExternalWorkRecord record) {
+  if (record.recordKind == ExternalWorkRecordKind.rent) {
+    return '不适用';
+  }
+  final price = record.localUnitPriceFen ?? record.sourceUnitPriceFen;
+  if (price == null) return '未知';
+  return '${_moneyFen(price)} / h';
 }
 
 String _moneyFen(int fen) {

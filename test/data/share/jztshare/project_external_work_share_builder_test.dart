@@ -1,6 +1,8 @@
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/share/jztshare/jztshare_errors.dart';
 import 'package:asset_ledger/data/share/jztshare/project_external_work_share_builder.dart';
 import 'package:asset_ledger/data/share/jztshare/project_external_work_share_payload.dart';
 import 'package:asset_ledger/data/share/jztshare/project_external_work_share_rich_payload.dart';
@@ -224,6 +226,213 @@ void main() {
     expect(l1.amountFen, 80000); // == 真实 incomeFen，未伪造
     expect(l1.equipmentBrand, 'HITACHI');
     expect(l1.equipmentType, 'excavator');
+  });
+
+  group('rich record source_unit_price_fen (v1+)', () {
+    test('hours record with device-confirmed unit price → trusted fen', () {
+      final p = buildAll();
+      final rec1 = p.records.firstWhere((r) => r.sourceTimingRecordId == 11);
+      expect(rec1.type, 'hours');
+      // HITACHI defaultUnitPrice = 100.0 yuan/h → 10000 fen/h; 8000 * 10000 / 1000 = 80000 == incomeFen.
+      expect(rec1.sourceUnitPriceFen, 10000);
+      expect(rec1.toMap()['source_unit_price_fen'], 10000);
+    });
+
+    test('rent record source_unit_price_fen is null (not 0, not derived)', () {
+      final p = buildAll();
+      final rec3 = p.records.firstWhere((r) => r.sourceTimingRecordId == 13);
+      expect(rec3.type, 'rent');
+      expect(rec3.sourceUnitPriceFen, isNull);
+      // JSON 必须显式输出 null（与 startMeter/endMeter 同样口径），
+      // 因为加法式 fromMap 用 containsKey 判定"未提供" vs "显式 null"。
+      final json = rec3.toMap();
+      expect(json.containsKey('source_unit_price_fen'), isTrue);
+      expect(json['source_unit_price_fen'], isNull);
+    });
+
+    test('hours record with manual-override amount → null '
+        '(导出端不允许 income÷hours 反推)', () {
+      final p = buildAll();
+      // r4: hours=3.0, income=333.34, defaultUnitPrice=100 → 30000≠33334。
+      // 旧 export_lines 路径会反推 (33334/3=11111.33 → 11111)，但仍因
+      // AmountPolicy 不一致被排除。富 records 必须直接为 null。
+      final rec4 = p.records.firstWhere((r) => r.sourceTimingRecordId == 14);
+      expect(rec4.sourceUnitPriceFen, isNull);
+    });
+
+    test('hours record with missing device → null', () {
+      // 单条 hours 记录，但 deviceMap 不含该设备。
+      const orphan = TimingRecord(
+        id: 91,
+        deviceId: 999, // 不存在
+        startDate: 20240105,
+        contact: '张三',
+        site: '工地A',
+        type: TimingType.hours,
+        startMeter: 0.0,
+        endMeter: 5.0,
+        hours: 5.0,
+        income: 500.0,
+      );
+      final p = builder.build(
+        shareId: 's',
+        senderName: 's',
+        sourceInstallationUuid: 'u',
+        records: const [orphan],
+        deviceMap: const {},
+        calcHistoryMap: const {},
+      );
+      final rec = p.records.single;
+      expect(rec.type, 'hours');
+      expect(rec.sourceUnitPriceFen, isNull);
+    });
+
+    test('rich-record fromMap rejects negative source_unit_price_fen '
+        '(no silent coerce to 0)', () {
+      final map = buildAll().records.first.toMap();
+      map['source_unit_price_fen'] = -1;
+      expect(
+        () => ProjectExternalWorkShareRecord.fromMap(map),
+        throwsA(isA<JztShareParseException>()),
+      );
+    });
+
+    test(
+      'rich-record fromMap treats missing key as null (additive compat)',
+      () {
+        final map = buildAll().records.first.toMap();
+        map.remove('source_unit_price_fen');
+        final round = ProjectExternalWorkShareRecord.fromMap(map);
+        expect(round.sourceUnitPriceFen, isNull);
+      },
+    );
+
+    test(
+      'project rate override beats device default in source_unit_price_fen',
+      () {
+        // 关键场景：
+        // - 设备默认单价 180（=18000 fen）
+        // - 当前项目覆盖单价 200（=20000 fen）
+        // - 这条 hours 记录金额按 200 生成（hours=7, income=1400）
+        // → rich record 必须写 20000，而不是因为 deviceFen(18000) 与 income 不
+        //   一致就回退到 null。
+        final deviceX = Device(
+          id: 7,
+          name: '挖机 7#',
+          brand: 'CAT',
+          defaultUnitPrice: 180.0,
+          baseMeterHours: 0.0,
+          equipmentType: EquipmentType.excavator,
+        );
+        const overrideRecord = TimingRecord(
+          id: 71,
+          deviceId: 7,
+          startDate: 20240301,
+          contact: '王总',
+          site: '工地B',
+          type: TimingType.hours,
+          startMeter: 0.0,
+          endMeter: 7.0,
+          hours: 7.0,
+          income: 1400.0,
+        );
+        final rate = ProjectDeviceRate(
+          projectId: overrideRecord.effectiveProjectId,
+          projectKey: overrideRecord.legacyProjectKey,
+          deviceId: 7,
+          rate: 200.0,
+        );
+
+        final p = builder.build(
+          shareId: 'override-share',
+          senderName: '李工',
+          sourceInstallationUuid: 'install',
+          records: const [overrideRecord],
+          deviceMap: {7: deviceX},
+          calcHistoryMap: const {},
+          projectDeviceRates: [rate],
+        );
+        final rec = p.records.single;
+        expect(rec.type, 'hours');
+        expect(rec.incomeFen, 140000);
+        expect(rec.sourceUnitPriceFen, 20000);
+      },
+    );
+
+    test(
+      'no project rate override → uses device default and confirms via policy '
+      '(180 yuan/h, 7h → 1260 → 18000 fen)',
+      () {
+        final deviceX = Device(
+          id: 7,
+          name: '挖机 7#',
+          brand: 'CAT',
+          defaultUnitPrice: 180.0,
+          baseMeterHours: 0.0,
+          equipmentType: EquipmentType.excavator,
+        );
+        const rec = TimingRecord(
+          id: 72,
+          deviceId: 7,
+          startDate: 20240302,
+          contact: '王总',
+          site: '工地B',
+          type: TimingType.hours,
+          startMeter: 0.0,
+          endMeter: 7.0,
+          hours: 7.0,
+          income: 1260.0,
+        );
+        final p = builder.build(
+          shareId: 'no-override',
+          senderName: '李工',
+          sourceInstallationUuid: 'install',
+          records: const [rec],
+          deviceMap: {7: deviceX},
+          calcHistoryMap: const {},
+          projectDeviceRates: const [],
+        );
+        expect(p.records.single.sourceUnitPriceFen, 18000);
+      },
+    );
+
+    test(
+      'manual override amount on hours record → null (no income÷hours derive)',
+      () {
+        // 设备默认 180 yuan/h，但 income 被人工改成 1200（≠ 180×7=1260），
+        // 也不等于任何覆盖价。绝不能反推 (1200/7=171.4) 后伪造写入。
+        final deviceX = Device(
+          id: 7,
+          name: '挖机 7#',
+          brand: 'CAT',
+          defaultUnitPrice: 180.0,
+          baseMeterHours: 0.0,
+          equipmentType: EquipmentType.excavator,
+        );
+        const rec = TimingRecord(
+          id: 73,
+          deviceId: 7,
+          startDate: 20240303,
+          contact: '王总',
+          site: '工地B',
+          type: TimingType.hours,
+          startMeter: 0.0,
+          endMeter: 7.0,
+          hours: 7.0,
+          income: 1200.0, // manual override
+        );
+        final p = builder.build(
+          shareId: 'manual-override',
+          senderName: '李工',
+          sourceInstallationUuid: 'install',
+          records: const [rec],
+          deviceMap: {7: deviceX},
+          calcHistoryMap: const {},
+          projectDeviceRates: const [],
+        );
+        expect(p.records.single.sourceUnitPriceFen, isNull);
+      },
+    );
   });
 
   test('project_snapshot keeps contact for tracing only', () {

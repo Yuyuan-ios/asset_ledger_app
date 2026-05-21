@@ -48,12 +48,14 @@ class ExternalWorkSchema {
         equipment_type TEXT,
         work_date INTEGER NOT NULL,
         hours_milli INTEGER NOT NULL CHECK (hours_milli >= 0),
-        source_unit_price_fen INTEGER NOT NULL
-          CHECK (source_unit_price_fen >= 0),
-        local_unit_price_fen INTEGER NOT NULL
-          CHECK (local_unit_price_fen >= 0),
+        source_unit_price_fen INTEGER
+          CHECK (source_unit_price_fen IS NULL OR source_unit_price_fen >= 0),
+        local_unit_price_fen INTEGER
+          CHECK (local_unit_price_fen IS NULL OR local_unit_price_fen >= 0),
         amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
         linked_project_id TEXT,
+        record_kind TEXT NOT NULL DEFAULT 'hours'
+          CHECK (record_kind IN ('hours', 'rent')),
         status TEXT NOT NULL DEFAULT 'active'
           CHECK (status IN ('active', 'ignored', 'archived', 'voided')),
         note TEXT,

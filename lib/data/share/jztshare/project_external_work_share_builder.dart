@@ -4,8 +4,10 @@ import 'package:crypto/crypto.dart';
 
 import '../../../core/money/amount_policy.dart';
 import '../../models/device.dart';
+import '../../models/project_device_rate.dart';
 import '../../models/timing_calculation_history.dart';
 import '../../models/timing_record.dart';
+import '../../services/account_service.dart';
 import 'project_external_work_share_rich_payload.dart';
 
 /// 纯数据 builder：把项目下的 TimingRecord / Device / TimingCalculationHistory
@@ -16,10 +18,14 @@ import 'project_external_work_share_rich_payload.dart';
 class ProjectExternalWorkShareBuilder {
   const ProjectExternalWorkShareBuilder();
 
-  /// [records]      该项目下的全部 TimingRecord（必须非空，且每条 id 非空）。
-  /// [deviceMap]    deviceId -> Device。
-  /// [calcHistoryMap] timingRecordId -> 该记录的计算历史（顺序不限，内部按
-  ///                createdAt 取最新一条作为 filledCalculation）。
+  /// [records]            该项目下的全部 TimingRecord（必须非空，且每条 id 非空）。
+  /// [deviceMap]          deviceId -> Device。
+  /// [calcHistoryMap]     timingRecordId -> 该记录的计算历史（顺序不限，内部按
+  ///                      createdAt 取最新一条作为 filledCalculation）。
+  /// [projectDeviceRates] 全量项目设备覆盖单价；rich record `source_unit_price_fen`
+  ///                      用此还原"按当前项目+isBreaking 解析后的有效单价"再过
+  ///                      AmountPolicy 校验，确保项目覆盖价（如 200）能被写入。
+  ///                      为空表示该项目不存在任何覆盖，回落到设备默认单价。
   ProjectExternalWorkShareRichPayload build({
     required String shareId,
     required String senderName,
@@ -27,6 +33,7 @@ class ProjectExternalWorkShareBuilder {
     required List<TimingRecord> records,
     required Map<int, Device> deviceMap,
     required Map<int, List<TimingCalculationHistory>> calcHistoryMap,
+    List<ProjectDeviceRate> projectDeviceRates = const [],
     String? expectedProjectId,
   }) {
     final safeShareId = _requireNonBlank(shareId, 'shareId');
@@ -66,6 +73,26 @@ class ProjectExternalWorkShareBuilder {
         return _requireId(a).compareTo(_requireId(b));
       });
 
+    // 当前项目（已通过 expectedProjectId / 单项目断言锁定）的有效单价表。
+    // 与账户页 / TimingPreviewIncome 同源（AccountService.buildEffectiveRateMap），
+    // 自动应用项目对设备的单价覆盖；不存在覆盖时回落到设备默认单价。
+    final effectiveProjectId = sorted.first.effectiveProjectId;
+    final effectiveProjectKey = sorted.first.legacyProjectKey;
+    final deviceList = deviceMap.values.toList(growable: false);
+    final effectiveRateYuan = AccountService.buildEffectiveRateMap(
+      projectId: effectiveProjectId,
+      projectKey: effectiveProjectKey,
+      devices: deviceList,
+      rates: projectDeviceRates,
+    );
+    final effectiveBreakingRateYuan = AccountService.buildEffectiveRateMap(
+      projectId: effectiveProjectId,
+      projectKey: effectiveProjectKey,
+      devices: deviceList,
+      rates: projectDeviceRates,
+      isBreaking: true,
+    );
+
     final shareRecords = <ProjectExternalWorkShareRecord>[];
     final exportLines = <ProjectExternalWorkShareExportLine>[];
     for (final record in sorted) {
@@ -88,6 +115,19 @@ class ProjectExternalWorkShareBuilder {
           endMeter: isHours ? record.endMeter : null,
           hoursMilli: hoursMilli,
           incomeFen: incomeFen,
+          // 仅 hours 且能从"当前项目有效单价（含项目覆盖）"无损还原
+          // incomeFen 时写入；rent / 人工覆写金额 / 设备缺失 / hoursMilli<=0
+          // 时为 null。导出端**不允许**用 incomeFen ÷ hoursMilli 反推
+          // （与导入端规则保持一致）。
+          sourceUnitPriceFen: _trustedRichUnitPriceFen(
+            record: record,
+            hoursMilli: hoursMilli,
+            incomeFen: incomeFen,
+            isHours: isHours,
+            candidateYuanPerHour: record.isBreaking
+                ? effectiveBreakingRateYuan[record.deviceId]
+                : effectiveRateYuan[record.deviceId],
+          ),
           isBreaking: record.isBreaking,
           originFingerprint: fingerprint,
           filledCalculation: _filledCalculation(
@@ -253,6 +293,29 @@ class ProjectExternalWorkShareBuilder {
       amountFen: incomeFen,
       note: null,
     );
+  }
+
+  // 富 records 专用：只接受"当前项目有效单价（含项目覆盖） + AmountPolicy
+  // 校验通过"为可信单价。与 _resolveUnitPriceFen 的关键区别：**不做
+  // income÷hours 反推**——反推会把"派生值"喂给导入端，导入端无从分辨真伪。
+  // 校验失败（人工覆写金额 / 单价缺失 / hoursMilli<=0）一律返回 null，
+  // 让 UI 显示"未知"，与协议 null=未知 的口径一致。
+  static int? _trustedRichUnitPriceFen({
+    required TimingRecord record,
+    required int hoursMilli,
+    required int incomeFen,
+    required bool isHours,
+    required double? candidateYuanPerHour,
+  }) {
+    if (!isHours) return null;
+    if (hoursMilli <= 0 || incomeFen < 0) return null;
+    if (candidateYuanPerHour == null) return null;
+    final candidateFen = UnitPrice.fromYuanPerHour(
+      candidateYuanPerHour,
+    ).fenPerHour;
+    if (candidateFen < 0) return null;
+    if (_amountFen(hoursMilli, candidateFen) != incomeFen) return null;
+    return candidateFen;
   }
 
   // 优先用设备真实单价；不一致再用 incomeFen/hoursMilli 反推，反推后必须再过

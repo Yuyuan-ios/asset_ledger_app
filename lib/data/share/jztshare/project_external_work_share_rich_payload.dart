@@ -38,6 +38,28 @@ double? _optionalDouble(Object? value, String key, Object? source) {
   throw _richParseError('Invalid number: $key', source);
 }
 
+/// 加法式可选字段：旧 payload 不含此键、或 JSON 显式 null 时返回 null；
+/// 非整数或负数立刻报错（绝不悄悄当作 0 / 未知）。
+int? _optionalNonNegativeInt(Map<String, Object?> map, String key) {
+  if (!map.containsKey(key)) return null;
+  final value = map[key];
+  if (value == null) return null;
+  if (value is int) {
+    if (value < 0) {
+      throw _richParseError('$key must be >= 0', map);
+    }
+    return value;
+  }
+  if (value is num) {
+    final asInt = value.toInt();
+    if (asInt != value || asInt < 0) {
+      throw _richParseError('$key must be a non-negative integer', map);
+    }
+    return asInt;
+  }
+  throw _richParseError('$key must be an integer', map);
+}
+
 double _requiredDouble(Object? value, String key, Object? source) {
   if (value is num) return value.toDouble();
   throw _richParseError('Missing required number: $key', source);
@@ -308,6 +330,7 @@ class ProjectExternalWorkShareRecord {
     this.endMeter,
     required this.hoursMilli,
     required this.incomeFen,
+    this.sourceUnitPriceFen,
     required this.isBreaking,
     required this.originFingerprint,
     this.filledCalculation,
@@ -330,6 +353,12 @@ class ProjectExternalWorkShareRecord {
 
   /// 始终来自 TimingRecord.income，真实收入，不按工时×单价重算。
   final int incomeFen;
+
+  /// 可信单价：仅在导出端能从设备真实单价无损还原 incomeFen
+  /// (`AmountPolicy(hoursMilli, deviceFen).fen == incomeFen`) 时写入。
+  /// rent/台班 / 人工覆写金额 / 设备缺失 / 来源不可信时为 null（绝不填 0）。
+  /// 导入端禁止用 income_fen ÷ hours 反推此字段。
+  final int? sourceUnitPriceFen;
   final bool isBreaking;
   final String originFingerprint;
   final ProjectExternalWorkShareFilledCalculation? filledCalculation;
@@ -351,6 +380,11 @@ class ProjectExternalWorkShareRecord {
         endMeter: _optionalDouble(map['end_meter'], 'end_meter', map),
         hoursMilli: reader.requiredNonNegativeInt('hours_milli'),
         incomeFen: reader.requiredNonNegativeInt('income_fen'),
+        // 加法式：旧 payload 缺字段 → null；显式 null → null；存在数值 → 校验 >=0。
+        sourceUnitPriceFen: _optionalNonNegativeInt(
+          map,
+          'source_unit_price_fen',
+        ),
         isBreaking: _requiredBool(map['is_breaking'], 'is_breaking', map),
         originFingerprint: reader.requiredString('origin_fingerprint'),
         filledCalculation: rawFilled == null
@@ -376,6 +410,8 @@ class ProjectExternalWorkShareRecord {
       'end_meter': endMeter,
       'hours_milli': hoursMilli,
       'income_fen': incomeFen,
+      // 未知用 null，禁止伪造 0；与 startMeter/endMeter 同样的 null 显式输出。
+      'source_unit_price_fen': sourceUnitPriceFen,
       'is_breaking': isBreaking,
       'origin_fingerprint': originFingerprint,
       if (filledCalculation != null)

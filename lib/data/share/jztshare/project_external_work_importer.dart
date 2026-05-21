@@ -76,6 +76,8 @@ class ProjectExternalWorkImporter {
     final id = 'external:${preview.shareId}:${line.exportLineUuid}';
     if (line.amountIsAuthoritative) {
       // 富事实层：amountFen 来自真实 income_fen，原样写入，不重算。
+      // 单价透传 line.source/localUnitPriceFen（可能为 null = 未知），
+      // 绝不在导入端反推。
       return ExternalWorkRecord.imported(
         id: id,
         importBatchId: preview.shareId,
@@ -94,10 +96,18 @@ class ProjectExternalWorkImporter {
         amountFen: line.amountFen,
         sourceUnitPriceFen: line.sourceUnitPriceFen,
         localUnitPriceFen: line.localUnitPriceFen,
+        recordKind: line.recordKind,
         linkedProjectId: null,
         note: line.note,
         createdAt: now,
         updatedAt: now,
+      );
+    }
+    // legacy export_lines 路径：单价必有，按 AmountPolicy 校验金额。
+    final sourcePrice = line.sourceUnitPriceFen;
+    if (sourcePrice == null) {
+      throw StateError(
+        'legacy export_lines path requires a non-null source unit price',
       );
     }
     return ExternalWorkRecord.create(
@@ -115,7 +125,9 @@ class ProjectExternalWorkImporter {
       equipmentType: line.equipmentType,
       workDate: line.workDate,
       hoursMilli: line.hoursMilli,
-      sourceUnitPriceFen: line.sourceUnitPriceFen,
+      sourceUnitPriceFen: sourcePrice,
+      // legacy 路径恒为 hours（builder _tryBuildExportLine 过滤了 rent）。
+      recordKind: ExternalWorkRecordKind.hours,
       linkedProjectId: null,
       note: line.note,
       createdAt: now,

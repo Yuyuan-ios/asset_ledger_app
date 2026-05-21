@@ -3,6 +3,24 @@ import 'external_work_parse.dart';
 
 enum ExternalWorkRecordStatus { active, ignored, archived, voided }
 
+/// 导入记录的计价种类。来源于富 records 的 `type` 字段；legacy export_lines
+/// 路径只产出 hours 行。UI 据此决定单价为 null 时显示"未知"还是"不适用"。
+enum ExternalWorkRecordKind { hours, rent }
+
+ExternalWorkRecordKind externalWorkRecordKindFromName(
+  String? name, {
+  ExternalWorkRecordKind fallback = ExternalWorkRecordKind.hours,
+}) {
+  switch (name) {
+    case 'hours':
+      return ExternalWorkRecordKind.hours;
+    case 'rent':
+      return ExternalWorkRecordKind.rent;
+    default:
+      return fallback;
+  }
+}
+
 class ExternalWorkRecord {
   const ExternalWorkRecord({
     required this.id,
@@ -23,6 +41,7 @@ class ExternalWorkRecord {
     required this.localUnitPriceFen,
     required this.amountFen,
     this.linkedProjectId,
+    this.recordKind = ExternalWorkRecordKind.hours,
     this.status = ExternalWorkRecordStatus.active,
     this.note,
     required this.createdAt,
@@ -48,6 +67,7 @@ class ExternalWorkRecord {
     required int sourceUnitPriceFen,
     int? localUnitPriceFen,
     String? linkedProjectId,
+    ExternalWorkRecordKind recordKind = ExternalWorkRecordKind.hours,
     ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
     String? note,
     required String createdAt,
@@ -77,6 +97,7 @@ class ExternalWorkRecord {
       localUnitPriceFen: localPriceFen,
       amountFen: amountFen,
       linkedProjectId: linkedProjectId,
+      recordKind: recordKind,
       status: status,
       note: note,
       createdAt: createdAt,
@@ -86,7 +107,7 @@ class ExternalWorkRecord {
 
   /// 富事实层导入路径：amountFen 为来源真实金额（rich `income_fen`），
   /// 原样写入，禁止按 AmountPolicy 重算。rent/台班/人工覆写金额记录走此路径。
-  /// 单价来源未知时不伪造，sourceUnitPriceFen/localUnitPriceFen 默认 0。
+  /// 单价未知时传 null，绝不伪造 0；导入端不会反推单价。
   factory ExternalWorkRecord.imported({
     required String id,
     required String importBatchId,
@@ -103,8 +124,9 @@ class ExternalWorkRecord {
     required int workDate,
     required int hoursMilli,
     required int amountFen,
-    int sourceUnitPriceFen = 0,
-    int localUnitPriceFen = 0,
+    int? sourceUnitPriceFen,
+    int? localUnitPriceFen,
+    ExternalWorkRecordKind recordKind = ExternalWorkRecordKind.hours,
     String? linkedProjectId,
     ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
     String? note,
@@ -130,6 +152,7 @@ class ExternalWorkRecord {
       localUnitPriceFen: localUnitPriceFen,
       amountFen: amountFen,
       linkedProjectId: linkedProjectId,
+      recordKind: recordKind,
       status: status,
       note: note,
       createdAt: createdAt,
@@ -152,10 +175,17 @@ class ExternalWorkRecord {
   final String? equipmentType;
   final int workDate;
   final int hoursMilli;
-  final int sourceUnitPriceFen;
-  final int localUnitPriceFen;
+
+  /// 单价（分）。null 代表未知，0 代表真实单价为 0，二者不可互换。
+  /// rent / 台班 / 人工覆写金额 / 设备缺失等情况导入时直接为 null；
+  /// legacy export_lines 路径导入的记录恒为非 null。
+  final int? sourceUnitPriceFen;
+  final int? localUnitPriceFen;
   final int amountFen;
   final String? linkedProjectId;
+
+  /// 计价种类。legacy 导入路径恒为 hours；rich 导入路径按来源 type 保留。
+  final ExternalWorkRecordKind recordKind;
   final ExternalWorkRecordStatus status;
   final String? note;
   final String createdAt;
@@ -180,10 +210,11 @@ class ExternalWorkRecord {
     Object? equipmentType = _sentinel,
     int? workDate,
     int? hoursMilli,
-    int? sourceUnitPriceFen,
-    int? localUnitPriceFen,
+    Object? sourceUnitPriceFen = _sentinel,
+    Object? localUnitPriceFen = _sentinel,
     int? amountFen,
     Object? linkedProjectId = _sentinel,
+    ExternalWorkRecordKind? recordKind,
     ExternalWorkRecordStatus? status,
     Object? note = _sentinel,
     String? createdAt,
@@ -212,12 +243,17 @@ class ExternalWorkRecord {
           : equipmentType as String?,
       workDate: workDate ?? this.workDate,
       hoursMilli: hoursMilli ?? this.hoursMilli,
-      sourceUnitPriceFen: sourceUnitPriceFen ?? this.sourceUnitPriceFen,
-      localUnitPriceFen: localUnitPriceFen ?? this.localUnitPriceFen,
+      sourceUnitPriceFen: identical(sourceUnitPriceFen, _sentinel)
+          ? this.sourceUnitPriceFen
+          : sourceUnitPriceFen as int?,
+      localUnitPriceFen: identical(localUnitPriceFen, _sentinel)
+          ? this.localUnitPriceFen
+          : localUnitPriceFen as int?,
       amountFen: amountFen ?? this.amountFen,
       linkedProjectId: identical(linkedProjectId, _sentinel)
           ? this.linkedProjectId
           : linkedProjectId as String?,
+      recordKind: recordKind ?? this.recordKind,
       status: status ?? this.status,
       note: identical(note, _sentinel) ? this.note : note as String?,
       createdAt: createdAt ?? this.createdAt,
@@ -252,6 +288,7 @@ class ExternalWorkRecord {
       'local_unit_price_fen': localUnitPriceFen,
       'amount_fen': amountFen,
       'linked_project_id': linkedProjectId,
+      'record_kind': recordKind.name,
       'status': status.name,
       'note': note,
       'created_at': createdAt,
@@ -276,12 +313,17 @@ class ExternalWorkRecord {
       equipmentType: reader.optionalString('equipment_type'),
       workDate: reader.requiredNonNegativeInt('work_date'),
       hoursMilli: reader.requiredNonNegativeInt('hours_milli'),
-      sourceUnitPriceFen: reader.requiredNonNegativeInt(
+      sourceUnitPriceFen: _optionalNonNegativeIntCell(
+        map,
         'source_unit_price_fen',
       ),
-      localUnitPriceFen: reader.requiredNonNegativeInt('local_unit_price_fen'),
+      localUnitPriceFen: _optionalNonNegativeIntCell(
+        map,
+        'local_unit_price_fen',
+      ),
       amountFen: reader.requiredNonNegativeInt('amount_fen'),
       linkedProjectId: reader.optionalString('linked_project_id'),
+      recordKind: externalWorkRecordKindFromName(map['record_kind'] as String?),
       status: parseExternalStatus<ExternalWorkRecordStatus>(
         raw: map['status'],
         values: ExternalWorkRecordStatus.values,
@@ -297,9 +339,16 @@ class ExternalWorkRecord {
   void validate() {
     ExternalWorkRecord.fromMap(toUncheckedMap());
     if (amountOverridesPolicy) return;
+    // 非 imported 路径要求单价存在并与 AmountPolicy 一致；仅 imported 允许 null。
+    final price = localUnitPriceFen;
+    if (price == null) {
+      throw ExternalDataParseException(
+        'local_unit_price_fen must not be null on policy-checked path',
+      );
+    }
     final expectedAmountFen = calculateAmountFen(
       hoursMilli: hoursMilli,
-      unitPriceFen: localUnitPriceFen,
+      unitPriceFen: price,
     );
     if (amountFen != expectedAmountFen) {
       throw ExternalDataParseException('amount_fen does not match policy');
@@ -324,3 +373,25 @@ class ExternalWorkRecord {
 }
 
 const _sentinel = Object();
+
+/// DB / map 单元格的可空非负整数读取：键不存在或值为 null → null；
+/// 数值 < 0 或非整数立刻报错（保持 schema CHECK >= 0 的语义）。
+int? _optionalNonNegativeIntCell(Map<String, Object?> map, String key) {
+  if (!map.containsKey(key)) return null;
+  final value = map[key];
+  if (value == null) return null;
+  if (value is int) {
+    if (value < 0) {
+      throw ExternalDataParseException('$key must be >= 0');
+    }
+    return value;
+  }
+  if (value is num) {
+    final asInt = value.toInt();
+    if (asInt != value || asInt < 0) {
+      throw ExternalDataParseException('$key must be a non-negative integer');
+    }
+    return asInt;
+  }
+  throw ExternalDataParseException('$key must be an integer');
+}
