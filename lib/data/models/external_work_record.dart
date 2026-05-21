@@ -176,10 +176,18 @@ class ExternalWorkRecord {
   final int workDate;
   final int hoursMilli;
 
-  /// 单价（分）。null 代表未知，0 代表真实单价为 0，二者不可互换。
+  /// 来源方原始单价（分）。**只读事实**，导入时来自分享包 rich record。
+  /// null 代表来源未知，0 代表真实来源单价为 0，二者不可互换。
   /// rent / 台班 / 人工覆写金额 / 设备缺失等情况导入时直接为 null；
   /// legacy export_lines 路径导入的记录恒为非 null。
+  /// 展示用途：计时页 "项目外协记录" 详情显示此字段（来源事实视图）。
   final int? sourceUnitPriceFen;
+
+  /// 接收方本地复核的外协应付 / 结算单价（分）。null 表示尚未本地覆盖。
+  /// 后期账户页外协卡片用 `localUnitPriceFen ?? sourceUnitPriceFen` 作为
+  /// "有效外协应付单价"，参与外协应付 / 利润核算；客户结算 / 项目收入单价
+  /// 不在这里，仍走接收方自己的项目/设备单价。
+  /// 注意：计时页详情**不**展示这个字段，避免把"接收方复核值"伪装为"来源"。
   final int? localUnitPriceFen;
   final int amountFen;
   final String? linkedProjectId;
