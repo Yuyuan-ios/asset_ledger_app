@@ -63,11 +63,11 @@ class AccountTokens {
   static const double overviewPieLabelMinRatio = 0.15; // 小于该比例不显示文字
 
   // ===== 账户页：设备用色（冷色系色板，避免误用红/绿）=====
-  static const Color overviewDeviceColorSky = Color(0xFF5AA9F8); // 天空蓝
-  static const Color overviewDeviceColorIndigo = Color(0xFF4C6EF5); // 靛蓝
-  static const Color overviewDeviceColorAmber = Color(0xFFFFC046); // 琥珀黄
-  static const Color overviewDeviceColorViolet = Color(0xFFB25CFF); // 紫罗兰
-  static const Color overviewDeviceColorSlate = Color(0xFF9AA0A6); // 石板灰
+  static const Color overviewDeviceColorSky = Color(0xFF6FA7D8); // 柔和钢蓝
+  static const Color overviewDeviceColorIndigo = Color(0xFF6F7FB8); // 灰调靛蓝
+  static const Color overviewDeviceColorAmber = Color(0xFFC9A45A); // 柔和琥珀
+  static const Color overviewDeviceColorViolet = Color(0xFF9A84B7); // 灰调紫
+  static const Color overviewDeviceColorSlate = Color(0xFF8B949E); // 石板灰
   static const List<Color> overviewChartPalette = <Color>[
     overviewDeviceColorSky,
     overviewDeviceColorIndigo,
