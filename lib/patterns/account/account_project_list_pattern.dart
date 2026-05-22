@@ -13,6 +13,9 @@ const Color _settledCardBg = SheetColors.background;
 const Color _settledCardBorder = AccountTokens.projectCardBorderColor;
 const Color _settledCheckBlue = Color(0xFF4AAFD8);
 const Color _settledTextGreen = Color(0xFF3F8F5D);
+const String _settledCelebrationIconAsset =
+    'assets/icons/account/settled_celebration.png';
+const Key _settledCelebrationIconKey = Key('settled-project-celebration-icon');
 
 class _PriceBadgeStyle {
   const _PriceBadgeStyle({
@@ -176,6 +179,46 @@ class AccountProjectList extends StatelessWidget {
     return compact
         ? '待收 ${FormatUtils.money(p.remaining)}'
         : '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}';
+  }
+
+  Widget _settlementStatus(
+    AccountProjectVM p,
+    TextStyle? style, {
+    required bool compact,
+  }) {
+    final text = _settlementStatusText(p, compact: compact);
+    if (!_isSettled(p)) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.right,
+        style: style,
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.asset(
+          _settledCelebrationIconAsset,
+          key: _settledCelebrationIconKey,
+          width: 18,
+          height: 18,
+          semanticLabel: '结清图标',
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.right,
+          style: style,
+        ),
+      ],
+    );
   }
 
   @override
@@ -406,17 +449,10 @@ class AccountProjectList extends StatelessWidget {
                             Flexible(
                               child: Align(
                                 alignment: Alignment.centerRight,
-                                child: Text(
-                                  isCompact
-                                      ? _settlementStatusText(p, compact: true)
-                                      : _settlementStatusText(
-                                          p,
-                                          compact: false,
-                                        ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.right,
-                                  style: resolvedStatusStyle,
+                                child: _settlementStatus(
+                                  p,
+                                  resolvedStatusStyle,
+                                  compact: isCompact,
                                 ),
                               ),
                             ),
