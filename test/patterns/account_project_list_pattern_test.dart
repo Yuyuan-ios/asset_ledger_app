@@ -182,6 +182,7 @@ void main() {
     expect(find.text('已结清 · 核销 ¥60'), findsNothing);
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
     expect(_containerWithBorder(const Color(0x4D000000)), findsNWidgets(3));
+    expect(_settledCelebrationIcons(), findsNWidgets(2));
 
     final settledIcons = tester.widgetList<Icon>(_settledCheckIcons()).toList();
     expect(settledIcons, hasLength(2));
@@ -211,19 +212,30 @@ void main() {
       payments: [],
     );
 
+    String? tappedProjectKey;
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 240,
-            child: AccountProjectList(projects: const [project], onTap: (_) {}),
+            child: AccountProjectList(
+              projects: const [project],
+              onTap: (project) => tappedProjectKey = project.projectKey,
+            ),
           ),
         ),
       ),
     );
 
     expect(_settledCheckIcons(), findsOneWidget);
+    expect(_settledCelebrationIcons(), findsOneWidget);
     expect(find.text('2026.05.01'), findsOneWidget);
+
+    await tester.tap(find.text('已结清'));
+    await tester.pump();
+
+    expect(tappedProjectKey, 'long-settled');
     expect(tester.takeException(), isNull);
   });
 
@@ -444,6 +456,7 @@ void main() {
     expect(find.text('待收 ¥660'), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
     expect(_settledCheckIcons(), findsNWidgets(2));
+    expect(_settledCelebrationIcons(), findsNWidgets(2));
   });
 
   testWidgets('project header toggles compact mode from title group only', (
@@ -511,5 +524,18 @@ Finder _settledCheckIcons() {
     return widget is Icon &&
         widget.icon == Icons.verified_rounded &&
         widget.size == 18;
+  });
+}
+
+Finder _settledCelebrationIcons() {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! Image || widget.semanticLabel != '结清图标') {
+      return false;
+    }
+    final image = widget.image;
+    return image is AssetImage &&
+        image.assetName == 'assets/icons/account/settled_celebration.png' &&
+        widget.width == 18 &&
+        widget.height == 18;
   });
 }
