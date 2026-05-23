@@ -4,21 +4,21 @@ class LocalBackupFileNaming {
   const LocalBackupFileNaming._();
 
   static final RegExp _manualPattern = RegExp(
-    r'^机账通_手动备份_(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.json$',
+    r'^(?:FleetLedger|机账通)_手动备份_(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.json$',
   );
   static final RegExp _preRestorePattern = RegExp(
-    r'^机账通_恢复前备份_(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.json$',
+    r'^(?:FleetLedger|机账通)_恢复前备份_(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.json$',
   );
   static final RegExp _legacyPattern = RegExp(
     r'^asset_ledger_backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.json$',
   );
 
   static String buildManualBackupFileName(DateTime time) {
-    return '机账通_手动备份_${_compactDate(time)}_${_compactTime(time)}.json';
+    return 'FleetLedger_手动备份_${_compactDate(time)}_${_compactTime(time)}.json';
   }
 
   static String buildPreRestoreBackupFileName(DateTime time) {
-    return '机账通_恢复前备份_${_compactDate(time)}_${_compactTime(time)}.json';
+    return 'FleetLedger_恢复前备份_${_compactDate(time)}_${_compactTime(time)}.json';
   }
 
   static LocalBackupFileKind detectBackupFileKind(String fileName) {

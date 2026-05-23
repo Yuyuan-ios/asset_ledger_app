@@ -3,8 +3,13 @@ part of '../local_backup_restore_service.dart';
 class BackupRestoreTables {
   const BackupRestoreTables._();
 
-  static const String expectedAppName = '机账通';
+  static const String expectedAppName = 'FleetLedger';
+  static const Set<String> legacyAppNames = {'机账通'};
   static const int supportedExportFormatVersion = 2;
+
+  static bool isSupportedAppName(Object? appName) {
+    return appName == expectedAppName || legacyAppNames.contains(appName);
+  }
 
   static const List<String> clearOrder = [
     'account_project_merge_members',

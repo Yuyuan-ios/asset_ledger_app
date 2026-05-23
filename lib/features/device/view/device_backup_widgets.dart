@@ -85,13 +85,13 @@ class BackupFileTile extends StatelessWidget {
   static String titleForKind(LocalBackupFileKind kind) {
     switch (kind) {
       case LocalBackupFileKind.manual:
-        return '机账通手动备份';
+        return 'FleetLedger 手动备份';
       case LocalBackupFileKind.preRestore:
         return '恢复前备份';
       case LocalBackupFileKind.legacy:
-        return '旧版机账通备份';
+        return '旧版备份';
       case LocalBackupFileKind.unknown:
-        return '机账通备份';
+        return 'FleetLedger 备份';
     }
   }
 

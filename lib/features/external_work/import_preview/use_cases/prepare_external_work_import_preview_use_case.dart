@@ -64,7 +64,7 @@ class PrepareExternalWorkImportPreviewUseCase
         return '分享包不是有效的 JSON 内容';
       case JztShareErrorCodes.missingMagic:
       case JztShareErrorCodes.invalidMagic:
-        return '这不是有效的机账通分享包';
+        return '这不是有效的 FleetLedger 分享包';
       case JztShareErrorCodes.missingFormatVersion:
       case JztShareErrorCodes.unsupportedFormatVersion:
         return '分享包版本暂不支持';

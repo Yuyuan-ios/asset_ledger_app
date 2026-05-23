@@ -37,7 +37,7 @@ class LocalBackupExportService {
   static const String _mergeGroupsTable = 'account_project_merge_groups';
   static const String _mergeMembersTable = 'account_project_merge_members';
   static const int _exportFormatVersion = 2;
-  static const String _appName = '机账通';
+  static const String _appName = 'FleetLedger';
   static const String _appVersion = 'unknown';
   static const String _backupDirName = 'backups';
   static const int _maxPreRestoreBackups = 3;

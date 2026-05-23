@@ -17,7 +17,7 @@ plugins {
 }
 
 android {
-    namespace = "com.yuyuan.assetledger"
+    namespace = "com.yuyuan.fleetledger"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -31,7 +31,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.yuyuan.assetledger"
+        applicationId = "com.yuyuan.fleetledger"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -9,10 +9,10 @@ class PrivacyPage extends StatelessWidget {
     LegalSectionContent(
       title: '1. 适用范围',
       body:
-          '欢迎使用 机账通。\n'
-          '机账通是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、燃油消耗、项目收支、维保明细及设备信息。\n\n'
-          '本隐私政策用于说明：在当前版本下，机账通如何处理与你使用本应用相关的信息。\n\n'
-          '本政策适用于机账通当前提供的应用版本及相关支持页面。',
+          '欢迎使用 FleetLedger。\n'
+          'FleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、燃油消耗、项目收支、维保明细及设备信息。\n\n'
+          '本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n'
+          '本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。',
     ),
     LegalSectionContent(
       title: '2. 当前版本涉及的本地数据类型',
@@ -30,7 +30,7 @@ class PrivacyPage extends StatelessWidget {
           '• 你的主动输入；\n'
           '• 你的主动上传或主动选择；\n'
           '• 你在使用相关功能时在设备本地形成的数据。\n\n'
-          '这些数据主要用于在你的设备上实现机账通的核心功能，包括但不限于：\n'
+          '这些数据主要用于在你的设备上实现 FleetLedger 的核心功能，包括但不限于：\n'
           '• 保存和展示设备经营记录；\n'
           '• 生成统计结果与页面展示内容；\n'
           '• 支持筛选、查询、汇总、头像显示等功能；\n'
@@ -39,7 +39,7 @@ class PrivacyPage extends StatelessWidget {
     ),
     LegalSectionContent(
       title: '4. 权限使用说明',
-      body: '为实现相关功能，机账通可能在你主动操作时请求系统权限。',
+      body: '为实现相关功能，FleetLedger 可能在你主动操作时请求系统权限。',
     ),
     LegalSectionContent(
       title: '4.1 图片或相册相关权限',
@@ -82,7 +82,8 @@ class PrivacyPage extends StatelessWidget {
     ),
     LegalSectionContent(
       title: '8. 儿童与未成年人保护',
-      body: '机账通主要面向工程机械经营记录与管理场景，不以儿童为目标用户。如你是未成年人，建议在监护人指导下阅读并使用本应用。',
+      body:
+          'FleetLedger 主要面向工程机械经营记录与管理场景，不以儿童为目标用户。如你是未成年人，建议在监护人指导下阅读并使用本应用。',
     ),
     LegalSectionContent(
       title: '9. 未来功能更新说明',

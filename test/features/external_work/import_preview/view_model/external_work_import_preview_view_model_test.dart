@@ -194,7 +194,11 @@ String _encodedEnvelope({
     'magic': JztShareEnvelope.magicValue,
     'format_version': JztShareEnvelope.supportedFormatVersion,
     'package_type': JztShareEnvelope.projectExternalWorkShareType,
-    'producer': {'app_name': '机账通', 'app_version': '1.0.1', 'platform': 'ios'},
+    'producer': {
+      'app_name': 'FleetLedger',
+      'app_version': '1.0.1',
+      'platform': 'ios',
+    },
     'created_at': '2026-05-18T00:00:00.000Z',
     'share_id': 'share-1',
     'integrity': {
