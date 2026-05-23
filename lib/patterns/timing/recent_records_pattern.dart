@@ -388,7 +388,7 @@ class _DateGroup extends StatelessWidget {
             device: deviceById[aggregate.deviceId],
             deviceIndexText: deviceIndexById[aggregate.deviceId] ?? '?',
             subtitleEmphasis: deviceIndexById[aggregate.deviceId] ?? '?',
-            subtitleSecondary: ' 工时调整',
+            subtitleSecondary: ' ${aggregate.records.length}条记录',
             bottomRightOverride:
                 '误差 ${FormatUtils.meter(aggregate.meterError)}，累计 ${FormatUtils.hours(aggregate.totalHours)}',
             onTap: onToggleAggregate,
@@ -467,7 +467,9 @@ class _RecordRow extends StatelessWidget {
       height: 1,
     );
     final subTitleSecondaryStyle = subTitleStyle?.copyWith(
+      fontSize: TimingTokens.dateHeaderFontSize,
       fontWeight: FontWeight.w400,
+      height: TimingTokens.dateHeaderLineHeight,
     );
     final valueStyle = textTheme.bodyMedium?.copyWith(
       fontSize: TimingTokens.recordValueFontSize,

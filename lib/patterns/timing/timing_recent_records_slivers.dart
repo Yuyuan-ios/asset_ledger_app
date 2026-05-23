@@ -76,7 +76,7 @@ List<Widget> _buildTimingRecordRows({
         device: deviceById[aggregate.deviceId],
         deviceIndexText: deviceIndexById[aggregate.deviceId] ?? '?',
         subtitleEmphasis: deviceIndexById[aggregate.deviceId] ?? '?',
-        subtitleSecondary: ' 工时调整',
+        subtitleSecondary: ' ${aggregate.records.length}条记录',
         bottomRightOverride:
             '误差 ${FormatUtils.meter(aggregate.meterError)}，累计 ${FormatUtils.hours(aggregate.totalHours)}',
         onTap: () => onToggleAggregate(aggregate.key),
