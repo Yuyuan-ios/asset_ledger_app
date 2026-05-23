@@ -27,9 +27,11 @@ import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../patterns/timing/timing_detail_content_pattern.dart';
 import '../../../patterns/timing/external_work_records_pattern.dart';
+import '../../../patterns/timing/external_work_link_sheet.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../account/model/account_view_model.dart';
 
 class TimingPage extends StatefulWidget {
   const TimingPage({
@@ -113,8 +115,117 @@ class _TimingPageState extends State<TimingPage> {
     AppToast.show(context, msg);
   }
 
-  void _showExternalWorkLinkPlaceholder() {
-    _toast('关联到项目功能将在下一阶段开放');
+  // 阶段二：打开"关联到项目"底部弹窗骨架。仅 UI / 选择 / 边界提示，不写库
+  // （不写 linkedProjectId、不改 DB、不接账户页成本）。
+  Future<void> _openExternalWorkLinkSheet() async {
+    final store = context.read<TimingExternalWorkStore>();
+    final items = store.items;
+    if (items.isEmpty) return;
+
+    // store.items 已按 workDate desc 排序：默认操作最新分享包。多分享包时本阶段
+    // 先处理第一个 importBatch，后续阶段再做包列表选择。
+    final batchId = items.first.record.importBatchId;
+    final batchItems = items
+        .where((item) => item.record.importBatchId == batchId)
+        .toList(growable: false);
+
+    final sourceName = batchItems.first.displayName;
+    final siteSummary = externalWorkLinkSiteSummary(
+      batchItems.map((item) => item.record.siteSnapshot),
+    );
+    final summaryTitle = siteSummary.isEmpty
+        ? sourceName
+        : '$sourceName · $siteSummary';
+
+    final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
+    final totalHoursMilli = batchItems.fold<int>(
+      0,
+      (sum, item) => sum + item.record.hoursMilli,
+    );
+    final summaryDetail = [
+      if (equipment.isNotEmpty) equipment,
+      '${batchItems.length}条记录',
+      '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
+    ].join(' · ');
+
+    final candidates = _buildExternalWorkLinkCandidates();
+
+    // 已关联态：仅读现有 linkedProjectId（本阶段不写）。无可靠数据时为未关联骨架。
+    final linkedProjectId = batchItems
+        .map((item) => item.record.linkedProjectId?.trim() ?? '')
+        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+    String? linkedTitle;
+    if (linkedProjectId.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (candidate.projectId == linkedProjectId) {
+          linkedTitle = candidate.title;
+          break;
+        }
+      }
+      linkedTitle ??= '已关联项目';
+    }
+
+    if (!mounted) return;
+    await showAppBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return AppBottomSheetShell(
+          title: '关联到项目',
+          scrollable: true,
+          footerEnabled: false,
+          contentPadding: EdgeInsets.zero,
+          child: ExternalWorkLinkSheet(
+            summaryTitle: summaryTitle,
+            summaryDetail: summaryDetail,
+            candidates: candidates,
+            linkedProjectTitle: linkedTitle,
+            onCancel: () => Navigator.of(sheetContext).pop(),
+            onConfirm: (candidate) {
+              Navigator.of(sheetContext).pop();
+              _toast('已选择「${candidate.title}」，关联写入将在下一阶段开放');
+            },
+            onUnlink: () => _confirmUnlinkExternalWork(sheetContext),
+          ),
+        );
+      },
+    );
+  }
+
+  List<ExternalWorkLinkCandidate> _buildExternalWorkLinkCandidates() {
+    final accountStore = context.read<AccountStore>();
+    final timingStore = context.read<TimingStore>();
+    final deviceStore = context.read<DeviceStore>();
+    final rateStore = context.read<ProjectRateStore>();
+    // payments 不影响项目身份/结清判定，传空即可（仅取候选项目列表）。
+    final computed = accountStore.compute(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+      rates: rateStore.rates,
+      payments: const [],
+    );
+    final settled = accountStore.settledProjectIds;
+    return [
+      for (final AccountProjectVM project in computed.projects)
+        ExternalWorkLinkCandidate(
+          projectId: project.projectId,
+          title: project.displayName,
+          settled: settled.contains(project.projectId),
+        ),
+    ];
+  }
+
+  void _confirmUnlinkExternalWork(BuildContext sheetContext) {
+    () async {
+      final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '解除关联',
+        content: externalWorkLinkUnlinkConfirm,
+        confirmText: '继续',
+      );
+      if (!confirmed || !mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      _toast('解除关联将在下一阶段开放');
+    }();
   }
 
   TimingActionController _actionController() {
@@ -505,7 +616,7 @@ class _TimingPageState extends State<TimingPage> {
       onTapRecord: (r) => _openTimingEditor(editing: r),
       onTapExternalWorkRecord: _openExternalWorkDetail,
       onImportExternalWork: _openImportExternalWorkShare,
-      onLinkExternalWork: _showExternalWorkLinkPlaceholder,
+      onLinkExternalWork: _openExternalWorkLinkSheet,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),
