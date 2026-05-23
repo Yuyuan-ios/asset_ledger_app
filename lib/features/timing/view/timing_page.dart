@@ -122,48 +122,9 @@ class _TimingPageState extends State<TimingPage> {
     final items = store.items;
     if (items.isEmpty) return;
 
-    // store.items 已按 workDate desc 排序：默认操作最新分享包。多分享包时本阶段
-    // 先处理第一个 importBatch，后续阶段再做包列表选择。
-    final batchId = items.first.record.importBatchId;
-    final batchItems = items
-        .where((item) => item.record.importBatchId == batchId)
-        .toList(growable: false);
-
-    final sourceName = batchItems.first.displayName;
-    final siteSummary = externalWorkLinkSiteSummary(
-      batchItems.map((item) => item.record.siteSnapshot),
-    );
-    final summaryTitle = siteSummary.isEmpty
-        ? sourceName
-        : '$sourceName · $siteSummary';
-
-    final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
-    final totalHoursMilli = batchItems.fold<int>(
-      0,
-      (sum, item) => sum + item.record.hoursMilli,
-    );
-    final summaryDetail = [
-      if (equipment.isNotEmpty) equipment,
-      '${batchItems.length}条记录',
-      '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
-    ].join(' · ');
-
     final candidates = _buildExternalWorkLinkCandidates();
-
-    // 已关联态：仅读现有 linkedProjectId（本阶段不写）。无可靠数据时为未关联骨架。
-    final linkedProjectId = batchItems
-        .map((item) => item.record.linkedProjectId?.trim() ?? '')
-        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
-    String? linkedTitle;
-    if (linkedProjectId.isNotEmpty) {
-      for (final candidate in candidates) {
-        if (candidate.projectId == linkedProjectId) {
-          linkedTitle = candidate.title;
-          break;
-        }
-      }
-      linkedTitle ??= '已关联项目';
-    }
+    final packages = _buildExternalWorkLinkPackages(items, candidates);
+    if (packages.isEmpty) return;
 
     if (!mounted) return;
     await showAppBottomSheet<void>(
@@ -175,20 +136,84 @@ class _TimingPageState extends State<TimingPage> {
           footerEnabled: false,
           contentPadding: EdgeInsets.zero,
           child: ExternalWorkLinkSheet(
-            summaryTitle: summaryTitle,
-            summaryDetail: summaryDetail,
+            packages: packages,
             candidates: candidates,
-            linkedProjectTitle: linkedTitle,
             onCancel: () => Navigator.of(sheetContext).pop(),
-            onConfirm: (candidate) {
+            onConfirm: (package, candidate) {
               Navigator.of(sheetContext).pop();
               _toast('已选择「${candidate.title}」，关联写入将在下一阶段开放');
             },
-            onUnlink: () => _confirmUnlinkExternalWork(sheetContext),
+            onUnlink: (package) => _confirmUnlinkExternalWork(sheetContext),
           ),
         );
       },
     );
+  }
+
+  // 把外协记录按 importBatch 分组成"可选外协包"。保持 store.items 的顺序
+  // （workDate desc）→ 各包按首次出现顺序排列；摘要随选择同步由弹窗负责。
+  List<ExternalWorkLinkPackage> _buildExternalWorkLinkPackages(
+    List<TimingExternalWorkRecordItem> items,
+    List<ExternalWorkLinkCandidate> candidates,
+  ) {
+    final order = <String>[];
+    final byBatch = <String, List<TimingExternalWorkRecordItem>>{};
+    for (final item in items) {
+      final batchId = item.record.importBatchId;
+      final bucket = byBatch.putIfAbsent(batchId, () {
+        order.add(batchId);
+        return <TimingExternalWorkRecordItem>[];
+      });
+      bucket.add(item);
+    }
+
+    final packages = <ExternalWorkLinkPackage>[];
+    for (final batchId in order) {
+      final batchItems = byBatch[batchId]!;
+      final sourceName = batchItems.first.displayName;
+      final siteSummary = externalWorkLinkSiteSummary(
+        batchItems.map((item) => item.record.siteSnapshot),
+      );
+      final optionTitle = siteSummary.isEmpty
+          ? sourceName
+          : '$sourceName · $siteSummary';
+
+      final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
+      final totalHoursMilli = batchItems.fold<int>(
+        0,
+        (sum, item) => sum + item.record.hoursMilli,
+      );
+      final summaryDetail = [
+        if (equipment.isNotEmpty) equipment,
+        '${batchItems.length}条记录',
+        '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
+      ].join(' · ');
+
+      // 已关联态：仅读现有 linkedProjectId（本阶段不写）。
+      final linkedProjectId = batchItems
+          .map((item) => item.record.linkedProjectId?.trim() ?? '')
+          .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+      String? linkedTitle;
+      if (linkedProjectId.isNotEmpty) {
+        for (final candidate in candidates) {
+          if (candidate.projectId == linkedProjectId) {
+            linkedTitle = candidate.title;
+            break;
+          }
+        }
+        linkedTitle ??= '已关联项目';
+      }
+
+      packages.add(
+        ExternalWorkLinkPackage(
+          batchId: batchId,
+          optionTitle: optionTitle,
+          summaryDetail: summaryDetail,
+          linkedProjectTitle: linkedTitle,
+        ),
+      );
+    }
+    return packages;
   }
 
   List<ExternalWorkLinkCandidate> _buildExternalWorkLinkCandidates() {
