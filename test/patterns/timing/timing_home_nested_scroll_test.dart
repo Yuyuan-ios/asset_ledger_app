@@ -1,5 +1,4 @@
 import 'package:asset_ledger/data/models/timing_record.dart';
-import 'package:asset_ledger/patterns/timing/records_title_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_home_pattern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +26,6 @@ void main() {
         home: TimingHomePattern(
           header: const SizedBox(height: 20),
           chart: const SizedBox(key: Key('exp-chart'), height: 120),
-          recordsTitle: const RecordsTitle(count: 99),
           recordsSection: TimingRecordsSection.recent,
           onRecordsSectionChanged: (_) {},
           records: records,
@@ -83,7 +81,6 @@ void main() {
             return TimingHomePattern(
               header: const SizedBox(height: 20),
               chart: const SizedBox(height: 80),
-              recordsTitle: const RecordsTitle(count: 0),
               recordsSection: section,
               onRecordsSectionChanged: (next) => setState(() => section = next),
               records: const [],
