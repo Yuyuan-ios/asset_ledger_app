@@ -48,6 +48,11 @@ dev_dependencies:
   asset_ledger_architecture_lints:
     path: tools/asset_ledger_architecture_lints
 
+hooks:
+  user_defines:
+    sqlite3:
+      source: system
+
 flutter:
   uses-material-design: true
 
