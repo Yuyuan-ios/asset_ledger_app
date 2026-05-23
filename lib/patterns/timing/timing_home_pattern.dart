@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../components/feedback/store_error_banner.dart';
 import '../../components/layout/pinned_header_delegate.dart';
+import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
 import '../../data/models/timing_record.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
@@ -84,19 +85,12 @@ class _TimingHomePatternState extends State<TimingHomePattern>
     super.dispose();
   }
 
-  /// TabBarView 滑动 / 胶囊 animateTo 都会更新 index（滑动到中点即更新），
-  /// 回写父级 section 以同步胶囊高亮。idempotent。
+  /// TabBarView 滑动会更新 index（滑动到中点即更新），
+  /// 回写父级 section 以同步标题。idempotent。
   void _handleTabChanged() {
     final section = TimingRecordsSection.values[_tabController.index];
     if (section != widget.recordsSection) {
       widget.onRecordsSectionChanged(section);
-    }
-  }
-
-  /// 胶囊点击：动画切换 TabBarView（→ _handleTabChanged 回写父级 section）。
-  void _selectSection(TimingRecordsSection section) {
-    if (_tabController.index != section.index) {
-      _tabController.animateTo(section.index);
     }
   }
 
@@ -213,7 +207,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                               height: TimingTokens.homeChartTopGap,
                             ),
                           ),
-                          // 胶囊标题栏：吸顶。用 OverlapAbsorber 把重叠量交给内层注入。
+                          // 记录标题栏：吸顶。用 OverlapAbsorber 把重叠量交给内层注入。
                           SliverOverlapAbsorber(
                             handle:
                                 NestedScrollView.sliverOverlapAbsorberHandleFor(
@@ -231,9 +225,16 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                                           TimingTokens.homeRecordsTitleTopGap,
                                     ),
                                     child: _RecordsAreaHeader(
-                                      title: widget.recordsTitle,
-                                      selectedSection: widget.recordsSection,
-                                      onSectionChanged: _selectSection,
+                                      title:
+                                          widget.recordsSection ==
+                                              TimingRecordsSection.recent
+                                          ? widget.recordsTitle
+                                          : _RecordsAreaTitle(
+                                              label: '项目外协',
+                                              count: widget
+                                                  .externalWorkItems
+                                                  .length,
+                                            ),
                                     ),
                                   ),
                                 ),
@@ -324,113 +325,32 @@ class _RecordsTabBody extends StatelessWidget {
 }
 
 class _RecordsAreaHeader extends StatelessWidget {
-  const _RecordsAreaHeader({
-    required this.title,
-    required this.selectedSection,
-    required this.onSectionChanged,
-  });
+  const _RecordsAreaHeader({required this.title});
 
   final Widget title;
-  final TimingRecordsSection selectedSection;
-  final ValueChanged<TimingRecordsSection> onSectionChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Row(
-        children: [
-          Expanded(child: title),
-          const SizedBox(width: 8),
-          _RecordsSectionSwitch(
-            selectedSection: selectedSection,
-            onSectionChanged: onSectionChanged,
-          ),
-        ],
-      ),
-    );
+    return Align(alignment: Alignment.topLeft, child: title);
   }
 }
 
-class _RecordsSectionSwitch extends StatelessWidget {
-  const _RecordsSectionSwitch({
-    required this.selectedSection,
-    required this.onSectionChanged,
-  });
-
-  final TimingRecordsSection selectedSection;
-  final ValueChanged<TimingRecordsSection> onSectionChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFEDE7E1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(1),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _RecordsSectionButton(
-              label: '最近记录',
-              selected: selectedSection == TimingRecordsSection.recent,
-              onTap: () => onSectionChanged(TimingRecordsSection.recent),
-            ),
-            _RecordsSectionButton(
-              label: '项目外协',
-              selected: selectedSection == TimingRecordsSection.externalWork,
-              onTap: () => onSectionChanged(TimingRecordsSection.externalWork),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecordsSectionButton extends StatelessWidget {
-  const _RecordsSectionButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+class _RecordsAreaTitle extends StatelessWidget {
+  const _RecordsAreaTitle({required this.label, required this.count});
 
   final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Material(
-      color: selected ? SheetColors.background : Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: selected ? null : onTap,
-        child: SizedBox(
-          height: 16,
-          width: 72,
-          child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.labelMedium?.copyWith(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                height: 1,
-                color: selected
-                    ? AppColors.textPrimary
-                    : TimingColors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      ),
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontSize: TimingTokens.recordsTitleFontSize,
+      fontWeight: TimingTokens.recordsTitleFontWeight,
+      color: AppColors.textPrimary,
+      height: TimingTokens.recordsTitleLineHeight,
     );
+
+    return Text('$label($count)', style: titleStyle);
   }
 }
