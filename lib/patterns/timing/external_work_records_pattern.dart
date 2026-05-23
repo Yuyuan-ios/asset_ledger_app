@@ -4,6 +4,7 @@ import '../../components/feedback/app_records_empty_hint.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/external_work_record.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
+import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -24,154 +25,122 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
     ];
   }
 
-  final displayRows = _buildExternalWorkDisplayRows(
-    items: items,
-    expandedAggregateKeys: expandedAggregateKeys,
-    onToggleAggregate: onToggleAggregate,
-    onTapRecord: onTapRecord,
-  );
+  final yearGroups = _buildExternalWorkYearGroups(items);
 
   return <Widget>[
-    SliverToBoxAdapter(child: _ExternalWorkRecordGroupCard(rows: displayRows)),
+    for (final yearGroup in yearGroups) ...[
+      SliverToBoxAdapter(child: _ExternalWorkYearHeader(year: yearGroup.year)),
+      SliverToBoxAdapter(
+        child: _ExternalWorkRecordGroupCard(
+          rows: yearGroup.groups
+              .map(
+                (group) => _ExternalWorkBatchRow(
+                  group: group,
+                  onTap: onTapRecord == null
+                      ? null
+                      : () => onTapRecord(group.representativeItem),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    ],
   ];
 }
 
 Set<String> timingExternalWorkAggregateKeys(
   List<TimingExternalWorkRecordItem> items,
 ) {
-  return _buildExternalWorkAggregateGroups(
-    items,
-  ).map((group) => group.key).toSet();
+  return _buildExternalWorkBatchGroups(items).map((group) => group.key).toSet();
 }
 
 int timingExternalWorkTopLevelCount(List<TimingExternalWorkRecordItem> items) {
-  final aggregateGroups = _buildExternalWorkAggregateGroups(items);
-  final groupedItemKeys = <String>{
-    for (final group in aggregateGroups)
-      for (final item in group.items) _externalWorkItemKey(item),
-  };
-
-  return aggregateGroups.length +
-      items
-          .where(
-            (item) => !groupedItemKeys.contains(_externalWorkItemKey(item)),
-          )
-          .length;
+  return _buildExternalWorkBatchGroups(items).length;
 }
 
-List<Widget> _buildExternalWorkDisplayRows({
-  required List<TimingExternalWorkRecordItem> items,
-  required Set<String> expandedAggregateKeys,
-  required ValueChanged<String> onToggleAggregate,
-  required ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
-}) {
-  final aggregateGroups = _buildExternalWorkAggregateGroups(items);
-  final groupedItemKeys = <String>{
-    for (final group in aggregateGroups)
-      for (final item in group.items) _externalWorkItemKey(item),
-  };
-
-  final rows = <Widget>[];
-  for (final group in aggregateGroups) {
-    final expanded = expandedAggregateKeys.contains(group.key);
-    rows.add(
-      _ExternalWorkAggregateRow(
-        group: group,
-        expanded: expanded,
-        onTap: () => onToggleAggregate(group.key),
-      ),
-    );
-    if (expanded) {
-      rows.addAll(
-        group.items.map(
-          (item) => _ExternalWorkRecordRow(
-            item: item,
-            hideAvatar: true,
-            titleOverride: FormatUtils.date(item.record.workDate),
-            valueDateOverride: '',
-            onTap: onTapRecord == null ? null : () => onTapRecord(item),
-          ),
-        ),
-      );
-    }
+List<_ExternalWorkYearGroup> _buildExternalWorkYearGroups(
+  List<TimingExternalWorkRecordItem> items,
+) {
+  final batchGroups = _buildExternalWorkBatchGroups(items);
+  final grouped = <int, List<_ExternalWorkBatchGroup>>{};
+  for (final group in batchGroups) {
+    grouped
+        .putIfAbsent(group.year, () => <_ExternalWorkBatchGroup>[])
+        .add(group);
   }
 
-  rows.addAll(
-    items
-        .where((item) => !groupedItemKeys.contains(_externalWorkItemKey(item)))
-        .map(
-          (item) => _ExternalWorkRecordRow(
-            item: item,
-            onTap: onTapRecord == null ? null : () => onTapRecord(item),
-          ),
-        ),
-  );
-  return rows;
+  final yearGroups = [
+    for (final entry in grouped.entries)
+      _ExternalWorkYearGroup(year: entry.key, groups: entry.value),
+  ]..sort((a, b) => b.year.compareTo(a.year));
+  return yearGroups;
 }
 
-List<_ExternalWorkAggregateGroup> _buildExternalWorkAggregateGroups(
+List<_ExternalWorkBatchGroup> _buildExternalWorkBatchGroups(
   List<TimingExternalWorkRecordItem> items,
 ) {
   final grouped = <String, List<TimingExternalWorkRecordItem>>{};
   for (final item in items) {
-    grouped.putIfAbsent(_externalWorkAggregateKey(item), () => []).add(item);
+    grouped.putIfAbsent(_externalWorkBatchKey(item), () => []).add(item);
   }
 
-  final groups = <_ExternalWorkAggregateGroup>[];
+  final groups = <_ExternalWorkBatchGroup>[];
   for (final entry in grouped.entries) {
-    if (entry.value.length < 2) continue;
-    groups.add(_ExternalWorkAggregateGroup.fromItems(entry.key, entry.value));
+    groups.add(_ExternalWorkBatchGroup.fromItems(entry.key, entry.value));
   }
 
   groups.sort((a, b) {
-    final byDate = b.latestWorkDate.compareTo(a.latestWorkDate);
-    if (byDate != 0) return byDate;
-    return b.latestCreatedAt.compareTo(a.latestCreatedAt);
+    final byImportedAt = b.importedAtSort.compareTo(a.importedAtSort);
+    if (byImportedAt != 0) return byImportedAt;
+    final byImportedText = b.importedAt.compareTo(a.importedAt);
+    if (byImportedText != 0) return byImportedText;
+    return a.key.compareTo(b.key);
   });
   return groups;
 }
 
-String _externalWorkItemKey(TimingExternalWorkRecordItem item) {
-  return 'external-${item.record.id}';
+String _externalWorkBatchKey(TimingExternalWorkRecordItem item) {
+  final batchId = item.record.importBatchId.trim();
+  return batchId.isEmpty ? 'external-${item.record.id}' : 'batch-$batchId';
 }
 
-String _externalWorkAggregateKey(TimingExternalWorkRecordItem item) {
-  final record = item.record;
-  return [
-    record.importBatchId,
-    item.displayName,
-    record.siteSnapshot,
-    record.equipmentBrand ?? '',
-    record.equipmentModel ?? '',
-    record.equipmentType ?? '',
-    record.linkedProjectId ?? '',
-  ].map((part) => part.trim()).join('|');
+class _ExternalWorkYearGroup {
+  const _ExternalWorkYearGroup({required this.year, required this.groups});
+
+  final int year;
+  final List<_ExternalWorkBatchGroup> groups;
 }
 
-class _ExternalWorkAggregateGroup {
-  _ExternalWorkAggregateGroup._({
+class _ExternalWorkBatchGroup {
+  _ExternalWorkBatchGroup._({
     required this.key,
     required this.items,
     required this.displayName,
-    required this.site,
-    required this.equipment,
-    required this.earliestWorkDate,
-    required this.latestWorkDate,
-    required this.latestCreatedAt,
+    required this.siteSummary,
+    required this.equipmentSummary,
+    required this.startWorkDate,
+    required this.year,
+    required this.importedAt,
+    required this.importedAtSort,
     required this.totalHoursMilli,
+    required this.hasLinkedRecord,
   });
 
   final String key;
   final List<TimingExternalWorkRecordItem> items;
   final String displayName;
-  final String site;
-  final String equipment;
-  final int earliestWorkDate;
-  final int latestWorkDate;
-  final String latestCreatedAt;
+  final String siteSummary;
+  final String equipmentSummary;
+  final int startWorkDate;
+  final int year;
+  final String importedAt;
+  final int importedAtSort;
   final int totalHoursMilli;
+  final bool hasLinkedRecord;
 
-  factory _ExternalWorkAggregateGroup.fromItems(
+  TimingExternalWorkRecordItem get representativeItem => items.first;
+
+  factory _ExternalWorkBatchGroup.fromItems(
     String key,
     List<TimingExternalWorkRecordItem> items,
   ) {
@@ -182,19 +151,22 @@ class _ExternalWorkAggregateGroup {
         return a.record.createdAt.compareTo(b.record.createdAt);
       });
     final first = sortedItems.first;
-    return _ExternalWorkAggregateGroup._(
+    final importedAt = _importedAtText(first);
+    return _ExternalWorkBatchGroup._(
       key: key,
       items: sortedItems,
       displayName: first.displayName,
-      site: first.record.siteSnapshot.trim(),
-      equipment: _listEquipmentText(first.record),
-      earliestWorkDate: sortedItems.first.record.workDate,
-      latestWorkDate: sortedItems.last.record.workDate,
-      latestCreatedAt: sortedItems.last.record.createdAt,
+      siteSummary: _siteSummaryText(sortedItems, first.batch?.siteSummary),
+      equipmentSummary: _equipmentSummaryText(sortedItems),
+      startWorkDate: sortedItems.first.record.workDate,
+      year: _groupYear(sortedItems.first.record.workDate, importedAt),
+      importedAt: importedAt,
+      importedAtSort: _isoSortValue(importedAt),
       totalHoursMilli: sortedItems.fold<int>(
         0,
         (sum, item) => sum + item.record.hoursMilli,
       ),
+      hasLinkedRecord: sortedItems.any((item) => item.isLinked),
     );
   }
 }
@@ -343,60 +315,42 @@ class _ExternalWorkInnerDivider extends StatelessWidget {
   }
 }
 
-class _ExternalWorkAggregateRow extends StatelessWidget {
-  const _ExternalWorkAggregateRow({
-    required this.group,
-    required this.expanded,
-    required this.onTap,
-  });
+class _ExternalWorkYearHeader extends StatelessWidget {
+  const _ExternalWorkYearHeader({required this.year});
 
-  final _ExternalWorkAggregateGroup group;
-  final bool expanded;
-  final VoidCallback onTap;
+  final int year;
 
   @override
   Widget build(BuildContext context) {
-    return _ExternalWorkRecordRowBase(
-      title: _externalWorkTitle(group.displayName, group.site),
-      subtitle: group.equipment,
-      valueTop: _dateRangeText(group.earliestWorkDate, group.latestWorkDate),
-      valueBottom:
-          '${group.items.length}条 / ${_hoursText(group.totalHoursMilli)}',
-      trailingIcon: Icon(
-        expanded ? Icons.expand_less : Icons.expand_more,
-        size: 18,
-        color: TimingColors.textSecondary,
+    return Padding(
+      padding: const EdgeInsets.only(left: TimingTokens.dateHeaderLeftInset),
+      child: Text(
+        '$year年',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontSize: TimingTokens.dateHeaderFontSize,
+          color: AppColors.textPrimary,
+          height: TimingTokens.dateHeaderLineHeight,
+        ),
       ),
-      onTap: onTap,
     );
   }
 }
 
-class _ExternalWorkRecordRow extends StatelessWidget {
-  const _ExternalWorkRecordRow({
-    required this.item,
-    this.onTap,
-    this.hideAvatar = false,
-    this.titleOverride,
-    this.valueDateOverride,
-  });
+class _ExternalWorkBatchRow extends StatelessWidget {
+  const _ExternalWorkBatchRow({required this.group, this.onTap});
 
-  final TimingExternalWorkRecordItem item;
+  final _ExternalWorkBatchGroup group;
   final VoidCallback? onTap;
-  final bool hideAvatar;
-  final String? titleOverride;
-  final String? valueDateOverride;
 
   @override
   Widget build(BuildContext context) {
-    final record = item.record;
     return _ExternalWorkRecordRowBase(
-      title: titleOverride ?? _titleText(item),
-      subtitle: _listEquipmentText(record),
-      valueTop: valueDateOverride ?? FormatUtils.date(record.workDate),
-      valueBottom: _hoursText(record.hoursMilli),
-      hideAvatar: hideAvatar,
-      linked: !hideAvatar && item.isLinked,
+      title: _externalWorkTitle(group.displayName, group.siteSummary),
+      subtitle: group.equipmentSummary,
+      valueTop: FormatUtils.date(group.startWorkDate),
+      valueBottom:
+          '${group.items.length}条 / ${_hoursText(group.totalHoursMilli)}',
+      linked: group.hasLinkedRecord,
       onTap: onTap,
     );
   }
@@ -409,9 +363,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
     required this.valueTop,
     required this.valueBottom,
     this.onTap,
-    this.hideAvatar = false,
     this.linked = false,
-    this.trailingIcon,
   });
 
   final String title;
@@ -419,9 +371,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
   final String valueTop;
   final String valueBottom;
   final VoidCallback? onTap;
-  final bool hideAvatar;
   final bool linked;
-  final Widget? trailingIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -458,41 +408,21 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
             ),
             child: Row(
               children: [
-                if (hideAvatar)
-                  const SizedBox(width: TimingTokens.recordAvatarSize)
-                else
-                  Transform.translate(
-                    offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
-                    child: const _ExternalWorkAvatar(),
-                  ),
+                Transform.translate(
+                  offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
+                  child: _ExternalWorkAvatar(linked: linked),
+                ),
                 const SizedBox(width: TimingTokens.recordAvatarRightGap),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: titleStyle,
-                            ),
-                          ),
-                          if (linked) ...[
-                            const SizedBox(width: 4),
-                            Tooltip(
-                              message: '已关联本地项目',
-                              child: Icon(
-                                Icons.link,
-                                size: 15,
-                                color: TimingColors.chartIncome,
-                              ),
-                            ),
-                          ],
-                        ],
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
                       ),
                       const SizedBox(height: TimingTokens.recordSubTitleTopGap),
                       Text(
@@ -515,13 +445,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
                     ],
                     Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(valueBottom, style: valueStyle),
-                        if (trailingIcon != null) ...[
-                          const SizedBox(width: 2),
-                          trailingIcon!,
-                        ],
-                      ],
+                      children: [Text(valueBottom, style: valueStyle)],
                     ),
                   ],
                 ),
@@ -535,25 +459,58 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
 }
 
 class _ExternalWorkAvatar extends StatelessWidget {
-  const _ExternalWorkAvatar();
+  const _ExternalWorkAvatar({required this.linked});
+
+  final bool linked;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: TimingTokens.recordAvatarSize,
       height: TimingTokens.recordAvatarSize,
-      decoration: const BoxDecoration(
-        color: _externalWorkAvatarColor,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '协',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: _externalWorkAvatarTextColor,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: TimingTokens.recordAvatarSize,
+            height: TimingTokens.recordAvatarSize,
+            decoration: const BoxDecoration(
+              color: _externalWorkAvatarColor,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '协',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: _externalWorkAvatarTextColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (linked)
+            Positioned(
+              right: -1,
+              bottom: -1,
+              child: Tooltip(
+                message: '已关联',
+                child: Container(
+                  width: 15,
+                  height: 15,
+                  decoration: const BoxDecoration(
+                    color: SheetColors.background,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.link,
+                    size: 10,
+                    color: _externalWorkAvatarTextColor,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -618,28 +575,80 @@ class _ExternalWorkDetailRow extends StatelessWidget {
   }
 }
 
-String _titleText(TimingExternalWorkRecordItem item) {
-  return _externalWorkTitle(item.displayName, item.record.siteSnapshot);
-}
-
 String _externalWorkTitle(String displayName, String site) {
   final normalizedSite = site.trim();
   if (normalizedSite.isEmpty) return displayName;
   return '$displayName · $normalizedSite';
 }
 
-String _dateRangeText(int earliestYmd, int latestYmd) {
-  if (earliestYmd == latestYmd) return FormatUtils.date(earliestYmd);
-  return '${FormatUtils.date(earliestYmd)}-${FormatUtils.date(latestYmd)}';
+String _importedAtText(TimingExternalWorkRecordItem item) {
+  final batchImportedAt = item.batch?.importedAt.trim();
+  if (batchImportedAt != null && batchImportedAt.isNotEmpty) {
+    return batchImportedAt;
+  }
+  final batchCreatedAt = item.batch?.createdAt.trim();
+  if (batchCreatedAt != null && batchCreatedAt.isNotEmpty) {
+    return batchCreatedAt;
+  }
+  return item.record.createdAt;
 }
 
-String _listEquipmentText(ExternalWorkRecord record) {
+int _isoSortValue(String text) {
+  return DateTime.tryParse(text)?.millisecondsSinceEpoch ?? 0;
+}
+
+int _groupYear(int workDate, String fallbackDateTime) {
+  final workYear = workDate ~/ 10000;
+  if (workYear >= 1900 && workYear <= 9999) return workYear;
+  return DateTime.tryParse(fallbackDateTime)?.year ?? workYear;
+}
+
+String _siteSummaryText(
+  List<TimingExternalWorkRecordItem> items,
+  String? batchSiteSummary,
+) {
+  final sites = <String>[];
+  for (final item in items) {
+    final site = _visibleSiteText(item.record.siteSnapshot);
+    if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
+  }
+  if (sites.isEmpty) {
+    final batchSite = _visibleSiteText(batchSiteSummary ?? '');
+    if (batchSite.isNotEmpty) sites.add(batchSite);
+  }
+  if (sites.isEmpty) return '';
+
+  final joined = sites.join('+');
+  const maxChars = AccountTokens.projectCardMergedSitesPreviewMaxChars;
+  if (joined.length <= maxChars) return joined;
+  return '${joined.substring(0, maxChars)}...';
+}
+
+String _visibleSiteText(String text) {
+  final trimmed = text.trim();
+  if (RegExp(r'^合并\d+项目$').hasMatch(trimmed)) return '';
+  return trimmed;
+}
+
+String _equipmentSummaryText(List<TimingExternalWorkRecordItem> items) {
+  final devices = <String>[];
+  for (final item in items) {
+    final device = _deviceSummaryName(item.record);
+    if (device.isNotEmpty && !devices.contains(device)) devices.add(device);
+  }
+  if (devices.isEmpty) return '设备未填写';
+  if (devices.length == 1) return devices.first;
+  return '${devices.first}等${devices.length}台';
+}
+
+String _deviceSummaryName(ExternalWorkRecord record) {
   final brand = record.equipmentBrand?.trim() ?? '';
+  if (brand.isNotEmpty) return brand;
   final model = record.equipmentModel?.trim() ?? '';
-  if (brand.isEmpty && model.isEmpty) return '设备未填写';
-  if (model.isEmpty) return brand;
-  if (brand.isEmpty) return model;
-  return '$brand $model';
+  if (model.isNotEmpty) return model;
+  final type = record.equipmentType?.trim() ?? '';
+  if (type.isNotEmpty) return type;
+  return '';
 }
 
 String _detailEquipmentText(ExternalWorkRecord record) {
