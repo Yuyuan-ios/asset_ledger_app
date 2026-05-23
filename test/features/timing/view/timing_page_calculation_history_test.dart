@@ -279,6 +279,17 @@ void main() {
 
     expect(find.text('项目外协(0)'), findsOneWidget);
     expect(find.text('项目外协(0条)'), findsNothing);
+    expect(
+      find.byKey(const Key('timing-external-work-header-import')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('timing-external-work-header-link')),
+      findsNothing,
+    );
+    expect(find.text('导入'), findsOneWidget);
+    expect(find.text('关联'), findsNothing);
+    expect(find.text('导入项目外协包'), findsNothing);
     expect(find.text('暂无项目外协记录'), findsOneWidget);
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsNothing);
@@ -313,6 +324,8 @@ void main() {
     await _switchToExternalWork(tester);
     await _switchToRecentRecords(tester);
 
+    expect(find.text('导入'), findsNothing);
+    expect(find.text('关联'), findsNothing);
     expect(find.text('最近记录(1)'), findsOneWidget);
     expect(find.text('暂无项目外协记录'), findsNothing);
     expect(find.text('甲方·一号工地'), findsOneWidget);
@@ -361,6 +374,15 @@ void main() {
 
     await _switchToExternalWork(tester);
 
+    expect(
+      find.byKey(const Key('timing-external-work-header-import')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('timing-external-work-header-link')),
+      findsOneWidget,
+    );
+    expect(find.text('导入项目外协包'), findsNothing);
     expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
     expect(find.text('CAT 320D'), findsOneWidget);
     expect(find.text('2026.05.12'), findsOneWidget);
@@ -395,6 +417,8 @@ void main() {
 
       await _switchToExternalWork(tester);
 
+      expect(find.text('项目外协(1)'), findsOneWidget);
+      expect(find.text('项目外协(2)'), findsNothing);
       expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
       expect(find.text('2026.05.12-2026.05.13'), findsOneWidget);
       expect(find.text('2条 / 10.5 h'), findsOneWidget);
@@ -424,6 +448,7 @@ void main() {
 
     await _switchToExternalWork(tester);
 
+    expect(find.text('项目外协(2)'), findsOneWidget);
     expect(find.text('王师傅分享包 · 鲜滩'), findsOneWidget);
     expect(find.text('王师傅分享包 · 五里山'), findsOneWidget);
     expect(find.text('2条 / 10.5 h'), findsNothing);
@@ -451,6 +476,8 @@ void main() {
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
+    expect(find.text('项目外协(1)'), findsOneWidget);
+    expect(find.text('项目外协(2)'), findsNothing);
     expect(find.text('2026.05.12'), findsOneWidget);
     expect(find.text('2026.05.13'), findsOneWidget);
     expect(find.text('8.5 h'), findsWidgets);
@@ -468,7 +495,7 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    expect(find.byIcon(Icons.link), findsNothing);
+    expect(find.byIcon(Icons.link), findsOneWidget);
 
     await _pumpTimingPage(
       tester,
@@ -480,7 +507,24 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    expect(find.byIcon(Icons.link), findsOneWidget);
+    expect(find.byIcon(Icons.link), findsNWidgets(2));
+  });
+
+  testWidgets('external work header link action shows placeholder only', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord()],
+    );
+
+    await _switchToExternalWork(tester);
+    await tester.tap(find.byKey(const Key('timing-external-work-header-link')));
+    await tester.pump();
+
+    expect(find.text('关联到项目功能将在下一阶段开放'), findsOneWidget);
   });
 
   testWidgets('external work item opens read-only detail sheet', (

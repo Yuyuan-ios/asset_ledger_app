@@ -7,49 +7,22 @@ Widget _host(List<Widget> slivers) => MaterialApp(
 );
 
 void main() {
-  testWidgets('empty state shows .jzt import entry and fires callback', (
+  testWidgets('empty state keeps import entry out of the content area', (
     tester,
   ) async {
-    var tapped = false;
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
           items: const [],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
-          onImportShareFile: () => tapped = true,
         ),
       ),
     );
 
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
-    final btn = find.byKey(const Key('timing-external-work-import-share-file'));
-    expect(btn, findsOneWidget);
-    expect(find.text('导入项目外协包'), findsOneWidget);
+    expect(find.text('导入项目外协包'), findsNothing);
     // 主文案使用 .jzt，不暴露 .jztshare 扩展名（regression）
     expect(find.textContaining('.jztshare'), findsNothing);
-
-    await tester.tap(btn);
-    expect(tapped, isTrue);
-  });
-
-  testWidgets('no import callback keeps existing empty state unchanged', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        buildTimingExternalWorkRecordSlivers(
-          items: const [],
-          expandedAggregateKeys: const {},
-          onToggleAggregate: (_) {},
-        ),
-      ),
-    );
-
-    expect(find.text('暂无项目外协记录'), findsOneWidget);
-    expect(
-      find.byKey(const Key('timing-external-work-import-share-file')),
-      findsNothing,
-    );
   });
 }

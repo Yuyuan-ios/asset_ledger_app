@@ -28,7 +28,6 @@ import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../patterns/timing/timing_detail_content_pattern.dart';
 import '../../../patterns/timing/external_work_records_pattern.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
-import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
 
@@ -112,6 +111,10 @@ class _TimingPageState extends State<TimingPage> {
   void _toast(String msg) {
     if (!mounted) return;
     AppToast.show(context, msg);
+  }
+
+  void _showExternalWorkLinkPlaceholder() {
+    _toast('关联到项目功能将在下一阶段开放');
   }
 
   TimingActionController _actionController() {
@@ -491,7 +494,6 @@ class _TimingPageState extends State<TimingPage> {
         onPrevYear: () => _moveTargetYear(-1),
         onNextYear: () => _moveTargetYear(1),
       ),
-      recordsTitle: RecordsTitle(count: timingStore.records.length),
       recordsSection: _recordsSection,
       onRecordsSectionChanged: (section) {
         setState(() => _recordsSection = section);
@@ -503,6 +505,7 @@ class _TimingPageState extends State<TimingPage> {
       onTapRecord: (r) => _openTimingEditor(editing: r),
       onTapExternalWorkRecord: _openExternalWorkDetail,
       onImportExternalWork: _openImportExternalWorkShare,
+      onLinkExternalWork: _showExternalWorkLinkPlaceholder,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),

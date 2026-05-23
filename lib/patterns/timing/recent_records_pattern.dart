@@ -43,6 +43,21 @@ Set<String> timingRecentAggregateKeys(
   ).map((section) => section.key).toSet();
 }
 
+int timingRecentTopLevelRecordCount(
+  List<TimingRecord> records, [
+  Set<String> locallyRemovedKeys = const <String>{},
+]) {
+  final visibleRecords = records
+      .where((record) => !locallyRemovedKeys.contains(_recordKey(record)))
+      .toList();
+
+  return _buildRecordDisplaySections(visibleRecords).fold<int>(
+    0,
+    (count, section) =>
+        count + (section.aggregate == null ? section.records.length : 1),
+  );
+}
+
 bool shouldShowDurationForTimingRecord(TimingRecord record) {
   if (record.type != TimingType.rent) return true;
   return record.hours > 0;
