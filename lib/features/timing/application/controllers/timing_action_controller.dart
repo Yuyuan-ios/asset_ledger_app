@@ -118,9 +118,18 @@ class TimingActionController {
       targetYear: targetYear,
       targetMonth: effectiveTargetMonth,
     );
-    final finance = const ComputeTimingChartFinanceUseCase().execute(
+    const financeUseCase = ComputeTimingChartFinanceUseCase();
+    final annualReceivable = financeUseCase.computeAnnualSelfOwnedReceivable(
+      records: records,
+      devices: devices,
+      rates: rates,
+      writeOffs: projectWriteOffs,
+      targetYear: targetYear,
+    );
+    final finance = financeUseCase.execute(
       monthlyIncome: monthlyIncome,
       expenseStats: expenseStats,
+      annualReceivable: annualReceivable,
     );
 
     final expenseBars = maxIncome <= 0
@@ -136,7 +145,8 @@ class TimingActionController {
       monthLabels: monthLabels,
       incomeBars: incomeBars,
       expenseBars: expenseBars,
-      totalIncomeText: FormatUtils.money(finance.displayIncome),
+      totalIncomeText: FormatUtils.money(finance.chartIncome),
+      netIncomeText: FormatUtils.money(finance.netIncome),
       totalExpenseText: FormatUtils.money(expenseStats.totalExpense),
     );
   }

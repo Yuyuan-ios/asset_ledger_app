@@ -48,6 +48,7 @@ AccountPageViewData buildAccountPageViewData({
     devices: devices,
     rates: rates,
     payments: payments,
+    summaryYear: DateTime.now().year,
   );
   final filteredProjects = filterStore.filterProjects(computed.projects);
   final projectSuggestions =

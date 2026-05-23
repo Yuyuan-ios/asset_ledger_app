@@ -18,10 +18,7 @@ class FuelPinnedRecordsControlHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: FuelTokens.pinnedRecordsHeaderHeight,
-      decoration: const BoxDecoration(
-        color: AppColors.scaffoldBg,
-        border: Border(bottom: BorderSide(color: AppColors.divider, width: 1)),
-      ),
+      color: AppColors.scaffoldBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

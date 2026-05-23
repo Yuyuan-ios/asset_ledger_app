@@ -1,4 +1,5 @@
 import '../../core/money/amount_policy.dart';
+import '../../core/date/gregorian_year_range.dart';
 import '../../core/utils/format_utils.dart';
 import '../models/device.dart';
 import '../models/project_device_rate.dart';
@@ -30,9 +31,10 @@ class TimingMonthlyIncomeService {
   ///
   /// 其余分摊规则：
   /// - 按设备分组；同设备按日期/码表排序；
-  /// - 同设备同日多条，仅保留排序最后一条；
+  /// - 同设备同日的合法多项目/多工时记录全部保留；
   /// - cutoffDate = min(asOfDate/今天, targetMonth月末)；
-  /// - 有下一条：结束日 = min(下一条开始日前一天, cutoffDate)；
+  /// - 有下一条：通常结束日 = min(下一条开始日前一天, cutoffDate)；
+  ///   若下一条同日开始，当前记录仍按当天计入，避免合法同日记录被跳过；
   /// - 无下一条：结束日 = cutoffDate；
   /// - 若 startDate > cutoffDate，该记录本次图表统计跳过；
   /// - 未来记录允许存在于列表中，但不进入当前收入图表；
@@ -115,7 +117,9 @@ class TimingMonthlyIncomeService {
           final nextStart = FormatUtils.dateFromYmd(
             safeRecords[i + 1].startDate,
           );
-          end = nextStart.subtract(const Duration(days: 1));
+          end = _isSameDay(start, nextStart)
+              ? start
+              : nextStart.subtract(const Duration(days: 1));
         } else {
           end = cutoffDate;
         }
@@ -177,24 +181,13 @@ class TimingMonthlyIncomeService {
     return sorted;
   }
 
-  /// 同设备同一天仅保留排序后的最后一条。
+  /// 保留排序后的全部记录。
   ///
-  /// - 同日不同 startMeter：保留最大 startMeter 的那条（排序最后）
-  /// - 同日同 startMeter 冲突：保留排序最后一条（通常是 id 更大）
-  ///
-  /// 这条策略用于防止同日多条记录造成同日收入重复分摊。
+  /// 旧口径按“同设备 + 同日期”只保留最后一条，会误删同日不同项目、
+  /// 不同项目身份或不同有效收入记录。当前没有可靠的重复记录定义，
+  /// 因此这里不再做粗粒度去重。
   static List<TimingRecord> _keepLastRecordPerDay(List<TimingRecord> sorted) {
-    final result = <TimingRecord>[];
-    for (var i = 0; i < sorted.length; i++) {
-      final current = sorted[i];
-      final isLastOfDay =
-          i == sorted.length - 1 ||
-          sorted[i + 1].startDate != current.startDate;
-      if (isLastOfDay) {
-        result.add(current);
-      }
-    }
-    return result;
+    return sorted;
   }
 
   static void _distributeToMonths({
@@ -252,10 +245,12 @@ class TimingMonthlyIncomeService {
   }) {
     if (writeOffs.isEmpty || projectMonthlyIncome.isEmpty) return monthly;
 
+    final yearRange = GregorianYearRange.forYear(targetYear);
     final writeOffByProjectId = <String, double>{};
     for (final writeOff in writeOffs) {
       final projectId = writeOff.projectId.trim();
       if (projectId.isEmpty || writeOff.amount <= 0) continue;
+      if (!yearRange.containsDateText(writeOff.writeOffDate)) continue;
       writeOffByProjectId[projectId] =
           (writeOffByProjectId[projectId] ?? 0.0) + writeOff.amount;
     }
@@ -303,6 +298,10 @@ class TimingMonthlyIncomeService {
 
   static DateTime _dateOnly(DateTime dateTime) {
     return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  }
+
+  static bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   static double _resolveEffectiveRate({

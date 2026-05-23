@@ -12,6 +12,7 @@ class TimingChartData {
     required this.incomeBars,
     required this.expenseBars,
     required this.totalIncomeText,
+    required this.netIncomeText,
     required this.totalExpenseText,
   });
 
@@ -23,6 +24,11 @@ class TimingChartData {
   final List<String> monthLabels;
   final List<double> incomeBars;
   final List<double> expenseBars;
+
+  /// 绿色收入柱的年度合计。
   final String totalIncomeText;
+
+  /// 摘要展示用净收入：自有设备总应收 - 支出。
+  final String netIncomeText;
   final String totalExpenseText;
 }

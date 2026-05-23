@@ -296,6 +296,42 @@ void main() {
   });
 
   group('MaintenanceStore write strategy', () {
+    test('summarizes current year with calendar-year boundaries', () async {
+      final repository = _CountingMaintenanceRepository(
+        seed: [
+          MaintenanceRecord(
+            id: 1,
+            deviceId: 1,
+            ymd: 20260101,
+            item: '年初保养',
+            amount: 100,
+            note: '',
+          ),
+          MaintenanceRecord(
+            id: 2,
+            deviceId: 1,
+            ymd: 20261231,
+            item: '年末保养',
+            amount: 200,
+            note: '',
+          ),
+          MaintenanceRecord(
+            id: 3,
+            deviceId: 1,
+            ymd: 20270101,
+            item: '下一年保养',
+            amount: 300,
+            note: '',
+          ),
+        ],
+      );
+      final store = MaintenanceStore(repository);
+
+      await store.loadAll();
+
+      expect(store.currentYearTotal(nowYmd: 20260601), 300);
+    });
+
     test('patches local state for save and delete without reloading', () async {
       final repository = _CountingMaintenanceRepository(
         seed: [

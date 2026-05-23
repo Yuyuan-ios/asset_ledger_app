@@ -5,6 +5,7 @@ import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/project_write_off.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/account_service.dart';
+import '../../../core/date/gregorian_year_range.dart';
 import 'package:asset_ledger/data/models/device_maps.dart';
 import '../domain/services/project_finance_calculator.dart';
 import '../model/account_view_model.dart';
@@ -19,10 +20,18 @@ class ComputeAccountSummaryUseCase {
     required List<AccountPayment> payments,
     List<ProjectWriteOff> writeOffs = const [],
     List<AccountProjectMergeGroupWithMembers> activeMergeGroups = const [],
+    int? summaryYear,
   }) {
-    final projects = AccountService.buildProjects(timingRecords: timingRecords);
-    final receivableByDevice = AccountService.calcReceivableByDevice(
+    final summaryRange = _resolveSummaryRange(
+      summaryYear: summaryYear,
       timingRecords: timingRecords,
+    );
+    final projects = AccountService.buildProjects(timingRecords: timingRecords);
+    final summaryTimingRecords = timingRecords.where((record) {
+      return summaryRange.containsYmd(record.startDate);
+    }).toList();
+    final receivableByDevice = AccountService.calcReceivableByDevice(
+      timingRecords: summaryTimingRecords,
       devices: devices,
       rates: rates,
     );
@@ -31,8 +40,6 @@ class ComputeAccountSummaryUseCase {
       ..sort((a, b) => projects[b]!.minYmd.compareTo(projects[a]!.minYmd));
 
     final normalItems = <AccountProjectVM>[];
-    double totalReceivable = 0.0;
-    double totalReceived = 0.0;
 
     for (final key in keys) {
       final agg = projects[key]!;
@@ -50,9 +57,6 @@ class ComputeAccountSummaryUseCase {
         writeOffFen: ProjectFinanceCalculator.yuanToFen(money.writeOff),
         toleranceFen: 1,
       );
-
-      totalReceivable += finance.receivable;
-      totalReceived += finance.received;
 
       final rateInfo = AccountService.calcRateInfo(
         agg: agg,
@@ -85,15 +89,13 @@ class ComputeAccountSummaryUseCase {
       );
     }
 
-    final totalWriteOff = normalItems.fold<double>(
-      0.0,
-      (sum, item) => sum + item.writeOff,
-    );
-    final totalFinance = ProjectFinanceCalculator.summarizeTotals(
-      receivableFen: ProjectFinanceCalculator.yuanToFen(totalReceivable),
-      receivedFen: ProjectFinanceCalculator.yuanToFen(totalReceived),
-      writeOffFen: ProjectFinanceCalculator.yuanToFen(totalWriteOff),
-      toleranceFen: 1,
+    final summary = _buildAnnualSummary(
+      timingRecords: summaryTimingRecords,
+      devices: devices,
+      rates: rates,
+      payments: payments,
+      writeOffs: writeOffs,
+      summaryRange: summaryRange,
     );
 
     final items = _applyMergeGroups(
@@ -130,13 +132,87 @@ class ComputeAccountSummaryUseCase {
 
     return AccountComputed(
       projects: items,
-      totalReceivable: totalReceivable,
-      totalReceived: totalReceived,
-      totalWriteOff: totalWriteOff,
-      totalRemaining: totalFinance.remaining,
-      totalRatio: totalFinance.cashRate,
-      settlementRate: totalFinance.settlementRate,
+      totalReceivable: summary.receivable,
+      totalReceived: summary.received,
+      totalWriteOff: summary.writeOff,
+      totalRemaining: summary.remaining,
+      totalRatio: summary.cashRate,
+      settlementRate: summary.settlementRate,
       deviceReceivables: deviceReceivables,
+    );
+  }
+
+  GregorianYearRange _resolveSummaryRange({
+    required int? summaryYear,
+    required List<TimingRecord> timingRecords,
+  }) {
+    if (summaryYear != null) return GregorianYearRange.forYear(summaryYear);
+    if (timingRecords.isEmpty) {
+      return GregorianYearRange.forYear(DateTime.now().year);
+    }
+
+    var latestYear = timingRecords.first.startDate ~/ 10000;
+    for (final record in timingRecords.skip(1)) {
+      final year = record.startDate ~/ 10000;
+      if (year > latestYear) latestYear = year;
+    }
+    return GregorianYearRange.forYear(latestYear);
+  }
+
+  _AnnualSummary _buildAnnualSummary({
+    required List<TimingRecord> timingRecords,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+    required List<AccountPayment> payments,
+    required List<ProjectWriteOff> writeOffs,
+    required GregorianYearRange summaryRange,
+  }) {
+    final projects = AccountService.buildProjects(timingRecords: timingRecords);
+    if (projects.isEmpty) return const _AnnualSummary.empty();
+
+    final projectIds = projects.keys.toSet();
+    final annualPayments = payments.where((payment) {
+      return summaryRange.containsYmd(payment.ymd) &&
+          projectIds.contains(payment.effectiveProjectId);
+    }).toList();
+    final annualWriteOffs = writeOffs.where((writeOff) {
+      return summaryRange.containsDateText(writeOff.writeOffDate) &&
+          projectIds.contains(writeOff.projectId.trim());
+    }).toList();
+
+    var originalFen = 0;
+    var receivedFen = 0;
+    var writeOffFen = 0;
+    for (final agg in projects.values) {
+      final money = AccountService.calcMoney(
+        agg: agg,
+        devices: devices,
+        rates: rates,
+        payments: annualPayments,
+        writeOffs: annualWriteOffs,
+      );
+      originalFen += ProjectFinanceCalculator.yuanToFen(money.receivable);
+      receivedFen += ProjectFinanceCalculator.yuanToFen(money.received);
+      writeOffFen += ProjectFinanceCalculator.yuanToFen(money.writeOff);
+    }
+
+    final receivableFen = originalFen > writeOffFen
+        ? originalFen - writeOffFen
+        : 0;
+    final rawRemainingFen = receivableFen - receivedFen;
+    final remainingFen = rawRemainingFen.abs() <= 1 ? 0 : rawRemainingFen;
+    final cashRate = receivableFen <= 0 ? null : receivedFen / receivableFen;
+    final settlementRate = originalFen <= 0
+        ? null
+        : (receivedFen + writeOffFen) / originalFen;
+
+    return _AnnualSummary(
+      receivable: ProjectFinanceCalculator.fenToYuan(receivableFen),
+      received: ProjectFinanceCalculator.fenToYuan(receivedFen),
+      writeOff: ProjectFinanceCalculator.fenToYuan(writeOffFen),
+      remaining: ProjectFinanceCalculator.fenToYuan(remainingFen),
+      cashRate: cashRate,
+      settlementRate: settlementRate,
     );
   }
 
@@ -286,4 +362,30 @@ class ComputeAccountSummaryUseCase {
     }
     return '含：${cleanSites.take(2).join('、')}等${cleanSites.length}项';
   }
+}
+
+class _AnnualSummary {
+  const _AnnualSummary({
+    required this.receivable,
+    required this.received,
+    required this.writeOff,
+    required this.remaining,
+    required this.cashRate,
+    required this.settlementRate,
+  });
+
+  const _AnnualSummary.empty()
+    : receivable = 0,
+      received = 0,
+      writeOff = 0,
+      remaining = 0,
+      cashRate = null,
+      settlementRate = null;
+
+  final double receivable;
+  final double received;
+  final double writeOff;
+  final double remaining;
+  final double? cashRate;
+  final double? settlementRate;
 }

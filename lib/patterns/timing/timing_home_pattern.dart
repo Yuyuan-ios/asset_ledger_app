@@ -57,7 +57,10 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
   final Set<String> _locallyRemovedRecordKeys = <String>{};
   final Set<String> _expandedAggregateKeys = <String>{};
 
-  static const double _recordsHeaderHeight = 42;
+  static const double _recordsHeaderHeight =
+      (TimingTokens.recordsTitleFontSize *
+          TimingTokens.recordsTitleLineHeight) +
+      TimingTokens.homeRecordsTitleTopGap;
 
   @override
   void didUpdateWidget(covariant TimingHomePattern oldWidget) {
@@ -238,7 +241,7 @@ class _RecordsSectionSwitch extends StatelessWidget {
         border: Border.all(color: AppColors.divider),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(2),
+        padding: const EdgeInsets.all(1),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -280,7 +283,7 @@ class _RecordsSectionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: selected ? null : onTap,
         child: SizedBox(
-          height: 28,
+          height: 16,
           width: 72,
           child: Center(
             child: Text(
@@ -290,6 +293,7 @@ class _RecordsSectionButton extends StatelessWidget {
               style: textTheme.labelMedium?.copyWith(
                 fontSize: 12,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                height: 1,
                 color: selected
                     ? AppColors.textPrimary
                     : TimingColors.textSecondary,

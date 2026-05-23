@@ -120,7 +120,7 @@ void main() {
       expect(monthlyAtMar[2], closeTo(422.7273, 0.001));
     });
 
-    test('keeps only the last record per device/day before segmenting', () {
+    test('keeps same-device same-day records before segmenting', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
         records: [
           const TimingRecord(
@@ -187,8 +187,7 @@ void main() {
         asOfDate: DateTime(2026, 1, 31),
       );
 
-      // 仅应保留 2026-01-10 的最后一条（id:4，hours:2）+ 2026-01-12 记录（hours:2）
-      expect(monthly[0], closeTo(800.0, 0.001));
+      expect(monthly[0], closeTo(3000.0, 0.001));
       expect(monthly.sublist(1).every((v) => v == 0.0), isTrue);
     });
 
@@ -499,7 +498,7 @@ void main() {
       },
     );
 
-    test('keeps last by id for same day and same startMeter conflicts', () {
+    test('keeps same-day records instead of dropping all but the last one', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
         records: const [
           TimingRecord(
@@ -542,9 +541,62 @@ void main() {
         asOfDate: DateTime(2026, 1, 31),
       );
 
-      // 仅保留 id=11（最后一条），收入=1 * 100
-      expect(monthly[0], closeTo(100.0, 0.001));
+      expect(monthly[0], closeTo(1100.0, 0.001));
       expect(monthly.sublist(1).every((v) => v == 0.0), isTrue);
+    });
+
+    test('counts same-device same-day records from different projects', () {
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 20,
+            deviceId: 1,
+            startDate: 20260501,
+            projectId: 'project-a',
+            contact: '刘锐',
+            site: '五里山',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 105,
+            hours: 5,
+            income: 0,
+          ),
+          TimingRecord(
+            id: 21,
+            deviceId: 1,
+            startDate: 20260501,
+            projectId: 'project-b',
+            contact: '刘锐',
+            site: '鲜滩',
+            type: TimingType.hours,
+            startMeter: 105,
+            endMeter: 112,
+            hours: 7,
+            income: 0,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 31),
+      );
+
+      expect(monthly[4], closeTo(1200.0, 0.001));
+      expect(
+        monthly.asMap().entries.every((entry) {
+          return entry.key == 4 || entry.value == 0.0;
+        }),
+        isTrue,
+      );
     });
 
     test(
