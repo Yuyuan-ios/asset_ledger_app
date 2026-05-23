@@ -93,9 +93,9 @@ void main() {
     final countSpan = aggregateSpan.children!.whereType<TextSpan>().firstWhere(
       (span) => span.text?.contains('2条记录') ?? false,
     );
-    expect(countSpan.style?.fontSize, TimingTokens.dateHeaderFontSize);
+    expect(countSpan.style?.fontSize, TimingTokens.recordValueFontSize - 1);
     expect(countSpan.style?.fontWeight, FontWeight.w400);
-    expect(countSpan.style?.height, TimingTokens.dateHeaderLineHeight);
+    expect(countSpan.style?.height, 1);
 
     await tester.tap(find.text('李洋·天眉乐'));
     await tester.pump();
