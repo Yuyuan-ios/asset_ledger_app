@@ -33,6 +33,8 @@ import 'package:asset_ledger/features/timing/state/timing_external_work_store.da
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -249,6 +251,22 @@ void main() {
     expect(find.text('暂无项目外协记录'), findsNothing);
   });
 
+  testWidgets('recent records reserve space above bottom tab bar', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    final spacer = tester.widget<SizedBox>(_bottomNavigationSpacer());
+
+    expect(
+      spacer.height,
+      NavigationTokens.barHeight + TimingTokens.homeBottomGap,
+    );
+  });
+
   testWidgets('external work section shows empty scaffold', (
     WidgetTester tester,
   ) async {
@@ -263,6 +281,25 @@ void main() {
     expect(find.text('暂无项目外协记录'), findsOneWidget);
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsNothing);
+  });
+
+  testWidgets('external work section reserves space above bottom tab bar', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+
+    final spacer = tester.widget<SizedBox>(_bottomNavigationSpacer());
+
+    expect(
+      spacer.height,
+      NavigationTokens.barHeight + TimingTokens.homeBottomGap,
+    );
   });
 
   testWidgets('can switch from external work section back to recent records', (
@@ -341,6 +378,93 @@ void main() {
     expect(find.text('payload-sha256-hidden'), findsNothing);
   });
 
+  testWidgets(
+    'external work section aggregates records in the same share group',
+    (WidgetTester tester) async {
+      await _pumpTimingPage(
+        tester,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        externalBatches: [
+          _externalBatch(recordCount: 2, totalHoursMilli: 10500),
+        ],
+        externalRecords: [
+          _externalRecord(),
+          _externalRecord(
+            id: 'external-2',
+            sourceRecordUuid: 'source-record-2',
+            workDate: 20260513,
+            hoursMilli: 2000,
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('项目外协'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
+      expect(find.text('2026.05.12-2026.05.13'), findsOneWidget);
+      expect(find.text('2条 / 10.5 h'), findsOneWidget);
+      expect(find.text('2026.05.12'), findsNothing);
+      expect(find.text('2026.05.13'), findsNothing);
+    },
+  );
+
+  testWidgets('external work section keeps different projects separate', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch(recordCount: 2, totalHoursMilli: 10500)],
+      externalRecords: [
+        _externalRecord(siteSnapshot: '鲜滩'),
+        _externalRecord(
+          id: 'external-2',
+          sourceRecordUuid: 'source-record-2',
+          siteSnapshot: '五里山',
+          workDate: 20260513,
+          hoursMilli: 2000,
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('王师傅分享包 · 鲜滩'), findsOneWidget);
+    expect(find.text('王师傅分享包 · 五里山'), findsOneWidget);
+    expect(find.text('2条 / 10.5 h'), findsNothing);
+  });
+
+  testWidgets('external work aggregate row expands to child records', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch(recordCount: 2, totalHoursMilli: 10500)],
+      externalRecords: [
+        _externalRecord(),
+        _externalRecord(
+          id: 'external-2',
+          sourceRecordUuid: 'source-record-2',
+          workDate: 20260513,
+          hoursMilli: 2000,
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('项目外协'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026.05.12'), findsOneWidget);
+    expect(find.text('2026.05.13'), findsOneWidget);
+    expect(find.text('8.5 h'), findsWidgets);
+    expect(find.text('2.0 h'), findsOneWidget);
+  });
+
   testWidgets('external work linked state controls link icon', (
     WidgetTester tester,
   ) async {
@@ -359,7 +483,9 @@ void main() {
       tester,
       historyRepository: _FakeCalculationHistoryRepository(),
       externalBatches: [_externalBatch()],
-      externalRecords: [_externalRecord(linkedProjectId: 'project-1')],
+      externalRecords: [
+        _externalRecord(linkedProjectId: 'project-1', projectReceivedFen: 0),
+      ],
     );
 
     await tester.tap(find.text('项目外协'));
@@ -384,20 +510,33 @@ void main() {
 
     expect(find.text('项目外协记录'), findsOneWidget);
     expect(find.text('从分享包导入'), findsOneWidget);
+    expect(find.text('分享人'), findsOneWidget);
     expect(find.text('王师傅分享包'), findsOneWidget);
+    expect(find.text('分享包'), findsNothing);
     expect(find.text('东区工地'), findsOneWidget);
     expect(find.text('CAT / 320D / 挖机'), findsOneWidget);
     expect(find.text('2026.05.12'), findsWidgets);
     expect(find.text('8.5 h'), findsWidgets);
-    // 协议升级后单价行带 ' / h' 后缀；金额行仍是 ¥xxx。
-    expect(find.text('¥123 / h'), findsOneWidget);
+    // 计时页外协详情显示来源事实单价（sourceUnitPriceFen=12000 → ¥120 / h），
+    // 不显示接收方复核值 localUnitPriceFen=12345 → ¥123（那是账户页字段）。
+    // 金额行仍是 ¥xxx。
+    expect(find.text('¥120 / h'), findsOneWidget);
+    expect(find.text('¥123 / h'), findsNothing);
     expect(find.text('¥1049'), findsOneWidget);
+    expect(find.textContaining('已收到项目款'), findsNothing);
+    expect(find.text('已收项目款'), findsNothing);
     expect(find.text('2026-05-13T10:00:00.000Z'), findsOneWidget);
     expect(find.text('已关联'), findsOneWidget);
     expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
     expect(find.text('不应展示的联系人'), findsNothing);
     expect(find.widgetWithText(FilledButton, '知道了'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '删除记录'), findsOneWidget);
+    final closeButton = find.widgetWithText(FilledButton, '知道了');
+    final deleteButton = find.widgetWithText(OutlinedButton, '删除记录');
+    final buttonGap =
+        tester.getTopLeft(deleteButton).dy -
+        tester.getBottomLeft(closeButton).dy;
+    expect(buttonGap, greaterThanOrEqualTo(20));
     expect(find.widgetWithText(FilledButton, '保存'), findsNothing);
     expect(find.widgetWithText(TextButton, '编辑'), findsNothing);
     expect(find.widgetWithText(TextButton, '删除'), findsNothing);
@@ -406,6 +545,28 @@ void main() {
     expect(find.widgetWithText(TextButton, '抵扣'), findsNothing);
     expect(find.widgetWithText(TextButton, '核销'), findsNothing);
   });
+
+  testWidgets(
+    'external work detail shows project received payment when shared',
+    (WidgetTester tester) async {
+      await _pumpTimingPage(
+        tester,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        externalBatches: [_externalBatch()],
+        externalRecords: [_externalRecord(projectReceivedFen: 98765)],
+      );
+
+      await tester.tap(find.text('项目外协'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('王师傅分享包 · 东区工地'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已收项目款'), findsOneWidget);
+      expect(find.text('¥988'), findsOneWidget);
+      expect(find.textContaining('已收到项目款'), findsNothing);
+      expect(find.textContaining('已收项目款：'), findsNothing);
+    },
+  );
 
   testWidgets('external work detail delete removes record from section', (
     WidgetTester tester,
@@ -434,6 +595,74 @@ void main() {
     expect(find.text('暂无项目外协记录'), findsOneWidget);
     expect(find.text('已删除'), findsOneWidget);
   });
+
+  testWidgets(
+    'external work detail delete removes the whole import batch only',
+    (WidgetTester tester) async {
+      await _pumpTimingPage(
+        tester,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        externalBatches: [
+          _externalBatch(
+            recordCount: 3,
+            totalHoursMilli: 12500,
+            siteSummary: '鲜滩、五里山',
+          ),
+          _externalBatch(
+            id: 'batch-2',
+            sourceShareId: 'share-2',
+            sourceDisplayName: '李师傅分享包',
+            recordCount: 1,
+            siteSummary: '北区工地',
+          ),
+        ],
+        externalRecords: [
+          _externalRecord(siteSnapshot: '鲜滩'),
+          _externalRecord(
+            id: 'external-2',
+            sourceRecordUuid: 'source-record-2',
+            siteSnapshot: '鲜滩',
+            workDate: 20260513,
+            hoursMilli: 2000,
+          ),
+          _externalRecord(
+            id: 'external-3',
+            sourceRecordUuid: 'source-record-3',
+            siteSnapshot: '五里山',
+            workDate: 20260514,
+            hoursMilli: 2000,
+          ),
+          _externalRecord(
+            id: 'external-other',
+            importBatchId: 'batch-2',
+            sourceShareId: 'share-2',
+            sourceRecordUuid: 'source-record-other',
+            siteSnapshot: '北区工地',
+          ),
+        ],
+      );
+
+      await tester.tap(find.text('项目外协'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('王师傅分享包 · 鲜滩'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2026.05.12').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, '删除记录'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('分享包'), findsWidgets);
+      expect(find.textContaining('全部 3 条'), findsOneWidget);
+      expect(find.textContaining('不可恢复'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('王师傅分享包 · 鲜滩'), findsNothing);
+      expect(find.text('王师傅分享包 · 五里山'), findsNothing);
+      expect(find.text('李师傅分享包 · 北区工地'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'keeps merge group after editing project address on same projectId',
@@ -520,7 +749,15 @@ void main() {
       await tester.tap(find.text('甲方·一号工地'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(_textFieldWithLabel('工时（小时）'), '20.0');
+      await tester.tap(_textFieldWithLabel('工时（小时）'));
+      await tester.pumpAndSettle();
+      await _tapCalculatorTextKey(tester, '2');
+      await _tapCalculatorTextKey(tester, '0');
+      await tester.tap(find.widgetWithText(FilledButton, '=').last);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.widgetWithText(FilledButton, '确定'));
       await tester.pumpAndSettle();
 
@@ -632,6 +869,15 @@ Finder _textFieldWithLabel(String label) {
   });
 }
 
+Finder _bottomNavigationSpacer() {
+  return find.byKey(const Key('timing-home-bottom-navigation-spacer'));
+}
+
+Future<void> _tapCalculatorTextKey(WidgetTester tester, String label) async {
+  await tester.tap(find.widgetWithText(OutlinedButton, label).last);
+  await tester.pumpAndSettle();
+}
+
 TimingRecord _record({TimingType type = TimingType.hours}) {
   return TimingRecord(
     id: 7,
@@ -658,40 +904,62 @@ TimingCalculationHistory _history() {
   );
 }
 
-ExternalImportBatch _externalBatch() {
-  return const ExternalImportBatch(
-    id: 'batch-1',
-    sourceShareId: 'share-1',
-    sourceDisplayName: '王师傅分享包',
-    recordCount: 1,
-    totalHoursMilli: 8500,
-    totalAmountFen: 104933,
-    siteSummary: '东区工地',
+ExternalImportBatch _externalBatch({
+  String id = 'batch-1',
+  String sourceShareId = 'share-1',
+  String sourceDisplayName = '王师傅分享包',
+  int recordCount = 1,
+  int totalHoursMilli = 8500,
+  int totalAmountFen = 104933,
+  String siteSummary = '东区工地',
+}) {
+  return ExternalImportBatch(
+    id: id,
+    sourceShareId: sourceShareId,
+    sourceDisplayName: sourceDisplayName,
+    recordCount: recordCount,
+    totalHoursMilli: totalHoursMilli,
+    totalAmountFen: totalAmountFen,
+    siteSummary: siteSummary,
     importedAt: '2026-05-13T10:00:00.000Z',
     createdAt: '2026-05-13T10:00:00.000Z',
     updatedAt: '2026-05-13T10:00:00.000Z',
   );
 }
 
-ExternalWorkRecord _externalRecord({String? linkedProjectId}) {
+ExternalWorkRecord _externalRecord({
+  String id = 'external-1',
+  String importBatchId = 'batch-1',
+  String sourceShareId = 'share-1',
+  String sourceRecordUuid = 'source-record-1',
+  String? linkedProjectId,
+  int projectReceivedFen = 0,
+  String siteSnapshot = '东区工地',
+  String equipmentBrand = 'CAT',
+  String equipmentModel = '320D',
+  String equipmentType = '挖机',
+  int workDate = 20260512,
+  int hoursMilli = 8500,
+}) {
   return ExternalWorkRecord(
-    id: 'external-1',
-    importBatchId: 'batch-1',
-    sourceShareId: 'share-1',
-    sourceRecordUuid: 'source-record-1',
+    id: id,
+    importBatchId: importBatchId,
+    sourceShareId: sourceShareId,
+    sourceRecordUuid: sourceRecordUuid,
     sourceInstallationUuid: 'source-installation-1',
     originFingerprint: 'payload-sha256-hidden',
     collaboratorName: '王师傅',
     contactSnapshot: '不应展示的联系人',
-    siteSnapshot: '东区工地',
-    equipmentBrand: 'CAT',
-    equipmentModel: '320D',
-    equipmentType: '挖机',
-    workDate: 20260512,
-    hoursMilli: 8500,
+    siteSnapshot: siteSnapshot,
+    equipmentBrand: equipmentBrand,
+    equipmentModel: equipmentModel,
+    equipmentType: equipmentType,
+    workDate: workDate,
+    hoursMilli: hoursMilli,
     sourceUnitPriceFen: 12000,
     localUnitPriceFen: 12345,
     amountFen: 104933,
+    projectReceivedFen: projectReceivedFen,
     linkedProjectId: linkedProjectId,
     createdAt: '2026-05-13T10:05:00.000Z',
     updatedAt: '2026-05-13T10:05:00.000Z',
@@ -833,6 +1101,13 @@ class _FakeExternalWorkRecordRepository
   Future<int> deleteById(String recordId) async {
     final before = _records.length;
     _records.removeWhere((record) => record.id == recordId);
+    return before - _records.length;
+  }
+
+  @override
+  Future<int> deleteByBatchId(String batchId) async {
+    final before = _records.length;
+    _records.removeWhere((record) => record.importBatchId == batchId);
     return before - _records.length;
   }
 

@@ -70,13 +70,11 @@ class _ExternalWorkImportPreviewContent extends StatefulWidget {
 
 class _ExternalWorkImportPreviewContentState
     extends State<_ExternalWorkImportPreviewContent> {
-  late final TextEditingController _contentController;
   bool _preparedInitialContent = false;
 
   @override
   void initState() {
     super.initState();
-    _contentController = TextEditingController(text: widget.initialContent);
     if ((widget.initialContent ?? '').trim().isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _preparedInitialContent) return;
@@ -86,18 +84,6 @@ class _ExternalWorkImportPreviewContentState
         );
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _contentController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _prepare() async {
-    await context.read<ExternalWorkImportPreviewViewModel>().prepare(
-      _contentController.text,
-    );
   }
 
   Future<void> _confirm() async {
@@ -129,71 +115,56 @@ class _ExternalWorkImportPreviewContentState
       body: SafeArea(
         child: Consumer<ExternalWorkImportPreviewViewModel>(
           builder: (context, viewModel, _) {
-            return ListView(
-              padding: const EdgeInsets.all(AppSpace.lg),
+            return Column(
               children: [
-                Text(
-                  '导入后可在“项目外协记录”中查看，并可稍后关联到已有项目。',
-                  style: AppTypography.body(
-                    context,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(AppSpace.lg),
+                    children: [
+                      if (viewModel.errorMessage != null)
+                        StoreErrorBanner(message: viewModel.errorMessage!),
+                      if (viewModel.successMessage != null)
+                        _SuccessBanner(message: viewModel.successMessage!),
+                      if (viewModel.preview != null) ...[
+                        _PreviewSummary(preview: viewModel.preview!),
+                        const SizedBox(height: AppSpace.md),
+                        _PreviewLines(lines: viewModel.preview!.lines),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: AppSpace.md),
-                TextField(
-                  controller: _contentController,
-                  enabled: !viewModel.isBusy,
-                  maxLines: 6,
-                  minLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: '.jzt 内容',
-                    border: OutlineInputBorder(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpace.lg,
+                    AppSpace.md,
+                    AppSpace.lg,
+                    AppSpace.lg,
                   ),
-                ),
-                const SizedBox(height: AppSpace.md),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    key: const Key('external-work-import-preview-prepare'),
-                    onPressed: viewModel.isBusy ? null : _prepare,
-                    icon: const Icon(Icons.visibility_outlined, size: 18),
-                    label: const Text('生成预览'),
-                  ),
-                ),
-                const SizedBox(height: AppSpace.md),
-                if (viewModel.errorMessage != null)
-                  StoreErrorBanner(message: viewModel.errorMessage!),
-                if (viewModel.successMessage != null)
-                  _SuccessBanner(message: viewModel.successMessage!),
-                if (viewModel.preview != null) ...[
-                  const SizedBox(height: AppSpace.md),
-                  _PreviewSummary(preview: viewModel.preview!),
-                  const SizedBox(height: AppSpace.md),
-                  _PreviewLines(lines: viewModel.preview!.lines),
-                ],
-                const SizedBox(height: AppSpace.xl),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        key: const Key('external-work-import-preview-cancel'),
-                        onPressed: viewModel.isBusy ? null : _cancel,
-                        child: const Text('取消'),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const Key('external-work-import-preview-cancel'),
+                          onPressed: viewModel.isBusy ? null : _cancel,
+                          child: const Text('取消'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: AppPrimaryButton(
-                        key: const Key('external-work-import-preview-confirm'),
-                        label:
-                            viewModel.status ==
-                                ExternalWorkImportPreviewStatus.importing
-                            ? '导入中'
-                            : '导入',
-                        onPressed: viewModel.canConfirm ? _confirm : null,
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: AppPrimaryButton(
+                          key: const Key(
+                            'external-work-import-preview-confirm',
+                          ),
+                          label:
+                              viewModel.status ==
+                                  ExternalWorkImportPreviewStatus.importing
+                              ? '导入中'
+                              : '导入',
+                          onPressed: viewModel.canConfirm ? _confirm : null,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             );

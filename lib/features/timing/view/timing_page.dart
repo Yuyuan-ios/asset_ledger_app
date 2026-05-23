@@ -386,17 +386,21 @@ class _TimingPageState extends State<TimingPage> {
     TimingExternalWorkRecordItem item,
   ) {
     () async {
+      final store = context.read<TimingExternalWorkStore>();
+      final batchId = item.record.importBatchId;
+      final batchRecordCount = store.items
+          .where((candidate) => candidate.record.importBatchId == batchId)
+          .length;
       final confirmed = await showAppConfirmDialog(
         context: context,
         title: '删除项目外协记录',
-        content: '删除后不可恢复，确认删除这条项目外协记录吗？',
+        content: '这将删除该分享包导入的全部 $batchRecordCount 条外协记录，删除后不可恢复。',
         confirmText: '删除',
         confirmDestructive: true,
       );
       if (!confirmed || !mounted) return;
 
-      final store = context.read<TimingExternalWorkStore>();
-      await store.deleteById(item.record.id);
+      await store.deleteByBatchId(batchId);
       if (!mounted) return;
       final feedback = storeActionFeedback(store, action: '删除');
       _toast(feedback.message);

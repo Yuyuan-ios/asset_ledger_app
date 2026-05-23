@@ -56,6 +56,7 @@ class TimingHomePattern extends StatefulWidget {
 class _TimingHomePatternState extends State<TimingHomePattern> {
   final Set<String> _locallyRemovedRecordKeys = <String>{};
   final Set<String> _expandedAggregateKeys = <String>{};
+  final Set<String> _expandedExternalWorkAggregateKeys = <String>{};
 
   static const double _recordsHeaderHeight =
       (TimingTokens.recordsTitleFontSize *
@@ -81,6 +82,13 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
     _expandedAggregateKeys.removeWhere(
       (key) => !currentAggregateKeys.contains(key),
     );
+
+    final currentExternalWorkAggregateKeys = timingExternalWorkAggregateKeys(
+      widget.externalWorkItems,
+    );
+    _expandedExternalWorkAggregateKeys.removeWhere(
+      (key) => !currentExternalWorkAggregateKeys.contains(key),
+    );
   }
 
   void _toggleAggregate(String key) {
@@ -89,6 +97,16 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
         _expandedAggregateKeys.remove(key);
       } else {
         _expandedAggregateKeys.add(key);
+      }
+    });
+  }
+
+  void _toggleExternalWorkAggregate(String key) {
+    setState(() {
+      if (_expandedExternalWorkAggregateKeys.contains(key)) {
+        _expandedExternalWorkAggregateKeys.remove(key);
+      } else {
+        _expandedExternalWorkAggregateKeys.add(key);
       }
     });
   }
@@ -175,11 +193,22 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
                         else
                           ...buildTimingExternalWorkRecordSlivers(
                             items: widget.externalWorkItems,
+                            expandedAggregateKeys:
+                                _expandedExternalWorkAggregateKeys,
+                            onToggleAggregate: _toggleExternalWorkAggregate,
                             onTapRecord: widget.onTapExternalWorkRecord,
                             onImportShareFile: widget.onImportExternalWork,
                           ),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: TimingTokens.homeBottomGap),
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            key: const Key(
+                              'timing-home-bottom-navigation-spacer',
+                            ),
+                            height:
+                                NavigationTokens.barHeight +
+                                MediaQuery.viewPaddingOf(context).bottom +
+                                TimingTokens.homeBottomGap,
+                          ),
                         ),
                       ],
                     ),

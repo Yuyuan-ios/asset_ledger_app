@@ -369,6 +369,34 @@ void main() {
       },
     );
 
+    test(
+      'rich project_received_fen is persisted to imported records',
+      () async {
+        final db = await _openDb();
+        final parsed = _parsedRich(
+          projectReceivedFen: 45678,
+          records: [
+            _record(
+              uuid: 'timing:72',
+              fingerprint: 'fp-project-received',
+              incomeFen: 120000,
+            ),
+          ],
+          exportLines: const [],
+        );
+
+        final result = await importer.importParsed(
+          parsed,
+          importedAt: '2026-05-19T00:00:00.000Z',
+        );
+        expect(result.status, ProjectExternalWorkImportStatus.imported);
+
+        final rows = await db.query('external_work_records');
+        expect(rows, hasLength(1));
+        expect(rows.single['project_received_fen'], 45678);
+      },
+    );
+
     test('rich record without source_unit_price_fen lands as NULL '
         '(import side does not derive from income÷hours)', () async {
       final db = await _openDb();
@@ -465,6 +493,7 @@ void main() {
 
 ParsedProjectExternalWorkShare _parsedRich({
   String shareId = 'rich-share-1',
+  int projectReceivedFen = 0,
   required List<Map<String, Object?>>? records,
   required List<Map<String, Object?>> exportLines,
   Map<String, Object?>? summary,
@@ -490,6 +519,7 @@ ParsedProjectExternalWorkShare _parsedRich({
         'source_project_key': '张三|工地A',
         'contact_snapshot': '张三',
         'site_snapshot': '工地A',
+        'project_received_fen': projectReceivedFen,
       },
       'devices': [
         {

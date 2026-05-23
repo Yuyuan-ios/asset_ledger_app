@@ -170,6 +170,7 @@ class ProjectExternalWorkShareProjectSnapshot {
     required this.sourceProjectKey,
     required this.contactSnapshot,
     required this.siteSnapshot,
+    this.projectReceivedFen = 0,
   });
 
   final String sourceProjectId;
@@ -178,6 +179,9 @@ class ProjectExternalWorkShareProjectSnapshot {
   /// 仅作来源追踪；导入列表/详情不展示。
   final String contactSnapshot;
   final String siteSnapshot;
+
+  /// 导出时该项目累计实收款（分）。旧分享包缺字段时按 0 兼容。
+  final int projectReceivedFen;
 
   static ProjectExternalWorkShareProjectSnapshot fromMap(
     Map<String, Object?> map,
@@ -189,6 +193,8 @@ class ProjectExternalWorkShareProjectSnapshot {
         sourceProjectKey: reader.requiredString('source_project_key'),
         contactSnapshot: reader.requiredString('contact_snapshot'),
         siteSnapshot: reader.requiredString('site_snapshot'),
+        projectReceivedFen:
+            _optionalNonNegativeInt(map, 'project_received_fen') ?? 0,
       );
     } on ExternalDataParseException catch (error) {
       throw _richParseError(error.message, map);
@@ -201,6 +207,7 @@ class ProjectExternalWorkShareProjectSnapshot {
       'source_project_key': sourceProjectKey,
       'contact_snapshot': contactSnapshot,
       'site_snapshot': siteSnapshot,
+      'project_received_fen': projectReceivedFen,
       // v1 省略 project_status_snapshot：代码中无 Project 实体/项目状态来源。
     };
   }

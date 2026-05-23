@@ -18,13 +18,15 @@ void main() {
     testWidgets('shows preview summary and line details', (tester) async {
       final preparer = _FakePreparer(_session());
       final confirmer = _FakeConfirmer();
-      await tester.pumpWidget(_app(_page(preparer, confirmer)));
+      await tester.pumpWidget(
+        _app(_page(preparer, confirmer, initialContent: _encodedEnvelope())),
+      );
 
-      await tester.enterText(find.byType(TextField), _encodedEnvelope());
-      await tester.tap(find.text('生成预览'));
       await tester.pump();
 
       expect(find.text('项目外协记录'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('生成预览'), findsNothing);
       expect(find.text('王师傅'), findsOneWidget);
       expect(find.text('2 条'), findsOneWidget);
       expect(find.text('一号工地、二号工地'), findsOneWidget);
@@ -42,10 +44,12 @@ void main() {
           '分享包内容校验失败，请重新获取分享包',
         ),
       );
-      await tester.pumpWidget(_app(_page(preparer, _FakeConfirmer())));
+      await tester.pumpWidget(
+        _app(
+          _page(preparer, _FakeConfirmer(), initialContent: _encodedEnvelope()),
+        ),
+      );
 
-      await tester.enterText(find.byType(TextField), _encodedEnvelope());
-      await tester.tap(find.text('生成预览'));
       await tester.pump();
 
       expect(find.textContaining('校验失败'), findsOneWidget);
@@ -57,21 +61,51 @@ void main() {
     ) async {
       final preparer = _FakePreparer(_session());
       final confirmer = _FakeConfirmer();
-      await tester.pumpWidget(_app(_page(preparer, confirmer)));
+      await tester.pumpWidget(
+        _app(_page(preparer, confirmer, initialContent: _encodedEnvelope())),
+      );
 
-      await tester.enterText(find.byType(TextField), _encodedEnvelope());
-      await tester.tap(find.text('生成预览'));
       await tester.pump();
       final confirmButton = find.byKey(
         const Key('external-work-import-preview-confirm'),
       );
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
-      await tester.pump();
       await tester.tap(confirmButton.last);
       await tester.pump();
 
       expect(confirmer.callCount, 1);
       expect(find.textContaining('可在项目外协记录中查看'), findsOneWidget);
+    });
+
+    testWidgets('keeps action buttons outside the scrolling preview content', (
+      tester,
+    ) async {
+      final preparer = _FakePreparer(_session());
+      await tester.pumpWidget(
+        _app(
+          _page(preparer, _FakeConfirmer(), initialContent: _encodedEnvelope()),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.byKey(
+            const Key('external-work-import-preview-cancel'),
+          ),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.byKey(
+            const Key('external-work-import-preview-confirm'),
+          ),
+        ),
+        findsNothing,
+      );
     });
   });
 }
@@ -82,9 +116,11 @@ Widget _app(Widget child) {
 
 ExternalWorkImportPreviewPage _page(
   ExternalWorkImportPreviewPreparer preparer,
-  ExternalWorkImportConfirmer confirmer,
-) {
+  ExternalWorkImportConfirmer confirmer, {
+  String? initialContent,
+}) {
   return ExternalWorkImportPreviewPage(
+    initialContent: initialContent,
     viewModel: ExternalWorkImportPreviewViewModel(
       preparePreview: preparer,
       confirmImport: confirmer,
