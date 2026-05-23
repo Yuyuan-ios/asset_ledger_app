@@ -6,7 +6,7 @@ class SupportFeedbackConfig {
       'https://yuyuan-ios.github.io/asset_ledger_app/';
 
   static const String supportEmail = '582748196@qq.com';
-  static const String supportEmailSubject = '机账通｜支持与反馈';
+  static const String supportEmailSubject = 'FleetLedger｜支持与反馈';
 
   static const String privacyPolicyUrl =
       'https://yuyuan-ios.github.io/asset_ledger_app/privacy.html';

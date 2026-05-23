@@ -71,9 +71,9 @@ class ProjectShareExportUseCase {
   // TODO(阶段7): 实现 iOS/Android .jzt 文件关联，点击附件直接跳转 App。
   // TODO(阶段8/落地页): 有正式下载链接后在文案末尾追加；当前不伪造链接。
   static const String shareText =
-      '我通过机账通给你分享了项目外协记录。\n'
-      '如已安装机账通，请直接打开附件 .jzt 跳转至 App，或在 App 内选择导入该文件。\n'
-      '如未安装，请先下载机账通再导入。';
+      '我通过 FleetLedger 给你分享了项目外协记录。\n'
+      '如已安装 FleetLedger，请直接打开附件 .jzt 跳转至 App，或在 App 内选择导入该文件。\n'
+      '如未安装，请先下载 FleetLedger 再导入。';
 
   Future<ProjectShareExportOutcome> execute({
     required String projectId,
@@ -94,7 +94,7 @@ class ProjectShareExportUseCase {
         allRates: allRates,
         calcHistoryRepository: _calcHistoryRepository,
         producer: JztShareProducer(
-          appName: '机账通',
+          appName: 'FleetLedger',
           appVersion: appVersion,
           platform: Platform.operatingSystem,
         ),

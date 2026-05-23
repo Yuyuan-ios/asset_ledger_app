@@ -243,6 +243,13 @@ void main() {
     expect(preview.tableCounts['timing_calculation_history'], 2);
   });
 
+  test('preview accepts legacy branded backups', () {
+    final preview = const LocalBackupImportPreviewService()
+        .previewFromDecodedJson(_backupJson(appName: '机账通'));
+
+    expect(preview.isValid, isTrue);
+  });
+
   test('preview counts merge tables when present', () {
     final preview = const LocalBackupImportPreviewService()
         .previewFromDecodedJson(
@@ -700,6 +707,10 @@ void main() {
     expect(export.success, isTrue);
     final rawJson = await File(export.filePath!).readAsString();
     final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final meta = decoded['meta'] as Map<String, dynamic>;
+
+    expect(meta['app_name'], 'FleetLedger');
+    expect(export.fileName, startsWith('FleetLedger_手动备份_'));
 
     final result = await _restoreService().restoreFromDecodedJson(decoded);
 
@@ -834,6 +845,7 @@ Map<String, dynamic> _backupJson({
   List<Map<String, Object?>> projectDeviceRates = const [],
   List<Map<String, Object?>>? mergeGroups,
   List<Map<String, Object?>>? mergeMembers,
+  String appName = 'FleetLedger',
 }) {
   final data = <String, Object?>{
     ...projects == null ? const {} : {'projects': projects},
@@ -864,7 +876,7 @@ Map<String, dynamic> _backupJson({
       'schema_version': schemaVersion,
       'exported_at': '2026-05-14T15:32:00.000Z',
       'app_version': 'test',
-      'app_name': '机账通',
+      'app_name': appName,
     },
     'summary': <String, Object?>{
       'table_counts': <String, int>{

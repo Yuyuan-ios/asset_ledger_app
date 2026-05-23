@@ -20,10 +20,10 @@
       "localizations" : [
         {
           "locale" : "zh-Hans",
-          "name" : "Asset Ledger Pro"
+          "name" : "FleetLedger Pro"
         }
       ],
-      "name" : "Asset Ledger Pro",
+      "name" : "FleetLedger Pro",
       "subscriptions" : [
         {
           "adHocOffers" : [

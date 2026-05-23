@@ -98,7 +98,7 @@ void main() {
     expect(presenter.fileName, outcome.fileName);
     expect(presenter.fileName, endsWith('.jzt'));
     expect(presenter.subject, '分享项目外协记录');
-    expect(presenter.text, contains('机账通'));
+    expect(presenter.text, contains('FleetLedger'));
     expect(presenter.text, contains('项目外协记录'));
     expect(presenter.text, contains('.jzt'));
     expect(presenter.text, isNot(contains('.jztshare')));

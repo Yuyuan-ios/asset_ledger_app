@@ -1,4 +1,4 @@
-package com.yuyuan.assetledger
+package com.yuyuan.fleetledger
 
 import android.content.ContentResolver
 import android.content.Intent

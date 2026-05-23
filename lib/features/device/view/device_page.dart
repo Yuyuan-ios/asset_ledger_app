@@ -295,7 +295,7 @@ class _DevicePageState extends State<DevicePage> {
     if (!preview.isValid) {
       await _showAccountSyncPlaceholder(
         title: '无法预览备份文件',
-        message: preview.errorMessage ?? '这不是有效的机账通备份文件',
+        message: preview.errorMessage ?? '这不是有效的 FleetLedger 备份文件',
       );
       return;
     }
@@ -346,7 +346,7 @@ class _DevicePageState extends State<DevicePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '请选择由机账通导出的备份文件。通常建议选择最近一次手动备份；恢复前备份用于撤回最近几次恢复操作前的数据。',
+                  '请选择由 FleetLedger 导出的备份文件。通常建议选择最近一次手动备份；恢复前备份用于撤回最近几次恢复操作前的数据。',
                 ),
                 const SizedBox(height: 12),
                 if (!hasRecognizedBackups)
@@ -443,7 +443,7 @@ class _DevicePageState extends State<DevicePage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('这是一个机账通本地备份文件。'),
+                    const Text('这是一个 FleetLedger 本地备份文件。'),
                     const SizedBox(height: 12),
                     BackupPreviewLine(label: '备份时间', value: exportedAtText),
                     BackupPreviewLine(

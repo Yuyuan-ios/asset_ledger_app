@@ -32,7 +32,7 @@ class LocalBackupImportPreviewService {
   const LocalBackupImportPreviewService();
 
   static const int _maxPreviewFileBytes = 20 * 1024 * 1024;
-  static const String _expectedAppName = '机账通';
+  static const Set<String> _supportedAppNames = {'FleetLedger', '机账通'};
   static const String _backupDirName = 'backups';
 
   static const List<String> _requiredTables = [
@@ -141,7 +141,7 @@ class LocalBackupImportPreviewService {
       final selectedFile = result.files.single;
       if (!selectedFile.name.toLowerCase().endsWith('.json')) {
         return const BackupPreviewLoadResult(
-          preview: BackupPreview.invalid('请选择 JSON 格式的机账通备份文件'),
+          preview: BackupPreview.invalid('请选择 JSON 格式的 FleetLedger 备份文件'),
         );
       }
 
@@ -180,7 +180,7 @@ class LocalBackupImportPreviewService {
       final decoded = jsonDecode(rawJson);
       if (decoded is! Map<String, dynamic>) {
         return const BackupPreviewLoadResult(
-          preview: BackupPreview.invalid('这不是有效的机账通备份文件'),
+          preview: BackupPreview.invalid('这不是有效的 FleetLedger 备份文件'),
         );
       }
       return BackupPreviewLoadResult(
@@ -193,7 +193,7 @@ class LocalBackupImportPreviewService {
       );
     } catch (_) {
       return const BackupPreviewLoadResult(
-        preview: BackupPreview.invalid('这不是有效的机账通备份文件'),
+        preview: BackupPreview.invalid('这不是有效的 FleetLedger 备份文件'),
       );
     }
   }
@@ -207,8 +207,8 @@ class LocalBackupImportPreviewService {
     }
 
     final appName = meta['app_name'] as String?;
-    if (appName != _expectedAppName) {
-      return const BackupPreview.invalid('这不是有效的机账通备份文件');
+    if (!_supportedAppNames.contains(appName)) {
+      return const BackupPreview.invalid('这不是有效的 FleetLedger 备份文件');
     }
 
     final schemaVersion = _readInt(meta['schema_version']);

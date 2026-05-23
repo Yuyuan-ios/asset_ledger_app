@@ -9,7 +9,7 @@ class TermsPage extends StatelessWidget {
     LegalSectionContent(
       title: '1. 适用范围与接受',
       body:
-          '本使用条款适用于“机账通”在 iOS 与 Android 平台提供的产品与服务。你在下载、安装、访问或继续使用本应用时，即表示你已阅读并同意受本条款约束。',
+          '本使用条款适用于“FleetLedger”在 iOS 与 Android 平台提供的产品与服务。你在下载、安装、访问或继续使用本应用时，即表示你已阅读并同意受本条款约束。',
     ),
     LegalSectionContent(
       title: '2. 产品功能说明',

@@ -30,7 +30,7 @@ class _FakeCalcRepo implements TimingCalculationHistoryRepository {
 void main() {
   const adapter = ProjectExternalWorkShareExportAdapter();
   const producer = JztShareProducer(
-    appName: '机账通',
+    appName: 'FleetLedger',
     appVersion: '1.0.1+3',
     platform: 'ios',
   );

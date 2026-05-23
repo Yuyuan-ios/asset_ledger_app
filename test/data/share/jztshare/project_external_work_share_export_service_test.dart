@@ -18,7 +18,7 @@ void main() {
   const service = ProjectExternalWorkShareExportService();
   const parser = JztShareEnvelopeParser();
   const producer = JztShareProducer(
-    appName: '机账通',
+    appName: 'FleetLedger',
     appVersion: '1.0.1+3',
     platform: 'iOS',
   );

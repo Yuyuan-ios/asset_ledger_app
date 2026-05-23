@@ -38,10 +38,10 @@ class _BackupRestoreValidator {
       );
     }
 
-    if (meta['app_name'] != BackupRestoreTables.expectedAppName) {
+    if (!BackupRestoreTables.isSupportedAppName(meta['app_name'])) {
       return _RestoreValidation.failure(
         BackupRestoreResult.failure(
-          message: '这不是有效的机账通备份文件',
+          message: '这不是有效的 FleetLedger 备份文件',
           errorCode: 'app_name_mismatch',
         ),
       );

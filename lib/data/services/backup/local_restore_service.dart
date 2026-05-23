@@ -15,7 +15,7 @@ class LocalRestoreService {
       final decoded = jsonDecode(rawJson);
       if (decoded is! Map<String, dynamic>) {
         return BackupRestoreResult.failure(
-          message: '这不是有效的机账通备份文件',
+          message: '这不是有效的 FleetLedger 备份文件',
           errorCode: 'invalid_root',
         );
       }
@@ -27,7 +27,7 @@ class LocalRestoreService {
       );
     } catch (_) {
       return BackupRestoreResult.failure(
-        message: '这不是有效的机账通备份文件',
+        message: '这不是有效的 FleetLedger 备份文件',
         errorCode: 'invalid_json',
       );
     }

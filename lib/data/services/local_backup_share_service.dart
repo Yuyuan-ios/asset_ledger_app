@@ -38,9 +38,9 @@ class LocalBackupShareService {
         ShareParams(
           files: [XFile(normalizedPath, mimeType: 'application/json')],
           fileNameOverrides: [fileName],
-          subject: subject ?? '机账通本地备份',
-          title: '机账通本地备份',
-          text: text ?? '这是一份机账通本地备份文件，请妥善保存。',
+          subject: subject ?? 'FleetLedger 本地备份',
+          title: 'FleetLedger 本地备份',
+          text: text ?? '这是一份 FleetLedger 本地备份文件，请妥善保存。',
           sharePositionOrigin: sharePositionOrigin,
         ),
       );

@@ -32,7 +32,7 @@ class PickExternalWorkShareFileUseCase {
 
   final ProjectShareFilePicker _picker;
 
-  static const String invalidTypeMessage = '请选择机账通 .jzt 分享包';
+  static const String invalidTypeMessage = '请选择 FleetLedger .jzt 分享包';
   static const String readErrorMessage = '读取分享包失败，请重新选择文件';
 
   Future<PickShareFileResult> pick() async {
