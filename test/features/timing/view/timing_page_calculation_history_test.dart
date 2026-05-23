@@ -245,8 +245,8 @@ void main() {
     );
 
     expect(find.text('最近记录(1)'), findsOneWidget);
-    expect(find.text('最近记录'), findsOneWidget);
-    expect(find.text('项目外协'), findsOneWidget);
+    expect(find.text('最近记录'), findsNothing);
+    expect(find.text('项目外协'), findsNothing);
     expect(find.text('甲方·一号工地'), findsOneWidget);
     expect(find.text('暂无项目外协记录'), findsNothing);
   });
@@ -275,9 +275,10 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
 
+    expect(find.text('项目外协(0)'), findsOneWidget);
+    expect(find.text('项目外协(0条)'), findsNothing);
     expect(find.text('暂无项目外协记录'), findsOneWidget);
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsNothing);
@@ -291,8 +292,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
 
     final spacer = tester.widget<SizedBox>(_bottomNavigationSpacer());
 
@@ -310,11 +310,10 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('最近记录'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
+    await _switchToRecentRecords(tester);
 
+    expect(find.text('最近记录(1)'), findsOneWidget);
     expect(find.text('暂无项目外协记录'), findsNothing);
     expect(find.text('甲方·一号工地'), findsOneWidget);
   });
@@ -327,10 +326,8 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('最近记录'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
+    await _switchToRecentRecords(tester);
     await tester.tap(find.text('甲方·一号工地'));
     await tester.pumpAndSettle();
 
@@ -345,8 +342,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
 
     expect(find.text('新增'), findsNothing);
     expect(find.text('编辑计时'), findsNothing);
@@ -363,8 +359,7 @@ void main() {
       externalRecords: [_externalRecord()],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
 
     expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
     expect(find.text('CAT 320D'), findsOneWidget);
@@ -398,8 +393,7 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('项目外协'));
-      await tester.pumpAndSettle();
+      await _switchToExternalWork(tester);
 
       expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
       expect(find.text('2026.05.12-2026.05.13'), findsOneWidget);
@@ -428,8 +422,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
 
     expect(find.text('王师傅分享包 · 鲜滩'), findsOneWidget);
     expect(find.text('王师傅分享包 · 五里山'), findsOneWidget);
@@ -454,8 +447,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
@@ -475,8 +467,7 @@ void main() {
       externalRecords: [_externalRecord()],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
     expect(find.byIcon(Icons.link), findsNothing);
 
     await _pumpTimingPage(
@@ -488,8 +479,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
     expect(find.byIcon(Icons.link), findsOneWidget);
   });
 
@@ -503,8 +493,7 @@ void main() {
       externalRecords: [_externalRecord(linkedProjectId: 'project-1')],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
@@ -556,8 +545,7 @@ void main() {
         externalRecords: [_externalRecord(projectReceivedFen: 98765)],
       );
 
-      await tester.tap(find.text('项目外协'));
-      await tester.pumpAndSettle();
+      await _switchToExternalWork(tester);
       await tester.tap(find.text('王师傅分享包 · 东区工地'));
       await tester.pumpAndSettle();
 
@@ -578,8 +566,7 @@ void main() {
       externalRecords: [_externalRecord()],
     );
 
-    await tester.tap(find.text('项目外协'));
-    await tester.pumpAndSettle();
+    await _switchToExternalWork(tester);
     expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
 
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
@@ -642,8 +629,7 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('项目外协'));
-      await tester.pumpAndSettle();
+      await _switchToExternalWork(tester);
       await tester.tap(find.text('王师傅分享包 · 鲜滩'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('2026.05.12').first);
@@ -871,6 +857,16 @@ Finder _textFieldWithLabel(String label) {
 
 Finder _bottomNavigationSpacer() {
   return find.byKey(const Key('timing-home-bottom-navigation-spacer'));
+}
+
+Future<void> _switchToExternalWork(WidgetTester tester) async {
+  await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _switchToRecentRecords(WidgetTester tester) async {
+  await tester.drag(find.byType(TabBarView), const Offset(500, 0));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _tapCalculatorTextKey(WidgetTester tester, String label) async {
