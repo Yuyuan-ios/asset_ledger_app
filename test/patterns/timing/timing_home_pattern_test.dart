@@ -79,8 +79,9 @@ void main() {
     expect(find.text('暂无记录'), findsOneWidget);
     expect(find.text('暂无项目外协记录'), findsNothing);
 
+    // 切换走 TabBarView 动画，需要 settle 后内容才稳定。
     await tester.tap(find.text('项目外协'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('暂无项目外协记录'), findsOneWidget);
   });

@@ -53,7 +53,8 @@ class TimingHomePattern extends StatefulWidget {
   State<TimingHomePattern> createState() => _TimingHomePatternState();
 }
 
-class _TimingHomePatternState extends State<TimingHomePattern> {
+class _TimingHomePatternState extends State<TimingHomePattern>
+    with SingleTickerProviderStateMixin {
   final Set<String> _locallyRemovedRecordKeys = <String>{};
   final Set<String> _expandedAggregateKeys = <String>{};
   final Set<String> _expandedExternalWorkAggregateKeys = <String>{};
@@ -63,10 +64,50 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
           TimingTokens.recordsTitleLineHeight) +
       TimingTokens.homeRecordsTitleTopGap;
 
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.recordsSection.index,
+    );
+    _tabController.addListener(_handleTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  /// TabBarView 滑动 / 胶囊 animateTo 都会更新 index（滑动到中点即更新），
+  /// 回写父级 section 以同步胶囊高亮。idempotent。
+  void _handleTabChanged() {
+    final section = TimingRecordsSection.values[_tabController.index];
+    if (section != widget.recordsSection) {
+      widget.onRecordsSectionChanged(section);
+    }
+  }
+
+  /// 胶囊点击：动画切换 TabBarView（→ _handleTabChanged 回写父级 section）。
+  void _selectSection(TimingRecordsSection section) {
+    if (_tabController.index != section.index) {
+      _tabController.animateTo(section.index);
+    }
+  }
+
   @override
   void didUpdateWidget(covariant TimingHomePattern oldWidget) {
     super.didUpdateWidget(oldWidget);
     _pruneRecordState();
+    // 父级（外部）改 section 时，保证 TabBarView 跟随。
+    if (widget.recordsSection.index != _tabController.index) {
+      _tabController.animateTo(widget.recordsSection.index);
+    }
   }
 
   void _pruneRecordState() {
@@ -124,6 +165,13 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
               basePadding: TimingTokens.homePageHorizontalPadding,
             );
 
+            // 底部导航栏（router extendBody:true）悬浮在内容之上，每页列表预留
+            // 清空高度，保证最后一条记录不被底栏遮挡。
+            final bottomSpacer =
+                NavigationTokens.barHeight +
+                MediaQuery.viewPaddingOf(context).bottom +
+                TimingTokens.homeBottomGap;
+
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Column(
@@ -131,86 +179,103 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
                   widget.header,
                   const SizedBox(height: TimingTokens.homeHeaderBottomGap),
                   Expanded(
-                    child: CustomScrollView(
-                      slivers: [
-                        if (widget.loading)
-                          const SliverToBoxAdapter(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                bottom: TimingTokens.homeLoadingBottomGap,
-                              ),
-                              child: LinearProgressIndicator(minHeight: 2),
-                            ),
-                          ),
-                        if (widget.error != null &&
-                            widget.error!.trim().isNotEmpty)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: TimingTokens.homeErrorBottomGap,
-                              ),
-                              child: StoreErrorBanner(
-                                message: widget.error!,
-                                onRetry: widget.loading ? null : widget.onRetry,
+                    child: NestedScrollView(
+                      headerSliverBuilder: (context, innerBoxIsScrolled) {
+                        return [
+                          if (widget.loading)
+                            const SliverToBoxAdapter(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: TimingTokens.homeLoadingBottomGap,
+                                ),
+                                child: LinearProgressIndicator(minHeight: 2),
                               ),
                             ),
-                          ),
-                        SliverToBoxAdapter(child: widget.chart),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: TimingTokens.homeChartTopGap),
-                        ),
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: PinnedHeaderDelegate(
-                            height: _recordsHeaderHeight,
-                            child: ColoredBox(
-                              color: AppColors.scaffoldBg,
+                          if (widget.error != null &&
+                              widget.error!.trim().isNotEmpty)
+                            SliverToBoxAdapter(
                               child: Padding(
                                 padding: const EdgeInsets.only(
-                                  bottom: TimingTokens.homeRecordsTitleTopGap,
+                                  bottom: TimingTokens.homeErrorBottomGap,
                                 ),
-                                child: _RecordsAreaHeader(
-                                  title: widget.recordsTitle,
-                                  selectedSection: widget.recordsSection,
-                                  onSectionChanged:
-                                      widget.onRecordsSectionChanged,
+                                child: StoreErrorBanner(
+                                  message: widget.error!,
+                                  onRetry: widget.loading
+                                      ? null
+                                      : widget.onRetry,
+                                ),
+                              ),
+                            ),
+                          // 图表随列表上滑收起（在 header 区，非吸顶）。
+                          SliverToBoxAdapter(child: widget.chart),
+                          const SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: TimingTokens.homeChartTopGap,
+                            ),
+                          ),
+                          // 胶囊标题栏：吸顶。用 OverlapAbsorber 把重叠量交给内层注入。
+                          SliverOverlapAbsorber(
+                            handle:
+                                NestedScrollView.sliverOverlapAbsorberHandleFor(
+                                  context,
+                                ),
+                            sliver: SliverPersistentHeader(
+                              pinned: true,
+                              delegate: PinnedHeaderDelegate(
+                                height: _recordsHeaderHeight,
+                                child: ColoredBox(
+                                  color: AppColors.scaffoldBg,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom:
+                                          TimingTokens.homeRecordsTitleTopGap,
+                                    ),
+                                    child: _RecordsAreaHeader(
+                                      title: widget.recordsTitle,
+                                      selectedSection: widget.recordsSection,
+                                      onSectionChanged: _selectSection,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        if (widget.recordsSection ==
-                            TimingRecordsSection.recent)
-                          ...buildTimingRecentRecordSlivers(
-                            records: widget.records,
-                            deviceById: widget.deviceById,
-                            deviceIndexById: widget.deviceIndexById,
-                            locallyRemovedKeys: _locallyRemovedRecordKeys,
-                            expandedAggregateKeys: _expandedAggregateKeys,
-                            onToggleAggregate: _toggleAggregate,
-                            onTapRecord: widget.onTapRecord,
-                          )
-                        else
-                          ...buildTimingExternalWorkRecordSlivers(
-                            items: widget.externalWorkItems,
-                            expandedAggregateKeys:
-                                _expandedExternalWorkAggregateKeys,
-                            onToggleAggregate: _toggleExternalWorkAggregate,
-                            onTapRecord: widget.onTapExternalWorkRecord,
-                            onImportShareFile: widget.onImportExternalWork,
-                          ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            key: const Key(
-                              'timing-home-bottom-navigation-spacer',
+                        ];
+                      },
+                      body: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _RecordsTabBody(
+                            storageKey: const PageStorageKey<String>(
+                              'timing-recent-tab',
                             ),
-                            height:
-                                NavigationTokens.barHeight +
-                                MediaQuery.viewPaddingOf(context).bottom +
-                                TimingTokens.homeBottomGap,
+                            bottomSpacer: bottomSpacer,
+                            slivers: buildTimingRecentRecordSlivers(
+                              records: widget.records,
+                              deviceById: widget.deviceById,
+                              deviceIndexById: widget.deviceIndexById,
+                              locallyRemovedKeys: _locallyRemovedRecordKeys,
+                              expandedAggregateKeys: _expandedAggregateKeys,
+                              onToggleAggregate: _toggleAggregate,
+                              onTapRecord: widget.onTapRecord,
+                            ),
                           ),
-                        ),
-                      ],
+                          _RecordsTabBody(
+                            storageKey: const PageStorageKey<String>(
+                              'timing-external-tab',
+                            ),
+                            bottomSpacer: bottomSpacer,
+                            slivers: buildTimingExternalWorkRecordSlivers(
+                              items: widget.externalWorkItems,
+                              expandedAggregateKeys:
+                                  _expandedExternalWorkAggregateKeys,
+                              onToggleAggregate: _toggleExternalWorkAggregate,
+                              onTapRecord: widget.onTapExternalWorkRecord,
+                              onImportShareFile: widget.onImportExternalWork,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -219,6 +284,41 @@ class _TimingHomePatternState extends State<TimingHomePattern> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// NestedScrollView 的单个 tab 内容：独立 CustomScrollView。
+/// 顶部用 SliverOverlapInjector 注入外层吸顶胶囊的重叠量，保证首条内容不被
+/// 吸顶标题遮挡；其后原样放入本 tab 的 slivers（含日期吸顶 / 聚合），末尾追加
+/// 底部导航清空高度。PageStorageKey 保留各 tab 纵向滚动位置。
+class _RecordsTabBody extends StatelessWidget {
+  const _RecordsTabBody({
+    required this.storageKey,
+    required this.slivers,
+    required this.bottomSpacer,
+  });
+
+  final Key storageKey;
+  final List<Widget> slivers;
+  final double bottomSpacer;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      key: storageKey,
+      slivers: [
+        SliverOverlapInjector(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        ),
+        ...slivers,
+        SliverToBoxAdapter(
+          child: SizedBox(
+            key: const Key('timing-home-bottom-navigation-spacer'),
+            height: bottomSpacer,
+          ),
+        ),
+      ],
     );
   }
 }
