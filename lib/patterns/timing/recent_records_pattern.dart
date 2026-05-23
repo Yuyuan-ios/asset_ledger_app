@@ -467,9 +467,9 @@ class _RecordRow extends StatelessWidget {
       height: 1,
     );
     final subTitleSecondaryStyle = subTitleStyle?.copyWith(
-      fontSize: TimingTokens.dateHeaderFontSize,
+      fontSize: TimingTokens.recordValueFontSize - 1,
       fontWeight: FontWeight.w400,
-      height: TimingTokens.dateHeaderLineHeight,
+      height: 1,
     );
     final valueStyle = textTheme.bodyMedium?.copyWith(
       fontSize: TimingTokens.recordValueFontSize,
