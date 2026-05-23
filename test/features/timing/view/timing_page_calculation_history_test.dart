@@ -395,6 +395,33 @@ void main() {
     expect(find.text('payload-sha256-hidden'), findsNothing);
   });
 
+  testWidgets('tapping 关联 opens the link-to-project sheet skeleton', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord()],
+    );
+
+    await _switchToExternalWork(tester);
+    await tester.tap(find.byKey(const Key('timing-external-work-header-link')));
+    await tester.pumpAndSettle();
+
+    // 弹窗标题。
+    expect(find.text('关联到项目'), findsOneWidget);
+    // 外协包摘要次行（设备 · N条记录 · 累计工时）唯一存在于弹窗内。
+    expect(find.text('CAT · 1条记录 · 8.5h'), findsOneWidget);
+    // 不出现"合并X项目"。
+    expect(find.textContaining('合并'), findsNothing);
+    // 候选项目区已渲染（非空）。
+    expect(find.text('选择要关联的项目'), findsOneWidget);
+    expect(find.text('暂无可关联的自有项目'), findsNothing);
+    // 确认关联按钮存在（占位，不写库）。
+    expect(find.byKey(const Key('external-work-link-confirm')), findsOneWidget);
+  });
+
   testWidgets(
     'external work section aggregates records in the same share group',
     (WidgetTester tester) async {
@@ -510,7 +537,7 @@ void main() {
     expect(find.byIcon(Icons.link), findsNWidgets(2));
   });
 
-  testWidgets('external work header link action shows placeholder only', (
+  testWidgets('confirming a candidate is a placeholder (no DB write)', (
     WidgetTester tester,
   ) async {
     await _pumpTimingPage(
@@ -522,9 +549,26 @@ void main() {
 
     await _switchToExternalWork(tester);
     await tester.tap(find.byKey(const Key('timing-external-work-header-link')));
+    await tester.pumpAndSettle();
+
+    // 选中第一个候选项目（projectId 由账户聚合生成，按 key 前缀定位）。
+    final candidate = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key as ValueKey<String>).value.startsWith(
+            'external-work-link-candidate-',
+          ),
+    );
+    expect(candidate, findsWidgets);
+    await tester.tap(candidate.first);
     await tester.pump();
 
-    expect(find.text('关联到项目功能将在下一阶段开放'), findsOneWidget);
+    // 确认关联：仅占位提示，不写库。
+    await tester.tap(find.byKey(const Key('external-work-link-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.textContaining('关联写入将在下一阶段开放'), findsOneWidget);
   });
 
   testWidgets('external work item opens read-only detail sheet', (
