@@ -94,12 +94,11 @@ class MaintenanceRecordsContent extends StatelessWidget {
           )
         else
           for (var index = 0; index < rows.length; index++) ...[
-            if (index > 0)
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: TimingColors.divider,
-              ),
+            const Divider(
+              height: TimingTokens.recordDividerThickness,
+              thickness: TimingTokens.recordDividerThickness,
+              color: TimingColors.divider,
+            ),
             Builder(
               builder: (context) {
                 final row = rows[index];
