@@ -19,7 +19,6 @@ class TimingHomePattern extends StatefulWidget {
     super.key,
     required this.header,
     required this.chart,
-    required this.recordsTitle,
     required this.recordsSection,
     required this.onRecordsSectionChanged,
     required this.records,
@@ -29,6 +28,7 @@ class TimingHomePattern extends StatefulWidget {
     this.onTapRecord,
     this.onTapExternalWorkRecord,
     this.onImportExternalWork,
+    this.onLinkExternalWork,
     required this.loading,
     this.error,
     this.onRetry,
@@ -36,7 +36,6 @@ class TimingHomePattern extends StatefulWidget {
 
   final Widget header;
   final Widget chart;
-  final Widget recordsTitle;
   final TimingRecordsSection recordsSection;
   final ValueChanged<TimingRecordsSection> onRecordsSectionChanged;
   final List<TimingRecord> records;
@@ -46,6 +45,7 @@ class TimingHomePattern extends StatefulWidget {
   final ValueChanged<TimingRecord>? onTapRecord;
   final ValueChanged<TimingExternalWorkRecordItem>? onTapExternalWorkRecord;
   final VoidCallback? onImportExternalWork;
+  final VoidCallback? onLinkExternalWork;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
@@ -158,6 +158,13 @@ class _TimingHomePatternState extends State<TimingHomePattern>
               constraints.maxWidth,
               basePadding: TimingTokens.homePageHorizontalPadding,
             );
+            final recentTopLevelCount = timingRecentTopLevelRecordCount(
+              widget.records,
+              _locallyRemovedRecordKeys,
+            );
+            final externalWorkTopLevelCount = timingExternalWorkTopLevelCount(
+              widget.externalWorkItems,
+            );
 
             // 底部导航栏（router extendBody:true）悬浮在内容之上，每页列表预留
             // 清空高度，保证最后一条记录不被底栏遮挡。
@@ -228,13 +235,25 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                                       title:
                                           widget.recordsSection ==
                                               TimingRecordsSection.recent
-                                          ? widget.recordsTitle
+                                          ? _RecordsAreaTitle(
+                                              label: '最近记录',
+                                              count: recentTopLevelCount,
+                                            )
                                           : _RecordsAreaTitle(
                                               label: '项目外协',
-                                              count: widget
-                                                  .externalWorkItems
-                                                  .length,
+                                              count: externalWorkTopLevelCount,
                                             ),
+                                      actions:
+                                          widget.recordsSection ==
+                                              TimingRecordsSection.externalWork
+                                          ? _ExternalWorkHeaderActions(
+                                              hasExternalWork:
+                                                  externalWorkTopLevelCount > 0,
+                                              onImport:
+                                                  widget.onImportExternalWork,
+                                              onLink: widget.onLinkExternalWork,
+                                            )
+                                          : null,
                                     ),
                                   ),
                                 ),
@@ -272,7 +291,6 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                                   _expandedExternalWorkAggregateKeys,
                               onToggleAggregate: _toggleExternalWorkAggregate,
                               onTapRecord: widget.onTapExternalWorkRecord,
-                              onImportShareFile: widget.onImportExternalWork,
                             ),
                           ),
                         ],
@@ -325,13 +343,23 @@ class _RecordsTabBody extends StatelessWidget {
 }
 
 class _RecordsAreaHeader extends StatelessWidget {
-  const _RecordsAreaHeader({required this.title});
+  const _RecordsAreaHeader({required this.title, this.actions});
 
   final Widget title;
+  final Widget? actions;
 
   @override
   Widget build(BuildContext context) {
-    return Align(alignment: Alignment.topLeft, child: title);
+    final actions = this.actions;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Align(alignment: Alignment.centerLeft, child: title),
+        ),
+        ?actions,
+      ],
+    );
   }
 }
 
@@ -352,5 +380,86 @@ class _RecordsAreaTitle extends StatelessWidget {
     );
 
     return Text('$label($count)', style: titleStyle);
+  }
+}
+
+class _ExternalWorkHeaderActions extends StatelessWidget {
+  const _ExternalWorkHeaderActions({
+    required this.hasExternalWork,
+    this.onImport,
+    this.onLink,
+  });
+
+  final bool hasExternalWork;
+  final VoidCallback? onImport;
+  final VoidCallback? onLink;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onImport != null)
+          _ExternalWorkHeaderActionButton(
+            key: const Key('timing-external-work-header-import'),
+            icon: Icons.file_download_outlined,
+            label: '导入',
+            onPressed: onImport,
+          ),
+        if (hasExternalWork && onLink != null) ...[
+          const SizedBox(width: 6),
+          _ExternalWorkHeaderActionButton(
+            key: const Key('timing-external-work-header-link'),
+            icon: Icons.link,
+            label: '关联',
+            onPressed: onLink,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ExternalWorkHeaderActionButton extends StatelessWidget {
+  const _ExternalWorkHeaderActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppColors.brand.withValues(alpha: 0.8);
+    final textStyle = AppTypography.actionText(
+      context,
+      fontSize: 15,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      color: color,
+    );
+
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: color,
+        visualDensity: VisualDensity.compact,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 2),
+          Text(label, style: textStyle),
+        ],
+      ),
+    );
   }
 }

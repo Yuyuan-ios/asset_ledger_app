@@ -1,6 +1,6 @@
 import 'package:asset_ledger/components/layout/pinned_header_delegate.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
-import 'package:asset_ledger/patterns/timing/records_title_pattern.dart';
+import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/patterns/timing/timing_home_pattern.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
@@ -16,13 +16,14 @@ void main() {
           home: TimingHomePattern(
             header: const SizedBox(height: 20),
             chart: const SizedBox(height: 80),
-            recordsTitle: const RecordsTitle(count: 13),
             recordsSection: TimingRecordsSection.recent,
             onRecordsSectionChanged: (_) {},
             records: const [],
             externalWorkItems: const [],
             deviceById: const {},
             deviceIndexById: const {},
+            onImportExternalWork: () {},
+            onLinkExternalWork: () {},
             loading: false,
           ),
         ),
@@ -39,16 +40,119 @@ void main() {
             TimingTokens.homeRecordsTitleTopGap,
       );
       expect(delegate.maxExtent, delegate.minExtent);
-      expect(find.text('最近记录(13)'), findsOneWidget);
+      expect(find.text('最近记录(0)'), findsOneWidget);
       expect(find.text('最近记录'), findsNothing);
       expect(find.text('项目外协'), findsNothing);
+      expect(find.text('导入'), findsNothing);
+      expect(find.text('关联'), findsNothing);
     },
   );
+
+  testWidgets('recent title counts top-level rows instead of raw records', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimingHomePattern(
+          header: const SizedBox(height: 20),
+          chart: const SizedBox(height: 80),
+          recordsSection: TimingRecordsSection.recent,
+          onRecordsSectionChanged: (_) {},
+          records: [
+            _timingRecord(
+              id: 1,
+              deviceId: 1,
+              contact: '李洋',
+              site: '天眉乐',
+              startMeter: 100,
+              endMeter: 108,
+              hours: 8,
+            ),
+            _timingRecord(
+              id: 2,
+              deviceId: 1,
+              contact: '李洋',
+              site: '天眉乐',
+              startMeter: 108,
+              endMeter: 116,
+              hours: 8,
+            ),
+            _timingRecord(
+              id: 3,
+              deviceId: 2,
+              contact: '王强',
+              site: '五里山',
+              startMeter: 200,
+              endMeter: 205,
+              hours: 5,
+            ),
+          ],
+          externalWorkItems: const [],
+          deviceById: const {},
+          deviceIndexById: const {1: '1#', 2: '2#'},
+          loading: false,
+        ),
+      ),
+    );
+
+    expect(find.text('最近记录(2)'), findsOneWidget);
+    expect(find.text('最近记录(3)'), findsNothing);
+
+    await tester.tap(find.text('李洋·天眉乐'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近记录(2)'), findsOneWidget);
+    expect(find.text('最近记录(4)'), findsNothing);
+  });
+
+  testWidgets('empty external work header shows import only', (tester) async {
+    var importTapped = false;
+    var linkTapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimingHomePattern(
+          header: const SizedBox(height: 20),
+          chart: const SizedBox(height: 80),
+          recordsSection: TimingRecordsSection.externalWork,
+          onRecordsSectionChanged: (_) {},
+          records: const [],
+          externalWorkItems: const [],
+          deviceById: const {},
+          deviceIndexById: const {},
+          onImportExternalWork: () => importTapped = true,
+          onLinkExternalWork: () => linkTapped = true,
+          loading: false,
+        ),
+      ),
+    );
+
+    expect(find.text('项目外协(0)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-external-work-header-import')),
+      findsOneWidget,
+    );
+    expect(find.text('导入'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-external-work-header-link')),
+      findsNothing,
+    );
+    expect(find.text('关联'), findsNothing);
+    expect(find.text('导入项目外协包'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('timing-external-work-header-import')),
+    );
+    expect(importTapped, isTrue);
+    expect(linkTapped, isFalse);
+  });
 
   testWidgets('swiping records sections syncs the title without a capsule', (
     tester,
   ) async {
     var section = TimingRecordsSection.recent;
+    var importTapped = false;
+    var linkTapped = false;
     final externalItems = List.generate(3, _externalItem);
 
     Future<void> pump() async {
@@ -59,7 +163,6 @@ void main() {
               return TimingHomePattern(
                 header: const SizedBox(height: 20),
                 chart: const SizedBox(height: 80),
-                recordsTitle: const RecordsTitle(count: 0),
                 recordsSection: section,
                 onRecordsSectionChanged: (next) {
                   setState(() => section = next);
@@ -68,6 +171,8 @@ void main() {
                 externalWorkItems: externalItems,
                 deviceById: const {},
                 deviceIndexById: const {},
+                onImportExternalWork: () => importTapped = true,
+                onLinkExternalWork: () => linkTapped = true,
                 loading: false,
               );
             },
@@ -84,16 +189,61 @@ void main() {
     expect(find.text('项目外协(3)'), findsNothing);
     expect(find.text('最近记录'), findsNothing);
     expect(find.text('项目外协'), findsNothing);
+    expect(find.text('导入'), findsNothing);
+    expect(find.text('关联'), findsNothing);
 
     await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
     expect(section, TimingRecordsSection.externalWork);
-    expect(find.text('项目外协(3)'), findsOneWidget);
+    expect(find.text('项目外协(1)'), findsOneWidget);
+    expect(find.text('项目外协(3)'), findsNothing);
     expect(find.text('项目外协(3条)'), findsNothing);
     expect(find.text('最近记录'), findsNothing);
     expect(find.text('项目外协'), findsNothing);
+    expect(
+      find.byKey(const Key('timing-external-work-header-import')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('timing-external-work-header-link')),
+      findsOneWidget,
+    );
+    expect(find.text('导入'), findsOneWidget);
+    expect(find.text('关联'), findsOneWidget);
+    expect(find.byIcon(Icons.link), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('timing-external-work-header-import')),
+    );
+    await tester.tap(find.byKey(const Key('timing-external-work-header-link')));
+
+    expect(importTapped, isTrue);
+    expect(linkTapped, isTrue);
   });
+}
+
+TimingRecord _timingRecord({
+  required int id,
+  required int deviceId,
+  required String contact,
+  required String site,
+  required double startMeter,
+  required double endMeter,
+  required double hours,
+}) {
+  return TimingRecord(
+    id: id,
+    deviceId: deviceId,
+    startDate: 20260501,
+    contact: contact,
+    site: site,
+    type: TimingType.hours,
+    startMeter: startMeter,
+    endMeter: endMeter,
+    hours: hours,
+    income: hours * 100,
+  );
 }
 
 TimingExternalWorkRecordItem _externalItem(int index) {

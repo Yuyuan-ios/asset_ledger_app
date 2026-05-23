@@ -12,22 +12,13 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
   required Set<String> expandedAggregateKeys,
   required ValueChanged<String> onToggleAggregate,
   ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
-  VoidCallback? onImportShareFile,
 }) {
   if (items.isEmpty) {
-    return <Widget>[
+    return const <Widget>[
       SliverToBoxAdapter(
-        child: Column(
-          children: [
-            const AppRecentRecordsEmptyState(
-              title: '暂无项目外协记录',
-              subtitle: '从他人分享的 .jzt 文件导入后，会显示在这里',
-            ),
-            if (onImportShareFile != null) ...[
-              const SizedBox(height: 12),
-              _ImportShareFileButton(onPressed: onImportShareFile),
-            ],
-          ],
+        child: AppRecentRecordsEmptyState(
+          title: '暂无项目外协记录',
+          subtitle: '从他人分享的 .jzt 文件导入后，会显示在这里',
         ),
       ),
     ];
@@ -41,13 +32,6 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
   );
 
   return <Widget>[
-    if (onImportShareFile != null)
-      SliverToBoxAdapter(
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: _ImportShareFileButton(onPressed: onImportShareFile),
-        ),
-      ),
     SliverToBoxAdapter(child: _ExternalWorkRecordGroupCard(rows: displayRows)),
   ];
 }
@@ -58,6 +42,21 @@ Set<String> timingExternalWorkAggregateKeys(
   return _buildExternalWorkAggregateGroups(
     items,
   ).map((group) => group.key).toSet();
+}
+
+int timingExternalWorkTopLevelCount(List<TimingExternalWorkRecordItem> items) {
+  final aggregateGroups = _buildExternalWorkAggregateGroups(items);
+  final groupedItemKeys = <String>{
+    for (final group in aggregateGroups)
+      for (final item in group.items) _externalWorkItemKey(item),
+  };
+
+  return aggregateGroups.length +
+      items
+          .where(
+            (item) => !groupedItemKeys.contains(_externalWorkItemKey(item)),
+          )
+          .length;
 }
 
 List<Widget> _buildExternalWorkDisplayRows({
@@ -196,22 +195,6 @@ class _ExternalWorkAggregateGroup {
         0,
         (sum, item) => sum + item.record.hoursMilli,
       ),
-    );
-  }
-}
-
-class _ImportShareFileButton extends StatelessWidget {
-  const _ImportShareFileButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      key: const Key('timing-external-work-import-share-file'),
-      onPressed: onPressed,
-      icon: const Icon(Icons.file_download_outlined, size: 18),
-      label: const Text('导入项目外协包'),
     );
   }
 }
