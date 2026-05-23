@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../components/buttons/app_primary_button.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
-import '../../tokens/mapper/core_tokens.dart';
 
 /// 选择已结清项目时的边界提示文案（关联不改变项目财务/结清状态）。
 const String externalWorkLinkSettledHint =
@@ -28,6 +27,29 @@ String externalWorkLinkSiteSummary(Iterable<String> sites, {int maxShown = 2}) {
   return distinct.length > maxShown ? '$shown...' : shown;
 }
 
+/// 可关联的外协包（一个 importBatch）。仅承载展示，不写库。
+class ExternalWorkLinkPackage {
+  const ExternalWorkLinkPackage({
+    required this.batchId,
+    required this.optionTitle,
+    required this.summaryDetail,
+    this.linkedProjectTitle,
+  });
+
+  /// 选项标题：来源人 · 地址摘要（如 “余远 · 鲜滩”）。
+  final String optionTitle;
+
+  /// 摘要次行：设备 · N条记录 · 累计工时。
+  final String summaryDetail;
+
+  final String batchId;
+
+  /// 已关联项目名（非空时该包显示已关联态 + 解除入口）。
+  final String? linkedProjectTitle;
+
+  bool get isLinked => (linkedProjectTitle ?? '').trim().isNotEmpty;
+}
+
 /// 候选自有项目（关联弹窗用）。本阶段只承载展示与选择，不写库。
 class ExternalWorkLinkCandidate {
   const ExternalWorkLinkCandidate({
@@ -41,46 +63,65 @@ class ExternalWorkLinkCandidate {
   final bool settled;
 }
 
+typedef ExternalWorkLinkConfirm =
+    void Function(
+      ExternalWorkLinkPackage package,
+      ExternalWorkLinkCandidate candidate,
+    );
+
+typedef ExternalWorkLinkUnlink = void Function(ExternalWorkLinkPackage package);
+
 /// “关联到项目”底部弹窗内容（阶段二骨架）。
 ///
-/// 只负责展示外协包摘要 + 候选项目选择 + 已结清边界提示，并通过回调把
-/// “确认关联 / 解除关联 / 取消” 交给上层。**不做任何写库**。
+/// 顶部"选择外协包" → "外协包摘要"（随选择同步）→ "选择要关联的项目"，并通过
+/// 回调把 确认关联 / 解除关联 / 取消 交给上层。**不做任何写库**。
 class ExternalWorkLinkSheet extends StatefulWidget {
   const ExternalWorkLinkSheet({
     super.key,
-    required this.summaryTitle,
-    required this.summaryDetail,
+    required this.packages,
     required this.candidates,
     required this.onConfirm,
     required this.onCancel,
-    this.linkedProjectTitle,
     this.onUnlink,
+    this.initialBatchId,
   });
 
-  /// 外协包摘要主行：来源人 · 地址摘要。
-  final String summaryTitle;
-
-  /// 外协包摘要次行：设备 · N条记录 · 累计工时。
-  final String summaryDetail;
-
+  final List<ExternalWorkLinkPackage> packages;
   final List<ExternalWorkLinkCandidate> candidates;
-  final ValueChanged<ExternalWorkLinkCandidate> onConfirm;
+  final ExternalWorkLinkConfirm onConfirm;
   final VoidCallback onCancel;
-
-  /// 已关联项目名（非空时显示已关联态 + 解除入口）。
-  final String? linkedProjectTitle;
-  final VoidCallback? onUnlink;
+  final ExternalWorkLinkUnlink? onUnlink;
+  final String? initialBatchId;
 
   @override
   State<ExternalWorkLinkSheet> createState() => _ExternalWorkLinkSheetState();
 }
 
 class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
+  String? _selectedBatchId;
   String? _selectedProjectId;
 
-  bool get _isLinked => (widget.linkedProjectTitle ?? '').trim().isNotEmpty;
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialBatchId;
+    final hasInitial =
+        initial != null && widget.packages.any((pkg) => pkg.batchId == initial);
+    _selectedBatchId = hasInitial
+        ? initial
+        : (widget.packages.isEmpty ? null : widget.packages.first.batchId);
+  }
 
-  ExternalWorkLinkCandidate? get _selected {
+  ExternalWorkLinkPackage? get _selectedPackage {
+    final id = _selectedBatchId;
+    if (id == null) return null;
+    for (final pkg in widget.packages) {
+      if (pkg.batchId == id) return pkg;
+    }
+    return widget.packages.isEmpty ? null : widget.packages.first;
+  }
+
+  ExternalWorkLinkCandidate? get _selectedCandidate {
     final id = _selectedProjectId;
     if (id == null) return null;
     for (final candidate in widget.candidates) {
@@ -91,6 +132,7 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final package = _selectedPackage;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpace.lg,
@@ -102,21 +144,46 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _SummaryCard(
-            title: widget.summaryTitle,
-            detail: widget.summaryDetail,
-          ),
-          const SizedBox(height: AppSpace.md),
-          if (_isLinked) ..._buildLinkedBody(context) else ..._buildPickBody(),
+          if (widget.packages.isNotEmpty) ...[
+            Text('选择外协包', style: AppTypography.sectionTitle(context)),
+            const SizedBox(height: AppSpace.sm),
+            for (final pkg in widget.packages)
+              _RadioRow(
+                key: Key('external-work-link-package-${pkg.batchId}'),
+                title: pkg.optionTitle,
+                selected: pkg.batchId == _selectedBatchId,
+                onTap: () => setState(() => _selectedBatchId = pkg.batchId),
+              ),
+            const SizedBox(height: AppSpace.md),
+          ],
+          if (package != null) ...[
+            Text('外协包摘要', style: AppTypography.sectionTitle(context)),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              package.summaryDetail,
+              style: AppTypography.caption(
+                context,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            if (package.isLinked)
+              ..._buildLinkedBody(context, package)
+            else
+              ..._buildPickBody(package),
+          ],
         ],
       ),
     );
   }
 
-  List<Widget> _buildLinkedBody(BuildContext context) {
+  List<Widget> _buildLinkedBody(
+    BuildContext context,
+    ExternalWorkLinkPackage package,
+  ) {
     return [
       Text(
-        '已关联：${widget.linkedProjectTitle}',
+        '已关联：${package.linkedProjectTitle}',
         style: AppTypography.body(context, fontWeight: FontWeight.w600),
       ),
       const SizedBox(height: AppSpace.lg),
@@ -133,7 +200,9 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
           Expanded(
             child: OutlinedButton(
               key: const Key('external-work-link-unlink'),
-              onPressed: widget.onUnlink,
+              onPressed: widget.onUnlink == null
+                  ? null
+                  : () => widget.onUnlink!(package),
               child: const Text('解除关联'),
             ),
           ),
@@ -142,8 +211,8 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
     ];
   }
 
-  List<Widget> _buildPickBody() {
-    final selected = _selected;
+  List<Widget> _buildPickBody(ExternalWorkLinkPackage package) {
+    final candidate = _selectedCandidate;
     return [
       Text('选择要关联的项目', style: AppTypography.sectionTitle(context)),
       const SizedBox(height: AppSpace.sm),
@@ -156,15 +225,14 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
           ),
         )
       else
-        for (final candidate in widget.candidates)
-          _CandidateTile(
-            key: Key('external-work-link-candidate-${candidate.projectId}'),
-            candidate: candidate,
-            selected: _selectedProjectId == candidate.projectId,
-            onTap: () =>
-                setState(() => _selectedProjectId = candidate.projectId),
+        for (final item in widget.candidates)
+          _RadioRow(
+            key: Key('external-work-link-candidate-${item.projectId}'),
+            title: item.settled ? '${item.title}（已结清）' : item.title,
+            selected: _selectedProjectId == item.projectId,
+            onTap: () => setState(() => _selectedProjectId = item.projectId),
           ),
-      if (selected != null && selected.settled) ...[
+      if (candidate != null && candidate.settled) ...[
         const SizedBox(height: AppSpace.sm),
         Text(
           externalWorkLinkSettledHint,
@@ -186,9 +254,9 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
             child: AppPrimaryButton(
               key: const Key('external-work-link-confirm'),
               label: '确认关联',
-              onPressed: selected == null
+              onPressed: candidate == null
                   ? null
-                  : () => widget.onConfirm(selected),
+                  : () => widget.onConfirm(package, candidate),
             ),
           ),
         ],
@@ -197,15 +265,15 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
   }
 }
 
-class _CandidateTile extends StatelessWidget {
-  const _CandidateTile({
+class _RadioRow extends StatelessWidget {
+  const _RadioRow({
     super.key,
-    required this.candidate,
+    required this.title,
     required this.selected,
     required this.onTap,
   });
 
-  final ExternalWorkLinkCandidate candidate;
+  final String title;
   final bool selected;
   final VoidCallback onTap;
 
@@ -226,55 +294,7 @@ class _CandidateTile extends StatelessWidget {
               color: selected ? colorScheme.primary : colorScheme.outline,
             ),
             const SizedBox(width: AppSpace.sm),
-            Expanded(
-              child: Text(
-                candidate.settled ? '${candidate.title}（已结清）' : candidate.title,
-                style: AppTypography.body(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.title, required this.detail});
-
-  final String title;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.body(context, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              detail,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.caption(
-                context,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
+            Expanded(child: Text(title, style: AppTypography.body(context))),
           ],
         ),
       ),

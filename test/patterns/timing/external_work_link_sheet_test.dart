@@ -26,68 +26,94 @@ void main() {
     });
   });
 
-  Future<void> pumpUnlinked(
+  const candidates = [
+    ExternalWorkLinkCandidate(
+      projectId: 'p1',
+      title: '李杰 + 鲜滩',
+      settled: false,
+    ),
+    ExternalWorkLinkCandidate(
+      projectId: 'p2',
+      title: '刘锐 + 五里山',
+      settled: true,
+    ),
+  ];
+
+  const pkgXiantan = ExternalWorkLinkPackage(
+    batchId: 'b1',
+    optionTitle: '余远 · 鲜滩',
+    summaryDetail: 'Hitachi · 5条记录 · 239.0h',
+  );
+  const pkgWuli = ExternalWorkLinkPackage(
+    batchId: 'b2',
+    optionTitle: '余远 · 五里山',
+    summaryDetail: 'CAT · 3条记录 · 120.0h',
+  );
+
+  Future<void> pumpSheet(
     WidgetTester tester, {
-    required List<ExternalWorkLinkCandidate> candidates,
-    required void Function(ExternalWorkLinkCandidate) onConfirm,
-    VoidCallback? onCancel,
+    required List<ExternalWorkLinkPackage> packages,
+    List<ExternalWorkLinkCandidate> withCandidates = candidates,
+    ExternalWorkLinkConfirm? onConfirm,
+    ExternalWorkLinkUnlink? onUnlink,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: ExternalWorkLinkSheet(
-            summaryTitle: '余远 · 鲜滩+尚义...',
-            summaryDetail: 'Hitachi · 6条记录 · 248.0h',
-            candidates: candidates,
-            onConfirm: onConfirm,
-            onCancel: onCancel ?? () {},
+            packages: packages,
+            candidates: withCandidates,
+            onConfirm: onConfirm ?? (_, _) {},
+            onCancel: () {},
+            onUnlink: onUnlink,
           ),
         ),
       ),
     );
   }
 
-  testWidgets('unlinked sheet shows summary + candidates, no 合并X项目', (
+  testWidgets('multiple packages show the picker with 来源人 · 地址摘要', (
     tester,
   ) async {
-    await pumpUnlinked(
-      tester,
-      candidates: const [
-        ExternalWorkLinkCandidate(
-          projectId: 'p1',
-          title: '李杰 + 鲜滩',
-          settled: false,
-        ),
-        ExternalWorkLinkCandidate(
-          projectId: 'p2',
-          title: '刘锐 + 五里山',
-          settled: true,
-        ),
-      ],
-      onConfirm: (_) {},
-    );
+    await pumpSheet(tester, packages: const [pkgXiantan, pkgWuli]);
 
-    expect(find.text('余远 · 鲜滩+尚义...'), findsOneWidget);
-    expect(find.text('Hitachi · 6条记录 · 248.0h'), findsOneWidget);
-    expect(find.text('李杰 + 鲜滩'), findsOneWidget);
-    expect(find.text('刘锐 + 五里山（已结清）'), findsOneWidget);
+    expect(find.text('选择外协包'), findsOneWidget);
+    expect(find.text('余远 · 鲜滩'), findsOneWidget);
+    expect(find.text('余远 · 五里山'), findsOneWidget);
     expect(find.textContaining('合并'), findsNothing);
   });
 
-  testWidgets('confirm is disabled until a candidate is selected', (
+  testWidgets('switching package syncs the summary detail', (tester) async {
+    await pumpSheet(tester, packages: const [pkgXiantan, pkgWuli]);
+
+    // 默认选中第一个包。
+    expect(find.text('Hitachi · 5条记录 · 239.0h'), findsOneWidget);
+    expect(find.text('CAT · 3条记录 · 120.0h'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('external-work-link-package-b2')));
+    await tester.pump();
+
+    expect(find.text('CAT · 3条记录 · 120.0h'), findsOneWidget);
+    expect(find.text('Hitachi · 5条记录 · 239.0h'), findsNothing);
+  });
+
+  testWidgets('single package is shown + selectable and confirmable', (
     tester,
   ) async {
-    await pumpUnlinked(
+    ExternalWorkLinkPackage? confirmedPkg;
+    ExternalWorkLinkCandidate? confirmedCandidate;
+    await pumpSheet(
       tester,
-      candidates: const [
-        ExternalWorkLinkCandidate(
-          projectId: 'p1',
-          title: '李杰 + 鲜滩',
-          settled: false,
-        ),
-      ],
-      onConfirm: (_) {},
+      packages: const [pkgXiantan],
+      onConfirm: (pkg, candidate) {
+        confirmedPkg = pkg;
+        confirmedCandidate = candidate;
+      },
     );
+
+    // 单包也显示"选择外协包"，且默认选中、摘要可见。
+    expect(find.text('选择外协包'), findsOneWidget);
+    expect(find.text('Hitachi · 5条记录 · 239.0h'), findsOneWidget);
 
     AppPrimaryButton confirm() => tester.widget<AppPrimaryButton>(
       find.byKey(const Key('external-work-link-confirm')),
@@ -97,22 +123,17 @@ void main() {
     await tester.tap(find.byKey(const Key('external-work-link-candidate-p1')));
     await tester.pump();
     expect(confirm().onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const Key('external-work-link-confirm')));
+    await tester.pump();
+    expect(confirmedPkg?.batchId, 'b1');
+    expect(confirmedCandidate?.projectId, 'p1');
   });
 
   testWidgets('selecting a settled candidate surfaces the boundary hint', (
     tester,
   ) async {
-    await pumpUnlinked(
-      tester,
-      candidates: const [
-        ExternalWorkLinkCandidate(
-          projectId: 'p2',
-          title: '刘锐 + 五里山',
-          settled: true,
-        ),
-      ],
-      onConfirm: (_) {},
-    );
+    await pumpSheet(tester, packages: const [pkgXiantan]);
 
     expect(find.text(externalWorkLinkSettledHint), findsNothing);
     await tester.tap(find.byKey(const Key('external-work-link-candidate-p2')));
@@ -120,48 +141,21 @@ void main() {
     expect(find.text(externalWorkLinkSettledHint), findsOneWidget);
   });
 
-  testWidgets('confirm fires onConfirm with the selected candidate', (
+  testWidgets('linked package shows linked state + unlink, no confirm', (
     tester,
   ) async {
-    ExternalWorkLinkCandidate? confirmed;
-    await pumpUnlinked(
+    ExternalWorkLinkPackage? unlinked;
+    await pumpSheet(
       tester,
-      candidates: const [
-        ExternalWorkLinkCandidate(
-          projectId: 'p1',
-          title: '李杰 + 鲜滩',
-          settled: false,
+      packages: const [
+        ExternalWorkLinkPackage(
+          batchId: 'b1',
+          optionTitle: '余远 · 鲜滩',
+          summaryDetail: 'Hitachi · 5条记录 · 239.0h',
+          linkedProjectTitle: '李杰 + 鲜滩',
         ),
       ],
-      onConfirm: (candidate) => confirmed = candidate,
-    );
-
-    await tester.tap(find.byKey(const Key('external-work-link-candidate-p1')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('external-work-link-confirm')));
-    await tester.pump();
-
-    expect(confirmed?.projectId, 'p1');
-  });
-
-  testWidgets('linked sheet shows linked state + unlink, no confirm', (
-    tester,
-  ) async {
-    var unlinkTapped = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ExternalWorkLinkSheet(
-            summaryTitle: '余远 · 鲜滩',
-            summaryDetail: 'Hitachi · 6条记录 · 248.0h',
-            candidates: const [],
-            linkedProjectTitle: '李杰 + 鲜滩',
-            onConfirm: (_) {},
-            onCancel: () {},
-            onUnlink: () => unlinkTapped = true,
-          ),
-        ),
-      ),
+      onUnlink: (pkg) => unlinked = pkg,
     );
 
     expect(find.text('已关联：李杰 + 鲜滩'), findsOneWidget);
@@ -169,6 +163,6 @@ void main() {
 
     await tester.tap(find.byKey(const Key('external-work-link-unlink')));
     await tester.pump();
-    expect(unlinkTapped, isTrue);
+    expect(unlinked?.batchId, 'b1');
   });
 }
