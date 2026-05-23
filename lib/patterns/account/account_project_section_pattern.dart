@@ -41,12 +41,6 @@ class AccountProjectPinnedHeader extends StatelessWidget {
                 padding: EdgeInsets.only(
                   right: onToggleCompactProjectList == null ? 0 : 2,
                 ),
-                decoration: BoxDecoration(
-                  color: isCompactProjectList
-                      ? const Color(0xFFECECEC)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(1),
-                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -112,11 +106,14 @@ class _ProjectDensityLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lineColor = isCompact
+        ? TimingColors.textSecondary
+        : AppColors.textPrimary;
     return Container(
       width: 14,
       height: 3,
       decoration: BoxDecoration(
-        color: isCompact ? const Color(0xFF666666) : const Color(0xFF8A8A8A),
+        color: lineColor,
         borderRadius: BorderRadius.circular(1.2),
       ),
     );

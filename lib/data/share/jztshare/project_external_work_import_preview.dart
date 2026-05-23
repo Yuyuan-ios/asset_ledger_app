@@ -52,6 +52,7 @@ class ExternalWorkImportPreviewLine {
     required this.sourceUnitPriceFen,
     required this.localUnitPriceFen,
     required this.amountFen,
+    this.projectReceivedFen = 0,
     required this.duplicateStatus,
     this.recordKind = ExternalWorkRecordKind.hours,
     this.note,
@@ -75,6 +76,7 @@ class ExternalWorkImportPreviewLine {
       sourceUnitPriceFen: line.sourceUnitPriceFen,
       localUnitPriceFen: line.sourceUnitPriceFen,
       amountFen: line.amountFen,
+      projectReceivedFen: 0,
       duplicateStatus: duplicateStatus,
       // legacy export_lines 路径只产出 hours 行（builder _tryBuildExportLine
       // 已过滤 rent），这里固定为 hours。
@@ -105,6 +107,7 @@ class ExternalWorkImportPreviewLine {
       sourceUnitPriceFen: record.sourceUnitPriceFen,
       localUnitPriceFen: record.sourceUnitPriceFen,
       amountFen: record.incomeFen,
+      projectReceivedFen: projectSnapshot.projectReceivedFen,
       duplicateStatus: duplicateStatus,
       recordKind: externalWorkRecordKindFromName(record.type),
       note: null,
@@ -127,6 +130,7 @@ class ExternalWorkImportPreviewLine {
   final int? sourceUnitPriceFen;
   final int? localUnitPriceFen;
   final int amountFen;
+  final int projectReceivedFen;
   final ExternalWorkDuplicateStatus duplicateStatus;
   final ExternalWorkRecordKind recordKind;
   final String? note;

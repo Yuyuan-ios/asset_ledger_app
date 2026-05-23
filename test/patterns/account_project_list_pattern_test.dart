@@ -1,6 +1,7 @@
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/patterns/account/account_project_list_pattern.dart';
 import 'package:asset_ledger/patterns/account/account_project_section_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -483,6 +484,11 @@ void main() {
 
     expect(find.text('项目(5)'), findsOneWidget);
     expect(find.byTooltip('普通显示'), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFECECEC)), findsNothing);
+    expect(
+      _densityLinesWithColor(TimingColors.textSecondary),
+      findsNWidgets(3),
+    );
 
     await tester.tap(find.text('项目(5)'));
     await tester.pump();
@@ -494,7 +500,29 @@ void main() {
     expect(toggleCount, 1);
     expect(trailingTapCount, 1);
   });
+
+  testWidgets('project density icon uses primary color in normal mode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AccountProjectPinnedHeader(
+            projectCount: 5,
+            onToggleCompactProjectList: _noop,
+            trailing: SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('项目(5)'), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFECECEC)), findsNothing);
+    expect(_densityLinesWithColor(AppColors.textPrimary), findsNWidgets(3));
+  });
 }
+
+void _noop() {}
 
 Finder _badgeWithColor(Color color) {
   return find.byWidgetPredicate((widget) {
@@ -516,6 +544,18 @@ Finder _containerWithBorder(Color color) {
     return decoration is BoxDecoration &&
         decoration.border is Border &&
         (decoration.border as Border).top.color == color;
+  });
+}
+
+Finder _densityLinesWithColor(Color color) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! Container) return false;
+    final decoration = widget.decoration;
+    return widget.constraints ==
+            const BoxConstraints.tightFor(width: 14, height: 3) &&
+        decoration is BoxDecoration &&
+        decoration.color == color &&
+        decoration.borderRadius == BorderRadius.circular(1.2);
   });
 }
 

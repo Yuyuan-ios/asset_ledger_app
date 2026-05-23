@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart'; // 引入 Flutter 基础 Material 类型，供颜色常量使用
+import 'glass_tokens.dart';
 
 /// 全局底部导航栏 token（从业务页 token 中拆出，避免继续挂在 timing 下）
 class NavigationTokens {
@@ -25,12 +26,14 @@ class NavigationTokens {
   static const double assetVariantStride = 110; // 设计参考中不同状态变体的纵向间隔
   static const double contentScale = 0.92; // 底部导航内容相对设计参考的缩放比例
 
-  static const double glassBlur = 22; // 贴底玻璃栏背景模糊强度
+  static const double glassBlur = GlassTokens.blur; // 贴底玻璃栏背景模糊强度
   static const double topBorderWidth = 0.6; // 贴底玻璃栏顶部高光线粗细
 
-  static const Color glassTopBackground = Color(0xE8FFFFFF); // 顶部更亮的玻璃高光
-  static const Color glassBottomBackground = Color(0xD0FFFFFF); // 底部半透明白色玻璃
-  static const Color topBorderColor = Color(0x66FFFFFF); // 半透明顶部高光线
+  static const Color glassTopBackground =
+      GlassTokens.surfaceTopBackground; // 顶部更亮的玻璃高光
+  static const Color glassBottomBackground =
+      GlassTokens.surfaceBottomBackground; // 底部半透明白色玻璃
+  static const Color topBorderColor = GlassTokens.topBorderColor; // 半透明顶部高光线
   static const Color topShadowColor = Color(0x1C503C28); // 顶部柔和阴影
   static const Color ambientShadowColor = Color(0x0D503C28); // 外部轻微环境阴影
 

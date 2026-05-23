@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
@@ -111,6 +112,20 @@ void main() {
       senderName: '  老王外协  ',
       allRecords: const [a1, b1, a2],
       allDevices: devices,
+      allPayments: [
+        AccountPayment(
+          projectId: a1.effectiveProjectId,
+          projectKey: a1.legacyProjectKey,
+          ymd: 20260504,
+          amount: 321.09,
+        ),
+        AccountPayment(
+          projectId: b1.effectiveProjectId,
+          projectKey: b1.legacyProjectKey,
+          ymd: 20260504,
+          amount: 999,
+        ),
+      ],
       calcHistoryRepository: calcRepo,
       producer: producer,
       createdAt: createdAt,
@@ -140,6 +155,9 @@ void main() {
                 .payload['records']
             as List<Object?>;
     expect(records.length, 2);
+    final projectSnapshot =
+        parsed.envelope.payload['project_snapshot'] as Map<String, Object?>;
+    expect(projectSnapshot['project_received_fen'], 32109);
   });
 
   test('empty project throws noRecords', () async {

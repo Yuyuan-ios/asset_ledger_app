@@ -28,6 +28,9 @@ extension TimingDetailFormSections on TimingDetailContentState {
         );
       },
     );
+    if (mounted) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
   }
 
   InputDecoration _sheetDecoration({
@@ -90,8 +93,12 @@ extension TimingDetailFormSections on TimingDetailContentState {
     String? label,
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
+    VoidCallback? onTap,
     Widget? suffixIcon,
     bool readOnly = false,
+    bool canRequestFocus = true,
+    bool? showCursor,
+    bool enableInteractiveSelection = true,
     bool selectAllOnTap = false,
   }) {
     final fieldStyle = AppTypography.body(
@@ -102,12 +109,17 @@ extension TimingDetailFormSections on TimingDetailContentState {
     return TextField(
       controller: controller,
       readOnly: readOnly,
+      canRequestFocus: canRequestFocus,
+      showCursor: showCursor,
+      enableInteractiveSelection: enableInteractiveSelection,
       keyboardType: keyboardType,
-      onTap: selectAllOnTap
-          ? () => selectAllText(controller)
-          : (keyboardType == null
-                ? null
-                : () => selectAllIfZeroLike(controller)),
+      onTap:
+          onTap ??
+          (selectAllOnTap
+              ? () => selectAllText(controller)
+              : (keyboardType == null
+                    ? null
+                    : () => selectAllIfZeroLike(controller))),
       onChanged: onChanged,
       style: fieldStyle,
       decoration: _sheetDecoration(

@@ -109,6 +109,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Finder focusedEditableTexts() {
+    return find.byWidgetPredicate((widget) {
+      return widget is EditableText && widget.focusNode.hasFocus;
+    });
+  }
+
   TimingCalculationHistory existingHistory({
     String id = 'existing-h1',
     DateTime? createdAt,
@@ -171,7 +177,7 @@ void main() {
     expect(find.text('破碎'), findsNothing);
   });
 
-  testWidgets('selects the full hours value when tapping the hours field', (
+  testWidgets('opens the calculator sheet when tapping the hours field', (
     WidgetTester tester,
   ) async {
     final device = buildDevice(id: 1);
@@ -180,13 +186,40 @@ void main() {
     await pumpTimingDetail(tester, editing: editing, devices: [device]);
 
     final hoursField = find.widgetWithText(TextField, '工时（小时）');
-    await tester.tap(hoursField);
-    await tester.pump();
+    final textField = tester.widget<TextField>(hoursField);
+    expect(textField.readOnly, isTrue);
+    expect(textField.canRequestFocus, isFalse);
+    expect(textField.showCursor, isFalse);
+    expect(textField.enableInteractiveSelection, isFalse);
+    expect(
+      textField.keyboardType,
+      isNot(const TextInputType.numberWithOptions(decimal: true)),
+    );
 
-    final field = tester.widget<TextField>(hoursField);
-    expect(field.controller?.text, '2.0');
-    expect(field.controller?.selection.baseOffset, 0);
-    expect(field.controller?.selection.extentOffset, 3);
+    await tester.tap(hoursField);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, '='), findsOneWidget);
+    expect(find.text('填入'), findsOneWidget);
+    expect(find.text('未计算'), findsOneWidget);
+
+    await closeCalculatorSheet(tester);
+    expect(focusedEditableTexts(), findsNothing);
+  });
+
+  testWidgets('opens the calculator sheet when tapping the calculator icon', (
+    WidgetTester tester,
+  ) async {
+    final device = buildDevice(id: 1);
+    final editing = buildEditableTimingRecord();
+
+    await pumpTimingDetail(tester, editing: editing, devices: [device]);
+
+    await tester.tap(find.byTooltip('工时计算依据'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, '='), findsOneWidget);
+    expect(find.text('填入'), findsOneWidget);
   });
 
   testWidgets('submits an empty calculation history list by default', (
@@ -250,6 +283,12 @@ void main() {
     expect(find.text('已填入工时'), findsOneWidget);
 
     await closeCalculatorSheet(tester);
+
+    final hoursField = tester.widget<TextField>(
+      find.widgetWithText(TextField, '工时（小时）'),
+    );
+    expect(hoursField.controller?.text, '16.0');
+
     await key.currentState!.submit();
     await tester.pumpAndSettle();
 
@@ -364,5 +403,15 @@ void main() {
     );
 
     expect(find.byTooltip('工时计算依据'), findsNothing);
+    final hoursField = tester.widget<TextField>(
+      find.widgetWithText(TextField, '工时（小时，可空）'),
+    );
+    expect(hoursField.readOnly, isFalse);
+    expect(hoursField.canRequestFocus, isTrue);
+    expect(hoursField.enableInteractiveSelection, isTrue);
+    expect(
+      hoursField.keyboardType,
+      const TextInputType.numberWithOptions(decimal: true),
+    );
   });
 }

@@ -481,6 +481,7 @@ void main() {
           'source_unit_price_fen',
           'local_unit_price_fen',
           'amount_fen',
+          'project_received_fen',
           'linked_project_id',
         ]),
       );

@@ -10,6 +10,7 @@ part 'migrations/migration_001_010.dart';
 part 'migrations/migration_011_017.dart';
 part 'migrations/migration_018.dart';
 part 'migrations/migration_019.dart';
+part 'migrations/migration_020.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -42,6 +43,10 @@ class DbMigrations {
 
   static Future<void> ensureNullableExternalWorkUnitPrice(Database db) {
     return Migration019.ensureNullableExternalWorkUnitPrice(db);
+  }
+
+  static Future<void> ensureExternalWorkProjectReceivedFen(Database db) {
+    return Migration020.ensureExternalWorkProjectReceivedFen(db);
   }
 
   static Future<void> ensureProjectIdentitySchema(
