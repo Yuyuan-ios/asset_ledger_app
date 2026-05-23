@@ -434,7 +434,7 @@ class _ExternalWorkHeaderActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppColors.brand.withValues(alpha: 0.8);
+    const color = AppColors.textPrimary;
     final textStyle = AppTypography.actionText(
       context,
       fontSize: 15,
@@ -455,9 +455,9 @@ class _ExternalWorkHeaderActionButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 2),
           Text(label, style: textStyle),
+          const SizedBox(width: 2),
+          Icon(icon, size: 16, color: color),
         ],
       ),
     );

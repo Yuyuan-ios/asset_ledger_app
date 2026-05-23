@@ -3,6 +3,7 @@ import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/patterns/timing/timing_home_pattern.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -212,6 +213,32 @@ void main() {
     expect(find.text('导入'), findsOneWidget);
     expect(find.text('关联'), findsOneWidget);
     expect(find.byIcon(Icons.link), findsOneWidget);
+    final importButton = tester.widget<TextButton>(
+      find.descendant(
+        of: find.byKey(const Key('timing-external-work-header-import')),
+        matching: find.byType(TextButton),
+      ),
+    );
+    final importButtonContent = importButton.child! as Row;
+    final importText = importButtonContent.children[0] as Text;
+    final importIcon = importButtonContent.children[2] as Icon;
+    expect(importText.data, '导入');
+    expect(importText.style?.color, AppColors.textPrimary);
+    expect(importIcon.icon, Icons.file_download_outlined);
+    expect(importIcon.color, AppColors.textPrimary);
+    final linkButton = tester.widget<TextButton>(
+      find.descendant(
+        of: find.byKey(const Key('timing-external-work-header-link')),
+        matching: find.byType(TextButton),
+      ),
+    );
+    final linkButtonContent = linkButton.child! as Row;
+    final linkText = linkButtonContent.children[0] as Text;
+    final linkIcon = linkButtonContent.children[2] as Icon;
+    expect(linkText.data, '关联');
+    expect(linkText.style?.color, AppColors.textPrimary);
+    expect(linkIcon.icon, Icons.link);
+    expect(linkIcon.color, AppColors.textPrimary);
 
     await tester.tap(
       find.byKey(const Key('timing-external-work-header-import')),
