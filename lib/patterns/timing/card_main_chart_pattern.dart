@@ -185,7 +185,8 @@ class CardMainChart extends StatelessWidget {
                                   _Legend(
                                     label: '收入',
                                     swatchColor: TimingColors.chartIncome,
-                                    value: data.totalIncomeText,
+                                    valueLabel: '收入',
+                                    value: data.netIncomeText,
                                   ),
                                   const SizedBox(
                                     width: TimingTokens.chartLegendGap,
@@ -193,6 +194,7 @@ class CardMainChart extends StatelessWidget {
                                   _Legend(
                                     label: '支出',
                                     swatchColor: TimingColors.expense,
+                                    valueLabel: '支出',
                                     value: data.totalExpenseText,
                                   ),
                                 ],
@@ -216,11 +218,13 @@ class CardMainChart extends StatelessWidget {
 class _Legend extends StatelessWidget {
   final String label;
   final Color swatchColor;
+  final String valueLabel;
   final String value;
 
   const _Legend({
     required this.label,
     required this.swatchColor,
+    required this.valueLabel,
     required this.value,
   });
 
@@ -256,7 +260,7 @@ class _Legend extends StatelessWidget {
           ],
         ),
         const SizedBox(height: TimingTokens.chartLegendValueTopGap),
-        Text(value, style: valueStyle),
+        Text('$valueLabel$value', style: valueStyle),
       ],
     );
   }

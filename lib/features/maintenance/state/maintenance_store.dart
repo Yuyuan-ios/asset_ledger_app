@@ -4,6 +4,7 @@
 
 import '../../../data/models/maintenance_record.dart';
 import '../../../data/repositories/maintenance_repository.dart';
+import '../../../core/date/gregorian_year_range.dart';
 import '../../../core/utils/base_store.dart';
 
 // =====================================================================
@@ -17,7 +18,7 @@ import '../../../core/utils/base_store.dart';
 //
 // 业务约定：
 // - deviceId == null：表示“公共支出”（不属于任何设备）
-// - 统计块口径：当年（当前先用“公历年”占位；后续你要切农历年时再统一收口）
+// - 统计块口径：公历当年
 // =====================================================================
 
 class MaintenanceStore extends BaseStore {
@@ -35,11 +36,12 @@ class MaintenanceStore extends BaseStore {
   }
 
   void _sortRecords() {
-    _records = [..._records]..sort((a, b) {
-      final byDate = b.ymd.compareTo(a.ymd);
-      if (byDate != 0) return byDate;
-      return (b.id ?? 0).compareTo(a.id ?? 0);
-    });
+    _records = [..._records]
+      ..sort((a, b) {
+        final byDate = b.ymd.compareTo(a.ymd);
+        if (byDate != 0) return byDate;
+        return (b.id ?? 0).compareTo(a.id ?? 0);
+      });
   }
 
   // -------------------------------------------------------------------
@@ -111,11 +113,11 @@ class MaintenanceStore extends BaseStore {
   // -------------------------------------------------------------------
 
   Map<int?, double> currentYearSummary({required int nowYmd}) {
-    final range = _currentYearRange(nowYmd);
+    final range = GregorianYearRange.containingYmd(nowYmd);
 
     final Map<int?, double> out = {};
     for (final r in _records) {
-      if (r.ymd < range.start || r.ymd > range.end) continue;
+      if (!range.containsYmd(r.ymd)) continue;
       final k = r.deviceId; // ✅ null=公共
       out[k] = (out[k] ?? 0) + r.amount;
     }
@@ -130,18 +132,4 @@ class MaintenanceStore extends BaseStore {
     }
     return sum;
   }
-
-  // -------------------------------------------------------------------
-  // 当前占位：公历年范围（后续你要切“农历年”时，再统一替换这里）
-  // -------------------------------------------------------------------
-  _YmdRange _currentYearRange(int nowYmd) {
-    final y = nowYmd ~/ 10000;
-    return _YmdRange(start: y * 10000 + 101, end: y * 10000 + 1231);
-  }
-}
-
-class _YmdRange {
-  final int start;
-  final int end;
-  const _YmdRange({required this.start, required this.end});
 }

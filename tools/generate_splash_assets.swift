@@ -22,7 +22,7 @@ struct Palette {
 
 let fileManager = FileManager.default
 let root = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-let iconURL = root.appendingPathComponent("assets/images/app_icon_source.png")
+let iconURL = root.appendingPathComponent("assets/images/launch_icon_full_1024.png")
 
 guard let icon = NSImage(contentsOf: iconURL) else {
   fputs("Missing icon asset at \(iconURL.path)\n", stderr)
@@ -36,33 +36,46 @@ func writePNG(
   opaque: Bool,
   draw: () -> Void
 ) throws {
-  let scaledSize = CGSize(
-    width: logicalSize.width * scale,
-    height: logicalSize.height * scale
-  )
-  let image = NSImage(size: scaledSize)
-  image.lockFocus()
-  NSGraphicsContext.saveGraphicsState()
-  let context = NSGraphicsContext.current!.cgContext
-  context.setAllowsAntialiasing(true)
-  context.interpolationQuality = .high
-  if opaque {
-    NSColor.white.setFill()
-    CGRect(origin: .zero, size: scaledSize).fill()
-  } else {
-    NSColor.clear.setFill()
-    CGRect(origin: .zero, size: scaledSize).fill()
-  }
-  context.scaleBy(x: scale, y: scale)
-  draw()
-  NSGraphicsContext.restoreGraphicsState()
-  image.unlockFocus()
+  let pixelsWide = Int((logicalSize.width * scale).rounded())
+  let pixelsHigh = Int((logicalSize.height * scale).rounded())
   guard
-    let tiff = image.tiffRepresentation,
-    let rep = NSBitmapImageRep(data: tiff),
-    let data = rep.representation(using: .png, properties: [:])
+    let rep = NSBitmapImageRep(
+      bitmapDataPlanes: nil,
+      pixelsWide: pixelsWide,
+      pixelsHigh: pixelsHigh,
+      bitsPerSample: 8,
+      samplesPerPixel: 4,
+      hasAlpha: true,
+      isPlanar: false,
+      colorSpaceName: .deviceRGB,
+      bytesPerRow: 0,
+      bitsPerPixel: 0
+    ),
+    let graphicsContext = NSGraphicsContext(bitmapImageRep: rep)
   else {
     throw NSError(domain: "generate_splash_assets", code: 2)
+  }
+
+  rep.size = logicalSize
+  NSGraphicsContext.saveGraphicsState()
+  NSGraphicsContext.current = graphicsContext
+  let context = graphicsContext.cgContext
+  context.setAllowsAntialiasing(true)
+  context.interpolationQuality = .high
+  context.clear(CGRect(x: 0, y: 0, width: pixelsWide, height: pixelsHigh))
+  context.scaleBy(x: scale, y: scale)
+  if opaque {
+    NSColor.white.setFill()
+    CGRect(origin: .zero, size: logicalSize).fill()
+  } else {
+    NSColor.clear.setFill()
+    CGRect(origin: .zero, size: logicalSize).fill()
+  }
+  draw()
+  NSGraphicsContext.current = nil
+  NSGraphicsContext.restoreGraphicsState()
+  guard let data = rep.representation(using: .png, properties: [:]) else {
+    throw NSError(domain: "generate_splash_assets", code: 3)
   }
   try data.write(to: url)
 }
@@ -108,7 +121,7 @@ func drawBrandmark(in bounds: CGRect) {
     .paragraphStyle: paragraph,
     .kern: -0.2,
   ]
-  let text = NSAttributedString(string: "Asset Ledger", attributes: attrs)
+  let text = NSAttributedString(string: "Fleet Ledger", attributes: attrs)
   let textRect = CGRect(
     x: 20,
     y: 54,

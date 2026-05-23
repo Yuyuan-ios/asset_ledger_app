@@ -246,72 +246,77 @@ void main() {
       expect(project.remaining, 0);
       expect(project.ratio, closeTo(1200 / 1260, 0.000001));
       expect(project.settlementRatio, 1.0);
-      expect(result.totalReceivable, 1260);
+      expect(result.totalReceivable, 1200);
       expect(result.totalReceived, 1200);
       expect(result.totalWriteOff, 60);
       expect(result.totalRemaining, 0);
-      expect(result.totalRatio, closeTo(1200 / 1260, 0.000001));
+      expect(result.totalRatio, 1.0);
       expect(result.settlementRate, 1.0);
     });
 
-    test('keeps cash collection rate separate from settlement rate', () {
-      const useCase = ComputeAccountSummaryUseCase();
+    test(
+      'keeps project cash rate separate while overview deducts write-offs',
+      () {
+        const useCase = ComputeAccountSummaryUseCase();
 
-      final result = useCase.execute(
-        timingRecords: const [
-          TimingRecord(
-            id: 1,
-            deviceId: 1,
-            startDate: 20260501,
-            contact: '丁队',
-            site: '五里山',
-            type: TimingType.rent,
-            startMeter: 0,
-            endMeter: 0,
-            hours: 0,
-            income: 20000,
-          ),
-        ],
-        devices: const [
-          Device(
-            id: 1,
-            name: 'HITACHI 1#',
-            brand: 'HITACHI',
-            defaultUnitPrice: 100,
-            baseMeterHours: 0,
-          ),
-        ],
-        rates: const [],
-        payments: const [
-          AccountPayment(
-            id: 1,
-            projectKey: '丁队||五里山',
-            ymd: 20260516,
-            amount: 10000,
-          ),
-        ],
-        writeOffs: [
-          ProjectWriteOff(
-            id: 'write-off-1',
-            projectId: ProjectId.legacyFromKey('丁队||五里山'),
-            amount: 10000,
-            reason: ProjectWriteOffReason.settlement.dbValue,
-            writeOffDate: '2026-05-16',
-            createdAt: '2026-05-16T00:00:00.000Z',
-            updatedAt: '2026-05-16T00:00:00.000Z',
-          ),
-        ],
-      );
+        final result = useCase.execute(
+          timingRecords: const [
+            TimingRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260501,
+              contact: '丁队',
+              site: '五里山',
+              type: TimingType.rent,
+              startMeter: 0,
+              endMeter: 0,
+              hours: 0,
+              income: 20000,
+            ),
+          ],
+          devices: const [
+            Device(
+              id: 1,
+              name: 'HITACHI 1#',
+              brand: 'HITACHI',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+          ],
+          rates: const [],
+          payments: const [
+            AccountPayment(
+              id: 1,
+              projectKey: '丁队||五里山',
+              ymd: 20260516,
+              amount: 10000,
+            ),
+          ],
+          writeOffs: [
+            ProjectWriteOff(
+              id: 'write-off-1',
+              projectId: ProjectId.legacyFromKey('丁队||五里山'),
+              amount: 10000,
+              reason: ProjectWriteOffReason.settlement.dbValue,
+              writeOffDate: '2026-05-16',
+              createdAt: '2026-05-16T00:00:00.000Z',
+              updatedAt: '2026-05-16T00:00:00.000Z',
+            ),
+          ],
+        );
 
-      expect(result.totalReceivable, 20000);
-      expect(result.totalReceived, 10000);
-      expect(result.totalWriteOff, 10000);
-      expect(result.totalRemaining, 0);
-      expect(result.totalRatio, 0.5);
-      expect(result.settlementRate, 1.0);
-      expect(result.projects.single.received, 10000);
-      expect(result.projects.single.writeOff, 10000);
-    });
+        expect(result.totalReceivable, 10000);
+        expect(result.totalReceived, 10000);
+        expect(result.totalWriteOff, 10000);
+        expect(result.totalRemaining, 0);
+        expect(result.totalRatio, 1.0);
+        expect(result.settlementRate, 1.0);
+        expect(result.projects.single.receivable, 20000);
+        expect(result.projects.single.ratio, 0.5);
+        expect(result.projects.single.received, 10000);
+        expect(result.projects.single.writeOff, 10000);
+      },
+    );
 
     test('sums write-offs across multiple projects', () {
       const useCase = ComputeAccountSummaryUseCase();
@@ -376,11 +381,89 @@ void main() {
         ],
       );
 
-      expect(result.totalReceivable, 1500);
+      expect(result.totalReceivable, 1350);
       expect(result.totalReceived, 0);
       expect(result.totalWriteOff, 150);
       expect(result.totalRemaining, 1350);
     });
+
+    test(
+      'uses the same calendar-year scope for overview payments and write-offs',
+      () {
+        const useCase = ComputeAccountSummaryUseCase();
+
+        final result = useCase.execute(
+          timingRecords: const [
+            TimingRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              contact: '王强',
+              site: '河道',
+              type: TimingType.rent,
+              startMeter: 0,
+              endMeter: 0,
+              hours: 0,
+              income: 1000,
+            ),
+          ],
+          devices: const [
+            Device(
+              id: 1,
+              name: 'SANY 1#',
+              brand: 'SANY',
+              defaultUnitPrice: 100,
+              baseMeterHours: 0,
+            ),
+          ],
+          rates: const [],
+          payments: const [
+            AccountPayment(
+              id: 1,
+              projectKey: '王强||河道',
+              ymd: 20260610,
+              amount: 300,
+            ),
+            AccountPayment(
+              id: 2,
+              projectKey: '王强||河道',
+              ymd: 20270102,
+              amount: 900,
+            ),
+          ],
+          writeOffs: [
+            ProjectWriteOff(
+              id: 'write-off-2026',
+              projectId: ProjectId.legacyFromKey('王强||河道'),
+              amount: 100,
+              reason: ProjectWriteOffReason.rounding.dbValue,
+              writeOffDate: '2026-12-31',
+              createdAt: '2026-12-31T00:00:00.000Z',
+              updatedAt: '2026-12-31T00:00:00.000Z',
+            ),
+            ProjectWriteOff(
+              id: 'write-off-2027',
+              projectId: ProjectId.legacyFromKey('王强||河道'),
+              amount: 50,
+              reason: ProjectWriteOffReason.rounding.dbValue,
+              writeOffDate: '2027-01-01',
+              createdAt: '2027-01-01T00:00:00.000Z',
+              updatedAt: '2027-01-01T00:00:00.000Z',
+            ),
+          ],
+          summaryYear: 2026,
+        );
+
+        expect(result.totalReceivable, 900);
+        expect(result.totalReceived, 300);
+        expect(result.totalWriteOff, 100);
+        expect(result.totalRemaining, 600);
+        expect(result.totalRatio, closeTo(300 / 900, 0.000001));
+        expect(result.projects.single.receivable, 1000);
+        expect(result.projects.single.received, 1200);
+        expect(result.projects.single.writeOff, 150);
+      },
+    );
 
     test(
       'uses breaking unit price on project cards when a project only has breaking hours',

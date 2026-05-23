@@ -217,7 +217,7 @@ void main() {
         payments: const [],
       );
 
-      expect(before.totalReceivable, 2000);
+      expect(before.totalReceivable, 1000);
       expect(before.totalWriteOff, 1000);
       expect(before.totalRemaining, 1000);
       expect(after.totalReceivable, 2000);

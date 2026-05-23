@@ -5,7 +5,7 @@ import 'package:asset_ledger/app/inbound_share_file_gate.dart';
 import 'package:asset_ledger/app/router.dart';
 
 void main() {
-  testWidgets('FleetLedger smoke test', (WidgetTester tester) async {
+  testWidgets('Fleet Ledger smoke test', (WidgetTester tester) async {
     late MaterialApp app;
 
     await tester.pumpWidget(
@@ -20,7 +20,7 @@ void main() {
       ),
     );
 
-    expect(app.title, 'FleetLedger');
+    expect(app.title, 'Fleet Ledger');
     expect(app.debugShowCheckedModeBanner, isFalse);
     final gate = app.home;
     expect(gate, isA<InboundShareFileGate>());
