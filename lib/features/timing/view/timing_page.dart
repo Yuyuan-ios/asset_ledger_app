@@ -502,6 +502,7 @@ class _TimingPageState extends State<TimingPage> {
   Future<void> _openExternalWorkDetail(
     TimingExternalWorkRecordItem item,
   ) async {
+    final detailItems = _externalWorkDetailItems(item);
     await showAppBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
@@ -516,6 +517,7 @@ class _TimingPageState extends State<TimingPage> {
           contentPadding: EdgeInsets.zero,
           child: ExternalWorkRecordDetailContent(
             item: item,
+            packageItems: detailItems,
             onLinkProject: () {
               Navigator.of(sheetContext).pop();
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -527,6 +529,28 @@ class _TimingPageState extends State<TimingPage> {
         );
       },
     );
+  }
+
+  List<TimingExternalWorkRecordItem> _externalWorkDetailItems(
+    TimingExternalWorkRecordItem item,
+  ) {
+    final batchId = item.record.importBatchId.trim();
+    if (batchId.isEmpty) return [item];
+
+    final items =
+        context
+            .read<TimingExternalWorkStore>()
+            .items
+            .where((entry) {
+              return entry.record.importBatchId.trim() == batchId;
+            })
+            .toList(growable: false)
+          ..sort((a, b) {
+            final byDate = a.record.workDate.compareTo(b.record.workDate);
+            if (byDate != 0) return byDate;
+            return a.record.createdAt.compareTo(b.record.createdAt);
+          });
+    return items.isEmpty ? [item] : items;
   }
 
   void _deleteExternalWorkRecord(
