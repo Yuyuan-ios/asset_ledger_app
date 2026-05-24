@@ -69,7 +69,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('项目(1)'), findsOneWidget);
-      expect(find.text('项目外协(1)'), findsNothing);
+      expect(find.text('外协项目(1)'), findsNothing);
       expect(find.text('李杰 + 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
       expect(find.text('余远+鲜滩+尚义').hitTestable(), findsNothing);
@@ -80,7 +80,7 @@ void main() {
       await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
       await tester.pumpAndSettle();
 
-      expect(find.text('项目外协(1)'), findsOneWidget);
+      expect(find.text('外协项目(1)'), findsOneWidget);
       expect(find.text('项目(1)'), findsNothing);
       expect(find.text('李杰 + 新村').hitTestable(), findsNothing);
       expect(find.text('外协项目').hitTestable(), findsNothing);
