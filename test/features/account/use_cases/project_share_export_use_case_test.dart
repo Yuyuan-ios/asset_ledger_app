@@ -160,4 +160,90 @@ void main() {
     expect(outcome.message, '当前项目暂无可分享记录');
     expect(presenter.calls, 0);
   });
+
+  group('merged project share', () {
+    const memberA = TimingRecord(
+      id: 21,
+      deviceId: 1,
+      startDate: 20260501,
+      contact: '余远',
+      site: '鲜滩',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 8,
+      hours: 8,
+      income: 800,
+    );
+    const memberB = TimingRecord(
+      id: 22,
+      deviceId: 1,
+      startDate: 20260502,
+      contact: '余远',
+      site: '尚义',
+      type: TimingType.hours,
+      startMeter: 8,
+      endMeter: 13,
+      hours: 5,
+      income: 500,
+    );
+
+    test('exports one .jzt across members and opens the share sheet', () async {
+      final dir = await Directory.systemTemp.createTemp('jztshare_uc_merge_');
+      addTearDown(() => dir.delete(recursive: true));
+      final presenter = _FakeSharePresenter();
+      final useCase = ProjectShareExportUseCase(
+        _FakeCalcRepo(),
+        directoryResolver: () async => dir,
+        sharePresenter: presenter,
+      );
+
+      final outcome = await useCase.execute(
+        projectId: 'merge:7',
+        projectKey: 'merge:7',
+        senderName: '余远',
+        memberProjectIds: [
+          memberA.effectiveProjectId,
+          memberB.effectiveProjectId,
+        ],
+        allRecords: const [memberA, memberB],
+        allDevices: devices,
+        now: DateTime.utc(2026, 5, 19, 8),
+      );
+
+      expect(outcome.ok, isTrue);
+      expect(outcome.message, '分享包已生成，已打开分享面板');
+      expect(presenter.calls, 1);
+      // 只生成一个 .jzt 文件。
+      final files = dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.jzt'))
+          .toList();
+      expect(files.length, 1);
+      expect(presenter.filePath, endsWith('.jzt'));
+    });
+
+    test('merged project with no member records reports nothing to share', () async {
+      final presenter = _FakeSharePresenter();
+      final useCase = ProjectShareExportUseCase(
+        _FakeCalcRepo(),
+        directoryResolver: () async =>
+            Directory.systemTemp.createTemp('jztshare_uc_merge_'),
+        sharePresenter: presenter,
+      );
+
+      final outcome = await useCase.execute(
+        projectId: 'merge:99',
+        projectKey: 'merge:99',
+        senderName: '余远',
+        memberProjectIds: const ['no-such-project-id'],
+        allRecords: const [memberA, memberB],
+        allDevices: devices,
+      );
+
+      expect(outcome.ok, isFalse);
+      expect(outcome.message, '当前项目暂无可分享记录');
+      expect(presenter.calls, 0);
+    });
+  });
 }

@@ -47,6 +47,9 @@ class ProjectExternalWorkShareExportAdapter {
   final ProjectExternalWorkShareExportService _exportService;
 
   /// [projectId] 应为详情页的 effectiveProjectId；[projectKey] 为 legacy key。
+  /// [memberProjectIds] 合并项目分享时传入成员项目的 effectiveProjectId 集合；
+  /// 非空表示合并分享：按集合匹配 TimingRecord，并导出聚合后的成员项目结构。
+  /// 普通项目传空，沿用 projectId / projectKey 过滤逻辑。
   /// [allRecords]/[allDevices] 是全量数据，方法内只挑当前项目。
   Future<ProjectExternalWorkShareExportResult> export({
     required String projectId,
@@ -58,6 +61,7 @@ class ProjectExternalWorkShareExportAdapter {
     required JztShareProducer producer,
     required DateTime createdAt,
     required Future<Directory> Function() directoryResolver,
+    List<String> memberProjectIds = const [],
     List<ProjectDeviceRate> allRates = const [],
     List<AccountPayment> allPayments = const [],
   }) async {
@@ -69,12 +73,21 @@ class ProjectExternalWorkShareExportAdapter {
       );
     }
     final trimmedProjectId = projectId.trim();
+    final memberSet = memberProjectIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final isMerged = memberSet.isNotEmpty;
 
-    // 有明确 projectId：仅按 effectiveProjectId 严格匹配，不再 fallback 到
-    // legacyProjectKey——否则同联系人同地址但不同 projectId 的旧项目记录
-    // 会混入候选，再被 builder 跨项目防御拦成“分享数据异常”。
-    // 仅当无明确 projectId 的 legacy 场景，才用 legacyProjectKey 兼容匹配。
+    // 合并分享：按成员项目集合匹配（合成 merge:groupId 不会匹配任何记录，必须
+    // 展开成员 id）。普通分享：有明确 projectId 时按 effectiveProjectId 严格
+    // 匹配，不 fallback legacyProjectKey（避免同联系人同地址旧项目混入再被
+    // builder 跨项目防御拦成“分享数据异常”）；仅无明确 projectId 的 legacy
+    // 场景用 legacyProjectKey 兼容匹配。
     bool belongsToProject(TimingRecord r) {
+      if (isMerged) {
+        return memberSet.contains(r.effectiveProjectId);
+      }
       if (trimmedProjectId.isNotEmpty) {
         return r.effectiveProjectId == trimmedProjectId;
       }
@@ -106,6 +119,8 @@ class ProjectExternalWorkShareExportAdapter {
     final effectiveProjectId = trimmedProjectId.isNotEmpty
         ? trimmedProjectId
         : projectRecords.first.effectiveProjectId;
+    // 实收款：合并分享按成员项目集合汇总；普通分享按当前项目。
+    final receivedProjectIds = isMerged ? memberSet : {effectiveProjectId};
 
     try {
       final payload = _builder.build(
@@ -117,8 +132,9 @@ class ProjectExternalWorkShareExportAdapter {
         calcHistoryMap: calcHistoryMap,
         projectDeviceRates: allRates,
         expectedProjectId: effectiveProjectId,
+        memberProjectIds: memberSet,
         projectReceivedFen: _projectReceivedFen(
-          projectId: effectiveProjectId,
+          projectIds: receivedProjectIds,
           payments: allPayments,
         ),
       );
@@ -154,11 +170,11 @@ class ProjectExternalWorkShareExportAdapter {
   }
 
   static int _projectReceivedFen({
-    required String projectId,
+    required Set<String> projectIds,
     required List<AccountPayment> payments,
   }) {
     return payments.fold<int>(0, (sum, payment) {
-      if (payment.effectiveProjectId != projectId) return sum;
+      if (!projectIds.contains(payment.effectiveProjectId)) return sum;
       return sum + payment.amountFen;
     });
   }

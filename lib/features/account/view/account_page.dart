@@ -672,6 +672,11 @@ class _AccountPageState extends State<AccountPage> {
       projectId: project.effectiveProjectId,
       projectKey: project.projectKey,
       senderName: senderName,
+      // 合并项目用合成 merge:groupId，匹配不到任何 TimingRecord；必须把成员
+      // 项目真实 id 展开传入，导出端才能按成员集合聚合记录。普通项目为空。
+      memberProjectIds: project.kind == AccountProjectKind.merged
+          ? project.memberProjectIds
+          : const [],
       allRecords: context.read<TimingStore>().records,
       allDevices: context.read<DeviceStore>().allDevices,
       allPayments: context.read<AccountPaymentStore>().records,

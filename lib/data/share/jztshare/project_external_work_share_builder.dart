@@ -27,6 +27,10 @@ class ProjectExternalWorkShareBuilder {
   ///                      AmountPolicy 校验，确保项目覆盖价（如 200）能被写入。
   ///                      为空表示该项目不存在任何覆盖，回落到设备默认单价。
   /// [projectReceivedFen] 该项目累计实收款（分），随项目快照进入分享包。
+  /// [memberProjectIds]   合并分享场景的成员项目 id 集合。非空表示合并分享：
+  ///                      records[] 允许跨集合内多个成员项目（但仍拒绝集合外的
+  ///                      无关项目），并输出 member_projects[] 与聚合展示名；
+  ///                      为空表示普通单项目分享，沿用单项目断言与口径。
   ProjectExternalWorkShareRichPayload build({
     required String shareId,
     required String senderName,
@@ -36,6 +40,7 @@ class ProjectExternalWorkShareBuilder {
     required Map<int, List<TimingCalculationHistory>> calcHistoryMap,
     List<ProjectDeviceRate> projectDeviceRates = const [],
     String? expectedProjectId,
+    Set<String> memberProjectIds = const {},
     int projectReceivedFen = 0,
   }) {
     final safeShareId = _requireNonBlank(shareId, 'shareId');
@@ -48,23 +53,41 @@ class ProjectExternalWorkShareBuilder {
       throw ArgumentError.value(records, 'records', 'must not be empty');
     }
 
-    // 防御调用方误把多个项目的记录混进同一个分享包：显式失败，不静默过滤
+    // 防御调用方误把无关项目的记录混进同一个分享包：显式失败，不静默过滤
     // （静默过滤会让用户误以为已完整导出）。
+    final memberSet = memberProjectIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final isMerged = memberSet.isNotEmpty;
     final projectIds = records.map((r) => r.effectiveProjectId).toSet();
-    if (projectIds.length > 1) {
-      throw ArgumentError.value(
-        records,
-        'records',
-        'records span multiple projects: $projectIds',
-      );
-    }
-    final expected = expectedProjectId?.trim() ?? '';
-    if (expected.isNotEmpty && projectIds.first != expected) {
-      throw ArgumentError.value(
-        records,
-        'records',
-        'records project ${projectIds.first} != expected $expected',
-      );
+    if (isMerged) {
+      // 合并分享：允许 records 跨成员项目，但只允许 memberProjectIds 内的项目；
+      // 真正无关项目混入仍显式失败。
+      final unrelated = projectIds.difference(memberSet);
+      if (unrelated.isNotEmpty) {
+        throw ArgumentError.value(
+          records,
+          'records',
+          'records contain non-member projects: $unrelated',
+        );
+      }
+    } else {
+      if (projectIds.length > 1) {
+        throw ArgumentError.value(
+          records,
+          'records',
+          'records span multiple projects: $projectIds',
+        );
+      }
+      final expected = expectedProjectId?.trim() ?? '';
+      if (expected.isNotEmpty && projectIds.first != expected) {
+        throw ArgumentError.value(
+          records,
+          'records',
+          'records project ${projectIds.first} != expected $expected',
+        );
+      }
     }
 
     // 稳定排序：先 workDate(startDate)，再 timingRecordId。
@@ -75,34 +98,54 @@ class ProjectExternalWorkShareBuilder {
         return _requireId(a).compareTo(_requireId(b));
       });
 
-    // 当前项目（已通过 expectedProjectId / 单项目断言锁定）的有效单价表。
+    // 每条记录按「它自己的项目 + isBreaking」解析当前有效单价。
     // 与账户页 / TimingPreviewIncome 同源（AccountService.buildEffectiveRateMap），
     // 自动应用项目对设备的单价覆盖；不存在覆盖时回落到设备默认单价。
-    final effectiveProjectId = sorted.first.effectiveProjectId;
-    final effectiveProjectKey = sorted.first.legacyProjectKey;
+    // 合并分享下各成员项目可能有各自覆盖价，故按项目缓存、逐条解析。
     final deviceList = deviceMap.values.toList(growable: false);
-    final effectiveRateYuan = AccountService.buildEffectiveRateMap(
-      projectId: effectiveProjectId,
-      projectKey: effectiveProjectKey,
-      devices: deviceList,
-      rates: projectDeviceRates,
-    );
-    final effectiveBreakingRateYuan = AccountService.buildEffectiveRateMap(
-      projectId: effectiveProjectId,
-      projectKey: effectiveProjectKey,
-      devices: deviceList,
-      rates: projectDeviceRates,
-      isBreaking: true,
-    );
+    final rateMapCache = <String, Map<int, double>>{};
+    double? effectiveRateYuanFor(TimingRecord r) {
+      final cacheKey = '${r.effectiveProjectId}|${r.isBreaking}';
+      final map = rateMapCache.putIfAbsent(
+        cacheKey,
+        () => AccountService.buildEffectiveRateMap(
+          projectId: r.effectiveProjectId,
+          projectKey: r.legacyProjectKey,
+          devices: deviceList,
+          rates: projectDeviceRates,
+          isBreaking: r.isBreaking,
+        ),
+      );
+      return map[r.deviceId];
+    }
 
     final shareRecords = <ProjectExternalWorkShareRecord>[];
     final exportLines = <ProjectExternalWorkShareExportLine>[];
     for (final record in sorted) {
       final recordId = _requireId(record);
       final hoursMilli = WorkHours.fromHours(record.hours).milliHours;
-      final incomeFen = Money.fromYuan(record.income).fen;
-      final fingerprint = _originFingerprint(record, hoursMilli, incomeFen);
       final isHours = record.type == TimingType.hours;
+
+      // originFingerprint 用原始来源金额：保持来源身份稳定（与历史包一致），
+      // 不随单价口径重算而漂移。
+      final originalIncomeFen = Money.fromYuan(record.income).fen;
+      final fingerprint = _originFingerprint(
+        record,
+        hoursMilli,
+        originalIncomeFen,
+      );
+
+      // 普通 hours：采信「当前有效项目单价（含项目覆盖）」，并按该单价重算导出
+      // 金额——即使本机 TimingRecord.income 仍是旧单价口径，也不显示"未知"。
+      // rent / 台班 / 人工覆写金额 / 无法确认单价：单价 null + 原始来源金额。
+      // 全程不做 income÷hours 反推。
+      final resolved = _resolveExportAmount(
+        record: record,
+        hoursMilli: hoursMilli,
+        isHours: isHours,
+        device: deviceMap[record.deviceId],
+        currentRateYuanPerHour: effectiveRateYuanFor(record),
+      );
 
       shareRecords.add(
         ProjectExternalWorkShareRecord(
@@ -116,20 +159,8 @@ class ProjectExternalWorkShareBuilder {
           startMeter: isHours ? record.startMeter : null,
           endMeter: isHours ? record.endMeter : null,
           hoursMilli: hoursMilli,
-          incomeFen: incomeFen,
-          // 仅 hours 且能从"当前项目有效单价（含项目覆盖）"无损还原
-          // incomeFen 时写入；rent / 人工覆写金额 / 设备缺失 / hoursMilli<=0
-          // 时为 null。导出端**不允许**用 incomeFen ÷ hoursMilli 反推
-          // （与导入端规则保持一致）。
-          sourceUnitPriceFen: _trustedRichUnitPriceFen(
-            record: record,
-            hoursMilli: hoursMilli,
-            incomeFen: incomeFen,
-            isHours: isHours,
-            candidateYuanPerHour: record.isBreaking
-                ? effectiveBreakingRateYuan[record.deviceId]
-                : effectiveRateYuan[record.deviceId],
-          ),
+          incomeFen: resolved.incomeFen,
+          sourceUnitPriceFen: resolved.unitPriceFen,
           isBreaking: record.isBreaking,
           originFingerprint: fingerprint,
           filledCalculation: _filledCalculation(
@@ -143,7 +174,7 @@ class ProjectExternalWorkShareBuilder {
         record: record,
         recordId: recordId,
         hoursMilli: hoursMilli,
-        incomeFen: incomeFen,
+        incomeFen: resolved.incomeFen,
         fingerprint: fingerprint,
         device: deviceMap[record.deviceId],
         isHours: isHours,
@@ -162,6 +193,21 @@ class ProjectExternalWorkShareBuilder {
     );
 
     final first = sorted.first;
+    // 合并分享：项目快照用聚合身份 + 「分享人 · 地址摘要」展示名；
+    // 普通分享：沿用单项目 contact/site，displayName 留 null。
+    final sitesSummary = isMerged ? _sitesSummary(sorted) : first.site;
+    final snapshotProjectId = isMerged
+        ? ((expectedProjectId?.trim().isNotEmpty ?? false)
+              ? expectedProjectId!.trim()
+              : 'merge')
+        : first.effectiveProjectId;
+    final snapshotProjectKey = isMerged
+        ? snapshotProjectId
+        : first.legacyProjectKey;
+    final snapshotDisplayName = isMerged
+        ? '$safeSenderName · $sitesSummary'
+        : null;
+
     return ProjectExternalWorkShareRichPayload(
       shareId: safeShareId,
       senderName: safeSenderName,
@@ -177,16 +223,18 @@ class ProjectExternalWorkShareBuilder {
         totalHoursMilli: totalHoursMilli,
       ),
       projectSnapshot: ProjectExternalWorkShareProjectSnapshot(
-        sourceProjectId: first.effectiveProjectId,
-        sourceProjectKey: first.legacyProjectKey,
+        sourceProjectId: snapshotProjectId,
+        sourceProjectKey: snapshotProjectKey,
         contactSnapshot: first.contact,
-        siteSnapshot: first.site,
+        siteSnapshot: sitesSummary,
+        displayName: snapshotDisplayName,
         projectReceivedFen: projectReceivedFen < 0 ? 0 : projectReceivedFen,
       ),
       devices: _buildDevices(sorted, shareRecords, deviceMap),
       records: shareRecords,
       deviceGroups: _buildDeviceGroups(sorted, shareRecords),
       exportLines: exportLines,
+      memberProjects: isMerged ? _buildMemberProjects(sorted) : const [],
     );
   }
 
@@ -298,27 +346,114 @@ class ProjectExternalWorkShareBuilder {
     );
   }
 
-  // 富 records 专用：只接受"当前项目有效单价（含项目覆盖） + AmountPolicy
-  // 校验通过"为可信单价。与 _resolveUnitPriceFen 的关键区别：**不做
-  // income÷hours 反推**——反推会把"派生值"喂给导入端，导入端无从分辨真伪。
-  // 校验失败（人工覆写金额 / 单价缺失 / hoursMilli<=0）一律返回 null，
-  // 让 UI 显示"未知"，与协议 null=未知 的口径一致。
-  static int? _trustedRichUnitPriceFen({
+  // 富 records 专用：决定导出的 source_unit_price_fen 与 income_fen。
+  //
+  // 规则（与导入端协议一致，全程不做 income÷hours 反推）：
+  // - 非 hours / 工时<=0 / 设备缺失 / 无当前有效单价 / 单价<=0：
+  //     单价 = null，金额 = 原始来源金额（TimingRecord.income）。
+  // - hours 且来源金额已与「当前有效项目单价」一致：直接采信，金额不变。
+  // - hours 且来源金额仍是「设备默认单价」旧口径（单价被改过、income 未回写）：
+  //     采信当前有效单价，并按当前单价**重算**导出金额（修正陈旧口径，
+  //     避免接收端把已改价记录显示成"未知"）。
+  // - 其余（人工覆写金额 / 无法用任一已知单价解释）：单价 = null，
+  //     金额 = 原始来源金额，绝不伪造。
+  static _ResolvedExportAmount _resolveExportAmount({
     required TimingRecord record,
     required int hoursMilli,
-    required int incomeFen,
     required bool isHours,
-    required double? candidateYuanPerHour,
+    required Device? device,
+    required double? currentRateYuanPerHour,
   }) {
-    if (!isHours) return null;
-    if (hoursMilli <= 0 || incomeFen < 0) return null;
-    if (candidateYuanPerHour == null) return null;
-    final candidateFen = UnitPrice.fromYuanPerHour(
-      candidateYuanPerHour,
+    final originalIncomeFen = Money.fromYuan(record.income).fen;
+    if (!isHours ||
+        hoursMilli <= 0 ||
+        device == null ||
+        currentRateYuanPerHour == null) {
+      return _ResolvedExportAmount(
+        unitPriceFen: null,
+        incomeFen: originalIncomeFen,
+      );
+    }
+
+    final currentFen = UnitPrice.fromYuanPerHour(
+      currentRateYuanPerHour,
     ).fenPerHour;
-    if (candidateFen < 0) return null;
-    if (_amountFen(hoursMilli, candidateFen) != incomeFen) return null;
-    return candidateFen;
+    if (currentFen <= 0) {
+      return _ResolvedExportAmount(
+        unitPriceFen: null,
+        incomeFen: originalIncomeFen,
+      );
+    }
+
+    // 来源金额已与当前有效单价一致：采信，金额不变。
+    if (_amountFen(hoursMilli, currentFen) == originalIncomeFen) {
+      return _ResolvedExportAmount(
+        unitPriceFen: currentFen,
+        incomeFen: originalIncomeFen,
+      );
+    }
+
+    // 来源金额仍可由「设备默认单价」解释（典型：改了项目覆盖价但 income 未回写）：
+    // 采信当前有效单价，并按当前单价重算导出金额。
+    final deviceDefaultYuan = (record.isBreaking)
+        ? (device.breakingUnitPrice ?? device.defaultUnitPrice)
+        : device.defaultUnitPrice;
+    final deviceFen = UnitPrice.fromYuanPerHour(deviceDefaultYuan).fenPerHour;
+    if (deviceFen > 0 && _amountFen(hoursMilli, deviceFen) == originalIncomeFen) {
+      return _ResolvedExportAmount(
+        unitPriceFen: currentFen,
+        incomeFen: _amountFen(hoursMilli, currentFen),
+      );
+    }
+
+    // 人工覆写金额 / 无法确认单价：单价 null，保留原始来源金额。
+    return _ResolvedExportAmount(
+      unitPriceFen: null,
+      incomeFen: originalIncomeFen,
+    );
+  }
+
+  // 合并分享：地址摘要（如「鲜滩+尚义...」）。
+  static String _sitesSummary(List<TimingRecord> sorted) {
+    final unique = <String>[];
+    for (final r in sorted) {
+      final site = r.site.trim();
+      if (site.isEmpty || unique.contains(site)) continue;
+      unique.add(site);
+    }
+    if (unique.isEmpty) return '';
+    if (unique.length <= 2) return unique.join('+');
+    return '${unique.take(2).join('+')}...';
+  }
+
+  static String _memberDisplayName(String contact, String site) {
+    final c = contact.trim();
+    final s = site.trim();
+    if (c.isEmpty) return s;
+    if (s.isEmpty) return c;
+    return '$c · $s';
+  }
+
+  // 合并分享：按成员项目分组，输出 member_projects[]（保序、确定性）。
+  static List<ProjectExternalWorkShareMemberProject> _buildMemberProjects(
+    List<TimingRecord> sorted,
+  ) {
+    final byProject = <String, List<TimingRecord>>{};
+    for (final r in sorted) {
+      byProject.putIfAbsent(r.effectiveProjectId, () => []).add(r);
+    }
+    return byProject.entries.map((entry) {
+      final records = entry.value;
+      final firstRecord = records.first;
+      return ProjectExternalWorkShareMemberProject(
+        sourceProjectId: entry.key,
+        sourceProjectKey: firstRecord.legacyProjectKey,
+        contactSnapshot: firstRecord.contact,
+        siteSnapshot: firstRecord.site,
+        displayName: _memberDisplayName(firstRecord.contact, firstRecord.site),
+        recordIds: records.map(_requireIdStatic).toList(growable: false),
+      );
+    }).toList(growable: false);
   }
 
   // 优先用设备真实单价；不一致再用 incomeFen/hoursMilli 反推，反推后必须再过
@@ -465,4 +600,16 @@ class ProjectExternalWorkShareBuilder {
     }
     return value;
   }
+}
+
+/// 单条 hours/rent 记录导出时解析出的「单价 + 导出金额」。
+/// [unitPriceFen] 为 null 表示协议口径下的"未知"（绝不伪造 0）。
+class _ResolvedExportAmount {
+  const _ResolvedExportAmount({
+    required this.unitPriceFen,
+    required this.incomeFen,
+  });
+
+  final int? unitPriceFen;
+  final int incomeFen;
 }
