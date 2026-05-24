@@ -56,9 +56,12 @@ class TimingHomePattern extends StatefulWidget {
 
 class _TimingHomePatternState extends State<TimingHomePattern>
     with SingleTickerProviderStateMixin {
+  static const int _allDevicesMenuValue = -1;
+
   final Set<String> _locallyRemovedRecordKeys = <String>{};
   final Set<String> _expandedAggregateKeys = <String>{};
   final Set<String> _expandedExternalWorkAggregateKeys = <String>{};
+  int? _selectedDeviceId;
 
   static const double _recordsHeaderHeight =
       (TimingTokens.recordsTitleFontSize *
@@ -146,6 +149,90 @@ class _TimingHomePatternState extends State<TimingHomePattern>
     });
   }
 
+  List<TimingRecord> _filteredRecentRecords() {
+    final selectedDeviceId = _selectedDeviceId;
+    if (selectedDeviceId == null) return widget.records;
+    return widget.records
+        .where((record) => record.deviceId == selectedDeviceId)
+        .toList(growable: false);
+  }
+
+  List<_RecentDeviceFilterOption> _recentDeviceFilterOptions() {
+    final seen = <int>{};
+    final options = <_RecentDeviceFilterOption>[];
+    for (final record in widget.records) {
+      if (!seen.add(record.deviceId)) continue;
+      options.add(
+        _RecentDeviceFilterOption(
+          deviceId: record.deviceId,
+          label: _deviceFilterLabel(record.deviceId),
+        ),
+      );
+    }
+    return options;
+  }
+
+  String _deviceFilterLabel(int deviceId) {
+    final device = widget.deviceById[deviceId];
+    final name = device?.name.trim() ?? '';
+    if (name.isNotEmpty) return name;
+
+    final index = widget.deviceIndexById[deviceId]?.trim() ?? '?';
+    final brand = device?.brand.trim() ?? '';
+    if (brand.isEmpty) return index;
+    return '$brand $index';
+  }
+
+  Future<void> _showRecentDeviceFilterMenu(
+    BuildContext anchorContext,
+    List<_RecentDeviceFilterOption> options,
+  ) async {
+    final renderBox = anchorContext.findRenderObject() as RenderBox?;
+    final overlay =
+        Navigator.of(anchorContext).overlay?.context.findRenderObject()
+            as RenderBox?;
+    if (renderBox == null || overlay == null) return;
+
+    final anchor = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
+    final position = RelativeRect.fromRect(
+      Rect.fromLTWH(anchor.dx, anchor.dy + renderBox.size.height, 1, 1),
+      Offset.zero & overlay.size,
+    );
+
+    final selected = await showMenu<int>(
+      context: anchorContext,
+      position: position,
+      color: Colors.white,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      constraints: const BoxConstraints(minWidth: 172, maxWidth: 240),
+      items: [
+        PopupMenuItem<int>(
+          value: _allDevicesMenuValue,
+          height: 44,
+          child: _RecentDeviceFilterMenuItem(
+            label: '全部设备',
+            selected: _selectedDeviceId == null,
+          ),
+        ),
+        for (final option in options)
+          PopupMenuItem<int>(
+            value: option.deviceId,
+            height: 44,
+            child: _RecentDeviceFilterMenuItem(
+              label: option.label,
+              selected: _selectedDeviceId == option.deviceId,
+            ),
+          ),
+      ],
+    );
+
+    if (selected == null || !mounted) return;
+    setState(() {
+      _selectedDeviceId = selected == _allDevicesMenuValue ? null : selected;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,8 +245,9 @@ class _TimingHomePatternState extends State<TimingHomePattern>
               constraints.maxWidth,
               basePadding: TimingTokens.homePageHorizontalPadding,
             );
+            final filteredRecentRecords = _filteredRecentRecords();
             final recentTopLevelCount = timingRecentTopLevelRecordCount(
-              widget.records,
+              filteredRecentRecords,
               _locallyRemovedRecordKeys,
             );
             final externalWorkTopLevelCount = timingExternalWorkTopLevelCount(
@@ -172,6 +260,10 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                 NavigationTokens.barHeight +
                 MediaQuery.viewPaddingOf(context).bottom +
                 TimingTokens.homeBottomGap;
+            final recentDeviceFilterOptions = _recentDeviceFilterOptions();
+            final selectedDeviceLabel = _selectedDeviceId == null
+                ? null
+                : _deviceFilterLabel(_selectedDeviceId!);
 
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -253,7 +345,16 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                                                   widget.onImportExternalWork,
                                               onLink: widget.onLinkExternalWork,
                                             )
-                                          : null,
+                                          : _RecentDeviceFilterAction(
+                                              selectedLabel:
+                                                  selectedDeviceLabel,
+                                              onPressed: (anchorContext) {
+                                                _showRecentDeviceFilterMenu(
+                                                  anchorContext,
+                                                  recentDeviceFilterOptions,
+                                                );
+                                              },
+                                            ),
                                     ),
                                   ),
                                 ),
@@ -271,7 +372,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                             ),
                             bottomSpacer: bottomSpacer,
                             slivers: buildTimingRecentRecordSlivers(
-                              records: widget.records,
+                              records: filteredRecentRecords,
                               deviceById: widget.deviceById,
                               deviceIndexById: widget.deviceIndexById,
                               locallyRemovedKeys: _locallyRemovedRecordKeys,
@@ -305,6 +406,16 @@ class _TimingHomePatternState extends State<TimingHomePattern>
       ),
     );
   }
+}
+
+class _RecentDeviceFilterOption {
+  const _RecentDeviceFilterOption({
+    required this.deviceId,
+    required this.label,
+  });
+
+  final int deviceId;
+  final String label;
 }
 
 /// NestedScrollView 的单个 tab 内容：独立 CustomScrollView。
@@ -380,6 +491,90 @@ class _RecordsAreaTitle extends StatelessWidget {
     );
 
     return Text('$label($count)', style: titleStyle);
+  }
+}
+
+class _RecentDeviceFilterAction extends StatelessWidget {
+  const _RecentDeviceFilterAction({
+    required this.selectedLabel,
+    required this.onPressed,
+  });
+
+  final String? selectedLabel;
+  final ValueChanged<BuildContext> onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = selectedLabel?.trim();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null && label.isNotEmpty) ...[
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 132),
+            child: Text(
+              label,
+              key: const Key('timing-recent-device-filter-label'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.caption(
+                context,
+                color: TimingColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        Builder(
+          builder: (buttonContext) {
+            return InkWell(
+              key: const Key('timing-recent-device-filter-button'),
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => onPressed(buttonContext),
+              child: const SizedBox(
+                width: 32,
+                height: 32,
+                child: Icon(Icons.menu, size: 22, color: AppColors.textPrimary),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _RecentDeviceFilterMenuItem extends StatelessWidget {
+  const _RecentDeviceFilterMenuItem({
+    required this.label,
+    required this.selected,
+  });
+
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.body(context, color: AppColors.textPrimary),
+            ),
+          ),
+          if (selected)
+            Text(
+              '✓',
+              style: AppTypography.body(context, color: AppColors.textPrimary),
+            ),
+        ],
+      ),
+    );
   }
 }
 
