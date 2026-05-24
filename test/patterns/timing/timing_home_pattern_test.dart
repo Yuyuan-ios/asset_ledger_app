@@ -1,4 +1,5 @@
 import 'package:asset_ledger/components/layout/pinned_header_delegate.dart';
+import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/patterns/timing/timing_home_pattern.dart';
@@ -42,6 +43,14 @@ void main() {
       );
       expect(delegate.maxExtent, delegate.minExtent);
       expect(find.text('最近记录(0)'), findsOneWidget);
+      expect(
+        find.byKey(const Key('timing-recent-device-filter-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('timing-recent-device-filter-label')),
+        findsNothing,
+      );
       expect(find.text('最近记录'), findsNothing);
       expect(find.text('项目外协'), findsNothing);
       expect(find.text('导入'), findsNothing);
@@ -106,6 +115,113 @@ void main() {
     expect(find.text('最近记录(4)'), findsNothing);
   });
 
+  testWidgets('recent records filter menu filters by device and restores all', (
+    tester,
+  ) async {
+    const hitachi = Device(
+      id: 1,
+      name: 'HITACHI 1#',
+      brand: 'HITACHI',
+      defaultUnitPrice: 100,
+      baseMeterHours: 2000,
+    );
+    const sany = Device(
+      id: 2,
+      name: 'SANY 1#',
+      brand: 'SANY',
+      defaultUnitPrice: 120,
+      baseMeterHours: 2000,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimingHomePattern(
+          header: const SizedBox(height: 20),
+          chart: const SizedBox(height: 80),
+          recordsSection: TimingRecordsSection.recent,
+          onRecordsSectionChanged: (_) {},
+          records: [
+            _timingRecord(
+              id: 1,
+              deviceId: 1,
+              contact: '张三',
+              site: '天眉乐',
+              startMeter: 100,
+              endMeter: 108,
+              hours: 8,
+            ),
+            _timingRecord(
+              id: 2,
+              deviceId: 1,
+              contact: '李四',
+              site: '尚义',
+              startMeter: 108,
+              endMeter: 116,
+              hours: 8,
+            ),
+            _timingRecord(
+              id: 3,
+              deviceId: 2,
+              contact: '王强',
+              site: '五里山',
+              startMeter: 200,
+              endMeter: 205,
+              hours: 5,
+            ),
+          ],
+          externalWorkItems: const [],
+          deviceById: const {1: hitachi, 2: sany},
+          deviceIndexById: const {1: '1#', 2: '1#'},
+          loading: false,
+        ),
+      ),
+    );
+
+    expect(find.text('最近记录(3)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-recent-device-filter-label')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部设备'), findsOneWidget);
+    expect(find.text('HITACHI 1#'), findsOneWidget);
+    expect(find.text('SANY 1#'), findsOneWidget);
+    expect(find.text('✓'), findsOneWidget);
+
+    await tester.tap(find.text('HITACHI 1#'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近记录(2)'), findsOneWidget);
+    final selectedLabel = tester.widget<Text>(
+      find.byKey(const Key('timing-recent-device-filter-label')),
+    );
+    expect(selectedLabel.data, 'HITACHI 1#');
+    expect(find.text('张三·天眉乐'), findsOneWidget);
+    expect(find.text('李四·尚义'), findsOneWidget);
+    expect(find.text('王强·五里山'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('✓'), findsOneWidget);
+    await tester.tap(find.text('全部设备'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近记录(3)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-recent-device-filter-label')),
+      findsNothing,
+    );
+    expect(find.text('王强·五里山'), findsOneWidget);
+  });
+
   testWidgets('empty external work header shows import only', (tester) async {
     var importTapped = false;
     var linkTapped = false;
@@ -129,6 +245,10 @@ void main() {
     );
 
     expect(find.text('项目外协(0)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+      findsNothing,
+    );
     expect(
       find.byKey(const Key('timing-external-work-header-import')),
       findsOneWidget,
@@ -187,6 +307,10 @@ void main() {
 
     expect(find.text('暂无记录'), findsOneWidget);
     expect(find.text('最近记录(0)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+      findsOneWidget,
+    );
     expect(find.text('项目外协(3)'), findsNothing);
     expect(find.text('最近记录'), findsNothing);
     expect(find.text('项目外协'), findsNothing);
@@ -198,6 +322,10 @@ void main() {
 
     expect(section, TimingRecordsSection.externalWork);
     expect(find.text('项目外协(1)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+      findsNothing,
+    );
     expect(find.text('项目外协(3)'), findsNothing);
     expect(find.text('项目外协(3条)'), findsNothing);
     expect(find.text('最近记录'), findsNothing);
