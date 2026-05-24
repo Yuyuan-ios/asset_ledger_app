@@ -9,6 +9,8 @@
 // 4) 所有数据写入通过 Provider/Store；UI 层仅负责 open + apply。
 // ==============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -43,6 +45,7 @@ import '../../../features/account/state/account_filter_store.dart';
 import '../../../features/account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
+import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import 'actions/account_rate_edit_actions.dart';
 import 'account_page_view_data.dart';
@@ -70,6 +73,20 @@ class AccountPage extends StatefulWidget {
 
 class _AccountPageState extends State<AccountPage> {
   bool _isCompactProjectList = false;
+  var _externalWorkLoadRequested = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_externalWorkLoadRequested) return;
+    _externalWorkLoadRequested = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final externalWorkStore = context.read<TimingExternalWorkStore?>();
+      if (externalWorkStore == null) return;
+      unawaited(externalWorkStore.loadAll());
+    });
+  }
 
   // -------------------------------------------------------------------
   // 通用：提示消息（SnackBar）
@@ -85,12 +102,14 @@ class _AccountPageState extends State<AccountPage> {
     final paymentStore = context.read<AccountPaymentStore>();
     final rateStore = context.read<ProjectRateStore>();
     final accountStore = context.read<AccountStore>();
+    final externalWorkStore = context.read<TimingExternalWorkStore?>();
     await Future.wait([
       timingStore.loadAll(),
       deviceStore.loadAll(),
       paymentStore.loadAll(),
       rateStore.loadAll(),
       accountStore.loadAll(),
+      if (externalWorkStore != null) externalWorkStore.loadAll(),
     ]);
   }
 
@@ -699,6 +718,7 @@ class _AccountPageState extends State<AccountPage> {
     final rateStore = context.watch<ProjectRateStore>();
     final accountStore = context.watch<AccountStore>();
     final filterStore = context.watch<AccountFilterStore>();
+    final externalWorkStore = context.watch<TimingExternalWorkStore?>();
 
     final viewData = buildAccountPageViewData(
       timingStore: timingStore,
@@ -707,6 +727,7 @@ class _AccountPageState extends State<AccountPage> {
       rateStore: rateStore,
       accountStore: accountStore,
       filterStore: filterStore,
+      externalWorkStore: externalWorkStore,
     );
 
     return Scaffold(
@@ -774,7 +795,9 @@ class _AccountPageState extends State<AccountPage> {
                           delegate: PinnedHeaderDelegate(
                             height: AccountTokens.projectPinnedHeaderHeight,
                             child: AccountProjectPinnedHeader(
-                              projectCount: viewData.filteredProjects.length,
+                              projectCount:
+                                  viewData.filteredProjects.length +
+                                  viewData.filteredExternalWorkProjects.length,
                               isCompactProjectList: _isCompactProjectList,
                               onToggleCompactProjectList: () {
                                 setState(() {
@@ -805,6 +828,8 @@ class _AccountPageState extends State<AccountPage> {
                         SliverToBoxAdapter(
                           child: AccountProjectList(
                             projects: viewData.filteredProjects,
+                            externalWorkProjects:
+                                viewData.filteredExternalWorkProjects,
                             isCompact: _isCompactProjectList,
                             onTap: _openProjectDetail,
                           ),
