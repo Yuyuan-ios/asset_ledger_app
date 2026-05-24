@@ -120,6 +120,95 @@ void main() {
       expect(preview.recordCount, 1);
     });
 
+    test('merged rich records keep member project sites on import', () async {
+      final db = await _openDb();
+      final parsed = _parsedRich(
+        projectSite: '尚义+富牛...',
+        memberProjects: const [
+          {
+            'source_project_id': 'member-a',
+            'source_project_key': '张三|尚义',
+            'contact_snapshot': '张三',
+            'site_snapshot': '尚义',
+            'display_name': '张三 · 尚义',
+            'record_ids': [101],
+          },
+          {
+            'source_project_id': 'member-b',
+            'source_project_key': '张三|富牛',
+            'contact_snapshot': '张三',
+            'site_snapshot': '富牛',
+            'display_name': '张三 · 富牛',
+            'record_ids': [102],
+          },
+        ],
+        records: [
+          _record(
+            uuid: 'timing:member-a',
+            fingerprint: 'fp-member-a',
+            sourceProjectId: 'member-a',
+            incomeFen: 10000,
+          ),
+          _record(
+            uuid: 'timing:member-b',
+            fingerprint: 'fp-member-b',
+            sourceProjectId: 'member-b',
+            incomeFen: 20000,
+          ),
+        ],
+        exportLines: const [],
+      );
+
+      final preview = await importer.buildPreview(parsed);
+      expect(preview.siteSummary, '尚义、富牛');
+      expect(preview.lines.map((line) => line.siteSnapshot), ['尚义', '富牛']);
+
+      final result = await importer.importParsed(
+        parsed,
+        importedAt: '2026-05-19T00:00:00.000Z',
+      );
+      expect(result.status, ProjectExternalWorkImportStatus.imported);
+
+      final rows = await db.query(
+        'external_work_records',
+        orderBy: 'source_record_uuid ASC',
+      );
+      expect(rows.map((row) => row['site_snapshot']), ['尚义', '富牛']);
+      expect(
+        rows.map((row) => row['site_snapshot']),
+        isNot(contains('尚义+富牛...')),
+      );
+    });
+
+    test(
+      'merged rich records fall back to project site without members',
+      () async {
+        final db = await _openDb();
+        final parsed = _parsedRich(
+          projectSite: '尚义+富牛...',
+          records: [
+            _record(
+              uuid: 'timing:missing-member',
+              fingerprint: 'fp-missing-member',
+              sourceProjectId: 'missing-member',
+              incomeFen: 10000,
+            ),
+          ],
+          exportLines: const [],
+        );
+
+        final preview = await importer.buildPreview(parsed);
+        expect(preview.lines.single.siteSnapshot, '尚义+富牛...');
+
+        await importer.importParsed(
+          parsed,
+          importedAt: '2026-05-19T00:00:00.000Z',
+        );
+        final rows = await db.query('external_work_records');
+        expect(rows.single['site_snapshot'], '尚义+富牛...');
+      },
+    );
+
     test('rent/台班 record only in records[] is previewed and imported '
         'with real income_fen (no hours*price recompute)', () async {
       final db = await _openDb();
@@ -493,7 +582,10 @@ void main() {
 
 ParsedProjectExternalWorkShare _parsedRich({
   String shareId = 'rich-share-1',
+  String projectContact = '张三',
+  String projectSite = '工地A',
   int projectReceivedFen = 0,
+  List<Map<String, Object?>> memberProjects = const [],
   required List<Map<String, Object?>>? records,
   required List<Map<String, Object?>> exportLines,
   Map<String, Object?>? summary,
@@ -516,11 +608,12 @@ ParsedProjectExternalWorkShare _parsedRich({
           },
       'project_snapshot': {
         'source_project_id': 'p-1',
-        'source_project_key': '张三|工地A',
-        'contact_snapshot': '张三',
-        'site_snapshot': '工地A',
+        'source_project_key': '$projectContact|$projectSite',
+        'contact_snapshot': projectContact,
+        'site_snapshot': projectSite,
         'project_received_fen': projectReceivedFen,
       },
+      if (memberProjects.isNotEmpty) 'member_projects': memberProjects,
       'devices': [
         {
           'source_device_id': 1,
@@ -566,6 +659,7 @@ Map<String, Object?> _record({
   String type = 'hours',
   int hoursMilli = 8000,
   required int incomeFen,
+  String sourceProjectId = 'p-1',
   Object? sourceUnitPriceFen = _missing,
   double? startMeter = 100.0,
   double? endMeter = 108.0,
@@ -573,7 +667,7 @@ Map<String, Object?> _record({
   return {
     'source_record_uuid': uuid,
     'source_timing_record_id': int.tryParse(uuid.split(':').last) ?? 1,
-    'source_project_id': 'p-1',
+    'source_project_id': sourceProjectId,
     'source_device_id': 1,
     'work_date': 20240101,
     'type': type,
