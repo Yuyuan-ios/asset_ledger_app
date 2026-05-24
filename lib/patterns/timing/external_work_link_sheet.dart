@@ -4,13 +4,17 @@ import '../../components/buttons/app_primary_button.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 
-/// 选择已结清项目时的边界提示文案（关联不改变项目财务/结清状态）。
+/// 选择已结清项目时的边界提示文案（弹窗内联，提示关联会撤销结清并重算待收）。
 const String externalWorkLinkSettledHint =
-    '该项目已结清。关联外协包不会改变项目总额、已收、待收和结清状态，仅用于后续外协应付/成本统计。';
+    '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。';
 
-/// 解除关联确认文案（阶段二仅提示，不写库）。
+/// 关联到已结清项目前的二次确认文案（点击"确认关联"后弹出）。
+const String externalWorkLinkSettledConfirm =
+    '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。是否继续？';
+
+/// 解除关联确认文案（确认后真实清空 batch 关联，但不删除外协记录）。
 const String externalWorkLinkUnlinkConfirm =
-    '解除关联后，该外协包将作为独立外协项目保留，不会删除外协记录。是否继续？';
+    '解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？';
 
 /// 防溢出的地址摘要：去重 + 取前 [maxShown] 个用 “+” 连接，超出再加 “...”。
 /// 风格对齐账户页项目卡片（如 “鲜滩+尚义...”）。

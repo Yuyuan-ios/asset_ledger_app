@@ -13,6 +13,12 @@ class AccountExternalWorkProjectVM {
   final int paidFen;
   final int recordCount;
 
+  /// 该外协包是否已关联到本地项目（已关联仍显示在外协页，头像带链条角标）。
+  final bool linked;
+
+  /// 已关联到的本地项目 id（未关联为 null）。
+  final String? linkedProjectId;
+
   const AccountExternalWorkProjectVM({
     required this.importBatchId,
     required this.displayName,
@@ -22,6 +28,8 @@ class AccountExternalWorkProjectVM {
     required this.payableFen,
     this.paidFen = 0,
     required this.recordCount,
+    this.linked = false,
+    this.linkedProjectId,
   });
 
   double get payable => payableFen / 100;
@@ -124,6 +132,42 @@ class AccountProjectVM {
   String get effectiveProjectId {
     if (projectId.trim().isNotEmpty) return projectId.trim();
     return ProjectId.legacyFromKey(projectKey);
+  }
+
+  AccountProjectVM copyWith({
+    String? displayName,
+    double? receivable,
+    double? received,
+    double? writeOff,
+    double? remaining,
+    double? ratio,
+    double? settlementRatio,
+  }) {
+    return AccountProjectVM(
+      projectId: projectId,
+      projectKey: projectKey,
+      displayName: displayName ?? this.displayName,
+      kind: kind,
+      mergeGroupId: mergeGroupId,
+      memberProjectKeys: memberProjectKeys,
+      memberProjectIds: memberProjectIds,
+      includedSites: includedSites,
+      includedSitesText: includedSitesText,
+      minYmd: minYmd,
+      deviceIds: deviceIds,
+      hoursByDevice: hoursByDevice,
+      rentIncomeTotal: rentIncomeTotal,
+      minRate: minRate,
+      isMultiDevice: isMultiDevice,
+      isMultiMode: isMultiMode,
+      receivable: receivable ?? this.receivable,
+      received: received ?? this.received,
+      writeOff: writeOff ?? this.writeOff,
+      remaining: remaining ?? this.remaining,
+      ratio: ratio ?? this.ratio,
+      settlementRatio: settlementRatio ?? this.settlementRatio,
+      payments: payments,
+    );
   }
 }
 
