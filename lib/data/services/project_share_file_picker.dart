@@ -11,7 +11,7 @@ class PickedShareFile {
   final Uint8List? bytes;
 }
 
-/// 选择项目外协分享包文件。抽象出来便于在 use case 测试中注入 fake，
+/// 选择外协项目分享包文件。抽象出来便于在 use case 测试中注入 fake，
 /// 避免触发 file_picker 平台插件。返回 null 表示用户取消。
 abstract class ProjectShareFilePicker {
   Future<PickedShareFile?> pick();

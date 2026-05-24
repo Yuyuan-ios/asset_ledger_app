@@ -95,13 +95,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无项目外协记录'), findsNothing);
+    expect(find.text('暂无外协项目记录'), findsNothing);
 
     await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
     expect(section, TimingRecordsSection.externalWork);
-    expect(find.text('暂无项目外协记录'), findsOneWidget);
+    expect(find.text('暂无外协项目记录'), findsOneWidget);
 
     await tester.drag(find.byType(TabBarView), const Offset(500, 0));
     await tester.pumpAndSettle();

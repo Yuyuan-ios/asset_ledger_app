@@ -52,7 +52,7 @@ void main() {
         findsNothing,
       );
       expect(find.text('最近记录'), findsNothing);
-      expect(find.text('项目外协'), findsNothing);
+      expect(find.text('外协项目'), findsNothing);
       expect(find.text('导入'), findsNothing);
       expect(find.text('关联'), findsNothing);
     },
@@ -244,7 +244,7 @@ void main() {
       ),
     );
 
-    expect(find.text('项目外协(0)'), findsOneWidget);
+    expect(find.text('外协项目(0)'), findsOneWidget);
     expect(
       find.byKey(const Key('timing-recent-device-filter-button')),
       findsNothing,
@@ -259,7 +259,7 @@ void main() {
       findsNothing,
     );
     expect(find.text('关联'), findsNothing);
-    expect(find.text('导入项目外协包'), findsNothing);
+    expect(find.text('导入外协项目包'), findsNothing);
 
     await tester.tap(
       find.byKey(const Key('timing-external-work-header-import')),
@@ -311,9 +311,9 @@ void main() {
       find.byKey(const Key('timing-recent-device-filter-button')),
       findsOneWidget,
     );
-    expect(find.text('项目外协(3)'), findsNothing);
+    expect(find.text('外协项目(3)'), findsNothing);
     expect(find.text('最近记录'), findsNothing);
-    expect(find.text('项目外协'), findsNothing);
+    expect(find.text('外协项目'), findsNothing);
     expect(find.text('导入'), findsNothing);
     expect(find.text('关联'), findsNothing);
 
@@ -321,15 +321,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(section, TimingRecordsSection.externalWork);
-    expect(find.text('项目外协(1)'), findsOneWidget);
+    expect(find.text('外协项目(1)'), findsOneWidget);
     expect(
       find.byKey(const Key('timing-recent-device-filter-button')),
       findsNothing,
     );
-    expect(find.text('项目外协(3)'), findsNothing);
-    expect(find.text('项目外协(3条)'), findsNothing);
+    expect(find.text('外协项目(3)'), findsNothing);
+    expect(find.text('外协项目(3条)'), findsNothing);
     expect(find.text('最近记录'), findsNothing);
-    expect(find.text('项目外协'), findsNothing);
+    expect(find.text('外协项目'), findsNothing);
     expect(
       find.byKey(const Key('timing-external-work-header-import')),
       findsOneWidget,

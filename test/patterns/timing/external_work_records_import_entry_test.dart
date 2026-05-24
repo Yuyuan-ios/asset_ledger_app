@@ -38,7 +38,7 @@ void main() {
     );
 
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
-    expect(find.text('导入项目外协包'), findsNothing);
+    expect(find.text('导入外协项目包'), findsNothing);
     // 主文案使用 .jzt，不暴露 .jztshare 扩展名（regression）
     expect(find.textContaining('.jztshare'), findsNothing);
   });

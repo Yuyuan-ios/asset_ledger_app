@@ -92,7 +92,7 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '对方导入后，会在“项目外协”中看到这个名称。',
+            '对方导入后，会在“外协项目”中看到这个名称。',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

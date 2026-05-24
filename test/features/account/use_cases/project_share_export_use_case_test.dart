@@ -97,9 +97,9 @@ void main() {
     expect(presenter.filePath, isNot(contains('.jztshare')));
     expect(presenter.fileName, outcome.fileName);
     expect(presenter.fileName, endsWith('.jzt'));
-    expect(presenter.subject, '分享项目外协记录');
+    expect(presenter.subject, '分享外协项目记录');
     expect(presenter.text, contains('FleetLedger'));
-    expect(presenter.text, contains('项目外协记录'));
+    expect(presenter.text, contains('外协项目记录'));
     expect(presenter.text, contains('.jzt'));
     expect(presenter.text, isNot(contains('.jztshare')));
     expect(presenter.sharePositionOrigin, isNull); // 暂不传，默认透传 null
@@ -223,27 +223,30 @@ void main() {
       expect(presenter.filePath, endsWith('.jzt'));
     });
 
-    test('merged project with no member records reports nothing to share', () async {
-      final presenter = _FakeSharePresenter();
-      final useCase = ProjectShareExportUseCase(
-        _FakeCalcRepo(),
-        directoryResolver: () async =>
-            Directory.systemTemp.createTemp('jztshare_uc_merge_'),
-        sharePresenter: presenter,
-      );
+    test(
+      'merged project with no member records reports nothing to share',
+      () async {
+        final presenter = _FakeSharePresenter();
+        final useCase = ProjectShareExportUseCase(
+          _FakeCalcRepo(),
+          directoryResolver: () async =>
+              Directory.systemTemp.createTemp('jztshare_uc_merge_'),
+          sharePresenter: presenter,
+        );
 
-      final outcome = await useCase.execute(
-        projectId: 'merge:99',
-        projectKey: 'merge:99',
-        senderName: '余远',
-        memberProjectIds: const ['no-such-project-id'],
-        allRecords: const [memberA, memberB],
-        allDevices: devices,
-      );
+        final outcome = await useCase.execute(
+          projectId: 'merge:99',
+          projectKey: 'merge:99',
+          senderName: '余远',
+          memberProjectIds: const ['no-such-project-id'],
+          allRecords: const [memberA, memberB],
+          allDevices: devices,
+        );
 
-      expect(outcome.ok, isFalse);
-      expect(outcome.message, '当前项目暂无可分享记录');
-      expect(presenter.calls, 0);
-    });
+        expect(outcome.ok, isFalse);
+        expect(outcome.message, '当前项目暂无可分享记录');
+        expect(presenter.calls, 0);
+      },
+    );
   });
 }

@@ -24,7 +24,7 @@ void main() {
 
       await tester.pump();
 
-      expect(find.text('项目外协记录'), findsOneWidget);
+      expect(find.text('外协项目记录'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
       expect(find.text('生成预览'), findsNothing);
       expect(find.text('王师傅'), findsOneWidget);
@@ -73,7 +73,7 @@ void main() {
       await tester.pump();
 
       expect(confirmer.callCount, 1);
-      expect(find.textContaining('可在项目外协记录中查看'), findsOneWidget);
+      expect(find.textContaining('可在外协项目记录中查看'), findsOneWidget);
     });
 
     testWidgets('keeps action buttons outside the scrolling preview content', (

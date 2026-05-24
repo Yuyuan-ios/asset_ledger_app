@@ -185,7 +185,7 @@ class ExternalWorkRecord {
   /// null 代表来源未知，0 代表真实来源单价为 0，二者不可互换。
   /// rent / 台班 / 人工覆写金额 / 设备缺失等情况导入时直接为 null；
   /// legacy export_lines 路径导入的记录恒为非 null。
-  /// 展示用途：计时页 "项目外协记录" 详情显示此字段（来源事实视图）。
+  /// 展示用途：计时页 "外协项目记录" 详情显示此字段（来源事实视图）。
   final int? sourceUnitPriceFen;
 
   /// 接收方本地复核的外协应付 / 结算单价（分）。null 表示尚未本地覆盖。

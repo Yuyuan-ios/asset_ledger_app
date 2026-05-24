@@ -4,7 +4,7 @@ import 'package:asset_ledger/patterns/timing/external_work_records_pattern.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 计时页"项目外协记录"详情弹窗的"单价"行展示规则（来源事实视图）：
+/// 计时页"外协项目记录"详情弹窗的"单价"行展示规则（来源事实视图）：
 /// - 从当前外协包 records 中按出现顺序汇总明确 sourceUnitPriceFen。
 /// - 多个明确单价去重后用中文顿号连接。
 /// - hours 且 sourceUnitPriceFen 非 null：显示 ¥xxx / h（0 也照常显示
