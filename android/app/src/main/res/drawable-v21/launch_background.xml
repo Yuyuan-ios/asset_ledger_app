@@ -5,7 +5,7 @@
             <solid android:color="#EDEAE5" />
         </shape>
     </item>
-    <item android:bottom="64dp">
+    <item android:bottom="88dp">
         <bitmap
             android:gravity="center"
             android:src="@drawable/splash_brandmark" />
