@@ -553,7 +553,7 @@ void main() {
     );
   });
 
-  testWidgets('confirming a candidate is a placeholder (no DB write)', (
+  testWidgets('confirming a candidate links the batch to the project', (
     WidgetTester tester,
   ) async {
     await _pumpTimingPage(
@@ -564,6 +564,12 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
+    // 关联前头像无链条角标。
+    expect(
+      find.byKey(const Key('external-work-avatar-link-badge')),
+      findsNothing,
+    );
+
     await tester.tap(find.byKey(const Key('timing-external-work-header-link')));
     await tester.pumpAndSettle();
 
@@ -579,12 +585,15 @@ void main() {
     await tester.tap(candidate.first);
     await tester.pump();
 
-    // 确认关联：仅占位提示，不写库。
+    // 确认关联：真实写库后头像出现链条角标。
     await tester.tap(find.byKey(const Key('external-work-link-confirm')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.textContaining('关联写入将在下一阶段开放'), findsOneWidget);
+    expect(
+      find.byKey(const Key('external-work-avatar-link-badge')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('external work item opens read-only detail sheet', (
@@ -1236,6 +1245,45 @@ class _FakeExternalWorkRecordRepository
     final before = _records.length;
     _records.removeWhere((record) => record.importBatchId == batchId);
     return before - _records.length;
+  }
+
+  @override
+  Future<int> linkBatchToProject({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async {
+    var count = 0;
+    for (var i = 0; i < _records.length; i += 1) {
+      if (_records[i].importBatchId != importBatchId) continue;
+      _records[i] = _records[i].copyWith(linkedProjectId: projectId);
+      count += 1;
+    }
+    return count;
+  }
+
+  @override
+  Future<int> unlinkBatch({
+    required String importBatchId,
+    required String updatedAt,
+  }) async {
+    var count = 0;
+    for (var i = 0; i < _records.length; i += 1) {
+      if (_records[i].importBatchId != importBatchId) continue;
+      _records[i] = _records[i].copyWith(linkedProjectId: null);
+      count += 1;
+    }
+    return count;
+  }
+
+  @override
+  Future<String?> getLinkedProjectId(String importBatchId) async {
+    for (final record in _records) {
+      if (record.importBatchId != importBatchId) continue;
+      final id = record.linkedProjectId?.trim();
+      if (id != null && id.isNotEmpty) return id;
+    }
+    return null;
   }
 
   @override

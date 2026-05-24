@@ -1,4 +1,5 @@
 import '../../../core/utils/store_feedback.dart';
+import '../domain/services/external_work_receivable.dart';
 import '../model/account_view_model.dart';
 import '../state/account_filter_store.dart';
 import '../state/account_payment_store.dart';
@@ -47,17 +48,20 @@ AccountPageViewData buildAccountPageViewData({
   final payments = paymentStore.records;
   final rates = rateStore.rates;
 
-  final computed = accountStore.compute(
+  final rawComputed = accountStore.compute(
     timingRecords: timing,
     devices: devices,
     rates: rates,
     payments: payments,
     summaryYear: DateTime.now().year,
   );
+  final externalItems = externalWorkStore?.items ?? const [];
+  // 外协设备应收联动：把已关联外协包的设备应收并入对应本地项目卡片，并把
+  // 全部外协设备应收（每包只计一次）并入账户页总览总应收。
+  final rollup = rollupExternalWorkReceivable(externalItems);
+  final computed = augmentComputedWithExternalWork(rawComputed, rollup);
   final filteredProjects = filterStore.filterProjects(computed.projects);
-  final externalWorkProjects = buildAccountExternalWorkProjects(
-    externalWorkStore?.items ?? const [],
-  );
+  final externalWorkProjects = buildAccountExternalWorkProjects(externalItems);
   final filteredExternalWorkProjects = _filterExternalWorkProjects(
     externalWorkProjects,
     filterStore.projectFilterKeyword,
@@ -122,10 +126,11 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
   final projects = <AccountExternalWorkProjectVM>[];
   for (final batchId in batchOrder) {
     final batchItems = byBatch[batchId]!;
-    final hasLinkedRecord = batchItems.any((item) {
-      return item.record.linkedProjectId?.trim().isNotEmpty == true;
-    });
-    if (hasLinkedRecord) continue;
+    // 已关联外协包仍显示在"外协的项目"列表（头像带链条角标），方便支付管理。
+    final linkedProjectId = batchItems
+        .map((item) => item.record.linkedProjectId?.trim() ?? '')
+        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+    final linked = linkedProjectId.isNotEmpty;
 
     final payableFen = batchItems.fold<int>(
       0,
@@ -151,6 +156,8 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
         minYmd: _minWorkDate(batchItems),
         payableFen: payableFen,
         recordCount: batchItems.length,
+        linked: linked,
+        linkedProjectId: linked ? linkedProjectId : null,
       ),
     );
   }
@@ -161,6 +168,129 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
     return a.displayName.compareTo(b.displayName);
   });
   return projects;
+}
+
+/// 外协设备应收汇总（账户页联动用）。
+class ExternalWorkReceivableRollup {
+  const ExternalWorkReceivableRollup({
+    required this.totalReceivableFen,
+    required this.receivableFenByProjectId,
+  });
+
+  const ExternalWorkReceivableRollup.empty()
+    : totalReceivableFen = 0,
+      receivableFenByProjectId = const {};
+
+  /// 所有活跃外协包的设备应收之和（每个 importBatch 只计一次），用于总览。
+  final int totalReceivableFen;
+
+  /// 已关联外协包按 linkedProjectId 汇总的设备应收（分），用于并入项目卡片。
+  final Map<String, int> receivableFenByProjectId;
+}
+
+/// 按 importBatch 汇总外协设备应收：总额（每包一次）+ 已关联项目维度分摊。
+ExternalWorkReceivableRollup rollupExternalWorkReceivable(
+  List<TimingExternalWorkRecordItem> items,
+) {
+  final byBatch = <String, List<TimingExternalWorkRecordItem>>{};
+  for (final item in items) {
+    if (item.record.status.name != 'active') continue;
+    if (item.batch?.status.name != 'active') continue;
+    final batchId = item.record.importBatchId.trim();
+    if (batchId.isEmpty) continue;
+    byBatch.putIfAbsent(batchId, () => []).add(item);
+  }
+
+  var totalFen = 0;
+  final byProject = <String, int>{};
+  for (final batchItems in byBatch.values) {
+    final batchReceivableFen = batchItems.fold<int>(
+      0,
+      (sum, item) => sum + externalWorkRecordReceivableFen(item.record),
+    );
+    totalFen += batchReceivableFen;
+
+    final linkedProjectId = batchItems
+        .map((item) => item.record.linkedProjectId?.trim() ?? '')
+        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+    if (linkedProjectId.isEmpty) continue;
+    byProject[linkedProjectId] =
+        (byProject[linkedProjectId] ?? 0) + batchReceivableFen;
+  }
+
+  return ExternalWorkReceivableRollup(
+    totalReceivableFen: totalFen,
+    receivableFenByProjectId: Map.unmodifiable(byProject),
+  );
+}
+
+/// 把外协设备应收并入账户页计算结果：
+/// - 每个本地项目卡片总应收 += 其已关联外协包设备应收，标题追加" + 关联"；
+/// - 总览总应收 / 待收 += 全部外协设备应收（每包只计一次，不重复）。
+AccountComputed augmentComputedWithExternalWork(
+  AccountComputed computed,
+  ExternalWorkReceivableRollup rollup,
+) {
+  if (rollup.totalReceivableFen == 0 &&
+      rollup.receivableFenByProjectId.isEmpty) {
+    return computed;
+  }
+
+  final augmentedProjects = [
+    for (final project in computed.projects)
+      _augmentProjectWithExternalWork(project, rollup),
+  ];
+
+  final externalTotalYuan = rollup.totalReceivableFen / 100;
+  final newTotalReceivable = computed.totalReceivable + externalTotalYuan;
+  final newTotalRemaining = computed.totalRemaining + externalTotalYuan;
+  final newTotalRatio = newTotalReceivable <= 0
+      ? null
+      : computed.totalReceived / newTotalReceivable;
+
+  return AccountComputed(
+    projects: augmentedProjects,
+    totalReceivable: newTotalReceivable,
+    totalReceived: computed.totalReceived,
+    totalWriteOff: computed.totalWriteOff,
+    totalRemaining: newTotalRemaining,
+    totalRatio: newTotalRatio,
+    settlementRate: computed.settlementRate,
+    deviceReceivables: computed.deviceReceivables,
+  );
+}
+
+AccountProjectVM _augmentProjectWithExternalWork(
+  AccountProjectVM project,
+  ExternalWorkReceivableRollup rollup,
+) {
+  final ids = <String>{
+    project.effectiveProjectId,
+    ...project.memberProjectIds.map((id) => id.trim()),
+  }..removeWhere((id) => id.isEmpty);
+
+  var externalFen = 0;
+  var hasLinked = false;
+  for (final id in ids) {
+    final fen = rollup.receivableFenByProjectId[id];
+    if (fen == null) continue;
+    hasLinked = true;
+    externalFen += fen;
+  }
+  if (!hasLinked) return project;
+
+  final externalYuan = externalFen / 100;
+  final newReceivable = project.receivable + externalYuan;
+  final newRemaining = project.remaining + externalYuan;
+  return project.copyWith(
+    displayName: '${project.displayName} + 关联',
+    receivable: newReceivable,
+    remaining: newRemaining,
+    ratio: newReceivable <= 0 ? project.ratio : project.received / newReceivable,
+    settlementRatio: newReceivable <= 0
+        ? project.settlementRatio
+        : (project.received + project.writeOff) / newReceivable,
+  );
 }
 
 List<AccountExternalWorkProjectVM> _filterExternalWorkProjects(

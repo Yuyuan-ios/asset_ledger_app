@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../device/domain/services/device_label.dart';
 import '../../device/domain/services/device_lookup.dart';
+import '../../account/application/controllers/account_action_controller.dart';
 import '../../account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
@@ -115,8 +116,7 @@ class _TimingPageState extends State<TimingPage> {
     AppToast.show(context, msg);
   }
 
-  // 阶段二：打开"关联到项目"底部弹窗骨架。仅 UI / 选择 / 边界提示，不写库
-  // （不写 linkedProjectId、不改 DB、不接账户页成本）。
+  // 打开"关联到项目"底部弹窗：选择外协包 + 本地项目，确认后真实写库。
   Future<void> _openExternalWorkLinkSheet() async {
     final store = context.read<TimingExternalWorkStore>();
     final items = store.items;
@@ -141,9 +141,12 @@ class _TimingPageState extends State<TimingPage> {
             onCancel: () => Navigator.of(sheetContext).pop(),
             onConfirm: (package, candidate) {
               Navigator.of(sheetContext).pop();
-              _toast('已选择「${candidate.title}」，关联写入将在下一阶段开放');
+              unawaited(_linkExternalWork(package, candidate));
             },
-            onUnlink: (package) => _confirmUnlinkExternalWork(sheetContext),
+            onUnlink: (package) {
+              Navigator.of(sheetContext).pop();
+              unawaited(_unlinkExternalWork(package));
+            },
           ),
         );
       },
@@ -217,40 +220,131 @@ class _TimingPageState extends State<TimingPage> {
   }
 
   List<ExternalWorkLinkCandidate> _buildExternalWorkLinkCandidates() {
+    // 候选只取未合并的真实项目，保证 linkedProjectId 始终指向真实 projects.id
+    // （合并 VM 的 id 为 merge:groupId，会触发外键拒绝）。
+    final computed = _computeNormalAccountProjects();
+    final settled = context.read<AccountStore>().settledProjectIds;
+    return [
+      for (final AccountProjectVM project in computed)
+        ExternalWorkLinkCandidate(
+          projectId: project.effectiveProjectId,
+          title: project.displayName,
+          settled: settled.contains(project.effectiveProjectId),
+        ),
+    ];
+  }
+
+  List<AccountProjectVM> _computeNormalAccountProjects() {
     final accountStore = context.read<AccountStore>();
     final timingStore = context.read<TimingStore>();
     final deviceStore = context.read<DeviceStore>();
     final rateStore = context.read<ProjectRateStore>();
-    // payments 不影响项目身份/结清判定，传空即可（仅取候选项目列表）。
+    // payments 不影响项目身份/结清判定与应收口径，传空即可。
     final computed = accountStore.compute(
       timingRecords: timingStore.records,
       devices: deviceStore.allDevices,
       rates: rateStore.rates,
       payments: const [],
+      activeMergeGroups: const [],
     );
-    final settled = accountStore.settledProjectIds;
-    return [
-      for (final AccountProjectVM project in computed.projects)
-        ExternalWorkLinkCandidate(
-          projectId: project.projectId,
-          title: project.displayName,
-          settled: settled.contains(project.projectId),
-        ),
-    ];
+    return computed.projects;
   }
 
-  void _confirmUnlinkExternalWork(BuildContext sheetContext) {
-    () async {
+  // 确认关联：已结清项目先二次确认 + 撤销结清，再写 linkedProjectId。
+  Future<void> _linkExternalWork(
+    ExternalWorkLinkPackage package,
+    ExternalWorkLinkCandidate candidate,
+  ) async {
+    if (candidate.settled) {
       final confirmed = await showAppConfirmDialog(
         context: context,
-        title: '解除关联',
-        content: externalWorkLinkUnlinkConfirm,
+        title: '关联到已结清项目',
+        content: externalWorkLinkSettledConfirm,
         confirmText: '继续',
       );
       if (!confirmed || !mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      _toast('解除关联将在下一阶段开放');
-    }();
+      final unsettled = await _unsettleProjectForLink(candidate.projectId);
+      if (!unsettled || !mounted) return;
+    }
+    await _writeLinkBatch(package.batchId, candidate.projectId);
+  }
+
+  Future<void> _writeLinkBatch(String batchId, String projectId) async {
+    final store = context.read<TimingExternalWorkStore>();
+    try {
+      await store.linkBatchToProject(batchId, projectId);
+    } catch (_) {
+      // 失败原因已记录在 store.failure，统一走 feedback 提示。
+    }
+    if (!mounted) return;
+    final feedback = storeActionFeedback(store, action: '关联');
+    _toast(feedback.isSuccess ? '已关联到项目' : feedback.message);
+  }
+
+  Future<void> _unlinkExternalWork(ExternalWorkLinkPackage package) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '解除关联',
+      content: externalWorkLinkUnlinkConfirm,
+      confirmText: '继续',
+    );
+    if (!confirmed || !mounted) return;
+    final store = context.read<TimingExternalWorkStore>();
+    try {
+      await store.unlinkBatch(package.batchId);
+    } catch (_) {
+      // 失败原因已记录在 store.failure，统一走 feedback 提示。
+    }
+    if (!mounted) return;
+    final feedback = storeActionFeedback(store, action: '解除关联');
+    _toast(feedback.isSuccess ? '已解除关联，外协记录已保留' : feedback.message);
+  }
+
+  // 复用账户页现有撤销结清逻辑：有核销→删核销；无核销但已结清→撤销结清状态。
+  Future<bool> _unsettleProjectForLink(String projectId) async {
+    final normalized = projectId.trim();
+    final accountStore = context.read<AccountStore>();
+    final controller = context.read<AccountActionController>();
+    final project = _accountProjectById(normalized);
+    if (project == null) {
+      _toast('未找到该项目，无法撤销结清');
+      return false;
+    }
+    final writeOffs = accountStore.writeOffs
+        .where((writeOff) => writeOff.projectId.trim() == normalized)
+        .toList(growable: false);
+    if (writeOffs.length > 1) {
+      _toast('该项目核销记录异常，请先在账户页处理后再关联');
+      return false;
+    }
+    try {
+      if (writeOffs.length == 1) {
+        await controller.deleteWriteOff(
+          project: project,
+          writeOff: writeOffs.single,
+          accountStore: accountStore,
+        );
+      } else {
+        await controller.revokeSettlementStatus(
+          project: project,
+          accountStore: accountStore,
+        );
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        _toast('撤销结清失败：${controller.friendlyWriteOffError(error)}');
+      }
+      return false;
+    }
+  }
+
+  AccountProjectVM? _accountProjectById(String projectId) {
+    final normalized = projectId.trim();
+    for (final project in _computeNormalAccountProjects()) {
+      if (project.effectiveProjectId == normalized) return project;
+    }
+    return null;
   }
 
   TimingActionController _actionController() {

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'buildAccountExternalWorkProjects groups fully unlinked active batches',
+    'buildAccountExternalWorkProjects keeps linked batches and skips inactive',
     () {
       final unlinkedBatch = _batch(
         id: 'batch-unlinked',
@@ -74,13 +74,31 @@ void main() {
         ),
       ]);
 
-      expect(projects, hasLength(1));
-      expect(projects.single.importBatchId, 'batch-unlinked');
-      expect(projects.single.displayName, '余远+鲜滩+尚义');
-      expect(projects.single.minYmd, 20260501);
-      expect(projects.single.payableFen, 1261800);
-      expect(projects.single.payable, 12618);
-      expect(projects.single.recordCount, 2);
+      // 已关联包（batch-linked）仍保留，归档包（batch-archived）被排除。
+      expect(projects, hasLength(2));
+
+      final unlinked = projects.firstWhere(
+        (project) => project.importBatchId == 'batch-unlinked',
+      );
+      expect(unlinked.displayName, '余远+鲜滩+尚义');
+      expect(unlinked.minYmd, 20260501);
+      expect(unlinked.payableFen, 1261800);
+      expect(unlinked.payable, 12618);
+      expect(unlinked.recordCount, 2);
+      expect(unlinked.linked, isFalse);
+      expect(unlinked.linkedProjectId, isNull);
+
+      final linked = projects.firstWhere(
+        (project) => project.importBatchId == 'batch-linked',
+      );
+      expect(linked.linked, isTrue);
+      expect(linked.linkedProjectId, 'project:linked');
+      expect(linked.payableFen, 170000);
+
+      expect(
+        projects.any((project) => project.importBatchId == 'batch-archived'),
+        isFalse,
+      );
     },
   );
 }

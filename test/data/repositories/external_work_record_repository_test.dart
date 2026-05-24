@@ -251,6 +251,175 @@ void main() {
       },
     );
   });
+
+  group('importBatch-level linking', () {
+    test('linkBatchToProject links every record in the batch', () async {
+      final db = await _openCurrentInMemoryDb();
+      final importRepo = SqfliteExternalImportRepository();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert('projects', _project(id: 'project:a').toMap());
+
+      await importRepo.insertBatch(_batch());
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+      ]);
+
+      final updated = await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-1',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+
+      expect(updated, 2);
+      final records = await recordRepo.listByBatchId('batch-1');
+      expect(
+        records.map((record) => record.linkedProjectId).toSet(),
+        {'project:a'},
+      );
+      expect(await recordRepo.getLinkedProjectId('batch-1'), 'project:a');
+    });
+
+    test('a batch can only carry one linked project (re-link rewrites all)',
+        () async {
+      final db = await _openCurrentInMemoryDb();
+      final importRepo = SqfliteExternalImportRepository();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert('projects', _project(id: 'project:a').toMap());
+      await db.insert('projects', _project(id: 'project:b').toMap());
+
+      await importRepo.insertBatch(_batch());
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+      ]);
+
+      await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-1',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+      await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-1',
+        projectId: 'project:b',
+        updatedAt: '2026-05-20T01:00:00.000Z',
+      );
+
+      final records = await recordRepo.listByBatchId('batch-1');
+      expect(
+        records.map((record) => record.linkedProjectId).toSet(),
+        {'project:b'},
+      );
+    });
+
+    test('one project can link multiple import batches', () async {
+      final db = await _openCurrentInMemoryDb();
+      final importRepo = SqfliteExternalImportRepository();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert('projects', _project(id: 'project:a').toMap());
+
+      await importRepo.insertBatch(_batch());
+      await importRepo.insertBatch(_batch(id: 'batch-2', sourceShareId: 'share-2'));
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(
+          id: 'external-record-b',
+          importBatchId: 'batch-2',
+          sourceShareId: 'share-2',
+          sourceRecordUuid: 'source-b',
+        ),
+      ]);
+
+      await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-1',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+      await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-2',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+
+      final linked = await recordRepo.listByLinkedProjectId('project:a');
+      expect(linked.map((record) => record.importBatchId).toSet(), {
+        'batch-1',
+        'batch-2',
+      });
+    });
+
+    test('unlinkBatch clears link but keeps the records', () async {
+      final db = await _openCurrentInMemoryDb();
+      final importRepo = SqfliteExternalImportRepository();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert('projects', _project(id: 'project:a').toMap());
+
+      await importRepo.insertBatch(_batch());
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+      ]);
+      await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-1',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+
+      final cleared = await recordRepo.unlinkBatch(
+        importBatchId: 'batch-1',
+        updatedAt: '2026-05-21T00:00:00.000Z',
+      );
+
+      expect(cleared, 2);
+      final records = await recordRepo.listByBatchId('batch-1');
+      expect(records, hasLength(2));
+      expect(
+        records.every((record) => record.linkedProjectId == null),
+        isTrue,
+      );
+      expect(await recordRepo.getLinkedProjectId('batch-1'), isNull);
+    });
+
+    test('linking one batch does not affect other batches', () async {
+      final db = await _openCurrentInMemoryDb();
+      final importRepo = SqfliteExternalImportRepository();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert('projects', _project(id: 'project:a').toMap());
+
+      await importRepo.insertBatch(_batch());
+      await importRepo.insertBatch(_batch(id: 'batch-2', sourceShareId: 'share-2'));
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(
+          id: 'external-record-b',
+          importBatchId: 'batch-2',
+          sourceShareId: 'share-2',
+          sourceRecordUuid: 'source-b',
+        ),
+      ]);
+
+      await recordRepo.linkBatchToProject(
+        importBatchId: 'batch-1',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+
+      expect(await recordRepo.getLinkedProjectId('batch-2'), isNull);
+    });
+
+    test('linkBatchToProject rejects an empty project id', () async {
+      await _openCurrentInMemoryDb();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await expectLater(
+        recordRepo.linkBatchToProject(
+          importBatchId: 'batch-1',
+          projectId: '   ',
+          updatedAt: '2026-05-20T00:00:00.000Z',
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+  });
 }
 
 Future<Database> _openCurrentInMemoryDb() {

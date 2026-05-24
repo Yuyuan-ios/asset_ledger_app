@@ -624,7 +624,10 @@ class _ExternalWorkProjectCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _ExternalWorkAvatar(isCompact: isCompact),
+                _ExternalWorkAvatar(
+                  isCompact: isCompact,
+                  linked: project.linked,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -731,9 +734,10 @@ class _ExternalWorkPayableProgressBar extends StatelessWidget {
 }
 
 class _ExternalWorkAvatar extends StatelessWidget {
-  const _ExternalWorkAvatar({required this.isCompact});
+  const _ExternalWorkAvatar({required this.isCompact, this.linked = false});
 
   final bool isCompact;
+  final bool linked;
 
   @override
   Widget build(BuildContext context) {
@@ -745,16 +749,42 @@ class _ExternalWorkAvatar extends StatelessWidget {
       height: 1,
       color: _externalWorkBadgeText,
     );
-    return Container(
-      key: _externalWorkAvatarKey,
+    return SizedBox(
       width: size,
       height: size,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: _externalWorkBadgeBg,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            key: _externalWorkAvatarKey,
+            width: size,
+            height: size,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: _externalWorkBadgeBg,
+            ),
+            child: Text('协', style: textStyle),
+          ),
+          if (linked)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                key: const Key('account-external-work-card-link-badge'),
+                width: 15,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: _externalWorkValueText,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _externalWorkCardBg, width: 2),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.link, size: 9, color: Colors.white),
+              ),
+            ),
+        ],
       ),
-      child: Text('协', style: textStyle),
     );
   }
 }

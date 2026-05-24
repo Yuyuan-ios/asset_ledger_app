@@ -51,6 +51,57 @@ class TimingExternalWorkStore extends BaseStore {
     );
   }
 
+  /// 把整个外协包关联到本地项目：事务化写库后就地更新内存态（同包记录统一）。
+  Future<void> linkBatchToProject(String batchId, String projectId) async {
+    final normalizedBatch = batchId.trim();
+    final normalizedProject = projectId.trim();
+    if (normalizedBatch.isEmpty || normalizedProject.isEmpty) return;
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
+    await writeAndPatchLocalState<int>(
+      write: () => _recordRepository.linkBatchToProject(
+        importBatchId: normalizedBatch,
+        projectId: normalizedProject,
+        updatedAt: updatedAt,
+      ),
+      patch: (count) {
+        if (count == 0) return;
+        _items = _patchBatchLink(normalizedBatch, normalizedProject);
+      },
+    );
+  }
+
+  /// 解除外协包关联：清空同包记录的 linkedProjectId，外协记录本身保留。
+  Future<void> unlinkBatch(String batchId) async {
+    final normalizedBatch = batchId.trim();
+    if (normalizedBatch.isEmpty) return;
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
+    await writeAndPatchLocalState<int>(
+      write: () => _recordRepository.unlinkBatch(
+        importBatchId: normalizedBatch,
+        updatedAt: updatedAt,
+      ),
+      patch: (count) {
+        if (count == 0) return;
+        _items = _patchBatchLink(normalizedBatch, null);
+      },
+    );
+  }
+
+  List<TimingExternalWorkRecordItem> _patchBatchLink(
+    String batchId,
+    String? projectId,
+  ) {
+    return _items
+        .map((item) {
+          if (item.record.importBatchId != batchId) return item;
+          return TimingExternalWorkRecordItem(
+            record: item.record.copyWith(linkedProjectId: projectId),
+            batch: item.batch,
+          );
+        })
+        .toList(growable: false);
+  }
+
   Future<void> deleteByBatchId(String batchId) async {
     final normalized = batchId.trim();
     if (normalized.isEmpty) return;

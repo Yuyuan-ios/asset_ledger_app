@@ -75,23 +75,31 @@ void main() {
       expect(find.text('余远+鲜滩+尚义').hitTestable(), findsNothing);
       expect(find.text('王强+已关联工地'), findsNothing);
       expect(find.text('总应收'), findsOneWidget);
-      expect(find.text('¥1000'), findsWidgets);
+      // 总览总应收 = 本地设备应收 ¥1000 + 外协设备应收（两包各计一次）
+      // 61800 + 1200000 + 90000 = 1351800 分 = ¥13518 → 合计 ¥14518。
+      expect(find.text('¥14518'), findsWidgets);
 
       await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
       await tester.pumpAndSettle();
 
-      expect(find.text('外协项目(1)'), findsOneWidget);
+      // 已关联外协包仍显示在外协页 → 共 2 个外协卡片（含链条角标）。
+      expect(find.text('外协项目(2)'), findsOneWidget);
       expect(find.text('项目(1)'), findsNothing);
       expect(find.text('李杰 + 新村').hitTestable(), findsNothing);
       expect(find.text('外协项目').hitTestable(), findsNothing);
       expect(find.text('余远+鲜滩+尚义').hitTestable(), findsOneWidget);
-      expect(find.text('外协应付').hitTestable(), findsOneWidget);
-      expect(find.text('应收项目款').hitTestable(), findsOneWidget);
+      expect(find.text('王强+已关联工地').hitTestable(), findsOneWidget);
+      expect(find.text('外协应付'), findsNWidgets(2));
+      expect(find.text('应收项目款'), findsNWidgets(2));
       expect(find.text('客户应收'), findsNothing);
       expect(find.text('¥12618').hitTestable(), findsOneWidget);
-      expect(find.text('待设置').hitTestable(), findsOneWidget);
-      expect(find.text('待计算').hitTestable(), findsOneWidget);
-      expect(find.text('王强+已关联工地'), findsNothing);
+      expect(find.text('待设置'), findsNWidgets(2));
+      expect(find.text('待计算'), findsNWidgets(2));
+      // 仅已关联外协卡片显示链条角标。
+      expect(
+        find.byKey(const Key('account-external-work-card-link-badge')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('account-page-bottom-navigation-spacer')),
         findsOneWidget,
@@ -316,6 +324,22 @@ class _FakeExternalWorkRecordRepository
 
   @override
   Future<int> deleteByBatchId(String batchId) async => 0;
+
+  @override
+  Future<int> linkBatchToProject({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async => 0;
+
+  @override
+  Future<int> unlinkBatch({
+    required String importBatchId,
+    required String updatedAt,
+  }) async => 0;
+
+  @override
+  Future<String?> getLinkedProjectId(String importBatchId) async => null;
 
   @override
   Future<int> updateLocalFields({

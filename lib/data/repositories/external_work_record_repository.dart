@@ -17,6 +17,25 @@ abstract class ExternalWorkRecordRepository {
 
   Future<int> deleteByBatchId(String batchId);
 
+  /// 把整个 importBatch 关联到一个本地项目：事务化地把该 batch 下所有记录的
+  /// `linked_project_id` 统一写成 [projectId]，保证"一包一项目、同包一致"。
+  /// 返回受影响的记录数（0 表示该 batch 没有记录）。
+  Future<int> linkBatchToProject({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  });
+
+  /// 解除整个 importBatch 的关联：事务化地把该 batch 下所有记录的
+  /// `linked_project_id` 清空（不删除任何外协记录）。返回受影响的记录数。
+  Future<int> unlinkBatch({
+    required String importBatchId,
+    required String updatedAt,
+  });
+
+  /// 读取某个 importBatch 的关联项目 id；未关联或 batch 不存在返回 null。
+  Future<String?> getLinkedProjectId(String importBatchId);
+
   Future<int> updateLocalFields({
     required String recordId,
     int? localUnitPriceFen,
@@ -136,6 +155,61 @@ class SqfliteExternalWorkRecordRepository
       );
       return deleted;
     });
+  }
+
+  @override
+  Future<int> linkBatchToProject({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async {
+    final normalizedBatchId = importBatchId.trim();
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) {
+      throw ArgumentError.value(projectId, 'projectId', '关联项目 id 不能为空');
+    }
+    if (normalizedBatchId.isEmpty) return 0;
+    return AppDatabase.inTransaction<int>((txn) async {
+      return txn.update(
+        table,
+        {'linked_project_id': normalizedProjectId, 'updated_at': updatedAt},
+        where: 'import_batch_id = ?',
+        whereArgs: [normalizedBatchId],
+      );
+    });
+  }
+
+  @override
+  Future<int> unlinkBatch({
+    required String importBatchId,
+    required String updatedAt,
+  }) async {
+    final normalizedBatchId = importBatchId.trim();
+    if (normalizedBatchId.isEmpty) return 0;
+    return AppDatabase.inTransaction<int>((txn) async {
+      return txn.update(
+        table,
+        {'linked_project_id': null, 'updated_at': updatedAt},
+        where: 'import_batch_id = ?',
+        whereArgs: [normalizedBatchId],
+      );
+    });
+  }
+
+  @override
+  Future<String?> getLinkedProjectId(String importBatchId) async {
+    final normalized = importBatchId.trim();
+    if (normalized.isEmpty) return null;
+    final db = await AppDatabase.database;
+    final rows = await db.query(
+      table,
+      columns: const ['linked_project_id'],
+      where: 'import_batch_id = ? AND linked_project_id IS NOT NULL',
+      whereArgs: [normalized],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.single['linked_project_id'] as String?;
   }
 
   @override
