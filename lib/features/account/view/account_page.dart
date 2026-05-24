@@ -763,7 +763,7 @@ class _AccountPageState extends State<AccountPage>
         );
       case _AccountProjectAreaSection.externalWork:
         return AccountProjectPinnedHeader(
-          titleLabel: '项目外协',
+          titleLabel: '外协项目',
           projectCount: viewData.filteredExternalWorkProjects.length,
           trailing: const SizedBox.shrink(),
         );
@@ -899,7 +899,7 @@ class _AccountPageState extends State<AccountPage>
                                   viewData.filteredExternalWorkProjects,
                               isCompact: _isCompactProjectList,
                               onTap: _openProjectDetail,
-                              emptyText: '暂无项目外协（未关联外协包导入后将自动出现）',
+                              emptyText: '暂无外协项目（未关联外协包导入后将自动出现）',
                             ),
                           ),
                         ],
