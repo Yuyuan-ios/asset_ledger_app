@@ -495,7 +495,7 @@ void main() {
       ),
     );
 
-    expect(find.text('外协项目'), findsOneWidget);
+    expect(find.text('外协项目'), findsNothing);
     expect(find.text('协'), findsOneWidget);
     expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
     expect(find.text('外协应付'), findsOneWidget);
@@ -509,6 +509,56 @@ void main() {
     expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
   });
+
+  testWidgets(
+    'external work title stays beside avatar and truncates before date',
+    (tester) async {
+      const longName = '余远 · 尚义、富牛、鲜滩、天眉乐、特别特别长的地址';
+      const externalProject = AccountExternalWorkProjectVM(
+        importBatchId: 'external-long-title',
+        displayName: longName,
+        sourceDisplayName: '余远',
+        siteSummary: '尚义、富牛、鲜滩、天眉乐、特别特别长的地址',
+        minYmd: 20260502,
+        payableFen: 1261800,
+        recordCount: 2,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 260,
+              child: AccountProjectList(
+                projects: const [],
+                externalWorkProjects: const [externalProject],
+                onTap: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+
+      final title = tester.widget<Text>(find.text(longName));
+      expect(title.maxLines, 1);
+      expect(title.overflow, TextOverflow.ellipsis);
+      expect(find.text('2026.05.02'), findsOneWidget);
+      expect(find.text('外协应付'), findsOneWidget);
+      expect(find.text('客户应收'), findsOneWidget);
+      expect(find.text('毛利'), findsOneWidget);
+
+      final avatarRect = tester.getRect(find.text('协'));
+      final titleRect = tester.getRect(find.text(longName));
+      final dateRect = tester.getRect(find.text('2026.05.02'));
+
+      expect(titleRect.left, greaterThan(avatarRect.right));
+      expect(titleRect.right, lessThan(dateRect.left));
+      expect((titleRect.center.dy - avatarRect.center.dy).abs(), lessThan(8));
+      expect((titleRect.center.dy - dateRect.center.dy).abs(), lessThan(8));
+    },
+  );
 
   testWidgets('project header toggles compact mode from title group only', (
     tester,
