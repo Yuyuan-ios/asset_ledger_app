@@ -18,6 +18,11 @@ const Color _externalWorkCardBorder = Color(0xFFD9EDE3);
 const Color _externalWorkBadgeBg = Color(0xFFE4F4EA);
 const Color _externalWorkBadgeText = Color(0xFF3F8F5F);
 const Color _externalWorkValueText = Color(0xFF2F6F49);
+const double _externalWorkAvatarTopInset = 4;
+const double _externalWorkCardTopPadding =
+    _externalWorkAvatarTopInset - AccountTokens.projectCardBorderWidth;
+const double _externalWorkCardMetricTopGap = 12;
+const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
 const String _settledCelebrationIconAsset =
     'assets/icons/account/settled_celebration.png';
 const Key _settledCelebrationIconKey = Key('settled-project-celebration-icon');
@@ -608,7 +613,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           AccountTokens.projectCardPaddingHorizontal,
-          AccountTokens.projectCardPaddingTop,
+          _externalWorkCardTopPadding,
           AccountTokens.projectCardPaddingHorizontal,
           isCompact
               ? AccountTokens.projectCardProgressBottomGap
@@ -640,7 +645,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: isCompact ? 12 : 18),
+            SizedBox(height: isCompact ? 10 : _externalWorkCardMetricTopGap),
             Row(
               children: [
                 Expanded(
@@ -654,7 +659,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ExternalWorkMetric(
-                    label: '客户应收',
+                    label: '应收项目款',
                     value: '待设置',
                     valueStyle: pendingValueStyle,
                     labelStyle: metricLabelStyle,
@@ -695,6 +700,7 @@ class _ExternalWorkAvatar extends StatelessWidget {
       color: _externalWorkBadgeText,
     );
     return Container(
+      key: _externalWorkAvatarKey,
       width: size,
       height: size,
       alignment: Alignment.center,
