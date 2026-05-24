@@ -111,6 +111,13 @@ class AccountProjectList extends StatelessWidget {
   String _receivedBaseText(AccountProjectVM p, {required bool compact}) {
     if (_isSettled(p)) {
       if (p.writeOff > _projectCardMoneyEpsilon) {
+        if (compact) {
+          final netReceived = (p.receivable - p.writeOff).clamp(
+            0.0,
+            p.receivable,
+          );
+          return '实收 ${FormatUtils.money(netReceived)}';
+        }
         return '总额 ${FormatUtils.money(p.receivable)}-核销 ${FormatUtils.money(p.writeOff)}';
       }
       return '总额 ${FormatUtils.money(p.receivable)}';
@@ -170,6 +177,11 @@ class AccountProjectList extends StatelessWidget {
   bool _isSettled(AccountProjectVM p) {
     return p.receivable > _projectCardMoneyEpsilon &&
         p.remaining <= _projectCardMoneyEpsilon;
+  }
+
+  double _displayProgress(AccountProjectVM p, {required bool compact}) {
+    if (compact && _isSettled(p)) return 1.0;
+    return (p.ratio ?? 0).clamp(0.0, 1.0).toDouble();
   }
 
   String _settlementStatusText(AccountProjectVM p, {required bool compact}) {
@@ -282,6 +294,7 @@ class AccountProjectList extends StatelessWidget {
                 _priceBadgeKind(p, priceText),
               );
               final isSettled = _isSettled(p);
+              final displayProgress = _displayProgress(p, compact: isCompact);
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;
@@ -479,7 +492,7 @@ class AccountProjectList extends StatelessWidget {
                                   ),
                                 ),
                                 FractionallySizedBox(
-                                  widthFactor: (p.ratio ?? 0).clamp(0, 1),
+                                  widthFactor: displayProgress,
                                   child: Container(
                                     height: AccountTokens
                                         .projectCardProgressFillHeight,

@@ -379,9 +379,7 @@ void main() {
     expect(find.text('余: ¥22000 / ¥22000'), findsNothing);
   });
 
-  testWidgets('compact settled cards show total and write-off text', (
-    tester,
-  ) async {
+  testWidgets('compact settled cards show net received text', (tester) async {
     const cashSettled = AccountProjectVM(
       projectKey: 'cash',
       displayName: '甲方 + 现金结清',
@@ -445,9 +443,11 @@ void main() {
       ),
     );
 
-    expect(find.text('总额 ¥1260-核销 ¥60'), findsOneWidget);
+    expect(find.text('实收 ¥1200'), findsOneWidget);
+    expect(find.text('总额 ¥1260-核销 ¥60'), findsNothing);
     expect(find.text('总额 ¥1260'), findsOneWidget);
     expect(find.text('已结清'), findsNWidgets(2));
+    expect(find.text('项目总额 ¥1260'), findsNWidgets(3));
     expect(find.text('项目总额¥1260'), findsNothing);
     expect(find.text('项目总额 ¥1260 核销(减免) ¥60'), findsNothing);
     expect(find.text('核销(减免) ¥60'), findsNothing);
@@ -458,6 +458,12 @@ void main() {
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
     expect(_settledCheckIcons(), findsNWidgets(2));
     expect(_settledCelebrationIcons(), findsNWidgets(2));
+
+    final progressWidthFactors = _progressWidthFactors(tester);
+    expect(progressWidthFactors, hasLength(3));
+    expect(progressWidthFactors[0], 1.0);
+    expect(progressWidthFactors[1], 1.0);
+    expect(progressWidthFactors[2], closeTo(600 / 1260, 0.0001));
   });
 
   testWidgets('project header toggles compact mode from title group only', (
@@ -578,4 +584,11 @@ Finder _settledCelebrationIcons() {
         widget.width == 18 &&
         widget.height == 18;
   });
+}
+
+List<double> _progressWidthFactors(WidgetTester tester) {
+  return tester
+      .widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox))
+      .map((widget) => widget.widthFactor ?? 0)
+      .toList(growable: false);
 }
