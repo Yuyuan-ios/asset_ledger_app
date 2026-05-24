@@ -198,6 +198,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				7157C84D9C1A1D8BAFEFC29C /* [CP] Embed Pods Frameworks */,
+				7DDEE7588B7D413BB0D62DEA /* Sign Native Asset Frameworks */,
 			);
 			buildRules = (
 			);
@@ -327,6 +328,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7DDEE7588B7D413BB0D62DEA /* Sign Native Asset Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Sign Native Asset Frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -z \"${FRAMEWORKS_FOLDER_PATH+x}\" ]; then\n  exit 0\nfi\n\nif [ \"${CODE_SIGNING_ALLOWED:-NO}\" = \"NO\" ] || [ \"${CODE_SIGNING_REQUIRED:-YES}\" = \"NO\" ] || [ -z \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  exit 0\nfi\n\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nif [ ! -d \"$frameworks_dir\" ]; then\n  exit 0\nfi\n\nfind \"$frameworks_dir\" -maxdepth 1 -type d -name \"*.framework\" | while read framework; do\n  signature_info=\"$(/usr/bin/codesign -dv --verbose=2 \"$framework\" 2>&1 || true)\"\n  needs_resign=false\n  if echo \"$signature_info\" | /usr/bin/grep -q \"Signature=adhoc\"; then\n    needs_resign=true\n  fi\n  if echo \"$signature_info\" | /usr/bin/grep -q \"code object is not signed\"; then\n    needs_resign=true\n  fi\n  if [ \"$needs_resign\" != \"true\" ]; then\n    continue\n  fi\n\n  echo \"Code Signing native asset framework $(basename \"$framework\") with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\"\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${OTHER_CODE_SIGN_FLAGS:-} --preserve-metadata=identifier,entitlements \"$framework\"\ndone\n";
 			showEnvVarsInLog = 0;
 		};
 		77DF1A27CF5E0F801F479F81 /* [CP] Check Pods Manifest.lock */ = {
