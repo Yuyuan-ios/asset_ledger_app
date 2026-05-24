@@ -245,7 +245,8 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final record = item.record;
-    final records = (packageItems ?? [item]).map((item) => item.record);
+    final detailItems = packageItems ?? [item];
+    final records = detailItems.map((item) => item.record);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -257,7 +258,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               _ExternalWorkDetailRow(label: '分享人', value: item.displayName),
               _ExternalWorkDetailRow(
                 label: '地址',
-                value: _blankFallback(record.siteSnapshot),
+                value: _detailSiteText(detailItems),
               ),
               _ExternalWorkDetailRow(
                 label: '设备',
@@ -848,6 +849,15 @@ String _visibleSiteText(String text) {
   final trimmed = text.trim();
   if (RegExp(r'^合并\d+项目$').hasMatch(trimmed)) return '';
   return trimmed;
+}
+
+String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
+  final sites = <String>[];
+  for (final item in items) {
+    final site = item.record.siteSnapshot.trim();
+    if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
+  }
+  return sites.isEmpty ? '-' : sites.join('+');
 }
 
 _EquipmentSummary _equipmentSummary(List<TimingExternalWorkRecordItem> items) {
