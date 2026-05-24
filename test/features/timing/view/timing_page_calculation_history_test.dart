@@ -246,9 +246,9 @@ void main() {
 
     expect(find.text('最近记录(1)'), findsOneWidget);
     expect(find.text('最近记录'), findsNothing);
-    expect(find.text('项目外协'), findsNothing);
+    expect(find.text('外协项目'), findsNothing);
     expect(find.text('甲方·一号工地'), findsOneWidget);
-    expect(find.text('暂无项目外协记录'), findsNothing);
+    expect(find.text('暂无外协项目记录'), findsNothing);
   });
 
   testWidgets('recent records reserve space above bottom tab bar', (
@@ -277,8 +277,8 @@ void main() {
 
     await _switchToExternalWork(tester);
 
-    expect(find.text('项目外协(0)'), findsOneWidget);
-    expect(find.text('项目外协(0条)'), findsNothing);
+    expect(find.text('外协项目(0)'), findsOneWidget);
+    expect(find.text('外协项目(0条)'), findsNothing);
     expect(
       find.byKey(const Key('timing-external-work-header-import')),
       findsOneWidget,
@@ -289,8 +289,8 @@ void main() {
     );
     expect(find.text('导入'), findsOneWidget);
     expect(find.text('关联'), findsNothing);
-    expect(find.text('导入项目外协包'), findsNothing);
-    expect(find.text('暂无项目外协记录'), findsOneWidget);
+    expect(find.text('导入外协项目包'), findsNothing);
+    expect(find.text('暂无外协项目记录'), findsOneWidget);
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
     expect(find.text('甲方·一号工地'), findsNothing);
   });
@@ -327,7 +327,7 @@ void main() {
     expect(find.text('导入'), findsNothing);
     expect(find.text('关联'), findsNothing);
     expect(find.text('最近记录(1)'), findsOneWidget);
-    expect(find.text('暂无项目外协记录'), findsNothing);
+    expect(find.text('暂无外协项目记录'), findsNothing);
     expect(find.text('甲方·一号工地'), findsOneWidget);
   });
 
@@ -382,7 +382,7 @@ void main() {
       find.byKey(const Key('timing-external-work-header-link')),
       findsOneWidget,
     );
-    expect(find.text('导入项目外协包'), findsNothing);
+    expect(find.text('导入外协项目包'), findsNothing);
     expect(find.text('2026年'), findsWidgets);
     expect(find.text('王师傅分享包•东区工地'), findsOneWidget);
     expect(find.text('CAT'), findsOneWidget);
@@ -446,8 +446,8 @@ void main() {
 
       await _switchToExternalWork(tester);
 
-      expect(find.text('项目外协(1)'), findsOneWidget);
-      expect(find.text('项目外协(2)'), findsNothing);
+      expect(find.text('外协项目(1)'), findsOneWidget);
+      expect(find.text('外协项目(2)'), findsNothing);
       expect(find.text('王师傅分享包•东区工地'), findsOneWidget);
       expect(find.text('2026.05.12-2026.05.13'), findsNothing);
       expect(find.text('2026.05.12'), findsOneWidget);
@@ -481,8 +481,8 @@ void main() {
 
     await _switchToExternalWork(tester);
 
-    expect(find.text('项目外协(1)'), findsOneWidget);
-    expect(find.text('项目外协(2)'), findsNothing);
+    expect(find.text('外协项目(1)'), findsOneWidget);
+    expect(find.text('外协项目(2)'), findsNothing);
     expect(find.text('王师傅分享包•鲜滩+五里山'), findsOneWidget);
     expect(find.text('王师傅分享包•鲜滩'), findsNothing);
     expect(find.text('王师傅分享包•五里山'), findsNothing);
@@ -512,7 +512,7 @@ void main() {
     await tester.tap(find.text('王师傅分享包•东区工地'));
     await tester.pumpAndSettle();
 
-    expect(find.text('项目外协详情'), findsOneWidget);
+    expect(find.text('外协项目详情'), findsOneWidget);
     expect(find.text('分享人'), findsOneWidget);
     expect(find.text('王师傅分享包'), findsOneWidget);
     expect(find.text('2026.05.12'), findsWidgets);
@@ -601,7 +601,7 @@ void main() {
     await tester.tap(find.text('王师傅分享包•东区工地'));
     await tester.pumpAndSettle();
 
-    expect(find.text('项目外协详情'), findsOneWidget);
+    expect(find.text('外协项目详情'), findsOneWidget);
     expect(find.text('从分享包导入'), findsOneWidget);
     expect(find.text('分享人'), findsOneWidget);
     expect(find.text('王师傅分享包'), findsOneWidget);
@@ -710,7 +710,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('王师傅分享包•东区工地'), findsNothing);
-    expect(find.text('暂无项目外协记录'), findsOneWidget);
+    expect(find.text('暂无外协项目记录'), findsOneWidget);
     expect(find.text('已删除'), findsOneWidget);
   });
 
@@ -761,7 +761,7 @@ void main() {
       );
 
       await _switchToExternalWork(tester);
-      expect(find.text('项目外协(2)'), findsOneWidget);
+      expect(find.text('外协项目(2)'), findsOneWidget);
       await tester.tap(find.text('王师傅分享包•鲜滩+五里山'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '删除分享包'));

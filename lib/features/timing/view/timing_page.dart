@@ -507,7 +507,7 @@ class _TimingPageState extends State<TimingPage> {
       context: context,
       builder: (sheetContext) {
         return AppBottomSheetShell(
-          title: '项目外协详情',
+          title: '外协项目详情',
           scrollable: true,
           onCancel: () => _deleteExternalWorkRecord(sheetContext, item),
           onConfirm: () => Navigator.of(sheetContext).pop(),

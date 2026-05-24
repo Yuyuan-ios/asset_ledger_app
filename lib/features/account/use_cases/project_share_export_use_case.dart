@@ -42,7 +42,7 @@ class ProjectShareExportOutcome {
   final String? fileName;
 }
 
-/// 项目外协分享导出用例：承接视图层意图，组装数据并生成 .jzt 文件，
+/// 外协项目分享导出用例：承接视图层意图，组装数据并生成 .jzt 文件，
 /// 成功后调起系统分享面板。视图只调用本用例，不直接 import lib/data（架构约束）。
 class ProjectShareExportUseCase {
   ProjectShareExportUseCase(
@@ -65,14 +65,14 @@ class ProjectShareExportUseCase {
   /// 与 pubspec.yaml version 对齐；升级版本号时同步修改。
   static const String appVersion = '1.0.1+3';
 
-  static const String shareSubject = '分享项目外协记录';
+  static const String shareSubject = '分享外协项目记录';
 
   // 文案表达的“直接打开附件跳转至 App”是阶段 7（系统文件关联）目标；
   // 当前阶段未实现文件关联，用户仍可在 App 内选择导入该文件。
   // TODO(阶段7): 实现 iOS/Android .jzt 文件关联，点击附件直接跳转 App。
   // TODO(阶段8/落地页): 有正式下载链接后在文案末尾追加；当前不伪造链接。
   static const String shareText =
-      '我通过 FleetLedger 给你分享了项目外协记录。\n'
+      '我通过 FleetLedger 给你分享了外协项目记录。\n'
       '如已安装 FleetLedger，请直接打开附件 .jzt 跳转至 App，或在 App 内选择导入该文件。\n'
       '如未安装，请先下载 FleetLedger 再导入。';
 

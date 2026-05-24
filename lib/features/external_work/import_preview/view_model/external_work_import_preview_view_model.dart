@@ -81,7 +81,7 @@ class ExternalWorkImportPreviewViewModel extends ChangeNotifier {
     try {
       final result = await _confirmImport.execute(session);
       _errorMessage = null;
-      _successMessage = '已导入 ${result.insertedRecordCount} 条项目外协记录';
+      _successMessage = '已导入 ${result.insertedRecordCount} 条外协项目记录';
       _status = ExternalWorkImportPreviewStatus.success;
     } on ExternalWorkImportPreviewFailure catch (error) {
       _errorMessage = error.message;

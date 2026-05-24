@@ -332,7 +332,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                                               count: recentTopLevelCount,
                                             )
                                           : _RecordsAreaTitle(
-                                              label: '项目外协',
+                                              label: '外协项目',
                                               count: externalWorkTopLevelCount,
                                             ),
                                       actions:

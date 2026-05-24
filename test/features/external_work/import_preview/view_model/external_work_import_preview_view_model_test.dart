@@ -120,7 +120,7 @@ void main() {
         await viewModel.confirmImport();
 
         expect(viewModel.status, ExternalWorkImportPreviewStatus.success);
-        expect(viewModel.successMessage, contains('项目外协记录'));
+        expect(viewModel.successMessage, contains('外协项目记录'));
         expect(await db.query('external_work_records'), hasLength(1));
         expect(await db.query('timing_records'), isEmpty);
         expect(await db.query('account_payments'), isEmpty);

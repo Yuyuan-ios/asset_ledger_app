@@ -100,7 +100,7 @@ class Migration011017 {
       await ensureProjectIdentitySchema(db);
     }
 
-    // v14 -> v15：新增单层项目外协导入基础表。
+    // v14 -> v15：新增单层外协项目导入基础表。
     if (oldVersion < 15) {
       await ensureExternalWorkSchema(db);
     }

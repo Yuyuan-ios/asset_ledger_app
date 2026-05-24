@@ -111,7 +111,7 @@ class _ExternalWorkImportPreviewContentState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('项目外协记录')),
+      appBar: AppBar(title: const Text('外协项目记录')),
       body: SafeArea(
         child: Consumer<ExternalWorkImportPreviewViewModel>(
           builder: (context, viewModel, _) {
@@ -396,7 +396,7 @@ class _SuccessBanner extends StatelessWidget {
           vertical: AppSpace.sm,
         ),
         child: Text(
-          '$message，可在项目外协记录中查看',
+          '$message，可在外协项目记录中查看',
           style: AppTypography.body(context, color: Colors.green.shade700),
         ),
       ),

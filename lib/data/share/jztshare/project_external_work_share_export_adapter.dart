@@ -13,7 +13,7 @@ import 'project_external_work_share_builder.dart';
 import 'project_external_work_share_export_service.dart';
 import 'share_envelope.dart';
 
-/// 项目外协分享导出的业务异常（给 UI 展示友好文案）。
+/// 外协项目分享导出的业务异常（给 UI 展示友好文案）。
 class ProjectShareExportException implements Exception {
   const ProjectShareExportException(this.code, this.message);
 

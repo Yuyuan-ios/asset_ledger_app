@@ -18,7 +18,7 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
     return const <Widget>[
       SliverToBoxAdapter(
         child: AppRecentRecordsEmptyState(
-          title: '暂无项目外协记录',
+          title: '暂无外协项目记录',
           subtitle: '从他人分享的 .jzt 文件导入后，会显示在这里',
         ),
       ),
@@ -912,7 +912,7 @@ String _hoursText(int hoursMilli) {
   return FormatUtils.hours(hoursMilli / 1000);
 }
 
-/// 计时页 "项目外协记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
+/// 计时页 "外协项目记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
 ///
 /// 规则：
 /// - 只汇总同一外协包内 hours 记录的明确 sourceUnitPriceFen。
