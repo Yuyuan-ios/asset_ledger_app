@@ -115,6 +115,20 @@ void main() {
       find.textContaining('Hitachi等2台•5条记录', findRichText: true),
       findsOneWidget,
     );
+    final subtitle = tester.widget<RichText>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText() == 'Hitachi等2台•5条记录',
+      ),
+    );
+    final spans = (subtitle.text as TextSpan).children!;
+    final deviceNameSpan = spans[0] as TextSpan;
+    final deviceCountSpan = spans[1] as TextSpan;
+    expect(deviceNameSpan.text, 'Hitachi');
+    expect(deviceNameSpan.style?.fontWeight, FontWeight.w700);
+    expect(deviceCountSpan.text, '等2台');
+    expect(deviceCountSpan.style?.fontWeight, FontWeight.w400);
     expect(find.text('2026.03.23'), findsOneWidget);
     expect(find.text('239.0 h'), findsOneWidget);
     expect(find.textContaining('合并'), findsNothing);

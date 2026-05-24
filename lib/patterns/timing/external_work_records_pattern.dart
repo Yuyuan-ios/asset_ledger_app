@@ -171,7 +171,8 @@ class _ExternalWorkBatchGroup {
     required this.items,
     required this.displayName,
     required this.siteSummary,
-    required this.equipmentSummary,
+    required this.equipmentSummaryMain,
+    this.equipmentSummarySuffix,
     required this.startWorkDate,
     required this.year,
     required this.importedAt,
@@ -184,7 +185,8 @@ class _ExternalWorkBatchGroup {
   final List<TimingExternalWorkRecordItem> items;
   final String displayName;
   final String siteSummary;
-  final String equipmentSummary;
+  final String equipmentSummaryMain;
+  final String? equipmentSummarySuffix;
   final int startWorkDate;
   final int year;
   final String importedAt;
@@ -207,12 +209,14 @@ class _ExternalWorkBatchGroup {
       });
     final first = sortedItems.first;
     final importedAt = _importedAtText(first);
+    final equipmentSummary = _equipmentSummary(sortedItems);
     return _ExternalWorkBatchGroup._(
       key: key,
       items: sortedItems,
       displayName: first.displayName,
       siteSummary: _siteSummaryText(sortedItems, first.batch?.siteSummary),
-      equipmentSummary: _equipmentSummaryText(sortedItems),
+      equipmentSummaryMain: equipmentSummary.main,
+      equipmentSummarySuffix: equipmentSummary.suffix,
       startWorkDate: sortedItems.first.record.workDate,
       year: _groupYear(sortedItems.first.record.workDate, importedAt),
       importedAt: importedAt,
@@ -230,15 +234,18 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
   const ExternalWorkRecordDetailContent({
     super.key,
     required this.item,
+    this.packageItems,
     this.onLinkProject,
   });
 
   final TimingExternalWorkRecordItem item;
+  final List<TimingExternalWorkRecordItem>? packageItems;
   final VoidCallback? onLinkProject;
 
   @override
   Widget build(BuildContext context) {
     final record = item.record;
+    final records = (packageItems ?? [item]).map((item) => item.record);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -266,7 +273,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               ),
               _ExternalWorkDetailRow(
                 label: '单价',
-                value: _sourceUnitPriceText(record),
+                value: _sourceUnitPriceText(records),
               ),
               _ExternalWorkDetailRow(
                 label: '金额',
@@ -396,7 +403,8 @@ class _ExternalWorkBatchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExternalWorkRecordRowBase(
       title: _externalWorkTitle(group.displayName, group.siteSummary),
-      subtitle: group.equipmentSummary,
+      subtitle: group.equipmentSummaryMain,
+      subtitleEmphasisSuffix: group.equipmentSummarySuffix,
       subtitleSecondary: group.isAggregate ? '•${group.items.length}条记录' : null,
       valueTop: FormatUtils.date(group.startWorkDate),
       valueBottom: _hoursText(group.totalHoursMilli),
@@ -439,6 +447,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
     required this.subtitle,
     required this.valueTop,
     required this.valueBottom,
+    this.subtitleEmphasisSuffix,
     this.subtitleSecondary,
     this.onTap,
     this.linked = false,
@@ -452,6 +461,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
   final String subtitle;
   final String valueTop;
   final String valueBottom;
+  final String? subtitleEmphasisSuffix;
   final String? subtitleSecondary;
   final VoidCallback? onTap;
   final bool linked;
@@ -488,12 +498,14 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
     final subtitleWidget = onToggle == null
         ? _ExternalWorkSubtitleText(
             emphasis: subtitle,
+            emphasisSuffix: subtitleEmphasisSuffix,
             secondary: subtitleSecondary,
             emphasisStyle: subTitleStyle,
             secondaryStyle: subTitleSecondaryStyle,
           )
         : _ExternalWorkToggleLabel(
             label: subtitle,
+            labelSuffix: subtitleEmphasisSuffix,
             secondaryLabel: subtitleSecondary,
             expanded: expanded,
             style: subTitleStyle,
@@ -577,10 +589,12 @@ class _ExternalWorkSubtitleText extends StatelessWidget {
     required this.emphasis,
     required this.emphasisStyle,
     required this.secondaryStyle,
+    this.emphasisSuffix,
     this.secondary,
   });
 
   final String emphasis;
+  final String? emphasisSuffix;
   final String? secondary;
   final TextStyle? emphasisStyle;
   final TextStyle? secondaryStyle;
@@ -588,7 +602,9 @@ class _ExternalWorkSubtitleText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final secondaryText = secondary;
-    if (secondaryText == null || secondaryText.isEmpty) {
+    final suffixText = emphasisSuffix;
+    if ((suffixText == null || suffixText.isEmpty) &&
+        (secondaryText == null || secondaryText.isEmpty)) {
       return Text(
         emphasis,
         maxLines: 1,
@@ -603,7 +619,10 @@ class _ExternalWorkSubtitleText extends StatelessWidget {
       text: TextSpan(
         children: [
           TextSpan(text: emphasis, style: emphasisStyle),
-          TextSpan(text: secondaryText, style: secondaryStyle),
+          if (suffixText != null && suffixText.isNotEmpty)
+            TextSpan(text: suffixText, style: secondaryStyle),
+          if (secondaryText != null && secondaryText.isNotEmpty)
+            TextSpan(text: secondaryText, style: secondaryStyle),
         ],
       ),
     );
@@ -617,10 +636,12 @@ class _ExternalWorkToggleLabel extends StatelessWidget {
     required this.style,
     required this.secondaryStyle,
     required this.onTap,
+    this.labelSuffix,
     this.secondaryLabel,
   });
 
   final String label;
+  final String? labelSuffix;
   final String? secondaryLabel;
   final bool expanded;
   final TextStyle? style;
@@ -640,6 +661,7 @@ class _ExternalWorkToggleLabel extends StatelessWidget {
             Flexible(
               child: _ExternalWorkSubtitleText(
                 emphasis: label,
+                emphasisSuffix: labelSuffix,
                 secondary: secondaryLabel,
                 emphasisStyle: style,
                 secondaryStyle: secondaryStyle,
@@ -828,15 +850,22 @@ String _visibleSiteText(String text) {
   return trimmed;
 }
 
-String _equipmentSummaryText(List<TimingExternalWorkRecordItem> items) {
+_EquipmentSummary _equipmentSummary(List<TimingExternalWorkRecordItem> items) {
   final devices = <String>[];
   for (final item in items) {
     final device = _deviceSummaryName(item.record);
     if (device.isNotEmpty && !devices.contains(device)) devices.add(device);
   }
-  if (devices.isEmpty) return '设备未填写';
-  if (devices.length == 1) return devices.first;
-  return '${devices.first}等${devices.length}台';
+  if (devices.isEmpty) return const _EquipmentSummary(main: '设备未填写');
+  if (devices.length == 1) return _EquipmentSummary(main: devices.first);
+  return _EquipmentSummary(main: devices.first, suffix: '等${devices.length}台');
+}
+
+class _EquipmentSummary {
+  const _EquipmentSummary({required this.main, this.suffix});
+
+  final String main;
+  final String? suffix;
 }
 
 String _deviceSummaryName(ExternalWorkRecord record) {
@@ -876,22 +905,26 @@ String _hoursText(int hoursMilli) {
 /// 计时页 "项目外协记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
 ///
 /// 规则：
-/// - rent / 台班：永远显示"不适用"（来源无单价语义）。
-/// - hours + sourceUnitPriceFen 有值：显示 ¥xxx / h。
-/// - hours + sourceUnitPriceFen 为 null：显示"未知"。
+/// - 只汇总同一外协包内 hours 记录的明确 sourceUnitPriceFen。
+/// - 多个明确单价按记录出现顺序去重，用 "、" 拼接。
+/// - rent / 台班及 sourceUnitPriceFen 为 null 的记录不参与汇总。
+/// - 没有任何明确来源单价时显示"未知"。
 /// 0 是合法的"真实来源单价为 0"语义，仍按 ¥0 / h 显示。
 ///
 /// 重要：这里**不要**回退到 `localUnitPriceFen`。
 /// localUnitPriceFen 是接收方未来本地复核的外协应付/结算单价，账户页
 /// 外协卡片才走 `localUnitPriceFen ?? sourceUnitPriceFen` 作为有效应付价；
 /// 在计时页详情拉它会把"接收方复核值"伪装成"来源事实"，破坏审计语义。
-String _sourceUnitPriceText(ExternalWorkRecord record) {
-  if (record.recordKind == ExternalWorkRecordKind.rent) {
-    return '不适用';
+String _sourceUnitPriceText(Iterable<ExternalWorkRecord> records) {
+  final seen = <int>{};
+  final values = <String>[];
+  for (final record in records) {
+    if (record.recordKind != ExternalWorkRecordKind.hours) continue;
+    final price = record.sourceUnitPriceFen;
+    if (price == null || !seen.add(price)) continue;
+    values.add('${_moneyFen(price)} / h');
   }
-  final price = record.sourceUnitPriceFen;
-  if (price == null) return '未知';
-  return '${_moneyFen(price)} / h';
+  return values.isEmpty ? '未知' : values.join('、');
 }
 
 String _moneyFen(int fen) {
