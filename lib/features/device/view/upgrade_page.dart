@@ -187,7 +187,7 @@ class _UpgradePageState extends State<UpgradePage> {
                         UpgradePlanCard(
                           title: '年套餐',
                           subtitle1: '$yearlyPrice · 年度订阅',
-                          subtitle2: '如果对您有帮助，请开发者喝瓶红牛持续开发',
+                          subtitle2: '如果对您有帮助，请开发者喝瓶红牛持续维护',
                           badge: '省50%',
                           emphasized: _selectedPlan == _UpgradePlan.annual,
                           onTap: snapshot.isBusy
@@ -200,7 +200,7 @@ class _UpgradePageState extends State<UpgradePage> {
                         UpgradePlanCard(
                           title: '月套餐',
                           subtitle1: '$monthlyPrice · 按月订阅',
-                          subtitle2: '按月支持维护，体验当前 Pro 权益。',
+                          subtitle2: '按月支持开发，体验当前 Pro 权益。',
                           emphasized: _selectedPlan == _UpgradePlan.monthly,
                           onTap: snapshot.isBusy
                               ? null

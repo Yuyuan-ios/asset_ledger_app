@@ -472,6 +472,210 @@ void main() {
     expect(progressWidthFactors[2], closeTo(600 / 1260, 0.0001));
   });
 
+  testWidgets('renders external work cards in green style', (tester) async {
+    const externalProject = AccountExternalWorkProjectVM(
+      importBatchId: 'external-batch-1',
+      displayName: '余远 · 鲜滩+尚义',
+      sourceDisplayName: '余远',
+      siteSummary: '鲜滩+尚义',
+      minYmd: 20260502,
+      payableFen: 1261800,
+      recordCount: 2,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [],
+            externalWorkProjects: const [externalProject],
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('外协项目'), findsNothing);
+    expect(find.text('协'), findsOneWidget);
+    expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
+    expect(find.text('外协应付'), findsOneWidget);
+    expect(find.text('¥12618'), findsOneWidget);
+    expect(find.text('应收项目款'), findsOneWidget);
+    expect(find.text('客户应收'), findsNothing);
+    expect(find.text('毛利'), findsOneWidget);
+    expect(find.text('待设置'), findsOneWidget);
+    expect(find.text('待计算'), findsOneWidget);
+
+    expect(_containerWithColor(const Color(0xFFF4FAF7)), findsOneWidget);
+    expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
+    expect(_containerWithColor(const Color(0xFF459A63)), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFF06161)), findsOneWidget);
+
+    final progressWidthFactors = _progressWidthFactors(tester);
+    expect(progressWidthFactors, hasLength(1));
+    expect(progressWidthFactors.single, 1.0);
+  });
+
+  testWidgets('external work payable progress shrinks red bar from the right', (
+    tester,
+  ) async {
+    const externalProject = AccountExternalWorkProjectVM(
+      importBatchId: 'external-paid-progress',
+      displayName: '张俊 · 天眉乐',
+      sourceDisplayName: '张俊',
+      siteSummary: '天眉乐',
+      minYmd: 20260521,
+      payableFen: 1261800,
+      paidFen: 630900,
+      recordCount: 2,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: AccountProjectList(
+              projects: const [],
+              externalWorkProjects: const [externalProject],
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final unpaidBar = tester.widget<FractionallySizedBox>(
+      find.byType(FractionallySizedBox),
+    );
+    expect(unpaidBar.widthFactor, closeTo(0.5, 0.0001));
+    expect(unpaidBar.alignment, Alignment.centerLeft);
+
+    final greenRect = tester.getRect(
+      _containerWithColor(const Color(0xFF459A63)),
+    );
+    final redRect = tester.getRect(
+      _containerWithColor(const Color(0xFFF06161)),
+    );
+    expect(redRect.left, greenRect.left);
+    expect(redRect.right, lessThan(greenRect.right));
+  });
+
+  testWidgets(
+    'external work title stays beside avatar and truncates before date',
+    (tester) async {
+      const longName = '余远 · 尚义、富牛、鲜滩、天眉乐、特别特别长的地址';
+      const externalProject = AccountExternalWorkProjectVM(
+        importBatchId: 'external-long-title',
+        displayName: longName,
+        sourceDisplayName: '余远',
+        siteSummary: '尚义、富牛、鲜滩、天眉乐、特别特别长的地址',
+        minYmd: 20260502,
+        payableFen: 1261800,
+        recordCount: 2,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 260,
+              child: AccountProjectList(
+                projects: const [],
+                externalWorkProjects: const [externalProject],
+                onTap: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+
+      final title = tester.widget<Text>(find.text(longName));
+      expect(title.maxLines, 1);
+      expect(title.overflow, TextOverflow.ellipsis);
+      expect(find.text('2026.05.02'), findsOneWidget);
+      expect(find.text('外协应付'), findsOneWidget);
+      expect(find.text('应收项目款'), findsOneWidget);
+      expect(find.text('毛利'), findsOneWidget);
+
+      final avatarRect = tester.getRect(find.text('协'));
+      final titleRect = tester.getRect(find.text(longName));
+      final dateRect = tester.getRect(find.text('2026.05.02'));
+
+      expect(titleRect.left, greaterThan(avatarRect.right));
+      expect(titleRect.right, lessThan(dateRect.left));
+      expect((titleRect.center.dy - avatarRect.center.dy).abs(), lessThan(8));
+      expect((titleRect.center.dy - dateRect.center.dy).abs(), lessThan(8));
+    },
+  );
+
+  testWidgets('external work card matches project card height and avatar top', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'owned',
+      displayName: '李杰 + 新村',
+      minYmd: 20260501,
+      deviceIds: [1],
+      hoursByDevice: {1: 10},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1000,
+      received: 0,
+      remaining: 1000,
+      ratio: 0,
+      payments: [],
+    );
+    const externalProject = AccountExternalWorkProjectVM(
+      importBatchId: 'external-batch-height',
+      displayName: '余远 · 鲜滩+尚义',
+      sourceDisplayName: '余远',
+      siteSummary: '鲜滩+尚义',
+      minYmd: 20260502,
+      payableFen: 1261800,
+      recordCount: 2,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [project],
+            externalWorkProjects: const [externalProject],
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final ownedCardRect = tester.getRect(
+      _containerWithBorder(const Color(0x4D000000)),
+    );
+    final externalCardRect = tester.getRect(
+      find.byKey(const Key('account-external-work-card-external-batch-height')),
+    );
+    final avatarRect = tester.getRect(
+      find.byKey(const Key('account-external-work-avatar')),
+    );
+
+    expect(externalCardRect.height, ownedCardRect.height);
+    expect(avatarRect.top - externalCardRect.top, 4);
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const Key('account-external-work-card-external-batch-height'),
+        ),
+        matching: _paddingWithBottom(6),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('project header toggles compact mode from title group only', (
     tester,
   ) async {
@@ -556,6 +760,13 @@ Finder _containerWithBorder(Color color) {
     return decoration is BoxDecoration &&
         decoration.border is Border &&
         (decoration.border as Border).top.color == color;
+  });
+}
+
+Finder _paddingWithBottom(double bottom) {
+  return find.byWidgetPredicate((widget) {
+    return widget is Padding &&
+        widget.padding.resolve(TextDirection.ltr).bottom == bottom;
   });
 }
 
