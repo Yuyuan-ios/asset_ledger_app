@@ -21,7 +21,7 @@ const Color _externalWorkValueText = Color(0xFF2F6F49);
 const double _externalWorkAvatarTopInset = 4;
 const double _externalWorkCardTopPadding =
     _externalWorkAvatarTopInset - AccountTokens.projectCardBorderWidth;
-const double _externalWorkCardBottomPadding = 12;
+const double _externalWorkCardBottomPadding = 6;
 const double _externalWorkCardMetricTopGap = 12;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
 const String _settledCelebrationIconAsset =
@@ -675,6 +675,53 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: AccountTokens.projectCardProgressTopGap),
+            _ExternalWorkPayableProgressBar(
+              paidRatio: project.payablePaidRatio,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExternalWorkPayableProgressBar extends StatelessWidget {
+  const _ExternalWorkPayableProgressBar({required this.paidRatio});
+
+  final double paidRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    final unpaidRatio = (1 - paidRatio).clamp(0.0, 1.0).toDouble();
+    final radius = BorderRadius.circular(
+      AccountTokens.projectCardProgressRadius,
+    );
+
+    return SizedBox(
+      height: AccountTokens.projectCardProgressHeight,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Stack(
+          children: [
+            Container(
+              height: AccountTokens.projectCardProgressFillHeight,
+              decoration: BoxDecoration(
+                color: AccountTokens.overviewPieReceived,
+                borderRadius: radius,
+              ),
+            ),
+            FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: unpaidRatio,
+              child: Container(
+                height: AccountTokens.projectCardProgressFillHeight,
+                decoration: BoxDecoration(
+                  color: AccountTokens.overviewPieRemaining,
+                  borderRadius: radius,
+                ),
+              ),
             ),
           ],
         ),

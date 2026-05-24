@@ -10,6 +10,7 @@ class AccountExternalWorkProjectVM {
   final String siteSummary;
   final int minYmd;
   final int payableFen;
+  final int paidFen;
   final int recordCount;
 
   const AccountExternalWorkProjectVM({
@@ -19,10 +20,16 @@ class AccountExternalWorkProjectVM {
     required this.siteSummary,
     required this.minYmd,
     required this.payableFen,
+    this.paidFen = 0,
     required this.recordCount,
   });
 
   double get payable => payableFen / 100;
+
+  double get payablePaidRatio {
+    if (payableFen <= 0) return 1;
+    return (paidFen / payableFen).clamp(0.0, 1.0).toDouble();
+  }
 }
 
 class AccountComputed {

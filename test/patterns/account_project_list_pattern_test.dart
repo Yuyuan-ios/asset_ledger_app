@@ -509,6 +509,57 @@ void main() {
     expect(_containerWithColor(const Color(0xFFF4FAF7)), findsOneWidget);
     expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
+    expect(_containerWithColor(const Color(0xFF459A63)), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFF06161)), findsOneWidget);
+
+    final progressWidthFactors = _progressWidthFactors(tester);
+    expect(progressWidthFactors, hasLength(1));
+    expect(progressWidthFactors.single, 1.0);
+  });
+
+  testWidgets('external work payable progress shrinks red bar from the right', (
+    tester,
+  ) async {
+    const externalProject = AccountExternalWorkProjectVM(
+      importBatchId: 'external-paid-progress',
+      displayName: '张俊 · 天眉乐',
+      sourceDisplayName: '张俊',
+      siteSummary: '天眉乐',
+      minYmd: 20260521,
+      payableFen: 1261800,
+      paidFen: 630900,
+      recordCount: 2,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: AccountProjectList(
+              projects: const [],
+              externalWorkProjects: const [externalProject],
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final unpaidBar = tester.widget<FractionallySizedBox>(
+      find.byType(FractionallySizedBox),
+    );
+    expect(unpaidBar.widthFactor, closeTo(0.5, 0.0001));
+    expect(unpaidBar.alignment, Alignment.centerLeft);
+
+    final greenRect = tester.getRect(
+      _containerWithColor(const Color(0xFF459A63)),
+    );
+    final redRect = tester.getRect(
+      _containerWithColor(const Color(0xFFF06161)),
+    );
+    expect(redRect.left, greenRect.left);
+    expect(redRect.right, lessThan(greenRect.right));
   });
 
   testWidgets(
@@ -619,7 +670,7 @@ void main() {
         of: find.byKey(
           const Key('account-external-work-card-external-batch-height'),
         ),
-        matching: _paddingWithBottom(12),
+        matching: _paddingWithBottom(6),
       ),
       findsOneWidget,
     );
