@@ -472,6 +472,65 @@ void main() {
     expect(progressWidthFactors[2], closeTo(600 / 1260, 0.0001));
   });
 
+  testWidgets(
+    'renders external work cards after owned project cards in green style',
+    (tester) async {
+      const ownedProject = AccountProjectVM(
+        projectKey: 'owned',
+        displayName: '甲方 + 自有项目',
+        minYmd: 20260501,
+        deviceIds: [1],
+        hoursByDevice: {1: 12.6},
+        rentIncomeTotal: 0,
+        minRate: 100,
+        isMultiDevice: false,
+        isMultiMode: false,
+        receivable: 1260,
+        received: 600,
+        remaining: 660,
+        ratio: 600 / 1260,
+        payments: [],
+      );
+      const externalProject = AccountExternalWorkProjectVM(
+        importBatchId: 'external-batch-1',
+        displayName: '余远 · 鲜滩+尚义',
+        sourceDisplayName: '余远',
+        siteSummary: '鲜滩+尚义',
+        minYmd: 20260502,
+        payableFen: 1261800,
+        recordCount: 2,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(
+              projects: const [ownedProject],
+              externalWorkProjects: const [externalProject],
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('甲方 + 自有项目'), findsOneWidget);
+      expect(find.text('47.6%实收'), findsOneWidget);
+      expect(find.text('外协项目'), findsOneWidget);
+      expect(find.text('协'), findsOneWidget);
+      expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
+      expect(find.text('外协应付'), findsOneWidget);
+      expect(find.text('¥12618'), findsOneWidget);
+      expect(find.text('客户应收'), findsOneWidget);
+      expect(find.text('毛利'), findsOneWidget);
+      expect(find.text('待设置'), findsOneWidget);
+      expect(find.text('待计算'), findsOneWidget);
+
+      expect(_containerWithColor(const Color(0xFFF4FAF7)), findsOneWidget);
+      expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);
+      expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
+    },
+  );
+
   testWidgets('project header toggles compact mode from title group only', (
     tester,
   ) async {

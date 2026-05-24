@@ -3,6 +3,28 @@ import '../../../data/models/project_id.dart';
 
 enum AccountProjectKind { normal, merged }
 
+class AccountExternalWorkProjectVM {
+  final String importBatchId;
+  final String displayName;
+  final String sourceDisplayName;
+  final String siteSummary;
+  final int minYmd;
+  final int payableFen;
+  final int recordCount;
+
+  const AccountExternalWorkProjectVM({
+    required this.importBatchId,
+    required this.displayName,
+    required this.sourceDisplayName,
+    required this.siteSummary,
+    required this.minYmd,
+    required this.payableFen,
+    required this.recordCount,
+  });
+
+  double get payable => payableFen / 100;
+}
+
 class AccountComputed {
   final List<AccountProjectVM> projects;
   final double totalReceivable;
