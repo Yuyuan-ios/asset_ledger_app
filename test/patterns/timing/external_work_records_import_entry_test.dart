@@ -311,6 +311,49 @@ void main() {
     expect(find.text('2026.03.24'), findsNothing);
   });
 
+  testWidgets('expanded package children sort by work date descending', (
+    tester,
+  ) async {
+    final items = [
+      _item(
+        record: _record(
+          id: 'record-early',
+          sourceRecordUuid: 'source-early',
+          siteSnapshot: '早工地',
+          workDate: 20260323,
+        ),
+      ),
+      _item(
+        record: _record(
+          id: 'record-late',
+          sourceRecordUuid: 'source-late',
+          siteSnapshot: '晚工地',
+          workDate: 20260325,
+        ),
+      ),
+      _item(
+        record: _record(
+          id: 'record-middle',
+          sourceRecordUuid: 'source-middle',
+          siteSnapshot: '中工地',
+          workDate: 20260324,
+        ),
+      ),
+    ];
+
+    await tester.pumpWidget(_statefulHost(items));
+
+    await tester.tap(find.textContaining('Hitachi•3条记录', findRichText: true));
+    await tester.pumpAndSettle();
+
+    final lateY = tester.getTopLeft(find.text('余远•晚工地')).dy;
+    final middleY = tester.getTopLeft(find.text('余远•中工地')).dy;
+    final earlyY = tester.getTopLeft(find.text('余远•早工地')).dy;
+
+    expect(lateY, lessThan(middleY));
+    expect(middleY, lessThan(earlyY));
+  });
+
   testWidgets('tapping package outside count opens detail target', (
     tester,
   ) async {
