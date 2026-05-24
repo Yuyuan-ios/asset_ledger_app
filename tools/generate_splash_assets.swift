@@ -82,8 +82,8 @@ func writePNG(
 
 func drawBrandmark(in bounds: CGRect) {
   let canvasWidth = bounds.width
-  let iconSize: CGFloat = 132
-  let iconY: CGFloat = 132
+  let iconSize: CGFloat = 116
+  let iconY: CGFloat = 122
   let iconRect = CGRect(
     x: (canvasWidth - iconSize) / 2,
     y: iconY,
