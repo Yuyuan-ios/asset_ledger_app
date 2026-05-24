@@ -76,7 +76,7 @@ void main() {
 
       expect(projects, hasLength(1));
       expect(projects.single.importBatchId, 'batch-unlinked');
-      expect(projects.single.displayName, '余远 · 鲜滩+尚义');
+      expect(projects.single.displayName, '余远+鲜滩+尚义');
       expect(projects.single.minYmd, 20260501);
       expect(projects.single.payableFen, 1261800);
       expect(projects.single.payable, 12618);

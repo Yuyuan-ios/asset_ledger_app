@@ -475,7 +475,7 @@ void main() {
   testWidgets('renders external work cards in green style', (tester) async {
     const externalProject = AccountExternalWorkProjectVM(
       importBatchId: 'external-batch-1',
-      displayName: '余远 · 鲜滩+尚义',
+      displayName: '余远+鲜滩+尚义',
       sourceDisplayName: '余远',
       siteSummary: '鲜滩+尚义',
       minYmd: 20260502,
@@ -497,7 +497,7 @@ void main() {
 
     expect(find.text('外协项目'), findsNothing);
     expect(find.text('协'), findsOneWidget);
-    expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
+    expect(find.text('余远+鲜滩+尚义'), findsOneWidget);
     expect(find.text('外协应付'), findsOneWidget);
     expect(find.text('¥12618'), findsOneWidget);
     expect(find.text('应收项目款'), findsOneWidget);
@@ -522,7 +522,7 @@ void main() {
   ) async {
     const externalProject = AccountExternalWorkProjectVM(
       importBatchId: 'external-paid-progress',
-      displayName: '张俊 · 天眉乐',
+      displayName: '张俊+天眉乐',
       sourceDisplayName: '张俊',
       siteSummary: '天眉乐',
       minYmd: 20260521,
@@ -565,7 +565,7 @@ void main() {
   testWidgets(
     'external work title stays beside avatar and truncates before date',
     (tester) async {
-      const longName = '余远 · 尚义、富牛、鲜滩、天眉乐、特别特别长的地址';
+      const longName = '余远+尚义、富牛、鲜滩、天眉乐、特别特别长的地址';
       const externalProject = AccountExternalWorkProjectVM(
         importBatchId: 'external-long-title',
         displayName: longName,
@@ -633,7 +633,7 @@ void main() {
     );
     const externalProject = AccountExternalWorkProjectVM(
       importBatchId: 'external-batch-height',
-      displayName: '余远 · 鲜滩+尚义',
+      displayName: '余远+鲜滩+尚义',
       sourceDisplayName: '余远',
       siteSummary: '鲜滩+尚义',
       minYmd: 20260502,

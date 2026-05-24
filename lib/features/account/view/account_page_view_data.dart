@@ -183,7 +183,7 @@ String _externalWorkDisplayName(String sourceDisplayName, String siteSummary) {
   final source = sourceDisplayName.trim();
   final sites = siteSummary.trim();
   if (sites.isEmpty) return source;
-  return '$source · $sites';
+  return '$source+$sites';
 }
 
 String _siteSummary(

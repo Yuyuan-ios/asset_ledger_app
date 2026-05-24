@@ -72,8 +72,8 @@ void main() {
       expect(find.text('项目外协(1)'), findsNothing);
       expect(find.text('李杰 + 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
-      expect(find.text('余远 · 鲜滩+尚义').hitTestable(), findsNothing);
-      expect(find.text('王强 · 已关联工地'), findsNothing);
+      expect(find.text('余远+鲜滩+尚义').hitTestable(), findsNothing);
+      expect(find.text('王强+已关联工地'), findsNothing);
       expect(find.text('总应收'), findsOneWidget);
       expect(find.text('¥1000'), findsWidgets);
 
@@ -84,14 +84,14 @@ void main() {
       expect(find.text('项目(1)'), findsNothing);
       expect(find.text('李杰 + 新村').hitTestable(), findsNothing);
       expect(find.text('外协项目').hitTestable(), findsNothing);
-      expect(find.text('余远 · 鲜滩+尚义').hitTestable(), findsOneWidget);
+      expect(find.text('余远+鲜滩+尚义').hitTestable(), findsOneWidget);
       expect(find.text('外协应付').hitTestable(), findsOneWidget);
       expect(find.text('应收项目款').hitTestable(), findsOneWidget);
       expect(find.text('客户应收'), findsNothing);
       expect(find.text('¥12618').hitTestable(), findsOneWidget);
       expect(find.text('待设置').hitTestable(), findsOneWidget);
       expect(find.text('待计算').hitTestable(), findsOneWidget);
-      expect(find.text('王强 · 已关联工地'), findsNothing);
+      expect(find.text('王强+已关联工地'), findsNothing);
       expect(
         find.byKey(const Key('account-page-bottom-navigation-spacer')),
         findsOneWidget,
