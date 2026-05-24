@@ -110,8 +110,11 @@ void main() {
 
     expect(timingExternalWorkTopLevelCount(items), 1);
     expect(find.text('2026年'), findsOneWidget);
-    expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
-    expect(find.text('Hitachi等2台·5条记录'), findsOneWidget);
+    expect(find.text('余远•鲜滩+尚义'), findsOneWidget);
+    expect(
+      find.textContaining('Hitachi等2台•5条记录', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('2026.03.23'), findsOneWidget);
     expect(find.text('239.0 h'), findsOneWidget);
     expect(find.textContaining('合并'), findsNothing);
@@ -143,7 +146,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Hitachi·5条记录'), findsOneWidget);
+    expect(
+      find.textContaining('Hitachi•5条记录', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('239.0 h'), findsOneWidget);
   });
 
@@ -219,11 +225,11 @@ void main() {
     );
     expect(cards, findsNWidgets(2));
     expect(
-      find.descendant(of: cards.at(0), matching: find.text('张俊 · 天眉乐')),
+      find.descendant(of: cards.at(0), matching: find.text('张俊•天眉乐')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: cards.at(1), matching: find.textContaining('余远 ·')),
+      find.descendant(of: cards.at(1), matching: find.textContaining('余远•')),
       findsNWidgets(2),
     );
   });
@@ -251,7 +257,12 @@ void main() {
   ) async {
     final items = [
       _item(
-        record: _record(id: 'record-1', sourceRecordUuid: 'source-1'),
+        record: _record(
+          id: 'record-1',
+          sourceRecordUuid: 'source-1',
+          equipmentModel: null,
+          equipmentType: 'excavator',
+        ),
       ),
       _item(
         record: _record(
@@ -259,6 +270,8 @@ void main() {
           sourceRecordUuid: 'source-2',
           workDate: 20260324,
           hoursMilli: 2000,
+          equipmentModel: null,
+          equipmentType: 'excavator',
         ),
       ),
     ];
@@ -269,12 +282,15 @@ void main() {
     );
 
     expect(find.text('2026.03.24'), findsNothing);
-    await tester.tap(find.text('Hitachi·2条记录'));
+    await tester.tap(find.textContaining('Hitachi•2条记录', findRichText: true));
     await tester.pumpAndSettle();
 
     expect(tapped, isFalse);
     expect(find.byIcon(Icons.keyboard_arrow_up), findsOneWidget);
     expect(find.text('2026.03.24'), findsOneWidget);
+    expect(find.text('协'), findsOneWidget);
+    expect(find.text('Hitachi'), findsNWidgets(2));
+    expect(find.text('Hitachi / excavator'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.keyboard_arrow_up));
     await tester.pumpAndSettle();
@@ -303,7 +319,7 @@ void main() {
       _statefulHost(items, onTapRecord: (item) => tapped = item),
     );
 
-    await tester.tap(find.text('余远 · 五里山'));
+    await tester.tap(find.text('余远•五里山'));
     await tester.pump();
 
     expect(tapped?.record.id, 'record-1');
@@ -344,8 +360,8 @@ void main() {
     );
 
     expect(
-      tester.getTopLeft(find.text('余远 · 新工地')).dy,
-      lessThan(tester.getTopLeft(find.text('余远 · 旧工地')).dy),
+      tester.getTopLeft(find.text('余远•新工地')).dy,
+      lessThan(tester.getTopLeft(find.text('余远•旧工地')).dy),
     );
   });
 
@@ -483,7 +499,7 @@ ExternalWorkRecord _record({
   String collaboratorName = '余远',
   String siteSnapshot = '五里山',
   String equipmentBrand = 'Hitachi',
-  String equipmentModel = 'ZX200',
+  String? equipmentModel = 'ZX200',
   String equipmentType = '挖机',
   int workDate = 20260323,
   int hoursMilli = 1000,
