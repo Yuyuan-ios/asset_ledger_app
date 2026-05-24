@@ -506,7 +506,7 @@ void main() {
     expect(find.text('待设置'), findsOneWidget);
     expect(find.text('待计算'), findsOneWidget);
 
-    expect(_containerWithColor(const Color(0xFFF4FAF7)), findsOneWidget);
+    expect(_containerWithColor(const Color(0xFFFFFFFF)), findsOneWidget);
     expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
     expect(_containerWithColor(const Color(0xFF459A63)), findsOneWidget);
