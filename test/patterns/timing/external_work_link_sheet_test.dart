@@ -56,17 +56,24 @@ void main() {
     List<ExternalWorkLinkCandidate> withCandidates = candidates,
     ExternalWorkLinkConfirm? onConfirm,
     ExternalWorkLinkUnlink? onUnlink,
+    double? height,
   }) async {
+    final sheet = ExternalWorkLinkSheet(
+      packages: packages,
+      candidates: withCandidates,
+      onConfirm: onConfirm ?? (_, _) {},
+      onCancel: () {},
+      onUnlink: onUnlink,
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ExternalWorkLinkSheet(
-            packages: packages,
-            candidates: withCandidates,
-            onConfirm: onConfirm ?? (_, _) {},
-            onCancel: () {},
-            onUnlink: onUnlink,
-          ),
+          body: height == null
+              ? sheet
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(height: height, child: sheet),
+                ),
         ),
       ),
     );
@@ -164,5 +171,34 @@ void main() {
     await tester.tap(find.byKey(const Key('external-work-link-unlink')));
     await tester.pump();
     expect(unlinked?.batchId, 'b1');
+  });
+
+  testWidgets('actions stay fixed while candidates scroll', (tester) async {
+    final manyCandidates = List.generate(
+      18,
+      (index) => ExternalWorkLinkCandidate(
+        projectId: 'p${index + 1}',
+        title: '项目 ${index + 1}',
+        settled: false,
+      ),
+    );
+
+    await pumpSheet(
+      tester,
+      packages: const [pkgXiantan],
+      withCandidates: manyCandidates,
+      height: 360,
+    );
+
+    final confirmFinder = find.byKey(const Key('external-work-link-confirm'));
+    final confirmTopBefore = tester.getTopLeft(confirmFinder).dy;
+
+    await tester.ensureVisible(
+      find.byKey(const Key('external-work-link-candidate-p18')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(confirmFinder).dy, confirmTopBefore);
+    expect(confirmFinder, findsOneWidget);
   });
 }
