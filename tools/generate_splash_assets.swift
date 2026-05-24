@@ -82,8 +82,8 @@ func writePNG(
 
 func drawBrandmark(in bounds: CGRect) {
   let canvasWidth = bounds.width
-  let iconSize: CGFloat = 116
-  let iconY: CGFloat = 122
+  let iconSize: CGFloat = 108
+  let iconY: CGFloat = 126
   let iconRect = CGRect(
     x: (canvasWidth - iconSize) / 2,
     y: iconY,
@@ -124,7 +124,7 @@ func drawBrandmark(in bounds: CGRect) {
   let text = NSAttributedString(string: "Fleet Ledger", attributes: attrs)
   let textRect = CGRect(
     x: 20,
-    y: 54,
+    y: 72,
     width: canvasWidth - 40,
     height: 34
   )
