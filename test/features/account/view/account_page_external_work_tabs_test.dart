@@ -83,7 +83,7 @@ void main() {
       expect(find.text('项目外协(1)'), findsOneWidget);
       expect(find.text('项目(1)'), findsNothing);
       expect(find.text('李杰 + 新村').hitTestable(), findsNothing);
-      expect(find.text('外协项目').hitTestable(), findsOneWidget);
+      expect(find.text('外协项目').hitTestable(), findsNothing);
       expect(find.text('余远 · 鲜滩+尚义').hitTestable(), findsOneWidget);
       expect(find.text('外协应付').hitTestable(), findsOneWidget);
       expect(find.text('¥12618').hitTestable(), findsOneWidget);

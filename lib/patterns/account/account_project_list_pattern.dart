@@ -558,13 +558,6 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       height: 1,
       color: Colors.black.withValues(alpha: 0.65),
     );
-    final badgeStyle = AppTypography.body(
-      context,
-      fontSize: AccountTokens.projectCardChipFontSize,
-      fontWeight: FontWeight.w600,
-      height: 1,
-      color: _externalWorkBadgeText,
-    );
     final metricLabelStyle = AppTypography.body(
       context,
       fontSize: AccountTokens.projectCardStatusFontSize,
@@ -625,54 +618,29 @@ class _ExternalWorkProjectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _ExternalWorkAvatar(isCompact: isCompact),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _externalWorkBadgeBg,
-                              borderRadius: BorderRadius.circular(
-                                AccountTokens.projectCardChipRadius,
-                              ),
-                            ),
-                            child: Text('外协项目', style: badgeStyle),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              FormatUtils.date(project.minYmd),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.right,
-                              style: dateStyle,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 9),
-                      Text(
-                        project.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                      ),
-                    ],
+                  child: Text(
+                    project.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
                   ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  FormatUtils.date(project.minYmd),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: dateStyle,
                 ),
               ],
             ),
-            SizedBox(height: isCompact ? 12 : 16),
+            SizedBox(height: isCompact ? 12 : 18),
             Row(
               children: [
                 Expanded(
