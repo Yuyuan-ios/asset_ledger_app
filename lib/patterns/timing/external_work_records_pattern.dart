@@ -53,7 +53,7 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
                       : () => onTapRecord(group.representativeItem),
                 ),
                 if (expandedAggregateKeys.contains(group.key))
-                  for (final item in group.items)
+                  for (final item in group.items.reversed)
                     _ExternalWorkChildRow(
                       item: item,
                       onTap: onTapRecord == null
