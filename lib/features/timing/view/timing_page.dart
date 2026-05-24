@@ -512,7 +512,7 @@ class _TimingPageState extends State<TimingPage> {
           onConfirm: () => Navigator.of(sheetContext).pop(),
           cancelText: '删除分享包',
           cancelForegroundColor: Colors.red.shade600,
-          confirmText: '知道了',
+          confirmText: '确定',
           contentPadding: EdgeInsets.zero,
           child: ExternalWorkRecordDetailContent(
             item: item,

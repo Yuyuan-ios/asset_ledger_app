@@ -396,9 +396,8 @@ class _ExternalWorkBatchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExternalWorkRecordRowBase(
       title: _externalWorkTitle(group.displayName, group.siteSummary),
-      subtitle: group.isAggregate
-          ? '${group.equipmentSummary}·${group.items.length}条记录'
-          : group.equipmentSummary,
+      subtitle: group.equipmentSummary,
+      subtitleSecondary: group.isAggregate ? '•${group.items.length}条记录' : null,
       valueTop: FormatUtils.date(group.startWorkDate),
       valueBottom: _hoursText(group.totalHoursMilli),
       linked: group.hasLinkedRecord,
@@ -423,12 +422,13 @@ class _ExternalWorkChildRow extends StatelessWidget {
         item.displayName,
         _blankFallback(record.siteSnapshot),
       ),
-      subtitle: _detailEquipmentText(record),
+      subtitle: _rowEquipmentText(record),
       valueTop: FormatUtils.date(record.workDate),
       valueBottom: _hoursText(record.hoursMilli),
       linked: item.isLinked,
       onTap: onTap,
       dense: true,
+      hideAvatar: true,
     );
   }
 }
@@ -439,22 +439,26 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
     required this.subtitle,
     required this.valueTop,
     required this.valueBottom,
+    this.subtitleSecondary,
     this.onTap,
     this.linked = false,
     this.onToggle,
     this.expanded = false,
     this.dense = false,
+    this.hideAvatar = false,
   });
 
   final String title;
   final String subtitle;
   final String valueTop;
   final String valueBottom;
+  final String? subtitleSecondary;
   final VoidCallback? onTap;
   final bool linked;
   final VoidCallback? onToggle;
   final bool expanded;
   final bool dense;
+  final bool hideAvatar;
 
   @override
   Widget build(BuildContext context) {
@@ -470,6 +474,11 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
       color: AppColors.textPrimary,
       height: 1,
     );
+    final subTitleSecondaryStyle = subTitleStyle?.copyWith(
+      fontSize: TimingTokens.recordValueFontSize - 1,
+      fontWeight: FontWeight.w400,
+      height: 1,
+    );
     final valueStyle = textTheme.bodyMedium?.copyWith(
       fontSize: TimingTokens.recordValueFontSize,
       color: AppColors.textPrimary,
@@ -477,16 +486,18 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
     );
 
     final subtitleWidget = onToggle == null
-        ? Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: subTitleStyle,
+        ? _ExternalWorkSubtitleText(
+            emphasis: subtitle,
+            secondary: subtitleSecondary,
+            emphasisStyle: subTitleStyle,
+            secondaryStyle: subTitleSecondaryStyle,
           )
         : _ExternalWorkToggleLabel(
             label: subtitle,
+            secondaryLabel: subtitleSecondary,
             expanded: expanded,
             style: subTitleStyle,
+            secondaryStyle: subTitleSecondaryStyle,
             onTap: onToggle!,
           );
 
@@ -507,10 +518,19 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Transform.translate(
-                  offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
-                  child: _ExternalWorkAvatar(linked: linked),
-                ),
+                if (hideAvatar)
+                  Transform.translate(
+                    offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
+                    child: const SizedBox(
+                      width: TimingTokens.recordAvatarSize,
+                      height: TimingTokens.recordAvatarSize,
+                    ),
+                  )
+                else
+                  Transform.translate(
+                    offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
+                    child: _ExternalWorkAvatar(linked: linked),
+                  ),
                 const SizedBox(width: TimingTokens.recordAvatarRightGap),
                 Expanded(
                   child: Column(
@@ -552,17 +572,59 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
   }
 }
 
+class _ExternalWorkSubtitleText extends StatelessWidget {
+  const _ExternalWorkSubtitleText({
+    required this.emphasis,
+    required this.emphasisStyle,
+    required this.secondaryStyle,
+    this.secondary,
+  });
+
+  final String emphasis;
+  final String? secondary;
+  final TextStyle? emphasisStyle;
+  final TextStyle? secondaryStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondaryText = secondary;
+    if (secondaryText == null || secondaryText.isEmpty) {
+      return Text(
+        emphasis,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: emphasisStyle,
+      );
+    }
+
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        children: [
+          TextSpan(text: emphasis, style: emphasisStyle),
+          TextSpan(text: secondaryText, style: secondaryStyle),
+        ],
+      ),
+    );
+  }
+}
+
 class _ExternalWorkToggleLabel extends StatelessWidget {
   const _ExternalWorkToggleLabel({
     required this.label,
     required this.expanded,
     required this.style,
+    required this.secondaryStyle,
     required this.onTap,
+    this.secondaryLabel,
   });
 
   final String label;
+  final String? secondaryLabel;
   final bool expanded;
   final TextStyle? style;
+  final TextStyle? secondaryStyle;
   final VoidCallback onTap;
 
   @override
@@ -576,14 +638,13 @@ class _ExternalWorkToggleLabel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: style,
+              child: _ExternalWorkSubtitleText(
+                emphasis: label,
+                secondary: secondaryLabel,
+                emphasisStyle: style,
+                secondaryStyle: secondaryStyle,
               ),
             ),
-            const SizedBox(width: 2),
             Icon(
               expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
               size: 16,
@@ -712,9 +773,10 @@ class _ExternalWorkDetailRow extends StatelessWidget {
 }
 
 String _externalWorkTitle(String displayName, String site) {
+  final normalizedName = displayName.trim();
   final normalizedSite = site.trim();
-  if (normalizedSite.isEmpty) return displayName;
-  return '$displayName · $normalizedSite';
+  if (normalizedSite.isEmpty) return normalizedName;
+  return '$normalizedName•$normalizedSite';
 }
 
 String _importedAtText(TimingExternalWorkRecordItem item) {
@@ -794,6 +856,17 @@ String _detailEquipmentText(ExternalWorkRecord record) {
     record.equipmentType?.trim(),
   ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
   return parts.isEmpty ? '设备未填写' : parts.join(' / ');
+}
+
+String _rowEquipmentText(ExternalWorkRecord record) {
+  final parts = [
+    record.equipmentBrand?.trim(),
+    record.equipmentModel?.trim(),
+  ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
+  if (parts.isNotEmpty) return parts.join(' / ');
+
+  final type = record.equipmentType?.trim() ?? '';
+  return type.isEmpty ? '设备未填写' : type;
 }
 
 String _hoursText(int hoursMilli) {
