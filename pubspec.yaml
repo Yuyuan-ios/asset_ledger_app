@@ -2,7 +2,7 @@ name: asset_ledger
 description: "FleetLedger：面向工程机械经营场景的记录与管理工具。"
 publish_to: 'none'
 
-version: 1.0.1+3
+version: 1.0.1+4
 
 environment:
   sdk: ^3.10.4
