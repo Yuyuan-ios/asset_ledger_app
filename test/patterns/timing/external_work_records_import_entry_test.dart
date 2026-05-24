@@ -9,6 +9,20 @@ Widget _host(List<Widget> slivers) => MaterialApp(
   home: Scaffold(body: CustomScrollView(slivers: slivers)),
 );
 
+Widget _statefulHost(
+  List<TimingExternalWorkRecordItem> items, {
+  ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
+}) {
+  return MaterialApp(
+    home: Scaffold(
+      body: _ExternalWorkRecordsStateHost(
+        items: items,
+        onTapRecord: onTapRecord,
+      ),
+    ),
+  );
+}
+
 void main() {
   testWidgets('empty state keeps import entry out of the content area', (
     tester,
@@ -97,11 +111,202 @@ void main() {
     expect(timingExternalWorkTopLevelCount(items), 1);
     expect(find.text('2026年'), findsOneWidget);
     expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
-    expect(find.text('Hitachi等2台'), findsOneWidget);
+    expect(find.text('Hitachi等2台·5条记录'), findsOneWidget);
     expect(find.text('2026.03.23'), findsOneWidget);
-    expect(find.text('5条 / 239.0 h'), findsOneWidget);
+    expect(find.text('239.0 h'), findsOneWidget);
     expect(find.textContaining('合并'), findsNothing);
     expect(find.textContaining('-2026.03.27'), findsNothing);
+  });
+
+  testWidgets('multi record package shows compact device and count summary', (
+    tester,
+  ) async {
+    final items = [
+      for (var i = 0; i < 5; i += 1)
+        _item(
+          record: _record(
+            id: 'record-$i',
+            sourceRecordUuid: 'source-$i',
+            equipmentBrand: 'Hitachi',
+            hoursMilli: i == 0 ? 39000 : 50000,
+          ),
+        ),
+    ];
+
+    await tester.pumpWidget(
+      _host(
+        buildTimingExternalWorkRecordSlivers(
+          items: items,
+          expandedAggregateKeys: const {},
+          onToggleAggregate: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('Hitachi·5条记录'), findsOneWidget);
+    expect(find.text('239.0 h'), findsOneWidget);
+  });
+
+  testWidgets('splits same-year packages into source-name cards', (
+    tester,
+  ) async {
+    final zhangPackage = _item(
+      batch: _batch(
+        id: 'batch-zhang',
+        sourceShareId: 'share-zhang',
+        sourceDisplayName: '张俊',
+        importedAt: '2026-05-21T08:00:00.000Z',
+      ),
+      record: _record(
+        id: 'record-zhang',
+        sourceShareId: 'share-zhang',
+        sourceRecordUuid: 'source-zhang',
+        collaboratorName: '张俊',
+        siteSnapshot: '天眉乐',
+        workDate: 20260521,
+      ),
+    );
+    final yuPackageA = _item(
+      batch: _batch(
+        id: 'batch-yu-a',
+        sourceShareId: 'share-yu-a',
+        sourceDisplayName: '余远',
+        importedAt: '2026-05-01T08:00:00.000Z',
+      ),
+      record: _record(
+        id: 'record-yu-a',
+        sourceShareId: 'share-yu-a',
+        sourceRecordUuid: 'source-yu-a',
+        siteSnapshot: '五里山',
+        workDate: 20260501,
+      ),
+    );
+    final yuPackageB = _item(
+      batch: _batch(
+        id: 'batch-yu-b',
+        sourceShareId: 'share-yu-b',
+        sourceDisplayName: '余远',
+        importedAt: '2026-03-23T08:00:00.000Z',
+      ),
+      record: _record(
+        id: 'record-yu-b',
+        sourceShareId: 'share-yu-b',
+        sourceRecordUuid: 'source-yu-b',
+        siteSnapshot: '鲜滩',
+        workDate: 20260323,
+      ),
+    );
+
+    await tester.pumpWidget(
+      _host(
+        buildTimingExternalWorkRecordSlivers(
+          items: [yuPackageA, zhangPackage, yuPackageB],
+          expandedAggregateKeys: const {},
+          onToggleAggregate: (_) {},
+        ),
+      ),
+    );
+
+    final cards = find.byWidgetPredicate(
+      (widget) =>
+          widget.runtimeType.toString() == '_ExternalWorkRecordGroupCard',
+    );
+
+    expect(find.text('2026年'), findsOneWidget);
+    expect(
+      timingExternalWorkTopLevelCount([yuPackageA, zhangPackage, yuPackageB]),
+      3,
+    );
+    expect(cards, findsNWidgets(2));
+    expect(
+      find.descendant(of: cards.at(0), matching: find.text('张俊 · 天眉乐')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: cards.at(1), matching: find.textContaining('余远 ·')),
+      findsNWidgets(2),
+    );
+  });
+
+  testWidgets('single record package omits count and expand arrow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        buildTimingExternalWorkRecordSlivers(
+          items: [_item()],
+          expandedAggregateKeys: const {},
+          onToggleAggregate: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('Hitachi'), findsOneWidget);
+    expect(find.textContaining('1条记录'), findsNothing);
+    expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
+  });
+
+  testWidgets('tapping package count toggles children without opening detail', (
+    tester,
+  ) async {
+    final items = [
+      _item(
+        record: _record(id: 'record-1', sourceRecordUuid: 'source-1'),
+      ),
+      _item(
+        record: _record(
+          id: 'record-2',
+          sourceRecordUuid: 'source-2',
+          workDate: 20260324,
+          hoursMilli: 2000,
+        ),
+      ),
+    ];
+    var tapped = false;
+
+    await tester.pumpWidget(
+      _statefulHost(items, onTapRecord: (_) => tapped = true),
+    );
+
+    expect(find.text('2026.03.24'), findsNothing);
+    await tester.tap(find.text('Hitachi·2条记录'));
+    await tester.pumpAndSettle();
+
+    expect(tapped, isFalse);
+    expect(find.byIcon(Icons.keyboard_arrow_up), findsOneWidget);
+    expect(find.text('2026.03.24'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up));
+    await tester.pumpAndSettle();
+    expect(find.text('2026.03.24'), findsNothing);
+  });
+
+  testWidgets('tapping package outside count opens detail target', (
+    tester,
+  ) async {
+    final items = [
+      _item(
+        record: _record(id: 'record-1', sourceRecordUuid: 'source-1'),
+      ),
+      _item(
+        record: _record(
+          id: 'record-2',
+          sourceRecordUuid: 'source-2',
+          workDate: 20260324,
+          hoursMilli: 2000,
+        ),
+      ),
+    ];
+    TimingExternalWorkRecordItem? tapped;
+
+    await tester.pumpWidget(
+      _statefulHost(items, onTapRecord: (item) => tapped = item),
+    );
+
+    await tester.tap(find.text('余远 · 五里山'));
+    await tester.pump();
+
+    expect(tapped?.record.id, 'record-1');
   });
 
   testWidgets('sorts import packages by imported time descending', (
@@ -180,7 +385,10 @@ void main() {
     );
 
     expect(find.text('协'), findsOneWidget);
-    expect(find.byIcon(Icons.link), findsNothing);
+    expect(
+      find.byKey(const Key('external-work-avatar-link-badge')),
+      findsNothing,
+    );
 
     await tester.pumpWidget(
       _host(
@@ -193,8 +401,43 @@ void main() {
     );
 
     expect(find.text('协'), findsOneWidget);
-    expect(find.byIcon(Icons.link), findsOneWidget);
+    expect(
+      find.byKey(const Key('external-work-avatar-link-badge')),
+      findsOneWidget,
+    );
   });
+}
+
+class _ExternalWorkRecordsStateHost extends StatefulWidget {
+  const _ExternalWorkRecordsStateHost({required this.items, this.onTapRecord});
+
+  final List<TimingExternalWorkRecordItem> items;
+  final ValueChanged<TimingExternalWorkRecordItem>? onTapRecord;
+
+  @override
+  State<_ExternalWorkRecordsStateHost> createState() =>
+      _ExternalWorkRecordsStateHostState();
+}
+
+class _ExternalWorkRecordsStateHostState
+    extends State<_ExternalWorkRecordsStateHost> {
+  final Set<String> expanded = {};
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: buildTimingExternalWorkRecordSlivers(
+        items: widget.items,
+        expandedAggregateKeys: expanded,
+        onToggleAggregate: (key) {
+          setState(() {
+            if (!expanded.add(key)) expanded.remove(key);
+          });
+        },
+        onTapRecord: widget.onTapRecord,
+      ),
+    );
+  }
 }
 
 TimingExternalWorkRecordItem _item({
