@@ -21,6 +21,7 @@ const Color _externalWorkValueText = Color(0xFF2F6F49);
 const double _externalWorkAvatarTopInset = 4;
 const double _externalWorkCardTopPadding =
     _externalWorkAvatarTopInset - AccountTokens.projectCardBorderWidth;
+const double _externalWorkCardBottomPadding = 12;
 const double _externalWorkCardMetricTopGap = 12;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
 const String _settledCelebrationIconAsset =
@@ -615,9 +616,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
           AccountTokens.projectCardPaddingHorizontal,
           _externalWorkCardTopPadding,
           AccountTokens.projectCardPaddingHorizontal,
-          isCompact
-              ? AccountTokens.projectCardProgressBottomGap
-              : AccountTokens.projectCardPaddingTop,
+          _externalWorkCardBottomPadding,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

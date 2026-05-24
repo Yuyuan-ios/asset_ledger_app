@@ -614,6 +614,15 @@ void main() {
 
     expect(externalCardRect.height, ownedCardRect.height);
     expect(avatarRect.top - externalCardRect.top, 4);
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const Key('account-external-work-card-external-batch-height'),
+        ),
+        matching: _paddingWithBottom(12),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('project header toggles compact mode from title group only', (
@@ -700,6 +709,13 @@ Finder _containerWithBorder(Color color) {
     return decoration is BoxDecoration &&
         decoration.border is Border &&
         (decoration.border as Border).top.color == color;
+  });
+}
+
+Finder _paddingWithBottom(double bottom) {
+  return find.byWidgetPredicate((widget) {
+    return widget is Padding &&
+        widget.padding.resolve(TextDirection.ltr).bottom == bottom;
   });
 }
 
