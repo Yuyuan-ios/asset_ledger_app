@@ -134,50 +134,105 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
   Widget build(BuildContext context) {
     final package = _selectedPackage;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.lg,
-        0,
-        AppSpace.lg,
-        AppSpace.lg,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpace.lg, 0, AppSpace.lg, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.packages.isNotEmpty) ...[
-            Text('选择外协包', style: AppTypography.sectionTitle(context)),
-            const SizedBox(height: AppSpace.sm),
-            for (final pkg in widget.packages)
-              _RadioRow(
-                key: Key('external-work-link-package-${pkg.batchId}'),
-                title: pkg.optionTitle,
-                selected: pkg.batchId == _selectedBatchId,
-                onTap: () => setState(() => _selectedBatchId = pkg.batchId),
-              ),
-            const SizedBox(height: AppSpace.md),
-          ],
-          if (package != null) ...[
-            Text('外协包摘要', style: AppTypography.sectionTitle(context)),
-            const SizedBox(height: AppSpace.sm),
-            Text(
-              package.summaryDetail,
-              style: AppTypography.caption(
-                context,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ..._buildScrollableBody(package),
+                  const SizedBox(height: AppSpace.lg),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpace.md),
-            if (package.isLinked)
-              ..._buildLinkedBody(context, package)
-            else
-              ..._buildPickBody(package),
-          ],
+          ),
+          _buildFixedActions(package),
         ],
       ),
     );
   }
 
-  List<Widget> _buildLinkedBody(
+  List<Widget> _buildScrollableBody(ExternalWorkLinkPackage? package) {
+    return [
+      if (widget.packages.isNotEmpty) ...[
+        Text('选择外协包', style: AppTypography.sectionTitle(context)),
+        const SizedBox(height: AppSpace.sm),
+        for (final pkg in widget.packages)
+          _RadioRow(
+            key: Key('external-work-link-package-${pkg.batchId}'),
+            title: pkg.optionTitle,
+            selected: pkg.batchId == _selectedBatchId,
+            onTap: () => setState(() => _selectedBatchId = pkg.batchId),
+          ),
+        const SizedBox(height: AppSpace.md),
+      ],
+      if (package != null) ...[
+        Text('外协包摘要', style: AppTypography.sectionTitle(context)),
+        const SizedBox(height: AppSpace.sm),
+        Text(
+          package.summaryDetail,
+          style: AppTypography.caption(
+            context,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpace.md),
+        if (package.isLinked)
+          ..._buildLinkedContent(context, package)
+        else
+          ..._buildPickContent(package),
+      ],
+    ];
+  }
+
+  Widget _buildFixedActions(ExternalWorkLinkPackage? package) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppSpace.lg),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                key: const Key('external-work-link-cancel'),
+                onPressed: widget.onCancel,
+                child: const Text('取消'),
+              ),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(child: _buildPrimaryAction(package)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrimaryAction(ExternalWorkLinkPackage? package) {
+    if (package?.isLinked == true) {
+      return OutlinedButton(
+        key: const Key('external-work-link-unlink'),
+        onPressed: widget.onUnlink == null || package == null
+            ? null
+            : () => widget.onUnlink!(package),
+        child: const Text('解除关联'),
+      );
+    }
+
+    final candidate = _selectedCandidate;
+    return AppPrimaryButton(
+      key: const Key('external-work-link-confirm'),
+      label: '确认关联',
+      onPressed: package == null || candidate == null
+          ? null
+          : () => widget.onConfirm(package, candidate),
+    );
+  }
+
+  List<Widget> _buildLinkedContent(
     BuildContext context,
     ExternalWorkLinkPackage package,
   ) {
@@ -186,32 +241,10 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
         '已关联：${package.linkedProjectTitle}',
         style: AppTypography.body(context, fontWeight: FontWeight.w600),
       ),
-      const SizedBox(height: AppSpace.lg),
-      Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              key: const Key('external-work-link-cancel'),
-              onPressed: widget.onCancel,
-              child: const Text('取消'),
-            ),
-          ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: OutlinedButton(
-              key: const Key('external-work-link-unlink'),
-              onPressed: widget.onUnlink == null
-                  ? null
-                  : () => widget.onUnlink!(package),
-              child: const Text('解除关联'),
-            ),
-          ),
-        ],
-      ),
     ];
   }
 
-  List<Widget> _buildPickBody(ExternalWorkLinkPackage package) {
+  List<Widget> _buildPickContent(ExternalWorkLinkPackage package) {
     final candidate = _selectedCandidate;
     return [
       Text('选择要关联的项目', style: AppTypography.sectionTitle(context)),
@@ -239,28 +272,6 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
           style: AppTypography.caption(context, color: Colors.orange.shade800),
         ),
       ],
-      const SizedBox(height: AppSpace.lg),
-      Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              key: const Key('external-work-link-cancel'),
-              onPressed: widget.onCancel,
-              child: const Text('取消'),
-            ),
-          ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: AppPrimaryButton(
-              key: const Key('external-work-link-confirm'),
-              label: '确认关联',
-              onPressed: candidate == null
-                  ? null
-                  : () => widget.onConfirm(package, candidate),
-            ),
-          ),
-        ],
-      ),
     ];
   }
 }

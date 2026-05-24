@@ -132,7 +132,7 @@ class _TimingPageState extends State<TimingPage> {
       builder: (sheetContext) {
         return AppBottomSheetShell(
           title: '关联到项目',
-          scrollable: true,
+          scrollable: false,
           footerEnabled: false,
           contentPadding: EdgeInsets.zero,
           child: ExternalWorkLinkSheet(
