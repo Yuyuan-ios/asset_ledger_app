@@ -30,22 +30,64 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
   return <Widget>[
     for (final yearGroup in yearGroups) ...[
       SliverToBoxAdapter(child: _ExternalWorkYearHeader(year: yearGroup.year)),
-      SliverToBoxAdapter(
-        child: _ExternalWorkRecordGroupCard(
-          rows: yearGroup.groups
-              .map(
-                (group) => _ExternalWorkBatchRow(
+      for (
+        var sourceIndex = 0;
+        sourceIndex < yearGroup.sourceGroups.length;
+        sourceIndex += 1
+      ) ...[
+        if (sourceIndex > 0)
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        SliverToBoxAdapter(
+          child: _ExternalWorkRecordGroupCard(
+            rows: [
+              for (final group
+                  in yearGroup.sourceGroups[sourceIndex].groups) ...[
+                _ExternalWorkBatchRow(
                   group: group,
+                  expanded: expandedAggregateKeys.contains(group.key),
+                  onToggle: group.isAggregate
+                      ? () => onToggleAggregate(group.key)
+                      : null,
                   onTap: onTapRecord == null
                       ? null
                       : () => onTapRecord(group.representativeItem),
                 ),
-              )
-              .toList(),
+                if (expandedAggregateKeys.contains(group.key))
+                  for (final item in group.items)
+                    _ExternalWorkChildRow(
+                      item: item,
+                      onTap: onTapRecord == null
+                          ? null
+                          : () => onTapRecord(item),
+                    ),
+              ],
+            ],
+          ),
         ),
-      ),
+      ],
     ],
   ];
+}
+
+List<_ExternalWorkSourceGroup> _buildExternalWorkSourceGroups(
+  List<_ExternalWorkBatchGroup> groups,
+) {
+  final grouped = <String, List<_ExternalWorkBatchGroup>>{};
+  for (final group in groups) {
+    grouped
+        .putIfAbsent(_sourceGroupKey(group.displayName), () => [])
+        .add(group);
+  }
+
+  return [
+    for (final entry in grouped.entries)
+      _ExternalWorkSourceGroup(groups: entry.value),
+  ];
+}
+
+String _sourceGroupKey(String displayName) {
+  final normalized = displayName.trim();
+  return normalized.isEmpty ? '-' : normalized;
 }
 
 Set<String> timingExternalWorkAggregateKeys(
@@ -71,7 +113,10 @@ List<_ExternalWorkYearGroup> _buildExternalWorkYearGroups(
 
   final yearGroups = [
     for (final entry in grouped.entries)
-      _ExternalWorkYearGroup(year: entry.key, groups: entry.value),
+      _ExternalWorkYearGroup(
+        year: entry.key,
+        sourceGroups: _buildExternalWorkSourceGroups(entry.value),
+      ),
   ]..sort((a, b) => b.year.compareTo(a.year));
   return yearGroups;
 }
@@ -105,9 +150,18 @@ String _externalWorkBatchKey(TimingExternalWorkRecordItem item) {
 }
 
 class _ExternalWorkYearGroup {
-  const _ExternalWorkYearGroup({required this.year, required this.groups});
+  const _ExternalWorkYearGroup({
+    required this.year,
+    required this.sourceGroups,
+  });
 
   final int year;
+  final List<_ExternalWorkSourceGroup> sourceGroups;
+}
+
+class _ExternalWorkSourceGroup {
+  const _ExternalWorkSourceGroup({required this.groups});
+
   final List<_ExternalWorkBatchGroup> groups;
 }
 
@@ -139,6 +193,7 @@ class _ExternalWorkBatchGroup {
   final bool hasLinkedRecord;
 
   TimingExternalWorkRecordItem get representativeItem => items.first;
+  bool get isAggregate => items.length > 1;
 
   factory _ExternalWorkBatchGroup.fromItems(
     String key,
@@ -175,13 +230,11 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
   const ExternalWorkRecordDetailContent({
     super.key,
     required this.item,
-    required this.onClose,
-    this.onDelete,
+    this.onLinkProject,
   });
 
   final TimingExternalWorkRecordItem item;
-  final VoidCallback onClose;
-  final VoidCallback? onDelete;
+  final VoidCallback? onLinkProject;
 
   @override
   Widget build(BuildContext context) {
@@ -241,23 +294,13 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               height: 1.35,
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 44,
-            child: FilledButton(onPressed: onClose, child: const Text('知道了')),
-          ),
-          if (onDelete != null) ...[
-            const SizedBox(height: 20),
+          if (onLinkProject != null) ...[
+            const SizedBox(height: 14),
             SizedBox(
               height: 44,
-              child: OutlinedButton.icon(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('删除记录'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red.shade600,
-                  side: BorderSide(color: Colors.red.shade200),
-                ),
+              child: OutlinedButton(
+                onPressed: onLinkProject,
+                child: const Text('关联到本地项目'),
               ),
             ),
           ],
@@ -337,21 +380,55 @@ class _ExternalWorkYearHeader extends StatelessWidget {
 }
 
 class _ExternalWorkBatchRow extends StatelessWidget {
-  const _ExternalWorkBatchRow({required this.group, this.onTap});
+  const _ExternalWorkBatchRow({
+    required this.group,
+    required this.expanded,
+    this.onTap,
+    this.onToggle,
+  });
 
   final _ExternalWorkBatchGroup group;
+  final bool expanded;
   final VoidCallback? onTap;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
     return _ExternalWorkRecordRowBase(
       title: _externalWorkTitle(group.displayName, group.siteSummary),
-      subtitle: group.equipmentSummary,
+      subtitle: group.isAggregate
+          ? '${group.equipmentSummary}·${group.items.length}条记录'
+          : group.equipmentSummary,
       valueTop: FormatUtils.date(group.startWorkDate),
-      valueBottom:
-          '${group.items.length}条 / ${_hoursText(group.totalHoursMilli)}',
+      valueBottom: _hoursText(group.totalHoursMilli),
       linked: group.hasLinkedRecord,
       onTap: onTap,
+      onToggle: onToggle,
+      expanded: expanded,
+    );
+  }
+}
+
+class _ExternalWorkChildRow extends StatelessWidget {
+  const _ExternalWorkChildRow({required this.item, this.onTap});
+
+  final TimingExternalWorkRecordItem item;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final record = item.record;
+    return _ExternalWorkRecordRowBase(
+      title: _externalWorkTitle(
+        item.displayName,
+        _blankFallback(record.siteSnapshot),
+      ),
+      subtitle: _detailEquipmentText(record),
+      valueTop: FormatUtils.date(record.workDate),
+      valueBottom: _hoursText(record.hoursMilli),
+      linked: item.isLinked,
+      onTap: onTap,
+      dense: true,
     );
   }
 }
@@ -364,6 +441,9 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
     required this.valueBottom,
     this.onTap,
     this.linked = false,
+    this.onToggle,
+    this.expanded = false,
+    this.dense = false,
   });
 
   final String title;
@@ -372,6 +452,9 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
   final String valueBottom;
   final VoidCallback? onTap;
   final bool linked;
+  final VoidCallback? onToggle;
+  final bool expanded;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -393,12 +476,28 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
       height: 1,
     );
 
+    final subtitleWidget = onToggle == null
+        ? Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: subTitleStyle,
+          )
+        : _ExternalWorkToggleLabel(
+            label: subtitle,
+            expanded: expanded,
+            style: subTitleStyle,
+            onTap: onToggle!,
+          );
+
     return Material(
       color: SheetColors.background,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          height: TimingTokens.recordRowHeight,
+          height: dense
+              ? TimingTokens.recordRowHeight - 4
+              : TimingTokens.recordRowHeight,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               TimingTokens.recordRowPaddingLeft,
@@ -425,12 +524,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
                         style: titleStyle,
                       ),
                       const SizedBox(height: TimingTokens.recordSubTitleTopGap),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: subTitleStyle,
-                      ),
+                      subtitleWidget,
                     ],
                   ),
                 ),
@@ -452,6 +546,50 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExternalWorkToggleLabel extends StatelessWidget {
+  const _ExternalWorkToggleLabel({
+    required this.label,
+    required this.expanded,
+    required this.style,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool expanded;
+  final TextStyle? style;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              size: 16,
+              color: AppColors.textPrimary,
+            ),
+          ],
         ),
       ),
     );
@@ -490,23 +628,21 @@ class _ExternalWorkAvatar extends StatelessWidget {
           ),
           if (linked)
             Positioned(
-              right: -1,
-              bottom: -1,
+              right: -2,
+              bottom: -2,
               child: Tooltip(
                 message: '已关联',
                 child: Container(
-                  width: 15,
-                  height: 15,
-                  decoration: const BoxDecoration(
-                    color: SheetColors.background,
+                  key: const Key('external-work-avatar-link-badge'),
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: AppColors.brand,
                     shape: BoxShape.circle,
+                    border: Border.all(color: SheetColors.background, width: 2),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.link,
-                    size: 10,
-                    color: _externalWorkAvatarTextColor,
-                  ),
+                  child: const Icon(Icons.link, size: 11, color: Colors.white),
                 ),
               ),
             ),

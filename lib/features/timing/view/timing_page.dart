@@ -506,14 +506,23 @@ class _TimingPageState extends State<TimingPage> {
       context: context,
       builder: (sheetContext) {
         return AppBottomSheetShell(
-          title: '项目外协记录',
+          title: '项目外协详情',
           scrollable: true,
-          footerEnabled: false,
+          onCancel: () => _deleteExternalWorkRecord(sheetContext, item),
+          onConfirm: () => Navigator.of(sheetContext).pop(),
+          cancelText: '删除分享包',
+          cancelForegroundColor: Colors.red.shade600,
+          confirmText: '知道了',
           contentPadding: EdgeInsets.zero,
           child: ExternalWorkRecordDetailContent(
             item: item,
-            onClose: () => Navigator.of(sheetContext).pop(),
-            onDelete: () => _deleteExternalWorkRecord(sheetContext, item),
+            onLinkProject: () {
+              Navigator.of(sheetContext).pop();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                unawaited(_openExternalWorkLinkSheet());
+              });
+            },
           ),
         );
       },
@@ -532,7 +541,7 @@ class _TimingPageState extends State<TimingPage> {
           .length;
       final confirmed = await showAppConfirmDialog(
         context: context,
-        title: '删除项目外协记录',
+        title: '删除分享包',
         content: '这将删除该分享包导入的全部 $batchRecordCount 条外协记录，删除后不可恢复。',
         confirmText: '删除',
         confirmDestructive: true,

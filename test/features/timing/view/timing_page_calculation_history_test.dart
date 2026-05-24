@@ -387,7 +387,8 @@ void main() {
     expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
     expect(find.text('CAT'), findsOneWidget);
     expect(find.text('2026.05.12'), findsOneWidget);
-    expect(find.text('1条 / 8.5 h'), findsOneWidget);
+    expect(find.text('8.5 h'), findsOneWidget);
+    expect(find.textContaining('1条记录'), findsNothing);
     expect(find.text('¥987.65'), findsNothing);
     expect(find.text('¥123.45'), findsNothing);
     expect(find.text('batch-1'), findsNothing);
@@ -450,7 +451,8 @@ void main() {
       expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
       expect(find.text('2026.05.12-2026.05.13'), findsNothing);
       expect(find.text('2026.05.12'), findsOneWidget);
-      expect(find.text('2条 / 10.5 h'), findsOneWidget);
+      expect(find.text('CAT·2条记录'), findsOneWidget);
+      expect(find.text('10.5 h'), findsOneWidget);
       expect(find.text('2026.05.13'), findsNothing);
     },
   );
@@ -481,7 +483,8 @@ void main() {
     expect(find.text('王师傅分享包 · 鲜滩+五里山'), findsOneWidget);
     expect(find.text('王师傅分享包 · 鲜滩'), findsNothing);
     expect(find.text('王师傅分享包 · 五里山'), findsNothing);
-    expect(find.text('2条 / 10.5 h'), findsOneWidget);
+    expect(find.text('CAT·2条记录'), findsOneWidget);
+    expect(find.text('10.5 h'), findsOneWidget);
   });
 
   testWidgets('external work package opens representative detail', (
@@ -506,7 +509,7 @@ void main() {
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
-    expect(find.text('项目外协记录'), findsOneWidget);
+    expect(find.text('项目外协详情'), findsOneWidget);
     expect(find.text('分享人'), findsOneWidget);
     expect(find.text('王师傅分享包'), findsOneWidget);
     expect(find.text('2026.05.12'), findsWidgets);
@@ -526,7 +529,10 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    expect(find.byIcon(Icons.link), findsOneWidget);
+    expect(
+      find.byKey(const Key('external-work-avatar-link-badge')),
+      findsNothing,
+    );
 
     await _pumpTimingPage(
       tester,
@@ -538,7 +544,10 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    expect(find.byIcon(Icons.link), findsNWidgets(2));
+    expect(
+      find.byKey(const Key('external-work-avatar-link-badge')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('confirming a candidate is a placeholder (no DB write)', (
@@ -589,7 +598,7 @@ void main() {
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
-    expect(find.text('项目外协记录'), findsOneWidget);
+    expect(find.text('项目外协详情'), findsOneWidget);
     expect(find.text('从分享包导入'), findsOneWidget);
     expect(find.text('分享人'), findsOneWidget);
     expect(find.text('王师傅分享包'), findsOneWidget);
@@ -610,14 +619,14 @@ void main() {
     expect(find.text('已关联'), findsOneWidget);
     expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
     expect(find.text('不应展示的联系人'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, '关联到本地项目'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '知道了'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, '删除记录'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '删除分享包'), findsOneWidget);
     final closeButton = find.widgetWithText(FilledButton, '知道了');
-    final deleteButton = find.widgetWithText(OutlinedButton, '删除记录');
-    final buttonGap =
-        tester.getTopLeft(deleteButton).dy -
-        tester.getBottomLeft(closeButton).dy;
-    expect(buttonGap, greaterThanOrEqualTo(20));
+    final deleteButton = find.widgetWithText(TextButton, '删除分享包');
+    final buttonRowOffset =
+        tester.getTopLeft(deleteButton).dy - tester.getTopLeft(closeButton).dy;
+    expect(buttonRowOffset.abs(), lessThan(8));
     expect(find.widgetWithText(FilledButton, '保存'), findsNothing);
     expect(find.widgetWithText(TextButton, '编辑'), findsNothing);
     expect(find.widgetWithText(TextButton, '删除'), findsNothing);
@@ -625,6 +634,27 @@ void main() {
     expect(find.widgetWithText(TextButton, '合并'), findsNothing);
     expect(find.widgetWithText(TextButton, '抵扣'), findsNothing);
     expect(find.widgetWithText(TextButton, '核销'), findsNothing);
+  });
+
+  testWidgets('external work detail link button opens link sheet skeleton', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      externalBatches: [_externalBatch()],
+      externalRecords: [_externalRecord()],
+    );
+
+    await _switchToExternalWork(tester);
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '关联到本地项目'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('关联到项目'), findsOneWidget);
+    expect(find.byKey(const Key('external-work-link-confirm')), findsOneWidget);
   });
 
   testWidgets(
@@ -663,10 +693,16 @@ void main() {
 
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '删除记录'));
+    await tester.tap(find.widgetWithText(TextButton, '删除分享包'));
     await tester.pumpAndSettle();
 
-    expect(find.text('删除项目外协记录'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('删除分享包'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 
@@ -725,7 +761,7 @@ void main() {
       expect(find.text('项目外协(2)'), findsOneWidget);
       await tester.tap(find.text('王师傅分享包 · 鲜滩+五里山'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(OutlinedButton, '删除记录'));
+      await tester.tap(find.widgetWithText(TextButton, '删除分享包'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('分享包'), findsWidgets);

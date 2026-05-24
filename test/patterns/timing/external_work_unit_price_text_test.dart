@@ -21,7 +21,6 @@ void main() {
         home: Scaffold(
           body: ExternalWorkRecordDetailContent(
             item: TimingExternalWorkRecordItem(record: record),
-            onClose: () {},
           ),
         ),
       ),
