@@ -63,6 +63,7 @@ class ProjectExternalWorkDuplicateChecker {
     if (isRich) {
       final projectSnapshot = payload.projectSnapshot!;
       final deviceById = payload.deviceById;
+      final memberProjectById = payload.memberProjectById;
       for (final record in payload.richRecords!) {
         final status = await resolve(
           sourceRecordUuid: record.sourceRecordUuid,
@@ -72,6 +73,7 @@ class ProjectExternalWorkDuplicateChecker {
           ExternalWorkImportPreviewLine.fromRichRecord(
             record: record,
             projectSnapshot: projectSnapshot,
+            memberProject: memberProjectById[record.sourceProjectId],
             device: deviceById[record.sourceDeviceId],
             duplicateStatus: status,
           ),

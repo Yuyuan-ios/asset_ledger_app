@@ -91,14 +91,19 @@ class ExternalWorkImportPreviewLine {
   factory ExternalWorkImportPreviewLine.fromRichRecord({
     required ProjectExternalWorkShareRecord record,
     required ProjectExternalWorkShareProjectSnapshot projectSnapshot,
+    ProjectExternalWorkShareMemberProject? memberProject,
     ProjectExternalWorkShareDeviceSnapshot? device,
     required ExternalWorkDuplicateStatus duplicateStatus,
   }) {
+    final contactSnapshot =
+        memberProject?.contactSnapshot ?? projectSnapshot.contactSnapshot;
+    final siteSnapshot =
+        memberProject?.siteSnapshot ?? projectSnapshot.siteSnapshot;
     return ExternalWorkImportPreviewLine(
       exportLineUuid: record.sourceRecordUuid,
       originFingerprint: record.originFingerprint,
-      contactSnapshot: projectSnapshot.contactSnapshot,
-      siteSnapshot: projectSnapshot.siteSnapshot,
+      contactSnapshot: contactSnapshot,
+      siteSnapshot: siteSnapshot,
       equipmentBrand: device?.brand,
       equipmentModel: device?.model,
       equipmentType: device?.type,
