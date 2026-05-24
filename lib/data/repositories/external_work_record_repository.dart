@@ -1,8 +1,12 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../core/errors/external_work_errors.dart';
 import '../db/database.dart';
 import '../models/external_work_record.dart';
+import '../models/project.dart';
 import 'external_import_repository.dart';
+import 'project_repository.dart';
+import 'project_write_off_repository.dart';
 
 abstract class ExternalWorkRecordRepository {
   Future<void> insertRecord(ExternalWorkRecord record);
@@ -19,15 +23,28 @@ abstract class ExternalWorkRecordRepository {
 
   /// 把整个 importBatch 关联到一个本地项目：事务化地把该 batch 下所有记录的
   /// `linked_project_id` 统一写成 [projectId]，保证"一包一项目、同包一致"。
-  /// 返回受影响的记录数（0 表示该 batch 没有记录）。
+  /// 返回受影响的记录数；若该 batch 已无可更新记录（0 行），抛出
+  /// [ExternalWorkBatchUnavailableException]，绝不静默成功。
   Future<int> linkBatchToProject({
     required String importBatchId,
     required String projectId,
     required String updatedAt,
   });
 
+  /// 原子地"关联到已结清项目"：在同一个事务里完成
+  /// (1) link batch → project，(2) 删除该项目核销记录，(3) 已结清则恢复未结清。
+  /// 任一步失败（含 batch 0 行）整体回滚，避免"撤销结清成功但关联失败"的中间态。
+  /// 返回关联到的记录数。
+  Future<int> linkBatchToProjectWithSettlementReset({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  });
+
   /// 解除整个 importBatch 的关联：事务化地把该 batch 下所有记录的
-  /// `linked_project_id` 清空（不删除任何外协记录）。返回受影响的记录数。
+  /// `linked_project_id` 清空（不删除任何外协记录）。返回受影响的记录数；
+  /// 若该 batch 已无可更新记录（0 行），抛出
+  /// [ExternalWorkBatchUnavailableException]。
   Future<int> unlinkBatch({
     required String importBatchId,
     required String updatedAt,
@@ -164,18 +181,63 @@ class SqfliteExternalWorkRecordRepository
     required String updatedAt,
   }) async {
     final normalizedBatchId = importBatchId.trim();
-    final normalizedProjectId = projectId.trim();
-    if (normalizedProjectId.isEmpty) {
-      throw ArgumentError.value(projectId, 'projectId', '关联项目 id 不能为空');
-    }
-    if (normalizedBatchId.isEmpty) return 0;
+    final normalizedProjectId = _requireProjectId(projectId);
     return AppDatabase.inTransaction<int>((txn) async {
-      return txn.update(
-        table,
-        {'linked_project_id': normalizedProjectId, 'updated_at': updatedAt},
-        where: 'import_batch_id = ?',
-        whereArgs: [normalizedBatchId],
+      return _linkBatchWithExecutor(
+        txn,
+        importBatchId: normalizedBatchId,
+        projectId: normalizedProjectId,
+        updatedAt: updatedAt,
       );
+    });
+  }
+
+  @override
+  Future<int> linkBatchToProjectWithSettlementReset({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async {
+    final normalizedBatchId = importBatchId.trim();
+    final normalizedProjectId = _requireProjectId(projectId);
+    return AppDatabase.inTransaction<int>((txn) async {
+      // 1) 先写关联：batch 已不存在（0 行）会抛异常，使整个事务回滚，
+      //    确保不会出现"撤销结清成功但关联失败"的中间态。
+      final linked = await _linkBatchWithExecutor(
+        txn,
+        importBatchId: normalizedBatchId,
+        projectId: normalizedProjectId,
+        updatedAt: updatedAt,
+      );
+
+      // 2) 同事务内撤销结清：删除该项目核销记录 + 已结清恢复未结清。
+      await txn.delete(
+        SqfliteProjectWriteOffRepository.table,
+        where: 'project_id = ?',
+        whereArgs: [normalizedProjectId],
+      );
+      final projectRows = await txn.query(
+        SqfliteProjectRepository.table,
+        where: 'id = ?',
+        whereArgs: [normalizedProjectId],
+        limit: 1,
+      );
+      if (projectRows.isNotEmpty) {
+        final project = Project.fromMap(projectRows.single);
+        if (project.status == ProjectStatus.settled) {
+          await SqfliteProjectRepository.upsertWithExecutor(
+            txn,
+            project.copyWith(
+              status: ProjectStatus.active,
+              settledAt: null,
+              settledSnapshot: null,
+              updatedAt: updatedAt,
+            ),
+          );
+        }
+      }
+
+      return linked;
     });
   }
 
@@ -185,15 +247,45 @@ class SqfliteExternalWorkRecordRepository
     required String updatedAt,
   }) async {
     final normalizedBatchId = importBatchId.trim();
-    if (normalizedBatchId.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
-      return txn.update(
+      final count = await txn.update(
         table,
         {'linked_project_id': null, 'updated_at': updatedAt},
         where: 'import_batch_id = ?',
         whereArgs: [normalizedBatchId],
       );
+      if (count == 0) {
+        throw ExternalWorkBatchUnavailableException();
+      }
+      return count;
     });
+  }
+
+  static String _requireProjectId(String projectId) {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(projectId, 'projectId', '关联项目 id 不能为空');
+    }
+    return normalized;
+  }
+
+  /// 在给定执行器（事务）内把 batch 的所有记录关联到项目；0 行抛异常。
+  static Future<int> _linkBatchWithExecutor(
+    DatabaseExecutor executor, {
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async {
+    final count = await executor.update(
+      table,
+      {'linked_project_id': projectId, 'updated_at': updatedAt},
+      where: 'import_batch_id = ?',
+      whereArgs: [importBatchId],
+    );
+    if (count == 0) {
+      throw ExternalWorkBatchUnavailableException();
+    }
+    return count;
   }
 
   @override

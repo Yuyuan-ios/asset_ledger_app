@@ -1,8 +1,10 @@
+import 'package:asset_ledger/core/errors/external_work_errors.dart';
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
@@ -84,7 +86,78 @@ void main() {
       // Items remain unlinked because the FK write was rejected.
       expect(store.items.every((item) => !item.isLinked), isTrue);
     });
+
+    test('linkBatchToProject on unknown batch throws and stays unlinked',
+        () async {
+      await seed();
+
+      await expectLater(
+        store.linkBatchToProject('ghost-batch', 'project:a'),
+        throwsA(isA<ExternalWorkBatchUnavailableException>()),
+      );
+      expect(store.failure, isNotNull);
+      expect(store.items.every((item) => !item.isLinked), isTrue);
+    });
+
+    test('unlinkBatch on unknown batch throws', () async {
+      await seed();
+
+      await expectLater(
+        store.unlinkBatch('ghost-batch'),
+        throwsA(isA<ExternalWorkBatchUnavailableException>()),
+      );
+    });
+
+    test('linkSettledBatchToProject links and clears settlement atomically',
+        () async {
+      final db = await _openCurrentInMemoryDb();
+      importRepo = SqfliteExternalImportRepository();
+      recordRepo = SqfliteExternalWorkRecordRepository();
+      store = TimingExternalWorkStore(
+        importRepository: importRepo,
+        recordRepository: recordRepo,
+      );
+      await db.insert(
+        'projects',
+        _project(
+          id: 'project:a',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-19T00:00:00.000Z',
+        ).toMap(),
+      );
+      await db.insert('project_write_offs', _writeOff('project:a').toMap());
+      await importRepo.insertBatch(_batch());
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+      ]);
+      await store.loadAll();
+
+      await store.linkSettledBatchToProject('batch-1', 'project:a');
+
+      expect(store.items.every((item) => item.isLinked), isTrue);
+      expect(await recordRepo.getLinkedProjectId('batch-1'), 'project:a');
+      expect(await db.query('project_write_offs'), isEmpty);
+      final projectRows = await db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: ['project:a'],
+      );
+      expect(Project.fromMap(projectRows.single).status, ProjectStatus.active);
+    });
   });
+}
+
+ProjectWriteOff _writeOff(String projectId) {
+  return ProjectWriteOff(
+    id: 'writeoff-$projectId',
+    projectId: projectId,
+    amount: 100,
+    reason: ProjectWriteOffReason.settlement.dbValue,
+    writeOffDate: '2026-05-19',
+    createdAt: '2026-05-19T00:00:00.000Z',
+    updatedAt: '2026-05-19T00:00:00.000Z',
+  );
 }
 
 Future<Database> _openCurrentInMemoryDb() {
@@ -143,11 +216,17 @@ ExternalWorkRecord _record({
   );
 }
 
-Project _project({String id = 'project:linked'}) {
+Project _project({
+  String id = 'project:linked',
+  ProjectStatus status = ProjectStatus.active,
+  String? settledAt,
+}) {
   return Project(
     id: id,
     contact: '甲方',
     site: '一号工地',
+    status: status,
+    settledAt: settledAt,
     createdAt: '2026-05-18T00:00:00.000Z',
     updatedAt: '2026-05-18T00:00:00.000Z',
   );

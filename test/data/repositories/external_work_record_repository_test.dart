@@ -1,9 +1,11 @@
+import 'package:asset_ledger/core/errors/external_work_errors.dart';
 import 'package:asset_ledger/core/money/amount_policy.dart';
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -419,7 +421,158 @@ void main() {
         throwsA(isA<ArgumentError>()),
       );
     });
+
+    test('linkBatchToProject throws when batch has no records (0 rows)', () async {
+      final db = await _openCurrentInMemoryDb();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert('projects', _project(id: 'project:a').toMap());
+
+      await expectLater(
+        recordRepo.linkBatchToProject(
+          importBatchId: 'ghost-batch',
+          projectId: 'project:a',
+          updatedAt: '2026-05-20T00:00:00.000Z',
+        ),
+        throwsA(isA<ExternalWorkBatchUnavailableException>()),
+      );
+    });
+
+    test('unlinkBatch throws when batch has no records (0 rows)', () async {
+      await _openCurrentInMemoryDb();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+
+      await expectLater(
+        recordRepo.unlinkBatch(
+          importBatchId: 'ghost-batch',
+          updatedAt: '2026-05-20T00:00:00.000Z',
+        ),
+        throwsA(isA<ExternalWorkBatchUnavailableException>()),
+      );
+    });
   });
+
+  group('linkBatchToProjectWithSettlementReset (atomic)', () {
+    test('links batch, deletes write-offs and restores active', () async {
+      final db = await _openCurrentInMemoryDb();
+      final importRepo = SqfliteExternalImportRepository();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await db.insert(
+        'projects',
+        _project(
+          id: 'project:a',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-19T00:00:00.000Z',
+        ).toMap(),
+      );
+      await db.insert('project_write_offs', _writeOff('project:a').toMap());
+      await importRepo.insertBatch(_batch());
+      await recordRepo.insertRecords([
+        _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+        _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+      ]);
+
+      final linked = await recordRepo.linkBatchToProjectWithSettlementReset(
+        importBatchId: 'batch-1',
+        projectId: 'project:a',
+        updatedAt: '2026-05-20T00:00:00.000Z',
+      );
+
+      expect(linked, 2);
+      final records = await recordRepo.listByBatchId('batch-1');
+      expect(records, hasLength(2)); // 记录保留
+      expect(records.map((r) => r.linkedProjectId).toSet(), {'project:a'});
+      expect(await db.query('project_write_offs'), isEmpty); // 核销删除
+      final projectRows = await db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: ['project:a'],
+      );
+      expect(Project.fromMap(projectRows.single).status, ProjectStatus.active);
+    });
+
+    test(
+      'restores active for a payment-only settled project (no write-offs)',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        await db.insert(
+          'projects',
+          _project(
+            id: 'project:a',
+            status: ProjectStatus.settled,
+            settledAt: '2026-05-19T00:00:00.000Z',
+          ).toMap(),
+        );
+        await importRepo.insertBatch(_batch());
+        await recordRepo.insertRecord(_record());
+
+        await recordRepo.linkBatchToProjectWithSettlementReset(
+          importBatchId: 'batch-1',
+          projectId: 'project:a',
+          updatedAt: '2026-05-20T00:00:00.000Z',
+        );
+
+        final projectRows = await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:a'],
+        );
+        expect(Project.fromMap(projectRows.single).status, ProjectStatus.active);
+        expect(await recordRepo.getLinkedProjectId('batch-1'), 'project:a');
+      },
+    );
+
+    test(
+      'rolls back settlement reset when the batch is missing (no mid-state)',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        await db.insert(
+          'projects',
+          _project(
+            id: 'project:a',
+            status: ProjectStatus.settled,
+            settledAt: '2026-05-19T00:00:00.000Z',
+          ).toMap(),
+        );
+        await db.insert('project_write_offs', _writeOff('project:a').toMap());
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: 'ghost-batch',
+            projectId: 'project:a',
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<ExternalWorkBatchUnavailableException>()),
+        );
+
+        // 中间态校验：核销仍在、项目仍为已结清。
+        expect(await db.query('project_write_offs'), hasLength(1));
+        final projectRows = await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:a'],
+        );
+        expect(
+          Project.fromMap(projectRows.single).status,
+          ProjectStatus.settled,
+        );
+      },
+    );
+  });
+}
+
+ProjectWriteOff _writeOff(String projectId) {
+  return ProjectWriteOff(
+    id: 'writeoff-$projectId',
+    projectId: projectId,
+    amount: 100,
+    reason: ProjectWriteOffReason.settlement.dbValue,
+    writeOffDate: '2026-05-19',
+    createdAt: '2026-05-19T00:00:00.000Z',
+    updatedAt: '2026-05-19T00:00:00.000Z',
+  );
 }
 
 Future<Database> _openCurrentInMemoryDb() {
@@ -488,11 +641,17 @@ ExternalWorkRecord _record({
   );
 }
 
-Project _project({String id = 'project:linked'}) {
+Project _project({
+  String id = 'project:linked',
+  ProjectStatus status = ProjectStatus.active,
+  String? settledAt,
+}) {
   return Project(
     id: id,
     contact: '甲方',
     site: '一号工地',
+    status: status,
+    settledAt: settledAt,
     createdAt: '2026-05-18T00:00:00.000Z',
     updatedAt: '2026-05-18T00:00:00.000Z',
   );

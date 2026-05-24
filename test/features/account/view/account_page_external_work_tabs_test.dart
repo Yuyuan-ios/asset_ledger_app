@@ -333,6 +333,13 @@ class _FakeExternalWorkRecordRepository
   }) async => 0;
 
   @override
+  Future<int> linkBatchToProjectWithSettlementReset({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async => 0;
+
+  @override
   Future<int> unlinkBatch({
     required String importBatchId,
     required String updatedAt,
