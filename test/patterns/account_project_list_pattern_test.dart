@@ -191,6 +191,12 @@ void main() {
       settledIcons.every((icon) => icon.color == const Color(0xFF4AAFD8)),
       isTrue,
     );
+
+    final progressWidthFactors = _progressWidthFactors(tester);
+    expect(progressWidthFactors, hasLength(3));
+    expect(progressWidthFactors[0], 1.0);
+    expect(progressWidthFactors[1], 1.0);
+    expect(progressWidthFactors[2], closeTo(1200 / 1260, 0.0001));
   });
 
   testWidgets('settled check keeps long project title and date in one row', (

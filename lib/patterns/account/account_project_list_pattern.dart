@@ -180,7 +180,7 @@ class AccountProjectList extends StatelessWidget {
   }
 
   double _displayProgress(AccountProjectVM p, {required bool compact}) {
-    if (compact && _isSettled(p)) return 1.0;
+    if (_isSettled(p)) return 1.0;
     return (p.ratio ?? 0).clamp(0.0, 1.0).toDouble();
   }
 
