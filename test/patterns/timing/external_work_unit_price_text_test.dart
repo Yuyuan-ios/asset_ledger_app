@@ -84,6 +84,46 @@ void main() {
     expect(find.text('不适用'), findsNothing);
   });
 
+  testWidgets('package detail shows full source sites without ellipsis', (
+    tester,
+  ) async {
+    final first = _record(
+      id: 'r-1',
+      siteSnapshot: '尚义',
+      recordKind: ExternalWorkRecordKind.hours,
+      sourceUnitPriceFen: 10000,
+      localUnitPriceFen: 10000,
+      amountFen: 100000,
+    );
+
+    await pump(
+      tester,
+      first,
+      packageRecords: [
+        first,
+        _record(
+          id: 'r-2',
+          siteSnapshot: '富牛',
+          recordKind: ExternalWorkRecordKind.hours,
+          sourceUnitPriceFen: 18000,
+          localUnitPriceFen: 18000,
+          amountFen: 180000,
+        ),
+        _record(
+          id: 'r-3',
+          siteSnapshot: '青山湾',
+          recordKind: ExternalWorkRecordKind.hours,
+          sourceUnitPriceFen: 18000,
+          localUnitPriceFen: 18000,
+          amountFen: 180000,
+        ),
+      ],
+    );
+
+    expect(find.text('尚义+富牛+青山湾'), findsOneWidget);
+    expect(find.textContaining('...'), findsNothing);
+  });
+
   testWidgets('timing detail shows source price, NOT local override '
       '(source=¥180, local=¥210 → expect ¥180)', (tester) async {
     // 关键 regression：详情卡是"来源记录"，必须显示 ¥180。
@@ -242,6 +282,7 @@ void main() {
 
 ExternalWorkRecord _record({
   String id = 'r-1',
+  String siteSnapshot = '工地A',
   required ExternalWorkRecordKind recordKind,
   required int? sourceUnitPriceFen,
   required int? localUnitPriceFen,
@@ -256,7 +297,7 @@ ExternalWorkRecord _record({
     originFingerprint: 'fp-1',
     collaboratorName: '李工',
     contactSnapshot: '张三',
-    siteSnapshot: '工地A',
+    siteSnapshot: siteSnapshot,
     workDate: 20240101,
     hoursMilli: 7000,
     sourceUnitPriceFen: sourceUnitPriceFen,
