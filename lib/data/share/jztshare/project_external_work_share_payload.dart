@@ -20,6 +20,7 @@ class ProjectExternalWorkSharePayload {
     this.projectSnapshot,
     this.devices = const [],
     this.summary,
+    this.memberProjects = const [],
   });
 
   static const maxExportLines = 1000;
@@ -42,8 +43,19 @@ class ProjectExternalWorkSharePayload {
   /// 导出端聚合摘要；导入端以 records 计算值为准，summary 仅作参考。
   final ProjectExternalWorkShareSummary? summary;
 
+  /// 合并分享包成员项目结构；普通单项目分享为空（加法式键）。
+  final List<ProjectExternalWorkShareMemberProject> memberProjects;
+
   /// 是否存在可消费的富事实层记录。
   bool get hasRichRecords => richRecords != null && richRecords!.isNotEmpty;
+
+  /// 是否为合并分享包（含成员项目结构）。
+  bool get isMergedShare => memberProjects.isNotEmpty;
+
+  /// 成员项目按 source_project_id 索引，便于按 record.sourceProjectId 还原来源。
+  Map<String, ProjectExternalWorkShareMemberProject> get memberProjectById {
+    return {for (final member in memberProjects) member.sourceProjectId: member};
+  }
 
   Map<int, ProjectExternalWorkShareDeviceSnapshot> get deviceById {
     return {for (final device in devices) device.sourceDeviceId: device};
@@ -71,6 +83,7 @@ class ProjectExternalWorkSharePayload {
     final projectSnapshot = _parseProjectSnapshot(map, richRecords);
     final devices = _parseDevices(map);
     final summary = _parseSummary(map);
+    final memberProjects = _parseMemberProjects(map);
 
     try {
       return ProjectExternalWorkSharePayload(
@@ -84,6 +97,7 @@ class ProjectExternalWorkSharePayload {
         projectSnapshot: projectSnapshot,
         devices: devices,
         summary: summary,
+        memberProjects: memberProjects,
       );
     } on ExternalDataParseException catch (error) {
       throw JztShareParseException(
@@ -175,6 +189,32 @@ class ProjectExternalWorkSharePayload {
             );
           }
           return ProjectExternalWorkShareDeviceSnapshot.fromMap(item);
+        })
+        .toList(growable: false);
+  }
+
+  static List<ProjectExternalWorkShareMemberProject> _parseMemberProjects(
+    Map<String, Object?> map,
+  ) {
+    final raw = map['member_projects'];
+    if (raw == null) return const [];
+    if (raw is! List<Object?>) {
+      throw JztShareParseException(
+        JztShareErrorCodes.invalidPayload,
+        'payload.member_projects must be an array',
+        raw,
+      );
+    }
+    return raw
+        .map((item) {
+          if (item is! Map<String, Object?>) {
+            throw JztShareParseException(
+              JztShareErrorCodes.invalidPayload,
+              'member_projects item must be an object',
+              item,
+            );
+          }
+          return ProjectExternalWorkShareMemberProject.fromMap(item);
         })
         .toList(growable: false);
   }

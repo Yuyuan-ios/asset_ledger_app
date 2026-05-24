@@ -83,6 +83,7 @@ class ProjectExternalWorkShareRichPayload {
     required this.records,
     required this.deviceGroups,
     required this.exportLines,
+    this.memberProjects = const [],
   });
 
   /// 富事实层版本号；与 envelope.formatVersion 相互独立。
@@ -104,6 +105,12 @@ class ProjectExternalWorkShareRichPayload {
   final List<ProjectExternalWorkShareDeviceGroup> deviceGroups;
   final List<ProjectExternalWorkShareExportLine> exportLines;
 
+  /// 合并分享包的成员项目结构；普通单项目分享为空（加法式键，旧导入端忽略）。
+  /// 每个成员携带 projectId/projectKey/contact/site/displayName + 其下
+  /// source_timing_record_id 列表（与 records[] 关联），接收端据此可还原
+  /// 「这是一个分享包，含哪些成员项目，每个成员下有哪些子记录」。
+  final List<ProjectExternalWorkShareMemberProject> memberProjects;
+
   Map<String, Object?> toMap() {
     return {
       // ---- 旧导入端兼容键（顺序与既有 fromMap 读取一致）----
@@ -123,6 +130,79 @@ class ProjectExternalWorkShareRichPayload {
       'device_groups': deviceGroups
           .map((g) => g.toMap())
           .toList(growable: false),
+      // 加法式：仅合并分享包输出，单项目分享不写此键。
+      if (memberProjects.isNotEmpty)
+        'member_projects': memberProjects
+            .map((m) => m.toMap())
+            .toList(growable: false),
+    };
+  }
+}
+
+/// 合并分享包的成员项目快照（加法式键 member_projects[] 元素）。
+class ProjectExternalWorkShareMemberProject {
+  const ProjectExternalWorkShareMemberProject({
+    required this.sourceProjectId,
+    required this.sourceProjectKey,
+    required this.contactSnapshot,
+    required this.siteSnapshot,
+    required this.displayName,
+    required this.recordIds,
+  });
+
+  /// 成员项目真实身份（保留溯源，导入端不得复用为本机 id）。
+  final String sourceProjectId;
+  final String sourceProjectKey;
+  final String contactSnapshot;
+  final String siteSnapshot;
+
+  /// 成员项目展示名（如「联系人 · 工地」）。
+  final String displayName;
+
+  /// 该成员项目下的 source_timing_record_id 列表（与 records[] 关联）。
+  final List<int> recordIds;
+
+  static ProjectExternalWorkShareMemberProject fromMap(
+    Map<String, Object?> map,
+  ) {
+    final reader = ExternalFieldReader(map);
+    try {
+      final rawIds = map['record_ids'];
+      final ids = <int>[];
+      if (rawIds is List) {
+        for (final value in rawIds) {
+          if (value is int) {
+            ids.add(value);
+          } else if (value is num && value.toInt() == value) {
+            ids.add(value.toInt());
+          } else {
+            throw _richParseError('record_ids must be integers', map);
+          }
+        }
+      } else if (rawIds != null) {
+        throw _richParseError('record_ids must be an array', map);
+      }
+      return ProjectExternalWorkShareMemberProject(
+        sourceProjectId: reader.requiredString('source_project_id'),
+        sourceProjectKey: reader.requiredString('source_project_key'),
+        contactSnapshot: reader.requiredString('contact_snapshot'),
+        siteSnapshot: reader.requiredString('site_snapshot'),
+        displayName: reader.requiredString('display_name'),
+        recordIds: List<int>.unmodifiable(ids),
+      );
+    } on ExternalDataParseException catch (error) {
+      throw _richParseError(error.message, map);
+    }
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'source_project_id': sourceProjectId,
+      'source_project_key': sourceProjectKey,
+      'contact_snapshot': contactSnapshot,
+      'site_snapshot': siteSnapshot,
+      'display_name': displayName,
+      'record_ids': List<int>.unmodifiable(recordIds),
     };
   }
 }
@@ -170,6 +250,7 @@ class ProjectExternalWorkShareProjectSnapshot {
     required this.sourceProjectKey,
     required this.contactSnapshot,
     required this.siteSnapshot,
+    this.displayName,
     this.projectReceivedFen = 0,
   });
 
@@ -179,6 +260,10 @@ class ProjectExternalWorkShareProjectSnapshot {
   /// 仅作来源追踪；导入列表/详情不展示。
   final String contactSnapshot;
   final String siteSnapshot;
+
+  /// 合并分享包的聚合展示名（如「分享人 · 鲜滩+尚义...」）。
+  /// 普通单项目分享为 null：接收端继续按既有口径自行拼展示名（加法式可选字段）。
+  final String? displayName;
 
   /// 导出时该项目累计实收款（分）。旧分享包缺字段时按 0 兼容。
   final int projectReceivedFen;
@@ -193,6 +278,7 @@ class ProjectExternalWorkShareProjectSnapshot {
         sourceProjectKey: reader.requiredString('source_project_key'),
         contactSnapshot: reader.requiredString('contact_snapshot'),
         siteSnapshot: reader.requiredString('site_snapshot'),
+        displayName: reader.optionalString('display_name'),
         projectReceivedFen:
             _optionalNonNegativeInt(map, 'project_received_fen') ?? 0,
       );
@@ -207,6 +293,7 @@ class ProjectExternalWorkShareProjectSnapshot {
       'source_project_key': sourceProjectKey,
       'contact_snapshot': contactSnapshot,
       'site_snapshot': siteSnapshot,
+      if (displayName != null) 'display_name': displayName,
       'project_received_fen': projectReceivedFen,
       // v1 省略 project_status_snapshot：代码中无 Project 实体/项目状态来源。
     };

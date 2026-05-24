@@ -591,4 +591,185 @@ void main() {
         .originFingerprint;
     expect(fp(rentZero), fp(rentNoisyMeter));
   });
+
+  group('merged share (memberProjectIds)', () {
+    // 两个成员项目：同联系人「余远」，工地「鲜滩」「尚义」。
+    const memberRecordA = TimingRecord(
+      id: 101,
+      deviceId: 1,
+      startDate: 20240201,
+      contact: '余远',
+      site: '鲜滩',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 8,
+      hours: 8.0,
+      income: 800.0, // deviceA 默认 100 → 一致
+    );
+    const memberRecordB = TimingRecord(
+      id: 102,
+      deviceId: 1,
+      startDate: 20240202,
+      contact: '余远',
+      site: '尚义',
+      type: TimingType.hours,
+      startMeter: 8,
+      endMeter: 13,
+      hours: 5.0,
+      income: 500.0,
+    );
+
+    test('aggregates records across member projects without span error', () {
+      final p = builder.build(
+        shareId: 'merge-share',
+        senderName: '余远',
+        sourceInstallationUuid: 'install',
+        records: const [memberRecordB, memberRecordA], // 乱序
+        deviceMap: {1: deviceA},
+        calcHistoryMap: const {},
+        expectedProjectId: 'merge:9',
+        memberProjectIds: {
+          memberRecordA.effectiveProjectId,
+          memberRecordB.effectiveProjectId,
+        },
+      );
+
+      // 跨成员项目不再被「records span multiple projects」拦截。
+      expect(p.records.length, 2);
+      // 每条 record 保留自己的成员项目来源（溯源）。
+      final recA = p.records.firstWhere((r) => r.sourceTimingRecordId == 101);
+      final recB = p.records.firstWhere((r) => r.sourceTimingRecordId == 102);
+      expect(recA.sourceProjectId, memberRecordA.effectiveProjectId);
+      expect(recB.sourceProjectId, memberRecordB.effectiveProjectId);
+    });
+
+    test('payload carries member_projects[] structure', () {
+      final p = builder.build(
+        shareId: 'merge-share',
+        senderName: '余远',
+        sourceInstallationUuid: 'install',
+        records: const [memberRecordA, memberRecordB],
+        deviceMap: {1: deviceA},
+        calcHistoryMap: const {},
+        expectedProjectId: 'merge:9',
+        memberProjectIds: {
+          memberRecordA.effectiveProjectId,
+          memberRecordB.effectiveProjectId,
+        },
+      );
+
+      expect(p.memberProjects, hasLength(2));
+      final mA = p.memberProjects.firstWhere(
+        (m) => m.sourceProjectId == memberRecordA.effectiveProjectId,
+      );
+      expect(mA.contactSnapshot, '余远');
+      expect(mA.siteSnapshot, '鲜滩');
+      expect(mA.displayName, '余远 · 鲜滩');
+      expect(mA.recordIds, [101]);
+      final mB = p.memberProjects.firstWhere(
+        (m) => m.sourceProjectId == memberRecordB.effectiveProjectId,
+      );
+      expect(mB.recordIds, [102]);
+
+      // 聚合展示名「分享人 · 地址摘要」。
+      expect(p.projectSnapshot.displayName, '余远 · 鲜滩+尚义');
+      expect(p.projectSnapshot.sourceProjectId, 'merge:9');
+      expect(p.projectSnapshot.siteSnapshot, '鲜滩+尚义');
+
+      // member_projects 经 toMap 输出，且 round-trip 可解析。
+      final json = p.toMap();
+      expect(json.containsKey('member_projects'), isTrue);
+      final parsed = ProjectExternalWorkSharePayload.fromMap(json);
+      expect(parsed.isMergedShare, isTrue);
+      expect(parsed.memberProjects, hasLength(2));
+      expect(parsed.projectSnapshot?.displayName, '余远 · 鲜滩+尚义');
+    });
+
+    test('still defends against truly unrelated (non-member) projects', () {
+      const intruder = TimingRecord(
+        id: 103,
+        deviceId: 1,
+        startDate: 20240203,
+        contact: '陌生人',
+        site: '无关工地',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+      expect(
+        () => builder.build(
+          shareId: 'merge-share',
+          senderName: '余远',
+          sourceInstallationUuid: 'install',
+          records: const [memberRecordA, intruder],
+          deviceMap: {1: deviceA},
+          calcHistoryMap: const {},
+          expectedProjectId: 'merge:9',
+          memberProjectIds: {
+            memberRecordA.effectiveProjectId,
+            memberRecordB.effectiveProjectId,
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('single-project share has empty member_projects (additive)', () {
+      final p = buildAll();
+      expect(p.memberProjects, isEmpty);
+      expect(p.projectSnapshot.displayName, isNull);
+      expect(p.toMap().containsKey('member_projects'), isFalse);
+    });
+  });
+
+  test(
+    'stale income from old device default + project override → '
+    'trusts current override price and recomputes income (no "未知")',
+    () {
+      // 复刻 Bug 2：设备默认 180，项目覆盖价改为 100，但 income 仍是 180 旧口径。
+      final deviceX = Device(
+        id: 7,
+        name: '挖机 7#',
+        brand: 'CAT',
+        defaultUnitPrice: 180.0,
+        baseMeterHours: 0.0,
+        equipmentType: EquipmentType.excavator,
+      );
+      const staleRecord = TimingRecord(
+        id: 74,
+        deviceId: 7,
+        startDate: 20240305,
+        contact: '余远',
+        site: '鲜滩',
+        type: TimingType.hours,
+        startMeter: 0.0,
+        endMeter: 70.1,
+        hours: 70.1,
+        income: 12618.0, // = 70.1 × 180（旧口径，未回写）
+      );
+      final override = ProjectDeviceRate(
+        projectId: staleRecord.effectiveProjectId,
+        projectKey: staleRecord.legacyProjectKey,
+        deviceId: 7,
+        rate: 100.0, // 当前有效项目单价 ¥100
+      );
+
+      final p = builder.build(
+        shareId: 'stale-share',
+        senderName: '余远',
+        sourceInstallationUuid: 'install',
+        records: const [staleRecord],
+        deviceMap: {7: deviceX},
+        calcHistoryMap: const {},
+        projectDeviceRates: [override],
+      );
+      final rec = p.records.single;
+      // source_unit_price_fen 用当前有效项目单价 ¥100 = 10000 fen。
+      expect(rec.sourceUnitPriceFen, 10000);
+      // income_fen = AmountPolicy(70.1h, 10000) = 701000，按当前单价口径重算。
+      expect(rec.incomeFen, 701000);
+    },
+  );
 }
