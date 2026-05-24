@@ -52,10 +52,11 @@ class TimingExternalWorkStore extends BaseStore {
   }
 
   /// 把整个外协包关联到本地项目：事务化写库后就地更新内存态（同包记录统一）。
+  /// batch 已不存在（0 行）时 repository 抛 [ExternalWorkBatchUnavailableException]，
+  /// 经 [writeAndPatchLocalState] 透传，绝不静默成功。
   Future<void> linkBatchToProject(String batchId, String projectId) async {
     final normalizedBatch = batchId.trim();
     final normalizedProject = projectId.trim();
-    if (normalizedBatch.isEmpty || normalizedProject.isEmpty) return;
     final updatedAt = DateTime.now().toUtc().toIso8601String();
     await writeAndPatchLocalState<int>(
       write: () => _recordRepository.linkBatchToProject(
@@ -63,25 +64,44 @@ class TimingExternalWorkStore extends BaseStore {
         projectId: normalizedProject,
         updatedAt: updatedAt,
       ),
-      patch: (count) {
-        if (count == 0) return;
+      patch: (_) {
+        _items = _patchBatchLink(normalizedBatch, normalizedProject);
+      },
+    );
+  }
+
+  /// 原子地关联到"已结清项目"：repository 在同一事务里完成 link + 撤销结清。
+  /// 失败整体回滚（含 0 行），不会留下"撤销成功但关联失败"中间态。
+  Future<void> linkSettledBatchToProject(
+    String batchId,
+    String projectId,
+  ) async {
+    final normalizedBatch = batchId.trim();
+    final normalizedProject = projectId.trim();
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
+    await writeAndPatchLocalState<int>(
+      write: () => _recordRepository.linkBatchToProjectWithSettlementReset(
+        importBatchId: normalizedBatch,
+        projectId: normalizedProject,
+        updatedAt: updatedAt,
+      ),
+      patch: (_) {
         _items = _patchBatchLink(normalizedBatch, normalizedProject);
       },
     );
   }
 
   /// 解除外协包关联：清空同包记录的 linkedProjectId，外协记录本身保留。
+  /// batch 已不存在（0 行）时抛 [ExternalWorkBatchUnavailableException]。
   Future<void> unlinkBatch(String batchId) async {
     final normalizedBatch = batchId.trim();
-    if (normalizedBatch.isEmpty) return;
     final updatedAt = DateTime.now().toUtc().toIso8601String();
     await writeAndPatchLocalState<int>(
       write: () => _recordRepository.unlinkBatch(
         importBatchId: normalizedBatch,
         updatedAt: updatedAt,
       ),
-      patch: (count) {
-        if (count == 0) return;
+      patch: (_) {
         _items = _patchBatchLink(normalizedBatch, null);
       },
     );

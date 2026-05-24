@@ -1263,6 +1263,20 @@ class _FakeExternalWorkRecordRepository
   }
 
   @override
+  Future<int> linkBatchToProjectWithSettlementReset({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) {
+    // 测试替身无结清状态，行为等同 link（更新 records 的 linkedProjectId）。
+    return linkBatchToProject(
+      importBatchId: importBatchId,
+      projectId: projectId,
+      updatedAt: updatedAt,
+    );
+  }
+
+  @override
   Future<int> unlinkBatch({
     required String importBatchId,
     required String updatedAt,
