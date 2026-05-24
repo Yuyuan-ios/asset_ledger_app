@@ -86,6 +86,8 @@ void main() {
       expect(find.text('外协项目').hitTestable(), findsNothing);
       expect(find.text('余远 · 鲜滩+尚义').hitTestable(), findsOneWidget);
       expect(find.text('外协应付').hitTestable(), findsOneWidget);
+      expect(find.text('应收项目款').hitTestable(), findsOneWidget);
+      expect(find.text('客户应收'), findsNothing);
       expect(find.text('¥12618').hitTestable(), findsOneWidget);
       expect(find.text('待设置').hitTestable(), findsOneWidget);
       expect(find.text('待计算').hitTestable(), findsOneWidget);

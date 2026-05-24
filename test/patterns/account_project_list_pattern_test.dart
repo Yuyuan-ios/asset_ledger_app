@@ -500,7 +500,8 @@ void main() {
     expect(find.text('余远 · 鲜滩+尚义'), findsOneWidget);
     expect(find.text('外协应付'), findsOneWidget);
     expect(find.text('¥12618'), findsOneWidget);
-    expect(find.text('客户应收'), findsOneWidget);
+    expect(find.text('应收项目款'), findsOneWidget);
+    expect(find.text('客户应收'), findsNothing);
     expect(find.text('毛利'), findsOneWidget);
     expect(find.text('待设置'), findsOneWidget);
     expect(find.text('待计算'), findsOneWidget);
@@ -546,7 +547,7 @@ void main() {
       expect(title.overflow, TextOverflow.ellipsis);
       expect(find.text('2026.05.02'), findsOneWidget);
       expect(find.text('外协应付'), findsOneWidget);
-      expect(find.text('客户应收'), findsOneWidget);
+      expect(find.text('应收项目款'), findsOneWidget);
       expect(find.text('毛利'), findsOneWidget);
 
       final avatarRect = tester.getRect(find.text('协'));
@@ -559,6 +560,61 @@ void main() {
       expect((titleRect.center.dy - dateRect.center.dy).abs(), lessThan(8));
     },
   );
+
+  testWidgets('external work card matches project card height and avatar top', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'owned',
+      displayName: '李杰 + 新村',
+      minYmd: 20260501,
+      deviceIds: [1],
+      hoursByDevice: {1: 10},
+      rentIncomeTotal: 0,
+      minRate: 100,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1000,
+      received: 0,
+      remaining: 1000,
+      ratio: 0,
+      payments: [],
+    );
+    const externalProject = AccountExternalWorkProjectVM(
+      importBatchId: 'external-batch-height',
+      displayName: '余远 · 鲜滩+尚义',
+      sourceDisplayName: '余远',
+      siteSummary: '鲜滩+尚义',
+      minYmd: 20260502,
+      payableFen: 1261800,
+      recordCount: 2,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [project],
+            externalWorkProjects: const [externalProject],
+            onTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final ownedCardRect = tester.getRect(
+      _containerWithBorder(const Color(0x4D000000)),
+    );
+    final externalCardRect = tester.getRect(
+      find.byKey(const Key('account-external-work-card-external-batch-height')),
+    );
+    final avatarRect = tester.getRect(
+      find.byKey(const Key('account-external-work-avatar')),
+    );
+
+    expect(externalCardRect.height, ownedCardRect.height);
+    expect(avatarRect.top - externalCardRect.top, 4);
+  });
 
   testWidgets('project header toggles compact mode from title group only', (
     tester,
