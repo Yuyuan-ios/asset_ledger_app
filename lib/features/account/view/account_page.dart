@@ -71,9 +71,36 @@ class AccountPage extends StatefulWidget {
 // ============================== State：只做 UI 与交互 ==============================
 // =====================================================================
 
-class _AccountPageState extends State<AccountPage> {
+enum _AccountProjectAreaSection { projects, externalWork }
+
+class _AccountPageState extends State<AccountPage>
+    with SingleTickerProviderStateMixin {
   bool _isCompactProjectList = false;
   var _externalWorkLoadRequested = false;
+  var _projectAreaSection = _AccountProjectAreaSection.projects;
+
+  late final TabController _projectAreaTabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _projectAreaTabController = TabController(length: 2, vsync: this);
+    _projectAreaTabController.addListener(_handleProjectAreaTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _projectAreaTabController.removeListener(_handleProjectAreaTabChanged);
+    _projectAreaTabController.dispose();
+    super.dispose();
+  }
+
+  void _handleProjectAreaTabChanged() {
+    final nextSection =
+        _AccountProjectAreaSection.values[_projectAreaTabController.index];
+    if (nextSection == _projectAreaSection) return;
+    setState(() => _projectAreaSection = nextSection);
+  }
 
   @override
   void didChangeDependencies() {
@@ -707,6 +734,42 @@ class _AccountPageState extends State<AccountPage> {
     _toast(outcome.message);
   }
 
+  Widget _buildProjectAreaHeader(AccountPageViewData viewData) {
+    switch (_projectAreaSection) {
+      case _AccountProjectAreaSection.projects:
+        return AccountProjectPinnedHeader(
+          projectCount: viewData.filteredProjects.length,
+          isCompactProjectList: _isCompactProjectList,
+          onToggleCompactProjectList: () {
+            setState(() {
+              _isCompactProjectList = !_isCompactProjectList;
+            });
+          },
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AccountProjectMergeButton(onPressed: _openMergeSheet),
+              AccountProjectFilterButton(
+                hasActiveFilter: viewData.hasActiveFilter,
+                onOpenFilter: () => _openProjectFilterSheet(
+                  suggestions: viewData.projectSuggestions,
+                ),
+                onClearFilter: () => _applyProjectFilterResult(
+                  const AccountProjectFilterResult.clear(),
+                ),
+              ),
+            ],
+          ),
+        );
+      case _AccountProjectAreaSection.externalWork:
+        return AccountProjectPinnedHeader(
+          titleLabel: '项目外协',
+          projectCount: viewData.filteredExternalWorkProjects.length,
+          trailing: const SizedBox.shrink(),
+        );
+    }
+  }
+
   // =====================================================================
   // ============================== H) 页面 build ==============================
   // =====================================================================
@@ -740,6 +803,10 @@ class _AccountPageState extends State<AccountPage> {
               constraints.maxWidth,
               basePadding: AccountTokens.homePageHorizontalPadding,
             );
+            final bottomSpacer =
+                NavigationTokens.barHeight +
+                MediaQuery.viewPaddingOf(context).bottom +
+                AccountTokens.homeBottomGap;
 
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -747,97 +814,96 @@ class _AccountPageState extends State<AccountPage> {
                 children: [
                   const SizedBox(height: AccountTokens.homeTopGap),
                   Expanded(
-                    child: CustomScrollView(
-                      slivers: [
-                        if (viewData.loading)
-                          const SliverToBoxAdapter(
-                            child: Column(
-                              children: [
-                                LinearProgressIndicator(),
-                                SizedBox(height: 10),
-                              ],
-                            ),
-                          ),
-                        if (viewData.error != null)
-                          SliverToBoxAdapter(
-                            child: Column(
-                              children: [
-                                StoreErrorBanner(
-                                  message: viewData.error!,
-                                  onRetry: viewData.loading
-                                      ? null
-                                      : () => _retryLoad(),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                            ),
-                          ),
-                        SliverToBoxAdapter(
-                          child: AccountOverviewCard(
-                            vm: AccountOverviewVm(
-                              totalReceivable:
-                                  viewData.computed.totalReceivable,
-                              totalReceived: viewData.computed.totalReceived,
-                              totalRemaining: viewData.computed.totalRemaining,
-                              totalRatio: viewData.computed.totalRatio,
-                              deviceReceivables:
-                                  viewData.computed.deviceReceivables,
-                            ),
-                          ),
-                        ),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: AccountTokens.projectTitleTopGap,
-                          ),
-                        ),
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: PinnedHeaderDelegate(
-                            height: AccountTokens.projectPinnedHeaderHeight,
-                            child: AccountProjectPinnedHeader(
-                              projectCount:
-                                  viewData.filteredProjects.length +
-                                  viewData.filteredExternalWorkProjects.length,
-                              isCompactProjectList: _isCompactProjectList,
-                              onToggleCompactProjectList: () {
-                                setState(() {
-                                  _isCompactProjectList =
-                                      !_isCompactProjectList;
-                                });
-                              },
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                    child: NestedScrollView(
+                      headerSliverBuilder: (context, innerBoxIsScrolled) {
+                        return [
+                          if (viewData.loading)
+                            const SliverToBoxAdapter(
+                              child: Column(
                                 children: [
-                                  AccountProjectMergeButton(
-                                    onPressed: _openMergeSheet,
-                                  ),
-                                  AccountProjectFilterButton(
-                                    hasActiveFilter: viewData.hasActiveFilter,
-                                    onOpenFilter: () => _openProjectFilterSheet(
-                                      suggestions: viewData.projectSuggestions,
-                                    ),
-                                    onClearFilter: () => _applyProjectFilterResult(
-                                      const AccountProjectFilterResult.clear(),
-                                    ),
-                                  ),
+                                  LinearProgressIndicator(),
+                                  SizedBox(height: 10),
                                 ],
                               ),
                             ),
+                          if (viewData.error != null)
+                            SliverToBoxAdapter(
+                              child: Column(
+                                children: [
+                                  StoreErrorBanner(
+                                    message: viewData.error!,
+                                    onRetry: viewData.loading
+                                        ? null
+                                        : () => _retryLoad(),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                              ),
+                            ),
+                          SliverToBoxAdapter(
+                            child: AccountOverviewCard(
+                              vm: AccountOverviewVm(
+                                totalReceivable:
+                                    viewData.computed.totalReceivable,
+                                totalReceived: viewData.computed.totalReceived,
+                                totalRemaining:
+                                    viewData.computed.totalRemaining,
+                                totalRatio: viewData.computed.totalRatio,
+                                deviceReceivables:
+                                    viewData.computed.deviceReceivables,
+                              ),
+                            ),
                           ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: AccountProjectList(
-                            projects: viewData.filteredProjects,
-                            externalWorkProjects:
-                                viewData.filteredExternalWorkProjects,
-                            isCompact: _isCompactProjectList,
-                            onTap: _openProjectDetail,
+                          const SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: AccountTokens.projectTitleTopGap,
+                            ),
                           ),
-                        ),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: AccountTokens.homeBottomGap),
-                        ),
-                      ],
+                          SliverOverlapAbsorber(
+                            handle:
+                                NestedScrollView.sliverOverlapAbsorberHandleFor(
+                                  context,
+                                ),
+                            sliver: SliverPersistentHeader(
+                              pinned: true,
+                              delegate: PinnedHeaderDelegate(
+                                height: AccountTokens.projectPinnedHeaderHeight,
+                                child: _buildProjectAreaHeader(viewData),
+                              ),
+                            ),
+                          ),
+                        ];
+                      },
+                      body: TabBarView(
+                        controller: _projectAreaTabController,
+                        children: [
+                          _AccountProjectAreaTabBody(
+                            storageKey: const PageStorageKey<String>(
+                              'account-owned-projects-tab',
+                            ),
+                            bottomSpacer: bottomSpacer,
+                            child: AccountProjectList(
+                              projects: viewData.filteredProjects,
+                              isCompact: _isCompactProjectList,
+                              onTap: _openProjectDetail,
+                            ),
+                          ),
+                          _AccountProjectAreaTabBody(
+                            storageKey: const PageStorageKey<String>(
+                              'account-external-work-projects-tab',
+                            ),
+                            bottomSpacer: bottomSpacer,
+                            child: AccountProjectList(
+                              projects: const [],
+                              externalWorkProjects:
+                                  viewData.filteredExternalWorkProjects,
+                              isCompact: _isCompactProjectList,
+                              onTap: _openProjectDetail,
+                              emptyText: '暂无项目外协（未关联外协包导入后将自动出现）',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -846,6 +912,37 @@ class _AccountPageState extends State<AccountPage> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _AccountProjectAreaTabBody extends StatelessWidget {
+  const _AccountProjectAreaTabBody({
+    required this.storageKey,
+    required this.child,
+    required this.bottomSpacer,
+  });
+
+  final Key storageKey;
+  final Widget child;
+  final double bottomSpacer;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      key: storageKey,
+      slivers: [
+        SliverOverlapInjector(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        ),
+        SliverToBoxAdapter(child: child),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            key: const Key('account-page-bottom-navigation-spacer'),
+            height: bottomSpacer,
+          ),
+        ),
+      ],
     );
   }
 }
