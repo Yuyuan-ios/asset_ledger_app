@@ -41,12 +41,14 @@ class AccountProjectList extends StatelessWidget {
     required this.onTap,
     this.externalWorkProjects = const [],
     this.isCompact = false,
+    this.emptyText = '暂无项目（计时页有记录后将自动出现）',
   });
 
   final List<AccountProjectVM> projects;
   final List<AccountExternalWorkProjectVM> externalWorkProjects;
   final ValueChanged<AccountProjectVM> onTap;
   final bool isCompact;
+  final String emptyText;
 
   String _priceText(AccountProjectVM p) {
     final rate = p.minRate;
@@ -286,7 +288,7 @@ class AccountProjectList extends StatelessWidget {
     if (projects.isEmpty && externalWorkProjects.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text('暂无项目（计时页有记录后将自动出现）', style: emptyStyle)),
+        child: Center(child: Text(emptyText, style: emptyStyle)),
       );
     }
 

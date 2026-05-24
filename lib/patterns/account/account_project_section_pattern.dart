@@ -9,12 +9,14 @@ import 'account_project_list_pattern.dart';
 class AccountProjectPinnedHeader extends StatelessWidget {
   const AccountProjectPinnedHeader({
     super.key,
+    this.titleLabel = '项目',
     required this.projectCount,
     required this.trailing,
     this.isCompactProjectList = false,
     this.onToggleCompactProjectList,
   });
 
+  final String titleLabel;
   final int projectCount;
   final Widget trailing;
   final bool isCompactProjectList;
@@ -45,7 +47,7 @@ class AccountProjectPinnedHeader extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '项目($projectCount)',
+                      '$titleLabel($projectCount)',
                       style: AppTypography.sectionTitle(
                         context,
                         fontSize: AccountTokens.projectTitleFontSize,
