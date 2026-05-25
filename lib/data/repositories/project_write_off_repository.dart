@@ -134,6 +134,31 @@ class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
     return db.delete(table);
   }
 
+  // 删除影响协调器使用的具体读/写辅助（不纳入抽象接口）。
+  Future<int> countByProjectId(String projectId) async {
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) return 0;
+    final db = await AppDatabase.database;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM $table WHERE project_id = ?',
+      [normalizedProjectId],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<int> deleteByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) return 0;
+    return executor.delete(
+      table,
+      where: 'project_id = ?',
+      whereArgs: [normalizedProjectId],
+    );
+  }
+
   static void _validate(ProjectWriteOff item) {
     if (item.id.trim().isEmpty) {
       throw ArgumentError.value(item.id, 'id', '核销记录 ID 不能为空');

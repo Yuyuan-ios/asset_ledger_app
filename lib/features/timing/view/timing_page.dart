@@ -19,6 +19,7 @@ import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
 import '../../../features/external_work/import_preview/view/external_work_import_preview_page.dart';
+import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
 import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
@@ -540,40 +541,99 @@ class _TimingPageState extends State<TimingPage> {
   }
 
   void _deleteEditingRecord(BuildContext sheetContext, TimingRecord editing) {
-    () async {
-      final confirmed = await _confirmDeleteRecord(editing);
-      if (!confirmed) return;
-      final deleted = await _deleteRecord(editing);
-      if (!deleted || !sheetContext.mounted) return;
-      Navigator.of(sheetContext).pop();
-    }();
+    unawaited(_runDeleteWithImpact(sheetContext, editing));
   }
 
-  Future<bool> _confirmDeleteRecord(TimingRecord record) async {
-    if (record.id == null) return false;
+  // 删除前先做项目影响分析：有收款的最后一条计时直接阻止；其它情况按影响
+  // 合并成一个确认提示，确认后在单事务内删除并联动清理（撤销结清 / 解除合并 /
+  // 解除外协），再刷新计时、账户、外协三处聚合，避免合并弹窗残留历史成员。
+  Future<void> _runDeleteWithImpact(
+    BuildContext sheetContext,
+    TimingRecord editing,
+  ) async {
+    final recordId = editing.id;
+    if (recordId == null) return;
+    final deleteUseCase = context.read<DeleteTimingRecordWithImpactUseCase>();
 
-    return showAppConfirmDialog(
+    TimingRecordDeleteImpact impact;
+    try {
+      impact = await deleteUseCase.analyzeImpact(recordId);
+    } catch (_) {
+      if (mounted) _toast('删除前检查失败，请重试');
+      return;
+    }
+    if (!mounted) return;
+
+    if (impact.isBlockedByPayments) {
+      _toast(const TimingDeleteBlockedByPaymentsException().message);
+      return;
+    }
+
+    final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除计时记录',
-      content: '删除后不可恢复，确认删除这条记录吗？',
+      content: _deleteConfirmContent(impact),
       confirmText: '删除',
       confirmDestructive: true,
     );
+    if (!confirmed || !mounted) return;
+
+    TimingRecordDeleteOutcome outcome;
+    try {
+      outcome = await deleteUseCase.executeDeleteWithImpact(recordId);
+    } on TimingDeleteBlockedByPaymentsException catch (error) {
+      if (mounted) _toast(error.message);
+      return;
+    } catch (_) {
+      if (mounted) _toast('删除失败，请重试');
+      return;
+    }
+    if (!mounted) return;
+
+    await _reloadAfterDelete();
+    if (!mounted) return;
+    _toast(_deleteSuccessMessage(outcome));
+    if (!sheetContext.mounted) return;
+    Navigator.of(sheetContext).pop();
   }
 
-  Future<bool> _deleteRecord(TimingRecord record) async {
-    if (record.id == null) return false;
-    if (!mounted) return false;
-
-    final store = context.read<TimingStore>();
-    await store.deleteById(record.id!);
-    if (!mounted) return false;
-    final feedback = storeActionFeedback(store, action: '删除');
-    _toast(feedback.message);
-    if (!feedback.isSuccess) {
-      return false;
+  String _deleteConfirmContent(TimingRecordDeleteImpact impact) {
+    final parts = <String>[];
+    if (impact.requiresSettlementRevoke) {
+      parts.add('该项目已结清。删除计时记录后将撤销结清状态，并按新的项目金额重新计算待收。是否继续？');
     }
-    return true;
+    if (impact.hasLastRecordCascade) {
+      parts.add('删除后，该项目将不再有本地计时记录，并会同步解除相关合并/外协关联。是否继续？');
+    }
+    if (parts.isEmpty) {
+      return '删除后不可恢复，确认删除这条记录吗？';
+    }
+    return parts.join('\n\n');
+  }
+
+  String _deleteSuccessMessage(TimingRecordDeleteOutcome outcome) {
+    if (!outcome.hasCascade) return '已删除';
+    final parts = <String>[];
+    if (outcome.settlementRevoked) parts.add('已撤销结清');
+    if (outcome.mergeGroupDissolved) {
+      parts.add('已解除合并');
+    } else if (outcome.mergeMemberRemoved) {
+      parts.add('已移出合并');
+    }
+    if (outcome.externalWorkUnlinked) parts.add('已解除外协关联');
+    if (parts.isEmpty) return '已删除';
+    return '已删除，${parts.join('、')}';
+  }
+
+  Future<void> _reloadAfterDelete() async {
+    final timingStore = context.read<TimingStore>();
+    final accountStore = context.read<AccountStore>();
+    final externalWorkStore = context.read<TimingExternalWorkStore>();
+    await Future.wait([
+      timingStore.loadAll(),
+      accountStore.loadAll(),
+      externalWorkStore.loadAll(),
+    ]);
   }
 
   Future<void> _openExternalWorkDetail(

@@ -304,6 +304,34 @@ class SqfliteExternalWorkRecordRepository
     return rows.single['linked_project_id'] as String?;
   }
 
+  // 删除影响协调器使用的具体读/写辅助（不纳入抽象接口）。
+  Future<int> countLinkedBatchesByProjectId(String projectId) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    final db = await AppDatabase.database;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(DISTINCT import_batch_id) AS count FROM $table '
+      'WHERE linked_project_id = ?',
+      [normalized],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<int> unlinkByProjectIdWithExecutor(
+    DatabaseExecutor executor, {
+    required String projectId,
+    required String updatedAt,
+  }) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.update(
+      table,
+      {'linked_project_id': null, 'updated_at': updatedAt},
+      where: 'linked_project_id = ?',
+      whereArgs: [normalized],
+    );
+  }
+
   @override
   Future<int> updateLocalFields({
     required String recordId,

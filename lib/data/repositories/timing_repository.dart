@@ -62,6 +62,55 @@ class SqfliteTimingRepository implements TimingRepository {
     return rows.map(_fromRow).toList();
   }
 
+  // 以下为删除影响协调器（TimingRecordDeleteCoordinator）使用的具体读/写辅助，
+  // 不纳入抽象接口，避免在多处测试假实现中扩散。
+
+  Future<TimingRecord?> findById(int id) async {
+    final db = await AppDatabase.database;
+    return findByIdWithExecutor(db, id);
+  }
+
+  Future<TimingRecord?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    int id,
+  ) async {
+    final rows = await executor.query(
+      _table,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return _fromRow(rows.single);
+  }
+
+  Future<int> countByProjectIdExcluding({
+    required String projectId,
+    required int excludeRecordId,
+  }) async {
+    final db = await AppDatabase.database;
+    return countByProjectIdExcludingWithExecutor(
+      db,
+      projectId: projectId,
+      excludeRecordId: excludeRecordId,
+    );
+  }
+
+  Future<int> countByProjectIdExcludingWithExecutor(
+    DatabaseExecutor executor, {
+    required String projectId,
+    required int excludeRecordId,
+  }) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    final rows = await executor.rawQuery(
+      'SELECT COUNT(*) AS count FROM $_table '
+      'WHERE project_id = ? AND id != ?',
+      [normalized, excludeRecordId],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
+  }
+
   // =====================================================================
   // ============================== 四、新增（Create） ==============================
   // =====================================================================
@@ -139,7 +188,11 @@ class SqfliteTimingRepository implements TimingRepository {
   @override
   Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
-    return db.delete(_table, where: 'id = ?', whereArgs: [id]);
+    return deleteByIdWithExecutor(db, id);
+  }
+
+  Future<int> deleteByIdWithExecutor(DatabaseExecutor executor, int id) {
+    return executor.delete(_table, where: 'id = ?', whereArgs: [id]);
   }
 
   /// 删除记录：按记录 id 批量删除多条

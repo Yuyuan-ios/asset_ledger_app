@@ -189,6 +189,25 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
     return db.delete(table, where: 'id = ?', whereArgs: [id]);
   }
 
+  // 删除影响协调器使用的具体读辅助（不纳入抽象接口）。
+  Future<int> countByProjectId(String projectId) async {
+    final db = await AppDatabase.database;
+    return countByProjectIdWithExecutor(db, projectId);
+  }
+
+  Future<int> countByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    final rows = await executor.rawQuery(
+      'SELECT COUNT(*) AS count FROM $table WHERE project_id = ?',
+      [normalized],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
+  }
+
   static Future<void> _ensureProjectWithExecutor(
     DatabaseExecutor executor,
     AccountPayment payment,
