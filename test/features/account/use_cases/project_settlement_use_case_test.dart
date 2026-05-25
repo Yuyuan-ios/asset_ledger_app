@@ -6,7 +6,9 @@ import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
+import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
+import 'package:asset_ledger/features/account/use_cases/settle_merged_project_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/account/local_project_settlement_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -439,6 +441,260 @@ void main() {
       },
     );
   });
+
+  group('SettleMergedProjectUseCase', () {
+    test(
+      'settles merged project by writing write-offs to real members',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+        await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+        final useCase = _mergedUseCase();
+
+        final result = await useCase.execute(
+          mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+          memberProjects: [
+            _memberProjectVm(
+              id: 'project:1',
+              key: '甲方||一号工地',
+              site: '一号工地',
+              receivable: 1000,
+              remaining: 1000,
+              minYmd: 20260501,
+            ),
+            _memberProjectVm(
+              id: 'project:2',
+              key: '甲方||二号工地',
+              site: '二号工地',
+              receivable: 2000,
+              remaining: 2000,
+              minYmd: 20260502,
+            ),
+          ],
+          paymentAmount: 0,
+          writeOffAmount: 3000,
+          writeOffReason: ProjectWriteOffReason.settlement,
+          ymd: 20260518,
+        );
+
+        expect(result.projectId, 'merge:7');
+        expect(result.settled, isTrue);
+        expect(await _writeOffCount(db), 2);
+        expect(await _writeOffSumByProjectId(db, 'project:1'), 1000);
+        expect(await _writeOffSumByProjectId(db, 'project:2'), 2000);
+        expect(await _writeOffSumByProjectId(db, 'merge:7'), 0);
+        expect(
+          await _projectStatusById(db, 'project:1'),
+          ProjectStatus.settled,
+        );
+        expect(
+          await _projectStatusById(db, 'project:2'),
+          ProjectStatus.settled,
+        );
+      },
+    );
+
+    test('does not allocate write-off to a zero-remaining member', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+      await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+      await _seedPayment(db, amount: 1000);
+      final useCase = _mergedUseCase();
+
+      await useCase.execute(
+        mergedProject: _mergedProjectVm(remaining: 2000, receivable: 3000),
+        memberProjects: [
+          _memberProjectVm(
+            id: 'project:1',
+            key: '甲方||一号工地',
+            site: '一号工地',
+            receivable: 1000,
+            remaining: 0,
+            minYmd: 20260501,
+          ),
+          _memberProjectVm(
+            id: 'project:2',
+            key: '甲方||二号工地',
+            site: '二号工地',
+            receivable: 2000,
+            remaining: 2000,
+            minYmd: 20260502,
+          ),
+        ],
+        paymentAmount: 0,
+        writeOffAmount: 2000,
+        writeOffReason: ProjectWriteOffReason.settlement,
+        ymd: 20260518,
+      );
+
+      expect(await _writeOffSumByProjectId(db, 'project:1'), 0);
+      expect(await _writeOffSumByProjectId(db, 'project:2'), 2000);
+      expect(await _projectStatusById(db, 'project:1'), ProjectStatus.settled);
+      expect(await _projectStatusById(db, 'project:2'), ProjectStatus.settled);
+    });
+
+    test(
+      'blocks merged settlement when a member already has write-off',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+        await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+        await _seedWriteOffForProject(
+          db,
+          id: 'existing-write-off',
+          projectId: 'project:1',
+          amount: 10,
+        );
+        final useCase = _mergedUseCase();
+
+        await expectLater(
+          useCase.execute(
+            mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            paymentAmount: 0,
+            writeOffAmount: 3000,
+            writeOffReason: ProjectWriteOffReason.settlement,
+            ymd: 20260518,
+          ),
+          throwsA(
+            predicate(
+              (error) =>
+                  error is StateError &&
+                  error.message == '合并成员项目已存在核销记录，请先处理成员项目。',
+            ),
+          ),
+        );
+
+        expect(await _writeOffCount(db), 1);
+        expect(await _writeOffSumByProjectId(db, 'project:1'), 10);
+        expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+        expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+      },
+    );
+
+    test(
+      'rolls back merged settlement when a member project is missing',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+        final useCase = _mergedUseCase();
+
+        await expectLater(
+          useCase.execute(
+            mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            paymentAmount: 0,
+            writeOffAmount: 3000,
+            writeOffReason: ProjectWriteOffReason.settlement,
+            ymd: 20260518,
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 0);
+        expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+      },
+    );
+
+    test('revokes merged settlement from real member projects', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProjectWithId(
+        db,
+        id: 'project:1',
+        site: '一号工地',
+        status: ProjectStatus.settled,
+      );
+      await _seedProjectWithId(
+        db,
+        id: 'project:2',
+        site: '二号工地',
+        status: ProjectStatus.settled,
+      );
+      await _seedWriteOffForProject(
+        db,
+        id: 'writeoff-merge-7-0',
+        projectId: 'project:1',
+        amount: 1000,
+      );
+      await _seedWriteOffForProject(
+        db,
+        id: 'writeoff-merge-7-1',
+        projectId: 'project:2',
+        amount: 2000,
+      );
+      final useCase = _mergedUseCase();
+      final mergedProject = _mergedProjectVm(
+        remaining: 0,
+        receivable: 3000,
+        writeOff: 3000,
+      );
+      final members = [
+        _memberProjectVm(
+          id: 'project:1',
+          key: '甲方||一号工地',
+          site: '一号工地',
+          receivable: 1000,
+          remaining: 0,
+          writeOff: 1000,
+          minYmd: 20260501,
+        ),
+        _memberProjectVm(
+          id: 'project:2',
+          key: '甲方||二号工地',
+          site: '二号工地',
+          receivable: 2000,
+          remaining: 0,
+          writeOff: 2000,
+          minYmd: 20260502,
+        ),
+      ];
+
+      final result = await useCase.deleteWriteOffs(
+        mergedProject: mergedProject,
+        memberProjects: members,
+        writeOffs: await _writeOffRows(db),
+      );
+
+      expect(result.projectId, 'merge:7');
+      expect(await _writeOffCount(db), 0);
+      expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+      expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+    });
+  });
 }
 
 ProjectSettlementUseCase _useCase() {
@@ -446,6 +702,83 @@ ProjectSettlementUseCase _useCase() {
     repository: const LocalProjectSettlementRepository(),
     now: () => DateTime.utc(2026, 5, 18, 1, 2, 3),
     writeOffIdFactory: (_, _) => 'write-off-1',
+  );
+}
+
+SettleMergedProjectUseCase _mergedUseCase() {
+  return SettleMergedProjectUseCase(
+    repository: const LocalProjectSettlementRepository(),
+    now: () => DateTime.utc(2026, 5, 18, 1, 2, 3),
+    writeOffIdFactory:
+        ({
+          required int mergeGroupId,
+          required String projectId,
+          required int index,
+          required DateTime now,
+        }) {
+          return 'writeoff-merge-$mergeGroupId-$index';
+        },
+  );
+}
+
+AccountProjectVM _mergedProjectVm({
+  required double receivable,
+  required double remaining,
+  double writeOff = 0,
+}) {
+  return AccountProjectVM(
+    projectId: 'merge:7',
+    projectKey: 'merge:7',
+    displayName: '甲方 + 合并2项目',
+    kind: AccountProjectKind.merged,
+    mergeGroupId: 7,
+    memberProjectKeys: const ['甲方||一号工地', '甲方||二号工地'],
+    memberProjectIds: const ['project:1', 'project:2'],
+    includedSites: const ['一号工地', '二号工地'],
+    minYmd: 20260501,
+    deviceIds: const [1],
+    hoursByDevice: const {1: 30},
+    rentIncomeTotal: 0,
+    minRate: 100,
+    isMultiDevice: false,
+    isMultiMode: false,
+    receivable: receivable,
+    received: 0,
+    writeOff: writeOff,
+    remaining: remaining,
+    ratio: receivable <= 0 ? null : 0,
+    settlementRatio: receivable <= 0 ? null : writeOff / receivable,
+    payments: const [],
+  );
+}
+
+AccountProjectVM _memberProjectVm({
+  required String id,
+  required String key,
+  required String site,
+  required double receivable,
+  required double remaining,
+  required int minYmd,
+  double writeOff = 0,
+}) {
+  return AccountProjectVM(
+    projectId: id,
+    projectKey: key,
+    displayName: '甲方 + $site',
+    minYmd: minYmd,
+    deviceIds: const [1],
+    hoursByDevice: const {1: 10},
+    rentIncomeTotal: 0,
+    minRate: 100,
+    isMultiDevice: false,
+    isMultiMode: false,
+    receivable: receivable,
+    received: receivable - remaining - writeOff,
+    writeOff: writeOff,
+    remaining: remaining,
+    ratio: receivable <= 0 ? null : 0,
+    settlementRatio: receivable <= 0 ? null : writeOff / receivable,
+    payments: const [],
   );
 }
 
@@ -484,6 +817,29 @@ Future<void> _seedProject(
   );
 }
 
+Future<void> _seedProjectWithId(
+  Database db, {
+  required String id,
+  required String site,
+  ProjectStatus status = ProjectStatus.active,
+}) async {
+  await db.insert(
+    SqfliteProjectRepository.table,
+    Project(
+      id: id,
+      contact: '甲方',
+      site: site,
+      status: status,
+      settledAt: status == ProjectStatus.settled
+          ? '2026-05-18T00:00:00.000Z'
+          : null,
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+      legacyProjectKey: '甲方||$site',
+    ).toMap(),
+  );
+}
+
 Future<void> _seedWriteOff(
   Database db, {
   String id = 'write-off-1',
@@ -496,6 +852,26 @@ Future<void> _seedWriteOff(
       projectId: 'project:1',
       amount: amount,
       reason: ProjectWriteOffReason.rounding.dbValue,
+      writeOffDate: '2026-05-18',
+      createdAt: '2026-05-18T00:00:00.000Z',
+      updatedAt: '2026-05-18T00:00:00.000Z',
+    ).toMap(),
+  );
+}
+
+Future<void> _seedWriteOffForProject(
+  Database db, {
+  required String id,
+  required String projectId,
+  required double amount,
+}) async {
+  await db.insert(
+    SqfliteProjectWriteOffRepository.table,
+    ProjectWriteOff(
+      id: id,
+      projectId: projectId,
+      amount: amount,
+      reason: ProjectWriteOffReason.settlement.dbValue,
       writeOffDate: '2026-05-18',
       createdAt: '2026-05-18T00:00:00.000Z',
       updatedAt: '2026-05-18T00:00:00.000Z',
@@ -544,6 +920,15 @@ Future<double> _writeOffSum(Database db) async {
   return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
 }
 
+Future<double> _writeOffSumByProjectId(Database db, String projectId) async {
+  final rows = await db.rawQuery(
+    'SELECT COALESCE(SUM(amount), 0) AS total '
+    'FROM ${SqfliteProjectWriteOffRepository.table} WHERE project_id = ?',
+    [projectId],
+  );
+  return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+}
+
 Future<List<ProjectWriteOff>> _writeOffRows(Database db) async {
   final rows = await db.query(SqfliteProjectWriteOffRepository.table);
   return rows.map(ProjectWriteOff.fromMap).toList();
@@ -551,6 +936,15 @@ Future<List<ProjectWriteOff>> _writeOffRows(Database db) async {
 
 Future<ProjectStatus> _projectStatus(Database db) async {
   return (await _projectRow(db)).status;
+}
+
+Future<ProjectStatus> _projectStatusById(Database db, String projectId) async {
+  final rows = await db.query(
+    SqfliteProjectRepository.table,
+    where: 'id = ?',
+    whereArgs: [projectId],
+  );
+  return Project.fromMap(rows.single).status;
 }
 
 Future<Project> _projectRow(Database db) async {

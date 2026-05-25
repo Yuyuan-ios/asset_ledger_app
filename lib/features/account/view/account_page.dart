@@ -188,18 +188,36 @@ class _AccountPageState extends State<AccountPage>
           if (!mounted) throw StateError('页面已关闭');
 
           final latestProject = _latestProjectForSettlement(project);
-          final settlement = await context
-              .read<AccountActionController>()
-              .settleProject(
-                project: latestProject,
-                paymentAmount: input.paymentAmount,
-                writeOffAmount: input.writeOffAmount,
-                writeOffReason: input.writeOffReason,
-                ymd: input.ymd,
-                note: input.note,
-                paymentStore: context.read<AccountPaymentStore>(),
-                accountStore: context.read<AccountStore>(),
-              );
+          final controller = context.read<AccountActionController>();
+          final timingStore = context.read<TimingStore>();
+          final deviceStore = context.read<DeviceStore>();
+          final paymentStore = context.read<AccountPaymentStore>();
+          final rateStore = context.read<ProjectRateStore>();
+          final accountStore = context.read<AccountStore>();
+          final settlement = latestProject.kind == AccountProjectKind.merged
+              ? await controller.settleMergedProject(
+                  project: latestProject,
+                  paymentAmount: input.paymentAmount,
+                  writeOffAmount: input.writeOffAmount,
+                  writeOffReason: input.writeOffReason,
+                  ymd: input.ymd,
+                  note: input.note,
+                  timingStore: timingStore,
+                  deviceStore: deviceStore,
+                  paymentStore: paymentStore,
+                  rateStore: rateStore,
+                  accountStore: accountStore,
+                )
+              : await controller.settleProject(
+                  project: latestProject,
+                  paymentAmount: input.paymentAmount,
+                  writeOffAmount: input.writeOffAmount,
+                  writeOffReason: input.writeOffReason,
+                  ymd: input.ymd,
+                  note: input.note,
+                  paymentStore: paymentStore,
+                  accountStore: accountStore,
+                );
 
           return settlement;
         },
@@ -494,11 +512,13 @@ class _AccountPageState extends State<AccountPage>
   }
 
   Future<void> _revokeProjectWriteOff(AccountProjectVM project) async {
-    final projectIds = {
-      project.effectiveProjectId.trim(),
-      if (project.kind == AccountProjectKind.merged)
-        ...project.memberProjectIds.map((id) => id.trim()),
-    }..removeWhere((id) => id.isEmpty);
+    if (project.kind == AccountProjectKind.merged) {
+      await _revokeMergedProjectWriteOff(project);
+      return;
+    }
+
+    final projectIds = {project.effectiveProjectId.trim()}
+      ..removeWhere((id) => id.isEmpty);
     final accountStore = context.read<AccountStore>();
     final writeOffs = accountStore.writeOffs
         .where((item) {
@@ -528,6 +548,63 @@ class _AccountPageState extends State<AccountPage>
       final controller = context.read<AccountActionController>();
       await controller.revokeSettlementStatus(
         project: latestProject,
+        accountStore: accountStore,
+      );
+
+      if (!mounted) return;
+      _toast('已撤销结清状态');
+    } catch (error) {
+      if (!mounted) return;
+      _toast(
+        '撤销结清状态失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+      );
+    }
+  }
+
+  Future<void> _revokeMergedProjectWriteOff(AccountProjectVM project) async {
+    final latestProject = _latestProjectForSettlement(project);
+    final projectIds =
+        latestProject.memberProjectIds.map((id) => id.trim()).toSet()
+          ..removeWhere((id) => id.isEmpty);
+    if (projectIds.isEmpty) {
+      _toast('合并项目成员异常，请刷新后重试。');
+      return;
+    }
+
+    final accountStore = context.read<AccountStore>();
+    final writeOffs = accountStore.writeOffs
+        .where((item) => projectIds.contains(item.projectId.trim()))
+        .toList(growable: false);
+    final controller = context.read<AccountActionController>();
+
+    try {
+      if (writeOffs.isNotEmpty) {
+        await controller.deleteMergedWriteOffs(
+          project: latestProject,
+          writeOffs: writeOffs,
+          timingStore: context.read<TimingStore>(),
+          deviceStore: context.read<DeviceStore>(),
+          paymentStore: context.read<AccountPaymentStore>(),
+          rateStore: context.read<ProjectRateStore>(),
+          accountStore: accountStore,
+        );
+        if (!mounted) return;
+        _toast('已撤销核销，待收已恢复');
+        return;
+      }
+
+      final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
+      if (!isSettled) {
+        _toast('该项目核销记录异常，请先检查核销记录。');
+        return;
+      }
+
+      await controller.revokeMergedSettlementStatus(
+        project: latestProject,
+        timingStore: context.read<TimingStore>(),
+        deviceStore: context.read<DeviceStore>(),
+        paymentStore: context.read<AccountPaymentStore>(),
+        rateStore: context.read<ProjectRateStore>(),
         accountStore: accountStore,
       );
 
@@ -605,7 +682,8 @@ class _AccountPageState extends State<AccountPage>
 
     // 当前仍有计时记录的项目（与卡片合并计数口径一致）。
     final timingProjectIds = <String>{
-      for (final record in timingStore.records) record.effectiveProjectId.trim(),
+      for (final record in timingStore.records)
+        record.effectiveProjectId.trim(),
     };
     // 账务/外协/结清痕迹集合：用于保留显示无计时但仍有痕迹的历史合并成员。
     final settledProjectIds = accountStore.settledProjectIds;
