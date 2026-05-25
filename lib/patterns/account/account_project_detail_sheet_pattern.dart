@@ -130,9 +130,10 @@ class AccountProjectDetailSheet extends StatelessWidget {
     final projectWriteOffs = _writeOffsForProject(project);
     final revokeWriteOff = _revokeWriteOffAction(project, projectWriteOffs);
     final projectIsSettled = _isProjectSettled(project);
-    final hasUniqueWriteOffForRevoke =
-        project.writeOff > _detailSheetMoneyEpsilon &&
-        projectWriteOffs.length == 1;
+    final hasUniqueWriteOffForRevoke = _hasRevokableWriteOffForProject(
+      project,
+      projectWriteOffs,
+    );
     if (project.kind == AccountProjectKind.merged) {
       final detailRows = _buildMergedDetailRows(project);
       final paymentDisplayItems = buildMergedPaymentDisplayItems(
@@ -269,7 +270,32 @@ class AccountProjectDetailSheet extends StatelessWidget {
     }
     final deleteWriteOff = onDeleteWriteOff;
     if (deleteWriteOff == null || projectWriteOffs.isEmpty) return null;
+    if (project.kind == AccountProjectKind.merged &&
+        projectWriteOffs.length != 1) {
+      return null;
+    }
     return () => deleteWriteOff(projectWriteOffs.first);
+  }
+
+  bool _hasRevokableWriteOffForProject(
+    AccountProjectVM project,
+    List<ProjectWriteOff> projectWriteOffs,
+  ) {
+    if (project.writeOff <= _detailSheetMoneyEpsilon ||
+        projectWriteOffs.isEmpty) {
+      return false;
+    }
+    if (project.kind != AccountProjectKind.merged) {
+      return projectWriteOffs.length == 1;
+    }
+
+    final mergeGroupId = project.mergeGroupId;
+    if (mergeGroupId == null) return projectWriteOffs.length == 1;
+
+    final mergeWriteOffPrefix = 'writeoff-merge-$mergeGroupId-';
+    return projectWriteOffs.every(
+      (item) => item.id.trim().startsWith(mergeWriteOffPrefix),
+    );
   }
 
   List<ProjectWriteOff> _writeOffsForProject(AccountProjectVM project) {
