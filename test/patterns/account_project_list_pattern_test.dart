@@ -15,6 +15,7 @@ void main() {
       minYmd: 20260317,
       deviceIds: [1],
       hoursByDevice: {1: 9},
+      externalWorkHours: 1.5,
       rentIncomeTotal: 0,
       minRate: 120,
       isMultiDevice: false,
@@ -34,7 +35,7 @@ void main() {
       ),
     );
 
-    final totalHoursText = tester.widget<Text>(find.text('总共:  9 h'));
+    final totalHoursText = tester.widget<Text>(find.text('总共:  10.5 h'));
 
     expect(totalHoursText.style?.fontWeight, FontWeight.w700);
   });

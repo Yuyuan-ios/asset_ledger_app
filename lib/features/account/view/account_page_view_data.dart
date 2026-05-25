@@ -175,17 +175,22 @@ class ExternalWorkReceivableRollup {
   const ExternalWorkReceivableRollup({
     required this.totalReceivableFen,
     required this.receivableFenByProjectId,
+    required this.hoursByProjectId,
   });
 
   const ExternalWorkReceivableRollup.empty()
     : totalReceivableFen = 0,
-      receivableFenByProjectId = const {};
+      receivableFenByProjectId = const {},
+      hoursByProjectId = const {};
 
   /// 所有活跃外协包的设备应收之和（每个 importBatch 只计一次），用于总览。
   final int totalReceivableFen;
 
   /// 已关联外协包按 linkedProjectId 汇总的设备应收（分），用于并入项目卡片。
   final Map<String, int> receivableFenByProjectId;
+
+  /// 已关联外协包按 linkedProjectId 汇总的工时，用于项目卡片"总共"展示。
+  final Map<String, double> hoursByProjectId;
 }
 
 /// 按 importBatch 汇总外协设备应收：总额（每包一次）+ 已关联项目维度分摊。
@@ -203,10 +208,15 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
 
   var totalFen = 0;
   final byProject = <String, int>{};
+  final byHoursProject = <String, double>{};
   for (final batchItems in byBatch.values) {
     final batchReceivableFen = batchItems.fold<int>(
       0,
       (sum, item) => sum + externalWorkRecordReceivableFen(item.record),
+    );
+    final batchHours = batchItems.fold<double>(
+      0,
+      (sum, item) => sum + item.record.hoursMilli / 1000,
     );
     totalFen += batchReceivableFen;
 
@@ -216,23 +226,27 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
     if (linkedProjectId.isEmpty) continue;
     byProject[linkedProjectId] =
         (byProject[linkedProjectId] ?? 0) + batchReceivableFen;
+    byHoursProject[linkedProjectId] =
+        (byHoursProject[linkedProjectId] ?? 0) + batchHours;
   }
 
   return ExternalWorkReceivableRollup(
     totalReceivableFen: totalFen,
     receivableFenByProjectId: Map.unmodifiable(byProject),
+    hoursByProjectId: Map.unmodifiable(byHoursProject),
   );
 }
 
 /// 把外协设备应收并入账户页计算结果：
-/// - 每个本地项目卡片总应收 += 其已关联外协包设备应收，标题追加" + 关联"；
+/// - 每个本地项目卡片总应收 += 其已关联外协包设备应收，标题追加"+关联"；
 /// - 总览总应收 / 待收 += 全部外协设备应收（每包只计一次，不重复）。
 AccountComputed augmentComputedWithExternalWork(
   AccountComputed computed,
   ExternalWorkReceivableRollup rollup,
 ) {
   if (rollup.totalReceivableFen == 0 &&
-      rollup.receivableFenByProjectId.isEmpty) {
+      rollup.receivableFenByProjectId.isEmpty &&
+      rollup.hoursByProjectId.isEmpty) {
     return computed;
   }
 
@@ -270,12 +284,15 @@ AccountProjectVM _augmentProjectWithExternalWork(
   }..removeWhere((id) => id.isEmpty);
 
   var externalFen = 0;
+  var externalHours = 0.0;
   var hasLinked = false;
   for (final id in ids) {
     final fen = rollup.receivableFenByProjectId[id];
-    if (fen == null) continue;
+    final hours = rollup.hoursByProjectId[id];
+    if (fen == null && hours == null) continue;
     hasLinked = true;
-    externalFen += fen;
+    externalFen += fen ?? 0;
+    externalHours += hours ?? 0;
   }
   if (!hasLinked) return project;
 
@@ -283,14 +300,27 @@ AccountProjectVM _augmentProjectWithExternalWork(
   final newReceivable = project.receivable + externalYuan;
   final newRemaining = project.remaining + externalYuan;
   return project.copyWith(
-    displayName: '${project.displayName} + 关联',
+    displayName: _linkedProjectDisplayName(project.displayName),
     receivable: newReceivable,
     remaining: newRemaining,
-    ratio: newReceivable <= 0 ? project.ratio : project.received / newReceivable,
+    externalWorkHours: project.externalWorkHours + externalHours,
+    ratio: newReceivable <= 0
+        ? project.ratio
+        : project.received / newReceivable,
     settlementRatio: newReceivable <= 0
         ? project.settlementRatio
         : (project.received + project.writeOff) / newReceivable,
   );
+}
+
+String _linkedProjectDisplayName(String displayName) {
+  final parts = displayName
+      .split(' + ')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+  final compactName = parts.length > 1 ? parts.join('•') : displayName.trim();
+  return '$compactName + 关联';
 }
 
 List<AccountExternalWorkProjectVM> _filterExternalWorkProjects(

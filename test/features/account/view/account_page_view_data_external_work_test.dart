@@ -32,10 +32,22 @@ void main() {
   group('rollupExternalWorkReceivable', () {
     test('totals each batch once and splits linked batches by project', () {
       final items = [
-        _item(_imported(id: 'a', batchId: 'b1', amountFen: 90000,
-            linkedProjectId: 'project:a')),
-        _item(_imported(id: 'b', batchId: 'b2', amountFen: 60000,
-            linkedProjectId: 'project:a')),
+        _item(
+          _imported(
+            id: 'a',
+            batchId: 'b1',
+            amountFen: 90000,
+            linkedProjectId: 'project:a',
+          ),
+        ),
+        _item(
+          _imported(
+            id: 'b',
+            batchId: 'b2',
+            amountFen: 60000,
+            linkedProjectId: 'project:a',
+          ),
+        ),
         _item(_imported(id: 'c', batchId: 'b3', amountFen: 30000)),
       ];
 
@@ -43,6 +55,7 @@ void main() {
 
       expect(rollup.totalReceivableFen, 180000);
       expect(rollup.receivableFenByProjectId, {'project:a': 150000});
+      expect(rollup.hoursByProjectId, {'project:a': 2.0});
     });
 
     test('ignores inactive records and inactive batches', () {
@@ -70,29 +83,48 @@ void main() {
 
   group('augmentComputedWithExternalWork', () {
     test('adds linked external receivable to project card and overview', () {
-      final computed = _computed([
-        _project(id: 'project:a', receivable: 1000),
-        _project(id: 'project:b', receivable: 500),
-      ], totalReceivable: 1500, totalRemaining: 1500);
+      final computed = _computed(
+        [
+          _project(id: 'project:a', displayName: '李洋 + 天眉乐', receivable: 1000),
+          _project(id: 'project:b', receivable: 500),
+        ],
+        totalReceivable: 1500,
+        totalRemaining: 1500,
+      );
 
       final rollup = rollupExternalWorkReceivable([
-        _item(_imported(id: 'a', batchId: 'b1', amountFen: 90000,
-            linkedProjectId: 'project:a')),
-        _item(_imported(id: 'b', batchId: 'b2', amountFen: 60000,
-            linkedProjectId: 'project:a')),
+        _item(
+          _imported(
+            id: 'a',
+            batchId: 'b1',
+            amountFen: 90000,
+            linkedProjectId: 'project:a',
+          ),
+        ),
+        _item(
+          _imported(
+            id: 'b',
+            batchId: 'b2',
+            amountFen: 60000,
+            linkedProjectId: 'project:a',
+          ),
+        ),
         _item(_imported(id: 'c', batchId: 'b3', amountFen: 30000)),
       ]);
 
       final augmented = augmentComputedWithExternalWork(computed, rollup);
-      final projectA = augmented.projects
-          .firstWhere((p) => p.effectiveProjectId == 'project:a');
-      final projectB = augmented.projects
-          .firstWhere((p) => p.effectiveProjectId == 'project:b');
+      final projectA = augmented.projects.firstWhere(
+        (p) => p.effectiveProjectId == 'project:a',
+      );
+      final projectB = augmented.projects.firstWhere(
+        (p) => p.effectiveProjectId == 'project:b',
+      );
 
       // 一个项目关联多个 importBatch：总应收累加（¥900 + ¥600）。
       expect(projectA.receivable, 2500);
       expect(projectA.remaining, 2500);
-      expect(projectA.displayName, endsWith(' + 关联'));
+      expect(projectA.externalWorkHours, 2.0);
+      expect(projectA.displayName, '李洋•天眉乐 + 关联');
       // 未关联外协包不并入项目卡片。
       expect(projectB.receivable, 500);
       expect(projectB.displayName, isNot(contains('关联')));
@@ -102,21 +134,33 @@ void main() {
     });
 
     test('one batch is never counted into multiple projects', () {
-      final computed = _computed([
-        _project(id: 'project:a', receivable: 1000),
-        _project(id: 'project:b', receivable: 1000),
-      ], totalReceivable: 2000, totalRemaining: 2000);
+      final computed = _computed(
+        [
+          _project(id: 'project:a', receivable: 1000),
+          _project(id: 'project:b', receivable: 1000),
+        ],
+        totalReceivable: 2000,
+        totalRemaining: 2000,
+      );
 
       final rollup = rollupExternalWorkReceivable([
-        _item(_imported(id: 'a', batchId: 'b1', amountFen: 50000,
-            linkedProjectId: 'project:a')),
+        _item(
+          _imported(
+            id: 'a',
+            batchId: 'b1',
+            amountFen: 50000,
+            linkedProjectId: 'project:a',
+          ),
+        ),
       ]);
 
       final augmented = augmentComputedWithExternalWork(computed, rollup);
-      final projectA = augmented.projects
-          .firstWhere((p) => p.effectiveProjectId == 'project:a');
-      final projectB = augmented.projects
-          .firstWhere((p) => p.effectiveProjectId == 'project:b');
+      final projectA = augmented.projects.firstWhere(
+        (p) => p.effectiveProjectId == 'project:a',
+      );
+      final projectB = augmented.projects.firstWhere(
+        (p) => p.effectiveProjectId == 'project:b',
+      );
 
       expect(projectA.receivable, 1500);
       expect(projectB.receivable, 1000);
@@ -142,24 +186,37 @@ void main() {
         ratio: 0,
         payments: const [],
       );
-      final computed = _computed([merged],
-          totalReceivable: 2000, totalRemaining: 2000);
+      final computed = _computed(
+        [merged],
+        totalReceivable: 2000,
+        totalRemaining: 2000,
+      );
 
       final rollup = rollupExternalWorkReceivable([
-        _item(_imported(id: 'a', batchId: 'b1', amountFen: 40000,
-            linkedProjectId: 'project:m2')),
+        _item(
+          _imported(
+            id: 'a',
+            batchId: 'b1',
+            amountFen: 40000,
+            linkedProjectId: 'project:m2',
+          ),
+        ),
       ]);
 
       final augmented = augmentComputedWithExternalWork(computed, rollup);
       final mergedAugmented = augmented.projects.single;
 
       expect(mergedAugmented.receivable, 2400);
-      expect(mergedAugmented.displayName, '李杰 + 合并2项目 + 关联');
+      expect(mergedAugmented.externalWorkHours, 1.0);
+      expect(mergedAugmented.displayName, '李杰•合并2项目 + 关联');
     });
 
     test('empty rollup returns the computed result unchanged', () {
-      final computed = _computed([_project(id: 'project:a', receivable: 1000)],
-          totalReceivable: 1000, totalRemaining: 1000);
+      final computed = _computed(
+        [_project(id: 'project:a', receivable: 1000)],
+        totalReceivable: 1000,
+        totalRemaining: 1000,
+      );
 
       final augmented = augmentComputedWithExternalWork(
         computed,
@@ -186,11 +243,15 @@ AccountComputed _computed(
   );
 }
 
-AccountProjectVM _project({required String id, required double receivable}) {
+AccountProjectVM _project({
+  required String id,
+  String? displayName,
+  required double receivable,
+}) {
   return AccountProjectVM(
     projectId: id,
     projectKey: id,
-    displayName: id,
+    displayName: displayName ?? id,
     minYmd: 20260101,
     deviceIds: const [],
     hoursByDevice: const {},

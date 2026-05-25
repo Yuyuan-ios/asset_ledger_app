@@ -114,13 +114,33 @@ class AccountProjectList extends StatelessWidget {
   }
 
   String? _totalHoursText(AccountProjectVM p) {
-    final total = p.hoursByDevice.values.fold<double>(0, (sum, h) => sum + h);
+    final total =
+        p.hoursByDevice.values.fold<double>(0, (sum, h) => sum + h) +
+        p.externalWorkHours;
     if (total <= 0) return null;
     final one = total.toStringAsFixed(1);
     final normalized = one.endsWith('.0')
         ? one.substring(0, one.length - 2)
         : one;
     return '总共:  $normalized h';
+  }
+
+  String _projectTitleText(AccountProjectVM p) {
+    const linkedSuffix = ' + 关联';
+    final displayName = p.displayName.trim();
+    final linked = displayName.endsWith(linkedSuffix);
+    final base = linked
+        ? displayName
+              .substring(0, displayName.length - linkedSuffix.length)
+              .trim()
+        : displayName;
+    final parts = base
+        .split(' + ')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final compactBase = parts.length > 1 ? parts.join('•') : base;
+    return linked ? '$compactBase$linkedSuffix' : compactBase;
   }
 
   String _receivedBaseText(AccountProjectVM p, {required bool compact}) {
@@ -371,7 +391,7 @@ class AccountProjectList extends StatelessWidget {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      p.displayName,
+                                      _projectTitleText(p),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: titleStyle,
@@ -772,15 +792,15 @@ class _ExternalWorkAvatar extends StatelessWidget {
               bottom: -2,
               child: Container(
                 key: const Key('account-external-work-card-link-badge'),
-                width: 15,
-                height: 15,
+                width: 18,
+                height: 18,
                 decoration: BoxDecoration(
-                  color: _externalWorkValueText,
+                  color: AppColors.brand,
                   shape: BoxShape.circle,
                   border: Border.all(color: _externalWorkCardBg, width: 2),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.link, size: 9, color: Colors.white),
+                child: const Icon(Icons.link, size: 11, color: Colors.white),
               ),
             ),
         ],

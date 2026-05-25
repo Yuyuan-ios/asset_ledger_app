@@ -252,6 +252,7 @@ void main() {
       expect(result.totalRemaining, 0);
       expect(result.totalRatio, 1.0);
       expect(result.settlementRate, 1.0);
+      expect(result.deviceReceivables.single.amount, 1200);
     });
 
     test(

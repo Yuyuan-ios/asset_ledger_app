@@ -236,17 +236,21 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
     required this.item,
     this.packageItems,
     this.onLinkProject,
+    this.onUnlinkProject,
   });
 
   final TimingExternalWorkRecordItem item;
   final List<TimingExternalWorkRecordItem>? packageItems;
   final VoidCallback? onLinkProject;
+  final VoidCallback? onUnlinkProject;
 
   @override
   Widget build(BuildContext context) {
     final record = item.record;
     final detailItems = packageItems ?? [item];
     final records = detailItems.map((item) => item.record);
+    final linked = detailItems.any((item) => item.isLinked);
+    final linkAction = linked ? onUnlinkProject : onLinkProject;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -302,13 +306,13 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               height: 1.35,
             ),
           ),
-          if (onLinkProject != null) ...[
+          if (linkAction != null) ...[
             const SizedBox(height: 14),
             SizedBox(
               height: 44,
               child: OutlinedButton(
-                onPressed: onLinkProject,
-                child: const Text('关联到本地项目'),
+                onPressed: linkAction,
+                child: Text(linked ? '解除关联' : '关联到本地项目'),
               ),
             ),
           ],

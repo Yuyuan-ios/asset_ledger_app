@@ -631,7 +631,8 @@ void main() {
     expect(find.text('已关联'), findsOneWidget);
     expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
     expect(find.text('不应展示的联系人'), findsNothing);
-    expect(find.widgetWithText(OutlinedButton, '关联到本地项目'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '解除关联'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '关联到本地项目'), findsNothing);
     expect(find.widgetWithText(FilledButton, '确定'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '删除分享包'), findsOneWidget);
     final closeButton = find.widgetWithText(FilledButton, '确定');
@@ -668,6 +669,49 @@ void main() {
     expect(find.text('关联到项目'), findsOneWidget);
     expect(find.byKey(const Key('external-work-link-confirm')), findsOneWidget);
   });
+
+  testWidgets(
+    'linked external work detail unlinks directly without link sheet',
+    (WidgetTester tester) async {
+      await _pumpTimingPage(
+        tester,
+        historyRepository: _FakeCalculationHistoryRepository(),
+        externalBatches: [_externalBatch()],
+        externalRecords: [_externalRecord(linkedProjectId: 'project-1')],
+      );
+
+      await _switchToExternalWork(tester);
+      expect(
+        find.byKey(const Key('external-work-avatar-link-badge')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('王师傅分享包•东区工地'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('外协项目详情'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, '解除关联'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, '关联到本地项目'), findsNothing);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, '解除关联'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('关联到项目'), findsNothing);
+      expect(
+        find.text('解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('继续'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        find.byKey(const Key('external-work-avatar-link-badge')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets(
     'external work detail shows project received payment when shared',

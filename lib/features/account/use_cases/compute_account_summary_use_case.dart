@@ -30,10 +30,12 @@ class ComputeAccountSummaryUseCase {
     final summaryTimingRecords = timingRecords.where((record) {
       return summaryRange.containsYmd(record.startDate);
     }).toList();
-    final receivableByDevice = AccountService.calcReceivableByDevice(
+    final receivableByDevice = _calcNetReceivableByDevice(
       timingRecords: summaryTimingRecords,
       devices: devices,
       rates: rates,
+      writeOffs: writeOffs,
+      summaryRange: summaryRange,
     );
 
     final keys = projects.keys.toList()
@@ -157,6 +159,153 @@ class ComputeAccountSummaryUseCase {
       if (year > latestYear) latestYear = year;
     }
     return GregorianYearRange.forYear(latestYear);
+  }
+
+  Map<int, double> _calcNetReceivableByDevice({
+    required List<TimingRecord> timingRecords,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+    required List<ProjectWriteOff> writeOffs,
+    required GregorianYearRange summaryRange,
+  }) {
+    final projects = AccountService.buildProjects(timingRecords: timingRecords);
+    if (projects.isEmpty) return const {};
+
+    final projectIds = projects.keys.toSet();
+    final writeOffFenByProject = <String, int>{};
+    for (final writeOff in writeOffs) {
+      final projectId = writeOff.projectId.trim();
+      if (!summaryRange.containsDateText(writeOff.writeOffDate) ||
+          !projectIds.contains(projectId)) {
+        continue;
+      }
+      writeOffFenByProject[projectId] =
+          (writeOffFenByProject[projectId] ?? 0) +
+          ProjectFinanceCalculator.yuanToFen(writeOff.amount);
+    }
+
+    final rentFenByProjectDevice = <String, Map<int, int>>{};
+    for (final record in timingRecords) {
+      if (record.type != TimingType.rent || record.income <= 0) continue;
+      final byDevice = rentFenByProjectDevice.putIfAbsent(
+        record.effectiveProjectId,
+        () => <int, int>{},
+      );
+      byDevice[record.deviceId] =
+          (byDevice[record.deviceId] ?? 0) +
+          ProjectFinanceCalculator.yuanToFen(record.income);
+    }
+
+    final totalsFen = <int, int>{};
+    for (final agg in projects.values) {
+      final grossByDevice = _projectReceivableFenByDevice(
+        agg: agg,
+        devices: devices,
+        rates: rates,
+      );
+      final rentByDevice = rentFenByProjectDevice[agg.projectId];
+      if (rentByDevice != null) {
+        for (final entry in rentByDevice.entries) {
+          grossByDevice[entry.key] =
+              (grossByDevice[entry.key] ?? 0) + entry.value;
+        }
+      }
+
+      final netByDevice = _deductWriteOffFenByDevice(
+        grossByDevice,
+        writeOffFenByProject[agg.projectId] ?? 0,
+      );
+      for (final entry in netByDevice.entries) {
+        if (entry.value <= 0) continue;
+        totalsFen[entry.key] = (totalsFen[entry.key] ?? 0) + entry.value;
+      }
+    }
+
+    return {
+      for (final entry in totalsFen.entries)
+        entry.key: ProjectFinanceCalculator.fenToYuan(entry.value),
+    };
+  }
+
+  Map<int, int> _projectReceivableFenByDevice({
+    required ProjectAgg agg,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+  }) {
+    final totals = <int, int>{};
+    final effectiveRate = AccountService.buildEffectiveRateMap(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      devices: devices,
+      rates: rates,
+      isBreaking: false,
+    );
+    final effectiveBreakingRate = AccountService.buildEffectiveRateMap(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      devices: devices,
+      rates: rates,
+      isBreaking: true,
+    );
+
+    for (final entry in agg.normalHoursByDevice.entries) {
+      final amountFen = _hoursAmountFen(
+        hours: entry.value,
+        rate: effectiveRate[entry.key] ?? 0,
+      );
+      if (amountFen <= 0) continue;
+      totals[entry.key] = (totals[entry.key] ?? 0) + amountFen;
+    }
+    for (final entry in agg.breakingHoursByDevice.entries) {
+      final amountFen = _hoursAmountFen(
+        hours: entry.value,
+        rate: effectiveBreakingRate[entry.key] ?? 0,
+      );
+      if (amountFen <= 0) continue;
+      totals[entry.key] = (totals[entry.key] ?? 0) + amountFen;
+    }
+    return totals;
+  }
+
+  int _hoursAmountFen({required double hours, required double rate}) {
+    if (hours <= 0 || rate <= 0) return 0;
+    return ProjectFinanceCalculator.calculateWorkAmountFen(
+      hoursMilli: ProjectFinanceCalculator.hoursToMilli(hours),
+      unitPriceFenPerHour: ProjectFinanceCalculator.yuanPerHourToFen(rate),
+    );
+  }
+
+  Map<int, int> _deductWriteOffFenByDevice(
+    Map<int, int> grossByDevice,
+    int writeOffFen,
+  ) {
+    if (writeOffFen <= 0 || grossByDevice.isEmpty) {
+      return Map<int, int>.from(grossByDevice);
+    }
+
+    final entries =
+        grossByDevice.entries.where((entry) => entry.value > 0).toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+    if (entries.isEmpty) return const {};
+
+    final grossFen = entries.fold<int>(0, (sum, entry) => sum + entry.value);
+    final cappedWriteOffFen = writeOffFen > grossFen ? grossFen : writeOffFen;
+    var remainingWriteOff = cappedWriteOffFen;
+    final net = <int, int>{};
+
+    for (var index = 0; index < entries.length; index += 1) {
+      final entry = entries[index];
+      final isLast = index == entries.length - 1;
+      var share = isLast
+          ? remainingWriteOff
+          : ((entry.value * cappedWriteOffFen) / grossFen).round();
+      if (share < 0) share = 0;
+      if (share > remainingWriteOff) share = remainingWriteOff;
+      remainingWriteOff -= share;
+      final amount = entry.value - share;
+      if (amount > 0) net[entry.key] = amount;
+    }
+    return net;
   }
 
   _AnnualSummary _buildAnnualSummary({
