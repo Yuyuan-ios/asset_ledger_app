@@ -106,6 +106,35 @@ class SqfliteProjectRepository implements ProjectRepository {
     await upsertWithExecutor(db, project);
   }
 
+  // 删除影响协调器使用的具体写辅助（不纳入抽象接口）。
+  Future<bool> restoreActiveWithExecutor(
+    DatabaseExecutor executor, {
+    required String projectId,
+    required String updatedAt,
+  }) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return false;
+    final rows = await executor.query(
+      table,
+      where: 'id = ?',
+      whereArgs: [normalized],
+      limit: 1,
+    );
+    if (rows.isEmpty) return false;
+    final project = Project.fromMap(rows.single);
+    if (project.status != ProjectStatus.settled) return false;
+    await upsertWithExecutor(
+      executor,
+      project.copyWith(
+        status: ProjectStatus.active,
+        settledAt: null,
+        settledSnapshot: null,
+        updatedAt: updatedAt,
+      ),
+    );
+    return true;
+  }
+
   static Future<void> insertWithExecutor(
     DatabaseExecutor executor,
     Project project,

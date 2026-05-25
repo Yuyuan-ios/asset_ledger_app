@@ -12,6 +12,7 @@ import 'providers/account_merge_providers.dart';
 import 'providers/device_fleet_providers.dart';
 import 'providers/external_work_providers.dart';
 import 'providers/project_providers.dart';
+import 'providers/timing_delete_providers.dart';
 import 'providers/timing_providers.dart';
 
 /// Aggregates the per-domain composition slices into a single bundle.
@@ -26,6 +27,7 @@ class AppProviders {
     );
     final accountMerge = AccountMergeProviders.build();
     final externalWork = ExternalWorkProviders.build();
+    final timingDelete = TimingDeleteProviders.build();
 
     return AppProviderBundle(
       deviceStore: deviceFleet.deviceStore,
@@ -42,6 +44,7 @@ class AppProviders {
         ...timing.providers,
         ...accountMerge.providers,
         ...externalWork.providers,
+        ...timingDelete.providers,
       ],
     );
   }

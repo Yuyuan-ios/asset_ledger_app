@@ -186,23 +186,87 @@ class SqfliteAccountProjectMergeRepository
     required String dissolvedAt,
   }) async {
     await AppDatabase.inTransaction<void>((txn) async {
-      await txn.update(
-        groupTable,
-        {
-          'is_active': 0,
-          'dissolved_at': dissolvedAt,
-          'updated_at': dissolvedAt,
-        },
-        where: 'id = ? AND is_active = ?',
-        whereArgs: [groupId, 1],
-      );
-      await txn.update(
-        memberTable,
-        {'is_active': 0},
-        where: 'group_id = ? AND is_active = ?',
-        whereArgs: [groupId, 1],
+      await dissolveGroupWithExecutor(
+        txn,
+        groupId: groupId,
+        dissolvedAt: dissolvedAt,
       );
     });
+  }
+
+  // 以下为删除影响协调器使用的具体读/写辅助（不纳入抽象接口）。
+  Future<void> dissolveGroupWithExecutor(
+    DatabaseExecutor executor, {
+    required int groupId,
+    required String dissolvedAt,
+  }) async {
+    await executor.update(
+      groupTable,
+      {'is_active': 0, 'dissolved_at': dissolvedAt, 'updated_at': dissolvedAt},
+      where: 'id = ? AND is_active = ?',
+      whereArgs: [groupId, 1],
+    );
+    await executor.update(
+      memberTable,
+      {'is_active': 0},
+      where: 'group_id = ? AND is_active = ?',
+      whereArgs: [groupId, 1],
+    );
+  }
+
+  Future<AccountProjectMergeMember?> findActiveMemberByProjectId(
+    String projectId,
+  ) async {
+    final db = await AppDatabase.database;
+    return findActiveMemberByProjectIdWithExecutor(db, projectId);
+  }
+
+  Future<AccountProjectMergeMember?> findActiveMemberByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return null;
+    final rows = await executor.query(
+      memberTable,
+      where: 'is_active = ? AND project_id = ?',
+      whereArgs: [1, normalized],
+      orderBy: 'group_id ASC, sort_order ASC, id ASC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AccountProjectMergeMember.fromMap(rows.single);
+  }
+
+  Future<int> deactivateMemberByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.update(
+      memberTable,
+      {'is_active': 0},
+      where: 'is_active = ? AND project_id = ?',
+      whereArgs: [1, normalized],
+    );
+  }
+
+  Future<int> countActiveMembersByGroupId(int groupId) async {
+    final db = await AppDatabase.database;
+    return countActiveMembersByGroupIdWithExecutor(db, groupId);
+  }
+
+  Future<int> countActiveMembersByGroupIdWithExecutor(
+    DatabaseExecutor executor,
+    int groupId,
+  ) async {
+    final rows = await executor.rawQuery(
+      'SELECT COUNT(*) AS count FROM $memberTable '
+      'WHERE group_id = ? AND is_active = ?',
+      [groupId, 1],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
   }
 
   static Future<void> _ensureProjectWithExecutor(

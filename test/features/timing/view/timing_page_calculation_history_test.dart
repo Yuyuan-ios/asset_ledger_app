@@ -31,6 +31,7 @@ import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
@@ -1015,6 +1016,11 @@ Future<void> _pumpTimingPage(
               projectResolver: projectResolver,
             ),
           ),
+          Provider<DeleteTimingRecordWithImpactUseCase>.value(
+            value: _FakeDeleteTimingRecordWithImpactUseCase(
+              resolvedTimingRepository,
+            ),
+          ),
         ],
         child: TimingPage(calculationHistoryRepository: historyRepository),
       ),
@@ -1211,7 +1217,9 @@ class _FakeTimingRepository implements TimingRepository {
   @override
   Future<int> deleteById(int id) async {
     deletedIds.add(id);
-    return 1;
+    final before = _records.length;
+    _records.removeWhere((record) => record.id == id);
+    return before - _records.length;
   }
 
   @override
@@ -1219,6 +1227,39 @@ class _FakeTimingRepository implements TimingRepository {
 
   @override
   Future<int> deleteByDeviceId(int deviceId) async => 1;
+}
+
+class _FakeDeleteTimingRecordWithImpactUseCase
+    implements DeleteTimingRecordWithImpactUseCase {
+  _FakeDeleteTimingRecordWithImpactUseCase(this._timingRepository);
+
+  final _FakeTimingRepository _timingRepository;
+
+  @override
+  Future<TimingRecordDeleteImpact> analyzeImpact(int recordId) async {
+    return TimingRecordDeleteImpact(
+      record: _record(),
+      projectId: 'project:test',
+      projectKey: 'test-key',
+      isLastTimingRecordOfProject: false,
+      hasPayments: false,
+      hasWriteOff: false,
+      isSettled: false,
+      mergeGroupId: null,
+      willRemoveMergeMember: false,
+      willDissolveMergeGroup: false,
+      linkedExternalBatchCount: 0,
+      willUnlinkExternalWork: false,
+    );
+  }
+
+  @override
+  Future<TimingRecordDeleteOutcome> executeDeleteWithImpact(
+    int recordId,
+  ) async {
+    await _timingRepository.deleteById(recordId);
+    return const TimingRecordDeleteOutcome();
+  }
 }
 
 class _FakeExternalImportRepository implements ExternalImportRepository {
