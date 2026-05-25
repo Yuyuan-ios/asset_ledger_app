@@ -70,10 +70,10 @@ void main() {
 
       expect(find.text('项目(1)'), findsOneWidget);
       expect(find.text('外协项目(1)'), findsNothing);
-      expect(find.text('李杰•新村').hitTestable(), findsOneWidget);
+      expect(find.text('李杰 · 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
-      expect(find.text('余远+鲜滩+尚义').hitTestable(), findsNothing);
-      expect(find.text('王强+已关联工地'), findsNothing);
+      expect(find.text('余远 · 鲜滩、尚义').hitTestable(), findsNothing);
+      expect(find.text('王强 · 已关联工地'), findsNothing);
       expect(find.text('总应收'), findsOneWidget);
       // 总览总应收 = 本地设备应收 ¥1000 + 外协设备应收（两包各计一次）
       // 61800 + 1200000 + 90000 = 1351800 分 = ¥13518 → 合计 ¥14518。
@@ -85,10 +85,10 @@ void main() {
       // 已关联外协包仍显示在外协页 → 共 2 个外协卡片（含链条角标）。
       expect(find.text('外协项目(2)'), findsOneWidget);
       expect(find.text('项目(1)'), findsNothing);
-      expect(find.text('李杰•新村').hitTestable(), findsNothing);
+      expect(find.text('李杰 · 新村').hitTestable(), findsNothing);
       expect(find.text('外协项目').hitTestable(), findsNothing);
-      expect(find.text('余远+鲜滩+尚义').hitTestable(), findsOneWidget);
-      expect(find.text('王强+已关联工地').hitTestable(), findsOneWidget);
+      expect(find.text('余远 · 鲜滩、尚义').hitTestable(), findsOneWidget);
+      expect(find.text('王强 · 已关联工地').hitTestable(), findsOneWidget);
       expect(find.text('外协应付'), findsNWidgets(2));
       expect(find.text('应收项目款'), findsNWidgets(2));
       expect(find.text('客户应收'), findsNothing);
@@ -109,7 +109,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('项目(1)'), findsOneWidget);
-      expect(find.text('李杰•新村').hitTestable(), findsOneWidget);
+      expect(find.text('李杰 · 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
     },
   );

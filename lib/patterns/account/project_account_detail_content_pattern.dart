@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../components/avatars/linked_external_work_badge.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
+import '../../core/utils/format_utils.dart';
 import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_write_off.dart';
-import '../../features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
-import '../../core/utils/format_utils.dart';
+import '../../features/account/model/project_title_formatter.dart';
+import '../../features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 
@@ -74,6 +76,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final double remaining;
   final bool? isProjectSettled;
   final bool hasUniqueWriteOffForRevoke;
+  final bool hasLinkedExternalWork;
 
   final List<AccountPayment> payments;
   final List<ProjectWriteOff> writeOffs;
@@ -117,6 +120,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     required this.remaining,
     this.isProjectSettled,
     this.hasUniqueWriteOffForRevoke = false,
+    this.hasLinkedExternalWork = false,
     required this.payments,
     this.writeOffs = const [],
     required this.onBatchEditRate,

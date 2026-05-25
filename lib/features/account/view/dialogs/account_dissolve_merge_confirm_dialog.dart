@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/entities/account_entities.dart';
 import '../../model/account_view_model.dart';
+import '../../model/project_title_formatter.dart';
 
 class DissolveMergeConfirmDialog extends StatefulWidget {
   const DissolveMergeConfirmDialog({
@@ -27,7 +27,7 @@ class _DissolveMergeConfirmDialogState
   @override
   Widget build(BuildContext context) {
     final projects = widget.project.memberProjectKeys.map((key) {
-      return ProjectKey.fromKey(key).displayName;
+      return ProjectTitleFormatter.fromProjectKey(key);
     }).toList();
 
     return AlertDialog(

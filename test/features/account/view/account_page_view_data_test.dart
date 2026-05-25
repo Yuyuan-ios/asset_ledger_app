@@ -80,7 +80,7 @@ void main() {
       final unlinked = projects.firstWhere(
         (project) => project.importBatchId == 'batch-unlinked',
       );
-      expect(unlinked.displayName, '余远+鲜滩+尚义');
+      expect(unlinked.displayName, '余远 · 鲜滩、尚义');
       expect(unlinked.minYmd, 20260501);
       expect(unlinked.payableFen, 1261800);
       expect(unlinked.payable, 12618);

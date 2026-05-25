@@ -57,6 +57,8 @@ void main() {
       ),
     );
 
+    expect(find.text('赵六 · 尚义'), findsOneWidget);
+    expect(find.text('赵六 + 尚义'), findsNothing);
     final totalHoursText = tester.widget<Text>(find.text('总共:  10.5 h'));
 
     expect(totalHoursText.style?.fontWeight, FontWeight.w700);
@@ -94,11 +96,47 @@ void main() {
         ),
       );
 
+      expect(find.text('赵六 · 合并2项目'), findsOneWidget);
       expect(find.text('92.6%实收('), findsOneWidget);
       expect(find.text('尚义、鲜滩'), findsOneWidget);
       expect(find.text(')'), findsOneWidget);
     },
   );
+
+  testWidgets('linked external work uses chain icon instead of title copy', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'linked',
+      displayName: '李洋•天眉乐 + 关联',
+      hasLinkedExternalWork: true,
+      minYmd: 20260521,
+      deviceIds: [1],
+      hoursByDevice: {1: 8.1},
+      rentIncomeTotal: 0,
+      minRate: 180,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1458,
+      received: 0,
+      remaining: 1458,
+      ratio: 0,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(projects: const [project], onTap: (_) {}),
+        ),
+      ),
+    );
+
+    expect(find.text('李洋 · 天眉乐'), findsOneWidget);
+    expect(find.textContaining('+ 关联'), findsNothing);
+    expect(find.textContaining('•'), findsNothing);
+    expect(find.byTooltip('已关联外协记录'), findsOneWidget);
+  });
 
   testWidgets('shows rent label and hides zero hours for rent-only project', (
     tester,
@@ -498,9 +536,9 @@ void main() {
   testWidgets('renders external work cards in green style', (tester) async {
     const externalProject = AccountExternalWorkProjectVM(
       importBatchId: 'external-batch-1',
-      displayName: '余远+鲜滩+尚义',
+      displayName: '余远 · 鲜滩、尚义',
       sourceDisplayName: '余远',
-      siteSummary: '鲜滩+尚义',
+      siteSummary: '鲜滩、尚义',
       minYmd: 20260502,
       payableFen: 1261800,
       recordCount: 2,
@@ -520,7 +558,7 @@ void main() {
 
     expect(find.text('外协项目'), findsNothing);
     expect(find.text('协'), findsOneWidget);
-    expect(find.text('余远+鲜滩+尚义'), findsOneWidget);
+    expect(find.text('余远 · 鲜滩、尚义'), findsOneWidget);
     expect(find.text('外协应付'), findsOneWidget);
     expect(find.text('¥12618'), findsOneWidget);
     expect(find.text('应收项目款'), findsOneWidget);
@@ -545,7 +583,7 @@ void main() {
   ) async {
     const externalProject = AccountExternalWorkProjectVM(
       importBatchId: 'external-paid-progress',
-      displayName: '张俊+天眉乐',
+      displayName: '张俊 · 天眉乐',
       sourceDisplayName: '张俊',
       siteSummary: '天眉乐',
       minYmd: 20260521,
@@ -588,7 +626,7 @@ void main() {
   testWidgets(
     'external work title stays beside avatar and truncates before date',
     (tester) async {
-      const longName = '余远+尚义、富牛、鲜滩、天眉乐、特别特别长的地址';
+      const longName = '余远 · 尚义、富牛、鲜滩、天眉乐、特别特别长的地址';
       const externalProject = AccountExternalWorkProjectVM(
         importBatchId: 'external-long-title',
         displayName: longName,
@@ -656,9 +694,9 @@ void main() {
     );
     const externalProject = AccountExternalWorkProjectVM(
       importBatchId: 'external-batch-height',
-      displayName: '余远+鲜滩+尚义',
+      displayName: '余远 · 鲜滩、尚义',
       sourceDisplayName: '余远',
-      siteSummary: '鲜滩+尚义',
+      siteSummary: '鲜滩、尚义',
       minYmd: 20260502,
       payableFen: 1261800,
       recordCount: 2,

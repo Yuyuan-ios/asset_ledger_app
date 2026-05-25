@@ -116,8 +116,8 @@ void main() {
       );
 
       expect(result.projects, hasLength(2));
-      expect(result.projects.first.displayName, '张扬 + 修文水厂');
-      expect(result.projects.last.displayName, '李洋 + 万达');
+      expect(result.projects.first.displayName, '张扬 · 修文水厂');
+      expect(result.projects.last.displayName, '李洋 · 万达');
 
       final wanda = result.projects.last;
       expect(wanda.receivable, 1150);
@@ -509,7 +509,7 @@ void main() {
         );
 
         expect(result.projects, hasLength(1));
-        expect(result.projects.first.displayName, '赵六 + 尚义');
+        expect(result.projects.first.displayName, '赵六 · 尚义');
         expect(result.projects.first.minRate, 200);
         expect(result.projects.first.isMultiMode, isFalse);
       },
@@ -641,7 +641,7 @@ void main() {
         final merged = result.projects.last;
         expect(merged.kind, AccountProjectKind.merged);
         expect(merged.mergeGroupId, 1);
-        expect(merged.displayName, '李杰 + 合并2项目');
+        expect(merged.displayName, '李杰 · 合并2项目');
         expect(merged.memberProjectKeys, ['李杰||尚义', '李杰||鲜滩']);
         expect(merged.includedSites, ['尚义', '鲜滩']);
         expect(merged.includedSitesText, '含：尚义、鲜滩');

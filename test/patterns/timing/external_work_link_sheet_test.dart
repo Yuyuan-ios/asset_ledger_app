@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('externalWorkLinkSiteSummary', () {
-    test('joins distinct sites with + and truncates with ...', () {
-      expect(externalWorkLinkSiteSummary(['鲜滩', '尚义', '五里山']), '鲜滩+尚义...');
+    test('joins distinct sites with Chinese comma and truncates with ...', () {
+      expect(externalWorkLinkSiteSummary(['鲜滩', '尚义', '五里山']), '鲜滩、尚义...');
     });
 
     test('single site shows no separator/ellipsis', () {
@@ -14,7 +14,7 @@ void main() {
     });
 
     test('exactly maxShown sites have no ellipsis', () {
-      expect(externalWorkLinkSiteSummary(['鲜滩', '尚义']), '鲜滩+尚义');
+      expect(externalWorkLinkSiteSummary(['鲜滩', '尚义']), '鲜滩、尚义');
     });
 
     test('dedupes and ignores blanks', () {
@@ -29,12 +29,12 @@ void main() {
   const candidates = [
     ExternalWorkLinkCandidate(
       projectId: 'p1',
-      title: '李杰 + 鲜滩',
+      title: '李杰 · 鲜滩',
       settled: false,
     ),
     ExternalWorkLinkCandidate(
       projectId: 'p2',
-      title: '刘锐 + 五里山',
+      title: '刘锐 · 五里山',
       settled: true,
     ),
   ];
@@ -159,13 +159,13 @@ void main() {
           batchId: 'b1',
           optionTitle: '余远 · 鲜滩',
           summaryDetail: 'Hitachi · 5条记录 · 239.0h',
-          linkedProjectTitle: '李杰 + 鲜滩',
+          linkedProjectTitle: '李杰 · 鲜滩',
         ),
       ],
       onUnlink: (pkg) => unlinked = pkg,
     );
 
-    expect(find.text('已关联：李杰 + 鲜滩'), findsOneWidget);
+    expect(find.text('已关联：李杰 · 鲜滩'), findsOneWidget);
     expect(find.byKey(const Key('external-work-link-confirm')), findsNothing);
 
     await tester.tap(find.byKey(const Key('external-work-link-unlink')));

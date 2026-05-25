@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../components/avatars/linked_external_work_badge.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/external_work_record.dart';
+import '../../features/account/model/project_title_formatter.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
@@ -723,20 +725,9 @@ class _ExternalWorkAvatar extends StatelessWidget {
             Positioned(
               right: -2,
               bottom: -2,
-              child: Tooltip(
-                message: '已关联',
-                child: Container(
-                  key: const Key('external-work-avatar-link-badge'),
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: AppColors.brand,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: SheetColors.background, width: 2),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.link, size: 11, color: Colors.white),
-                ),
+              child: LinkedExternalWorkBadge(
+                key: const Key('external-work-avatar-link-badge'),
+                borderColor: SheetColors.background,
               ),
             ),
         ],
@@ -807,8 +798,10 @@ class _ExternalWorkDetailRow extends StatelessWidget {
 String _externalWorkTitle(String displayName, String site) {
   final normalizedName = displayName.trim();
   final normalizedSite = site.trim();
-  if (normalizedSite.isEmpty) return normalizedName;
-  return '$normalizedName•$normalizedSite';
+  return ProjectTitleFormatter.project(
+    contact: normalizedName,
+    site: normalizedSite,
+  );
 }
 
 String _importedAtText(TimingExternalWorkRecordItem item) {
@@ -844,11 +837,11 @@ String _siteSummaryText(
   }
   if (sites.isEmpty) {
     final batchSite = _visibleSiteText(batchSiteSummary ?? '');
-    if (batchSite.isNotEmpty) sites.add(batchSite);
+    if (batchSite.isNotEmpty) sites.add(_displaySiteSummary(batchSite));
   }
   if (sites.isEmpty) return '';
 
-  final joined = sites.join('+');
+  final joined = sites.join('、');
   const maxChars = AccountTokens.projectCardMergedSitesPreviewMaxChars;
   if (joined.length <= maxChars) return joined;
   return '${joined.substring(0, maxChars)}...';
@@ -860,13 +853,17 @@ String _visibleSiteText(String text) {
   return trimmed;
 }
 
+String _displaySiteSummary(String value) {
+  return value.trim().replaceAll('+', '、').replaceAll('•', '、');
+}
+
 String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
   final sites = <String>[];
   for (final item in items) {
     final site = item.record.siteSnapshot.trim();
     if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
   }
-  return sites.isEmpty ? '-' : sites.join('+');
+  return sites.isEmpty ? '-' : sites.join('、');
 }
 
 _EquipmentSummary _equipmentSummary(List<TimingExternalWorkRecordItem> items) {

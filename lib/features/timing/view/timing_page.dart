@@ -34,6 +34,7 @@ import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
 import '../../account/model/account_view_model.dart';
+import '../../account/model/project_title_formatter.dart';
 
 class TimingPage extends StatefulWidget {
   const TimingPage({
@@ -190,9 +191,10 @@ class _TimingPageState extends State<TimingPage> {
     final siteSummary = externalWorkLinkSiteSummary(
       batchItems.map((item) => item.record.siteSnapshot),
     );
-    final optionTitle = siteSummary.isEmpty
-        ? sourceName
-        : '$sourceName · $siteSummary';
+    final optionTitle = ProjectTitleFormatter.project(
+      contact: sourceName,
+      site: siteSummary,
+    );
 
     final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
     final totalHoursMilli = batchItems.fold<int>(

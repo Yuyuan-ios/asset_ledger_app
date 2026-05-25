@@ -110,7 +110,7 @@ void main() {
 
     expect(timingExternalWorkTopLevelCount(items), 1);
     expect(find.text('2026年'), findsOneWidget);
-    expect(find.text('余远•鲜滩+尚义'), findsOneWidget);
+    expect(find.text('余远 · 鲜滩、尚义'), findsOneWidget);
     expect(
       find.textContaining('Hitachi等2台•5条记录', findRichText: true),
       findsOneWidget,
@@ -239,11 +239,11 @@ void main() {
     );
     expect(cards, findsNWidgets(2));
     expect(
-      find.descendant(of: cards.at(0), matching: find.text('张俊•天眉乐')),
+      find.descendant(of: cards.at(0), matching: find.text('张俊 · 天眉乐')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: cards.at(1), matching: find.textContaining('余远•')),
+      find.descendant(of: cards.at(1), matching: find.textContaining('余远 ·')),
       findsNWidgets(2),
     );
   });
@@ -346,9 +346,9 @@ void main() {
     await tester.tap(find.textContaining('Hitachi•3条记录', findRichText: true));
     await tester.pumpAndSettle();
 
-    final lateY = tester.getTopLeft(find.text('余远•晚工地')).dy;
-    final middleY = tester.getTopLeft(find.text('余远•中工地')).dy;
-    final earlyY = tester.getTopLeft(find.text('余远•早工地')).dy;
+    final lateY = tester.getTopLeft(find.text('余远 · 晚工地')).dy;
+    final middleY = tester.getTopLeft(find.text('余远 · 中工地')).dy;
+    final earlyY = tester.getTopLeft(find.text('余远 · 早工地')).dy;
 
     expect(lateY, lessThan(middleY));
     expect(middleY, lessThan(earlyY));
@@ -376,7 +376,7 @@ void main() {
       _statefulHost(items, onTapRecord: (item) => tapped = item),
     );
 
-    await tester.tap(find.text('余远•五里山'));
+    await tester.tap(find.text('余远 · 五里山'));
     await tester.pump();
 
     expect(tapped?.record.id, 'record-1');
@@ -417,8 +417,8 @@ void main() {
     );
 
     expect(
-      tester.getTopLeft(find.text('余远•新工地')).dy,
-      lessThan(tester.getTopLeft(find.text('余远•旧工地')).dy),
+      tester.getTopLeft(find.text('余远 · 新工地')).dy,
+      lessThan(tester.getTopLeft(find.text('余远 · 旧工地')).dy),
     );
   });
 

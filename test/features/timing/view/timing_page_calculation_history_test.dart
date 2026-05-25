@@ -385,7 +385,7 @@ void main() {
     );
     expect(find.text('导入外协项目包'), findsNothing);
     expect(find.text('2026年'), findsWidgets);
-    expect(find.text('王师傅分享包•东区工地'), findsOneWidget);
+    expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
     expect(find.text('CAT'), findsOneWidget);
     expect(find.text('2026.05.12'), findsOneWidget);
     expect(find.text('8.5 h'), findsOneWidget);
@@ -449,7 +449,7 @@ void main() {
 
       expect(find.text('外协项目(1)'), findsOneWidget);
       expect(find.text('外协项目(2)'), findsNothing);
-      expect(find.text('王师傅分享包•东区工地'), findsOneWidget);
+      expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
       expect(find.text('2026.05.12-2026.05.13'), findsNothing);
       expect(find.text('2026.05.12'), findsOneWidget);
       expect(
@@ -484,9 +484,9 @@ void main() {
 
     expect(find.text('外协项目(1)'), findsOneWidget);
     expect(find.text('外协项目(2)'), findsNothing);
-    expect(find.text('王师傅分享包•鲜滩+五里山'), findsOneWidget);
-    expect(find.text('王师傅分享包•鲜滩'), findsNothing);
-    expect(find.text('王师傅分享包•五里山'), findsNothing);
+    expect(find.text('王师傅分享包 · 鲜滩、五里山'), findsOneWidget);
+    expect(find.text('王师傅分享包 · 鲜滩'), findsNothing);
+    expect(find.text('王师傅分享包 · 五里山'), findsNothing);
     expect(find.textContaining('CAT•2条记录', findRichText: true), findsOneWidget);
     expect(find.text('10.5 h'), findsOneWidget);
   });
@@ -510,7 +510,7 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    await tester.tap(find.text('王师傅分享包•东区工地'));
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
     expect(find.text('外协项目详情'), findsOneWidget);
@@ -608,7 +608,7 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    await tester.tap(find.text('王师傅分享包•东区工地'));
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
     expect(find.text('外协项目详情'), findsOneWidget);
@@ -661,7 +661,7 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    await tester.tap(find.text('王师傅分享包•东区工地'));
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(OutlinedButton, '关联到本地项目'));
@@ -687,7 +687,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.text('王师傅分享包•东区工地'));
+      await tester.tap(find.text('王师傅分享包 · 东区工地'));
       await tester.pumpAndSettle();
 
       expect(find.text('外协项目详情'), findsOneWidget);
@@ -725,7 +725,7 @@ void main() {
       );
 
       await _switchToExternalWork(tester);
-      await tester.tap(find.text('王师傅分享包•东区工地'));
+      await tester.tap(find.text('王师傅分享包 · 东区工地'));
       await tester.pumpAndSettle();
 
       expect(find.text('已收项目款'), findsOneWidget);
@@ -746,9 +746,9 @@ void main() {
     );
 
     await _switchToExternalWork(tester);
-    expect(find.text('王师傅分享包•东区工地'), findsOneWidget);
+    expect(find.text('王师傅分享包 · 东区工地'), findsOneWidget);
 
-    await tester.tap(find.text('王师傅分享包•东区工地'));
+    await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, '删除分享包'));
     await tester.pumpAndSettle();
@@ -763,7 +763,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 
-    expect(find.text('王师傅分享包•东区工地'), findsNothing);
+    expect(find.text('王师傅分享包 · 东区工地'), findsNothing);
     expect(find.text('暂无外协项目记录'), findsOneWidget);
     expect(find.text('已删除'), findsOneWidget);
   });
@@ -816,7 +816,7 @@ void main() {
 
       await _switchToExternalWork(tester);
       expect(find.text('外协项目(2)'), findsOneWidget);
-      await tester.tap(find.text('王师傅分享包•鲜滩+五里山'));
+      await tester.tap(find.text('王师傅分享包 · 鲜滩、五里山'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '删除分享包'));
       await tester.pumpAndSettle();
@@ -828,10 +828,10 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
-      expect(find.text('王师傅分享包•鲜滩'), findsNothing);
-      expect(find.text('王师傅分享包•五里山'), findsNothing);
-      expect(find.text('王师傅分享包•鲜滩+五里山'), findsNothing);
-      expect(find.text('李师傅分享包•北区工地'), findsOneWidget);
+      expect(find.text('王师傅分享包 · 鲜滩'), findsNothing);
+      expect(find.text('王师傅分享包 · 五里山'), findsNothing);
+      expect(find.text('王师傅分享包 · 鲜滩、五里山'), findsNothing);
+      expect(find.text('李师傅分享包 · 北区工地'), findsOneWidget);
     },
   );
 

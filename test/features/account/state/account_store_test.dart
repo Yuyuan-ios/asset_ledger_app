@@ -99,7 +99,7 @@ void main() {
         final merged = result.projects.single;
         expect(merged.projectKey, 'merge:1');
         expect(merged.kind, AccountProjectKind.merged);
-        expect(merged.displayName, '李杰 + 合并2项目');
+        expect(merged.displayName, '李杰 · 合并2项目');
         expect(merged.memberProjectKeys, ['李杰||尚义', '李杰||鲜滩']);
         expect(merged.includedSitesText, '含：尚义、鲜滩');
       },

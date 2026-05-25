@@ -1,6 +1,7 @@
 import '../../../core/utils/store_feedback.dart';
 import '../domain/services/external_work_receivable.dart';
 import '../model/account_view_model.dart';
+import '../model/project_title_formatter.dart';
 import '../state/account_filter_store.dart';
 import '../state/account_payment_store.dart';
 import '../state/account_store.dart';
@@ -238,7 +239,7 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
 }
 
 /// 把外协设备应收并入账户页计算结果：
-/// - 每个本地项目卡片总应收 += 其已关联外协包设备应收，标题追加"+关联"；
+/// - 每个本地项目卡片总应收 += 其已关联外协包设备应收，并标记链条图标状态；
 /// - 总览总应收 / 待收 += 全部外协设备应收（每包只计一次，不重复）。
 AccountComputed augmentComputedWithExternalWork(
   AccountComputed computed,
@@ -300,10 +301,10 @@ AccountProjectVM _augmentProjectWithExternalWork(
   final newReceivable = project.receivable + externalYuan;
   final newRemaining = project.remaining + externalYuan;
   return project.copyWith(
-    displayName: _linkedProjectDisplayName(project.displayName),
     receivable: newReceivable,
     remaining: newRemaining,
     externalWorkHours: project.externalWorkHours + externalHours,
+    hasLinkedExternalWork: true,
     ratio: newReceivable <= 0
         ? project.ratio
         : project.received / newReceivable,
@@ -311,16 +312,6 @@ AccountProjectVM _augmentProjectWithExternalWork(
         ? project.settlementRatio
         : (project.received + project.writeOff) / newReceivable,
   );
-}
-
-String _linkedProjectDisplayName(String displayName) {
-  final parts = displayName
-      .split(' + ')
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList();
-  final compactName = parts.length > 1 ? parts.join('•') : displayName.trim();
-  return '$compactName + 关联';
 }
 
 List<AccountExternalWorkProjectVM> _filterExternalWorkProjects(
@@ -340,10 +331,10 @@ List<AccountExternalWorkProjectVM> _filterExternalWorkProjects(
 }
 
 String _externalWorkDisplayName(String sourceDisplayName, String siteSummary) {
-  final source = sourceDisplayName.trim();
-  final sites = siteSummary.trim();
-  if (sites.isEmpty) return source;
-  return '$source+$sites';
+  return ProjectTitleFormatter.project(
+    contact: sourceDisplayName,
+    site: siteSummary,
+  );
 }
 
 String _siteSummary(
@@ -351,7 +342,9 @@ String _siteSummary(
   String? batchSummary,
 ) {
   final batchSites = batchSummary?.trim();
-  if (batchSites != null && batchSites.isNotEmpty) return batchSites;
+  if (batchSites != null && batchSites.isNotEmpty) {
+    return _displaySiteSummary(batchSites);
+  }
 
   final sites = <String>[];
   final seen = <String>{};
@@ -361,7 +354,11 @@ String _siteSummary(
     seen.add(site);
     sites.add(site);
   }
-  return sites.join('+');
+  return sites.join('、');
+}
+
+String _displaySiteSummary(String value) {
+  return value.trim().replaceAll('+', '、').replaceAll('•', '、');
 }
 
 String _firstNonEmpty(List<String?> values) {

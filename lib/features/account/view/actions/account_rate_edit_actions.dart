@@ -5,6 +5,7 @@ import '../../../../core/utils/interaction_feedback.dart';
 import '../../../../core/utils/store_feedback.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../model/account_view_model.dart';
+import '../../model/project_title_formatter.dart';
 import '../../state/project_rate_store.dart';
 import '../dialogs/account_rate_dialogs.dart';
 
@@ -59,11 +60,12 @@ class AccountRateEditActions {
                 first.defaultUnitPrice)
             .round();
 
+    final projectTitle = ProjectTitleFormatter.normalize(project.displayName);
     final newRate = await showDialog<AccountBatchRateUpdate>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AccountRateBatchDialog(
-        title: '批量修改单价：${project.displayName}',
+        title: '批量修改单价：$projectTitle',
         deviceCount: usedDevices.length,
         initialDiggingRateInt: initDigging,
         initialBreakingRateInt: initBreaking,
@@ -161,13 +163,12 @@ class AccountRateEditActions {
         : device.defaultUnitPrice;
     final current = (currentOverride ?? modeDefaultRate).round();
 
+    final projectTitle = ProjectTitleFormatter.normalize(project.displayName);
     final newRate = await showDialog<double>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AccountRateSingleDialog(
-        title: isBreaking
-            ? '编辑破碎单价：${project.displayName}'
-            : '编辑单价：${project.displayName}',
+        title: isBreaking ? '编辑破碎单价：$projectTitle' : '编辑单价：$projectTitle',
         deviceName: isBreaking ? '${device.name} · 破碎' : device.name,
         initialRateInt: current,
       ),

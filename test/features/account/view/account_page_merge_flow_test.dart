@@ -88,7 +88,7 @@ void main() {
       );
       expect(mergeRepository.listActiveGroupsWithMembersCalls, greaterThan(1));
       expect(accountStore.activeMergeGroups, hasLength(1));
-      expect(find.text('李杰•合并2项目'), findsOneWidget);
+      expect(find.text('李杰 · 合并2项目'), findsOneWidget);
     },
   );
 
@@ -137,17 +137,17 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('李杰•合并2项目'), findsOneWidget);
-    expect(find.text('李杰•新村'), findsNothing);
+    expect(find.text('李杰 · 合并2项目'), findsOneWidget);
+    expect(find.text('李杰 · 新村'), findsNothing);
 
-    await tester.tap(find.text('李杰•合并2项目'));
+    await tester.tap(find.text('李杰 · 合并2项目'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('解除合并'));
     await tester.pumpAndSettle();
 
     expect(find.text('解除合并？'), findsOneWidget);
-    expect(find.text('李杰 + 新村'), findsOneWidget);
-    expect(find.text('李杰 + 高桥'), findsOneWidget);
+    expect(find.text('李杰 · 新村'), findsOneWidget);
+    expect(find.text('李杰 · 高桥'), findsOneWidget);
 
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();
@@ -165,9 +165,9 @@ void main() {
     expect(accountStore.activeMergeGroups, isEmpty);
     expect(find.text('已解除合并'), findsOneWidget);
     expect(find.text('解除合并'), findsNothing);
-    expect(find.text('李杰•合并2项目'), findsNothing);
-    expect(find.text('李杰•新村'), findsOneWidget);
-    expect(find.text('李杰•高桥'), findsOneWidget);
+    expect(find.text('李杰 · 合并2项目'), findsNothing);
+    expect(find.text('李杰 · 新村'), findsOneWidget);
+    expect(find.text('李杰 · 高桥'), findsOneWidget);
   });
 
   testWidgets(
@@ -218,7 +218,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('李杰•合并2项目'));
+      await tester.tap(find.text('李杰 · 合并2项目'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('解除合并'));
       await tester.pumpAndSettle();
@@ -228,7 +228,7 @@ void main() {
       expect(mergeRepository.dissolveGroupCalls, 1);
       expect(find.textContaining('解除合并失败：'), findsOneWidget);
       expect(find.text('解除合并？'), findsOneWidget);
-      expect(find.text('李杰 + 合并2项目'), findsWidgets);
+      expect(find.text('李杰 · 合并2项目'), findsWidgets);
     },
   );
 
@@ -282,7 +282,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('李杰•合并2项目'));
+    await tester.tap(find.text('李杰 · 合并2项目'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('结清'));
     await tester.pumpAndSettle();
@@ -351,7 +351,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('李杰•合并2项目'));
+      await tester.tap(find.text('李杰 · 合并2项目'));
       await tester.pumpAndSettle();
       final addPaymentButton = find.widgetWithText(InkWell, '+ 新增收款');
       await tester.ensureVisible(addPaymentButton);
@@ -445,7 +445,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('李杰•新村'));
+      await tester.tap(find.text('李杰 · 新村'));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -539,7 +539,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('李杰•合并2项目'));
+    await tester.tap(find.text('李杰 · 合并2项目'));
     await tester.pumpAndSettle();
     final editButton = find.byIcon(Icons.edit_outlined);
     await tester.ensureVisible(editButton);
@@ -639,7 +639,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('李杰•合并2项目'));
+    await tester.tap(find.text('李杰 · 合并2项目'));
     await tester.pumpAndSettle();
     final deleteButton = find.byIcon(Icons.delete_outline);
     await tester.ensureVisible(deleteButton);
