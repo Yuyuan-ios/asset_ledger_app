@@ -15,6 +15,7 @@ import '../../features/account/state/account_payment_store.dart';
 import '../../features/account/state/account_store.dart';
 import '../../features/account/state/project_rate_store.dart';
 import '../../features/account/use_cases/project_settlement_use_case.dart';
+import '../../features/account/use_cases/settle_merged_project_use_case.dart';
 import '../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../infrastructure/local/account/local_project_settlement_repository.dart';
 
@@ -59,10 +60,14 @@ class AccountMergeProviders {
     final projectSettlementUseCase = ProjectSettlementUseCase(
       repository: projectSettlementRepository,
     );
+    final settleMergedProjectUseCase = SettleMergedProjectUseCase(
+      repository: projectSettlementRepository,
+    );
     final accountActionController = AccountActionController(
       paymentRepository: accountPaymentRepository,
       mergeService: accountProjectMergeService,
       settlementUseCase: projectSettlementUseCase,
+      settleMergedProjectUseCase: settleMergedProjectUseCase,
     );
 
     return AccountMergeProviders._(
@@ -82,6 +87,9 @@ class AccountMergeProviders {
         ),
         Provider<ProjectSettlementUseCase>.value(
           value: projectSettlementUseCase,
+        ),
+        Provider<SettleMergedProjectUseCase>.value(
+          value: settleMergedProjectUseCase,
         ),
         Provider<AccountActionController>.value(value: accountActionController),
         Provider<AccountProjectMergeRepository>.value(

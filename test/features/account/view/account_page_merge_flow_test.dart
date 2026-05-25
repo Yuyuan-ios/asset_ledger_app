@@ -18,6 +18,7 @@ import 'package:asset_ledger/features/account/state/account_payment_store.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
+import 'package:asset_ledger/features/account/use_cases/settle_merged_project_use_case.dart';
 import 'package:asset_ledger/features/account/view/account_page.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
@@ -230,6 +231,80 @@ void main() {
       expect(find.text('李杰 + 合并2项目'), findsWidgets);
     },
   );
+
+  testWidgets('AccountPage settles merged project through merged path', (
+    tester,
+  ) async {
+    final mergeRepository = _FakeMergeRepository(activeGroup: true);
+    final mergeService = AccountProjectMergeService(
+      repository: mergeRepository,
+      now: () => DateTime.utc(2026, 5, 15),
+    );
+    final accountStore = AccountStore(mergeService: mergeService);
+    final timingStore = TimingStore(_FakeTimingRepository());
+    final deviceStore = DeviceStore(_FakeDeviceRepository());
+    final paymentRepository = _FakePaymentRepository();
+    final paymentStore = AccountPaymentStore(paymentRepository);
+    final rateStore = ProjectRateStore(_FakeRateRepository());
+    final settlementRepository = _FakeProjectSettlementRepository();
+
+    await Future.wait([
+      timingStore.loadAll(),
+      deviceStore.loadAll(),
+      paymentStore.loadAll(),
+      rateStore.loadAll(),
+      accountStore.loadAll(),
+    ]);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AccountProjectMergeService>.value(value: mergeService),
+          Provider<AccountPaymentRepository>.value(value: paymentRepository),
+          _accountActionControllerProvider(
+            paymentRepository,
+            mergeService,
+            settlementRepository: settlementRepository,
+          ),
+          ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+          ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+          ChangeNotifierProvider<AccountPaymentStore>.value(
+            value: paymentStore,
+          ),
+          ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+          ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+          ChangeNotifierProvider<AccountFilterStore>(
+            create: (_) => AccountFilterStore(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('李杰•合并2项目'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('结清'));
+    await tester.pumpAndSettle();
+    expect(find.text('结清项目'), findsOneWidget);
+
+    await tester.tap(find.text('确认结清'));
+    await tester.pumpAndSettle();
+
+    expect(settlementRepository.settleCalls, 0);
+    expect(settlementRepository.settleMergedCalls, 1);
+    expect(
+      settlementRepository.lastMergedSettleRequest?.mergedProjectId,
+      'merge:1',
+    );
+    expect(
+      settlementRepository.lastMergedSettleRequest?.allocations.map(
+        (item) => item.projectId,
+      ),
+      isNot(contains('merge:1')),
+    );
+    expect(find.textContaining('项目不存在'), findsNothing);
+  });
 
   testWidgets(
     'AccountPage creates merged payment allocations and refreshes detail',
@@ -595,14 +670,17 @@ Finder _textFieldByLabel(String label) {
 
 Provider<AccountActionController> _accountActionControllerProvider(
   AccountPaymentRepository paymentRepository,
-  AccountProjectMergeService mergeService,
-) {
+  AccountProjectMergeService mergeService, {
+  _FakeProjectSettlementRepository? settlementRepository,
+}) {
+  final repository = settlementRepository ?? _FakeProjectSettlementRepository();
   return Provider<AccountActionController>.value(
     value: AccountActionController(
       paymentRepository: paymentRepository,
       mergeService: mergeService,
-      settlementUseCase: ProjectSettlementUseCase(
-        repository: _FakeProjectSettlementRepository(),
+      settlementUseCase: ProjectSettlementUseCase(repository: repository),
+      settleMergedProjectUseCase: SettleMergedProjectUseCase(
+        repository: repository,
       ),
     ),
   );
@@ -773,8 +851,15 @@ class _FakePaymentRepository implements AccountPaymentRepository {
 }
 
 class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
+  int settleCalls = 0;
+  int settleMergedCalls = 0;
+  ProjectSettlementRequest? lastSettleRequest;
+  MergedProjectSettlementRequest? lastMergedSettleRequest;
+
   @override
   Future<ProjectSettlementResult> settle(ProjectSettlementRequest request) {
+    settleCalls++;
+    lastSettleRequest = request;
     final receivedAfter = request.paymentAmount;
     final writeOffAfter = request.writeOffAmount;
     return Future.value(
@@ -791,6 +876,31 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
         remainingAfter: request.receivable - receivedAfter - writeOffAfter,
         settled:
             request.receivable - receivedAfter - writeOffAfter <=
+            projectSettlementEpsilon,
+      ),
+    );
+  }
+
+  @override
+  Future<ProjectSettlementResult> settleMerged(
+    MergedProjectSettlementRequest request,
+  ) {
+    settleMergedCalls++;
+    lastMergedSettleRequest = request;
+    return Future.value(
+      ProjectSettlementResult(
+        projectId: request.mergedProjectId,
+        receivable: request.receivable,
+        receivedBefore: 0,
+        writeOffBefore: 0,
+        remainingBefore: request.receivable,
+        paymentAmount: 0,
+        writeOffAmount: request.writeOffAmount,
+        receivedAfter: 0,
+        writeOffAfter: request.writeOffAmount,
+        remainingAfter: request.receivable - request.writeOffAmount,
+        settled:
+            request.receivable - request.writeOffAmount <=
             projectSettlementEpsilon,
       ),
     );
@@ -816,12 +926,43 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
   }
 
   @override
+  Future<DeleteProjectWriteOffResult> deleteMergedWriteOffs(
+    DeleteMergedProjectWriteOffsRequest request,
+  ) {
+    return Future.value(
+      DeleteProjectWriteOffResult(
+        projectId: request.mergedProjectId,
+        writeOffId: request.writeOffIds.join(','),
+        deletedAmount: 0,
+        receivable: request.receivable,
+        received: 0,
+        writeOffBefore: 0,
+        writeOffAfter: 0,
+        remainingAfter: request.receivable,
+        restoredActive: request.receivable > projectSettlementEpsilon,
+      ),
+    );
+  }
+
+  @override
   Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus(
     RevokeProjectSettlementStatusRequest request,
   ) {
     return Future.value(
       RevokeProjectSettlementStatusResult(
         projectId: request.projectId,
+        restoredActive: true,
+      ),
+    );
+  }
+
+  @override
+  Future<RevokeProjectSettlementStatusResult> revokeMergedSettlementStatus(
+    RevokeMergedProjectSettlementStatusRequest request,
+  ) {
+    return Future.value(
+      RevokeProjectSettlementStatusResult(
+        projectId: request.mergedProjectId,
         restoredActive: true,
       ),
     );

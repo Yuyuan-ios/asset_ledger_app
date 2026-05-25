@@ -9,6 +9,7 @@ import '../../state/project_rate_store.dart';
 import '../../use_cases/create_merged_payment_use_case.dart';
 import '../../use_cases/delete_merged_payment_batch_use_case.dart';
 import '../../use_cases/project_settlement_use_case.dart';
+import '../../use_cases/settle_merged_project_use_case.dart';
 import '../../use_cases/update_merged_payment_batch_use_case.dart';
 import '../../../device/state/device_store.dart';
 import '../../../timing/state/timing_store.dart';
@@ -18,13 +19,16 @@ class AccountActionController {
     required AccountPaymentRepository paymentRepository,
     required AccountProjectMergeService mergeService,
     required ProjectSettlementUseCase settlementUseCase,
+    required SettleMergedProjectUseCase settleMergedProjectUseCase,
   }) : _paymentRepository = paymentRepository,
        _mergeService = mergeService,
-       _settlementUseCase = settlementUseCase;
+       _settlementUseCase = settlementUseCase,
+       _settleMergedProjectUseCase = settleMergedProjectUseCase;
 
   final AccountPaymentRepository _paymentRepository;
   final AccountProjectMergeService _mergeService;
   final ProjectSettlementUseCase _settlementUseCase;
+  final SettleMergedProjectUseCase _settleMergedProjectUseCase;
 
   Future<void> createMergedPayment({
     required AccountProjectVM project,
@@ -143,6 +147,40 @@ class AccountActionController {
     return settlement;
   }
 
+  Future<ProjectSettlementResult> settleMergedProject({
+    required AccountProjectVM project,
+    required double paymentAmount,
+    required double writeOffAmount,
+    required ProjectWriteOffReason? writeOffReason,
+    required int ymd,
+    required String? note,
+    required TimingStore timingStore,
+    required DeviceStore deviceStore,
+    required AccountPaymentStore paymentStore,
+    required ProjectRateStore rateStore,
+    required AccountStore accountStore,
+  }) async {
+    final memberProjects = memberProjectsForMerged(
+      project: project,
+      timingStore: timingStore,
+      deviceStore: deviceStore,
+      paymentStore: paymentStore,
+      rateStore: rateStore,
+      accountStore: accountStore,
+    );
+    final settlement = await _settleMergedProjectUseCase.execute(
+      mergedProject: project,
+      memberProjects: memberProjects,
+      paymentAmount: paymentAmount,
+      writeOffAmount: writeOffAmount,
+      writeOffReason: writeOffReason,
+      ymd: ymd,
+      note: note,
+    );
+    await Future.wait([paymentStore.loadAll(), accountStore.loadAll()]);
+    return settlement;
+  }
+
   Future<DeleteProjectWriteOffResult> deleteWriteOff({
     required AccountProjectVM project,
     required ProjectWriteOff writeOff,
@@ -157,12 +195,62 @@ class AccountActionController {
     return result;
   }
 
+  Future<DeleteProjectWriteOffResult> deleteMergedWriteOffs({
+    required AccountProjectVM project,
+    required List<ProjectWriteOff> writeOffs,
+    required TimingStore timingStore,
+    required DeviceStore deviceStore,
+    required AccountPaymentStore paymentStore,
+    required ProjectRateStore rateStore,
+    required AccountStore accountStore,
+  }) async {
+    final memberProjects = memberProjectsForMerged(
+      project: project,
+      timingStore: timingStore,
+      deviceStore: deviceStore,
+      paymentStore: paymentStore,
+      rateStore: rateStore,
+      accountStore: accountStore,
+    );
+    final result = await _settleMergedProjectUseCase.deleteWriteOffs(
+      mergedProject: project,
+      memberProjects: memberProjects,
+      writeOffs: writeOffs,
+    );
+    await accountStore.loadAll();
+    return result;
+  }
+
   Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus({
     required AccountProjectVM project,
     required AccountStore accountStore,
   }) async {
     final result = await _settlementUseCase.revokeSettlementStatus(
       projectId: project.effectiveProjectId,
+    );
+    await accountStore.loadAll();
+    return result;
+  }
+
+  Future<RevokeProjectSettlementStatusResult> revokeMergedSettlementStatus({
+    required AccountProjectVM project,
+    required TimingStore timingStore,
+    required DeviceStore deviceStore,
+    required AccountPaymentStore paymentStore,
+    required ProjectRateStore rateStore,
+    required AccountStore accountStore,
+  }) async {
+    final memberProjects = memberProjectsForMerged(
+      project: project,
+      timingStore: timingStore,
+      deviceStore: deviceStore,
+      paymentStore: paymentStore,
+      rateStore: rateStore,
+      accountStore: accountStore,
+    );
+    final result = await _settleMergedProjectUseCase.revokeSettlementStatus(
+      mergedProject: project,
+      memberProjects: memberProjects,
     );
     await accountStore.loadAll();
     return result;
@@ -184,8 +272,13 @@ class AccountActionController {
       activeMergeGroups: const [],
     );
 
+    final memberIds = project.memberProjectIds.map((id) => id.trim()).toSet()
+      ..removeWhere((id) => id.isEmpty);
     final memberKeys = project.memberProjectKeys.toSet();
     return normalComputed.projects.where((item) {
+      if (memberIds.isNotEmpty) {
+        return memberIds.contains(item.effectiveProjectId);
+      }
       return memberKeys.contains(item.projectKey);
     }).toList();
   }
