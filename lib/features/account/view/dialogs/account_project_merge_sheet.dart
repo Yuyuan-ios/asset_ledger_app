@@ -5,6 +5,7 @@ import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../../../tokens/mapper/color_tokens.dart';
+import '../../model/project_title_formatter.dart';
 import 'account_project_merge_sheet_data.dart';
 import 'account_project_merge_sheet_store.dart';
 
@@ -254,6 +255,7 @@ class _MergeProjectRow extends StatelessWidget {
       fontWeight: FontWeight.w400,
     );
     final note = item.note;
+    final title = ProjectTitleFormatter.normalize(item.displayName);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -276,7 +278,7 @@ class _MergeProjectRow extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    note == null ? item.displayName : '${item.displayName}（$note）',
+                    note == null ? title : '$title（$note）',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textStyle,

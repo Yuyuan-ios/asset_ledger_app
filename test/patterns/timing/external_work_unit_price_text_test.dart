@@ -120,7 +120,7 @@ void main() {
       ],
     );
 
-    expect(find.text('尚义+富牛+青山湾'), findsOneWidget);
+    expect(find.text('尚义、富牛、青山湾'), findsOneWidget);
     expect(find.textContaining('...'), findsNothing);
   });
 

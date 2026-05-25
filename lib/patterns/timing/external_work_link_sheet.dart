@@ -16,8 +16,8 @@ const String externalWorkLinkSettledConfirm =
 const String externalWorkLinkUnlinkConfirm =
     '解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？';
 
-/// 防溢出的地址摘要：去重 + 取前 [maxShown] 个用 “+” 连接，超出再加 “...”。
-/// 风格对齐账户页项目卡片（如 “鲜滩+尚义...”）。
+/// 防溢出的地址摘要：去重 + 取前 [maxShown] 个用 “、” 连接，超出再加 “...”。
+/// 风格对齐项目标题地址展示（如 “鲜滩、尚义...”）。
 String externalWorkLinkSiteSummary(Iterable<String> sites, {int maxShown = 2}) {
   final seen = <String>{};
   final distinct = <String>[];
@@ -27,7 +27,7 @@ String externalWorkLinkSiteSummary(Iterable<String> sites, {int maxShown = 2}) {
     distinct.add(site);
   }
   if (distinct.isEmpty) return '';
-  final shown = distinct.take(maxShown).join('+');
+  final shown = distinct.take(maxShown).join('、');
   return distinct.length > maxShown ? '$shown...' : shown;
 }
 

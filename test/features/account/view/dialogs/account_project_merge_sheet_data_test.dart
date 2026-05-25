@@ -36,10 +36,10 @@ void main() {
       );
 
       final group = groups.single;
-      expect(group.unmergedItems.map((item) => item.displayName), ['李杰 + 新村']);
+      expect(group.unmergedItems.map((item) => item.displayName), ['李杰 · 新村']);
       expect(group.mergedItems.map((item) => item.displayName), [
-        '李杰 + 尚义',
-        '李杰 + 鲜滩',
+        '李杰 · 尚义',
+        '李杰 · 鲜滩',
       ]);
     });
 
@@ -188,7 +188,10 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: const [],
         activeMergeGroups: const [_threeMemberGroup],
-        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        timingProjectIds: const {
+          'project:lijie-xiantan',
+          'project:lijie-shangyi',
+        },
         tracedProjectIds: const {},
       );
 
@@ -202,7 +205,10 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: const [],
         activeMergeGroups: const [_threeMemberGroup],
-        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        timingProjectIds: const {
+          'project:lijie-xiantan',
+          'project:lijie-shangyi',
+        },
         tracedProjectIds: const {'project:lijie-funiu'}, // 来自 payment
       );
 
@@ -218,7 +224,10 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: const [],
         activeMergeGroups: const [_threeMemberGroup],
-        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        timingProjectIds: const {
+          'project:lijie-xiantan',
+          'project:lijie-shangyi',
+        },
         tracedProjectIds: const {'project:lijie-funiu'}, // 来自 writeOff
       );
 
@@ -234,7 +243,10 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: const [],
         activeMergeGroups: const [_threeMemberGroup],
-        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        timingProjectIds: const {
+          'project:lijie-xiantan',
+          'project:lijie-shangyi',
+        },
         tracedProjectIds: const {'project:lijie-funiu'}, // 来自 settledProjectIds
       );
 
@@ -250,7 +262,10 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: const [],
         activeMergeGroups: const [_threeMemberGroup],
-        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        timingProjectIds: const {
+          'project:lijie-xiantan',
+          'project:lijie-shangyi',
+        },
         tracedProjectIds: const {'project:lijie-funiu'}, // 来自 external linked
       );
 

@@ -130,7 +130,7 @@ void main() {
       memberProjectKeys: const [shangyiKey, xiantanKey],
       memberProjectIds: const ['project:shangyi', 'project:xiantan'],
       includedSites: const ['尚义', '鲜滩'],
-      includedSitesText: '尚义+鲜滩',
+      includedSitesText: '尚义、鲜滩',
       minYmd: 20260501,
       deviceIds: const [1, 2],
       hoursByDevice: const {1: 303.9, 2: 20},
@@ -226,7 +226,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('李杰 + 合并2项目'), findsOneWidget);
+      expect(find.text('李杰 · 合并2项目'), findsOneWidget);
       expect(find.text('尚义'), findsWidgets);
       expect(find.text('鲜滩'), findsWidgets);
       expect(find.text('HITACHI 1#'), findsNWidgets(2));
@@ -373,7 +373,7 @@ void main() {
       ),
     );
 
-    expect(find.text('李杰 + 尚义'), findsOneWidget);
+    expect(find.text('李杰 · 尚义'), findsOneWidget);
     expect(find.text('尚义'), findsNothing);
     expect(find.text('设备'), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
@@ -400,6 +400,51 @@ void main() {
     await tester.pump();
 
     expect(settledProject?.projectKey, normalKey);
+  });
+
+  testWidgets('detail title uses linked external work icon without copy', (
+    tester,
+  ) async {
+    final normalKey = ProjectKey.buildKey(contact: '李洋', site: '天眉乐');
+
+    await tester.pumpWidget(
+      buildSheet(
+        projectKey: normalKey,
+        computed: AccountComputed(
+          projects: [
+            AccountProjectVM(
+              projectId: 'project:linked',
+              projectKey: normalKey,
+              displayName: '李洋•天眉乐 + 关联',
+              hasLinkedExternalWork: true,
+              minYmd: 20260521,
+              deviceIds: const [1],
+              hoursByDevice: const {1: 8.1},
+              rentIncomeTotal: 0,
+              minRate: 180,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 1458,
+              received: 0,
+              remaining: 1458,
+              ratio: 0,
+              payments: const [],
+            ),
+          ],
+          totalReceivable: 1458,
+          totalReceived: 0,
+          totalRemaining: 1458,
+          totalRatio: 0,
+          deviceReceivables: const [],
+        ),
+        onEditDeviceRate: (_, _, _, _, _) async {},
+        onSettleProject: (_) async {},
+      ),
+    );
+
+    expect(find.text('李洋 · 天眉乐'), findsOneWidget);
+    expect(find.textContaining('+ 关联'), findsNothing);
+    expect(find.byTooltip('已关联外协记录'), findsOneWidget);
   });
 
   testWidgets('settled detail shows project total and revoke action', (

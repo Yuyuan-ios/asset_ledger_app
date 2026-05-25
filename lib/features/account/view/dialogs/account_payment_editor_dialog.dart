@@ -9,6 +9,7 @@ import '../../../../components/pickers/app_date_picker_dialog.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../domain/services/account_payment_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
+import '../../../../features/account/model/project_title_formatter.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 
@@ -127,7 +128,10 @@ class _AccountPaymentEditorDialogState
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('项目：${project.displayName}', style: labelStyle),
+              child: Text(
+                '项目：${ProjectTitleFormatter.normalize(project.displayName)}',
+                style: labelStyle,
+              ),
             ),
             const SizedBox(height: 10),
             SheetDateField(controller: _dateController, onPickDate: _pickDate),

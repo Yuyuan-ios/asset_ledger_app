@@ -85,7 +85,7 @@ void main() {
     test('adds linked external receivable to project card and overview', () {
       final computed = _computed(
         [
-          _project(id: 'project:a', displayName: '李洋 + 天眉乐', receivable: 1000),
+          _project(id: 'project:a', displayName: '李洋 · 天眉乐', receivable: 1000),
           _project(id: 'project:b', receivable: 500),
         ],
         totalReceivable: 1500,
@@ -124,10 +124,12 @@ void main() {
       expect(projectA.receivable, 2500);
       expect(projectA.remaining, 2500);
       expect(projectA.externalWorkHours, 2.0);
-      expect(projectA.displayName, '李洋•天眉乐 + 关联');
+      expect(projectA.displayName, '李洋 · 天眉乐');
+      expect(projectA.hasLinkedExternalWork, isTrue);
       // 未关联外协包不并入项目卡片。
       expect(projectB.receivable, 500);
       expect(projectB.displayName, isNot(contains('关联')));
+      expect(projectB.hasLinkedExternalWork, isFalse);
       // 总览总应收包含全部外协设备应收（含未关联包），每包只计一次。
       expect(augmented.totalReceivable, 1500 + 1800);
       expect(augmented.totalRemaining, 1500 + 1800);
@@ -170,7 +172,7 @@ void main() {
       final merged = AccountProjectVM(
         projectId: 'merge:1',
         projectKey: 'merge:1',
-        displayName: '李杰 + 合并2项目',
+        displayName: '李杰 · 合并2项目',
         kind: AccountProjectKind.merged,
         memberProjectIds: const ['project:m1', 'project:m2'],
         minYmd: 20260101,
@@ -208,7 +210,8 @@ void main() {
 
       expect(mergedAugmented.receivable, 2400);
       expect(mergedAugmented.externalWorkHours, 1.0);
-      expect(mergedAugmented.displayName, '李杰•合并2项目 + 关联');
+      expect(mergedAugmented.displayName, '李杰 · 合并2项目');
+      expect(mergedAugmented.hasLinkedExternalWork, isTrue);
     });
 
     test('empty rollup returns the computed result unchanged', () {

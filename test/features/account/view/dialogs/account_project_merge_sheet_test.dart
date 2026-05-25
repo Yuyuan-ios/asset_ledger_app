@@ -25,8 +25,8 @@ void main() {
 
       expect(_softHeaderDivider(), findsOneWidget);
 
-      await tester.tap(find.text('李杰 + 新村'));
-      await tester.tap(find.text('李杰 + 高桥'));
+      await tester.tap(find.text('李杰 · 新村'));
+      await tester.tap(find.text('李杰 · 高桥'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认'));
       await tester.pumpAndSettle();
@@ -57,8 +57,8 @@ void main() {
 
       await tester.tap(find.text('打开'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('李杰 + 新村'));
-      await tester.tap(find.text('李杰 + 高桥'));
+      await tester.tap(find.text('李杰 · 新村'));
+      await tester.tap(find.text('李杰 · 高桥'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认'));
       await tester.pump();

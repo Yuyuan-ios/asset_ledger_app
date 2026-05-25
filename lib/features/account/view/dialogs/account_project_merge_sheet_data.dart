@@ -1,5 +1,6 @@
 import '../../domain/entities/account_entities.dart';
 import '../../model/account_view_model.dart';
+import '../../model/project_title_formatter.dart';
 
 class MergeProjectSheetContactGroup {
   final String contact;
@@ -88,7 +89,7 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
           MergeProjectSheetItem(
             projectId: projectId,
             projectKey: projectKey,
-            displayName: project.displayName,
+            displayName: ProjectTitleFormatter.normalize(project.displayName),
             isMerged: false,
           ),
         );
@@ -126,7 +127,10 @@ List<MergeProjectSheetContactGroup> buildMergeSheetGroups({
             MergeProjectSheetItem(
               projectId: memberProjectId,
               projectKey: member.projectKey,
-              displayName: ProjectKey(contact: contact, site: site).displayName,
+              displayName: ProjectTitleFormatter.project(
+                contact: contact,
+                site: site,
+              ),
               isMerged: true,
               hasTimingRecord: hasTiming,
               note: hasTiming ? null : '无计时记录',

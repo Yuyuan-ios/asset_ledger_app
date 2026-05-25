@@ -8,6 +8,7 @@ import '../../data/models/project_write_off.dart';
 import '../../data/models/timing_record.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/account_view_model.dart';
+import '../../features/account/model/project_title_formatter.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'project_account_detail_content_pattern.dart';
 
@@ -127,6 +128,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     }
 
     final project = hit.first;
+    final projectTitle = ProjectTitleFormatter.normalize(project.displayName);
     final projectWriteOffs = _writeOffsForProject(project);
     final revokeWriteOff = _revokeWriteOffAction(project, projectWriteOffs);
     final projectIsSettled = _isProjectSettled(project);
@@ -141,7 +143,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         memberProjectKeys: project.memberProjectKeys,
       );
       return ProjectAccountDetailContent(
-        title: project.displayName,
+        title: projectTitle,
         minYmd: project.minYmd,
         devices: const [],
         deviceRates: const {},
@@ -153,6 +155,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         remaining: project.remaining,
         isProjectSettled: projectIsSettled,
         hasUniqueWriteOffForRevoke: hasUniqueWriteOffForRevoke,
+        hasLinkedExternalWork: project.hasLinkedExternalWork,
         payments: project.payments,
         writeOffs: projectWriteOffs,
         paymentDisplayItems: paymentDisplayItems,
@@ -226,7 +229,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     }
 
     return ProjectAccountDetailContent(
-      title: project.displayName,
+      title: projectTitle,
       minYmd: project.minYmd,
       devices: usedDevices,
       deviceRates: deviceRates,
@@ -238,6 +241,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       remaining: project.remaining,
       isProjectSettled: projectIsSettled,
       hasUniqueWriteOffForRevoke: hasUniqueWriteOffForRevoke,
+      hasLinkedExternalWork: project.hasLinkedExternalWork,
       payments: project.payments,
       writeOffs: projectWriteOffs,
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
@@ -411,7 +415,10 @@ class AccountProjectDetailSheet extends StatelessWidget {
     final key = ProjectKey.fromKey(row.projectKey);
     return AccountProjectVM(
       projectKey: row.projectKey,
-      displayName: key.displayName,
+      displayName: ProjectTitleFormatter.project(
+        contact: key.contact,
+        site: key.site,
+      ),
       minYmd: mergedProject.minYmd,
       deviceIds: [row.deviceId],
       hoursByDevice: {row.deviceId: row.hours},

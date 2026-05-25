@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../components/avatars/linked_external_work_badge.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
+import '../../features/account/model/project_title_formatter.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 
@@ -26,6 +28,9 @@ const double _externalWorkCardMetricTopGap = 12;
 const double _accountProjectEmptyTopPadding = 48;
 const double _accountProjectEmptyBottomPadding = 24;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
+const Key _accountProjectLinkedExternalWorkBadgeKey = Key(
+  'account-project-linked-external-work-badge',
+);
 const String _settledCelebrationIconAsset =
     'assets/icons/account/settled_celebration.png';
 const Key _settledCelebrationIconKey = Key('settled-project-celebration-icon');
@@ -128,21 +133,7 @@ class AccountProjectList extends StatelessWidget {
   }
 
   String _projectTitleText(AccountProjectVM p) {
-    const linkedSuffix = ' + 关联';
-    final displayName = p.displayName.trim();
-    final linked = displayName.endsWith(linkedSuffix);
-    final base = linked
-        ? displayName
-              .substring(0, displayName.length - linkedSuffix.length)
-              .trim()
-        : displayName;
-    final parts = base
-        .split(' + ')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .toList();
-    final compactBase = parts.length > 1 ? parts.join('•') : base;
-    return linked ? '$compactBase$linkedSuffix' : compactBase;
+    return ProjectTitleFormatter.normalize(p.displayName);
   }
 
   String _receivedBaseText(AccountProjectVM p, {required bool compact}) {
@@ -399,6 +390,16 @@ class AccountProjectList extends StatelessWidget {
                                       style: titleStyle,
                                     ),
                                   ),
+                                  if (p.hasLinkedExternalWork) ...[
+                                    const SizedBox(width: 6),
+                                    LinkedExternalWorkBadge(
+                                      key:
+                                          _accountProjectLinkedExternalWorkBadgeKey,
+                                      borderColor: isSettled
+                                          ? _settledCardBg
+                                          : SheetColors.background,
+                                    ),
+                                  ],
                                   if (isSettled) ...[
                                     const SizedBox(width: 6),
                                     const Icon(
@@ -787,17 +788,9 @@ class _ExternalWorkAvatar extends StatelessWidget {
             Positioned(
               right: -2,
               bottom: -2,
-              child: Container(
+              child: LinkedExternalWorkBadge(
                 key: const Key('account-external-work-card-link-badge'),
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: AppColors.brand,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _externalWorkCardBg, width: 2),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(Icons.link, size: 11, color: Colors.white),
+                borderColor: _externalWorkCardBg,
               ),
             ),
         ],

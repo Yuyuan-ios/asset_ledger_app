@@ -63,6 +63,13 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                     style: projectNameStyle,
                   ),
                 ),
+                if (hasLinkedExternalWork) ...[
+                  const SizedBox(width: 6),
+                  const LinkedExternalWorkBadge(
+                    key: Key('account-project-detail-linked-external-work'),
+                    borderColor: SheetColors.background,
+                  ),
+                ],
                 if (showBatchAction) ...[
                   const SizedBox(width: AppSpace.sm),
                   _buildProjectActionPill(actionStyle: actionStyle),
@@ -524,9 +531,14 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   }
 
   String _fallbackSiteLabel() {
-    final parts = title.split('+');
+    final parts = title.split(ProjectTitleFormatter.separator);
     if (parts.length >= 2) {
       final site = parts.last.trim();
+      if (site.isNotEmpty) return site;
+    }
+    final legacyParts = title.split('+');
+    if (legacyParts.length >= 2) {
+      final site = legacyParts.last.trim();
       if (site.isNotEmpty) return site;
     }
     return '';

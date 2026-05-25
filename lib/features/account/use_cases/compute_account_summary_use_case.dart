@@ -9,6 +9,7 @@ import '../../../core/date/gregorian_year_range.dart';
 import 'package:asset_ledger/data/models/device_maps.dart';
 import '../domain/services/project_finance_calculator.dart';
 import '../model/account_view_model.dart';
+import '../model/project_title_formatter.dart';
 
 class ComputeAccountSummaryUseCase {
   const ComputeAccountSummaryUseCase();
@@ -70,7 +71,10 @@ class ComputeAccountSummaryUseCase {
         AccountProjectVM(
           projectId: agg.projectId,
           projectKey: agg.projectKey,
-          displayName: agg.pk.displayName,
+          displayName: ProjectTitleFormatter.project(
+            contact: agg.pk.contact,
+            site: agg.pk.site,
+          ),
           minYmd: agg.minYmd,
           deviceIds: agg.deviceIds,
           hoursByDevice: agg.hoursByDevice,
@@ -478,7 +482,10 @@ class ComputeAccountSummaryUseCase {
     return AccountProjectVM(
       projectId: 'merge:$groupId',
       projectKey: 'merge:$groupId',
-      displayName: '${contact.trim()} + 合并${memberItems.length}项目',
+      displayName: ProjectTitleFormatter.merged(
+        contact: contact,
+        count: memberItems.length,
+      ),
       kind: AccountProjectKind.merged,
       mergeGroupId: groupId,
       memberProjectKeys: List.unmodifiable(memberProjectKeys),
