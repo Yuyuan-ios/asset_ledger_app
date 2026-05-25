@@ -260,6 +260,12 @@ void main() {
     );
     expect(find.text('关联'), findsNothing);
     expect(find.text('导入外协项目包'), findsNothing);
+    final emptyTitle = tester.widget<Text>(find.text('暂无外协项目记录'));
+    final emptySubtitle = tester.widget<Text>(
+      find.text('从他人分享的 .jzt 文件导入后，会显示在这里'),
+    );
+    expect(emptyTitle.style?.fontSize, 16);
+    expect(emptySubtitle.style?.fontSize, 15);
 
     await tester.tap(
       find.byKey(const Key('timing-external-work-header-import')),
@@ -352,8 +358,12 @@ void main() {
     final importIcon = importButtonContent.children[2] as Icon;
     expect(importText.data, '导入');
     expect(importText.style?.color, AppColors.textPrimary);
+    expect(importText.style?.fontSize, 15);
+    expect(importText.style?.fontWeight, FontWeight.w600);
     expect(importIcon.icon, Icons.file_download_outlined);
     expect(importIcon.color, AppColors.textPrimary);
+    expect(importIcon.size, 16);
+    expect(importIcon.weight, 700);
     final linkButton = tester.widget<TextButton>(
       find.descendant(
         of: find.byKey(const Key('timing-external-work-header-link')),
@@ -365,8 +375,12 @@ void main() {
     final linkIcon = linkButtonContent.children[2] as Icon;
     expect(linkText.data, '关联');
     expect(linkText.style?.color, AppColors.textPrimary);
+    expect(linkText.style?.fontSize, 15);
+    expect(linkText.style?.fontWeight, FontWeight.w600);
     expect(linkIcon.icon, Icons.link);
     expect(linkIcon.color, AppColors.textPrimary);
+    expect(linkIcon.size, 16);
+    expect(linkIcon.weight, 700);
 
     await tester.tap(
       find.byKey(const Key('timing-external-work-header-import')),

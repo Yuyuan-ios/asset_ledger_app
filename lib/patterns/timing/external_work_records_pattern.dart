@@ -8,6 +8,9 @@ import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
+const double _externalWorkEmptyTitleFontSize = 16;
+const double _externalWorkEmptySubtitleFontSize = 15;
+
 List<Widget> buildTimingExternalWorkRecordSlivers({
   required List<TimingExternalWorkRecordItem> items,
   required Set<String> expandedAggregateKeys,
@@ -20,6 +23,8 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
         child: AppRecentRecordsEmptyState(
           title: '暂无外协项目记录',
           subtitle: '从他人分享的 .jzt 文件导入后，会显示在这里',
+          titleFontSize: _externalWorkEmptyTitleFontSize,
+          subtitleFontSize: _externalWorkEmptySubtitleFontSize,
         ),
       ),
     ];

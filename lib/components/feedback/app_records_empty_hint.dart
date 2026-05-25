@@ -48,23 +48,27 @@ class AppRecentRecordsEmptyState extends StatelessWidget {
     this.subtitle = '点击右上角 + 新建',
     this.height = TimingTokens.emptyStateHeight,
     this.subtitleTopGap = TimingTokens.emptyStateSubtitleTopGap,
+    this.titleFontSize = TimingTokens.emptyStateTitleFontSize,
+    this.subtitleFontSize = TimingTokens.emptyStateSubtitleFontSize,
   });
 
   final String title;
   final String subtitle;
   final double height;
   final double subtitleTopGap;
+  final double titleFontSize;
+  final double subtitleFontSize;
 
   @override
   Widget build(BuildContext context) {
     final titleStyle = AppTypography.bodySecondary(
       context,
-      fontSize: TimingTokens.emptyStateTitleFontSize,
+      fontSize: titleFontSize,
       color: TimingColors.textSecondary,
     );
     final subtitleStyle = AppTypography.caption(
       context,
-      fontSize: TimingTokens.emptyStateSubtitleFontSize,
+      fontSize: subtitleFontSize,
       color: TimingColors.textTertiary,
     );
 

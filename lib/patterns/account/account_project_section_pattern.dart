@@ -140,7 +140,7 @@ class AccountProjectFilterButton extends StatelessWidget {
     final filterTextStyle = AppTypography.actionText(
       context,
       fontSize: AccountTokens.projectFilterFontSize,
-      fontWeight: FontWeight.w400,
+      fontWeight: FontWeight.w600,
     );
     final filterIconColor =
         filterTextStyle?.color ?? DefaultTextStyle.of(context).style.color;
@@ -158,7 +158,12 @@ class AccountProjectFilterButton extends StatelessWidget {
         children: [
           Text(hasActiveFilter ? '取消筛选' : '筛选', style: filterTextStyle),
           const SizedBox(width: 0),
-          Icon(Icons.filter_alt_outlined, size: 18, color: filterIconColor),
+          Icon(
+            Icons.filter_alt_outlined,
+            size: 16,
+            weight: 700,
+            color: filterIconColor,
+          ),
         ],
       ),
     );
@@ -176,7 +181,7 @@ class AccountProjectMergeButton extends StatelessWidget {
     final textStyle = AppTypography.actionText(
       context,
       fontSize: AccountTokens.projectFilterFontSize,
-      fontWeight: FontWeight.w400,
+      fontWeight: FontWeight.w600,
     );
     final iconColor =
         textStyle?.color ?? DefaultTextStyle.of(context).style.color;
@@ -194,7 +199,12 @@ class AccountProjectMergeButton extends StatelessWidget {
         children: [
           Text('合并', style: textStyle),
           const SizedBox(width: 0),
-          Icon(Icons.call_merge_outlined, size: 18, color: iconColor),
+          Icon(
+            Icons.call_merge_outlined,
+            size: 16,
+            weight: 700,
+            color: iconColor,
+          ),
         ],
       ),
     );
