@@ -153,7 +153,7 @@ void main() {
 
     expect(find.text('新建计时'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '取消'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+    expect(find.widgetWithText(TextButton, '删除本记录'), findsNothing);
   });
 
   testWidgets('editing timing shows destructive delete action', (
@@ -168,7 +168,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final deleteButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, '删除'),
+      find.widgetWithText(TextButton, '删除本记录'),
     );
     expect(
       deleteButton.style?.foregroundColor?.resolve(<WidgetState>{}),
@@ -189,7 +189,7 @@ void main() {
 
     await tester.tap(find.text('甲方·一号工地'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.tap(find.widgetWithText(TextButton, '删除本记录'));
     await tester.pumpAndSettle();
 
     expect(find.text('删除计时记录'), findsOneWidget);
@@ -216,7 +216,7 @@ void main() {
 
     await tester.tap(find.text('甲方·一号工地'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.tap(find.widgetWithText(TextButton, '删除本记录'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
@@ -360,7 +360,7 @@ void main() {
 
     expect(find.text('新增'), findsNothing);
     expect(find.text('编辑计时'), findsNothing);
-    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+    expect(find.widgetWithText(TextButton, '删除本记录'), findsNothing);
   });
 
   testWidgets('external work section renders imported records read-only list', (
@@ -643,7 +643,7 @@ void main() {
     expect(buttonRowOffset.abs(), lessThan(8));
     expect(find.widgetWithText(FilledButton, '保存'), findsNothing);
     expect(find.widgetWithText(TextButton, '编辑'), findsNothing);
-    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+    expect(find.widgetWithText(TextButton, '删除本记录'), findsNothing);
     expect(find.widgetWithText(TextButton, '关联项目'), findsNothing);
     expect(find.widgetWithText(TextButton, '合并'), findsNothing);
     expect(find.widgetWithText(TextButton, '抵扣'), findsNothing);

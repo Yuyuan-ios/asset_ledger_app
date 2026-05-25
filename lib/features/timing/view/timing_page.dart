@@ -431,7 +431,7 @@ class _TimingPageState extends State<TimingPage> {
       context: context,
       title: editing == null ? '新建计时' : '编辑计时',
       useSafeArea: false,
-      cancelText: editing == null ? '取消' : '删除',
+      cancelText: editing == null ? '取消' : '删除本记录',
       cancelForegroundColor: editing == null ? null : Colors.red.shade600,
       onCancel: editing == null
           ? null
