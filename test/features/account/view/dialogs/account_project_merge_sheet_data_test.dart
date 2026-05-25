@@ -32,6 +32,7 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: [_project('project:lijie-xincun', '李杰||新村', '李杰 + 新村')],
         activeMergeGroups: const [_activeGroup],
+        timingProjectIds: _activeGroupTimingProjectIds,
       );
 
       final group = groups.single;
@@ -46,6 +47,7 @@ void main() {
       final groups = buildMergeSheetGroups(
         normalProjects: const [],
         activeMergeGroups: const [_activeGroup],
+        timingProjectIds: _activeGroupTimingProjectIds,
       );
 
       final mergedItems = groups.single.mergedItems;
@@ -60,6 +62,7 @@ void main() {
           _project('project:lijie-new', '李杰||新地址', '李杰 + 新地址'),
         ],
         activeMergeGroups: const [_activeGroup],
+        timingProjectIds: _activeGroupTimingProjectIds,
       );
 
       final group = groups.single;
@@ -83,6 +86,7 @@ void main() {
             _project('project:lijie-new', '李杰||新地址', '李杰 + 新地址'),
           ],
           activeMergeGroups: const [_activeGroupWithStaleMember],
+          timingProjectIds: _activeGroupTimingProjectIds,
         );
 
         final group = groups.single;
@@ -176,6 +180,91 @@ void main() {
       expect(groups, isEmpty);
     });
   });
+
+  group('buildMergeSheetGroups orphan member filtering', () {
+    // 三成员合并组：鲜滩/尚义有计时，富牛无计时（历史孤儿）。
+    // #1：无计时且无任何痕迹 → 不显示，已合并列表与卡片合并计数一致（2 个）。
+    test('hides a trace-less orphan member (sheet count matches card)', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: const [],
+        activeMergeGroups: const [_threeMemberGroup],
+        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        tracedProjectIds: const {},
+      );
+
+      final merged = groups.single.mergedItems;
+      expect(merged.map((item) => item.projectKey), ['李杰||鲜滩', '李杰||尚义']);
+      expect(merged.map((item) => item.projectKey), isNot(contains('李杰||富牛')));
+    });
+
+    // #2：无计时但有收款 → 保留显示并弱化标注。
+    test('keeps a payment-only member with a weakened note', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: const [],
+        activeMergeGroups: const [_threeMemberGroup],
+        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        tracedProjectIds: const {'project:lijie-funiu'}, // 来自 payment
+      );
+
+      final orphan = groups.single.mergedItems.firstWhere(
+        (item) => item.projectKey == '李杰||富牛',
+      );
+      expect(orphan.hasTimingRecord, isFalse);
+      expect(orphan.note, '无计时记录');
+    });
+
+    // #3：无计时但有核销 → 保留显示并弱化标注。
+    test('keeps a write-off-only member with a weakened note', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: const [],
+        activeMergeGroups: const [_threeMemberGroup],
+        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        tracedProjectIds: const {'project:lijie-funiu'}, // 来自 writeOff
+      );
+
+      final orphan = groups.single.mergedItems.firstWhere(
+        (item) => item.projectKey == '李杰||富牛',
+      );
+      expect(orphan.hasTimingRecord, isFalse);
+      expect(orphan.note, '无计时记录');
+    });
+
+    // #4：无计时但已结清 → 保留显示并弱化标注。
+    test('keeps a settled member with a weakened note', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: const [],
+        activeMergeGroups: const [_threeMemberGroup],
+        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        tracedProjectIds: const {'project:lijie-funiu'}, // 来自 settledProjectIds
+      );
+
+      final orphan = groups.single.mergedItems.firstWhere(
+        (item) => item.projectKey == '李杰||富牛',
+      );
+      expect(orphan.hasTimingRecord, isFalse);
+      expect(orphan.note, '无计时记录');
+    });
+
+    // #5：无计时但有外协关联 → 保留显示并弱化标注。
+    test('keeps an external-work-linked member with a weakened note', () {
+      final groups = buildMergeSheetGroups(
+        normalProjects: const [],
+        activeMergeGroups: const [_threeMemberGroup],
+        timingProjectIds: const {'project:lijie-xiantan', 'project:lijie-shangyi'},
+        tracedProjectIds: const {'project:lijie-funiu'}, // 来自 external linked
+      );
+
+      final merged = groups.single.mergedItems;
+      expect(merged.map((item) => item.projectKey), [
+        '李杰||鲜滩',
+        '李杰||富牛',
+        '李杰||尚义',
+      ]);
+      final orphan = merged.firstWhere((item) => item.projectKey == '李杰||富牛');
+      expect(orphan.hasTimingRecord, isFalse);
+      expect(orphan.note, '无计时记录');
+    });
+  });
 }
 
 AccountProjectVM _project(
@@ -202,6 +291,53 @@ AccountProjectVM _project(
   );
 }
 
+// 这两组合并成员都有当前计时记录（与卡片合并计数口径一致）。
+const _activeGroupTimingProjectIds = <String>{
+  'project:lijie-shangyi',
+  'project:lijie-xiantan',
+};
+
+// 三成员组：鲜滩(0)/富牛(1)/尚义(2)，用于孤儿成员过滤场景。
+const _threeMemberGroup = AccountProjectMergeGroupWithMembers(
+  group: AccountProjectMergeGroup(
+    id: 3,
+    contact: '李杰',
+    createdAt: '2026-05-15T00:00:00.000Z',
+  ),
+  members: [
+    AccountProjectMergeMember(
+      id: 5,
+      groupId: 3,
+      projectId: 'project:lijie-xiantan',
+      projectKey: '李杰||鲜滩',
+      contact: '李杰',
+      site: '鲜滩',
+      sortOrder: 0,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+    AccountProjectMergeMember(
+      id: 6,
+      groupId: 3,
+      projectId: 'project:lijie-funiu',
+      projectKey: '李杰||富牛',
+      contact: '李杰',
+      site: '富牛',
+      sortOrder: 1,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+    AccountProjectMergeMember(
+      id: 7,
+      groupId: 3,
+      projectId: 'project:lijie-shangyi',
+      projectKey: '李杰||尚义',
+      contact: '李杰',
+      site: '尚义',
+      sortOrder: 2,
+      createdAt: '2026-05-15T00:00:00.000Z',
+    ),
+  ],
+);
+
 const _activeGroupWithStaleMember = AccountProjectMergeGroupWithMembers(
   group: AccountProjectMergeGroup(
     id: 2,
@@ -212,6 +348,7 @@ const _activeGroupWithStaleMember = AccountProjectMergeGroupWithMembers(
     AccountProjectMergeMember(
       id: 3,
       groupId: 2,
+      projectId: 'project:lijie-xiantan',
       projectKey: '李杰||鲜滩',
       contact: '李杰',
       site: '鲜滩',
@@ -221,6 +358,7 @@ const _activeGroupWithStaleMember = AccountProjectMergeGroupWithMembers(
     AccountProjectMergeMember(
       id: 4,
       groupId: 2,
+      projectId: 'project:lijie-shangyi',
       projectKey: '李杰||尚义',
       contact: '李杰',
       site: '尚义',
@@ -240,6 +378,7 @@ const _activeGroup = AccountProjectMergeGroupWithMembers(
     AccountProjectMergeMember(
       id: 1,
       groupId: 1,
+      projectId: 'project:lijie-shangyi',
       projectKey: '李杰||尚义',
       contact: '李杰',
       site: '尚义',
@@ -249,6 +388,7 @@ const _activeGroup = AccountProjectMergeGroupWithMembers(
     AccountProjectMergeMember(
       id: 2,
       groupId: 1,
+      projectId: 'project:lijie-xiantan',
       projectKey: '李杰||鲜滩',
       contact: '李杰',
       site: '鲜滩',

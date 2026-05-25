@@ -136,10 +136,17 @@ class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
 
   // 删除影响协调器使用的具体读/写辅助（不纳入抽象接口）。
   Future<int> countByProjectId(String projectId) async {
+    final db = await AppDatabase.database;
+    return countByProjectIdWithExecutor(db, projectId);
+  }
+
+  Future<int> countByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
     final normalizedProjectId = projectId.trim();
     if (normalizedProjectId.isEmpty) return 0;
-    final db = await AppDatabase.database;
-    final rows = await db.rawQuery(
+    final rows = await executor.rawQuery(
       'SELECT COUNT(*) AS count FROM $table WHERE project_id = ?',
       [normalizedProjectId],
     );
