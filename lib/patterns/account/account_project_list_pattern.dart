@@ -203,12 +203,9 @@ class AccountProjectList extends StatelessWidget {
         .map((site) => site.trim())
         .where((site) => site.isNotEmpty)
         .toList();
-    final joined = effectiveSites.join('+');
+    final joined = effectiveSites.join('、');
     if (joined.isEmpty) return '';
-
-    const maxPrefixLength = AccountTokens.projectCardMergedSitesPreviewMaxChars;
-    if (joined.length <= maxPrefixLength) return joined;
-    return '${joined.substring(0, maxPrefixLength)}...';
+    return joined;
   }
 
   bool _isSettled(AccountProjectVM p) {
@@ -499,15 +496,10 @@ class AccountProjectList extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Flexible(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: _settlementStatus(
-                                  p,
-                                  resolvedStatusStyle,
-                                  compact: isCompact,
-                                ),
-                              ),
+                            _settlementStatus(
+                              p,
+                              resolvedStatusStyle,
+                              compact: isCompact,
                             ),
                           ],
                         ),

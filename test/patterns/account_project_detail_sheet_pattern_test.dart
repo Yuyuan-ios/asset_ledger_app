@@ -128,6 +128,7 @@ void main() {
       kind: AccountProjectKind.merged,
       mergeGroupId: mergeGroupId,
       memberProjectKeys: const [shangyiKey, xiantanKey],
+      memberProjectIds: const ['project:shangyi', 'project:xiantan'],
       includedSites: const ['尚义', '鲜滩'],
       includedSitesText: '尚义+鲜滩',
       minYmd: 20260501,
@@ -629,6 +630,72 @@ void main() {
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(revokedProject?.effectiveProjectId, 'project:1');
+    },
+  );
+
+  testWidgets(
+    'settled merged detail can revoke merge-generated member write-offs',
+    (tester) async {
+      AccountProjectVM? revokedProject;
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectId: 'merge:1',
+          projectKey: 'merge:1',
+          computed: AccountComputed(
+            projects: [
+              mergedProject().copyWith(
+                receivable: 10000,
+                received: 9800,
+                writeOff: 200,
+                remaining: 0,
+                ratio: 0.98,
+                settlementRatio: 1,
+              ),
+            ],
+            totalReceivable: 10000,
+            totalReceived: 9800,
+            totalWriteOff: 200,
+            totalRemaining: 0,
+            totalRatio: 0.98,
+            settlementRate: 1,
+            deviceReceivables: const [],
+          ),
+          writeOffs: const [
+            ProjectWriteOff(
+              id: 'writeoff-merge-1-0',
+              projectId: 'project:shangyi',
+              amount: 80,
+              reason: 'settlement',
+              writeOffDate: '2026-05-18',
+              createdAt: '2026-05-18T00:00:00.000Z',
+              updatedAt: '2026-05-18T00:00:00.000Z',
+            ),
+            ProjectWriteOff(
+              id: 'writeoff-merge-1-1',
+              projectId: 'project:xiantan',
+              amount: 120,
+              reason: 'settlement',
+              writeOffDate: '2026-05-18',
+              createdAt: '2026-05-18T00:00:00.000Z',
+              updatedAt: '2026-05-18T00:00:00.000Z',
+            ),
+          ],
+          settledProjectIds: const {'project:shangyi', 'project:xiantan'},
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onSettleProject: (_) async {},
+          onRevokeProjectWriteOff: (project) async {
+            revokedProject = project;
+          },
+        ),
+      );
+
+      expect(find.text('已结清，点此撤销'), findsOneWidget);
+
+      await tester.tap(find.text('已结清，点此撤销'));
+      await tester.pump();
+
+      expect(revokedProject?.effectiveProjectId, 'merge:1');
     },
   );
 
