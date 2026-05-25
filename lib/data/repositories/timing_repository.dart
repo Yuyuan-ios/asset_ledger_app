@@ -111,6 +111,19 @@ class SqfliteTimingRepository implements TimingRepository {
     return (rows.single['count'] as num?)?.toInt() ?? 0;
   }
 
+  Future<int> countByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    final rows = await executor.rawQuery(
+      'SELECT COUNT(*) AS count FROM $_table WHERE project_id = ?',
+      [normalized],
+    );
+    return (rows.single['count'] as num?)?.toInt() ?? 0;
+  }
+
   // =====================================================================
   // ============================== 四、新增（Create） ==============================
   // =====================================================================

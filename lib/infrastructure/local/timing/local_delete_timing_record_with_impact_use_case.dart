@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../../../data/db/database.dart';
 import '../../../data/models/project.dart';
 import '../../../data/repositories/account_payment_repository.dart';
@@ -153,9 +155,25 @@ class LocalDeleteTimingRecordWithImpactUseCase
           final removed = await _mergeRepository
               .deactivateMemberByProjectIdWithExecutor(txn, projectId);
           mergeMemberRemoved = removed > 0;
+
+          // 移除当前成员后，重新评估同组剩余成员：
+          // - 无任何痕迹的历史孤儿成员，在本事务内一并停用；
+          // - 以「有效成员」数量（而非 raw active 数量）决定是否解散整组。
           final remaining = await _mergeRepository
-              .countActiveMembersByGroupIdWithExecutor(txn, member.groupId);
-          if (remaining < _minActiveMergeMembers) {
+              .listActiveMembersByGroupIdWithExecutor(txn, member.groupId);
+          var effectiveMembers = 0;
+          for (final remainingMember in remaining) {
+            final remainingProjectId = remainingMember.effectiveProjectId;
+            if (await _hasEffectiveTrace(txn, remainingProjectId)) {
+              effectiveMembers += 1;
+            } else {
+              await _mergeRepository.deactivateMemberByProjectIdWithExecutor(
+                txn,
+                remainingProjectId,
+              );
+            }
+          }
+          if (effectiveMembers < _minActiveMergeMembers) {
             await _mergeRepository.dissolveGroupWithExecutor(
               txn,
               groupId: member.groupId,
@@ -181,5 +199,43 @@ class LocalDeleteTimingRecordWithImpactUseCase
         externalWorkUnlinked: externalWorkUnlinked,
       );
     });
+  }
+
+  /// 「有效成员」判定：项目仍有任一痕迹（计时 / 收款 / 核销 / 已结清 / 外协关联）
+  /// 即视为有效，应保留在合并组内；否则视为无痕迹孤儿成员。
+  Future<bool> _hasEffectiveTrace(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    if (await _timingRepository.countByProjectIdWithExecutor(
+          executor,
+          projectId,
+        ) >
+        0) {
+      return true;
+    }
+    if (await _paymentRepository.countByProjectIdWithExecutor(
+          executor,
+          projectId,
+        ) >
+        0) {
+      return true;
+    }
+    if (await _writeOffRepository.countByProjectIdWithExecutor(
+          executor,
+          projectId,
+        ) >
+        0) {
+      return true;
+    }
+    if (await _projectRepository.isSettledWithExecutor(executor, projectId)) {
+      return true;
+    }
+    if (await _externalWorkRecordRepository
+            .countLinkedBatchesByProjectIdWithExecutor(executor, projectId) >
+        0) {
+      return true;
+    }
+    return false;
   }
 }

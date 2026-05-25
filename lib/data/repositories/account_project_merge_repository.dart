@@ -269,6 +269,19 @@ class SqfliteAccountProjectMergeRepository
     return (rows.single['count'] as num?)?.toInt() ?? 0;
   }
 
+  Future<List<AccountProjectMergeMember>> listActiveMembersByGroupIdWithExecutor(
+    DatabaseExecutor executor,
+    int groupId,
+  ) async {
+    final rows = await executor.query(
+      memberTable,
+      where: 'group_id = ? AND is_active = ?',
+      whereArgs: [groupId, 1],
+      orderBy: 'sort_order ASC, id ASC',
+    );
+    return rows.map(AccountProjectMergeMember.fromMap).toList();
+  }
+
   static Future<void> _ensureProjectWithExecutor(
     DatabaseExecutor executor,
     AccountProjectMergeMember member,

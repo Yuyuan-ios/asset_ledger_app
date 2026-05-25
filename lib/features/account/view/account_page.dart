@@ -593,6 +593,7 @@ class _AccountPageState extends State<AccountPage>
     final paymentStore = context.read<AccountPaymentStore>();
     final rateStore = context.read<ProjectRateStore>();
     final accountStore = context.read<AccountStore>();
+    final externalWorkStore = context.read<TimingExternalWorkStore?>();
     final controller = context.read<AccountActionController>();
 
     final computed = accountStore.compute(
@@ -601,10 +602,30 @@ class _AccountPageState extends State<AccountPage>
       rates: rateStore.rates,
       payments: paymentStore.records,
     );
+
+    // 当前仍有计时记录的项目（与卡片合并计数口径一致）。
+    final timingProjectIds = <String>{
+      for (final record in timingStore.records) record.effectiveProjectId.trim(),
+    };
+    // 账务/外协/结清痕迹集合：用于保留显示无计时但仍有痕迹的历史合并成员。
+    final settledProjectIds = accountStore.settledProjectIds;
+    final tracedProjectIds = <String>{
+      for (final payment in paymentStore.records)
+        payment.effectiveProjectId.trim(),
+      for (final writeOff in accountStore.writeOffs) writeOff.projectId.trim(),
+      ...settledProjectIds,
+      if (externalWorkStore != null)
+        for (final item in externalWorkStore.items)
+          if (item.record.linkedProjectId?.trim().isNotEmpty ?? false)
+            item.record.linkedProjectId!.trim(),
+    };
+
     final groups = buildMergeSheetGroups(
       normalProjects: computed.projects,
       activeMergeGroups: accountStore.activeMergeGroups,
-      excludedProjectIds: accountStore.settledProjectIds,
+      excludedProjectIds: settledProjectIds,
+      timingProjectIds: timingProjectIds,
+      tracedProjectIds: tracedProjectIds,
     );
 
     final result = await showAccountProjectMergeSheet(

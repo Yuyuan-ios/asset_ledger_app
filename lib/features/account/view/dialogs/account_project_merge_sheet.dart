@@ -242,13 +242,18 @@ class _MergeProjectRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = item.isMerged;
-    final color = disabled ? TimingColors.textSecondary : AppColors.textPrimary;
+    // 无计时但有账务/外协/结清痕迹的已合并成员：进一步弱化并附标注。
+    final isTraceOnly = item.isMerged && !item.hasTimingRecord;
+    final color = isTraceOnly
+        ? TimingColors.textSecondary.withValues(alpha: 0.7)
+        : (disabled ? TimingColors.textSecondary : AppColors.textPrimary);
     final textStyle = AppTypography.body(
       context,
       fontSize: 15,
       color: color,
       fontWeight: FontWeight.w400,
     );
+    final note = item.note;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -271,7 +276,7 @@ class _MergeProjectRow extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    item.displayName,
+                    note == null ? item.displayName : '${item.displayName}（$note）',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textStyle,
