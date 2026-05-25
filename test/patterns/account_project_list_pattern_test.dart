@@ -6,6 +6,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('empty hint uses larger account text and lower placement', (
+    tester,
+  ) async {
+    const emptyText = '暂无外协项目（未关联外协包导入后将自动出现）';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [],
+            onTap: (_) {},
+            emptyText: emptyText,
+          ),
+        ),
+      ),
+    );
+
+    final emptyHint = tester.widget<Text>(find.text(emptyText));
+    expect(emptyHint.style?.fontSize, 16);
+    expect(tester.getTopLeft(find.text(emptyText)).dy, greaterThan(40));
+  });
+
   testWidgets('renders total hours in bold on account project cards', (
     tester,
   ) async {
@@ -736,6 +758,45 @@ void main() {
     expect(find.text('项目(5)'), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFECECEC)), findsNothing);
     expect(_densityLinesWithColor(AppColors.textPrimary), findsNWidgets(3));
+  });
+
+  testWidgets('project action buttons keep size and use stronger weight', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              AccountProjectMergeButton(onPressed: _noop),
+              AccountProjectFilterButton(
+                hasActiveFilter: false,
+                onOpenFilter: _noop,
+                onClearFilter: _noop,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final mergeText = tester.widget<Text>(find.text('合并'));
+    final filterText = tester.widget<Text>(find.text('筛选'));
+    final mergeIcon = tester.widget<Icon>(
+      find.byIcon(Icons.call_merge_outlined),
+    );
+    final filterIcon = tester.widget<Icon>(
+      find.byIcon(Icons.filter_alt_outlined),
+    );
+
+    expect(mergeText.style?.fontSize, 15);
+    expect(mergeText.style?.fontWeight, FontWeight.w600);
+    expect(filterText.style?.fontSize, 15);
+    expect(filterText.style?.fontWeight, FontWeight.w600);
+    expect(mergeIcon.size, 16);
+    expect(mergeIcon.weight, 700);
+    expect(filterIcon.size, 16);
+    expect(filterIcon.weight, 700);
   });
 }
 

@@ -23,6 +23,8 @@ const double _externalWorkCardTopPadding =
     _externalWorkAvatarTopInset - AccountTokens.projectCardBorderWidth;
 const double _externalWorkCardBottomPadding = 6;
 const double _externalWorkCardMetricTopGap = 12;
+const double _accountProjectEmptyTopPadding = 48;
+const double _accountProjectEmptyBottomPadding = 24;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
 const String _settledCelebrationIconAsset =
     'assets/icons/account/settled_celebration.png';
@@ -272,7 +274,7 @@ class AccountProjectList extends StatelessWidget {
   Widget build(BuildContext context) {
     final emptyStyle = AppTypography.bodySecondary(
       context,
-      fontSize: 14,
+      fontSize: 16,
       color: TimingColors.textSecondary,
     );
     final titleStyle = AppTypography.sectionTitle(
@@ -313,7 +315,10 @@ class AccountProjectList extends StatelessWidget {
 
     if (projects.isEmpty && externalWorkProjects.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        padding: const EdgeInsets.only(
+          top: _accountProjectEmptyTopPadding,
+          bottom: _accountProjectEmptyBottomPadding,
+        ),
         child: Center(child: Text(emptyText, style: emptyStyle)),
       );
     }

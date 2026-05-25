@@ -633,7 +633,7 @@ class _ExternalWorkHeaderActionButton extends StatelessWidget {
     final textStyle = AppTypography.actionText(
       context,
       fontSize: 15,
-      fontWeight: FontWeight.w400,
+      fontWeight: FontWeight.w600,
       height: 1,
       color: color,
     );
@@ -652,7 +652,7 @@ class _ExternalWorkHeaderActionButton extends StatelessWidget {
         children: [
           Text(label, style: textStyle),
           const SizedBox(width: 2),
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 16, color: color, weight: 700),
         ],
       ),
     );
