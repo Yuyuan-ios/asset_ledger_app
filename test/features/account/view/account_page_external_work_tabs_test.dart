@@ -70,7 +70,7 @@ void main() {
 
       expect(find.text('项目(1)'), findsOneWidget);
       expect(find.text('外协项目(1)'), findsNothing);
-      expect(find.text('李杰 + 新村').hitTestable(), findsOneWidget);
+      expect(find.text('李杰•新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
       expect(find.text('余远+鲜滩+尚义').hitTestable(), findsNothing);
       expect(find.text('王强+已关联工地'), findsNothing);
@@ -85,7 +85,7 @@ void main() {
       // 已关联外协包仍显示在外协页 → 共 2 个外协卡片（含链条角标）。
       expect(find.text('外协项目(2)'), findsOneWidget);
       expect(find.text('项目(1)'), findsNothing);
-      expect(find.text('李杰 + 新村').hitTestable(), findsNothing);
+      expect(find.text('李杰•新村').hitTestable(), findsNothing);
       expect(find.text('外协项目').hitTestable(), findsNothing);
       expect(find.text('余远+鲜滩+尚义').hitTestable(), findsOneWidget);
       expect(find.text('王强+已关联工地').hitTestable(), findsOneWidget);
@@ -109,7 +109,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('项目(1)'), findsOneWidget);
-      expect(find.text('李杰 + 新村').hitTestable(), findsOneWidget);
+      expect(find.text('李杰•新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
     },
   );

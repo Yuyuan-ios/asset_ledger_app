@@ -88,6 +88,7 @@ class AccountProjectVM {
 
   final List<int> deviceIds;
   final Map<int, double> hoursByDevice;
+  final double externalWorkHours;
   final double rentIncomeTotal;
 
   final double? minRate;
@@ -116,6 +117,7 @@ class AccountProjectVM {
     required this.minYmd,
     required this.deviceIds,
     required this.hoursByDevice,
+    this.externalWorkHours = 0,
     required this.rentIncomeTotal,
     required this.minRate,
     required this.isMultiDevice,
@@ -142,6 +144,7 @@ class AccountProjectVM {
     double? remaining,
     double? ratio,
     double? settlementRatio,
+    double? externalWorkHours,
   }) {
     return AccountProjectVM(
       projectId: projectId,
@@ -156,6 +159,7 @@ class AccountProjectVM {
       minYmd: minYmd,
       deviceIds: deviceIds,
       hoursByDevice: hoursByDevice,
+      externalWorkHours: externalWorkHours ?? this.externalWorkHours,
       rentIncomeTotal: rentIncomeTotal,
       minRate: minRate,
       isMultiDevice: isMultiDevice,

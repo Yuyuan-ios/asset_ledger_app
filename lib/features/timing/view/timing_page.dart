@@ -173,50 +173,58 @@ class _TimingPageState extends State<TimingPage> {
     final packages = <ExternalWorkLinkPackage>[];
     for (final batchId in order) {
       final batchItems = byBatch[batchId]!;
-      final sourceName = batchItems.first.displayName;
-      final siteSummary = externalWorkLinkSiteSummary(
-        batchItems.map((item) => item.record.siteSnapshot),
-      );
-      final optionTitle = siteSummary.isEmpty
-          ? sourceName
-          : '$sourceName · $siteSummary';
-
-      final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
-      final totalHoursMilli = batchItems.fold<int>(
-        0,
-        (sum, item) => sum + item.record.hoursMilli,
-      );
-      final summaryDetail = [
-        if (equipment.isNotEmpty) equipment,
-        '${batchItems.length}条记录',
-        '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
-      ].join(' · ');
-
-      // 已关联态：仅读现有 linkedProjectId（本阶段不写）。
-      final linkedProjectId = batchItems
-          .map((item) => item.record.linkedProjectId?.trim() ?? '')
-          .firstWhere((id) => id.isNotEmpty, orElse: () => '');
-      String? linkedTitle;
-      if (linkedProjectId.isNotEmpty) {
-        for (final candidate in candidates) {
-          if (candidate.projectId == linkedProjectId) {
-            linkedTitle = candidate.title;
-            break;
-          }
-        }
-        linkedTitle ??= '已关联项目';
-      }
-
       packages.add(
-        ExternalWorkLinkPackage(
-          batchId: batchId,
-          optionTitle: optionTitle,
-          summaryDetail: summaryDetail,
-          linkedProjectTitle: linkedTitle,
-        ),
+        _buildExternalWorkLinkPackage(batchId, batchItems, candidates),
       );
     }
     return packages;
+  }
+
+  ExternalWorkLinkPackage _buildExternalWorkLinkPackage(
+    String batchId,
+    List<TimingExternalWorkRecordItem> batchItems,
+    List<ExternalWorkLinkCandidate> candidates,
+  ) {
+    final sourceName = batchItems.first.displayName;
+    final siteSummary = externalWorkLinkSiteSummary(
+      batchItems.map((item) => item.record.siteSnapshot),
+    );
+    final optionTitle = siteSummary.isEmpty
+        ? sourceName
+        : '$sourceName · $siteSummary';
+
+    final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
+    final totalHoursMilli = batchItems.fold<int>(
+      0,
+      (sum, item) => sum + item.record.hoursMilli,
+    );
+    final summaryDetail = [
+      if (equipment.isNotEmpty) equipment,
+      '${batchItems.length}条记录',
+      '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
+    ].join(' · ');
+
+    // 已关联态：仅读现有 linkedProjectId（本阶段不写）。
+    final linkedProjectId = batchItems
+        .map((item) => item.record.linkedProjectId?.trim() ?? '')
+        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+    String? linkedTitle;
+    if (linkedProjectId.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (candidate.projectId == linkedProjectId) {
+          linkedTitle = candidate.title;
+          break;
+        }
+      }
+      linkedTitle ??= '已关联项目';
+    }
+
+    return ExternalWorkLinkPackage(
+      batchId: batchId,
+      optionTitle: optionTitle,
+      summaryDetail: summaryDetail,
+      linkedProjectTitle: linkedTitle,
+    );
   }
 
   List<ExternalWorkLinkCandidate> _buildExternalWorkLinkCandidates() {
@@ -572,6 +580,11 @@ class _TimingPageState extends State<TimingPage> {
     TimingExternalWorkRecordItem item,
   ) async {
     final detailItems = _externalWorkDetailItems(item);
+    final detailPackage = _buildExternalWorkLinkPackage(
+      item.record.importBatchId,
+      detailItems,
+      _buildExternalWorkLinkCandidates(),
+    );
     await showAppBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
@@ -592,6 +605,13 @@ class _TimingPageState extends State<TimingPage> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
                 unawaited(_openExternalWorkLinkSheet());
+              });
+            },
+            onUnlinkProject: () {
+              Navigator.of(sheetContext).pop();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                unawaited(_unlinkExternalWork(detailPackage));
               });
             },
           ),
