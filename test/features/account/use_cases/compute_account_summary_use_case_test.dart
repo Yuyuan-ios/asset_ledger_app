@@ -233,6 +233,46 @@ void main() {
       expect(result.projects.single.remaining, 0);
     });
 
+    test(
+      'does not mark zero-receivable active projects settled for display',
+      () {
+        const useCase = ComputeAccountSummaryUseCase();
+
+        final result = useCase.execute(
+          timingRecords: const [
+            TimingRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260103,
+              contact: '李洋',
+              site: '万达',
+              type: TimingType.hours,
+              startMeter: 100,
+              endMeter: 102,
+              hours: 2,
+              income: 0,
+            ),
+          ],
+          devices: const [
+            Device(
+              id: 1,
+              name: 'SANY 1#',
+              brand: 'SANY',
+              defaultUnitPrice: 0,
+              baseMeterHours: 0,
+            ),
+          ],
+          rates: const [],
+          payments: const [],
+        );
+
+        expect(result.projects.single.receivable, 0);
+        expect(result.projects.single.remaining, 0);
+        expect(result.projects.single.isSettled, isFalse);
+        expect(result.projects.single.isSettledForDisplay, isFalse);
+      },
+    );
+
     test('includes rent income in total receivable and device receivables', () {
       const useCase = ComputeAccountSummaryUseCase();
 
