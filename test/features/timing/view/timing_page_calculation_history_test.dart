@@ -835,42 +835,40 @@ void main() {
     },
   );
 
-  testWidgets(
-    'keeps merge group after editing project address on same projectId',
-    (WidgetTester tester) async {
-      final timingRepository = _FakeTimingRepository(seed: [_record()]);
-      final mergeRepository = _FakeAccountProjectMergeRepository(
-        group: _mergeGroup(),
-        members: _mergeMembers(),
-      );
+  testWidgets('dissolves merge group after editing project address', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+    final mergeRepository = _FakeAccountProjectMergeRepository(
+      group: _mergeGroup(),
+      members: _mergeMembers(),
+    );
 
-      await _pumpTimingPage(
-        tester,
-        timingRepository: timingRepository,
-        historyRepository: _FakeCalculationHistoryRepository(),
-        mergeRepository: mergeRepository,
-      );
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      mergeRepository: mergeRepository,
+    );
 
-      await tester.tap(find.text('甲方 · 一号工地'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('甲方 · 一号工地'));
+    await tester.pumpAndSettle();
 
-      await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
-      await tester.tap(find.widgetWithText(FilledButton, '确定'));
-      await tester.pumpAndSettle();
+    await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
 
-      expect(timingRepository.saveCalls, 1);
-      expect(timingRepository.savedRecords.single.site, '一号工地新址');
-      expect(mergeRepository.dissolvedGroupIds, isEmpty);
-      expect(mergeRepository.group?.isActive, isTrue);
-      expect(
-        mergeRepository.members.every((member) => member.isActive),
-        isTrue,
-      );
-    },
-  );
+    expect(timingRepository.saveCalls, 1);
+    final saved = timingRepository.savedRecords.single;
+    expect(saved.site, '一号工地新址');
+    expect(saved.projectId, startsWith('project:'));
+    expect(mergeRepository.dissolvedGroupIds, [1]);
+    expect(mergeRepository.group?.isActive, isFalse);
+    expect(mergeRepository.members.every((member) => member.isActive), isFalse);
+  });
 
   testWidgets(
-    'does not show dissolve retry when only project attributes change',
+    'shows dissolve retry when project identity changes and dissolve fails',
     (WidgetTester tester) async {
       final timingRepository = _FakeTimingRepository(seed: [_record()]);
       final mergeRepository = _FakeAccountProjectMergeRepository(
@@ -896,6 +894,14 @@ void main() {
       expect(timingRepository.saveCalls, 1);
       expect(mergeRepository.dissolvedGroupIds, isEmpty);
       expect(mergeRepository.group?.isActive, isTrue);
+      expect(find.text('合并项目未解除'), findsOneWidget);
+      expect(find.text('编辑计时'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试解除'));
+      await tester.pumpAndSettle();
+
+      expect(mergeRepository.dissolvedGroupIds, [1]);
+      expect(mergeRepository.group?.isActive, isFalse);
       expect(find.text('合并项目未解除'), findsNothing);
       expect(find.text('编辑计时'), findsNothing);
     },
