@@ -142,7 +142,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     );
     final externalWorkRows = buildAccountProjectExternalWorkDetailRows(
       externalWorkItems: allExternalWorkItems,
-      projectIdentityIds: _projectIdentityIds(project),
+      projectIdentityIds: _externalWorkTargetProjectIds(project),
     );
     if (project.kind == AccountProjectKind.merged) {
       final detailRows = _buildMergedDetailRows(project);
@@ -334,6 +334,22 @@ class AccountProjectDetailSheet extends StatelessWidget {
       if (project.kind == AccountProjectKind.merged)
         ...project.memberProjectIds.map((id) => id.trim()),
     }..removeWhere((id) => id.isEmpty);
+  }
+
+  /// 外协设备明细的目标 projectId 集合。
+  ///
+  /// 合并项目只使用真实的 [AccountProjectVM.memberProjectIds]，绝不能匹配合成
+  /// 的 `merge:<groupId>`（这种 id 不会出现在 [ExternalWorkRecord.linkedProjectId]
+  /// 上）。普通项目用 [AccountProjectVM.effectiveProjectId]。
+  Set<String> _externalWorkTargetProjectIds(AccountProjectVM project) {
+    if (project.kind == AccountProjectKind.merged) {
+      return project.memberProjectIds
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    }
+    final normalized = project.effectiveProjectId.trim();
+    return normalized.isEmpty ? const <String>{} : {normalized};
   }
 
   List<ProjectAccountDetailRateRow> _buildMergedDetailRows(

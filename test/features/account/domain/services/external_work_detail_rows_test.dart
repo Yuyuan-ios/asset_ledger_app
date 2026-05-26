@@ -10,6 +10,7 @@ void main() {
     String sourceDisplayName = '余远',
     String siteSummary = '五里山',
     String importedAt = '2026-05-15T08:00:00.000Z',
+    ExternalImportBatchStatus status = ExternalImportBatchStatus.active,
   }) {
     return ExternalImportBatch(
       id: id,
@@ -22,6 +23,7 @@ void main() {
       importedAt: importedAt,
       createdAt: importedAt,
       updatedAt: importedAt,
+      status: status,
     );
   }
 
@@ -185,5 +187,44 @@ void main() {
 
     expect(out, hasLength(1));
     expect(out.first.equipmentSummary, 'ZX200');
+  });
+
+  test('skips records whose batch is not active', () {
+    final archivedBatch = batch(
+      id: 'batch-archived',
+      status: ExternalImportBatchStatus.archived,
+    );
+    final activeBatch = batch(id: 'batch-active');
+    final items = [
+      item(
+        record(id: 'r-archived-batch', importBatchId: 'batch-archived'),
+        b: archivedBatch,
+      ),
+      item(
+        record(id: 'r-active-batch', importBatchId: 'batch-active'),
+        b: activeBatch,
+      ),
+    ];
+
+    final out = buildAccountProjectExternalWorkDetailRows(
+      externalWorkItems: items,
+      projectIdentityIds: const {'project:abc'},
+    );
+
+    expect(out, hasLength(1));
+    expect(out.first.importBatchId, 'batch-active');
+  });
+
+  test('skips records when batch is missing entirely', () {
+    final items = [
+      item(record(id: 'r-no-batch')),
+    ];
+
+    final out = buildAccountProjectExternalWorkDetailRows(
+      externalWorkItems: items,
+      projectIdentityIds: const {'project:abc'},
+    );
+
+    expect(out, isEmpty);
   });
 }

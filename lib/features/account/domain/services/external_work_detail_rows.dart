@@ -1,3 +1,4 @@
+import '../../../../data/models/external_import_batch.dart';
 import '../../../../data/models/external_work_record.dart';
 import '../../../timing/state/timing_external_work_store.dart';
 import 'external_work_receivable.dart';
@@ -56,6 +57,9 @@ List<AccountProjectExternalWorkDetailRow> buildAccountProjectExternalWorkDetailR
   for (final item in externalWorkItems) {
     final record = item.record;
     if (record.status != ExternalWorkRecordStatus.active) continue;
+    // 与 rollupExternalWorkReceivable 对齐：只看 active batch；batch 缺失
+    // （旧库 / 异常数据）一并跳过，避免详情明细与卡片/总额口径不一致。
+    if (item.batch?.status != ExternalImportBatchStatus.active) continue;
     final linked = record.linkedProjectId?.trim() ?? '';
     if (linked.isEmpty || !normalizedTargetIds.contains(linked)) continue;
 

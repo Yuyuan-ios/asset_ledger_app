@@ -1047,6 +1047,170 @@ void main() {
       expect(find.text('外协设备'), findsNothing);
     },
   );
+
+  testWidgets(
+    'merged project ignores external work linked to synthetic merge id',
+    (tester) async {
+      final merged = mergedProject();
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: 'merge:1',
+          computed: AccountComputed(
+            projects: [merged],
+            totalReceivable: 10000,
+            totalReceived: 5000,
+            totalRemaining: 5000,
+            totalRatio: 0.5,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onDissolveMergeGroup: (_) async {},
+          onAddMergedPayment: (_) async {},
+          // linkedProjectId 写成合成的 merge:1 / merge:<groupId>，详情绝不应
+          // 把这种外协包视作合并项目下任何成员的明细。
+          externalWorkItems: [
+            _externalItem(
+              recordId: 'r-synthetic',
+              batchId: 'batch-synthetic',
+              linkedProjectId: 'merge:1',
+              site: '尚义',
+              sourceDisplayName: '余远',
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('本地设备'), findsNWidgets(2));
+      expect(find.text('外协设备'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'merged project without memberProjectIds shows no external work',
+    (tester) async {
+      final base = mergedProject();
+      final merged = AccountProjectVM(
+        projectId: base.effectiveProjectId,
+        projectKey: base.projectKey,
+        displayName: base.displayName,
+        kind: base.kind,
+        mergeGroupId: base.mergeGroupId,
+        memberProjectKeys: base.memberProjectKeys,
+        memberProjectIds: const [],
+        includedSites: base.includedSites,
+        includedSitesText: base.includedSitesText,
+        minYmd: base.minYmd,
+        deviceIds: base.deviceIds,
+        hoursByDevice: base.hoursByDevice,
+        rentIncomeTotal: base.rentIncomeTotal,
+        minRate: base.minRate,
+        isMultiDevice: base.isMultiDevice,
+        isMultiMode: base.isMultiMode,
+        receivable: base.receivable,
+        received: base.received,
+        remaining: base.remaining,
+        ratio: base.ratio,
+        payments: base.payments,
+      );
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: merged.projectKey,
+          computed: AccountComputed(
+            projects: [merged],
+            totalReceivable: merged.receivable,
+            totalReceived: merged.received,
+            totalRemaining: merged.remaining,
+            totalRatio: merged.ratio ?? 0,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onDissolveMergeGroup: (_) async {},
+          onAddMergedPayment: (_) async {},
+          externalWorkItems: [
+            _externalItem(
+              recordId: 'r-shangyi',
+              batchId: 'batch-shangyi',
+              linkedProjectId: 'project:shangyi',
+              site: '尚义',
+              sourceDisplayName: '余远',
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('外协设备'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'archived external work batch is hidden from project detail',
+    (tester) async {
+      const linkedProjectId = 'project:linked-normal';
+      final normalKey = ProjectKey.buildKey(contact: '李洋', site: '天眉乐');
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectId: linkedProjectId,
+          projectKey: normalKey,
+          computed: AccountComputed(
+            projects: [
+              AccountProjectVM(
+                projectId: linkedProjectId,
+                projectKey: normalKey,
+                displayName: '李洋 · 天眉乐',
+                hasLinkedExternalWork: true,
+                minYmd: 20260501,
+                deviceIds: const [1],
+                hoursByDevice: const {1: 8.1},
+                rentIncomeTotal: 0,
+                minRate: 180,
+                isMultiDevice: false,
+                isMultiMode: false,
+                receivable: 2718,
+                received: 0,
+                remaining: 2718,
+                ratio: 0,
+                payments: const [],
+              ),
+            ],
+            totalReceivable: 2718,
+            totalReceived: 0,
+            totalRemaining: 2718,
+            totalRatio: 0,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          externalWorkItems: [
+            _externalItem(
+              recordId: 'r-archived',
+              batchId: 'batch-archived',
+              linkedProjectId: linkedProjectId,
+              site: '天眉乐',
+              sourceDisplayName: '余远',
+              brand: 'Hitachi',
+              batchStatus: ExternalImportBatchStatus.archived,
+            ),
+            _externalItem(
+              recordId: 'r-active',
+              batchId: 'batch-active',
+              linkedProjectId: linkedProjectId,
+              site: '天眉乐',
+              sourceDisplayName: '余远',
+              brand: 'Sany',
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      // 只保留 active batch；archived batch 不出现在外协设备明细中。
+      expect(find.text('外协设备'), findsOneWidget);
+      expect(find.text('Sany·1条记录'), findsOneWidget);
+      expect(find.text('Hitachi·1条记录'), findsNothing);
+    },
+  );
 }
 
 TimingExternalWorkRecordItem _externalItem({
@@ -1060,6 +1224,7 @@ TimingExternalWorkRecordItem _externalItem({
   int amountFen = 12600,
   int sourceUnitPriceFen = 18000,
   String importedAt = '2026-05-15T08:00:00.000Z',
+  ExternalImportBatchStatus batchStatus = ExternalImportBatchStatus.active,
 }) {
   final batch = ExternalImportBatch(
     id: batchId,
@@ -1072,6 +1237,7 @@ TimingExternalWorkRecordItem _externalItem({
     importedAt: importedAt,
     createdAt: importedAt,
     updatedAt: importedAt,
+    status: batchStatus,
   );
   final record = ExternalWorkRecord(
     id: recordId,
