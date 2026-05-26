@@ -226,9 +226,13 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('李杰 · 合并2项目'), findsOneWidget);
+      // 标题拆分为独立的 Text，方便各自省略。
+      expect(find.text('李杰'), findsOneWidget);
+      expect(find.text('合并2项目'), findsOneWidget);
       expect(find.text('尚义'), findsWidgets);
       expect(find.text('鲜滩'), findsWidgets);
+      // 合并项目下每个地址块都展示 "⚙ 本地设备" 标签。
+      expect(find.text('本地设备'), findsNWidgets(2));
       expect(find.text('HITACHI 1#'), findsNWidgets(2));
       expect(find.text('SANY 1#'), findsOneWidget);
       expect(find.text('64.9 h'), findsOneWidget);
@@ -373,9 +377,12 @@ void main() {
       ),
     );
 
-    expect(find.text('李杰 · 尚义'), findsOneWidget);
-    expect(find.text('尚义'), findsNothing);
-    expect(find.text('设备'), findsOneWidget);
+    // 标题拆分为独立的 Text 元素，方便各自省略。
+    expect(find.text('李杰'), findsOneWidget);
+    // 普通项目标题已展示地址，"⚙ 本地设备" 区块不再重复地址。
+    expect(find.text('尚义'), findsOneWidget);
+    expect(find.text('设备'), findsNothing);
+    expect(find.text('本地设备'), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
     expect(find.byIcon(Icons.location_on_outlined), findsNothing);
     expect(find.text('批量修改'), findsOneWidget);
@@ -442,7 +449,9 @@ void main() {
       ),
     );
 
-    expect(find.text('李洋 · 天眉乐'), findsOneWidget);
+    // 标题拆分为独立的 Text，验证两部分都被渲染。
+    expect(find.text('李洋'), findsOneWidget);
+    expect(find.text('天眉乐'), findsOneWidget);
     expect(find.textContaining('+ 关联'), findsNothing);
     expect(find.byTooltip('已关联外协记录'), findsOneWidget);
   });

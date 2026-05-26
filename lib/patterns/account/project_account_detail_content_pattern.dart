@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../components/avatars/linked_external_work_badge.dart';
+import '../../components/layout/name_site_inline_text.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
@@ -23,6 +24,7 @@ const _projectActionPillBackground = Color(0xFFF5F2EE);
 const _projectActionPillBorder = Color(0xFFD8C8B8);
 const _projectActionPillText = Color(0xFF7A5A3A);
 const _moneyEpsilon = 0.000001;
+const _localDeviceLabel = '本地设备';
 
 class ProjectAccountDetailRateRow {
   final String projectKey;
