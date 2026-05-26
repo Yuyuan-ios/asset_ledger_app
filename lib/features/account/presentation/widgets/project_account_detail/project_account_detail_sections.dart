@@ -23,7 +23,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
       // 合并项目：每个新地址块都要重新出现 "📍 地址  ⚙ 本地设备" 标题。
       // 普通项目：标题只在首行展示一次。
-      final showHeader = isMergedProject ? isNewSiteBlock : !hasShownLocalDeviceHeader;
+      final showHeader = isMergedProject
+          ? isNewSiteBlock
+          : !hasShownLocalDeviceHeader;
       final headerSite = _headerSiteName(
         isMergedProject: isMergedProject,
         projectTitle: title,
@@ -67,21 +69,30 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
             Row(
               children: [
                 Expanded(
-                  child: NameSiteInlineText(
-                    name: titleParts.$1,
-                    site: titleParts.$2,
-                    nameStyle: projectNameStyle,
-                    siteStyle: projectNameStyle,
-                    separatorStyle: projectNameStyle,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: NameSiteInlineText(
+                          name: titleParts.$1,
+                          site: titleParts.$2,
+                          nameStyle: projectNameStyle,
+                          siteStyle: projectNameStyle,
+                          separatorStyle: projectNameStyle,
+                        ),
+                      ),
+                      if (hasLinkedExternalWork) ...[
+                        const SizedBox(width: 6),
+                        const LinkedExternalWorkBadge(
+                          key: Key(
+                            'account-project-detail-linked-external-work',
+                          ),
+                          borderColor: SheetColors.background,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (hasLinkedExternalWork) ...[
-                  const SizedBox(width: 6),
-                  const LinkedExternalWorkBadge(
-                    key: Key('account-project-detail-linked-external-work'),
-                    borderColor: SheetColors.background,
-                  ),
-                ],
                 if (showBatchAction) ...[
                   const SizedBox(width: AppSpace.sm),
                   _buildProjectActionPill(actionStyle: actionStyle),
