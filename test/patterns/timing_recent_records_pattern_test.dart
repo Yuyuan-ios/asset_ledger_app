@@ -43,6 +43,8 @@ void main() {
 
     final indexText = tester.widget<Text>(find.text('1#'));
     expect(indexText.style?.fontWeight, FontWeight.w700);
+    expect(find.text('赵六 · 尚义'), findsOneWidget);
+    expect(find.text('赵六·尚义'), findsNothing);
     expect(find.textContaining('条记录', findRichText: true), findsNothing);
   });
 
@@ -97,7 +99,10 @@ void main() {
     expect(countSpan.style?.fontWeight, FontWeight.w400);
     expect(countSpan.style?.height, 1);
 
-    await tester.tap(find.text('李洋·天眉乐'));
+    expect(find.text('李洋 · 天眉乐'), findsOneWidget);
+    expect(find.text('李洋·天眉乐'), findsNothing);
+
+    await tester.tap(find.text('李洋 · 天眉乐'));
     await tester.pump();
 
     expect(find.text('8.0 h'), findsOneWidget);
@@ -164,6 +169,8 @@ void main() {
     );
 
     expect(find.textContaining('3条记录', findRichText: true), findsOneWidget);
+    expect(find.text('王强 · 五里山'), findsOneWidget);
+    expect(find.text('王强·五里山'), findsNothing);
     expect(find.textContaining('工时调整', findRichText: true), findsNothing);
     expect(find.text('误差 0.0，累计 16.0 h'), findsOneWidget);
   });

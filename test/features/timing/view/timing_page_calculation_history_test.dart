@@ -50,7 +50,7 @@ void main() {
 
     await _pumpTimingPage(tester, historyRepository: historyRepository);
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
 
     expect(historyRepository.findCalls, [7]);
@@ -95,7 +95,7 @@ void main() {
       historyRepository: historyRepository,
     );
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
 
     expect(historyRepository.findCalls, isEmpty);
@@ -112,7 +112,7 @@ void main() {
 
     await _pumpTimingPage(tester, historyRepository: historyRepository);
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
 
     expect(historyRepository.findCalls, [7]);
@@ -131,7 +131,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('关闭'));
     await tester.pumpAndSettle();
@@ -164,7 +164,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
 
     final deleteButton = tester.widget<TextButton>(
@@ -187,7 +187,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, '删除本记录'));
     await tester.pumpAndSettle();
@@ -200,7 +200,7 @@ void main() {
 
     expect(timingRepository.deletedIds, isEmpty);
     expect(find.text('编辑计时'), findsOneWidget);
-    expect(find.text('甲方·一号工地'), findsOneWidget);
+    expect(find.text('甲方 · 一号工地'), findsOneWidget);
   });
 
   testWidgets('editing delete confirmation removes record and closes sheet', (
@@ -214,7 +214,7 @@ void main() {
       historyRepository: _FakeCalculationHistoryRepository(),
     );
 
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, '删除本记录'));
     await tester.pumpAndSettle();
@@ -223,7 +223,7 @@ void main() {
 
     expect(timingRepository.deletedIds, [7]);
     expect(find.text('编辑计时'), findsNothing);
-    expect(find.text('甲方·一号工地'), findsNothing);
+    expect(find.text('甲方 · 一号工地'), findsNothing);
   });
 
   testWidgets('recent timing records no longer expose swipe delete', (
@@ -248,7 +248,7 @@ void main() {
     expect(find.text('最近记录(1)'), findsOneWidget);
     expect(find.text('最近记录'), findsNothing);
     expect(find.text('外协项目'), findsNothing);
-    expect(find.text('甲方·一号工地'), findsOneWidget);
+    expect(find.text('甲方 · 一号工地'), findsOneWidget);
     expect(find.text('暂无外协项目记录'), findsNothing);
   });
 
@@ -293,7 +293,7 @@ void main() {
     expect(find.text('导入外协项目包'), findsNothing);
     expect(find.text('暂无外协项目记录'), findsOneWidget);
     expect(find.text('从他人分享的 .jzt 文件导入后，会显示在这里'), findsOneWidget);
-    expect(find.text('甲方·一号工地'), findsNothing);
+    expect(find.text('甲方 · 一号工地'), findsNothing);
   });
 
   testWidgets('external work section reserves space above bottom tab bar', (
@@ -329,7 +329,7 @@ void main() {
     expect(find.text('关联'), findsNothing);
     expect(find.text('最近记录(1)'), findsOneWidget);
     expect(find.text('暂无外协项目记录'), findsNothing);
-    expect(find.text('甲方·一号工地'), findsOneWidget);
+    expect(find.text('甲方 · 一号工地'), findsOneWidget);
   });
 
   testWidgets('recent records remain editable after switching sections', (
@@ -342,7 +342,7 @@ void main() {
 
     await _switchToExternalWork(tester);
     await _switchToRecentRecords(tester);
-    await tester.tap(find.text('甲方·一号工地'));
+    await tester.tap(find.text('甲方 · 一号工地'));
     await tester.pumpAndSettle();
 
     expect(find.text('编辑计时'), findsOneWidget);
@@ -851,7 +851,7 @@ void main() {
         mergeRepository: mergeRepository,
       );
 
-      await tester.tap(find.text('甲方·一号工地'));
+      await tester.tap(find.text('甲方 · 一号工地'));
       await tester.pumpAndSettle();
 
       await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
@@ -886,7 +886,7 @@ void main() {
         mergeRepository: mergeRepository,
       );
 
-      await tester.tap(find.text('甲方·一号工地'));
+      await tester.tap(find.text('甲方 · 一号工地'));
       await tester.pumpAndSettle();
 
       await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
@@ -917,7 +917,7 @@ void main() {
         mergeRepository: mergeRepository,
       );
 
-      await tester.tap(find.text('甲方·一号工地'));
+      await tester.tap(find.text('甲方 · 一号工地'));
       await tester.pumpAndSettle();
 
       await tester.tap(_textFieldWithLabel('工时（小时）'));

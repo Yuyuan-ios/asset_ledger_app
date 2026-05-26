@@ -6,6 +6,7 @@ import '../../data/models/fuel_log.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
+import '../../core/utils/display_text_formatter.dart';
 import '../../core/utils/format_utils.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../timing/records_title_pattern.dart';
@@ -139,8 +140,10 @@ class FuelRecordsListContent extends StatelessWidget {
           _FuelRecordRow(
             log: flat[i],
             leadingBuilder: leadingBuilder,
-            titleBuilder: (l) =>
-                '${titleBuilder(l)}•${FormatUtils.date(l.date)}',
+            titleBuilder: (l) => DisplayTextFormatter.joinParts([
+              titleBuilder(l),
+              FormatUtils.date(l.date),
+            ]),
             subtitleBuilder: subtitleBuilder,
             onTap: () => onTap(flat[i]),
             onConfirmDelete: onConfirmDelete == null
