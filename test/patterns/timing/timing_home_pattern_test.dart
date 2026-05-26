@@ -108,7 +108,7 @@ void main() {
     expect(find.text('最近记录(2)'), findsOneWidget);
     expect(find.text('最近记录(3)'), findsNothing);
 
-    await tester.tap(find.text('李洋·天眉乐'));
+    await tester.tap(find.text('李洋 · 天眉乐'));
     await tester.pumpAndSettle();
 
     expect(find.text('最近记录(2)'), findsOneWidget);
@@ -201,9 +201,9 @@ void main() {
       find.byKey(const Key('timing-recent-device-filter-label')),
     );
     expect(selectedLabel.data, 'HITACHI 1#');
-    expect(find.text('张三·天眉乐'), findsOneWidget);
-    expect(find.text('李四·尚义'), findsOneWidget);
-    expect(find.text('王强·五里山'), findsNothing);
+    expect(find.text('张三 · 天眉乐'), findsOneWidget);
+    expect(find.text('李四 · 尚义'), findsOneWidget);
+    expect(find.text('王强 · 五里山'), findsNothing);
 
     await tester.tap(
       find.byKey(const Key('timing-recent-device-filter-button')),
@@ -219,7 +219,7 @@ void main() {
       find.byKey(const Key('timing-recent-device-filter-label')),
       findsNothing,
     );
-    expect(find.text('王强·五里山'), findsOneWidget);
+    expect(find.text('王强 · 五里山'), findsOneWidget);
   });
 
   testWidgets('empty external work header shows import only', (tester) async {

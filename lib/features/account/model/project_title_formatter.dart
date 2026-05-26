@@ -1,3 +1,4 @@
+import '../../../core/utils/display_text_formatter.dart';
 import '../../../data/models/project_key.dart';
 
 /// Centralized user-visible project title formatting.
@@ -7,18 +8,16 @@ import '../../../data/models/project_key.dart';
 class ProjectTitleFormatter {
   const ProjectTitleFormatter._();
 
-  static const String separator = ' · ';
+  static const String separator = DisplayTextFormatter.separator;
   static const String unnamedProject = '未命名项目';
 
   static String project({required String contact, required String site}) {
     final normalizedContact = contact.trim();
     final normalizedSite = site.trim();
-    if (normalizedContact.isEmpty && normalizedSite.isEmpty) {
-      return unnamedProject;
-    }
-    if (normalizedContact.isEmpty) return normalizedSite;
-    if (normalizedSite.isEmpty) return normalizedContact;
-    return '$normalizedContact$separator$normalizedSite';
+    return DisplayTextFormatter.joinParts([
+      normalizedContact,
+      normalizedSite,
+    ], fallback: unnamedProject);
   }
 
   static String fromProjectKey(String projectKey) {
@@ -29,8 +28,7 @@ class ProjectTitleFormatter {
   static String merged({required String contact, required int count}) {
     final label = mergedLabel(count);
     final normalizedContact = contact.trim();
-    if (normalizedContact.isEmpty) return label;
-    return '$normalizedContact$separator$label';
+    return DisplayTextFormatter.joinParts([normalizedContact, label]);
   }
 
   static String mergedLabel(int count) {

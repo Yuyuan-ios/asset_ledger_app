@@ -8,6 +8,7 @@ import '../../core/utils/format_utils.dart';
 import '../../components/avatars/app_device_avatar.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../../components/layout/pinned_header_delegate.dart';
+import '../../features/account/model/project_title_formatter.dart';
 
 part 'timing_recent_records_slivers.dart';
 
@@ -546,7 +547,11 @@ class _RecordRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        titleOverride ?? '${record.contact}·${record.site}',
+                        titleOverride ??
+                            ProjectTitleFormatter.project(
+                              contact: record.contact,
+                              site: record.site,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle,
