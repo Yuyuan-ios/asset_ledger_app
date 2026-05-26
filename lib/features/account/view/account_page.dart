@@ -44,6 +44,8 @@ import '../../../features/account/state/account_payment_store.dart';
 import '../../../features/account/state/account_filter_store.dart';
 import '../../../features/account/state/account_store.dart';
 import '../../../features/device/state/device_store.dart';
+import '../../../features/fuel/state/fuel_store.dart';
+import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
 import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
@@ -881,6 +883,8 @@ class _AccountPageState extends State<AccountPage>
     final accountStore = context.watch<AccountStore>();
     final filterStore = context.watch<AccountFilterStore>();
     final externalWorkStore = context.watch<TimingExternalWorkStore?>();
+    final fuelStore = context.watch<FuelStore?>();
+    final maintenanceStore = context.watch<MaintenanceStore?>();
 
     final viewData = buildAccountPageViewData(
       timingStore: timingStore,
@@ -890,6 +894,8 @@ class _AccountPageState extends State<AccountPage>
       accountStore: accountStore,
       filterStore: filterStore,
       externalWorkStore: externalWorkStore,
+      fuelStore: fuelStore,
+      maintenanceStore: maintenanceStore,
     );
 
     return Scaffold(
@@ -948,6 +954,7 @@ class _AccountPageState extends State<AccountPage>
                                 totalRemaining:
                                     viewData.computed.totalRemaining,
                                 totalRatio: viewData.computed.totalRatio,
+                                netCashReceived: viewData.netCashReceived,
                                 deviceReceivables:
                                     viewData.computed.deviceReceivables,
                               ),
