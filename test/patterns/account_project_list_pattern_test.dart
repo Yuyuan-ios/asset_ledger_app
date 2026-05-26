@@ -176,6 +176,44 @@ void main() {
     expect(progressWidthFactors.single, 1.0);
   });
 
+  testWidgets('zero total active project does not show settled display style', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'empty',
+      displayName: '李洋 · 天眉乐',
+      minYmd: 20260521,
+      deviceIds: [1],
+      hoursByDevice: {},
+      rentIncomeTotal: 0,
+      minRate: null,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 0,
+      received: 0,
+      remaining: 0,
+      ratio: null,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(projects: const [project], onTap: (_) {}),
+        ),
+      ),
+    );
+
+    expect(_settledCheckIcons(), findsNothing);
+    expect(_settledCelebrationIcons(), findsNothing);
+    expect(find.text('已结清'), findsNothing);
+    expect(find.text('余: ¥0 / ¥0'), findsOneWidget);
+
+    final progressWidthFactors = _progressWidthFactors(tester);
+    expect(progressWidthFactors, hasLength(1));
+    expect(progressWidthFactors.single, 0);
+  });
+
   testWidgets(
     'linked settled project shows chain and settled status in normal mode',
     (tester) async {

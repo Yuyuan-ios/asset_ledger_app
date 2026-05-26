@@ -368,7 +368,6 @@ AccountProjectVM _augmentProjectWithExternalWork(
     remaining: finance.remaining,
     externalWorkHours: project.externalWorkHours + externalHours,
     hasLinkedExternalWork: true,
-    isSettledForDisplay: project.isSettled || finance.isSettled,
     ratio: finance.cashRate,
     settlementRatio: finance.settlementRate,
   );
