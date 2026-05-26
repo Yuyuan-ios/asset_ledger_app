@@ -90,6 +90,7 @@ class AccountStore extends BaseStore {
     required List<AccountPayment> payments,
     List<AccountProjectMergeGroupWithMembers>? activeMergeGroups,
     List<ProjectWriteOff>? writeOffs,
+    Set<String>? settledProjectIds,
     int? summaryYear,
   }) {
     return _computeAccountSummaryUseCase.execute(
@@ -99,6 +100,7 @@ class AccountStore extends BaseStore {
       payments: payments,
       writeOffs: writeOffs ?? _writeOffs,
       activeMergeGroups: activeMergeGroups ?? _activeMergeGroups,
+      settledProjectIds: settledProjectIds ?? _settledProjectIds,
       summaryYear: summaryYear,
     );
   }

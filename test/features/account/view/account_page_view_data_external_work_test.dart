@@ -135,6 +135,48 @@ void main() {
       expect(augmented.totalRemaining, 1500 + 1800);
     });
 
+    test('keeps explicit settled state when adding linked external work', () {
+      final computed = _computed(
+        [
+          _project(
+            id: 'project:settled',
+            displayName: '李洋 · 天眉乐',
+            receivable: 1458,
+            received: 1458,
+            remaining: 0,
+            ratio: 1,
+            isSettled: true,
+          ),
+        ],
+        totalReceivable: 1458,
+        totalReceived: 1458,
+        totalRemaining: 0,
+        totalRatio: 1,
+      );
+
+      final rollup = rollupExternalWorkReceivable([
+        _item(
+          _imported(
+            id: 'linked',
+            batchId: 'batch-linked',
+            amountFen: 90000,
+            linkedProjectId: 'project:settled',
+          ),
+        ),
+      ]);
+
+      final augmented = augmentComputedWithExternalWork(computed, rollup);
+      final project = augmented.projects.single;
+
+      expect(project.isSettled, isTrue);
+      expect(project.hasLinkedExternalWork, isTrue);
+      expect(project.receivable, 2358);
+      expect(project.remaining, 900);
+      expect(project.ratio, closeTo(1458 / 2358, 0.0001));
+      expect(augmented.totalReceivable, 2358);
+      expect(augmented.totalRemaining, 900);
+    });
+
     test('one batch is never counted into multiple projects', () {
       final computed = _computed(
         [
@@ -234,14 +276,16 @@ void main() {
 AccountComputed _computed(
   List<AccountProjectVM> projects, {
   required double totalReceivable,
+  double totalReceived = 0,
   required double totalRemaining,
+  double? totalRatio,
 }) {
   return AccountComputed(
     projects: projects,
     totalReceivable: totalReceivable,
-    totalReceived: 0,
+    totalReceived: totalReceived,
     totalRemaining: totalRemaining,
-    totalRatio: totalReceivable <= 0 ? null : 0,
+    totalRatio: totalRatio ?? (totalReceivable <= 0 ? null : 0),
     deviceReceivables: const [],
   );
 }
@@ -250,11 +294,16 @@ AccountProjectVM _project({
   required String id,
   String? displayName,
   required double receivable,
+  double received = 0,
+  double? remaining,
+  double? ratio,
+  bool isSettled = false,
 }) {
   return AccountProjectVM(
     projectId: id,
     projectKey: id,
     displayName: displayName ?? id,
+    isSettled: isSettled,
     minYmd: 20260101,
     deviceIds: const [],
     hoursByDevice: const {},
@@ -263,9 +312,9 @@ AccountProjectVM _project({
     isMultiDevice: false,
     isMultiMode: false,
     receivable: receivable,
-    received: 0,
-    remaining: receivable,
-    ratio: 0,
+    received: received,
+    remaining: remaining ?? receivable,
+    ratio: ratio ?? 0,
     payments: const [],
   );
 }

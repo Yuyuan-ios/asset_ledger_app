@@ -152,6 +152,43 @@ void main() {
       );
     });
 
+    test('marks normal projects settled from explicit settled project ids', () {
+      const useCase = ComputeAccountSummaryUseCase();
+      final settledId = ProjectId.legacyFromParts(contact: '李洋', site: '万达');
+
+      final result = useCase.execute(
+        timingRecords: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260103,
+            contact: '李洋',
+            site: '万达',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 102,
+            hours: 2,
+            income: 0,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        payments: const [],
+        settledProjectIds: {settledId},
+      );
+
+      expect(result.projects.single.isSettled, isTrue);
+      expect(result.projects.single.remaining, 200);
+    });
+
     test('includes rent income in total receivable and device receivables', () {
       const useCase = ComputeAccountSummaryUseCase();
 
@@ -519,6 +556,10 @@ void main() {
       'applies active merge groups by hiding members and adding a merged VM',
       () {
         const useCase = ComputeAccountSummaryUseCase();
+        final memberProjectIds = {
+          ProjectId.legacyFromKey('李杰||尚义'),
+          ProjectId.legacyFromKey('李杰||鲜滩'),
+        };
 
         final result = useCase.execute(
           timingRecords: const [
@@ -631,6 +672,7 @@ void main() {
               ],
             ),
           ],
+          settledProjectIds: memberProjectIds,
         );
 
         expect(result.projects.map((project) => project.projectKey).toList(), [
@@ -653,6 +695,7 @@ void main() {
         expect(merged.received, 5000);
         expect(merged.remaining, closeTo(28990, 0.000001));
         expect(merged.ratio, closeTo(5000 / 33990, 0.000001));
+        expect(merged.isSettled, isTrue);
         expect(merged.minRate, 100);
         expect(merged.isMultiDevice, isTrue);
         expect(merged.payments.map((payment) => payment.id).toList(), [2, 1]);

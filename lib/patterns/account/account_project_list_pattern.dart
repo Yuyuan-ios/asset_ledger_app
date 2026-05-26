@@ -200,8 +200,7 @@ class AccountProjectList extends StatelessWidget {
   }
 
   bool _isSettled(AccountProjectVM p) {
-    return p.receivable > _projectCardMoneyEpsilon &&
-        p.remaining <= _projectCardMoneyEpsilon;
+    return p.isSettled;
   }
 
   double _displayProgress(AccountProjectVM p, {required bool compact}) {

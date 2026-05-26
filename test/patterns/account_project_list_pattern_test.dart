@@ -136,7 +136,106 @@ void main() {
     expect(find.textContaining('+ 关联'), findsNothing);
     expect(find.textContaining('•'), findsNothing);
     expect(find.byTooltip('已关联外协记录'), findsOneWidget);
+    expect(_settledCheckIcons(), findsNothing);
   });
+
+  testWidgets(
+    'linked settled project shows chain and settled status in normal mode',
+    (tester) async {
+      const project = AccountProjectVM(
+        projectKey: 'linked-settled',
+        displayName: '李洋 · 天眉乐',
+        isSettled: true,
+        hasLinkedExternalWork: true,
+        minYmd: 20260521,
+        deviceIds: [1],
+        hoursByDevice: {1: 8.1},
+        rentIncomeTotal: 0,
+        minRate: 180,
+        isMultiDevice: false,
+        isMultiMode: false,
+        receivable: 2358,
+        received: 1458,
+        remaining: 900,
+        ratio: 1458 / 2358,
+        payments: [],
+      );
+      AccountProjectVM? tapped;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(
+              projects: const [project],
+              onTap: (project) => tapped = project,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('已关联外协记录'), findsOneWidget);
+      expect(_settledCheckIcons(), findsOneWidget);
+      expect(_settledCelebrationIcons(), findsOneWidget);
+      expect(find.text('已结清'), findsOneWidget);
+      expect(find.text('总额 ¥2358'), findsOneWidget);
+      expect(find.text('余: ¥900 / ¥2358'), findsNothing);
+
+      final progressWidthFactors = _progressWidthFactors(tester);
+      expect(progressWidthFactors, hasLength(1));
+      expect(progressWidthFactors.single, 1.0);
+
+      await tester.tap(find.text('李洋 · 天眉乐'));
+      await tester.pump();
+      expect(tapped?.remaining, 900);
+      expect(tapped?.ratio, closeTo(1458 / 2358, 0.0001));
+    },
+  );
+
+  testWidgets(
+    'linked settled project shows chain and settled status in compact mode',
+    (tester) async {
+      const project = AccountProjectVM(
+        projectKey: 'linked-settled',
+        displayName: '李洋 · 天眉乐',
+        isSettled: true,
+        hasLinkedExternalWork: true,
+        minYmd: 20260521,
+        deviceIds: [1],
+        hoursByDevice: {1: 8.1},
+        rentIncomeTotal: 0,
+        minRate: 180,
+        isMultiDevice: false,
+        isMultiMode: false,
+        receivable: 2358,
+        received: 1458,
+        remaining: 900,
+        ratio: 1458 / 2358,
+        payments: [],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(
+              projects: const [project],
+              isCompact: true,
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('已关联外协记录'), findsOneWidget);
+      expect(_settledCheckIcons(), findsOneWidget);
+      expect(_settledCelebrationIcons(), findsOneWidget);
+      expect(find.text('已结清'), findsOneWidget);
+      expect(find.text('待收 ¥900'), findsNothing);
+
+      final progressWidthFactors = _progressWidthFactors(tester);
+      expect(progressWidthFactors, hasLength(1));
+      expect(progressWidthFactors.single, 1.0);
+    },
+  );
 
   testWidgets('shows rent label and hides zero hours for rent-only project', (
     tester,
@@ -175,6 +274,7 @@ void main() {
     const cashSettled = AccountProjectVM(
       projectKey: 'cash',
       displayName: '甲方 + 现金结清',
+      isSettled: true,
       minYmd: 20260501,
       deviceIds: [1],
       hoursByDevice: {1: 12.6},
@@ -191,6 +291,7 @@ void main() {
     const writeOffSettled = AccountProjectVM(
       projectKey: 'write-off',
       displayName: '甲方 + 核销结清',
+      isSettled: true,
       minYmd: 20260502,
       deviceIds: [1],
       hoursByDevice: {1: 12.6},
@@ -266,6 +367,7 @@ void main() {
     const project = AccountProjectVM(
       projectKey: 'long-settled',
       displayName: '特别特别长的联系人名称 + 特别特别长的项目地址名称',
+      isSettled: true,
       minYmd: 20260501,
       deviceIds: [1],
       hoursByDevice: {1: 12.6},
@@ -450,6 +552,7 @@ void main() {
     const cashSettled = AccountProjectVM(
       projectKey: 'cash',
       displayName: '甲方 + 现金结清',
+      isSettled: true,
       minYmd: 20260501,
       deviceIds: [1],
       hoursByDevice: {1: 12.6},
@@ -466,6 +569,7 @@ void main() {
     const writeOffSettled = AccountProjectVM(
       projectKey: 'write-off',
       displayName: '甲方 + 核销结清',
+      isSettled: true,
       minYmd: 20260502,
       deviceIds: [1],
       hoursByDevice: {1: 12.6},
