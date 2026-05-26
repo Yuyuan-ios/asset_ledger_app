@@ -6,9 +6,11 @@ import '../../data/models/project_device_rate.dart';
 import '../../data/models/project_key.dart';
 import '../../data/models/project_write_off.dart';
 import '../../data/models/timing_record.dart';
+import '../../features/account/domain/services/external_work_detail_rows.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../features/account/model/project_title_formatter.dart';
+import '../../features/timing/state/timing_external_work_store.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'project_account_detail_content_pattern.dart';
 
@@ -70,6 +72,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
     required this.allPayments,
     this.allWriteOffs = const [],
     required this.allRates,
+    this.allExternalWorkItems = const [],
     required this.computed,
     this.settledProjectIds,
     required this.onBatchEditRate,
@@ -94,6 +97,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
   final List<AccountPayment> allPayments;
   final List<ProjectWriteOff> allWriteOffs;
   final List<ProjectDeviceRate> allRates;
+  final List<TimingExternalWorkRecordItem> allExternalWorkItems;
   final AccountComputed computed;
   final Set<String>? settledProjectIds;
   final AccountOpenBatchRateEditor onBatchEditRate;
@@ -136,6 +140,10 @@ class AccountProjectDetailSheet extends StatelessWidget {
       project,
       projectWriteOffs,
     );
+    final externalWorkRows = buildAccountProjectExternalWorkDetailRows(
+      externalWorkItems: allExternalWorkItems,
+      projectIdentityIds: _projectIdentityIds(project),
+    );
     if (project.kind == AccountProjectKind.merged) {
       final detailRows = _buildMergedDetailRows(project);
       final paymentDisplayItems = buildMergedPaymentDisplayItems(
@@ -160,6 +168,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         writeOffs: projectWriteOffs,
         paymentDisplayItems: paymentDisplayItems,
         detailRows: detailRows,
+        externalWorkRows: externalWorkRows,
         showBatchAction:
             project.mergeGroupId != null && onDissolveMergeGroup != null,
         batchActionText: '解除合并',
@@ -244,6 +253,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       hasLinkedExternalWork: project.hasLinkedExternalWork,
       payments: project.payments,
       writeOffs: projectWriteOffs,
+      externalWorkRows: externalWorkRows,
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
       onEditDeviceRate: (deviceId, isBreaking) =>
           onEditDeviceRate(project, deviceId, isBreaking, allDevices, allRates),
