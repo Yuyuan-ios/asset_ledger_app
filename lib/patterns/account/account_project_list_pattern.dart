@@ -200,7 +200,7 @@ class AccountProjectList extends StatelessWidget {
   }
 
   bool _isSettled(AccountProjectVM p) {
-    return p.isSettled;
+    return p.isSettledForDisplay;
   }
 
   double _displayProgress(AccountProjectVM p, {required bool compact}) {

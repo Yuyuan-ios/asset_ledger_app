@@ -186,7 +186,51 @@ void main() {
       );
 
       expect(result.projects.single.isSettled, isTrue);
+      expect(result.projects.single.isSettledForDisplay, isTrue);
       expect(result.projects.single.remaining, 200);
+    });
+
+    test('marks active fully received projects settled for display only', () {
+      const useCase = ComputeAccountSummaryUseCase();
+
+      final result = useCase.execute(
+        timingRecords: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260103,
+            contact: '李洋',
+            site: '万达',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 102,
+            hours: 2,
+            income: 0,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        payments: const [
+          AccountPayment(
+            id: 1,
+            projectKey: '李洋||万达',
+            ymd: 20260104,
+            amount: 200,
+          ),
+        ],
+      );
+
+      expect(result.projects.single.isSettled, isFalse);
+      expect(result.projects.single.isSettledForDisplay, isTrue);
+      expect(result.projects.single.remaining, 0);
     });
 
     test('includes rent income in total receivable and device receivables', () {
@@ -696,6 +740,7 @@ void main() {
         expect(merged.remaining, closeTo(28990, 0.000001));
         expect(merged.ratio, closeTo(5000 / 33990, 0.000001));
         expect(merged.isSettled, isTrue);
+        expect(merged.isSettledForDisplay, isTrue);
         expect(merged.minRate, 100);
         expect(merged.isMultiDevice, isTrue);
         expect(merged.payments.map((payment) => payment.id).toList(), [2, 1]);
