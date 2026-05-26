@@ -429,13 +429,6 @@ class _OverviewDonut extends StatelessWidget {
       height: 1,
       color: SheetColors.hint,
     );
-    final valueStyle = AppTypography.body(
-      context,
-      fontSize: 13,
-      fontWeight: FontWeight.w700,
-      height: 1.1,
-      color: Colors.black,
-    );
     final amountText = _formatSignedMoney(netCashReceived);
 
     return Stack(
@@ -449,7 +442,7 @@ class _OverviewDonut extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('净实收', maxLines: 1, style: labelStyle),
+              Text('净实收/已收', maxLines: 1, style: labelStyle),
               const SizedBox(height: 3),
               SizedBox(
                 width:
@@ -462,7 +455,7 @@ class _OverviewDonut extends StatelessWidget {
                     amountText,
                     maxLines: 1,
                     textAlign: TextAlign.center,
-                    style: valueStyle,
+                    style: labelStyle,
                   ),
                 ),
               ),
