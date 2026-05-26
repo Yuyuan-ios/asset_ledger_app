@@ -3,11 +3,16 @@ import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/external_import_batch.dart';
+import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
+import 'package:asset_ledger/data/repositories/external_import_repository.dart';
+import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
@@ -22,6 +27,7 @@ import 'package:asset_ledger/features/account/use_cases/settle_merged_project_us
 import 'package:asset_ledger/features/account/view/account_page.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -305,6 +311,68 @@ void main() {
     );
     expect(find.textContaining('项目不存在'), findsNothing);
   });
+
+  testWidgets(
+    'AccountPage merged project detail uses external-work augmented total',
+    (tester) async {
+      final mergeRepository = _FakeMergeRepository(activeGroup: true);
+      final mergeService = AccountProjectMergeService(
+        repository: mergeRepository,
+        now: () => DateTime.utc(2026, 5, 15),
+      );
+      final accountStore = AccountStore(mergeService: mergeService);
+      final timingStore = TimingStore(_FakeTimingRepository());
+      final deviceStore = DeviceStore(_FakeDeviceRepository());
+      final paymentRepository = _FakePaymentRepository();
+      final paymentStore = AccountPaymentStore(paymentRepository);
+      final rateStore = ProjectRateStore(_FakeRateRepository());
+      final externalWorkStore = TimingExternalWorkStore(
+        importRepository: _FakeExternalImportRepository(),
+        recordRepository: _FakeExternalWorkRecordRepository(),
+      );
+
+      await Future.wait([
+        timingStore.loadAll(),
+        deviceStore.loadAll(),
+        paymentStore.loadAll(),
+        rateStore.loadAll(),
+        accountStore.loadAll(),
+        externalWorkStore.loadAll(),
+      ]);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<AccountProjectMergeService>.value(value: mergeService),
+            Provider<AccountPaymentRepository>.value(value: paymentRepository),
+            _accountActionControllerProvider(paymentRepository, mergeService),
+            ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+            ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+            ChangeNotifierProvider<AccountPaymentStore>.value(
+              value: paymentStore,
+            ),
+            ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+            ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+            ChangeNotifierProvider<TimingExternalWorkStore>.value(
+              value: externalWorkStore,
+            ),
+            ChangeNotifierProvider<AccountFilterStore>(
+              create: (_) => AccountFilterStore(),
+            ),
+          ],
+          child: const MaterialApp(home: AccountPage()),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('李杰 · 合并2项目'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('项目详情'), findsOneWidget);
+      expect(find.text('项目总额 ¥2900'), findsOneWidget);
+      expect(find.text('项目总额 ¥2000'), findsNothing);
+    },
+  );
 
   testWidgets(
     'AccountPage creates merged payment allocations and refreshes detail',
@@ -1007,6 +1075,116 @@ class _FakeRateRepository implements ProjectRateRepository {
   @override
   Future<int> deleteByProjectKey(String projectKey) async => 1;
 }
+
+class _FakeExternalImportRepository implements ExternalImportRepository {
+  @override
+  Future<void> insertBatch(ExternalImportBatch batch) async {}
+
+  @override
+  Future<ExternalImportBatch?> findBatchById(String id) async {
+    for (final batch in await listBatches()) {
+      if (batch.id == id) return batch;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<ExternalImportBatch>> listBatches() async {
+    return [
+      ExternalImportBatch(
+        id: 'external-linked',
+        sourceShareId: 'share-external-linked',
+        sourceDisplayName: '王强',
+        recordCount: 1,
+        totalHoursMilli: 1000,
+        totalAmountFen: 90000,
+        siteSummary: '新村',
+        importedAt: '2026-05-24T00:00:00.000',
+        createdAt: '2026-05-24T00:00:00.000',
+        updatedAt: '2026-05-24T00:00:00.000',
+      ),
+    ];
+  }
+}
+
+class _FakeExternalWorkRecordRepository
+    implements ExternalWorkRecordRepository {
+  @override
+  Future<void> insertRecord(ExternalWorkRecord record) async {}
+
+  @override
+  Future<void> insertRecords(List<ExternalWorkRecord> records) async {}
+
+  @override
+  Future<List<ExternalWorkRecord>> listByBatchId(String batchId) async {
+    if (batchId != 'external-linked') return const [];
+    return [
+      ExternalWorkRecord.imported(
+        id: 'external-record-c',
+        importBatchId: batchId,
+        sourceShareId: 'share-external-linked',
+        sourceRecordUuid: 'source-external-record-c',
+        sourceInstallationUuid: 'installation-external-record-c',
+        originFingerprint: 'fingerprint-external-record-c',
+        collaboratorName: '王强',
+        contactSnapshot: '王强',
+        siteSnapshot: '新村',
+        workDate: 20260505,
+        hoursMilli: 1000,
+        amountFen: 90000,
+        linkedProjectId: ProjectId.legacyFromParts(contact: '李杰', site: '新村'),
+        createdAt: '2026-05-24T00:00:00.000',
+        updatedAt: '2026-05-24T00:00:00.000',
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ExternalWorkRecord>> listByLinkedProjectId(
+    String projectId,
+  ) async => const [];
+
+  @override
+  Future<int> deleteById(String recordId) async => 0;
+
+  @override
+  Future<int> deleteByBatchId(String batchId) async => 0;
+
+  @override
+  Future<int> linkBatchToProject({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async => 0;
+
+  @override
+  Future<int> linkBatchToProjectWithSettlementReset({
+    required String importBatchId,
+    required String projectId,
+    required String updatedAt,
+  }) async => 0;
+
+  @override
+  Future<int> unlinkBatch({
+    required String importBatchId,
+    required String updatedAt,
+  }) async => 0;
+
+  @override
+  Future<String?> getLinkedProjectId(String importBatchId) async => null;
+
+  @override
+  Future<int> updateLocalFields({
+    required String recordId,
+    int? localUnitPriceFen,
+    Object? linkedProjectId = _externalSentinel,
+    ExternalWorkRecordStatus? status,
+    Object? note = _externalSentinel,
+    required String updatedAt,
+  }) async => 0;
+}
+
+const _externalSentinel = Object();
 
 class _FakeMergeRepository implements AccountProjectMergeRepository {
   _FakeMergeRepository({bool activeGroup = false, this.failDissolve = false}) {

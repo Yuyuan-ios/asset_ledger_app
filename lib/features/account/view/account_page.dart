@@ -773,11 +773,20 @@ class _AccountPageState extends State<AccountPage>
                   final devices = deviceStore.allDevices;
                   final payments = paymentStore.records;
                   final rates = rateStore.rates;
-                  final computed = accountStore.compute(
+                  final rawComputed = accountStore.compute(
                     timingRecords: timing,
                     devices: devices,
                     rates: rates,
                     payments: payments,
+                  );
+                  final externalWorkStore = context
+                      .watch<TimingExternalWorkStore?>();
+                  final externalRollup = rollupExternalWorkReceivable(
+                    externalWorkStore?.items ?? const [],
+                  );
+                  final computed = augmentComputedWithExternalWork(
+                    rawComputed,
+                    externalRollup,
                   );
 
                   return AccountProjectDetailSheet(
