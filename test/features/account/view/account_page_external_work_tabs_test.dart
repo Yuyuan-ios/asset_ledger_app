@@ -3,6 +3,7 @@ import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
+import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
@@ -111,6 +112,113 @@ void main() {
       expect(find.text('项目(1)'), findsOneWidget);
       expect(find.text('李杰 · 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
+    },
+  );
+
+  testWidgets('AccountPage project detail uses external-work augmented total', (
+    tester,
+  ) async {
+    final timingStore = TimingStore(_FakeTimingRepository());
+    final deviceStore = DeviceStore(_FakeDeviceRepository());
+    final paymentStore = AccountPaymentStore(_FakePaymentRepository());
+    final rateStore = ProjectRateStore(_FakeRateRepository());
+    final accountStore = AccountStore();
+    final externalWorkStore = TimingExternalWorkStore(
+      importRepository: _FakeExternalImportRepository(),
+      recordRepository: _FakeExternalWorkRecordRepository(),
+    );
+
+    await Future.wait([
+      timingStore.loadAll(),
+      deviceStore.loadAll(),
+      paymentStore.loadAll(),
+      rateStore.loadAll(),
+      accountStore.loadAll(),
+      externalWorkStore.loadAll(),
+    ]);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+          ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+          ChangeNotifierProvider<AccountPaymentStore>.value(
+            value: paymentStore,
+          ),
+          ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+          ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+          ChangeNotifierProvider<TimingExternalWorkStore>.value(
+            value: externalWorkStore,
+          ),
+          ChangeNotifierProvider<AccountFilterStore>(
+            create: (_) => AccountFilterStore(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('李杰 · 新村').hitTestable());
+    await tester.pumpAndSettle();
+
+    expect(find.text('项目详情'), findsOneWidget);
+    expect(find.text('项目总额 ¥1900'), findsOneWidget);
+    expect(find.text('项目总额 ¥1000'), findsNothing);
+  });
+
+  testWidgets(
+    'AccountPage project detail keeps local total without linked external work',
+    (tester) async {
+      final timingStore = TimingStore(_FakeTimingRepository());
+      final deviceStore = DeviceStore(_FakeDeviceRepository());
+      final paymentStore = AccountPaymentStore(_FakePaymentRepository());
+      final rateStore = ProjectRateStore(_FakeRateRepository());
+      final accountStore = AccountStore();
+      final externalWorkStore = TimingExternalWorkStore(
+        importRepository: _FakeExternalImportRepository(),
+        recordRepository: _FakeExternalWorkRecordRepository(
+          linkToLocalProject: false,
+        ),
+      );
+
+      await Future.wait([
+        timingStore.loadAll(),
+        deviceStore.loadAll(),
+        paymentStore.loadAll(),
+        rateStore.loadAll(),
+        accountStore.loadAll(),
+        externalWorkStore.loadAll(),
+      ]);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+            ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+            ChangeNotifierProvider<AccountPaymentStore>.value(
+              value: paymentStore,
+            ),
+            ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+            ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+            ChangeNotifierProvider<TimingExternalWorkStore>.value(
+              value: externalWorkStore,
+            ),
+            ChangeNotifierProvider<AccountFilterStore>(
+              create: (_) => AccountFilterStore(),
+            ),
+          ],
+          child: const MaterialApp(home: AccountPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('李杰 · 新村').hitTestable());
+      await tester.pumpAndSettle();
+
+      expect(find.text('项目详情'), findsOneWidget);
+      expect(find.text('项目总额 ¥1000'), findsOneWidget);
+      expect(find.text('项目总额 ¥1900'), findsNothing);
     },
   );
 }
@@ -272,6 +380,10 @@ class _FakeExternalImportRepository implements ExternalImportRepository {
 
 class _FakeExternalWorkRecordRepository
     implements ExternalWorkRecordRepository {
+  _FakeExternalWorkRecordRepository({this.linkToLocalProject = true});
+
+  final bool linkToLocalProject;
+
   @override
   Future<void> insertRecord(ExternalWorkRecord record) async {}
 
@@ -306,7 +418,9 @@ class _FakeExternalWorkRecordRepository
             site: '已关联工地',
             workDate: 20260505,
             amountFen: 90000,
-            linkedProjectId: 'project:linked',
+            linkedProjectId: linkToLocalProject
+                ? ProjectId.legacyFromParts(contact: '李杰', site: '新村')
+                : null,
           ),
         ];
       default:
