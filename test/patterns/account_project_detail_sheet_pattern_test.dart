@@ -454,6 +454,16 @@ void main() {
     expect(find.text('天眉乐'), findsOneWidget);
     expect(find.textContaining('+ 关联'), findsNothing);
     expect(find.byTooltip('已关联外协记录'), findsOneWidget);
+
+    final siteRect = tester.getRect(find.text('天眉乐'));
+    final badgeRect = tester.getRect(
+      find.byKey(const Key('account-project-detail-linked-external-work')),
+    );
+    final batchEditRect = tester.getRect(find.text('批量修改'));
+
+    expect(badgeRect.left, greaterThan(siteRect.right));
+    expect(badgeRect.left - siteRect.right, lessThan(16));
+    expect(badgeRect.right, lessThan(batchEditRect.left));
   });
 
   testWidgets('settled detail shows project total and revoke action', (
