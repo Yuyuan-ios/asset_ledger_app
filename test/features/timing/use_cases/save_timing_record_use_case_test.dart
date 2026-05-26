@@ -7,6 +7,7 @@ import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/data/services/account_service.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
@@ -36,23 +37,146 @@ void main() {
       },
     );
 
+    test('editing non-identity fields keeps the existing projectId', () async {
+      final timingRepository = _FakeTimingRepository();
+      final mergeRepository = _FakeMergeRepository(
+        activeProjectId: 'project:a',
+      );
+      final harness = _useCase(timingRepository, mergeRepository);
+
+      final result = await harness.execute(
+        editing: _record(projectId: 'project:a', hours: 8),
+        record: _record(projectId: 'project:a', hours: 9.5),
+      );
+
+      expect(result.needsMergeDissolveRetry, isFalse);
+      expect(mergeRepository.dissolveCalls, 0);
+      expect(timingRepository.saved.single.projectId, 'project:a');
+      expect(harness.projectRepository.findActiveCalls, 0);
+    });
+
     test(
-      'editing same projectId does not dissolve even if contact changes',
+      'editing contact reassigns only the saved record to the new project',
       () async {
         final timingRepository = _FakeTimingRepository();
         final mergeRepository = _FakeMergeRepository(
-          activeProjectId: 'project:a',
+          activeProjectId: 'project:liyang-tianmeile',
         );
-        final useCase = _useCase(timingRepository, mergeRepository);
+        final harness = _useCase(timingRepository, mergeRepository);
 
-        final result = await useCase.execute(
-          editing: _record(projectId: 'project:a', contact: '甲方'),
-          record: _record(projectId: 'project:a', contact: '甲方新名称'),
+        final result = await harness.execute(
+          editing: _record(
+            id: 1,
+            projectId: 'project:liyang-tianmeile',
+            contact: '李洋',
+            site: '天眉乐',
+            deviceId: 1,
+            hours: 9.6,
+          ),
+          record: _record(
+            id: 1,
+            projectId: 'project:liyang-tianmeile',
+            contact: '张俊',
+            site: '天眉乐',
+            deviceId: 2,
+            hours: 8,
+          ),
         );
 
-        expect(result.needsMergeDissolveRetry, isFalse);
-        expect(mergeRepository.dissolveCalls, 0);
-        expect(timingRepository.saved.single.projectId, 'project:a');
+        final saved = timingRepository.saved.single;
+        expect(saved.projectId, isNot('project:liyang-tianmeile'));
+        expect(saved.contact, '张俊');
+        expect(saved.site, '天眉乐');
+        expect(harness.projectRepository.findActiveCalls, 1);
+        expect(harness.projectRepository.inserted.single.contact, '张俊');
+        expect(result.mergeDissolved, isTrue);
+        expect(mergeRepository.dissolveCalls, 1);
+
+        final unchangedOtherRecord = _record(
+          id: 2,
+          projectId: 'project:liyang-tianmeile',
+          contact: '李洋',
+          site: '天眉乐',
+          deviceId: 1,
+          hours: 9.6,
+        );
+        final projects = AccountService.buildProjects(
+          timingRecords: [saved, unchangedOtherRecord],
+        );
+
+        expect(projects, hasLength(2));
+        final movedProject = projects[saved.projectId]!;
+        expect(movedProject.contact, '张俊');
+        expect(movedProject.site, '天眉乐');
+        expect(movedProject.hoursByDevice, {2: 8});
+
+        final originalProject = projects['project:liyang-tianmeile']!;
+        expect(originalProject.contact, '李洋');
+        expect(originalProject.site, '天眉乐');
+        expect(originalProject.hoursByDevice, {1: 9.6});
+      },
+    );
+
+    test(
+      'editing site reassigns the saved record to the new project',
+      () async {
+        final timingRepository = _FakeTimingRepository();
+        final mergeRepository = _FakeMergeRepository();
+        final harness = _useCase(timingRepository, mergeRepository);
+
+        await harness.execute(
+          editing: _record(
+            projectId: 'project:old-site',
+            contact: '李洋',
+            site: '天眉乐',
+          ),
+          record: _record(
+            projectId: 'project:old-site',
+            contact: '李洋',
+            site: '五里山',
+          ),
+        );
+
+        final saved = timingRepository.saved.single;
+        expect(saved.projectId, isNot('project:old-site'));
+        expect(saved.contact, '李洋');
+        expect(saved.site, '五里山');
+        expect(harness.projectRepository.inserted.single.site, '五里山');
+      },
+    );
+
+    test(
+      'editing identity uses an existing active project when one matches',
+      () async {
+        final timingRepository = _FakeTimingRepository();
+        final mergeRepository = _FakeMergeRepository();
+        final harness = _useCase(timingRepository, mergeRepository);
+        harness.projectRepository.inserted.add(
+          _project(
+            id: 'project:zhangjun-tianmeile',
+            contact: '张俊',
+            site: '天眉乐',
+          ),
+        );
+
+        await harness.execute(
+          editing: _record(
+            projectId: 'project:liyang-tianmeile',
+            contact: '李洋',
+            site: '天眉乐',
+          ),
+          record: _record(
+            projectId: 'project:liyang-tianmeile',
+            contact: '张俊',
+            site: '天眉乐',
+          ),
+        );
+
+        expect(
+          timingRepository.saved.single.projectId,
+          'project:zhangjun-tianmeile',
+        );
+        expect(harness.projectRepository.inserted, hasLength(1));
       },
     );
 
@@ -140,21 +264,39 @@ class _SaveTimingUseCaseHarness {
 TimingRecord _record({
   int? id = 1,
   String projectId = 'project:a',
+  int deviceId = 1,
   String contact = '甲方',
   String site = '一号工地',
+  double hours = 8,
 }) {
   return TimingRecord(
     id: id,
     projectId: projectId,
-    deviceId: 1,
+    deviceId: deviceId,
     startDate: 20260514,
     contact: contact,
     site: site,
     type: TimingType.hours,
     startMeter: 0,
-    endMeter: 8,
-    hours: 8,
+    endMeter: hours,
+    hours: hours,
     income: 800,
+  );
+}
+
+Project _project({
+  required String id,
+  required String contact,
+  required String site,
+}) {
+  return Project(
+    id: id,
+    contact: contact,
+    site: site,
+    status: ProjectStatus.active,
+    createdAt: '2026-05-17T00:00:00.000Z',
+    updatedAt: '2026-05-17T00:00:00.000Z',
+    legacyProjectKey: '$contact||$site',
   );
 }
 

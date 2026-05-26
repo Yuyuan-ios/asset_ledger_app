@@ -59,6 +59,13 @@ class SaveTimingRecordUseCase {
     required TimingRecord? editing,
     required TimingRecord record,
   }) async {
+    if (editing != null && _projectIdentityChanged(editing, record)) {
+      final result = await _projectResolver.resolveOrCreate(
+        contact: record.contact,
+        site: record.site,
+      );
+      return record.copyWith(projectId: result.projectId);
+    }
     if (record.projectId.trim().isNotEmpty) return record;
     final editedProjectId = editing?.effectiveProjectId;
     if (editedProjectId != null && editedProjectId.trim().isNotEmpty) {
@@ -70,6 +77,10 @@ class SaveTimingRecordUseCase {
     );
     final projectId = result.projectId;
     return record.copyWith(projectId: projectId);
+  }
+
+  bool _projectIdentityChanged(TimingRecord editing, TimingRecord record) {
+    return editing.legacyProjectKey != record.legacyProjectKey;
   }
 }
 
