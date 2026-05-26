@@ -797,6 +797,8 @@ class _AccountPageState extends State<AccountPage>
                     allPayments: payments,
                     allWriteOffs: accountStore.writeOffs,
                     allRates: rates,
+                    allExternalWorkItems:
+                        externalWorkStore?.items ?? const [],
                     computed: computed,
                     settledProjectIds: accountStore.settledProjectIds,
                     onBatchEditRate: _openBatchRateEditor,

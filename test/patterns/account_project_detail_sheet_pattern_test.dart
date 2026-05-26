@@ -1,5 +1,7 @@
 import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/external_import_batch.dart';
+import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/project_key.dart';
 import 'package:asset_ledger/data/models/project_write_off.dart';
@@ -7,6 +9,7 @@ import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/features/account/model/account_project_payment_display_vm.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
+import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/patterns/account/account_project_detail_sheet_pattern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +84,7 @@ void main() {
     AccountDeleteProjectWriteOff? onDeleteWriteOff,
     AccountRevokeProjectWriteOff? onRevokeProjectWriteOff,
     List<ProjectWriteOff> writeOffs = const [],
+    List<TimingExternalWorkRecordItem> externalWorkItems = const [],
     Set<String>? settledProjectIds,
   }) {
     return MaterialApp(
@@ -98,6 +102,7 @@ void main() {
               ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
               ProjectDeviceRate(projectKey: xiantanKey, deviceId: 2, rate: 180),
             ],
+            allExternalWorkItems: externalWorkItems,
             computed: computed,
             settledProjectIds: settledProjectIds,
             onBatchEditRate: (_, _, _) async {},
@@ -865,6 +870,230 @@ void main() {
     expect(find.text('已结清'), findsWidgets);
     expect(find.text('已收 100.0%'), findsNothing);
   });
+
+  testWidgets(
+    'normal project with linked external work shows local and external sections',
+    (tester) async {
+      const linkedProjectId = 'project:linked-normal';
+      final normalKey = ProjectKey.buildKey(contact: '李洋', site: '天眉乐');
+
+      await tester.pumpWidget(
+        buildSheet(
+          projectId: linkedProjectId,
+          projectKey: normalKey,
+          computed: AccountComputed(
+            projects: [
+              AccountProjectVM(
+                projectId: linkedProjectId,
+                projectKey: normalKey,
+                displayName: '李洋 · 天眉乐',
+                hasLinkedExternalWork: true,
+                minYmd: 20260501,
+                deviceIds: const [1],
+                hoursByDevice: const {1: 8.1},
+                rentIncomeTotal: 0,
+                minRate: 180,
+                isMultiDevice: false,
+                isMultiMode: false,
+                receivable: 2718,
+                received: 0,
+                remaining: 2718,
+                ratio: 0,
+                payments: const [],
+              ),
+            ],
+            totalReceivable: 2718,
+            totalReceived: 0,
+            totalRemaining: 2718,
+            totalRatio: 0,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          externalWorkItems: [
+            _externalItem(
+              recordId: 'r-1',
+              batchId: 'batch-1',
+              linkedProjectId: linkedProjectId,
+              site: '天眉乐',
+              sourceDisplayName: '余远',
+              brand: 'Hitachi',
+              hoursMilli: 7000,
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('本地设备'), findsOneWidget);
+      expect(find.text('外协设备'), findsOneWidget);
+      // header: ⚙ 外协设备 + "余远 · 天眉乐" (拆分为 name / separator / site)
+      expect(find.text('余远'), findsOneWidget);
+      expect(find.text('天眉乐'), findsWidgets);
+      // 外协设备行：Hitachi·1条记录   7 h
+      expect(find.text('Hitachi·1条记录'), findsOneWidget);
+      expect(find.text('7 h'), findsOneWidget);
+      // 外协设备 section 不渲染"修改"按钮（只有本地设备那一行才有）。
+      expect(find.text('修改'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'merged project shows one external section per linked member batch',
+    (tester) async {
+      final merged = mergedProject();
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: 'merge:1',
+          computed: AccountComputed(
+            projects: [merged],
+            totalReceivable: 10000,
+            totalReceived: 5000,
+            totalRemaining: 5000,
+            totalRatio: 0.5,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          onDissolveMergeGroup: (_) async {},
+          onAddMergedPayment: (_) async {},
+          externalWorkItems: [
+            _externalItem(
+              recordId: 'r-shangyi',
+              batchId: 'batch-shangyi',
+              linkedProjectId: 'project:shangyi',
+              site: '尚义',
+              sourceDisplayName: '余远',
+              brand: 'Hitachi',
+              importedAt: '2026-05-15T08:00:00.000Z',
+            ),
+            _externalItem(
+              recordId: 'r-xiantan',
+              batchId: 'batch-xiantan',
+              linkedProjectId: 'project:xiantan',
+              site: '鲜滩',
+              sourceDisplayName: '余远',
+              brand: 'Hitachi',
+              importedAt: '2026-05-16T08:00:00.000Z',
+            ),
+            _externalItem(
+              recordId: 'r-unrelated',
+              batchId: 'batch-other',
+              linkedProjectId: 'project:other',
+              site: '其他',
+              sourceDisplayName: '王五',
+              brand: 'Sany',
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      // 两个本地地址块 + 两个外协包，共 4 次 "本地设备" / 2 次 "外协设备"。
+      expect(find.text('本地设备'), findsNWidgets(2));
+      expect(find.text('外协设备'), findsNWidgets(2));
+      // 两个 batch 的设备摘要各一条。
+      expect(find.text('Hitachi·1条记录'), findsNWidgets(2));
+      // 未关联的 batch 不会出现在外协 section 中。
+      expect(find.text('Sany·1条记录'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'project without linked external work hides 外协设备 section',
+    (tester) async {
+      final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
+      await tester.pumpWidget(
+        buildSheet(
+          projectKey: normalKey,
+          computed: AccountComputed(
+            projects: [
+              AccountProjectVM(
+                projectKey: normalKey,
+                displayName: '李杰 · 尚义',
+                minYmd: 20260501,
+                deviceIds: const [1],
+                hoursByDevice: const {1: 64.9},
+                rentIncomeTotal: 0,
+                minRate: 100,
+                isMultiDevice: false,
+                isMultiMode: false,
+                receivable: 6490,
+                received: 0,
+                remaining: 6490,
+                ratio: 0,
+                payments: const [],
+              ),
+            ],
+            totalReceivable: 6490,
+            totalReceived: 0,
+            totalRemaining: 6490,
+            totalRatio: 0,
+            deviceReceivables: const [],
+          ),
+          onEditDeviceRate: (_, _, _, _, _) async {},
+          // 提供一条已关联到别的项目的外协记录，确认它不会被错误地展示。
+          externalWorkItems: [
+            _externalItem(
+              recordId: 'r-other',
+              batchId: 'batch-other',
+              linkedProjectId: 'project:other',
+              site: '其他工地',
+              sourceDisplayName: '王五',
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('本地设备'), findsOneWidget);
+      expect(find.text('外协设备'), findsNothing);
+    },
+  );
+}
+
+TimingExternalWorkRecordItem _externalItem({
+  required String recordId,
+  required String batchId,
+  required String linkedProjectId,
+  required String site,
+  required String sourceDisplayName,
+  String brand = 'Hitachi',
+  int hoursMilli = 7000,
+  int amountFen = 12600,
+  int sourceUnitPriceFen = 18000,
+  String importedAt = '2026-05-15T08:00:00.000Z',
+}) {
+  final batch = ExternalImportBatch(
+    id: batchId,
+    sourceShareId: 'share-$batchId',
+    sourceDisplayName: sourceDisplayName,
+    recordCount: 1,
+    totalHoursMilli: hoursMilli,
+    totalAmountFen: amountFen,
+    siteSummary: site,
+    importedAt: importedAt,
+    createdAt: importedAt,
+    updatedAt: importedAt,
+  );
+  final record = ExternalWorkRecord(
+    id: recordId,
+    importBatchId: batchId,
+    sourceShareId: 'share-$batchId',
+    sourceRecordUuid: 'src-$recordId',
+    sourceInstallationUuid: 'inst-$batchId',
+    originFingerprint: 'fp-$batchId',
+    collaboratorName: sourceDisplayName,
+    contactSnapshot: sourceDisplayName,
+    siteSnapshot: site,
+    equipmentBrand: brand,
+    workDate: 20260501,
+    hoursMilli: hoursMilli,
+    sourceUnitPriceFen: sourceUnitPriceFen,
+    localUnitPriceFen: sourceUnitPriceFen,
+    amountFen: amountFen,
+    linkedProjectId: linkedProjectId,
+    createdAt: importedAt,
+    updatedAt: importedAt,
+  );
+  return TimingExternalWorkRecordItem(record: record, batch: batch);
 }
 
 Finder _containerWithColor(Color color) {

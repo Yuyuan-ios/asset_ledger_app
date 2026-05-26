@@ -8,6 +8,7 @@ import '../../core/utils/format_utils.dart';
 import '../../data/models/account_payment.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_write_off.dart';
+import '../../features/account/domain/services/external_work_detail_rows.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/project_title_formatter.dart';
 import '../../features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
@@ -25,6 +26,7 @@ const _projectActionPillBorder = Color(0xFFD8C8B8);
 const _projectActionPillText = Color(0xFF7A5A3A);
 const _moneyEpsilon = 0.000001;
 const _localDeviceLabel = '本地设备';
+const _externalDeviceLabel = '外协设备';
 
 class ProjectAccountDetailRateRow {
   final String projectKey;
@@ -84,6 +86,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final List<ProjectWriteOff> writeOffs;
   final List<AccountProjectPaymentDisplayVM>? paymentDisplayItems;
   final List<ProjectAccountDetailRateRow>? detailRows;
+  final List<AccountProjectExternalWorkDetailRow> externalWorkRows;
   final bool showBatchAction;
   final String batchActionText;
   final bool showPaymentActions;
@@ -135,6 +138,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.onDeletePaymentDisplayItem,
     this.paymentDisplayItems,
     this.detailRows,
+    this.externalWorkRows = const [],
     this.showBatchAction = true,
     this.batchActionText = '批量修改',
     this.showPaymentActions = true,
@@ -257,6 +261,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
       children: [
         _buildProjectCard(
           rows: visibleDetailRows,
+          externalWorkRows: externalWorkRows,
           isMergedProject: detailRows != null,
           projectNameStyle: projectNameStyle,
           siteStyle: siteStyle,

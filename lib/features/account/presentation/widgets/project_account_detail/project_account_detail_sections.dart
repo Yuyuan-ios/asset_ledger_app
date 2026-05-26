@@ -3,6 +3,7 @@ part of '../../../../../patterns/account/project_account_detail_content_pattern.
 extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   Widget _buildProjectCard({
     required List<ProjectAccountDetailRateRow> rows,
+    required List<AccountProjectExternalWorkDetailRow> externalWorkRows,
     required bool isMergedProject,
     required TextStyle? projectNameStyle,
     required TextStyle? siteStyle,
@@ -32,12 +33,13 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         siteName: lastSiteLabel,
       );
 
+      final isLastLocalRow = index == rows.length - 1;
       children.add(
         _buildProjectDetailRow(
           row: row,
           headerSiteName: headerSite,
           showHeader: showHeader,
-          showDivider: index != rows.length - 1,
+          showDivider: !isLastLocalRow,
           siteStyle: siteStyle,
           rowTextStyle: rowTextStyle,
           rowMetricStyle: rowMetricStyle,
@@ -48,6 +50,21 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       if (showHeader) {
         hasShownLocalDeviceHeader = true;
       }
+    }
+
+    for (var index = 0; index < externalWorkRows.length; index++) {
+      final externalRow = externalWorkRows[index];
+      // 本地设备和外协设备之间永远画一条分隔线；多个外协包之间也画。
+      final needsTopDivider = index == 0 ? rows.isNotEmpty : true;
+      children.add(
+        _buildExternalWorkSection(
+          row: externalRow,
+          showTopDivider: needsTopDivider,
+          siteStyle: siteStyle,
+          rowTextStyle: rowTextStyle,
+          rowMetricStyle: rowMetricStyle,
+        ),
+      );
     }
 
     final titleParts = _splitTitleParts(title);
@@ -207,6 +224,92 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         ],
       ],
     );
+  }
+
+  Widget _buildExternalWorkSection({
+    required AccountProjectExternalWorkDetailRow row,
+    required bool showTopDivider,
+    required TextStyle? siteStyle,
+    required TextStyle? rowTextStyle,
+    required TextStyle? rowMetricStyle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showTopDivider) ...[
+          const SizedBox(height: 6),
+          const Divider(height: 1, color: TimingColors.cardBorder),
+          const SizedBox(height: 6),
+        ],
+        _buildExternalWorkHeader(
+          row: row,
+          siteStyle: siteStyle,
+        ),
+        const SizedBox(height: AppSpace.xs),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _externalWorkRowLabel(row),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: rowTextStyle,
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            SizedBox(
+              width: 58,
+              child: Text(
+                _hoursText(row.hours),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                textAlign: TextAlign.right,
+                style: rowMetricStyle,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExternalWorkHeader({
+    required AccountProjectExternalWorkDetailRow row,
+    required TextStyle? siteStyle,
+  }) {
+    final iconColor = AccountTokens.projectDetailActionColor;
+    return Row(
+      children: [
+        Icon(Icons.settings_outlined, size: 18, color: iconColor),
+        const SizedBox(width: 6),
+        Text(
+          _externalDeviceLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: siteStyle,
+        ),
+        const SizedBox(width: 12),
+        // "分享人 · 地址" 分段省略；右侧没有固定按钮，让它吃满到卡片右边缘。
+        Expanded(
+          child: NameSiteInlineText(
+            name: row.sourceDisplayName,
+            site: row.siteSummary,
+            nameStyle: siteStyle,
+            siteStyle: siteStyle,
+            separatorStyle: siteStyle,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _externalWorkRowLabel(AccountProjectExternalWorkDetailRow row) {
+    final summary = row.equipmentSummary.trim();
+    final base = summary.isEmpty ? '设备未填写' : summary;
+    return '$base·${row.recordCount}条记录';
   }
 
   Widget _buildAddPaymentPillButton({required TextStyle actionStyle}) {
