@@ -21,6 +21,7 @@ class ComputeAccountSummaryUseCase {
     required List<AccountPayment> payments,
     List<ProjectWriteOff> writeOffs = const [],
     List<AccountProjectMergeGroupWithMembers> activeMergeGroups = const [],
+    Set<String> settledProjectIds = const {},
     int? summaryYear,
   }) {
     final summaryRange = _resolveSummaryRange(
@@ -75,6 +76,7 @@ class ComputeAccountSummaryUseCase {
             contact: agg.pk.contact,
             site: agg.pk.site,
           ),
+          isSettled: settledProjectIds.contains(agg.projectId.trim()),
           minYmd: agg.minYmd,
           deviceIds: agg.deviceIds,
           hoursByDevice: agg.hoursByDevice,
@@ -107,6 +109,7 @@ class ComputeAccountSummaryUseCase {
     final items = _applyMergeGroups(
       normalItems: normalItems,
       activeMergeGroups: activeMergeGroups,
+      settledProjectIds: settledProjectIds,
     );
 
     final deviceById = buildDeviceByIdMap(devices);
@@ -372,6 +375,7 @@ class ComputeAccountSummaryUseCase {
   List<AccountProjectVM> _applyMergeGroups({
     required List<AccountProjectVM> normalItems,
     required List<AccountProjectMergeGroupWithMembers> activeMergeGroups,
+    required Set<String> settledProjectIds,
   }) {
     if (activeMergeGroups.isEmpty || normalItems.isEmpty) return normalItems;
 
@@ -417,6 +421,7 @@ class ComputeAccountSummaryUseCase {
           memberProjectKeys: memberKeys,
           memberProjectIds: memberProjectIds,
           includedSites: memberSites,
+          settledProjectIds: settledProjectIds,
         ),
       );
     }
@@ -438,6 +443,7 @@ class ComputeAccountSummaryUseCase {
     required List<String> memberProjectKeys,
     required List<String> memberProjectIds,
     required List<String> includedSites,
+    required Set<String> settledProjectIds,
   }) {
     final deviceIds = <int>{};
     final hoursByDevice = <int, double>{};
@@ -492,6 +498,9 @@ class ComputeAccountSummaryUseCase {
       memberProjectIds: List.unmodifiable(memberProjectIds),
       includedSites: List.unmodifiable(includedSites),
       includedSitesText: _includedSitesText(includedSites),
+      isSettled:
+          memberProjectIds.isNotEmpty &&
+          memberProjectIds.every((id) => settledProjectIds.contains(id.trim())),
       minYmd: minYmd,
       deviceIds: sortedDeviceIds,
       hoursByDevice: Map.unmodifiable(hoursByDevice),

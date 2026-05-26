@@ -82,6 +82,7 @@ class AccountProjectVM {
   final List<String> memberProjectIds;
   final List<String> includedSites;
   final String? includedSitesText;
+  final bool isSettled;
   final bool hasLinkedExternalWork;
 
   /// 项目最早计时日期（YYYYMMDD）
@@ -115,6 +116,7 @@ class AccountProjectVM {
     this.memberProjectIds = const [],
     this.includedSites = const [],
     this.includedSitesText,
+    this.isSettled = false,
     this.hasLinkedExternalWork = false,
     required this.minYmd,
     required this.deviceIds,
@@ -147,6 +149,7 @@ class AccountProjectVM {
     double? ratio,
     double? settlementRatio,
     double? externalWorkHours,
+    bool? isSettled,
     bool? hasLinkedExternalWork,
   }) {
     return AccountProjectVM(
@@ -159,6 +162,7 @@ class AccountProjectVM {
       memberProjectIds: memberProjectIds,
       includedSites: includedSites,
       includedSitesText: includedSitesText,
+      isSettled: isSettled ?? this.isSettled,
       hasLinkedExternalWork:
           hasLinkedExternalWork ?? this.hasLinkedExternalWork,
       minYmd: minYmd,
