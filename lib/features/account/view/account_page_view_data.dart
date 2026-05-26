@@ -8,6 +8,8 @@ import '../state/account_payment_store.dart';
 import '../state/account_store.dart';
 import '../state/project_rate_store.dart';
 import '../../device/state/device_store.dart';
+import '../../fuel/state/fuel_store.dart';
+import '../../maintenance/state/maintenance_store.dart';
 import '../../timing/state/timing_external_work_store.dart';
 import '../../timing/state/timing_store.dart';
 
@@ -22,6 +24,7 @@ class AccountPageViewData {
     required this.filteredProjects,
     required this.filteredExternalWorkProjects,
     required this.projectSuggestions,
+    required this.netCashReceived,
     required this.loading,
     required this.hasActiveFilter,
     required this.error,
@@ -31,6 +34,7 @@ class AccountPageViewData {
   final List<AccountProjectVM> filteredProjects;
   final List<AccountExternalWorkProjectVM> filteredExternalWorkProjects;
   final List<String> projectSuggestions;
+  final double netCashReceived;
   final bool loading;
   final bool hasActiveFilter;
   final String? error;
@@ -44,6 +48,8 @@ AccountPageViewData buildAccountPageViewData({
   required AccountStore accountStore,
   required AccountFilterStore filterStore,
   required TimingExternalWorkStore? externalWorkStore,
+  FuelStore? fuelStore,
+  MaintenanceStore? maintenanceStore,
 }) {
   final timing = timingStore.records;
   final devices = deviceStore.allDevices;
@@ -59,9 +65,21 @@ AccountPageViewData buildAccountPageViewData({
   );
   final externalItems = externalWorkStore?.items ?? const [];
   // 外协设备应收联动：把已关联外协包的设备应收并入对应本地项目卡片，并把
-  // 全部外协设备应收（每包只计一次）并入账户页总览总应收。
+  // 全部外协设备应收（每包只计一次）并入账户页总览总应收；同时把分享包
+  // 携带的来源项目累计实收款计入总览已收。
   final rollup = rollupExternalWorkReceivable(externalItems);
   final computed = augmentComputedWithExternalWork(rawComputed, rollup);
+  final now = DateTime.now();
+  final nowYmd = now.year * 10000 + now.month * 100 + now.day;
+  final fuelExpense = fuelStore?.currentYearSummary(nowYmd: nowYmd).cost ?? 0;
+  final maintenanceExpense =
+      maintenanceStore?.currentYearTotal(nowYmd: nowYmd) ?? 0;
+  final netCashReceived = calculateNetCashReceived(
+    receivedCash: computed.totalReceived,
+    fuelExpense: fuelExpense,
+    maintenanceExpense: maintenanceExpense,
+    paidExternalWorkFen: rollup.totalPaidExternalWorkFen,
+  );
   final filteredProjects = filterStore.filterProjects(computed.projects);
   final externalWorkProjects = buildAccountExternalWorkProjects(externalItems);
   final filteredExternalWorkProjects = _filterExternalWorkProjects(
@@ -80,6 +98,8 @@ AccountPageViewData buildAccountPageViewData({
       paymentStore.loading ||
       rateStore.loading ||
       accountStore.loading ||
+      (fuelStore?.loading ?? false) ||
+      (maintenanceStore?.loading ?? false) ||
       (externalWorkStore?.loading ?? false);
   final hasActiveFilter =
       filterStore.projectFilterKeyword.isNotEmpty &&
@@ -91,6 +111,8 @@ AccountPageViewData buildAccountPageViewData({
     paymentStore,
     rateStore,
     accountStore,
+    ?fuelStore,
+    ?maintenanceStore,
     ?externalWorkStore,
   ], action: '读取');
 
@@ -99,10 +121,23 @@ AccountPageViewData buildAccountPageViewData({
     filteredProjects: filteredProjects,
     filteredExternalWorkProjects: filteredExternalWorkProjects,
     projectSuggestions: projectSuggestions,
+    netCashReceived: netCashReceived,
     loading: loading,
     hasActiveFilter: hasActiveFilter,
     error: error,
   );
+}
+
+double calculateNetCashReceived({
+  required double receivedCash,
+  required double fuelExpense,
+  required double maintenanceExpense,
+  required int paidExternalWorkFen,
+}) {
+  return receivedCash -
+      fuelExpense -
+      maintenanceExpense -
+      (paidExternalWorkFen / 100);
 }
 
 List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
@@ -176,17 +211,27 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
 class ExternalWorkReceivableRollup {
   const ExternalWorkReceivableRollup({
     required this.totalReceivableFen,
+    required this.totalReceivedFen,
+    required this.totalPaidExternalWorkFen,
     required this.receivableFenByProjectId,
     required this.hoursByProjectId,
   });
 
   const ExternalWorkReceivableRollup.empty()
     : totalReceivableFen = 0,
+      totalReceivedFen = 0,
+      totalPaidExternalWorkFen = 0,
       receivableFenByProjectId = const {},
       hoursByProjectId = const {};
 
   /// 所有活跃外协包的设备应收之和（每个 importBatch 只计一次），用于总览。
   final int totalReceivableFen;
+
+  /// 所有活跃外协包携带的来源项目累计实收款之和（每个 importBatch 只计一次），用于总览。
+  final int totalReceivedFen;
+
+  /// 已支付外协项目款。当前没有持久化数据源，保持 0，不能用应付金额冒充。
+  final int totalPaidExternalWorkFen;
 
   /// 已关联外协包按 linkedProjectId 汇总的设备应收（分），用于并入项目卡片。
   final Map<String, int> receivableFenByProjectId;
@@ -209,6 +254,7 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
   }
 
   var totalFen = 0;
+  var totalReceivedFen = 0;
   final byProject = <String, int>{};
   final byHoursProject = <String, double>{};
   for (final batchItems in byBatch.values) {
@@ -216,11 +262,16 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
       0,
       (sum, item) => sum + externalWorkRecordReceivableFen(item.record),
     );
+    final batchReceivedFen = batchItems.fold<int>(0, (max, item) {
+      final receivedFen = item.record.projectReceivedFen;
+      return receivedFen > max ? receivedFen : max;
+    });
     final batchHours = batchItems.fold<double>(
       0,
       (sum, item) => sum + item.record.hoursMilli / 1000,
     );
     totalFen += batchReceivableFen;
+    totalReceivedFen += batchReceivedFen;
 
     final linkedProjectId = batchItems
         .map((item) => item.record.linkedProjectId?.trim() ?? '')
@@ -234,6 +285,8 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
 
   return ExternalWorkReceivableRollup(
     totalReceivableFen: totalFen,
+    totalReceivedFen: totalReceivedFen,
+    totalPaidExternalWorkFen: 0,
     receivableFenByProjectId: Map.unmodifiable(byProject),
     hoursByProjectId: Map.unmodifiable(byHoursProject),
   );
@@ -247,6 +300,7 @@ AccountComputed augmentComputedWithExternalWork(
   ExternalWorkReceivableRollup rollup,
 ) {
   if (rollup.totalReceivableFen == 0 &&
+      rollup.totalReceivedFen == 0 &&
       rollup.receivableFenByProjectId.isEmpty &&
       rollup.hoursByProjectId.isEmpty) {
     return computed;
@@ -258,16 +312,19 @@ AccountComputed augmentComputedWithExternalWork(
   ];
 
   final externalTotalYuan = rollup.totalReceivableFen / 100;
+  final externalReceivedYuan = rollup.totalReceivedFen / 100;
   final newTotalReceivable = computed.totalReceivable + externalTotalYuan;
-  final newTotalRemaining = computed.totalRemaining + externalTotalYuan;
+  final newTotalReceived = computed.totalReceived + externalReceivedYuan;
+  final newTotalRemaining =
+      computed.totalRemaining + externalTotalYuan - externalReceivedYuan;
   final newTotalRatio = newTotalReceivable <= 0
       ? null
-      : computed.totalReceived / newTotalReceivable;
+      : newTotalReceived / newTotalReceivable;
 
   return AccountComputed(
     projects: augmentedProjects,
     totalReceivable: newTotalReceivable,
-    totalReceived: computed.totalReceived,
+    totalReceived: newTotalReceived,
     totalWriteOff: computed.totalWriteOff,
     totalRemaining: newTotalRemaining,
     totalRatio: newTotalRatio,

@@ -17,6 +17,7 @@ class AccountOverviewVm {
   final double totalReceived;
   final double totalRemaining;
   final double? totalRatio;
+  final double netCashReceived;
   final List<AccountDeviceReceivable> deviceReceivables;
 
   const AccountOverviewVm({
@@ -24,6 +25,7 @@ class AccountOverviewVm {
     required this.totalReceived,
     required this.totalRemaining,
     required this.totalRatio,
+    required this.netCashReceived,
     required this.deviceReceivables,
   });
 }
@@ -108,7 +110,10 @@ class AccountOverviewCard extends StatelessWidget {
                   ),
                   const SizedBox(height: AccountTokens.overviewMiddleTopGap),
                   Expanded(
-                    child: _OverviewDeviceReceivableSection(items: items),
+                    child: _OverviewDeviceReceivableSection(
+                      items: items,
+                      netCashReceived: vm.netCashReceived,
+                    ),
                   ),
                   const SizedBox(height: AccountTokens.overviewPieTopGap),
                   Expanded(child: _OverviewPaymentSummarySection(vm: vm)),
@@ -149,9 +154,13 @@ class AccountOverviewCard extends StatelessWidget {
 }
 
 class _OverviewDeviceReceivableSection extends StatelessWidget {
-  const _OverviewDeviceReceivableSection({required this.items});
+  const _OverviewDeviceReceivableSection({
+    required this.items,
+    required this.netCashReceived,
+  });
 
   final List<_DeviceReceivable> items;
+  final double netCashReceived;
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +187,10 @@ class _OverviewDeviceReceivableSection extends StatelessWidget {
               child: SizedBox(
                 width: AccountTokens.overviewChartSize,
                 height: AccountTokens.overviewChartSize,
-                child: _OverviewDonut(items: items),
+                child: _OverviewDonut(
+                  items: items,
+                  netCashReceived: netCashReceived,
+                ),
               ),
             ),
           ),
@@ -405,13 +417,66 @@ class _OverviewLegendRow extends StatelessWidget {
 
 class _OverviewDonut extends StatelessWidget {
   final List<_DeviceReceivable> items;
+  final double netCashReceived;
 
-  const _OverviewDonut({required this.items});
+  const _OverviewDonut({required this.items, required this.netCashReceived});
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _OverviewDonutPainter(items: items));
+    final labelStyle = AppTypography.caption(
+      context,
+      fontSize: 10,
+      height: 1,
+      color: SheetColors.hint,
+    );
+    final valueStyle = AppTypography.body(
+      context,
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      height: 1.1,
+      color: Colors.black,
+    );
+    final amountText = _formatSignedMoney(netCashReceived);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(
+          child: CustomPaint(painter: _OverviewDonutPainter(items: items)),
+        ),
+        Tooltip(
+          message: '已收款扣除燃油、维保和已支付外协项目款后的金额。',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('净实收', maxLines: 1, style: labelStyle),
+              const SizedBox(height: 3),
+              SizedBox(
+                width:
+                    AccountTokens.overviewChartSize -
+                    (AccountTokens.overviewChartStroke * 2) -
+                    6,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    amountText,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: valueStyle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
+}
+
+String _formatSignedMoney(double amount) {
+  if (amount < 0) return '-${FormatUtils.money(-amount)}';
+  return FormatUtils.money(amount);
 }
 
 class _OverviewDonutPainter extends CustomPainter {

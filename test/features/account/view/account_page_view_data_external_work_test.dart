@@ -58,19 +58,67 @@ void main() {
       expect(rollup.hoursByProjectId, {'project:a': 2.0});
     });
 
+    test('counts project received once per batch', () {
+      final items = [
+        _item(
+          _imported(
+            id: 'a',
+            batchId: 'b1',
+            amountFen: 90000,
+            projectReceivedFen: 50000,
+          ),
+        ),
+        _item(
+          _imported(
+            id: 'b',
+            batchId: 'b1',
+            amountFen: 60000,
+            projectReceivedFen: 50000,
+          ),
+        ),
+        _item(
+          _imported(
+            id: 'c',
+            batchId: 'b2',
+            amountFen: 30000,
+            projectReceivedFen: 20000,
+          ),
+        ),
+      ];
+
+      final rollup = rollupExternalWorkReceivable(items);
+
+      expect(rollup.totalReceivableFen, 180000);
+      expect(rollup.totalReceivedFen, 70000);
+      expect(rollup.totalPaidExternalWorkFen, 0);
+    });
+
     test('ignores inactive records and inactive batches', () {
       final items = [
-        _item(_imported(id: 'a', batchId: 'b1', amountFen: 90000)),
+        _item(
+          _imported(
+            id: 'a',
+            batchId: 'b1',
+            amountFen: 90000,
+            projectReceivedFen: 50000,
+          ),
+        ),
         _item(
           _imported(
             id: 'b',
             batchId: 'b2',
             amountFen: 60000,
+            projectReceivedFen: 60000,
             status: ExternalWorkRecordStatus.voided,
           ),
         ),
         _item(
-          _imported(id: 'c', batchId: 'b3', amountFen: 30000),
+          _imported(
+            id: 'c',
+            batchId: 'b3',
+            amountFen: 30000,
+            projectReceivedFen: 30000,
+          ),
           batchStatus: ExternalImportBatchStatus.archived,
         ),
       ];
@@ -78,6 +126,7 @@ void main() {
       final rollup = rollupExternalWorkReceivable(items);
 
       expect(rollup.totalReceivableFen, 90000);
+      expect(rollup.totalReceivedFen, 50000);
     });
   });
 
@@ -133,6 +182,34 @@ void main() {
       // 总览总应收包含全部外协设备应收（含未关联包），每包只计一次。
       expect(augmented.totalReceivable, 1500 + 1800);
       expect(augmented.totalRemaining, 1500 + 1800);
+    });
+
+    test('adds independent external project received to overview cash', () {
+      final computed = _computed(
+        [_project(id: 'project:a', receivable: 1000, received: 300)],
+        totalReceivable: 1000,
+        totalReceived: 300,
+        totalRemaining: 700,
+        totalRatio: 0.3,
+      );
+
+      final rollup = rollupExternalWorkReceivable([
+        _item(
+          _imported(
+            id: 'external',
+            batchId: 'external-batch',
+            amountFen: 100000,
+            projectReceivedFen: 40000,
+          ),
+        ),
+      ]);
+
+      final augmented = augmentComputedWithExternalWork(computed, rollup);
+
+      expect(augmented.totalReceivable, 2000);
+      expect(augmented.totalReceived, 700);
+      expect(augmented.totalRemaining, 1300);
+      expect(augmented.totalRatio, closeTo(700 / 2000, 0.000001));
     });
 
     test('keeps explicit settled state when adding linked external work', () {
@@ -315,6 +392,49 @@ void main() {
       expect(identical(augmented, computed), isTrue);
     });
   });
+
+  group('calculateNetCashReceived', () {
+    test(
+      'subtracts actual expenses and paid external work without clamping',
+      () {
+        final net = calculateNetCashReceived(
+          receivedCash: 1000,
+          fuelExpense: 300,
+          maintenanceExpense: 200,
+          paidExternalWorkFen: 40000,
+        );
+
+        expect(net, 100);
+      },
+    );
+
+    test('does not treat unpaid external payable as paid cash out', () {
+      final rollup = rollupExternalWorkReceivable([
+        _item(_imported(id: 'external', batchId: 'b1', amountFen: 90000)),
+      ]);
+
+      final net = calculateNetCashReceived(
+        receivedCash: 500,
+        fuelExpense: 0,
+        maintenanceExpense: 0,
+        paidExternalWorkFen: rollup.totalPaidExternalWorkFen,
+      );
+
+      expect(rollup.totalPaidExternalWorkFen, 0);
+      expect(net, 500);
+    });
+
+    test('allows negative net cash received', () {
+      final net = calculateNetCashReceived(
+        receivedCash: 100,
+        fuelExpense: 150,
+        maintenanceExpense: 200,
+        paidExternalWorkFen: 0,
+      );
+
+      expect(net, -250);
+    });
+  });
 }
 
 AccountComputed _computed(
@@ -421,6 +541,7 @@ ExternalWorkRecord _imported({
   required String id,
   required String batchId,
   required int amountFen,
+  int projectReceivedFen = 0,
   String? linkedProjectId,
   ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
 }) {
@@ -437,6 +558,7 @@ ExternalWorkRecord _imported({
     workDate: 20260518,
     hoursMilli: 1000,
     amountFen: amountFen,
+    projectReceivedFen: projectReceivedFen,
     linkedProjectId: linkedProjectId,
     status: status,
     createdAt: '2026-05-18T00:00:00.000Z',
