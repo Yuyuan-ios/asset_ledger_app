@@ -1,5 +1,6 @@
 import '../../../core/utils/store_feedback.dart';
 import '../domain/services/external_work_receivable.dart';
+import '../domain/services/project_finance_calculator.dart';
 import '../model/account_view_model.dart';
 import '../model/project_title_formatter.dart';
 import '../state/account_filter_store.dart';
@@ -299,18 +300,20 @@ AccountProjectVM _augmentProjectWithExternalWork(
 
   final externalYuan = externalFen / 100;
   final newReceivable = project.receivable + externalYuan;
-  final newRemaining = project.remaining + externalYuan;
+  final finance = ProjectFinanceCalculator.summarizeTotals(
+    receivableFen: ProjectFinanceCalculator.yuanToFen(newReceivable),
+    receivedFen: ProjectFinanceCalculator.yuanToFen(project.received),
+    writeOffFen: ProjectFinanceCalculator.yuanToFen(project.writeOff),
+    toleranceFen: 1,
+  );
   return project.copyWith(
     receivable: newReceivable,
-    remaining: newRemaining,
+    remaining: finance.remaining,
     externalWorkHours: project.externalWorkHours + externalHours,
     hasLinkedExternalWork: true,
-    ratio: newReceivable <= 0
-        ? project.ratio
-        : project.received / newReceivable,
-    settlementRatio: newReceivable <= 0
-        ? project.settlementRatio
-        : (project.received + project.writeOff) / newReceivable,
+    isSettledForDisplay: project.isSettled || finance.isSettled,
+    ratio: finance.cashRate,
+    settlementRatio: finance.settlementRate,
   );
 }
 

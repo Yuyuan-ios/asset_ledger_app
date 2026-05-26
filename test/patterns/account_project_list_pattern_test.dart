@@ -139,6 +139,43 @@ void main() {
     expect(_settledCheckIcons(), findsNothing);
   });
 
+  testWidgets('active fully received project keeps settled display style', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'fully-received',
+      displayName: '李洋 · 天眉乐',
+      minYmd: 20260521,
+      deviceIds: [1],
+      hoursByDevice: {1: 8.1},
+      rentIncomeTotal: 0,
+      minRate: 180,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1458,
+      received: 1458,
+      remaining: 0,
+      ratio: 1,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(projects: const [project], onTap: (_) {}),
+        ),
+      ),
+    );
+
+    expect(_settledCheckIcons(), findsOneWidget);
+    expect(find.text('已结清'), findsOneWidget);
+    expect(find.text('余: ¥0 / ¥1458'), findsNothing);
+
+    final progressWidthFactors = _progressWidthFactors(tester);
+    expect(progressWidthFactors, hasLength(1));
+    expect(progressWidthFactors.single, 1.0);
+  });
+
   testWidgets(
     'linked settled project shows chain and settled status in normal mode',
     (tester) async {

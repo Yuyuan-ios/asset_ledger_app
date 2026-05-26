@@ -169,12 +169,56 @@ void main() {
       final project = augmented.projects.single;
 
       expect(project.isSettled, isTrue);
+      expect(project.isSettledForDisplay, isTrue);
       expect(project.hasLinkedExternalWork, isTrue);
       expect(project.receivable, 2358);
       expect(project.remaining, 900);
       expect(project.ratio, closeTo(1458 / 2358, 0.0001));
       expect(augmented.totalReceivable, 2358);
       expect(augmented.totalRemaining, 900);
+    });
+
+    test('linked external work can clear display-only settlement', () {
+      final computed = _computed(
+        [
+          _project(
+            id: 'project:active-paid',
+            displayName: '李洋 · 天眉乐',
+            receivable: 1458,
+            received: 1458,
+            remaining: 0,
+            ratio: 1,
+          ),
+        ],
+        totalReceivable: 1458,
+        totalReceived: 1458,
+        totalRemaining: 0,
+        totalRatio: 1,
+      );
+
+      expect(computed.projects.single.isSettled, isFalse);
+      expect(computed.projects.single.isSettledForDisplay, isTrue);
+
+      final rollup = rollupExternalWorkReceivable([
+        _item(
+          _imported(
+            id: 'linked',
+            batchId: 'batch-linked',
+            amountFen: 90000,
+            linkedProjectId: 'project:active-paid',
+          ),
+        ),
+      ]);
+
+      final augmented = augmentComputedWithExternalWork(computed, rollup);
+      final project = augmented.projects.single;
+
+      expect(project.isSettled, isFalse);
+      expect(project.isSettledForDisplay, isFalse);
+      expect(project.hasLinkedExternalWork, isTrue);
+      expect(project.receivable, 2358);
+      expect(project.remaining, 900);
+      expect(project.ratio, closeTo(1458 / 2358, 0.0001));
     });
 
     test('one batch is never counted into multiple projects', () {

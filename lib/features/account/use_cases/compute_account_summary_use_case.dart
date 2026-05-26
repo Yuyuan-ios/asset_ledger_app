@@ -67,6 +67,7 @@ class ComputeAccountSummaryUseCase {
         devices: devices,
         rates: rates,
       );
+      final isStatusSettled = settledProjectIds.contains(agg.projectId.trim());
 
       normalItems.add(
         AccountProjectVM(
@@ -76,7 +77,8 @@ class ComputeAccountSummaryUseCase {
             contact: agg.pk.contact,
             site: agg.pk.site,
           ),
-          isSettled: settledProjectIds.contains(agg.projectId.trim()),
+          isSettled: isStatusSettled,
+          isSettledForDisplay: isStatusSettled || finance.isSettled,
           minYmd: agg.minYmd,
           deviceIds: agg.deviceIds,
           hoursByDevice: agg.hoursByDevice,
@@ -485,6 +487,10 @@ class ComputeAccountSummaryUseCase {
     );
     final sortedDeviceIds = deviceIds.toList()..sort();
 
+    final isStatusSettled =
+        memberProjectIds.isNotEmpty &&
+        memberProjectIds.every((id) => settledProjectIds.contains(id.trim()));
+
     return AccountProjectVM(
       projectId: 'merge:$groupId',
       projectKey: 'merge:$groupId',
@@ -498,9 +504,8 @@ class ComputeAccountSummaryUseCase {
       memberProjectIds: List.unmodifiable(memberProjectIds),
       includedSites: List.unmodifiable(includedSites),
       includedSitesText: _includedSitesText(includedSites),
-      isSettled:
-          memberProjectIds.isNotEmpty &&
-          memberProjectIds.every((id) => settledProjectIds.contains(id.trim())),
+      isSettled: isStatusSettled,
+      isSettledForDisplay: isStatusSettled || finance.isSettled,
       minYmd: minYmd,
       deviceIds: sortedDeviceIds,
       hoursByDevice: Map.unmodifiable(hoursByDevice),

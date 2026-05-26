@@ -3,6 +3,8 @@ import '../../../data/models/project_id.dart';
 
 enum AccountProjectKind { normal, merged }
 
+const double _accountProjectDisplaySettlementEpsilon = 0.000001;
+
 class AccountExternalWorkProjectVM {
   final String importBatchId;
   final String displayName;
@@ -82,7 +84,12 @@ class AccountProjectVM {
   final List<String> memberProjectIds;
   final List<String> includedSites;
   final String? includedSitesText;
+
+  /// 真实项目状态：来自 `Project.status == settled`，用于业务动作边界。
   final bool isSettled;
+
+  /// 卡片展示状态：真实已结清，或当前财务口径下已收/核销覆盖总应收。
+  final bool isSettledForDisplay;
   final bool hasLinkedExternalWork;
 
   /// 项目最早计时日期（YYYYMMDD）
@@ -117,6 +124,7 @@ class AccountProjectVM {
     this.includedSites = const [],
     this.includedSitesText,
     this.isSettled = false,
+    bool? isSettledForDisplay,
     this.hasLinkedExternalWork = false,
     required this.minYmd,
     required this.deviceIds,
@@ -133,7 +141,12 @@ class AccountProjectVM {
     required this.ratio,
     this.settlementRatio,
     required this.payments,
-  });
+  }) : isSettledForDisplay =
+           isSettledForDisplay ??
+           (isSettled ||
+               (receivable > _accountProjectDisplaySettlementEpsilon &&
+                   receivable - received - writeOff <=
+                       _accountProjectDisplaySettlementEpsilon));
 
   String get effectiveProjectId {
     if (projectId.trim().isNotEmpty) return projectId.trim();
@@ -150,8 +163,14 @@ class AccountProjectVM {
     double? settlementRatio,
     double? externalWorkHours,
     bool? isSettled,
+    bool? isSettledForDisplay,
     bool? hasLinkedExternalWork,
   }) {
+    final nextIsSettled = isSettled ?? this.isSettled;
+    final nextReceivable = receivable ?? this.receivable;
+    final nextReceived = received ?? this.received;
+    final nextWriteOff = writeOff ?? this.writeOff;
+
     return AccountProjectVM(
       projectId: projectId,
       projectKey: projectKey,
@@ -162,7 +181,15 @@ class AccountProjectVM {
       memberProjectIds: memberProjectIds,
       includedSites: includedSites,
       includedSitesText: includedSitesText,
-      isSettled: isSettled ?? this.isSettled,
+      isSettled: nextIsSettled,
+      isSettledForDisplay:
+          isSettledForDisplay ??
+          _deriveSettledForDisplay(
+            isSettled: nextIsSettled,
+            receivable: nextReceivable,
+            received: nextReceived,
+            writeOff: nextWriteOff,
+          ),
       hasLinkedExternalWork:
           hasLinkedExternalWork ?? this.hasLinkedExternalWork,
       minYmd: minYmd,
@@ -173,15 +200,27 @@ class AccountProjectVM {
       minRate: minRate,
       isMultiDevice: isMultiDevice,
       isMultiMode: isMultiMode,
-      receivable: receivable ?? this.receivable,
-      received: received ?? this.received,
-      writeOff: writeOff ?? this.writeOff,
+      receivable: nextReceivable,
+      received: nextReceived,
+      writeOff: nextWriteOff,
       remaining: remaining ?? this.remaining,
       ratio: ratio ?? this.ratio,
       settlementRatio: settlementRatio ?? this.settlementRatio,
       payments: payments,
     );
   }
+}
+
+bool _deriveSettledForDisplay({
+  required bool isSettled,
+  required double receivable,
+  required double received,
+  required double writeOff,
+}) {
+  if (isSettled) return true;
+  if (receivable <= _accountProjectDisplaySettlementEpsilon) return false;
+  return receivable - received - writeOff <=
+      _accountProjectDisplaySettlementEpsilon;
 }
 
 class AccountDeviceReceivable {
