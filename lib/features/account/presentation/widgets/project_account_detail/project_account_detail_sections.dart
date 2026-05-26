@@ -12,13 +12,19 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   }) {
     final children = <Widget>[];
     var lastSiteLabel = _fallbackSiteLabel();
+    var hasShownLocalDeviceHeader = false;
     for (var index = 0; index < rows.length; index++) {
       final row = rows[index];
       final rawLabel = row.label.trim();
-      if (rawLabel.isNotEmpty && rawLabel != '设备单价') {
+      final isNewSiteBlock = rawLabel.isNotEmpty && rawLabel != '设备单价';
+      if (isNewSiteBlock) {
         lastSiteLabel = rawLabel;
       }
-      final siteRowLabel = _siteRowLabel(
+
+      // 合并项目：每个新地址块都要重新出现 "📍 地址  ⚙ 本地设备" 标题。
+      // 普通项目：标题只在首行展示一次。
+      final showHeader = isMergedProject ? isNewSiteBlock : !hasShownLocalDeviceHeader;
+      final headerSite = _headerSiteName(
         isMergedProject: isMergedProject,
         projectTitle: title,
         siteName: lastSiteLabel,
@@ -27,8 +33,8 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       children.add(
         _buildProjectDetailRow(
           row: row,
-          siteLabel: siteRowLabel ?? '',
-          showSiteRow: siteRowLabel != null,
+          headerSiteName: headerSite,
+          showHeader: showHeader,
           showDivider: index != rows.length - 1,
           siteStyle: siteStyle,
           rowTextStyle: rowTextStyle,
@@ -36,7 +42,13 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           actionStyle: actionStyle,
         ),
       );
+
+      if (showHeader) {
+        hasShownLocalDeviceHeader = true;
+      }
     }
+
+    final titleParts = _splitTitleParts(title);
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -55,12 +67,12 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                    style: projectNameStyle,
+                  child: NameSiteInlineText(
+                    name: titleParts.$1,
+                    site: titleParts.$2,
+                    nameStyle: projectNameStyle,
+                    siteStyle: projectNameStyle,
+                    separatorStyle: projectNameStyle,
                   ),
                 ),
                 if (hasLinkedExternalWork) ...[
@@ -88,8 +100,8 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
   Widget _buildProjectDetailRow({
     required ProjectAccountDetailRateRow row,
-    required String siteLabel,
-    required bool showSiteRow,
+    required String? headerSiteName,
+    required bool showHeader,
     required bool showDivider,
     required TextStyle? siteStyle,
     required TextStyle? rowTextStyle,
@@ -129,27 +141,12 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showSiteRow) ...[
-          Row(
-            children: [
-              Icon(
-                siteLabel == '设备'
-                    ? Icons.settings_outlined
-                    : Icons.location_on_outlined,
-                size: 18,
-                color: AccountTokens.projectDetailActionColor,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  siteLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: false,
-                  style: siteStyle,
-                ),
-              ),
-            ],
+        if (showHeader) ...[
+          _buildDeviceSectionHeader(
+            siteName: headerSiteName,
+            label: _localDeviceLabel,
+            labelIcon: Icons.settings_outlined,
+            siteStyle: siteStyle,
           ),
           const SizedBox(height: AppSpace.xs),
         ],
@@ -544,7 +541,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     return '';
   }
 
-  String? _siteRowLabel({
+  String? _headerSiteName({
     required bool isMergedProject,
     required String projectTitle,
     required String siteName,
@@ -555,9 +552,70 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     if (isMergedProject) return normalizedSite;
 
     final normalizedTitle = projectTitle.trim();
-    if (normalizedTitle.contains(normalizedSite)) return '设备';
+    // 普通项目的标题已经展示了"姓名 · 地址"，地址重复展示反而冗余，
+    // 所以普通项目只显示 "⚙ 本地设备"，省略 "📍 地址"。
+    if (normalizedTitle.contains(normalizedSite)) return null;
 
     return normalizedSite;
+  }
+
+  (String, String?) _splitTitleParts(String value) {
+    final trimmed = value.trim();
+    final sepIndex = trimmed.indexOf(ProjectTitleFormatter.separator);
+    if (sepIndex <= 0) return (trimmed, null);
+    final name = trimmed.substring(0, sepIndex).trim();
+    final tail = trimmed
+        .substring(sepIndex + ProjectTitleFormatter.separator.length)
+        .trim();
+    if (tail.isEmpty) return (name, null);
+    return (name, tail);
+  }
+
+  Widget _buildDeviceSectionHeader({
+    required String? siteName,
+    required String label,
+    required IconData labelIcon,
+    required TextStyle? siteStyle,
+  }) {
+    final iconColor = AccountTokens.projectDetailActionColor;
+    final labelWidget = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(labelIcon, size: 18, color: iconColor),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: siteStyle,
+        ),
+      ],
+    );
+
+    if (siteName == null || siteName.isEmpty) {
+      // 没有地址需要展示时，"⚙ 本地设备" 单独占一行。
+      return Row(children: [labelWidget]);
+    }
+
+    return Row(
+      children: [
+        Icon(Icons.location_on_outlined, size: 18, color: iconColor),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            siteName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: siteStyle,
+          ),
+        ),
+        const SizedBox(width: 12),
+        // "本地设备" 标签是固定语义，不能被动态地址挤掉。
+        labelWidget,
+      ],
+    );
   }
 
   List<ProjectAccountDetailRateRow> _buildDeviceDetailRows({
