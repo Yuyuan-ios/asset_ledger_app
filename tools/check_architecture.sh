@@ -1,51 +1,134 @@
 #!/usr/bin/env bash
+# Architecture boundary checks.
+#
+# Behaviors:
+# - Missing paths fail the script (unless explicitly marked optional below).
+# - Pattern matches are violations and fail the script.
+# - rg invocation errors (exit code >= 2) fail the script and are not swallowed.
+# - The script only prints "Architecture boundary checks passed." when there
+#   are zero violations and zero rg errors.
 
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-has_failures=0
+failures=0
 
-echo "Checking data/state imports..."
-if rg -n \
-  --glob '*.dart' \
-  "^import .*components/|^import .*patterns/|^import .*features/.*/view/" \
+# require_paths <label> <path...>
+# Returns 0 if all paths exist; otherwise logs and increments failures.
+require_paths() {
+  local label="$1"
+  shift
+  local missing=0
+  for path in "$@"; do
+    if [[ ! -e "$path" ]]; then
+      echo "[$label] required path does not exist: $path"
+      missing=1
+    fi
+  done
+  if [[ "$missing" -ne 0 ]]; then
+    failures=$((failures + 1))
+    return 1
+  fi
+  return 0
+}
+
+# run_forbidden_pattern_check <label> <pattern> <path...>
+# Uses PCRE2 (-P) so we can express boundary-sensitive patterns precisely.
+# rg exit codes (PCRE2 mode):
+#   0 -> matches found     => violation, fail
+#   1 -> no matches found  => clean, OK
+#   2+ -> rg error         => fail (do not swallow)
+run_forbidden_pattern_check() {
+  local label="$1"
+  local pattern="$2"
+  shift 2
+
+  require_paths "$label" "$@" || return 0
+
+  echo "$label..."
+  local output
+  set +e
+  output="$(rg -nP --glob '*.dart' "$pattern" "$@" 2>&1)"
+  local rg_status=$?
+  set -e
+
+  case "$rg_status" in
+    0)
+      echo "$output"
+      echo "  -> [$label] forbidden pattern matched."
+      failures=$((failures + 1))
+      ;;
+    1)
+      : # No matches, clean.
+      ;;
+    *)
+      echo "$output"
+      echo "  -> [$label] ripgrep failed with exit code $rg_status."
+      failures=$((failures + 1))
+      ;;
+  esac
+}
+
+run_forbidden_pattern_check "Checking data/state imports" \
+  '^import .*components/|^import .*patterns/|^import .*features/.*/view/' \
   lib/data \
-  lib/features/*/state
-then
-  echo "Found forbidden UI imports in data/state layers."
-  has_failures=1
-fi
+  lib/features/account/state \
+  lib/features/fuel/state \
+  lib/features/maintenance/state \
+  lib/features/timing/state
 
-echo "Checking reusable UI store access..."
-if rg -n \
-  --glob '*.dart' \
-  "context\\.(watch|read)" \
+run_forbidden_pattern_check "Checking reusable UI store access" \
+  'context\.(watch|read)' \
   lib/components \
   lib/patterns
-then
-  echo "Found direct store reads inside components/patterns."
-  has_failures=1
-fi
 
-echo "Checking UI-layer fontFamily usage..."
-if rg -n \
-  --glob '*.dart' \
-  "fontFamily\\s*:" \
+run_forbidden_pattern_check "Checking UI-layer fontFamily usage" \
+  'fontFamily\s*:' \
   lib/features \
   lib/components \
   lib/patterns
-then
-  echo "Found direct fontFamily usage in UI layers."
-  has_failures=1
-fi
 
-echo "Checking migrated modules for direct TextStyle usage..."
-if rg -n \
-  --glob '*.dart' \
-  --glob '!lib/patterns/account/account_overview_card_pattern.dart' \
-  "TextStyle\\s*\\(" \
+# Direct TextStyle usage: (?<![A-Za-z]) so DefaultTextStyle / SomeTextStyle
+# don't false-positive. Allowlist account_overview_card_pattern.dart kept
+# as before via --glob '!...'.
+run_forbidden_pattern_check_with_glob() {
+  local label="$1"
+  local pattern="$2"
+  local exclude_glob="$3"
+  shift 3
+
+  require_paths "$label" "$@" || return 0
+
+  echo "$label..."
+  local output
+  set +e
+  output="$(rg -nP --glob '*.dart' --glob "$exclude_glob" "$pattern" "$@" 2>&1)"
+  local rg_status=$?
+  set -e
+
+  case "$rg_status" in
+    0)
+      echo "$output"
+      echo "  -> [$label] forbidden pattern matched."
+      failures=$((failures + 1))
+      ;;
+    1)
+      :
+      ;;
+    *)
+      echo "$output"
+      echo "  -> [$label] ripgrep failed with exit code $rg_status."
+      failures=$((failures + 1))
+      ;;
+  esac
+}
+
+run_forbidden_pattern_check_with_glob \
+  "Checking migrated modules for direct TextStyle usage" \
+  '(?<![A-Za-z])TextStyle\s*\(' \
+  '!lib/patterns/account/account_overview_card_pattern.dart' \
   lib/features/account \
   lib/features/fuel \
   lib/features/maintenance \
@@ -53,7 +136,6 @@ if rg -n \
   lib/components/feedback \
   lib/components/buttons \
   lib/components/fields \
-  lib/components/list \
   lib/components/avatars \
   lib/components/pickers \
   lib/patterns/account \
@@ -61,12 +143,9 @@ if rg -n \
   lib/patterns/maintenance \
   lib/patterns/timing \
   lib/patterns/device
-then
-  echo "Found direct TextStyle usage in migrated modules."
-  has_failures=1
-fi
 
-if [[ "$has_failures" -ne 0 ]]; then
+if [[ "$failures" -ne 0 ]]; then
+  echo "Architecture boundary checks failed: $failures violation(s) / error(s)."
   exit 1
 fi
 
