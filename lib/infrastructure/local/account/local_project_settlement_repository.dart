@@ -29,35 +29,39 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         throw StateError('项目不存在，无法结清');
       }
       final project = Project.fromMap(projectRows.single);
-      final receivedBefore = await _sumByProjectId(
+      // 权威单位：fen。所有"是否结清 / 是否超支 / 是否覆盖待收"判断都用整数 fen，
+      // 不再走 REAL amount + projectSettlementEpsilon 的浮点路径。
+      final receivableFen = _yuanToFen(request.receivable);
+      final paymentFen = _yuanToFen(request.paymentAmount);
+      final writeOffFen = _yuanToFen(request.writeOffAmount);
+      final receivedFenBefore = await _sumFenByProjectId(
         txn,
         table: SqfliteAccountPaymentRepository.table,
         projectId: request.projectId,
       );
-      final writeOffBefore = await _sumByProjectId(
+      final writeOffFenBefore = await _sumFenByProjectId(
         txn,
         table: SqfliteProjectWriteOffRepository.table,
         projectId: request.projectId,
       );
-      final remainingBefore = _normalizeRemaining(
-        request.receivable - receivedBefore - writeOffBefore,
-      );
+      final remainingFenBefore =
+          receivableFen - receivedFenBefore - writeOffFenBefore;
 
-      if (remainingBefore <= projectSettlementEpsilon) {
+      if (remainingFenBefore <= 0) {
         throw StateError('项目已结清，不能重复结清');
       }
-      if (request.paymentAmount > remainingBefore + projectSettlementEpsilon) {
+      if (paymentFen > remainingFenBefore) {
         throw StateError(
-          '本次实收超出当前待收（待收约 ${FormatUtils.money(remainingBefore)}）',
+          '本次实收超出当前待收（待收约 ${FormatUtils.money(_fenToYuan(remainingFenBefore))}）',
         );
       }
-      final settlementAmount = request.paymentAmount + request.writeOffAmount;
-      if (settlementAmount > remainingBefore + projectSettlementEpsilon) {
+      final settlementFen = paymentFen + writeOffFen;
+      if (settlementFen > remainingFenBefore) {
         throw StateError(
-          '结清金额超出当前待收（待收约 ${FormatUtils.money(remainingBefore)}）',
+          '结清金额超出当前待收（待收约 ${FormatUtils.money(_fenToYuan(remainingFenBefore))}）',
         );
       }
-      if (request.writeOffAmount > projectSettlementEpsilon) {
+      if (writeOffFen > 0) {
         final existingWriteOffCount = await _countByProjectId(
           txn,
           table: SqfliteProjectWriteOffRepository.table,
@@ -70,7 +74,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
 
       int? paymentId;
       String? writeOffId;
-      if (request.paymentAmount > projectSettlementEpsilon) {
+      if (paymentFen > 0) {
         paymentId = await txn.insert(
           SqfliteAccountPaymentRepository.table,
           AccountPayment(
@@ -84,7 +88,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         );
       }
 
-      if (request.writeOffAmount > projectSettlementEpsilon) {
+      if (writeOffFen > 0) {
         final reason = request.writeOffReasonDbValue;
         writeOffId = request.writeOffId;
         if (reason == null || reason.trim().isEmpty || writeOffId == null) {
@@ -105,12 +109,11 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         );
       }
 
-      final receivedAfter = receivedBefore + request.paymentAmount;
-      final writeOffAfter = writeOffBefore + request.writeOffAmount;
-      final remainingAfter = _normalizeRemaining(
-        request.receivable - receivedAfter - writeOffAfter,
-      );
-      final settled = remainingAfter <= projectSettlementEpsilon;
+      final receivedFenAfter = receivedFenBefore + paymentFen;
+      final writeOffFenAfter = writeOffFenBefore + writeOffFen;
+      final remainingFenAfter =
+          receivableFen - receivedFenAfter - writeOffFenAfter;
+      final settled = remainingFenAfter <= 0;
       if (settled && project.status != ProjectStatus.settled) {
         await SqfliteProjectRepository.upsertWithExecutor(
           txn,
@@ -125,14 +128,14 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       return ProjectSettlementResult(
         projectId: request.projectId,
         receivable: request.receivable,
-        receivedBefore: receivedBefore,
-        writeOffBefore: writeOffBefore,
-        remainingBefore: remainingBefore,
+        receivedBefore: _fenToYuan(receivedFenBefore),
+        writeOffBefore: _fenToYuan(writeOffFenBefore),
+        remainingBefore: _fenToYuan(remainingFenBefore),
         paymentAmount: request.paymentAmount,
         writeOffAmount: request.writeOffAmount,
-        receivedAfter: receivedAfter,
-        writeOffAfter: writeOffAfter,
-        remainingAfter: remainingAfter,
+        receivedAfter: _fenToYuan(receivedFenAfter),
+        writeOffAfter: _fenToYuan(writeOffFenAfter),
+        remainingAfter: _fenToYuan(remainingFenAfter),
         settled: settled,
         paymentId: paymentId,
         writeOffId: writeOffId,
@@ -159,9 +162,13 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         throw StateError('请选择核销原因');
       }
 
-      var receivedBefore = 0.0;
-      var writeOffBefore = 0.0;
-      var allocatedWriteOff = 0.0;
+      // 权威单位：fen。整数 fen 比较无浮点误差，因此结清 / 待收覆盖等判断
+      // 全部走 fen，不再依赖 projectSettlementEpsilon。
+      final receivableFen = _yuanToFen(request.receivable);
+      final writeOffFenTotal = _yuanToFen(request.writeOffAmount);
+      var receivedFenBefore = 0;
+      var writeOffFenBefore = 0;
+      var allocatedWriteOffFen = 0;
       final memberProjects = <String, Project>{};
       final memberById = {
         for (final member in request.members) member.projectId: member,
@@ -192,12 +199,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           throw StateError('合并成员项目已存在核销记录，请先处理成员项目。');
         }
 
-        receivedBefore += await _sumByProjectId(
+        receivedFenBefore += await _sumFenByProjectId(
           txn,
           table: SqfliteAccountPaymentRepository.table,
           projectId: member.projectId,
         );
-        writeOffBefore += await _sumByProjectId(
+        writeOffFenBefore += await _sumFenByProjectId(
           txn,
           table: SqfliteProjectWriteOffRepository.table,
           projectId: member.projectId,
@@ -210,26 +217,28 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         if (member == null || project == null) {
           throw StateError('合并成员项目数据不完整，请刷新后重试。');
         }
-        final memberReceivedBefore = await _sumByProjectId(
+        final memberReceivedFenBefore = await _sumFenByProjectId(
           txn,
           table: SqfliteAccountPaymentRepository.table,
           projectId: allocation.projectId,
         );
-        final memberWriteOffBefore = await _sumByProjectId(
+        final memberWriteOffFenBefore = await _sumFenByProjectId(
           txn,
           table: SqfliteProjectWriteOffRepository.table,
           projectId: allocation.projectId,
         );
-        final memberRemainingBefore = _normalizeRemaining(
-          member.receivable - memberReceivedBefore - memberWriteOffBefore,
-        );
-        if (memberRemainingBefore <= projectSettlementEpsilon) {
+        final memberReceivableFen = _yuanToFen(member.receivable);
+        final memberRemainingFenBefore =
+            memberReceivableFen -
+            memberReceivedFenBefore -
+            memberWriteOffFenBefore;
+        if (memberRemainingFenBefore <= 0) {
           throw StateError('合并成员项目已结清，请先处理成员项目。');
         }
-        if (allocation.writeOffAmount >
-            memberRemainingBefore + projectSettlementEpsilon) {
+        final allocationFen = _yuanToFen(allocation.writeOffAmount);
+        if (allocationFen > memberRemainingFenBefore) {
           throw StateError(
-            '结清金额超出当前待收（待收约 ${FormatUtils.money(memberRemainingBefore)}）',
+            '结清金额超出当前待收（待收约 ${FormatUtils.money(_fenToYuan(memberRemainingFenBefore))}）',
           );
         }
 
@@ -247,12 +256,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           ).toMap(),
         );
 
-        final memberWriteOffAfter =
-            memberWriteOffBefore + allocation.writeOffAmount;
-        final memberRemainingAfter = _normalizeRemaining(
-          member.receivable - memberReceivedBefore - memberWriteOffAfter,
-        );
-        if (memberRemainingAfter <= projectSettlementEpsilon) {
+        final memberWriteOffFenAfter = memberWriteOffFenBefore + allocationFen;
+        final memberRemainingFenAfter =
+            memberReceivableFen -
+            memberReceivedFenBefore -
+            memberWriteOffFenAfter;
+        if (memberRemainingFenAfter <= 0) {
           await SqfliteProjectRepository.upsertWithExecutor(
             txn,
             project.copyWith(
@@ -263,41 +272,39 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           );
         }
 
-        allocatedWriteOff += allocation.writeOffAmount;
+        allocatedWriteOffFen += allocationFen;
       }
 
-      if ((allocatedWriteOff - request.writeOffAmount).abs() >
-          projectSettlementEpsilon) {
+      if (allocatedWriteOffFen != writeOffFenTotal) {
         throw StateError('合并项目核销分摊失败');
       }
 
-      final remainingBefore = _normalizeRemaining(
-        request.receivable - receivedBefore - writeOffBefore,
-      );
-      final writeOffAfter = writeOffBefore + request.writeOffAmount;
-      final remainingAfter = _normalizeRemaining(
-        request.receivable - receivedBefore - writeOffAfter,
-      );
-      if (remainingAfter <= projectSettlementEpsilon) {
+      final remainingFenBefore =
+          receivableFen - receivedFenBefore - writeOffFenBefore;
+      final writeOffFenAfter = writeOffFenBefore + writeOffFenTotal;
+      final remainingFenAfter =
+          receivableFen - receivedFenBefore - writeOffFenAfter;
+      if (remainingFenAfter <= 0) {
         for (final member in request.members) {
           final project = memberProjects[member.projectId];
           if (project == null || project.status == ProjectStatus.settled) {
             continue;
           }
-          final memberReceived = await _sumByProjectId(
+          final memberReceivedFen = await _sumFenByProjectId(
             txn,
             table: SqfliteAccountPaymentRepository.table,
             projectId: member.projectId,
           );
-          final memberWriteOff = await _sumByProjectId(
+          final memberWriteOffFen = await _sumFenByProjectId(
             txn,
             table: SqfliteProjectWriteOffRepository.table,
             projectId: member.projectId,
           );
-          final memberRemaining = _normalizeRemaining(
-            member.receivable - memberReceived - memberWriteOff,
-          );
-          if (memberRemaining <= projectSettlementEpsilon) {
+          final memberRemainingFen =
+              _yuanToFen(member.receivable) -
+              memberReceivedFen -
+              memberWriteOffFen;
+          if (memberRemainingFen <= 0) {
             await SqfliteProjectRepository.upsertWithExecutor(
               txn,
               project.copyWith(
@@ -313,15 +320,15 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       return ProjectSettlementResult(
         projectId: request.mergedProjectId,
         receivable: request.receivable,
-        receivedBefore: receivedBefore,
-        writeOffBefore: writeOffBefore,
-        remainingBefore: remainingBefore,
+        receivedBefore: _fenToYuan(receivedFenBefore),
+        writeOffBefore: _fenToYuan(writeOffFenBefore),
+        remainingBefore: _fenToYuan(remainingFenBefore),
         paymentAmount: 0,
         writeOffAmount: request.writeOffAmount,
-        receivedAfter: receivedBefore,
-        writeOffAfter: writeOffAfter,
-        remainingAfter: remainingAfter,
-        settled: remainingAfter <= projectSettlementEpsilon,
+        receivedAfter: _fenToYuan(receivedFenBefore),
+        writeOffAfter: _fenToYuan(writeOffFenAfter),
+        remainingAfter: _fenToYuan(remainingFenAfter),
+        settled: remainingFenAfter <= 0,
         writeOffId: request.allocations.length == 1
             ? request.allocations.single.writeOffId
             : null,
@@ -364,12 +371,13 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       }
       final writeOff = ProjectWriteOff.fromMap(writeOffRows.single);
 
-      final received = await _sumByProjectId(
+      final receivableFen = _yuanToFen(request.receivable);
+      final receivedFen = await _sumFenByProjectId(
         txn,
         table: SqfliteAccountPaymentRepository.table,
         projectId: request.projectId,
       );
-      final writeOffBefore = await _sumByProjectId(
+      final writeOffFenBefore = await _sumFenByProjectId(
         txn,
         table: SqfliteProjectWriteOffRepository.table,
         projectId: request.projectId,
@@ -384,17 +392,15 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         throw StateError('核销记录删除失败，请刷新后重试');
       }
 
-      final writeOffAfter = await _sumByProjectId(
+      final writeOffFenAfter = await _sumFenByProjectId(
         txn,
         table: SqfliteProjectWriteOffRepository.table,
         projectId: request.projectId,
       );
-      final remainingAfter = _normalizeRemaining(
-        request.receivable - received - writeOffAfter,
-      );
+      final remainingFenAfter =
+          receivableFen - receivedFen - writeOffFenAfter;
       final shouldRestoreActive =
-          remainingAfter > projectSettlementEpsilon &&
-          project.status == ProjectStatus.settled;
+          remainingFenAfter > 0 && project.status == ProjectStatus.settled;
       if (shouldRestoreActive) {
         await SqfliteProjectRepository.upsertWithExecutor(
           txn,
@@ -412,10 +418,10 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         writeOffId: request.writeOffId,
         deletedAmount: writeOff.amount,
         receivable: request.receivable,
-        received: received,
-        writeOffBefore: writeOffBefore,
-        writeOffAfter: writeOffAfter,
-        remainingAfter: remainingAfter,
+        received: _fenToYuan(receivedFen),
+        writeOffBefore: _fenToYuan(writeOffFenBefore),
+        writeOffAfter: _fenToYuan(writeOffFenAfter),
+        remainingAfter: _fenToYuan(remainingFenAfter),
         restoredActive: shouldRestoreActive,
       );
     });
@@ -472,8 +478,8 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       }
 
       var deletedAmount = 0.0;
-      var received = 0.0;
-      var writeOffBefore = 0.0;
+      var receivedFen = 0;
+      var writeOffFenBefore = 0;
       final affectedProjectIds = <String>{};
 
       for (final member in request.members) {
@@ -487,12 +493,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         if (projectRows.isEmpty) {
           throw StateError('成员项目不存在，无法删除核销');
         }
-        received += await _sumByProjectId(
+        receivedFen += await _sumFenByProjectId(
           txn,
           table: SqfliteAccountPaymentRepository.table,
           projectId: projectId,
         );
-        writeOffBefore += await _sumByProjectId(
+        writeOffFenBefore += await _sumFenByProjectId(
           txn,
           table: SqfliteProjectWriteOffRepository.table,
           projectId: projectId,
@@ -508,11 +514,13 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         if (deleted != 1) {
           throw StateError('核销记录删除失败，请刷新后重试');
         }
+        // deletedAmount 仅用于结果对象的展示字段（yuan），逐项使用模型的
+        // amount（已通过 fromMap 优先 amount_fen → yuan 还原）累计。
         deletedAmount += writeOff.amount;
         affectedProjectIds.add(writeOff.projectId.trim());
       }
 
-      var writeOffAfter = 0.0;
+      var writeOffFenAfter = 0;
       var restoredActive = false;
       for (final member in request.members) {
         final projectId = member.projectId.trim();
@@ -523,22 +531,23 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           limit: 1,
         );
         final project = Project.fromMap(projectRows.single);
-        final memberWriteOffAfter = await _sumByProjectId(
+        final memberWriteOffFenAfter = await _sumFenByProjectId(
           txn,
           table: SqfliteProjectWriteOffRepository.table,
           projectId: projectId,
         );
-        writeOffAfter += memberWriteOffAfter;
+        writeOffFenAfter += memberWriteOffFenAfter;
         if (!affectedProjectIds.contains(projectId)) continue;
-        final memberReceived = await _sumByProjectId(
+        final memberReceivedFen = await _sumFenByProjectId(
           txn,
           table: SqfliteAccountPaymentRepository.table,
           projectId: projectId,
         );
-        final remainingAfter = _normalizeRemaining(
-          member.receivable - memberReceived - memberWriteOffAfter,
-        );
-        if (remainingAfter > projectSettlementEpsilon &&
+        final memberRemainingFenAfter =
+            _yuanToFen(member.receivable) -
+            memberReceivedFen -
+            memberWriteOffFenAfter;
+        if (memberRemainingFenAfter > 0 &&
             project.status == ProjectStatus.settled) {
           await SqfliteProjectRepository.upsertWithExecutor(
             txn,
@@ -553,18 +562,17 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         }
       }
 
-      final remainingAfter = _normalizeRemaining(
-        request.receivable - received - writeOffAfter,
-      );
+      final remainingFenAfter =
+          _yuanToFen(request.receivable) - receivedFen - writeOffFenAfter;
       return DeleteProjectWriteOffResult(
         projectId: request.mergedProjectId,
         writeOffId: allowedWriteOffIds.join(','),
         deletedAmount: deletedAmount,
         receivable: request.receivable,
-        received: received,
-        writeOffBefore: writeOffBefore,
-        writeOffAfter: writeOffAfter,
-        remainingAfter: remainingAfter,
+        received: _fenToYuan(receivedFen),
+        writeOffBefore: _fenToYuan(writeOffFenBefore),
+        writeOffAfter: _fenToYuan(writeOffFenAfter),
+        remainingAfter: _fenToYuan(remainingFenAfter),
         restoredActive: restoredActive,
       );
     });
@@ -660,16 +668,20 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     });
   }
 
-  Future<double> _sumByProjectId(
+  /// 权威 fen 汇总：所有结清 / 待收 / 已收 / 核销判断都基于 amount_fen，
+  /// REAL amount 列仅用于 legacy / 展示兼容。整数 fen 比较无浮点误差，
+  /// 因此不再需要 projectSettlementEpsilon 兜底。
+  Future<int> _sumFenByProjectId(
     DatabaseExecutor executor, {
     required String table,
     required String projectId,
   }) async {
     final rows = await executor.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM $table WHERE project_id = ?',
+      'SELECT COALESCE(SUM(amount_fen), 0) AS total FROM $table '
+      'WHERE project_id = ?',
       [projectId],
     );
-    return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+    return (rows.single['total'] as num?)?.toInt() ?? 0;
   }
 
   Future<int> _countByProjectId(
@@ -684,7 +696,10 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     return (rows.single['count'] as num?)?.toInt() ?? 0;
   }
 
-  static double _normalizeRemaining(double value) {
-    return value.abs() <= projectSettlementEpsilon ? 0.0 : value;
-  }
+  /// yuan → fen 转换：四舍五入到分。仅用于把 ProjectSettlement*Request 中
+  /// 的 double 入参转成 fen 与 SUM(amount_fen) 同维度比较；不修改入库金额。
+  static int _yuanToFen(double yuan) => (yuan * 100).round();
+
+  /// fen → yuan 转换：用于结果对象（仍以 yuan double 暴露给上层）。
+  static double _fenToYuan(int fen) => fen / 100.0;
 }
