@@ -11,7 +11,13 @@ class BackupRestoreTables {
     return appName == expectedAppName || legacyAppNames.contains(appName);
   }
 
+  // 清表顺序：外协子表 → 外协批次表 → ... → projects；
+  // 关键约束：external_work_records 通过 linked_project_id REFERENCES projects(id) 反向依赖
+  // projects；在删 projects 前必须先清空 external_work_records 这条引用，避免被 FK
+  // RESTRICT 阻断恢复。
   static const List<String> clearOrder = [
+    'external_work_records',
+    'external_import_batches',
     'account_project_merge_members',
     'account_project_merge_groups',
     'timing_calculation_history',
@@ -25,6 +31,8 @@ class BackupRestoreTables {
     'projects',
   ];
 
+  // 插表顺序：父表先于子表；external_work_records 同时依赖 external_import_batches
+  // 与 projects（linked_project_id 可空），因此放在两者之后。
   static const List<String> insertOrder = [
     'projects',
     'devices',
@@ -37,6 +45,8 @@ class BackupRestoreTables {
     'account_payments',
     'project_write_offs',
     'project_device_rates',
+    'external_import_batches',
+    'external_work_records',
   ];
 
   static const Map<String, List<String>> requiredColumns = {
@@ -106,6 +116,30 @@ class BackupRestoreTables {
       'created_at',
       'is_active',
     ],
+    'external_import_batches': [
+      'id',
+      'source_share_id',
+      'source_display_name',
+      'imported_at',
+      'created_at',
+      'updated_at',
+    ],
+    'external_work_records': [
+      'id',
+      'import_batch_id',
+      'source_share_id',
+      'source_record_uuid',
+      'source_installation_uuid',
+      'origin_fingerprint',
+      'collaborator_name',
+      'contact_snapshot',
+      'site_snapshot',
+      'work_date',
+      'hours_milli',
+      'amount_fen',
+      'created_at',
+      'updated_at',
+    ],
   };
 
   static const Set<String> optionalTables = {
@@ -113,6 +147,8 @@ class BackupRestoreTables {
     'account_project_merge_groups',
     'account_project_merge_members',
     'project_write_offs',
+    'external_import_batches',
+    'external_work_records',
   };
 
   static final String legacyProjectTimestamp = DateTime(

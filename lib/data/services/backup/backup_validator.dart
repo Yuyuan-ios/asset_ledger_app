@@ -3,6 +3,9 @@ part of '../local_backup_restore_service.dart';
 class _BackupRestoreValidator {
   const _BackupRestoreValidator._();
 
+  static const String _externalWorkRecordsTable = 'external_work_records';
+  static const String _externalImportBatchesTable = 'external_import_batches';
+
   static _RestoreValidation validate(
     Map<String, dynamic> backupJson, {
     required LocalBackupImportPreviewService previewService,
@@ -181,10 +184,54 @@ class _BackupRestoreValidator {
       );
     }
 
+    // 外协 linked_project_id 在恢复包项目表中找不到时：保留外协记录但解除关联，
+    // 不阻止整体恢复，并把信息以 warning 形式上报。
+    final warnings = _detachOrphanExternalWorkLinks(rowsByTable);
+
     return _RestoreValidation.success(
       rowsByTable: rowsByTable,
       restoredCounts: restoredCounts,
+      warnings: warnings,
     );
+  }
+
+  static List<BackupRestoreWarning> _detachOrphanExternalWorkLinks(
+    Map<String, List<Map<String, Object?>>> rowsByTable,
+  ) {
+    final externalRows = rowsByTable[_externalWorkRecordsTable];
+    if (externalRows == null || externalRows.isEmpty) return const [];
+
+    final projectIds = <String>{
+      for (final row in rowsByTable['projects'] ?? const [])
+        if (row['id'] is String) row['id'] as String,
+    };
+
+    final detachedIds = <String>[];
+    for (var index = 0; index < externalRows.length; index += 1) {
+      final row = externalRows[index];
+      final linked = row['linked_project_id'];
+      if (linked is! String) continue;
+      if (linked.trim().isEmpty) continue;
+      if (projectIds.contains(linked)) continue;
+
+      final detached = Map<String, Object?>.from(row);
+      detached['linked_project_id'] = null;
+      externalRows[index] = detached;
+      detachedIds.add((row['id'] as String?) ?? '');
+    }
+
+    if (detachedIds.isEmpty) return const [];
+
+    return [
+      BackupRestoreWarning(
+        code: BackupRestoreWarningCode.externalWorkLinkedProjectMissing,
+        message: '部分外协记录已恢复为未关联状态（关联项目不在备份中）',
+        context: {
+          'detached_count': detachedIds.length,
+          'external_work_record_ids': List<String>.unmodifiable(detachedIds),
+        },
+      ),
+    ];
   }
 
   static Map<String, Object?> _normalizeRow(
@@ -258,6 +305,25 @@ class _BackupRestoreValidator {
           );
         }
         break;
+      case _externalImportBatchesTable:
+        normalized['record_count'] ??= 0;
+        normalized['total_hours_milli'] ??= 0;
+        normalized['total_amount_fen'] ??= 0;
+        normalized['site_summary'] ??= '';
+        normalized['status'] ??= 'active';
+        break;
+      case _externalWorkRecordsTable:
+        normalized.putIfAbsent('equipment_brand', () => null);
+        normalized.putIfAbsent('equipment_model', () => null);
+        normalized.putIfAbsent('equipment_type', () => null);
+        normalized.putIfAbsent('source_unit_price_fen', () => null);
+        normalized.putIfAbsent('local_unit_price_fen', () => null);
+        normalized['project_received_fen'] ??= 0;
+        normalized.putIfAbsent('linked_project_id', () => null);
+        normalized['record_kind'] ??= 'hours';
+        normalized['status'] ??= 'active';
+        normalized.putIfAbsent('note', () => null);
+        break;
     }
     return normalized;
   }
@@ -301,9 +367,114 @@ class _BackupRestoreValidator {
         return _validateAccountProjectMergeGroupRow(row);
       case 'account_project_merge_members':
         return _validateAccountProjectMergeMemberRow(row);
+      case _externalImportBatchesTable:
+        return _validateExternalImportBatchRow(row);
+      case _externalWorkRecordsTable:
+        return _validateExternalWorkRecordRow(row);
       default:
         return 'unknown_table_$tableName';
     }
+  }
+
+  static String? _validateExternalImportBatchRow(Map<String, Object?> row) {
+    if (!_isNonEmptyString(row['id'])) {
+      return 'invalid_external_import_batches_id';
+    }
+    if (!_isNonEmptyString(row['source_share_id'])) {
+      return 'invalid_external_import_batches_source_share_id';
+    }
+    if (!_isString(row['source_display_name'])) {
+      return 'invalid_external_import_batches_source_display_name';
+    }
+    if (!_isNullableNonNegativeInt(row['record_count'])) {
+      return 'invalid_external_import_batches_record_count';
+    }
+    if (!_isNullableNonNegativeInt(row['total_hours_milli'])) {
+      return 'invalid_external_import_batches_total_hours_milli';
+    }
+    if (!_isNullableNonNegativeInt(row['total_amount_fen'])) {
+      return 'invalid_external_import_batches_total_amount_fen';
+    }
+    if (!_isNullableString(row['site_summary'])) {
+      return 'invalid_external_import_batches_site_summary';
+    }
+    if (!_isNonEmptyString(row['imported_at'])) {
+      return 'invalid_external_import_batches_imported_at';
+    }
+    if (!_isNullableString(row['status'])) {
+      return 'invalid_external_import_batches_status';
+    }
+    if (!_isNonEmptyString(row['created_at'])) {
+      return 'invalid_external_import_batches_created_at';
+    }
+    if (!_isNonEmptyString(row['updated_at'])) {
+      return 'invalid_external_import_batches_updated_at';
+    }
+    return null;
+  }
+
+  static String? _validateExternalWorkRecordRow(Map<String, Object?> row) {
+    if (!_isNonEmptyString(row['id'])) {
+      return 'invalid_external_work_records_id';
+    }
+    if (!_isNonEmptyString(row['import_batch_id'])) {
+      return 'invalid_external_work_records_import_batch_id';
+    }
+    if (!_isNonEmptyString(row['source_share_id'])) {
+      return 'invalid_external_work_records_source_share_id';
+    }
+    if (!_isNonEmptyString(row['source_record_uuid'])) {
+      return 'invalid_external_work_records_source_record_uuid';
+    }
+    if (!_isNonEmptyString(row['source_installation_uuid'])) {
+      return 'invalid_external_work_records_source_installation_uuid';
+    }
+    if (!_isNonEmptyString(row['origin_fingerprint'])) {
+      return 'invalid_external_work_records_origin_fingerprint';
+    }
+    if (!_isString(row['collaborator_name'])) {
+      return 'invalid_external_work_records_collaborator_name';
+    }
+    if (!_isString(row['contact_snapshot'])) {
+      return 'invalid_external_work_records_contact_snapshot';
+    }
+    if (!_isString(row['site_snapshot'])) {
+      return 'invalid_external_work_records_site_snapshot';
+    }
+    if (!_isInt(row['work_date'])) {
+      return 'invalid_external_work_records_work_date';
+    }
+    if (!_isNonNegativeInt(row['hours_milli'])) {
+      return 'invalid_external_work_records_hours_milli';
+    }
+    if (!_isNullableNonNegativeInt(row['source_unit_price_fen'])) {
+      return 'invalid_external_work_records_source_unit_price_fen';
+    }
+    if (!_isNullableNonNegativeInt(row['local_unit_price_fen'])) {
+      return 'invalid_external_work_records_local_unit_price_fen';
+    }
+    if (!_isNonNegativeInt(row['amount_fen'])) {
+      return 'invalid_external_work_records_amount_fen';
+    }
+    if (!_isNullableNonNegativeInt(row['project_received_fen'])) {
+      return 'invalid_external_work_records_project_received_fen';
+    }
+    if (!_isNullableString(row['linked_project_id'])) {
+      return 'invalid_external_work_records_linked_project_id';
+    }
+    if (!_isNullableString(row['record_kind'])) {
+      return 'invalid_external_work_records_record_kind';
+    }
+    if (!_isNullableString(row['status'])) {
+      return 'invalid_external_work_records_status';
+    }
+    if (!_isNonEmptyString(row['created_at'])) {
+      return 'invalid_external_work_records_created_at';
+    }
+    if (!_isNonEmptyString(row['updated_at'])) {
+      return 'invalid_external_work_records_updated_at';
+    }
+    return null;
   }
 
   static String? _validateDevicesRow(Map<String, Object?> row) {
@@ -652,6 +823,9 @@ class _BackupRestoreValidator {
       for (final row in rowsByTable['projects'] ?? const [])
         if (row['id'] is String) row['id'] as String,
     };
+    // 注意：external_work_records.linked_project_id 不在此处校验。
+    // 该字段可空且按业务规则在缺失时改为 "解除关联 + warning"，
+    // 走 _detachOrphanExternalWorkLinks 处理，不能在此触发整体失败。
     for (final tableName in const [
       'timing_records',
       'account_payments',
@@ -704,6 +878,11 @@ class _BackupRestoreValidator {
   static bool _isInt(Object? value) => value is int;
 
   static bool _isNullableInt(Object? value) => value == null || value is int;
+
+  static bool _isNonNegativeInt(Object? value) => value is int && value >= 0;
+
+  static bool _isNullableNonNegativeInt(Object? value) =>
+      value == null || (value is int && value >= 0);
 
   static bool _isBooleanInt(Object? value) => value == 0 || value == 1;
 

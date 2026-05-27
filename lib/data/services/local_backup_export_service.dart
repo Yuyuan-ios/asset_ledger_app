@@ -36,6 +36,8 @@ class LocalBackupExportService {
   static const String _calculationHistoryTable = 'timing_calculation_history';
   static const String _mergeGroupsTable = 'account_project_merge_groups';
   static const String _mergeMembersTable = 'account_project_merge_members';
+  static const String _externalImportBatchesTable = 'external_import_batches';
+  static const String _externalWorkRecordsTable = 'external_work_records';
   static const int _exportFormatVersion = 2;
   static const String _appName = 'FleetLedger';
   static const String _appVersion = 'unknown';
@@ -67,6 +69,8 @@ class LocalBackupExportService {
         _listTimingCalculationHistoryRows(),
         _listMergeGroupRows(),
         _listMergeMemberRows(),
+        _listExternalImportBatchRows(),
+        _listExternalWorkRecordRows(),
       ]);
 
       final projects = results[0].cast<dynamic>();
@@ -81,6 +85,8 @@ class LocalBackupExportService {
           .cast<Map<String, Object?>>();
       final mergeGroupRows = results[9].cast<Map<String, Object?>>();
       final mergeMemberRows = results[10].cast<Map<String, Object?>>();
+      final externalImportBatchRows = results[11].cast<Map<String, Object?>>();
+      final externalWorkRecordRows = results[12].cast<Map<String, Object?>>();
 
       final exportedAt = DateTime.now().toUtc();
 
@@ -116,6 +122,12 @@ class LocalBackupExportService {
         _mergeMembersTable: mergeMemberRows
             .map((row) => Map<String, Object?>.from(row))
             .toList(growable: false),
+        _externalImportBatchesTable: externalImportBatchRows
+            .map((row) => Map<String, Object?>.from(row))
+            .toList(growable: false),
+        _externalWorkRecordsTable: externalWorkRecordRows
+            .map((row) => Map<String, Object?>.from(row))
+            .toList(growable: false),
       };
 
       final payload = <String, Object?>{
@@ -145,6 +157,8 @@ class LocalBackupExportService {
             _calculationHistoryTable: timingCalculationHistoryRows.length,
             _mergeGroupsTable: mergeGroupRows.length,
             _mergeMembersTable: mergeMemberRows.length,
+            _externalImportBatchesTable: externalImportBatchRows.length,
+            _externalWorkRecordsTable: externalWorkRecordRows.length,
           },
         },
         'data': data,
@@ -194,6 +208,24 @@ class LocalBackupExportService {
     return db.query(
       _mergeMembersTable,
       orderBy: 'group_id ASC, sort_order ASC, id ASC',
+    );
+  }
+
+  static Future<List<Map<String, Object?>>>
+  _listExternalImportBatchRows() async {
+    final db = await AppDatabase.database;
+    return db.query(
+      _externalImportBatchesTable,
+      orderBy: 'imported_at ASC, id ASC',
+    );
+  }
+
+  static Future<List<Map<String, Object?>>>
+  _listExternalWorkRecordRows() async {
+    final db = await AppDatabase.database;
+    return db.query(
+      _externalWorkRecordsTable,
+      orderBy: 'import_batch_id ASC, work_date ASC, id ASC',
     );
   }
 
