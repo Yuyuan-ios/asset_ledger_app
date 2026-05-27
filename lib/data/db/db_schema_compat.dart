@@ -98,6 +98,7 @@ class DbSchemaCompat {
     await DbMigrations.ensureMoneyFenSchema(db);
     await DbMigrations.ensureNullableExternalWorkUnitPrice(db);
     await DbMigrations.ensureExternalWorkProjectReceivedFen(db);
+    await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
