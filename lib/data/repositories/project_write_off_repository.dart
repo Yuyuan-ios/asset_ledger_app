@@ -85,21 +85,46 @@ class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
 
   @override
   Future<double> sumByProjectId(String projectId) async {
+    final totalFen = await sumFenByProjectId(projectId);
+    return totalFen / 100.0;
+  }
+
+  @override
+  Future<Map<String, double>> sumByProjectIds(
+    Iterable<String> projectIds,
+  ) async {
+    final fenSums = await sumFenByProjectIds(projectIds);
+    return {
+      for (final entry in fenSums.entries) entry.key: entry.value / 100.0,
+    };
+  }
+
+  /// 权威 fen 汇总：SUM(amount_fen)。REAL amount 不再参与汇总判断。
+  Future<int> sumFenByProjectId(String projectId) async {
     final normalizedProjectId = projectId.trim();
     if (normalizedProjectId.isEmpty) {
       throw ArgumentError.value(projectId, 'projectId', '项目 ID 不能为空');
     }
     final db = await AppDatabase.database;
-    final rows = await db.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) AS total '
+    return sumFenByProjectIdWithExecutor(db, normalizedProjectId);
+  }
+
+  /// 事务内权威 fen 汇总。被 LocalProjectSettlementRepository 等事务化路径调用。
+  Future<int> sumFenByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) return 0;
+    final rows = await executor.rawQuery(
+      'SELECT COALESCE(SUM(amount_fen), 0) AS total '
       'FROM $table WHERE project_id = ?',
       [normalizedProjectId],
     );
-    return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+    return (rows.single['total'] as num?)?.toInt() ?? 0;
   }
 
-  @override
-  Future<Map<String, double>> sumByProjectIds(
+  Future<Map<String, int>> sumFenByProjectIds(
     Iterable<String> projectIds,
   ) async {
     final normalizedProjectIds = projectIds
@@ -115,15 +140,15 @@ class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
     ).join(',');
     final db = await AppDatabase.database;
     final rows = await db.rawQuery(
-      'SELECT project_id, COALESCE(SUM(amount), 0) AS total '
+      'SELECT project_id, COALESCE(SUM(amount_fen), 0) AS total '
       'FROM $table WHERE project_id IN ($placeholders) GROUP BY project_id',
       normalizedProjectIds,
     );
-    final sums = {for (final projectId in normalizedProjectIds) projectId: 0.0};
+    final sums = {for (final projectId in normalizedProjectIds) projectId: 0};
     for (final row in rows) {
       final projectId = row['project_id'] as String?;
       if (projectId == null) continue;
-      sums[projectId] = (row['total'] as num?)?.toDouble() ?? 0.0;
+      sums[projectId] = (row['total'] as num?)?.toInt() ?? 0;
     }
     return sums;
   }
