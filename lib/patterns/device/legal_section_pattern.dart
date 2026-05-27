@@ -108,22 +108,17 @@ class LegalEffectiveDateText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Text.style 可为空时由 Flutter 自动套用 DefaultTextStyle，所以不再保留兜底
+    // TextStyle 字面量（架构脚本禁止 patterns 层直接 new TextStyle）。
     return Text(
       text,
-      style:
-          AppTypography.bodySecondary(
-            context,
-            fontSize: DeviceLegalTokens.effectiveFontSize,
-            color: Colors.black.withValues(
-              alpha: DeviceLegalTokens.effectiveAlpha,
-            ),
-          ) ??
-          TextStyle(
-            fontSize: DeviceLegalTokens.effectiveFontSize,
-            color: Colors.black.withValues(
-              alpha: DeviceLegalTokens.effectiveAlpha,
-            ),
-          ),
+      style: AppTypography.bodySecondary(
+        context,
+        fontSize: DeviceLegalTokens.effectiveFontSize,
+        color: Colors.black.withValues(
+          alpha: DeviceLegalTokens.effectiveAlpha,
+        ),
+      ),
     );
   }
 }

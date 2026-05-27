@@ -62,7 +62,7 @@ class DeviceManagementGrid extends StatelessWidget {
             ),
             itemBuilder: (context, index) {
               if (index >= visible.length) {
-                return _placeholderItem();
+                return _placeholderItem(context);
               }
 
               final d = visible[index];
@@ -122,7 +122,7 @@ class DeviceManagementGrid extends StatelessWidget {
     );
   }
 
-  Widget _placeholderItem() {
+  Widget _placeholderItem(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -139,9 +139,11 @@ class DeviceManagementGrid extends StatelessWidget {
           ),
         ),
         const SizedBox(height: DeviceManagementGridTokens.labelTopGap),
-        const Text(
+        // Placeholder 行高占位：Text 内容为空，仅靠样式撑高，使用 AppTypography 走统一字体体系。
+        Text(
           '',
-          style: TextStyle(
+          style: AppTypography.caption(
+            context,
             fontSize: DeviceTokens.managementGridPlaceholderLabelFontSize,
             height: 1,
           ),

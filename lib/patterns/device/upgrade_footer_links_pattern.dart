@@ -17,20 +17,14 @@ class UpgradeFooterLinksPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = TextStyle(
-      fontSize: DeviceTokens.upgradeFooterTextSize,
-      color: DeviceTokens.upgradeFooterTextColor,
-    );
-    final style =
-        AppTypography.body(
-          context,
-          fontSize: DeviceTokens.upgradeFooterTextSize,
-          color: DeviceTokens.upgradeFooterTextColor,
-        ) ??
-        fallback;
-
-    return DefaultTextStyle(
-      style: style,
+    // DefaultTextStyle.merge 允许 style 为空（与父级 DefaultTextStyle 合并），
+    // 因此不再需要在 patterns 层直接构造 TextStyle 作为兜底。
+    return DefaultTextStyle.merge(
+      style: AppTypography.body(
+        context,
+        fontSize: DeviceTokens.upgradeFooterTextSize,
+        color: DeviceTokens.upgradeFooterTextColor,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 class UpgradeBenefitItem extends StatelessWidget {
@@ -22,10 +23,11 @@ class UpgradeBenefitItem extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                color: DeviceTokens.upgradeFooterTextColor,
+              style: AppTypography.body(
+                context,
                 fontSize: DeviceTokens.upgradeBenefitTextSize,
                 fontWeight: DeviceTokens.upgradeBenefitTextWeight,
+                color: DeviceTokens.upgradeFooterTextColor,
               ),
             ),
           ),
