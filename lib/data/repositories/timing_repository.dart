@@ -124,6 +124,23 @@ class SqfliteTimingRepository implements TimingRepository {
     return (rows.single['count'] as num?)?.toInt() ?? 0;
   }
 
+  /// 事务内按 project_id 列出计时记录。被 LocalSaveTimingRecordWithImpactUseCase
+  /// 用来在保存事务内重算每个受影响项目的应收（fen）口径。
+  Future<List<TimingRecord>> listByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return const [];
+    final rows = await executor.query(
+      _table,
+      where: 'project_id = ?',
+      whereArgs: [normalized],
+      orderBy: 'start_date DESC, id DESC',
+    );
+    return rows.map(_fromRow).toList();
+  }
+
   // =====================================================================
   // ============================== 四、新增（Create） ==============================
   // =====================================================================

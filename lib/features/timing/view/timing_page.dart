@@ -21,6 +21,7 @@ import '../../../features/external_work/import_preview/use_cases/pick_external_w
 import '../../../features/external_work/import_preview/view/external_work_import_preview_page.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
+import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
@@ -490,9 +491,20 @@ class _TimingPageState extends State<TimingPage> {
               },
           onToast: _toast,
           onSubmit: (record, calculationHistories) async {
+            // 优先走 Step 3 事务化路径；遗留 widget 测试未注入该 Provider 时
+            // SaveTimingRecordUseCase 内部会回落到旧 store.save + retry 路径，
+            // 保持 UI 行为兼容。
+            SaveTimingRecordWithImpactUseCase? withImpact;
+            try {
+              withImpact =
+                  context.read<SaveTimingRecordWithImpactUseCase>();
+            } on ProviderNotFoundException {
+              withImpact = null;
+            }
             final saveUseCase = actionController.createSaveUseCase(
               timingStore: timingStore,
               mergeDissolve: context.read<TimingMergeDissolvePort>(),
+              withImpact: withImpact,
             );
             SaveTimingRecordResult result;
             try {
@@ -515,8 +527,12 @@ class _TimingPageState extends State<TimingPage> {
               return;
             }
             String? toastMessage = feedback.message;
+            final impact = result.impact;
             final pending = result.pendingMergeDissolve;
-            if (pending != null) {
+            if (impact != null) {
+              // 事务化路径已完成所有级联：UI 不再依赖 pending retry。
+              toastMessage = impact.userMessage ?? feedback.message;
+            } else if (pending != null) {
               _toast('项目已保存，但自动解除合并失败，请重试解除。');
               final resolved = await _retryPendingMergeDissolve(
                 useCase: saveUseCase,

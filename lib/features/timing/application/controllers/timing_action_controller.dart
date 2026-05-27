@@ -9,6 +9,7 @@ import '../../domain/services/timing_suggestions.dart';
 import '../../model/timing_chart_data.dart';
 import '../../use_cases/compute_timing_chart_finance_use_case.dart';
 import '../../use_cases/save_timing_record_use_case.dart';
+import '../../use_cases/save_timing_record_with_impact_use_case.dart';
 import '../../use_cases/timing_merge_dissolve_port.dart';
 import '../../use_cases/timing_preview_income_use_case.dart';
 import '../../state/timing_store.dart';
@@ -40,11 +41,13 @@ class TimingActionController {
   SaveTimingRecordUseCase createSaveUseCase({
     required TimingStore timingStore,
     required TimingMergeDissolvePort mergeDissolve,
+    SaveTimingRecordWithImpactUseCase? withImpact,
   }) {
     return SaveTimingRecordUseCase(
       timingStore: timingStore,
       mergeDissolve: mergeDissolve,
       projectResolver: _projectResolver,
+      withImpact: withImpact,
     );
   }
 
