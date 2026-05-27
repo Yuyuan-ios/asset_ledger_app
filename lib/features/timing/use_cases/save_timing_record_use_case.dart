@@ -3,6 +3,7 @@ import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/services/project_resolver.dart';
 import '../state/timing_store.dart';
+import 'save_timing_record_with_impact_use_case.dart';
 import 'timing_merge_dissolve_port.dart';
 
 class SaveTimingRecordUseCase {
@@ -10,19 +11,44 @@ class SaveTimingRecordUseCase {
     required TimingStore timingStore,
     required TimingMergeDissolvePort mergeDissolve,
     required ProjectResolver projectResolver,
+    SaveTimingRecordWithImpactUseCase? withImpact,
   }) : _timingStore = timingStore,
        _mergeDissolve = mergeDissolve,
-       _projectResolver = projectResolver;
+       _projectResolver = projectResolver,
+       _withImpact = withImpact;
 
   final TimingStore _timingStore;
   final TimingMergeDissolvePort _mergeDissolve;
   final ProjectResolver _projectResolver;
+
+  /// 阶段 B Step 3 引入的事务化保存入口。生产环境通过
+  /// [TimingSaveProviders] 注入；遗留测试（基于 fake collaborator）保持 null
+  /// 仍走旧 store.save + retry 路径，不强制改造既有测试。
+  final SaveTimingRecordWithImpactUseCase? _withImpact;
 
   Future<SaveTimingRecordResult> execute({
     required TimingRecord? editing,
     required TimingRecord record,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
+    final withImpact = _withImpact;
+    if (withImpact != null) {
+      // 事务化路径：保存计时 + 解除合并 + 撤销结清 在同一事务内完成；
+      // UI 不再依赖 pending retry 兜底一致性。
+      final impact = await withImpact.execute(
+        editing: editing,
+        record: record,
+        calculationHistories: calculationHistories,
+      );
+      // 刷新 store 以让 UI 看到最新落库的记录列表 + 级联后的状态。
+      await _timingStore.loadAll();
+      return SaveTimingRecordResult(
+        mergeDissolved: impact.mergeDissolved,
+        impact: impact,
+      );
+    }
+
+    // 遗留路径：在事务化入口未注入时保留两步保存 + UI retry，兼容旧测试。
     final recordToSave = await _resolveProjectId(
       editing: editing,
       record: record,
@@ -88,10 +114,14 @@ class SaveTimingRecordResult {
   const SaveTimingRecordResult({
     this.mergeDissolved = false,
     this.pendingMergeDissolve,
+    this.impact,
   });
 
   final bool mergeDissolved;
   final PendingTimingMergeDissolve? pendingMergeDissolve;
+
+  /// 事务化路径返回的完整 impact 信息。遗留两步保存路径保持 null。
+  final SaveTimingRecordWithImpactResult? impact;
 
   bool get needsMergeDissolveRetry => pendingMergeDissolve != null;
 }

@@ -14,6 +14,7 @@ import 'providers/external_work_providers.dart';
 import 'providers/project_providers.dart';
 import 'providers/timing_delete_providers.dart';
 import 'providers/timing_providers.dart';
+import 'providers/timing_save_providers.dart';
 
 /// Aggregates the per-domain composition slices into a single bundle.
 /// Each slice owns construction of its own instances and providers;
@@ -28,6 +29,9 @@ class AppProviders {
     final accountMerge = AccountMergeProviders.build();
     final externalWork = ExternalWorkProviders.build();
     final timingDelete = TimingDeleteProviders.build();
+    final timingSave = TimingSaveProviders.build(
+      projectResolver: project.projectResolver,
+    );
 
     return AppProviderBundle(
       deviceStore: deviceFleet.deviceStore,
@@ -45,6 +49,7 @@ class AppProviders {
         ...accountMerge.providers,
         ...externalWork.providers,
         ...timingDelete.providers,
+        ...timingSave.providers,
       ],
     );
   }
