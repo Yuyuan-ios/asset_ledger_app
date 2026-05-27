@@ -62,10 +62,12 @@ class AppDatabase {
   // - v18：account_payments / project_write_offs 第一批核心金额 fen 字段
   // - v19：external_work_records 单价可空并新增 record_kind
   // - v20：external_work_records 增加来源项目累计实收款 project_received_fen
+  // - v21：移除 projects.legacy_project_key 的全局 UNIQUE 约束；改为 active-scope
+  //        partial unique index（同 legacy_project_key 下只允许一个 active 项目）。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 20;
+  static const int _dbVersion = 21;
 
   static int get schemaVersion => _dbVersion;
 

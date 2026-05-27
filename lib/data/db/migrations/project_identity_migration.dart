@@ -21,6 +21,8 @@ class ProjectIdentityMigration {
   }
 
   static Future<void> _ensureProjectsTable(Database db) async {
+    // 新建路径不再使用全局 UNIQUE 约束（见 v21 迁移说明）；同一 legacy_project_key
+    // 下只允许一个 active 项目由 v21 创建的 partial unique index 强制。
     await db.execute('''
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
@@ -31,7 +33,7 @@ class ProjectIdentityMigration {
         settled_snapshot TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        legacy_project_key TEXT UNIQUE
+        legacy_project_key TEXT
       );
     ''');
     await db.execute('''
@@ -322,6 +324,14 @@ class ProjectIdentityMigration {
       CREATE INDEX IF NOT EXISTS idx_projects_active_contact_site
       ON projects(contact, site)
       WHERE status = 'active';
+    ''');
+
+    // Partial unique index：同 legacy_project_key 下只允许一个 active 项目；
+    // 已结清的历史项目可以与新 active 项目共享同一 legacy_project_key。
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_active_legacy_key
+      ON projects(legacy_project_key)
+      WHERE legacy_project_key IS NOT NULL AND status = 'active';
     ''');
 
     if (await _tableExists(db, 'timing_records')) {
