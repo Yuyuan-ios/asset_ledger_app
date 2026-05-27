@@ -79,6 +79,7 @@ class LocalRestoreService {
       return BackupRestoreResult.success(
         autoBackupPath: autoBackupPath,
         restoredCounts: validation.restoredCounts,
+        warnings: validation.warnings,
       );
     } catch (_) {
       return BackupRestoreResult.failure(
