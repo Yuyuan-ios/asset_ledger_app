@@ -154,7 +154,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       if (request.allocations.isEmpty) {
         throw StateError('合并项目没有可结清的成员项目');
       }
-      if (request.writeOffAmount <= projectSettlementEpsilon) {
+      if (_yuanToFen(request.writeOffAmount) <= 0) {
         throw StateError('结清金额必须大于 0');
       }
       final reason = request.writeOffReasonDbValue;
