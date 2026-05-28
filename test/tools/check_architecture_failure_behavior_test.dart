@@ -133,6 +133,29 @@ void main() {
         "Object? archProbe(BuildContext c) => Provider.of<int>(c);\n",
   );
 
+  // 阶段 C Step 4：service 边界规则扩大到 lib/patterns/device，下面两个探针
+  // 验证 device pattern 同样会被守住。
+  _archProbeTest(
+    name: 'patterns_ui_no_data_services: '
+        'data/services import in lib/patterns/device fails',
+    relativeProbePath:
+        'lib/patterns/device/__arch_probe_data_services_import.dart',
+    probeContent:
+        "// Probe: patterns_ui_no_data_services (device scope)\n"
+        "import 'package:asset_ledger/data/services/timing_service.dart';\n"
+        "void _archProbeUse() { TimingService; }\n",
+  );
+
+  _archProbeTest(
+    name: 'patterns_ui_no_device_label: '
+        'direct DeviceLabel call in lib/patterns/device fails',
+    relativeProbePath:
+        'lib/patterns/device/__arch_probe_device_label_call.dart',
+    probeContent:
+        "// Probe: patterns_ui_no_device_label (device scope)\n"
+        "String archProbe() => DeviceLabel.indexOnly('x');\n",
+  );
+
   _archProbeTest(
     name: 'patterns_no_infrastructure_imports: '
         'infrastructure import anywhere under lib/patterns fails',

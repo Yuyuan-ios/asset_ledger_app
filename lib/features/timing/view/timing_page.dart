@@ -33,6 +33,7 @@ import '../../../patterns/timing/external_work_link_sheet.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../device/application/device_meter_resolver.dart';
 import '../../account/model/account_view_model.dart';
 import '../../account/model/project_title_formatter.dart';
 
@@ -392,7 +393,7 @@ class _TimingPageState extends State<TimingPage> {
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
-      records: timingStore.records,
+      currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),
       selectedId: editing?.deviceId,
     );
 

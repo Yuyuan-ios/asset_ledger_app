@@ -11,6 +11,7 @@ class DeviceManagementSection extends StatelessWidget {
     required this.devices,
     required this.onDeviceTap,
     required this.onDeviceLongPress,
+    required this.resolveIndexLabel,
     this.title = '管理设备(长按图标删除)',
     this.padding = const EdgeInsets.symmetric(
       horizontal: DeviceTokens.sectionHorizontalInset,
@@ -20,6 +21,7 @@ class DeviceManagementSection extends StatelessWidget {
   final List<Device> devices;
   final ValueChanged<Device> onDeviceTap;
   final ValueChanged<Device> onDeviceLongPress;
+  final DeviceIndexLabelResolver resolveIndexLabel;
   final String title;
   final EdgeInsetsGeometry padding;
 
@@ -33,6 +35,7 @@ class DeviceManagementSection extends StatelessWidget {
           devices: devices,
           onDeviceTap: onDeviceTap,
           onDeviceLongPress: onDeviceLongPress,
+          resolveIndexLabel: resolveIndexLabel,
         ),
       ],
     );

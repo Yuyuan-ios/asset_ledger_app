@@ -21,6 +21,7 @@ import '../../../patterns/fuel/fuel_sliver_home_pattern.dart';
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/fuel/fuel_supplier_filter_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../device/application/device_meter_resolver.dart';
 import 'fuel_page_view_data.dart';
 
 class FuelPage extends StatefulWidget {
@@ -64,7 +65,7 @@ class _FuelPageState extends State<FuelPage> {
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
-      records: timingStore.records,
+      currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),
       selectedId: editing?.deviceId,
     );
 
