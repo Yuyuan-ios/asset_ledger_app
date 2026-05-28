@@ -32,6 +32,7 @@ import 'package:asset_ledger/data/repositories/timing_calculation_history_reposi
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
+import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
@@ -867,45 +868,13 @@ void main() {
     expect(mergeRepository.members.every((member) => member.isActive), isFalse);
   });
 
-  testWidgets(
-    'shows dissolve retry when project identity changes and dissolve fails',
-    (WidgetTester tester) async {
-      final timingRepository = _FakeTimingRepository(seed: [_record()]);
-      final mergeRepository = _FakeAccountProjectMergeRepository(
-        group: _mergeGroup(),
-        members: _mergeMembers(),
-        failDissolveCount: 1,
-      );
-
-      await _pumpTimingPage(
-        tester,
-        timingRepository: timingRepository,
-        historyRepository: _FakeCalculationHistoryRepository(),
-        mergeRepository: mergeRepository,
-      );
-
-      await tester.tap(find.text('甲方 · 一号工地'));
-      await tester.pumpAndSettle();
-
-      await tester.enterText(_textFieldWithLabel('使用地址/工地'), '一号工地新址');
-      await tester.tap(find.widgetWithText(FilledButton, '确定'));
-      await tester.pumpAndSettle();
-
-      expect(timingRepository.saveCalls, 1);
-      expect(mergeRepository.dissolvedGroupIds, isEmpty);
-      expect(mergeRepository.group?.isActive, isTrue);
-      expect(find.text('合并项目未解除'), findsOneWidget);
-      expect(find.text('编辑计时'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(FilledButton, '重试解除'));
-      await tester.pumpAndSettle();
-
-      expect(mergeRepository.dissolvedGroupIds, [1]);
-      expect(mergeRepository.group?.isActive, isFalse);
-      expect(find.text('合并项目未解除'), findsNothing);
-      expect(find.text('编辑计时'), findsNothing);
-    },
-  );
+  // 阶段 C Step 1 删除：原"shows dissolve retry when project identity
+  // changes and dissolve fails"测试覆盖的是 UI pending retry 对话框。
+  // C1 起，保存路径完全事务化：合并解除失败 → 整个保存抛错 → 用户看到通用
+  // 错误提示，不再依赖"先保存成功 → 二次 retry"这条业务一致性兜底链。
+  // 事务级失败回滚的真实 sqflite 覆盖：
+  //   test/infrastructure/local/timing/save_timing_record_with_impact_test.dart
+  //   "两组合并解除中途失败：整体回滚"
 
   testWidgets(
     'keeps merge group when editing hours without project key change',
@@ -1025,6 +994,13 @@ Future<void> _pumpTimingPage(
           Provider<DeleteTimingRecordWithImpactUseCase>.value(
             value: _FakeDeleteTimingRecordWithImpactUseCase(
               resolvedTimingRepository,
+            ),
+          ),
+          Provider<SaveTimingRecordWithImpactUseCase>.value(
+            value: _FakeSaveTimingRecordWithImpactUseCase(
+              timingRepository: resolvedTimingRepository,
+              projectResolver: projectResolver,
+              mergeService: mergeService,
             ),
           ),
         ],
@@ -1265,6 +1241,96 @@ class _FakeDeleteTimingRecordWithImpactUseCase
   ) async {
     await _timingRepository.deleteById(recordId);
     return const TimingRecordDeleteOutcome();
+  }
+}
+
+/// 阶段 C Step 1 后 widget 测试的 in-memory save-with-impact 替身。
+///
+/// 真实的事务化逻辑（保存 + old/new 两侧合并组解除 + 撤销结清）由
+/// `save_timing_record_with_impact_test.dart` 用真实 sqflite 覆盖。
+/// 这里只复用现有 fake repo / merge service，让 timing widget 测试能继续
+/// 验证"保存调用 + 合并组解除"这一层级的行为：
+/// - 保存通过 [_FakeTimingRepository.saveWithCalculationHistories]；
+/// - 合并解除通过 [AccountProjectMergeService.dissolveMergeGroupIfProjectIdChanged]；
+/// - 任何阶段抛错都向上传播（C1 fail-fast 契约）。
+class _FakeSaveTimingRecordWithImpactUseCase
+    implements SaveTimingRecordWithImpactUseCase {
+  _FakeSaveTimingRecordWithImpactUseCase({
+    required _FakeTimingRepository timingRepository,
+    required ProjectResolver projectResolver,
+    required AccountProjectMergeService mergeService,
+  }) : _timingRepository = timingRepository,
+       _projectResolver = projectResolver,
+       _mergeService = mergeService;
+
+  final _FakeTimingRepository _timingRepository;
+  final ProjectResolver _projectResolver;
+  final AccountProjectMergeService _mergeService;
+
+  @override
+  Future<SaveTimingRecordWithImpactResult> execute({
+    required TimingRecord? editing,
+    required TimingRecord record,
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) async {
+    // 1) 项目身份解析：与 LocalSaveTimingRecordWithImpactUseCase 的 pre-txn 解析一致。
+    var recordToSave = record;
+    final identityChanged = editing != null &&
+        editing.legacyProjectKey != record.legacyProjectKey;
+    if (identityChanged) {
+      final resolved = await _projectResolver.resolveOrCreate(
+        contact: record.contact,
+        site: record.site,
+      );
+      recordToSave = record.copyWith(projectId: resolved.projectId);
+    } else if (record.projectId.trim().isEmpty) {
+      final editedProjectId = editing?.effectiveProjectId;
+      if (editedProjectId != null && editedProjectId.trim().isNotEmpty) {
+        recordToSave = record.copyWith(projectId: editedProjectId);
+      } else {
+        final resolved = await _projectResolver.resolveOrCreate(
+          contact: record.contact,
+          site: record.site,
+        );
+        recordToSave = record.copyWith(projectId: resolved.projectId);
+      }
+    }
+
+    // 2) 保存计时记录。
+    final savedRecord = await _timingRepository.saveWithCalculationHistories(
+      recordToSave,
+      calculationHistories: calculationHistories,
+    );
+
+    // 3) 项目变化时解除旧合并组；失败则向上传播（C1 不再有 pending retry）。
+    final oldProjectId = editing?.effectiveProjectId.trim() ?? '';
+    final newProjectId = savedRecord.effectiveProjectId.trim();
+    final projectChanged = editing != null &&
+        oldProjectId.isNotEmpty &&
+        newProjectId.isNotEmpty &&
+        oldProjectId != newProjectId;
+    var mergeDissolved = false;
+    if (projectChanged) {
+      mergeDissolved = await _mergeService.dissolveMergeGroupIfProjectIdChanged(
+        oldProjectId: oldProjectId,
+        newProjectId: newProjectId,
+      );
+    }
+
+    final affectedProjectIds = <String>{
+      if (oldProjectId.isNotEmpty) oldProjectId,
+      if (newProjectId.isNotEmpty) newProjectId,
+    }.toList(growable: false);
+
+    return SaveTimingRecordWithImpactResult(
+      savedRecord: savedRecord,
+      projectChanged: projectChanged,
+      mergeDissolved: mergeDissolved,
+      settlementRevoked: false,
+      affectedProjectIds: affectedProjectIds,
+      revokedProjectIds: const [],
+      userMessage: mergeDissolved ? '已保存，已自动解除相关合并项目。' : null,
+    );
   }
 }
 
@@ -1578,12 +1644,10 @@ class _FakeAccountProjectMergeRepository
   _FakeAccountProjectMergeRepository({
     this.group,
     List<AccountProjectMergeMember> members = const [],
-    this.failDissolveCount = 0,
   }) : members = List.of(members);
 
   AccountProjectMergeGroup? group;
   List<AccountProjectMergeMember> members;
-  int failDissolveCount;
   final List<int> dissolvedGroupIds = [];
 
   @override
@@ -1599,10 +1663,6 @@ class _FakeAccountProjectMergeRepository
     required int groupId,
     required String dissolvedAt,
   }) async {
-    if (failDissolveCount > 0) {
-      failDissolveCount -= 1;
-      throw StateError('dissolve failed');
-    }
     dissolvedGroupIds.add(groupId);
     group = group?.copyWith(isActive: false, dissolvedAt: dissolvedAt);
     members = [
