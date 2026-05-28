@@ -455,6 +455,16 @@ class _TimingPageState extends State<TimingPage> {
                   excludeId: excludeId,
                 );
               },
+          // 当前码表计算通过 TimingActionController 包装的 currentMeter
+          // 入口拿到（C2：让 pattern 不再直接依赖 data/services）。
+          resolveCurrentMeter: (deviceId) {
+            final device = editorContext.deviceById[deviceId];
+            return actionController.currentMeter(
+              records: timingStore.records,
+              deviceId: deviceId,
+              baseMeterHours: device?.baseMeterHours ?? 0,
+            );
+          },
           onToast: _toast,
           onSubmit: (record, calculationHistories) async {
             // 唯一的保存入口：事务化 SaveTimingRecordWithImpactUseCase。

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/timing_record.dart';
-import '../../data/services/timing_service.dart';
 import '../../features/timing/calculator/model/staged_timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import '../../features/timing/calculator/view/work_hour_calculator_sheet.dart';
@@ -54,6 +53,11 @@ typedef TimingMeterBoundsValidator =
       int? excludeId,
     });
 
+/// 返回指定设备当前码表读数（小时）。计算由 feature/view 层完成（一般通过
+/// TimingService.currentMeter + 当前记录列表），让 pattern 层不必直接依赖
+/// data/services。
+typedef TimingCurrentMeterResolver = double Function(int deviceId);
+
 typedef TimingDetailSubmitHandler =
     Future<void> Function(
       TimingRecord record,
@@ -74,6 +78,7 @@ class TimingDetailContent extends StatefulWidget {
     required this.siteSuggestions,
     required this.resolveIncome,
     required this.validateMeterBounds,
+    required this.resolveCurrentMeter,
     this.existingCalculationHistories = const [],
     this.onCancel,
     required this.onSubmit,
@@ -91,6 +96,7 @@ class TimingDetailContent extends StatefulWidget {
   final List<String> Function(String) siteSuggestions;
   final TimingIncomeResolver resolveIncome;
   final TimingMeterBoundsValidator validateMeterBounds;
+  final TimingCurrentMeterResolver resolveCurrentMeter;
   final List<TimingCalculationHistory> existingCalculationHistories;
   final VoidCallback? onCancel;
   final TimingDetailSubmitHandler onSubmit;
@@ -188,11 +194,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     _selectedDeviceId = defaultDeviceId;
 
-    final currentMeter = TimingService.currentMeter(
-      widget.records,
-      defaultDeviceId,
-      baseMeterHours: device.baseMeterHours,
-    );
+    final currentMeter = widget.resolveCurrentMeter(defaultDeviceId);
     _setStart(currentMeter);
     _setEnd(currentMeter);
     _hoursCtrl.text = '0.0';
@@ -340,11 +342,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       return;
     }
 
-    final currentMeter = TimingService.currentMeter(
-      widget.records,
-      id,
-      baseMeterHours: device.baseMeterHours,
-    );
+    final currentMeter = widget.resolveCurrentMeter(id);
 
     _setStart(currentMeter);
     _setEnd(currentMeter);
