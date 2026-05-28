@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/entities/device.dart';
+import '../domain/services/device_label.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
 import '../../../patterns/device/device_management_section_pattern.dart';
@@ -67,6 +68,7 @@ List<Widget> buildDevicePageSections({
           devices: devices,
           onDeviceTap: handlers.onDeviceTap,
           onDeviceLongPress: handlers.onDeviceLongPress,
+          resolveIndexLabel: (device) => DeviceLabel.indexOnly(device.name),
         ),
       );
     }

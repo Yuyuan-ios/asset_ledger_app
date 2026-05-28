@@ -35,6 +35,7 @@ import '../../../features/device/state/device_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../timing/state/timing_store.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../device/application/device_meter_resolver.dart';
 import 'maintenance_page_view_data.dart';
 import 'maintenance_records_section.dart';
 
@@ -82,7 +83,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
-      records: timingStore.records,
+      currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),
       selectedId: initialDeviceId,
     );
     List<String> itemSuggestions(String query) {

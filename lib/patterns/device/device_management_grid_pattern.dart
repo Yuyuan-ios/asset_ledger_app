@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../components/avatars/app_device_avatar.dart';
 import '../../core/foundation/typography.dart';
-import 'package:asset_ledger/data/services/device_label.dart';
 import '../../data/models/device.dart';
 import '../../tokens/mapper/device_tokens.dart';
+
+/// 返回设备的"序号 label"（如 `1#`）。计算由 feature/device 层完成
+/// （封装 DeviceLabel.indexOnly），让本 pattern 不再直接依赖 data/services。
+typedef DeviceIndexLabelResolver = String Function(Device device);
 
 class DeviceManagementGrid extends StatelessWidget {
   const DeviceManagementGrid({
@@ -12,11 +15,13 @@ class DeviceManagementGrid extends StatelessWidget {
     required this.devices,
     required this.onDeviceTap,
     required this.onDeviceLongPress,
+    required this.resolveIndexLabel,
   });
 
   final List<Device> devices;
   final ValueChanged<Device> onDeviceTap;
   final ValueChanged<Device> onDeviceLongPress;
+  final DeviceIndexLabelResolver resolveIndexLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,7 @@ class DeviceManagementGrid extends StatelessWidget {
               }
 
               final d = visible[index];
-              final label = DeviceLabel.indexOnly(d.name);
+              final label = resolveIndexLabel(d);
               final displayIndex = label.trim().isEmpty ? '—' : label.trim();
               final categoryLabel = d.equipmentType == EquipmentType.loader
                   ? '装载机'

@@ -1,9 +1,13 @@
 import 'package:asset_ledger/data/models/device_maps.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/device.dart';
-import '../../data/models/timing_record.dart';
-import '../../data/services/timing_service.dart';
 import 'device_picker_pattern.dart';
+
+/// 返回指定设备的当前码表读数（小时）。计算由 feature/device 的 application
+/// 层完成（封装 TimingService.currentMeter），让本 builder 不再直接依赖
+/// data/services（C4 边界收口）。
+typedef DeviceCurrentMeterResolver =
+    double Function({required int deviceId, required double baseMeterHours});
 
 class DeviceEditorContextVm {
   final Map<int, Device> deviceById;
@@ -18,7 +22,7 @@ class DeviceEditorContextVm {
 DeviceEditorContextVm buildDeviceEditorContext({
   required List<Device> activeDevices,
   required List<Device> allDevices,
-  required List<TimingRecord> records,
+  required DeviceCurrentMeterResolver currentMeterResolver,
   int? selectedId,
 }) {
   return DeviceEditorContextVm(
@@ -26,7 +30,7 @@ DeviceEditorContextVm buildDeviceEditorContext({
     deviceItems: buildDevicePickerItems(
       activeDevices: activeDevices,
       allDevices: allDevices,
-      records: records,
+      currentMeterResolver: currentMeterResolver,
       selectedId: selectedId,
     ),
   );
@@ -35,7 +39,7 @@ DeviceEditorContextVm buildDeviceEditorContext({
 List<DevicePickerItemVm> buildDevicePickerItems({
   required List<Device> activeDevices,
   required List<Device> allDevices,
-  required List<TimingRecord> records,
+  required DeviceCurrentMeterResolver currentMeterResolver,
   int? selectedId,
 }) {
   final items = <DevicePickerItemVm>[];
@@ -45,9 +49,8 @@ List<DevicePickerItemVm> buildDevicePickerItems({
     final id = d.id;
     if (id == null) continue;
     activeIds.add(id);
-    final meter = TimingService.currentMeter(
-      records,
-      id,
+    final meter = currentMeterResolver(
+      deviceId: id,
       baseMeterHours: d.baseMeterHours,
     );
     final meterText = FormatUtils.meter(meter);
@@ -74,9 +77,8 @@ List<DevicePickerItemVm> buildDevicePickerItems({
     );
     final labelId = selected.id ?? selectedId;
     if (labelId >= 0) {
-      final meter = TimingService.currentMeter(
-        records,
-        labelId,
+      final meter = currentMeterResolver(
+        deviceId: labelId,
         baseMeterHours: selected.baseMeterHours,
       );
       final meterText = FormatUtils.meter(meter);

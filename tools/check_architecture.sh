@@ -145,7 +145,12 @@ run_forbidden_pattern_check_with_glob \
   lib/patterns/device
 
 # ============================================================================
-# 阶段 C Step 3：守住 timing pattern 边界 + patterns 全局基础设施依赖禁用。
+# 阶段 C Step 3 / Step 4：守住 timing + device pattern 边界 +
+# patterns 全局基础设施依赖禁用。
+#
+# Step 4 把原先只覆盖 lib/patterns/timing 的 service 边界规则扩大到也覆盖
+# lib/patterns/device（C4 已把 device pattern 的 DeviceLabel / TimingService
+# 调用上移到 feature 层），让 device pattern 边界一并被工具守住。
 #
 # 每条 forbidden pattern：
 # - 任意匹配视为违规。
@@ -156,35 +161,39 @@ run_forbidden_pattern_check_with_glob \
 #   MyTimingService / TimingServiceFoo / SingleTickerProviderStateMixin 当成违规。
 # ============================================================================
 
-# Rule: patterns_timing_no_data_services
-# lib/patterns/timing 不允许 import lib/data/services 下任何文件。
-run_forbidden_pattern_check "Checking patterns/timing for data/services imports" \
+# Rule: patterns_ui_no_data_services
+# lib/patterns/timing 与 lib/patterns/device 不允许 import lib/data/services。
+run_forbidden_pattern_check "Checking patterns/timing+device for data/services imports" \
   '^import\s+.*data/services' \
-  lib/patterns/timing
+  lib/patterns/timing \
+  lib/patterns/device
 
-# Rule: patterns_timing_no_timing_service
+# Rule: patterns_ui_no_timing_service
 # 任何非注释行直接引用 TimingService 标识符即违规（含 TimingService.xxx /
 # TimingService(...) / as TimingService 等）。
-run_forbidden_pattern_check "Checking patterns/timing for direct TimingService usage" \
+run_forbidden_pattern_check "Checking patterns/timing+device for direct TimingService usage" \
   '^(?!\s*//).*(?<![A-Za-z0-9_])TimingService(?![A-Za-z0-9_])' \
-  lib/patterns/timing
+  lib/patterns/timing \
+  lib/patterns/device
 
-# Rule: patterns_timing_no_device_label
+# Rule: patterns_ui_no_device_label
 # 任何非注释行直接引用 DeviceLabel 标识符即违规。
 # selectedDeviceLabel 这种普通变量名因为 `d`/`D` 之间没有非字符边界而不会被匹配。
-run_forbidden_pattern_check "Checking patterns/timing for direct DeviceLabel usage" \
+run_forbidden_pattern_check "Checking patterns/timing+device for direct DeviceLabel usage" \
   '^(?!\s*//).*(?<![A-Za-z0-9_])DeviceLabel(?![A-Za-z0-9_])' \
-  lib/patterns/timing
+  lib/patterns/timing \
+  lib/patterns/device
 
-# Rule: patterns_timing_no_provider_context
+# Rule: patterns_ui_no_provider_context
 # 禁止 Provider.of(...) 和 Provider<X>(...) 直接使用。
 # 因为已有 "Checking reusable UI store access" 全局禁了 context.read / context.watch，
 # 这条专门覆盖 Provider.of 与 bare Provider<X>。
 # TickerProvider / ChangeNotifierProvider / MultiProvider 等不会误判
 # （前面的字符都是字母，lookbehind 失败）。
-run_forbidden_pattern_check "Checking patterns/timing for Provider.of / Provider<...> usage" \
+run_forbidden_pattern_check "Checking patterns/timing+device for Provider.of / Provider<...> usage" \
   '^(?!\s*//).*((?<![A-Za-z0-9_])Provider\s*\.\s*of\b|(?<![A-Za-z0-9_])Provider\s*<)' \
-  lib/patterns/timing
+  lib/patterns/timing \
+  lib/patterns/device
 
 # Rule: patterns_no_infrastructure_imports
 run_forbidden_pattern_check "Checking patterns for infrastructure imports" \
