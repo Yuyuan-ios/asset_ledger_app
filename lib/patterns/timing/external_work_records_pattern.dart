@@ -4,9 +4,8 @@ import '../../components/avatars/linked_external_work_badge.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/external_work_record.dart';
-import '../../features/account/model/project_title_formatter.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
-import '../../tokens/mapper/account_tokens.dart';
+import '../../features/timing/view_models/external_work_records_view_model.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -19,7 +18,10 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
   required ValueChanged<String> onToggleAggregate,
   ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
 }) {
-  if (items.isEmpty) {
+  // 分组 / 标题 fallback / 状态 / 摘要等展示判断由 feature 层 builder 计算（C7）。
+  // pattern 只负责渲染 VM 与回调点击事件。
+  final vm = ExternalWorkRecordsViewModelBuilder.build(items);
+  if (vm.isEmpty) {
     return const <Widget>[
       SliverToBoxAdapter(
         child: AppRecentRecordsEmptyState(
@@ -32,10 +34,8 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
     ];
   }
 
-  final yearGroups = _buildExternalWorkYearGroups(items);
-
   return <Widget>[
-    for (final yearGroup in yearGroups) ...[
+    for (final yearGroup in vm.yearGroups) ...[
       SliverToBoxAdapter(child: _ExternalWorkYearHeader(year: yearGroup.year)),
       for (
         var sourceIndex = 0;
@@ -47,25 +47,25 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
         SliverToBoxAdapter(
           child: _ExternalWorkRecordGroupCard(
             rows: [
-              for (final group
-                  in yearGroup.sourceGroups[sourceIndex].groups) ...[
+              for (final package
+                  in yearGroup.sourceGroups[sourceIndex].packages) ...[
                 _ExternalWorkBatchRow(
-                  group: group,
-                  expanded: expandedAggregateKeys.contains(group.key),
-                  onToggle: group.isAggregate
-                      ? () => onToggleAggregate(group.key)
+                  package: package,
+                  expanded: expandedAggregateKeys.contains(package.key),
+                  onToggle: package.isAggregate
+                      ? () => onToggleAggregate(package.key)
                       : null,
                   onTap: onTapRecord == null
                       ? null
-                      : () => onTapRecord(group.representativeItem),
+                      : () => onTapRecord(package.representativeItem),
                 ),
-                if (expandedAggregateKeys.contains(group.key))
-                  for (final item in group.items.reversed)
+                if (expandedAggregateKeys.contains(package.key))
+                  for (final row in package.childRows)
                     _ExternalWorkChildRow(
-                      item: item,
+                      row: row,
                       onTap: onTapRecord == null
                           ? null
-                          : () => onTapRecord(item),
+                          : () => onTapRecord(row.item),
                     ),
               ],
             ],
@@ -76,165 +76,14 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
   ];
 }
 
-List<_ExternalWorkSourceGroup> _buildExternalWorkSourceGroups(
-  List<_ExternalWorkBatchGroup> groups,
-) {
-  final grouped = <String, List<_ExternalWorkBatchGroup>>{};
-  for (final group in groups) {
-    grouped
-        .putIfAbsent(_sourceGroupKey(group.displayName), () => [])
-        .add(group);
-  }
-
-  return [
-    for (final entry in grouped.entries)
-      _ExternalWorkSourceGroup(groups: entry.value),
-  ];
-}
-
-String _sourceGroupKey(String displayName) {
-  final normalized = displayName.trim();
-  return normalized.isEmpty ? '-' : normalized;
-}
-
 Set<String> timingExternalWorkAggregateKeys(
   List<TimingExternalWorkRecordItem> items,
 ) {
-  return _buildExternalWorkBatchGroups(items).map((group) => group.key).toSet();
+  return ExternalWorkRecordsViewModelBuilder.aggregateKeys(items);
 }
 
 int timingExternalWorkTopLevelCount(List<TimingExternalWorkRecordItem> items) {
-  return _buildExternalWorkBatchGroups(items).length;
-}
-
-List<_ExternalWorkYearGroup> _buildExternalWorkYearGroups(
-  List<TimingExternalWorkRecordItem> items,
-) {
-  final batchGroups = _buildExternalWorkBatchGroups(items);
-  final grouped = <int, List<_ExternalWorkBatchGroup>>{};
-  for (final group in batchGroups) {
-    grouped
-        .putIfAbsent(group.year, () => <_ExternalWorkBatchGroup>[])
-        .add(group);
-  }
-
-  final yearGroups = [
-    for (final entry in grouped.entries)
-      _ExternalWorkYearGroup(
-        year: entry.key,
-        sourceGroups: _buildExternalWorkSourceGroups(entry.value),
-      ),
-  ]..sort((a, b) => b.year.compareTo(a.year));
-  return yearGroups;
-}
-
-List<_ExternalWorkBatchGroup> _buildExternalWorkBatchGroups(
-  List<TimingExternalWorkRecordItem> items,
-) {
-  final grouped = <String, List<TimingExternalWorkRecordItem>>{};
-  for (final item in items) {
-    grouped.putIfAbsent(_externalWorkBatchKey(item), () => []).add(item);
-  }
-
-  final groups = <_ExternalWorkBatchGroup>[];
-  for (final entry in grouped.entries) {
-    groups.add(_ExternalWorkBatchGroup.fromItems(entry.key, entry.value));
-  }
-
-  groups.sort((a, b) {
-    final byImportedAt = b.importedAtSort.compareTo(a.importedAtSort);
-    if (byImportedAt != 0) return byImportedAt;
-    final byImportedText = b.importedAt.compareTo(a.importedAt);
-    if (byImportedText != 0) return byImportedText;
-    return a.key.compareTo(b.key);
-  });
-  return groups;
-}
-
-String _externalWorkBatchKey(TimingExternalWorkRecordItem item) {
-  final batchId = item.record.importBatchId.trim();
-  return batchId.isEmpty ? 'external-${item.record.id}' : 'batch-$batchId';
-}
-
-class _ExternalWorkYearGroup {
-  const _ExternalWorkYearGroup({
-    required this.year,
-    required this.sourceGroups,
-  });
-
-  final int year;
-  final List<_ExternalWorkSourceGroup> sourceGroups;
-}
-
-class _ExternalWorkSourceGroup {
-  const _ExternalWorkSourceGroup({required this.groups});
-
-  final List<_ExternalWorkBatchGroup> groups;
-}
-
-class _ExternalWorkBatchGroup {
-  _ExternalWorkBatchGroup._({
-    required this.key,
-    required this.items,
-    required this.displayName,
-    required this.siteSummary,
-    required this.equipmentSummaryMain,
-    this.equipmentSummarySuffix,
-    required this.startWorkDate,
-    required this.year,
-    required this.importedAt,
-    required this.importedAtSort,
-    required this.totalHoursMilli,
-    required this.hasLinkedRecord,
-  });
-
-  final String key;
-  final List<TimingExternalWorkRecordItem> items;
-  final String displayName;
-  final String siteSummary;
-  final String equipmentSummaryMain;
-  final String? equipmentSummarySuffix;
-  final int startWorkDate;
-  final int year;
-  final String importedAt;
-  final int importedAtSort;
-  final int totalHoursMilli;
-  final bool hasLinkedRecord;
-
-  TimingExternalWorkRecordItem get representativeItem => items.first;
-  bool get isAggregate => items.length > 1;
-
-  factory _ExternalWorkBatchGroup.fromItems(
-    String key,
-    List<TimingExternalWorkRecordItem> items,
-  ) {
-    final sortedItems = [...items]
-      ..sort((a, b) {
-        final byDate = a.record.workDate.compareTo(b.record.workDate);
-        if (byDate != 0) return byDate;
-        return a.record.createdAt.compareTo(b.record.createdAt);
-      });
-    final first = sortedItems.first;
-    final importedAt = _importedAtText(first);
-    final equipmentSummary = _equipmentSummary(sortedItems);
-    return _ExternalWorkBatchGroup._(
-      key: key,
-      items: sortedItems,
-      displayName: first.displayName,
-      siteSummary: _siteSummaryText(sortedItems, first.batch?.siteSummary),
-      equipmentSummaryMain: equipmentSummary.main,
-      equipmentSummarySuffix: equipmentSummary.suffix,
-      startWorkDate: sortedItems.first.record.workDate,
-      year: _groupYear(sortedItems.first.record.workDate, importedAt),
-      importedAt: importedAt,
-      importedAtSort: _isoSortValue(importedAt),
-      totalHoursMilli: sortedItems.fold<int>(
-        0,
-        (sum, item) => sum + item.record.hoursMilli,
-      ),
-      hasLinkedRecord: sortedItems.any((item) => item.isLinked),
-    );
-  }
+  return ExternalWorkRecordsViewModelBuilder.topLevelCount(items);
 }
 
 class ExternalWorkRecordDetailContent extends StatelessWidget {
@@ -400,13 +249,13 @@ class _ExternalWorkYearHeader extends StatelessWidget {
 
 class _ExternalWorkBatchRow extends StatelessWidget {
   const _ExternalWorkBatchRow({
-    required this.group,
+    required this.package,
     required this.expanded,
     this.onTap,
     this.onToggle,
   });
 
-  final _ExternalWorkBatchGroup group;
+  final ExternalWorkPackageVm package;
   final bool expanded;
   final VoidCallback? onTap;
   final VoidCallback? onToggle;
@@ -414,13 +263,13 @@ class _ExternalWorkBatchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ExternalWorkRecordRowBase(
-      title: _externalWorkTitle(group.displayName, group.siteSummary),
-      subtitle: group.equipmentSummaryMain,
-      subtitleEmphasisSuffix: group.equipmentSummarySuffix,
-      subtitleSecondary: group.isAggregate ? '•${group.items.length}条记录' : null,
-      valueTop: FormatUtils.date(group.startWorkDate),
-      valueBottom: _hoursText(group.totalHoursMilli),
-      linked: group.hasLinkedRecord,
+      title: package.title,
+      subtitle: package.equipmentSummaryMain,
+      subtitleEmphasisSuffix: package.equipmentSummarySuffix,
+      subtitleSecondary: package.recordCountLabel,
+      valueTop: package.dateText,
+      valueBottom: package.hoursText,
+      linked: package.hasLinkedRecord,
       onTap: onTap,
       onToggle: onToggle,
       expanded: expanded,
@@ -429,23 +278,19 @@ class _ExternalWorkBatchRow extends StatelessWidget {
 }
 
 class _ExternalWorkChildRow extends StatelessWidget {
-  const _ExternalWorkChildRow({required this.item, this.onTap});
+  const _ExternalWorkChildRow({required this.row, this.onTap});
 
-  final TimingExternalWorkRecordItem item;
+  final ExternalWorkRecordRowVm row;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final record = item.record;
     return _ExternalWorkRecordRowBase(
-      title: _externalWorkTitle(
-        item.displayName,
-        _blankFallback(record.siteSnapshot),
-      ),
-      subtitle: _rowEquipmentText(record),
-      valueTop: FormatUtils.date(record.workDate),
-      valueBottom: _hoursText(record.hoursMilli),
-      linked: item.isLinked,
+      title: row.title,
+      subtitle: row.subtitle,
+      valueTop: row.dateText,
+      valueBottom: row.hoursText,
+      linked: row.isLinked,
       onTap: onTap,
       dense: true,
       hideAvatar: true,
@@ -795,68 +640,6 @@ class _ExternalWorkDetailRow extends StatelessWidget {
   }
 }
 
-String _externalWorkTitle(String displayName, String site) {
-  final normalizedName = displayName.trim();
-  final normalizedSite = site.trim();
-  return ProjectTitleFormatter.project(
-    contact: normalizedName,
-    site: normalizedSite,
-  );
-}
-
-String _importedAtText(TimingExternalWorkRecordItem item) {
-  final batchImportedAt = item.batch?.importedAt.trim();
-  if (batchImportedAt != null && batchImportedAt.isNotEmpty) {
-    return batchImportedAt;
-  }
-  final batchCreatedAt = item.batch?.createdAt.trim();
-  if (batchCreatedAt != null && batchCreatedAt.isNotEmpty) {
-    return batchCreatedAt;
-  }
-  return item.record.createdAt;
-}
-
-int _isoSortValue(String text) {
-  return DateTime.tryParse(text)?.millisecondsSinceEpoch ?? 0;
-}
-
-int _groupYear(int workDate, String fallbackDateTime) {
-  final workYear = workDate ~/ 10000;
-  if (workYear >= 1900 && workYear <= 9999) return workYear;
-  return DateTime.tryParse(fallbackDateTime)?.year ?? workYear;
-}
-
-String _siteSummaryText(
-  List<TimingExternalWorkRecordItem> items,
-  String? batchSiteSummary,
-) {
-  final sites = <String>[];
-  for (final item in items) {
-    final site = _visibleSiteText(item.record.siteSnapshot);
-    if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
-  }
-  if (sites.isEmpty) {
-    final batchSite = _visibleSiteText(batchSiteSummary ?? '');
-    if (batchSite.isNotEmpty) sites.add(_displaySiteSummary(batchSite));
-  }
-  if (sites.isEmpty) return '';
-
-  final joined = sites.join('、');
-  const maxChars = AccountTokens.projectCardMergedSitesPreviewMaxChars;
-  if (joined.length <= maxChars) return joined;
-  return '${joined.substring(0, maxChars)}...';
-}
-
-String _visibleSiteText(String text) {
-  final trimmed = text.trim();
-  if (RegExp(r'^合并\d+项目$').hasMatch(trimmed)) return '';
-  return trimmed;
-}
-
-String _displaySiteSummary(String value) {
-  return value.trim().replaceAll('+', '、').replaceAll('•', '、');
-}
-
 String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
   final sites = <String>[];
   for (final item in items) {
@@ -866,34 +649,6 @@ String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
   return sites.isEmpty ? '-' : sites.join('、');
 }
 
-_EquipmentSummary _equipmentSummary(List<TimingExternalWorkRecordItem> items) {
-  final devices = <String>[];
-  for (final item in items) {
-    final device = _deviceSummaryName(item.record);
-    if (device.isNotEmpty && !devices.contains(device)) devices.add(device);
-  }
-  if (devices.isEmpty) return const _EquipmentSummary(main: '设备未填写');
-  if (devices.length == 1) return _EquipmentSummary(main: devices.first);
-  return _EquipmentSummary(main: devices.first, suffix: '等${devices.length}台');
-}
-
-class _EquipmentSummary {
-  const _EquipmentSummary({required this.main, this.suffix});
-
-  final String main;
-  final String? suffix;
-}
-
-String _deviceSummaryName(ExternalWorkRecord record) {
-  final brand = record.equipmentBrand?.trim() ?? '';
-  if (brand.isNotEmpty) return brand;
-  final model = record.equipmentModel?.trim() ?? '';
-  if (model.isNotEmpty) return model;
-  final type = record.equipmentType?.trim() ?? '';
-  if (type.isNotEmpty) return type;
-  return '';
-}
-
 String _detailEquipmentText(ExternalWorkRecord record) {
   final parts = [
     record.equipmentBrand?.trim(),
@@ -901,17 +656,6 @@ String _detailEquipmentText(ExternalWorkRecord record) {
     record.equipmentType?.trim(),
   ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
   return parts.isEmpty ? '设备未填写' : parts.join(' / ');
-}
-
-String _rowEquipmentText(ExternalWorkRecord record) {
-  final parts = [
-    record.equipmentBrand?.trim(),
-    record.equipmentModel?.trim(),
-  ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
-  if (parts.isNotEmpty) return parts.join(' / ');
-
-  final type = record.equipmentType?.trim() ?? '';
-  return type.isEmpty ? '设备未填写' : type;
 }
 
 String _hoursText(int hoursMilli) {
