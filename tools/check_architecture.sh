@@ -144,6 +144,68 @@ run_forbidden_pattern_check_with_glob \
   lib/patterns/timing \
   lib/patterns/device
 
+# ============================================================================
+# 阶段 C Step 3：守住 timing pattern 边界 + patterns 全局基础设施依赖禁用。
+#
+# 每条 forbidden pattern：
+# - 任意匹配视为违规。
+# - 注释行（以 // 或 /// 开头）通过 `^(?!\s*//)` 排除，避免文档注释里
+#   提及 service 名字被误判。
+# - 标识符匹配两侧用 `(?<![A-Za-z0-9_])` / `(?![A-Za-z0-9_])` 守住单词边界，
+#   不会把 selectedDeviceLabel / TickerProvider / ChangeNotifierProvider /
+#   MyTimingService / TimingServiceFoo / SingleTickerProviderStateMixin 当成违规。
+# ============================================================================
+
+# Rule: patterns_timing_no_data_services
+# lib/patterns/timing 不允许 import lib/data/services 下任何文件。
+run_forbidden_pattern_check "Checking patterns/timing for data/services imports" \
+  '^import\s+.*data/services' \
+  lib/patterns/timing
+
+# Rule: patterns_timing_no_timing_service
+# 任何非注释行直接引用 TimingService 标识符即违规（含 TimingService.xxx /
+# TimingService(...) / as TimingService 等）。
+run_forbidden_pattern_check "Checking patterns/timing for direct TimingService usage" \
+  '^(?!\s*//).*(?<![A-Za-z0-9_])TimingService(?![A-Za-z0-9_])' \
+  lib/patterns/timing
+
+# Rule: patterns_timing_no_device_label
+# 任何非注释行直接引用 DeviceLabel 标识符即违规。
+# selectedDeviceLabel 这种普通变量名因为 `d`/`D` 之间没有非字符边界而不会被匹配。
+run_forbidden_pattern_check "Checking patterns/timing for direct DeviceLabel usage" \
+  '^(?!\s*//).*(?<![A-Za-z0-9_])DeviceLabel(?![A-Za-z0-9_])' \
+  lib/patterns/timing
+
+# Rule: patterns_timing_no_provider_context
+# 禁止 Provider.of(...) 和 Provider<X>(...) 直接使用。
+# 因为已有 "Checking reusable UI store access" 全局禁了 context.read / context.watch，
+# 这条专门覆盖 Provider.of 与 bare Provider<X>。
+# TickerProvider / ChangeNotifierProvider / MultiProvider 等不会误判
+# （前面的字符都是字母，lookbehind 失败）。
+run_forbidden_pattern_check "Checking patterns/timing for Provider.of / Provider<...> usage" \
+  '^(?!\s*//).*((?<![A-Za-z0-9_])Provider\s*\.\s*of\b|(?<![A-Za-z0-9_])Provider\s*<)' \
+  lib/patterns/timing
+
+# Rule: patterns_no_infrastructure_imports
+run_forbidden_pattern_check "Checking patterns for infrastructure imports" \
+  '^import\s+.*/infrastructure/' \
+  lib/patterns
+
+# Rule: patterns_no_repository_imports
+run_forbidden_pattern_check "Checking patterns for repository imports" \
+  '^import\s+.*/repositories/' \
+  lib/patterns
+
+# Rule: patterns_no_db_imports
+run_forbidden_pattern_check "Checking patterns for db/ imports" \
+  '^import\s+.*/db/' \
+  lib/patterns
+
+# Rule: patterns_no_use_case_imports
+run_forbidden_pattern_check "Checking patterns for use_cases imports" \
+  '^import\s+.*/use_cases/' \
+  lib/patterns
+
 if [[ "$failures" -ne 0 ]]; then
   echo "Architecture boundary checks failed: $failures violation(s) / error(s)."
   exit 1
