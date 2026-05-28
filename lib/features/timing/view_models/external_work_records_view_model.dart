@@ -106,9 +106,77 @@ class ExternalWorkRecordRowVm {
   final bool isLinked;
 }
 
+/// 外协记录详情卡片的展示 VM（阶段 C Step 8）。
+///
+/// 把详情卡片原先散落在 pattern 里的格式化 / 状态 / fallback 判断
+/// （site / equipment / 单价 / 金额 / 工时 / 状态 / 导入时间）收口到此处。
+class ExternalWorkRecordDetailVm {
+  const ExternalWorkRecordDetailVm({
+    required this.sourceText,
+    required this.sourceNameText,
+    required this.siteText,
+    required this.equipmentText,
+    required this.workDateText,
+    required this.hoursText,
+    required this.sourceUnitPriceText,
+    required this.amountText,
+    required this.showProjectReceived,
+    required this.projectReceivedText,
+    required this.importedAtText,
+    required this.statusText,
+    required this.isLinked,
+  });
+
+  /// 固定来源说明文案（"从分享包导入"）。
+  final String sourceText;
+  final String sourceNameText;
+  final String siteText;
+  final String equipmentText;
+  final String workDateText;
+  final String hoursText;
+  final String sourceUnitPriceText;
+  final String amountText;
+  final bool showProjectReceived;
+  final String projectReceivedText;
+  final String importedAtText;
+  final String statusText;
+  final bool isLinked;
+}
+
 /// 外协记录列表的展示 VM builder（纯只读）。
 class ExternalWorkRecordsViewModelBuilder {
   const ExternalWorkRecordsViewModelBuilder._();
+
+  /// 构建外协记录详情卡片 VM。
+  ///
+  /// [item] 是被点击的代表记录；[packageItems] 是同包记录（用于汇总地址 /
+  /// 来源单价）。展示金额 / 工时 / 状态以代表记录 [item] 为准（与原 pattern
+  /// 行为一致）。
+  static ExternalWorkRecordDetailVm buildDetail({
+    required TimingExternalWorkRecordItem item,
+    List<TimingExternalWorkRecordItem>? packageItems,
+  }) {
+    final record = item.record;
+    final detailItems = packageItems ?? [item];
+    final records = detailItems.map((each) => each.record);
+    return ExternalWorkRecordDetailVm(
+      sourceText: '从分享包导入',
+      sourceNameText: item.displayName,
+      siteText: _detailSiteText(detailItems),
+      equipmentText: _detailEquipmentText(record),
+      workDateText: FormatUtils.date(record.workDate),
+      hoursText: _hoursText(record.hoursMilli),
+      sourceUnitPriceText: _sourceUnitPriceText(records),
+      amountText: _moneyFen(record.amountFen),
+      showProjectReceived: record.projectReceivedFen > 0,
+      projectReceivedText: _moneyFen(record.projectReceivedFen),
+      importedAtText: _blankFallback(
+        item.batch?.importedAt ?? record.createdAt,
+      ),
+      statusText: _statusText(record),
+      isLinked: detailItems.any((each) => each.isLinked),
+    );
+  }
 
   static ExternalWorkRecordsVm build(
     List<TimingExternalWorkRecordItem> items,
@@ -403,4 +471,71 @@ String _hoursText(int hoursMilli) {
 String _blankFallback(String? text) {
   final value = text?.trim();
   return value == null || value.isEmpty ? '-' : value;
+}
+
+// ===========================================================================
+// 详情卡片专用展示 helper（阶段 C Step 8 从 pattern 上移）。
+// ===========================================================================
+
+String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
+  final sites = <String>[];
+  for (final item in items) {
+    final site = item.record.siteSnapshot.trim();
+    if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
+  }
+  return sites.isEmpty ? '-' : sites.join('、');
+}
+
+String _detailEquipmentText(ExternalWorkRecord record) {
+  final parts = [
+    record.equipmentBrand?.trim(),
+    record.equipmentModel?.trim(),
+    record.equipmentType?.trim(),
+  ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
+  return parts.isEmpty ? '设备未填写' : parts.join(' / ');
+}
+
+/// 计时页 "外协项目记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
+///
+/// 规则：
+/// - 只汇总同一外协包内 hours 记录的明确 sourceUnitPriceFen。
+/// - 多个明确单价按记录出现顺序去重，用 "、" 拼接。
+/// - rent / 台班及 sourceUnitPriceFen 为 null 的记录不参与汇总。
+/// - 没有任何明确来源单价时显示"未知"。
+/// 0 是合法的"真实来源单价为 0"语义，仍按 ¥0 / h 显示。
+///
+/// 重要：这里**不要**回退到 `localUnitPriceFen`。
+/// localUnitPriceFen 是接收方未来本地复核的外协应付/结算单价，账户页
+/// 外协卡片才走 `localUnitPriceFen ?? sourceUnitPriceFen` 作为有效应付价；
+/// 在计时页详情拉它会把"接收方复核值"伪装成"来源事实"，破坏审计语义。
+String _sourceUnitPriceText(Iterable<ExternalWorkRecord> records) {
+  final seen = <int>{};
+  final values = <String>[];
+  for (final record in records) {
+    if (record.recordKind != ExternalWorkRecordKind.hours) continue;
+    final price = record.sourceUnitPriceFen;
+    if (price == null || !seen.add(price)) continue;
+    values.add('${_moneyFen(price)} / h');
+  }
+  return values.isEmpty ? '未知' : values.join('、');
+}
+
+String _moneyFen(int fen) {
+  return FormatUtils.money(fen / 100);
+}
+
+String _statusText(ExternalWorkRecord record) {
+  if (record.status == ExternalWorkRecordStatus.active) {
+    return record.linkedProjectId?.trim().isNotEmpty == true ? '已关联' : '待处理';
+  }
+  switch (record.status) {
+    case ExternalWorkRecordStatus.active:
+      return '待处理';
+    case ExternalWorkRecordStatus.ignored:
+      return '已忽略';
+    case ExternalWorkRecordStatus.archived:
+      return '已归档';
+    case ExternalWorkRecordStatus.voided:
+      return '已作废';
+  }
 }

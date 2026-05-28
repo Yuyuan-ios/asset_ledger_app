@@ -1,3 +1,4 @@
+import 'package:asset_ledger/core/utils/format_utils.dart';
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
@@ -148,6 +149,108 @@ void main() {
         ExternalWorkRecordsViewModelBuilder.aggregateKeys(items),
         {'batch-batch-a', 'batch-batch-b'},
       );
+    });
+  });
+
+  group('ExternalWorkRecordsViewModelBuilder.buildDetail', () {
+    test('基础字段：来源 / 分享人 / 地址 / 设备 / 日期 / 工时 / 单价 / 金额 / 导入时间', () {
+      final item = _item(
+        batch: _batch(sourceDisplayName: '余远', importedAt: '2026-03-30T08:00:00.000Z'),
+        record: _record(
+          siteSnapshot: '五里山',
+          equipmentBrand: 'Hitachi',
+          equipmentModel: 'ZX200',
+          workDate: 20260323,
+          hoursMilli: 50000,
+        ).copyWith(amountFen: 123456, sourceUnitPriceFen: 1000),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+
+      expect(vm.sourceText, '从分享包导入');
+      expect(vm.sourceNameText, '余远');
+      expect(vm.siteText, '五里山');
+      expect(vm.equipmentText, 'Hitachi / ZX200 / 挖机');
+      expect(vm.workDateText, FormatUtils.date(20260323));
+      expect(vm.hoursText, '50.0 h');
+      expect(vm.sourceUnitPriceText, '${FormatUtils.money(10)} / h');
+      expect(vm.amountText, FormatUtils.money(1234.56));
+      expect(vm.importedAtText, '2026-03-30T08:00:00.000Z');
+    });
+
+    test('linkedProjectId 非空 → isLinked=true, status=已关联', () {
+      final item = _item(
+        record: _record(linkedProjectId: 'project:alpha'),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.isLinked, isTrue);
+      expect(vm.statusText, '已关联');
+    });
+
+    test('linkedProjectId 为空 → isLinked=false, status=待处理', () {
+      final item = _item(record: _record(linkedProjectId: null));
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.isLinked, isFalse);
+      expect(vm.statusText, '待处理');
+    });
+
+    test('site 空 → 地址 fallback "-"', () {
+      final item = _item(record: _record(siteSnapshot: '   '));
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.siteText, '-');
+    });
+
+    test('设备全空 → 设备 fallback "设备未填写"', () {
+      final item = _item(
+        record: _record(
+          equipmentBrand: '',
+          equipmentModel: null,
+          equipmentType: '',
+        ),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.equipmentText, '设备未填写');
+    });
+
+    test('rent / sourceUnitPriceFen=null → 单价 fallback "未知"', () {
+      final item = _item(
+        record: _record().copyWith(
+          recordKind: ExternalWorkRecordKind.rent,
+          sourceUnitPriceFen: null,
+        ),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.sourceUnitPriceText, '未知');
+    });
+
+    test('projectReceivedFen > 0 → showProjectReceived=true 且文案正确', () {
+      final item = _item(
+        record: _record().copyWith(projectReceivedFen: 50000),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.showProjectReceived, isTrue);
+      expect(vm.projectReceivedText, FormatUtils.money(500));
+    });
+
+    test('projectReceivedFen = 0 → showProjectReceived=false', () {
+      final item = _item(record: _record().copyWith(projectReceivedFen: 0));
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.showProjectReceived, isFalse);
+    });
+
+    test('packageItems 多条 → 地址按全部记录去重拼接', () {
+      final a = _item(
+        batch: _batch(id: 'batch-x'),
+        record: _record(id: 'r1', importBatchId: 'batch-x', siteSnapshot: '鲜滩'),
+      );
+      final b = _item(
+        batch: _batch(id: 'batch-x'),
+        record: _record(id: 'r2', importBatchId: 'batch-x', siteSnapshot: '尚义'),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: a,
+        packageItems: [a, b],
+      );
+      expect(vm.siteText, '鲜滩、尚义');
     });
   });
 }

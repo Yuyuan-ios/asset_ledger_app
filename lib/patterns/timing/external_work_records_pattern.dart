@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../components/avatars/linked_external_work_badge.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
-import '../../core/utils/format_utils.dart';
-import '../../data/models/external_work_record.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
 import '../../features/timing/view_models/external_work_records_view_model.dart';
 import '../../tokens/mapper/core_tokens.dart';
@@ -102,11 +100,13 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final record = item.record;
-    final detailItems = packageItems ?? [item];
-    final records = detailItems.map((item) => item.record);
-    final linked = detailItems.any((item) => item.isLinked);
-    final linkAction = linked ? onUnlinkProject : onLinkProject;
+    // 详情展示字段（site / equipment / 单价 / 金额 / 工时 / 状态 / 导入时间 /
+    // linked）由 feature 层 builder 计算（C8）。pattern 只渲染 VM + 回调。
+    final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+      item: item,
+      packageItems: packageItems,
+    );
+    final linkAction = vm.isLinked ? onUnlinkProject : onLinkProject;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -114,44 +114,21 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
         children: [
           _ExternalWorkDetailCard(
             children: [
-              const _ExternalWorkDetailRow(label: '来源', value: '从分享包导入'),
-              _ExternalWorkDetailRow(label: '分享人', value: item.displayName),
-              _ExternalWorkDetailRow(
-                label: '地址',
-                value: _detailSiteText(detailItems),
-              ),
-              _ExternalWorkDetailRow(
-                label: '设备',
-                value: _detailEquipmentText(record),
-              ),
-              _ExternalWorkDetailRow(
-                label: '日期',
-                value: FormatUtils.date(record.workDate),
-              ),
-              _ExternalWorkDetailRow(
-                label: '工时 / 数量',
-                value: _hoursText(record.hoursMilli),
-              ),
-              _ExternalWorkDetailRow(
-                label: '单价',
-                value: _sourceUnitPriceText(records),
-              ),
-              _ExternalWorkDetailRow(
-                label: '金额',
-                value: _moneyFen(record.amountFen),
-              ),
-              if (record.projectReceivedFen > 0)
+              _ExternalWorkDetailRow(label: '来源', value: vm.sourceText),
+              _ExternalWorkDetailRow(label: '分享人', value: vm.sourceNameText),
+              _ExternalWorkDetailRow(label: '地址', value: vm.siteText),
+              _ExternalWorkDetailRow(label: '设备', value: vm.equipmentText),
+              _ExternalWorkDetailRow(label: '日期', value: vm.workDateText),
+              _ExternalWorkDetailRow(label: '工时 / 数量', value: vm.hoursText),
+              _ExternalWorkDetailRow(label: '单价', value: vm.sourceUnitPriceText),
+              _ExternalWorkDetailRow(label: '金额', value: vm.amountText),
+              if (vm.showProjectReceived)
                 _ExternalWorkDetailRow(
                   label: '已收项目款',
-                  value: _moneyFen(record.projectReceivedFen),
+                  value: vm.projectReceivedText,
                 ),
-              _ExternalWorkDetailRow(
-                label: '导入时间',
-                value: _blankFallback(
-                  item.batch?.importedAt ?? record.createdAt,
-                ),
-              ),
-              _ExternalWorkDetailRow(label: '当前状态', value: _statusText(record)),
+              _ExternalWorkDetailRow(label: '导入时间', value: vm.importedAtText),
+              _ExternalWorkDetailRow(label: '当前状态', value: vm.statusText),
             ],
           ),
           const SizedBox(height: 12),
@@ -168,7 +145,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               height: 44,
               child: OutlinedButton(
                 onPressed: linkAction,
-                child: Text(linked ? '解除关联' : '关联到本地项目'),
+                child: Text(vm.isLinked ? '解除关联' : '关联到本地项目'),
               ),
             ),
           ],
@@ -638,76 +615,4 @@ class _ExternalWorkDetailRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
-  final sites = <String>[];
-  for (final item in items) {
-    final site = item.record.siteSnapshot.trim();
-    if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
-  }
-  return sites.isEmpty ? '-' : sites.join('、');
-}
-
-String _detailEquipmentText(ExternalWorkRecord record) {
-  final parts = [
-    record.equipmentBrand?.trim(),
-    record.equipmentModel?.trim(),
-    record.equipmentType?.trim(),
-  ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
-  return parts.isEmpty ? '设备未填写' : parts.join(' / ');
-}
-
-String _hoursText(int hoursMilli) {
-  return FormatUtils.hours(hoursMilli / 1000);
-}
-
-/// 计时页 "外协项目记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
-///
-/// 规则：
-/// - 只汇总同一外协包内 hours 记录的明确 sourceUnitPriceFen。
-/// - 多个明确单价按记录出现顺序去重，用 "、" 拼接。
-/// - rent / 台班及 sourceUnitPriceFen 为 null 的记录不参与汇总。
-/// - 没有任何明确来源单价时显示"未知"。
-/// 0 是合法的"真实来源单价为 0"语义，仍按 ¥0 / h 显示。
-///
-/// 重要：这里**不要**回退到 `localUnitPriceFen`。
-/// localUnitPriceFen 是接收方未来本地复核的外协应付/结算单价，账户页
-/// 外协卡片才走 `localUnitPriceFen ?? sourceUnitPriceFen` 作为有效应付价；
-/// 在计时页详情拉它会把"接收方复核值"伪装成"来源事实"，破坏审计语义。
-String _sourceUnitPriceText(Iterable<ExternalWorkRecord> records) {
-  final seen = <int>{};
-  final values = <String>[];
-  for (final record in records) {
-    if (record.recordKind != ExternalWorkRecordKind.hours) continue;
-    final price = record.sourceUnitPriceFen;
-    if (price == null || !seen.add(price)) continue;
-    values.add('${_moneyFen(price)} / h');
-  }
-  return values.isEmpty ? '未知' : values.join('、');
-}
-
-String _moneyFen(int fen) {
-  return FormatUtils.money(fen / 100);
-}
-
-String _statusText(ExternalWorkRecord record) {
-  if (record.status == ExternalWorkRecordStatus.active) {
-    return record.linkedProjectId?.trim().isNotEmpty == true ? '已关联' : '待处理';
-  }
-  switch (record.status) {
-    case ExternalWorkRecordStatus.active:
-      return '待处理';
-    case ExternalWorkRecordStatus.ignored:
-      return '已忽略';
-    case ExternalWorkRecordStatus.archived:
-      return '已归档';
-    case ExternalWorkRecordStatus.voided:
-      return '已作废';
-  }
-}
-
-String _blankFallback(String? text) {
-  final value = text?.trim();
-  return value == null || value.isEmpty ? '-' : value;
 }
