@@ -1,6 +1,7 @@
 import '../../../data/models/project_write_off.dart';
 import '../domain/entities/project_settlement_result.dart';
 import '../domain/repositories/project_settlement_repository.dart';
+import '../domain/services/project_finance_calculator.dart';
 
 export '../domain/entities/project_settlement_result.dart';
 
@@ -35,25 +36,24 @@ class ProjectSettlementUseCase {
     if (normalizedProjectKey.isEmpty) {
       throw StateError('项目缺少兼容 key');
     }
-    if (receivable <= projectSettlementEpsilon) {
+    if (_fen(receivable) <= 0) {
       throw StateError('项目总额必须大于 0');
     }
-    if (paymentAmount < -projectSettlementEpsilon) {
+    if (_fen(paymentAmount) < 0) {
       throw ArgumentError.value(paymentAmount, 'paymentAmount', '本次实收不能为负数');
     }
-    if (writeOffAmount < -projectSettlementEpsilon) {
+    if (_fen(writeOffAmount) < 0) {
       throw ArgumentError.value(writeOffAmount, 'writeOffAmount', '核销金额不能为负数');
     }
 
     final normalizedPaymentAmount = _zeroIfTiny(paymentAmount);
     final normalizedWriteOffAmount = _zeroIfTiny(writeOffAmount);
-    if (normalizedWriteOffAmount > projectSettlementEpsilon &&
-        writeOffReason == null) {
+    if (_fen(normalizedWriteOffAmount) > 0 && writeOffReason == null) {
       throw StateError('请选择核销原因');
     }
 
     final settlementAmount = normalizedPaymentAmount + normalizedWriteOffAmount;
-    if (settlementAmount <= projectSettlementEpsilon) {
+    if (_fen(settlementAmount) <= 0) {
       throw StateError('结清金额必须大于 0');
     }
 
@@ -70,7 +70,7 @@ class ProjectSettlementUseCase {
         createdAtIso: now.toIso8601String(),
         writeOffDate: _writeOffDateFromYmd(ymd),
         note: _cleanNote(note),
-        writeOffId: normalizedWriteOffAmount > projectSettlementEpsilon
+        writeOffId: _fen(normalizedWriteOffAmount) > 0
             ? _writeOffId(normalizedProjectId, now)
             : null,
       ),
@@ -90,7 +90,7 @@ class ProjectSettlementUseCase {
     if (normalizedWriteOffId.isEmpty) {
       throw StateError('核销记录 ID 不能为空');
     }
-    if (receivable <= projectSettlementEpsilon) {
+    if (_fen(receivable) <= 0) {
       throw StateError('项目总额必须大于 0');
     }
 
@@ -126,8 +126,11 @@ class ProjectSettlementUseCase {
     return 'writeoff-$projectId-${now.microsecondsSinceEpoch}';
   }
 
+  static int _fen(double yuan) => ProjectFinanceCalculator.yuanToFen(yuan);
+
+  /// 把"四舍五入后不足 1 分"的金额归一为 0（fen 口径），保持原 _zeroIfTiny 语义。
   static double _zeroIfTiny(double value) {
-    return value.abs() <= projectSettlementEpsilon ? 0.0 : value;
+    return _fen(value) == 0 ? 0.0 : value;
   }
 
   static String? _cleanNote(String? note) {

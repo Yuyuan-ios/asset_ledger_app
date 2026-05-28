@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../domain/entities/account_entities.dart';
+import '../../domain/services/project_finance_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
@@ -70,7 +71,7 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
 
   Future<void> _save() async {
     if (_saving) return;
-    if (_remaining <= projectSettlementEpsilon) {
+    if (ProjectFinanceCalculator.yuanToFen(_remaining) <= 0) {
       _showError('项目已结清，不能重复结清');
       return;
     }

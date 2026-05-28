@@ -22,6 +22,7 @@ import 'package:asset_ledger/features/account/state/account_filter_store.dart';
 import 'package:asset_ledger/features/account/state/account_payment_store.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/state/project_rate_store.dart';
+import 'package:asset_ledger/features/account/domain/services/project_finance_calculator.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
 import 'package:asset_ledger/features/account/use_cases/settle_merged_project_use_case.dart';
 import 'package:asset_ledger/features/account/view/account_page.dart';
@@ -943,8 +944,10 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
         writeOffAfter: writeOffAfter,
         remainingAfter: request.receivable - receivedAfter - writeOffAfter,
         settled:
-            request.receivable - receivedAfter - writeOffAfter <=
-            projectSettlementEpsilon,
+            ProjectFinanceCalculator.yuanToFen(
+              request.receivable - receivedAfter - writeOffAfter,
+            ) <=
+            0,
       ),
     );
   }
@@ -968,8 +971,10 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
         writeOffAfter: request.writeOffAmount,
         remainingAfter: request.receivable - request.writeOffAmount,
         settled:
-            request.receivable - request.writeOffAmount <=
-            projectSettlementEpsilon,
+            ProjectFinanceCalculator.yuanToFen(
+              request.receivable - request.writeOffAmount,
+            ) <=
+            0,
       ),
     );
   }
@@ -988,7 +993,8 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
         writeOffBefore: 0,
         writeOffAfter: 0,
         remainingAfter: request.receivable,
-        restoredActive: request.receivable > projectSettlementEpsilon,
+        restoredActive:
+            ProjectFinanceCalculator.yuanToFen(request.receivable) > 0,
       ),
     );
   }
@@ -1007,7 +1013,8 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
         writeOffBefore: 0,
         writeOffAfter: 0,
         remainingAfter: request.receivable,
-        restoredActive: request.receivable > projectSettlementEpsilon,
+        restoredActive:
+            ProjectFinanceCalculator.yuanToFen(request.receivable) > 0,
       ),
     );
   }

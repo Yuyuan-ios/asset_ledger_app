@@ -1,6 +1,9 @@
 import '../../../../core/utils/format_utils.dart';
+import '../services/project_finance_calculator.dart';
 
-const double projectSettlementEpsilon = 0.000001;
+/// 阶段 C Step 5：金额判断统一走 fen 整数。yuan double 转 fen 后比较，
+/// 不再使用浮点 epsilon。
+int _fen(double yuan) => ProjectFinanceCalculator.yuanToFen(yuan);
 
 class ProjectSettlementResult {
   const ProjectSettlementResult({
@@ -34,14 +37,15 @@ class ProjectSettlementResult {
   final String? writeOffId;
 
   String get successMessage {
-    if (paymentAmount > projectSettlementEpsilon &&
-        writeOffAmount > projectSettlementEpsilon) {
+    final hasPayment = _fen(paymentAmount) > 0;
+    final hasWriteOff = _fen(writeOffAmount) > 0;
+    if (hasPayment && hasWriteOff) {
       return '已收款 ${FormatUtils.money(paymentAmount)}，核销 ${FormatUtils.money(writeOffAmount)}';
     }
-    if (paymentAmount > projectSettlementEpsilon) {
+    if (hasPayment) {
       return settled ? '已结清' : '已收款 ${FormatUtils.money(paymentAmount)}';
     }
-    if (writeOffAmount > projectSettlementEpsilon) {
+    if (hasWriteOff) {
       return settled ? '已结清' : '已核销 ${FormatUtils.money(writeOffAmount)}';
     }
     return settled ? '已结清' : '保存成功';

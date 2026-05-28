@@ -2,6 +2,7 @@ import '../../../core/utils/format_utils.dart';
 import '../../../data/models/project_write_off.dart';
 import '../domain/entities/project_settlement_result.dart';
 import '../domain/repositories/project_settlement_repository.dart';
+import '../domain/services/project_finance_calculator.dart';
 import '../model/account_view_model.dart';
 
 class SettleMergedProjectUseCase {
@@ -41,17 +42,16 @@ class SettleMergedProjectUseCase {
     final groupId = _requireMergedGroupId(mergedProject);
     final normalizedPaymentAmount = _zeroIfTiny(paymentAmount);
     final normalizedWriteOffAmount = _zeroIfTiny(writeOffAmount);
-    if (normalizedPaymentAmount > projectSettlementEpsilon) {
+    if (_fen(normalizedPaymentAmount) > 0) {
       throw StateError('合并项目结清暂不支持新增实收，请先保存收款后再结清。');
     }
-    if (normalizedWriteOffAmount <= projectSettlementEpsilon) {
+    if (_fen(normalizedWriteOffAmount) <= 0) {
       throw StateError('结清金额必须大于 0');
     }
     if (writeOffReason == null) {
       throw StateError('请选择核销原因');
     }
-    if (normalizedWriteOffAmount >
-        mergedProject.remaining + projectSettlementEpsilon) {
+    if (_fen(normalizedWriteOffAmount) > _fen(mergedProject.remaining)) {
       throw StateError(
         '结清金额超出当前待收（待收约 ${FormatUtils.money(mergedProject.remaining)}）',
       );
@@ -59,7 +59,7 @@ class SettleMergedProjectUseCase {
 
     final matchedMembers = _matchedMembers(mergedProject, memberProjects);
     for (final member in matchedMembers) {
-      if (member.writeOff > projectSettlementEpsilon) {
+      if (_fen(member.writeOff) > 0) {
         throw StateError('合并成员项目已存在核销记录，请先处理成员项目。');
       }
     }
@@ -186,7 +186,7 @@ class SettleMergedProjectUseCase {
   }) {
     final payableMembers =
         members.where((member) {
-          return member.remaining > projectSettlementEpsilon;
+          return _fen(member.remaining) > 0;
         }).toList()..sort((a, b) {
           final byDate = a.minYmd.compareTo(b.minYmd);
           if (byDate != 0) return byDate;
@@ -197,10 +197,10 @@ class SettleMergedProjectUseCase {
       0,
       (sum, member) => sum + member.remaining,
     );
-    if (sumRemaining <= projectSettlementEpsilon) {
+    if (_fen(sumRemaining) <= 0) {
       throw StateError('合并项目已结清，不能重复结清');
     }
-    if (amount > sumRemaining + projectSettlementEpsilon) {
+    if (_fen(amount) > _fen(sumRemaining)) {
       throw StateError('结清金额超出当前待收（待收约 ${FormatUtils.money(sumRemaining)}）');
     }
 
@@ -213,7 +213,7 @@ class SettleMergedProjectUseCase {
           ? left
           : (left < member.remaining ? left : member.remaining);
       take = _zeroIfTiny(take);
-      if (take <= projectSettlementEpsilon) continue;
+      if (_fen(take) <= 0) continue;
       allocations.add(
         MergedProjectSettlementAllocationRequest(
           projectId: member.effectiveProjectId,
@@ -231,7 +231,7 @@ class SettleMergedProjectUseCase {
       left = _zeroIfTiny(left - take);
     }
 
-    if (left > projectSettlementEpsilon) {
+    if (_fen(left) > 0) {
       throw StateError('合并项目核销分摊失败');
     }
     return allocations;
@@ -255,8 +255,11 @@ class SettleMergedProjectUseCase {
     return 'writeoff-merge-$mergeGroupId-${now.microsecondsSinceEpoch}-$index';
   }
 
+  static int _fen(double yuan) => ProjectFinanceCalculator.yuanToFen(yuan);
+
+  /// 把"四舍五入后不足 1 分"的金额归一为 0（fen 口径），保持原 _zeroIfTiny 语义。
   static double _zeroIfTiny(double value) {
-    return value.abs() <= projectSettlementEpsilon ? 0.0 : value;
+    return _fen(value) == 0 ? 0.0 : value;
   }
 
   static String? _cleanNote(String? note) {
