@@ -4,13 +4,10 @@ import '../../components/avatars/linked_external_work_badge.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
-import '../../features/account/model/project_title_formatter.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
+import 'account_project_card_vm.dart';
 
-enum _PriceBadgeKind { single, multi, rent }
-
-const double _projectCardMoneyEpsilon = 0.000001;
 const Color _settledCardBg = SheetColors.background;
 const Color _settledCardBorder = AccountTokens.projectCardBorderColor;
 const Color _settledCheckBlue = Color(0xFF4AAFD8);
@@ -63,55 +60,21 @@ class AccountProjectList extends StatelessWidget {
   final bool isCompact;
   final String emptyText;
 
-  String _priceText(AccountProjectVM p) {
-    final rate = p.minRate;
-    if (rate == null) {
-      if (p.rentIncomeTotal > 0) return '租金(台班)';
-      return '单价:—';
-    }
-    if (p.isMultiDevice) {
-      return '单价:${FormatUtils.money(rate)}(多设备)';
-    }
-    if (p.isMultiMode) {
-      return '单价:${FormatUtils.money(rate)}起(多模式)';
-    }
-    return '单价:${FormatUtils.money(rate)}';
-  }
-
-  _PriceBadgeKind _priceBadgeKind(AccountProjectVM p, String priceText) {
-    if (p.rentIncomeTotal > 0 ||
-        priceText.contains('租金') ||
-        priceText.contains('台班')) {
-      return _PriceBadgeKind.rent;
-    }
-
-    if (p.isMultiDevice ||
-        p.isMultiMode ||
-        priceText.contains('起') ||
-        priceText.contains('多设备') ||
-        priceText.contains('多模式') ||
-        priceText.contains('多单价')) {
-      return _PriceBadgeKind.multi;
-    }
-
-    return _PriceBadgeKind.single;
-  }
-
-  _PriceBadgeStyle _priceBadgeStyle(_PriceBadgeKind kind) {
+  _PriceBadgeStyle _priceBadgeStyle(AccountProjectPriceBadgeKind kind) {
     switch (kind) {
-      case _PriceBadgeKind.rent:
+      case AccountProjectPriceBadgeKind.rent:
         return const _PriceBadgeStyle(
           backgroundColor: AccountTokens.projectCardRentBadgeBackground,
           borderColor: AccountTokens.projectCardRentBadgeBorder,
           textColor: AccountTokens.projectCardRentBadgeText,
         );
-      case _PriceBadgeKind.multi:
+      case AccountProjectPriceBadgeKind.multi:
         return const _PriceBadgeStyle(
           backgroundColor: AccountTokens.projectCardMultiRateBadgeBackground,
           borderColor: AccountTokens.projectCardMultiRateBadgeBorder,
           textColor: AccountTokens.projectCardMultiRateBadgeText,
         );
-      case _PriceBadgeKind.single:
+      case AccountProjectPriceBadgeKind.single:
         return const _PriceBadgeStyle(
           backgroundColor: AccountTokens.projectCardSingleRateBadgeBackground,
           borderColor: AccountTokens.projectCardSingleRateBadgeBorder,
@@ -120,49 +83,10 @@ class AccountProjectList extends StatelessWidget {
     }
   }
 
-  String? _totalHoursText(AccountProjectVM p) {
-    final total =
-        p.hoursByDevice.values.fold<double>(0, (sum, h) => sum + h) +
-        p.externalWorkHours;
-    if (total <= 0) return null;
-    final one = total.toStringAsFixed(1);
-    final normalized = one.endsWith('.0')
-        ? one.substring(0, one.length - 2)
-        : one;
-    return '总共:  $normalized h';
-  }
-
-  String _projectTitleText(AccountProjectVM p) {
-    return ProjectTitleFormatter.normalize(p.displayName);
-  }
-
-  String _receivedBaseText(AccountProjectVM p, {required bool compact}) {
-    if (_isSettled(p)) {
-      if (p.writeOff > _projectCardMoneyEpsilon) {
-        if (compact) {
-          final netReceived = (p.receivable - p.writeOff).clamp(
-            0.0,
-            p.receivable,
-          );
-          return '实收 ${FormatUtils.money(netReceived)}';
-        }
-        return '总额 ${FormatUtils.money(p.receivable)}-核销 ${FormatUtils.money(p.writeOff)}';
-      }
-      return '总额 ${FormatUtils.money(p.receivable)}';
-    }
-    return '${FormatUtils.percent1(p.ratio)}实收';
-  }
-
-  Widget _receivedText(
-    AccountProjectVM p,
-    TextStyle? style, {
-    required bool compact,
-  }) {
-    final base = _receivedBaseText(p, compact: compact);
-    final sitesSuffix = !_isSettled(p) && p.kind == AccountProjectKind.merged
-        ? _mergedSitesSuffix(p.includedSites)
-        : '';
-    if (sitesSuffix.isEmpty) {
+  Widget _receivedText(AccountProjectCardVm vm, TextStyle? style) {
+    final base = vm.receivedBaseText;
+    final sitesSuffix = vm.mergedSitesSuffix;
+    if (sitesSuffix == null || sitesSuffix.isEmpty) {
       if (base.isEmpty) return const SizedBox.shrink();
       return Text(
         base,
@@ -189,41 +113,9 @@ class AccountProjectList extends StatelessWidget {
     );
   }
 
-  String _mergedSitesSuffix(List<String> includedSites) {
-    final effectiveSites = includedSites
-        .map((site) => site.trim())
-        .where((site) => site.isNotEmpty)
-        .toList();
-    final joined = effectiveSites.join('、');
-    if (joined.isEmpty) return '';
-    return joined;
-  }
-
-  bool _isSettled(AccountProjectVM p) {
-    return p.isSettledForDisplay;
-  }
-
-  double _displayProgress(AccountProjectVM p, {required bool compact}) {
-    if (_isSettled(p)) return 1.0;
-    return (p.ratio ?? 0).clamp(0.0, 1.0).toDouble();
-  }
-
-  String _settlementStatusText(AccountProjectVM p, {required bool compact}) {
-    if (_isSettled(p)) {
-      return '已结清';
-    }
-    return compact
-        ? '待收 ${FormatUtils.money(p.remaining)}'
-        : '余: ${FormatUtils.money(p.remaining)} / ${FormatUtils.money(p.receivable)}';
-  }
-
-  Widget _settlementStatus(
-    AccountProjectVM p,
-    TextStyle? style, {
-    required bool compact,
-  }) {
-    final text = _settlementStatusText(p, compact: compact);
-    if (!_isSettled(p)) {
+  Widget _settlementStatus(AccountProjectCardVm vm, TextStyle? style) {
+    final text = vm.settlementStatusText;
+    if (!vm.isSettled) {
       return Text(
         text,
         maxLines: 1,
@@ -315,13 +207,15 @@ class AccountProjectList extends StatelessWidget {
         for (final p in projects) ...[
           Builder(
             builder: (context) {
-              final totalHoursText = _totalHoursText(p);
-              final priceText = _priceText(p);
-              final badgeStyle = _priceBadgeStyle(
-                _priceBadgeKind(p, priceText),
+              final vm = AccountProjectCardVmBuilder.build(
+                project: p,
+                isCompact: isCompact,
               );
-              final isSettled = _isSettled(p);
-              final displayProgress = _displayProgress(p, compact: isCompact);
+              final totalHoursText = vm.totalHoursText;
+              final priceText = vm.priceText;
+              final badgeStyle = _priceBadgeStyle(vm.priceBadgeKind);
+              final isSettled = vm.isSettled;
+              final displayProgress = vm.displayProgress;
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;
@@ -383,13 +277,13 @@ class AccountProjectList extends StatelessWidget {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      _projectTitleText(p),
+                                      vm.titleText,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: titleStyle,
                                     ),
                                   ),
-                                  if (p.hasLinkedExternalWork) ...[
+                                  if (vm.hasLinkedExternalWork) ...[
                                     const SizedBox(width: 6),
                                     LinkedExternalWorkBadge(
                                       key:
@@ -417,9 +311,7 @@ class AccountProjectList extends StatelessWidget {
                               child: Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  isCompact
-                                      ? '项目总额 ${FormatUtils.money(p.receivable)}'
-                                      : FormatUtils.date(p.minYmd),
+                                  vm.topRightText,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.right,
@@ -489,18 +381,10 @@ class AccountProjectList extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: _receivedText(
-                                p,
-                                resolvedStatusStyle,
-                                compact: isCompact,
-                              ),
+                              child: _receivedText(vm, resolvedStatusStyle),
                             ),
                             const SizedBox(width: 8),
-                            _settlementStatus(
-                              p,
-                              resolvedStatusStyle,
-                              compact: isCompact,
-                            ),
+                            _settlementStatus(vm, resolvedStatusStyle),
                           ],
                         ),
                         const SizedBox(
