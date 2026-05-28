@@ -22,7 +22,6 @@ import '../../../features/external_work/import_preview/view/external_work_import
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
-import '../../../features/timing/use_cases/timing_merge_dissolve_port.dart';
 import '../../account/state/project_rate_store.dart';
 import '../../../patterns/timing/timing_home_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -379,39 +378,6 @@ class _TimingPageState extends State<TimingPage> {
     ]);
   }
 
-  Future<bool> _retryPendingMergeDissolve({
-    required SaveTimingRecordUseCase useCase,
-    required PendingTimingMergeDissolve pending,
-  }) async {
-    final shouldRetry = await showAppConfirmDialog(
-      context: context,
-      title: '合并项目未解除',
-      content: '计时记录已保存，但联系人或地址变化后的合并项目尚未解除。请重试解除后再关闭。',
-      cancelText: '留在编辑',
-      confirmText: '重试解除',
-    );
-    if (!mounted) return false;
-    if (!shouldRetry) {
-      _toast('合并项目尚未解除，可再次点击“确定”重试。');
-      return false;
-    }
-
-    try {
-      final dissolved = await useCase.retryMergeDissolve(pending);
-      if (!mounted) return false;
-      if (dissolved) {
-        _toast('记录已移动到其他项目，系统已自动解除相关合并项目。');
-      } else {
-        _toast('合并项目已无需解除。');
-      }
-      return true;
-    } catch (_) {
-      if (!mounted) return false;
-      _toast('自动解除合并仍失败，请再次重试。');
-      return false;
-    }
-  }
-
   Future<void> _openTimingEditor({TimingRecord? editing}) async {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
@@ -491,20 +457,13 @@ class _TimingPageState extends State<TimingPage> {
               },
           onToast: _toast,
           onSubmit: (record, calculationHistories) async {
-            // 优先走 Step 3 事务化路径；遗留 widget 测试未注入该 Provider 时
-            // SaveTimingRecordUseCase 内部会回落到旧 store.save + retry 路径，
-            // 保持 UI 行为兼容。
-            SaveTimingRecordWithImpactUseCase? withImpact;
-            try {
-              withImpact =
-                  context.read<SaveTimingRecordWithImpactUseCase>();
-            } on ProviderNotFoundException {
-              withImpact = null;
-            }
+            // 唯一的保存入口：事务化 SaveTimingRecordWithImpactUseCase。
+            // Provider 必须由 TimingSaveProviders 注入；缺失即生产配置错误，
+            // 直接由 context.read 抛 ProviderNotFoundException 走 fail-fast，
+            // 不再静默回落到旧两步保存 + UI retry 兜底路径（已删除）。
             final saveUseCase = actionController.createSaveUseCase(
               timingStore: timingStore,
-              mergeDissolve: context.read<TimingMergeDissolvePort>(),
-              withImpact: withImpact,
+              withImpact: context.read<SaveTimingRecordWithImpactUseCase>(),
             );
             SaveTimingRecordResult result;
             try {
@@ -526,30 +485,11 @@ class _TimingPageState extends State<TimingPage> {
               _toast(feedback.message);
               return;
             }
-            String? toastMessage = feedback.message;
+            // 事务化路径已完成所有级联：UI 不再依赖 pending retry。
             final impact = result.impact;
-            final pending = result.pendingMergeDissolve;
-            if (impact != null) {
-              // 事务化路径已完成所有级联：UI 不再依赖 pending retry。
-              toastMessage = impact.userMessage ?? feedback.message;
-            } else if (pending != null) {
-              _toast('项目已保存，但自动解除合并失败，请重试解除。');
-              final resolved = await _retryPendingMergeDissolve(
-                useCase: saveUseCase,
-                pending: pending,
-              );
-              if (!mounted) return;
-              if (!resolved) {
-                return;
-              }
-              toastMessage = null;
-            } else if (result.mergeDissolved) {
-              toastMessage = '记录已移动到其他项目，系统已自动解除相关合并项目。';
-            }
+            final toastMessage = impact.userMessage ?? feedback.message;
             if (!mounted) return;
-            if (toastMessage != null) {
-              _toast(toastMessage);
-            }
+            _toast(toastMessage);
             if (!sheetContext.mounted) return;
             Navigator.of(sheetContext).pop();
           },
