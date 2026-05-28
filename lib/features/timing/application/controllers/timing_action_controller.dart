@@ -2,6 +2,7 @@ import '../../../../core/utils/format_utils.dart';
 import '../../../../data/services/project_resolver.dart';
 import '../../../../data/services/timing_monthly_expense_service.dart';
 import '../../../../data/services/timing_monthly_income_service.dart';
+import '../../../../data/services/timing_service.dart';
 import '../../domain/entities/timing_entities.dart';
 import '../../domain/repositories/timing_calculation_history_repository.dart';
 import '../../domain/services/timing_meter_bounds.dart';
@@ -187,6 +188,23 @@ class TimingActionController {
 
   List<String> siteSuggestions(List<TimingRecord> records, String query) {
     return TimingSuggestions.siteSuggestions(records, query);
+  }
+
+  /// 给 timing editor pattern 用的"指定设备当前码表"读取入口。
+  ///
+  /// 把 [TimingService.currentMeter] 包在 controller 层，让
+  /// `patterns/timing/timing_detail_content_pattern.dart` 通过 callback 拿
+  /// 计算结果，pattern 自身不再直接 import `data/services`（C2 边界收口）。
+  double currentMeter({
+    required List<TimingRecord> records,
+    required int deviceId,
+    required double baseMeterHours,
+  }) {
+    return TimingService.currentMeter(
+      records,
+      deviceId,
+      baseMeterHours: baseMeterHours,
+    );
   }
 
   String? validateMeterBounds({

@@ -55,6 +55,7 @@ void main() {
                   required double endMeter,
                   int? excludeId,
                 }) => null,
+            resolveCurrentMeter: (_) => 0,
             onSubmit: onSubmit ?? (_, _) async {},
             onToast: (_) {},
           ),
