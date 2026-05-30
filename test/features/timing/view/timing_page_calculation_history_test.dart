@@ -44,6 +44,7 @@ import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite/sqflite.dart';
 
 void main() {
   testWidgets('loads existing calculation histories when editing a record', (
@@ -1680,6 +1681,19 @@ class _FakeProjectRepository implements ProjectRepository {
     required String contact,
     required String site,
   }) async {
+    return _findActive(contact: contact, site: site);
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  }) async {
+    return _findActive(contact: contact, site: site);
+  }
+
+  List<Project> _findActive({required String contact, required String site}) {
     return inserted
         .where((project) {
           return project.contact == contact.trim() &&
@@ -1691,6 +1705,14 @@ class _FakeProjectRepository implements ProjectRepository {
 
   @override
   Future<void> insert(Project project) async {
+    inserted.add(project);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    DatabaseExecutor executor,
+    Project project,
+  ) async {
     inserted.add(project);
   }
 

@@ -184,6 +184,148 @@ void main() {
 
       expect(await db.query('timing_records'), isEmpty);
     });
+
+    test('事务内创建新 project：外部 transaction 成功后 project + timing 一起落库', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      final record = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260520,
+        projectId: '',
+        contact: '新甲方',
+        site: '新工地',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+      final preparation = await useCase.prepareForSave(
+        editing: null,
+        record: record,
+      );
+      expect(preparation.recordToSave.projectId, isEmpty);
+
+      final result = await AppDatabase.inTransaction((txn) {
+        return useCase.executeWithExecutor(
+          txn,
+          editing: null,
+          preparation: preparation,
+        );
+      });
+
+      final projects = await db.query('projects');
+      expect(projects, hasLength(1));
+      expect(projects.single['contact'], '新甲方');
+      expect(projects.single['site'], '新工地');
+      final projectId = projects.single['id'] as String;
+      expect(result.savedRecord.projectId, projectId);
+      expect(result.affectedProjectIds, contains(projectId));
+
+      final timings = await db.query('timing_records');
+      expect(timings, hasLength(1));
+      expect(timings.single['project_id'], projectId);
+    });
+
+    test('事务内创建新 project 后续失败：project + timing 都回滚', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      final record = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260520,
+        projectId: '',
+        contact: '回滚甲方',
+        site: '回滚工地',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+      final preparation = await useCase.prepareForSave(
+        editing: null,
+        record: record,
+      );
+
+      await expectLater(
+        AppDatabase.inTransaction((txn) async {
+          await useCase.executeWithExecutor(
+            txn,
+            editing: null,
+            preparation: preparation,
+          );
+          throw StateError('rollback-after-project-create');
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('projects'), isEmpty);
+      expect(await db.query('timing_records'), isEmpty);
+    });
+
+    test('事务内复用 active project：不额外创建空项目', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:active');
+      final record = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260520,
+        projectId: '',
+        contact: '甲方',
+        site: 'active',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+
+      final result = await useCase.execute(editing: null, record: record);
+
+      expect(result.savedRecord.projectId, 'project:active');
+      final projects = await db.query('projects');
+      expect(projects, hasLength(1));
+      final timings = await db.query('timing_records');
+      expect(timings.single['project_id'], 'project:active');
+    });
+
+    test('settled 旧项目同 contact/site 再保存：事务内创建新 project', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(
+        db,
+        projectId: 'project:old-settled',
+        status: ProjectStatus.settled,
+        settledAt: '2026-05-19T00:00:00.000Z',
+      );
+      final record = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260520,
+        projectId: '',
+        contact: '甲方',
+        site: 'old-settled',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+
+      final result = await useCase.execute(editing: null, record: record);
+
+      expect(result.savedRecord.projectId, isNot('project:old-settled'));
+      final projects = await db.query('projects');
+      expect(projects, hasLength(2));
+      expect(
+        projects.map((row) => row['legacy_project_key']).toSet(),
+        hasLength(1),
+      );
+      final activeRows = projects
+          .where((row) => row['status'] == ProjectStatus.active.name)
+          .toList();
+      expect(activeRows, hasLength(1));
+      expect(activeRows.single['id'], result.savedRecord.projectId);
+    });
   });
 
   group('编辑计时记录，projectId 不变', () {
