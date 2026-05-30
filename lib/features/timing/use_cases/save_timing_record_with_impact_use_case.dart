@@ -1,3 +1,6 @@
+import '../../../core/operations/operation_transaction_runner.dart';
+import '../../../data/models/device.dart';
+import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_calculation_history.dart';
 import '../../../data/models/timing_record.dart';
 
@@ -7,11 +10,37 @@ import '../../../data/models/timing_record.dart';
 /// 收口在同一个本地数据库事务内完成；不再依赖 UI pending retry 来兜底
 /// 一致性。
 abstract class SaveTimingRecordWithImpactUseCase {
+  Future<SaveTimingRecordPreparation> prepareForSave({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  });
+
+  Future<SaveTimingRecordWithImpactResult> executeWithExecutor(
+    OperationDatabaseExecutor executor, {
+    required TimingRecord? editing,
+    required SaveTimingRecordPreparation preparation,
+    List<TimingCalculationHistory> calculationHistories = const [],
+  });
+
   Future<SaveTimingRecordWithImpactResult> execute({
     required TimingRecord? editing,
     required TimingRecord record,
     List<TimingCalculationHistory> calculationHistories = const [],
   });
+}
+
+class SaveTimingRecordPreparation {
+  const SaveTimingRecordPreparation({
+    required this.recordToSave,
+    required this.devices,
+    required this.rates,
+    required this.timestampIso,
+  });
+
+  final TimingRecord recordToSave;
+  final List<Device> devices;
+  final List<ProjectDeviceRate> rates;
+  final String timestampIso;
 }
 
 /// 编辑保存计时记录时，事务内重读 DB 的旧记录失败 / 更新影响行数异常时抛出。

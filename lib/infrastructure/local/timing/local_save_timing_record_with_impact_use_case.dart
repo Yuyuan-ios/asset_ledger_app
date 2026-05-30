@@ -62,6 +62,27 @@ class LocalSaveTimingRecordWithImpactUseCase
   final DateTime Function() _now;
 
   @override
+  Future<SaveTimingRecordPreparation> prepareForSave({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  }) async {
+    final recordToSave = await _resolveProjectIdForSave(
+      editing: editing,
+      record: record,
+    );
+    final devices = await _deviceRepository.listAll();
+    final rates = await _projectRateRepository.listAll();
+    final timestamp = _now().toUtc().toIso8601String();
+
+    return SaveTimingRecordPreparation(
+      recordToSave: recordToSave,
+      devices: devices,
+      rates: rates,
+      timestampIso: timestamp,
+    );
+  }
+
+  @override
   Future<SaveTimingRecordWithImpactResult> execute({
     required TimingRecord? editing,
     required TimingRecord record,
@@ -70,141 +91,148 @@ class LocalSaveTimingRecordWithImpactUseCase
     // 1) 事务外：解析最终 project_id；与现存 SaveTimingRecordUseCase 一致 ——
     //    project_id 解析涉及 ProjectResolver.resolveOrCreate（可能新建项目行），
     //    保持在事务外避免嵌套事务（消除该限制属于阶段 D ProjectResolver 改造）。
-    final recordToSave = await _resolveProjectIdForSave(
-      editing: editing,
-      record: record,
-    );
-    final newProjectId = recordToSave.effectiveProjectId.trim();
+    final preparation = await prepareForSave(editing: editing, record: record);
 
-    // 2) 事务外：预加载设备 + 费率（参考数据，整笔保存过程中不应被改变）。
-    //    复用 AccountService.calcMoney 已有的应收口径，避免新写一套算法。
-    final devices = await _deviceRepository.listAll();
-    final rates = await _projectRateRepository.listAll();
-    final timestamp = _now().toUtc().toIso8601String();
-
-    // 3) 事务内：重读旧记录 → 保存 → 解除合并（两侧）→ 重算 fen 应收 →
+    // 2) 事务内：重读旧记录 → 保存 → 解除合并（两侧）→ 重算 fen 应收 →
     //    evaluate → applyRevocations。任一步失败整体回滚。
-    return AppDatabase.inTransaction((txn) async {
-      // 3.1 事务内按 id 重读旧记录，作为 oldProjectId 的**唯一权威**来源。
-      //     UI 传入的 editing 可能已 stale（其它入口删除 / 恢复 / 修改）；
-      //     必须以 DB 为准。
-      String oldProjectId = '';
-      if (editing != null) {
-        final editingId = editing.id;
-        if (editingId == null) {
-          throw const TimingRecordSaveStaleException(
-            '编辑模式下计时记录必须带 id',
-          );
-        }
-        final fresh = await _timingRepository.findByIdWithExecutor(
-          txn,
-          editingId,
-        );
-        if (fresh == null) {
-          throw const TimingRecordSaveStaleException(
-            '这条计时记录已不存在，请刷新后再试',
-          );
-        }
-        oldProjectId = fresh.effectiveProjectId.trim();
-      }
-
-      // 3.2 保存计时记录本身（事务内）。
-      //     update 返回行数 != 1 → 抛 [TimingRecordSaveStaleException] 触发回滚。
-      final savedRecord = await _saveRecordWithExecutor(
+    return AppDatabase.inTransaction((txn) {
+      return executeWithExecutor(
         txn,
-        recordToSave: recordToSave,
+        editing: editing,
+        preparation: preparation,
         calculationHistories: calculationHistories,
       );
+    });
+  }
 
-      // 3.3 基于事务内权威 oldProjectId 判断是否发生项目变化。
-      final projectChanged =
-          editing != null &&
-          oldProjectId.isNotEmpty &&
-          newProjectId.isNotEmpty &&
-          oldProjectId != newProjectId;
+  @override
+  Future<SaveTimingRecordWithImpactResult> executeWithExecutor(
+    DatabaseExecutor txn, {
+    required TimingRecord? editing,
+    required SaveTimingRecordPreparation preparation,
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) async {
+    final recordToSave = preparation.recordToSave;
+    final newProjectId = recordToSave.effectiveProjectId.trim();
+    final devices = preparation.devices;
+    final rates = preparation.rates;
+    final timestamp = preparation.timestampIso;
 
-      // 3.4 收集受影响项目集合：至少 {oldProjectId, newProjectId}。
-      final affectedProjectIds = <String>{
-        if (oldProjectId.isNotEmpty) oldProjectId,
-        if (newProjectId.isNotEmpty) newProjectId,
-      };
+    // 事务内按 id 重读旧记录，作为 oldProjectId 的**唯一权威**来源。
+    // UI 传入的 editing 可能已 stale（其它入口删除 / 恢复 / 修改）；
+    // 必须以 DB 为准。
+    String oldProjectId = '';
+    if (editing != null) {
+      final editingId = editing.id;
+      if (editingId == null) {
+        throw const TimingRecordSaveStaleException('编辑模式下计时记录必须带 id');
+      }
+      final fresh = await _timingRepository.findByIdWithExecutor(
+        txn,
+        editingId,
+      );
+      if (fresh == null) {
+        throw const TimingRecordSaveStaleException('这条计时记录已不存在，请刷新后再试');
+      }
+      oldProjectId = fresh.effectiveProjectId.trim();
+    }
 
-      // 3.5 project_id 变化 → 解除 **old / new 两侧** active 合并组。
-      //     - 两侧分别属于不同 group：两组都 dissolve。
-      //     - 两侧属于同一 group：只 dissolve 一次（用 dissolvedGroupIds 去重）。
-      //     - 解除时把组内全部活跃成员加入 affectedProjectIds，让后续 evaluate
-      //       覆盖整组（避免只看 old/new 两个项目而漏算同组其它成员的 settled）。
-      var mergeDissolved = false;
-      if (projectChanged) {
-        final dissolvedGroupIds = <int>{};
-        Future<void> dissolveGroupForProject(String projectId) async {
-          if (projectId.isEmpty) return;
-          final member = await _mergeRepository
-              .findActiveMemberByProjectIdWithExecutor(txn, projectId);
-          if (member == null) return;
-          // 同组重复触发 → 跳过；避免对同一 group 调两次 dissolve。
-          if (!dissolvedGroupIds.add(member.groupId)) return;
-          final groupMembers = await _mergeRepository
-              .listActiveMembersByGroupIdWithExecutor(txn, member.groupId);
-          for (final m in groupMembers) {
-            final pid = m.projectId.trim();
-            if (pid.isNotEmpty) affectedProjectIds.add(pid);
-          }
-          await _mergeRepository.dissolveGroupWithExecutor(
-            txn,
-            groupId: member.groupId,
-            dissolvedAt: timestamp,
-          );
-          mergeDissolved = true;
+    // 保存计时记录本身（事务内）。
+    // update 返回行数 != 1 → 抛 [TimingRecordSaveStaleException] 触发回滚。
+    final savedRecord = await _saveRecordWithExecutor(
+      txn,
+      recordToSave: recordToSave,
+      calculationHistories: calculationHistories,
+    );
+
+    // 基于事务内权威 oldProjectId 判断是否发生项目变化。
+    final projectChanged =
+        editing != null &&
+        oldProjectId.isNotEmpty &&
+        newProjectId.isNotEmpty &&
+        oldProjectId != newProjectId;
+
+    // 收集受影响项目集合：至少 {oldProjectId, newProjectId}。
+    final affectedProjectIds = <String>{
+      if (oldProjectId.isNotEmpty) oldProjectId,
+      if (newProjectId.isNotEmpty) newProjectId,
+    };
+
+    // project_id 变化 → 解除 **old / new 两侧** active 合并组。
+    // - 两侧分别属于不同 group：两组都 dissolve。
+    // - 两侧属于同一 group：只 dissolve 一次（用 dissolvedGroupIds 去重）。
+    // - 解除时把组内全部活跃成员加入 affectedProjectIds，让后续 evaluate
+    //   覆盖整组（避免只看 old/new 两个项目而漏算同组其它成员的 settled）。
+    var mergeDissolved = false;
+    if (projectChanged) {
+      final dissolvedGroupIds = <int>{};
+      Future<void> dissolveGroupForProject(String projectId) async {
+        if (projectId.isEmpty) return;
+        final member = await _mergeRepository
+            .findActiveMemberByProjectIdWithExecutor(txn, projectId);
+        if (member == null) return;
+        // 同组重复触发 → 跳过；避免对同一 group 调两次 dissolve。
+        if (!dissolvedGroupIds.add(member.groupId)) return;
+        final groupMembers = await _mergeRepository
+            .listActiveMembersByGroupIdWithExecutor(txn, member.groupId);
+        for (final m in groupMembers) {
+          final pid = m.projectId.trim();
+          if (pid.isNotEmpty) affectedProjectIds.add(pid);
         }
-
-        await dissolveGroupForProject(oldProjectId);
-        await dissolveGroupForProject(newProjectId);
-      }
-
-      // 3.6 基于保存后的 DB 状态，为每个受影响项目计算 receivableFen。
-      //     - 走 AccountService.calcMoney 既有口径（hours × effRate + rent income）。
-      //     - 不复用 UI 缓存 / AccountPageViewData。
-      //     - 仅最终一次性 yuanToFen，避免逐行 REAL 累加误差。
-      final receivableFenByProjectId = <String, int>{};
-      for (final projectId in affectedProjectIds) {
-        final fen = await _computeReceivableFenForProject(
+        await _mergeRepository.dissolveGroupWithExecutor(
           txn,
-          projectId: projectId,
-          devices: devices,
-          rates: rates,
+          groupId: member.groupId,
+          dissolvedAt: timestamp,
         );
-        receivableFenByProjectId[projectId] = fen;
+        mergeDissolved = true;
       }
 
-      // 3.7 走 Step 2 的权威 fen 影响判断 + 仅撤销 status 的 applyRevocations。
-      //     applyRevocations 只 settled → active，不删任何业务记录。
-      final decision = await _impactService.evaluate(
-        executor: txn,
-        receivableFenByProjectId: receivableFenByProjectId,
-        reason: ProjectSettlementImpactReason.editTiming,
-      );
-      final revocation = await _impactService.applyRevocations(
-        executor: txn,
-        decision: decision,
-        updatedAtIso: timestamp,
-      );
+      await dissolveGroupForProject(oldProjectId);
+      await dissolveGroupForProject(newProjectId);
+    }
 
-      final settlementRevoked = revocation.revokedProjectIds.isNotEmpty;
+    // 基于保存后的 DB 状态，为每个受影响项目计算 receivableFen。
+    // - 走 AccountService.calcMoney 既有口径（hours × effRate + rent income）。
+    // - 不复用 UI 缓存 / AccountPageViewData。
+    // - 仅最终一次性 yuanToFen，避免逐行 REAL 累加误差。
+    final receivableFenByProjectId = <String, int>{};
+    for (final projectId in affectedProjectIds) {
+      final fen = await _computeReceivableFenForProject(
+        txn,
+        projectId: projectId,
+        devices: devices,
+        rates: rates,
+      );
+      receivableFenByProjectId[projectId] = fen;
+    }
 
-      return SaveTimingRecordWithImpactResult(
-        savedRecord: savedRecord,
-        projectChanged: projectChanged,
+    // 走 Step 2 的权威 fen 影响判断 + 仅撤销 status 的 applyRevocations。
+    // applyRevocations 只 settled → active，不删任何业务记录。
+    final decision = await _impactService.evaluate(
+      executor: txn,
+      receivableFenByProjectId: receivableFenByProjectId,
+      reason: ProjectSettlementImpactReason.editTiming,
+    );
+    final revocation = await _impactService.applyRevocations(
+      executor: txn,
+      decision: decision,
+      updatedAtIso: timestamp,
+    );
+
+    final settlementRevoked = revocation.revokedProjectIds.isNotEmpty;
+
+    return SaveTimingRecordWithImpactResult(
+      savedRecord: savedRecord,
+      projectChanged: projectChanged,
+      mergeDissolved: mergeDissolved,
+      settlementRevoked: settlementRevoked,
+      affectedProjectIds: affectedProjectIds.toList(growable: false),
+      revokedProjectIds: revocation.revokedProjectIds,
+      userMessage: _buildUserMessage(
         mergeDissolved: mergeDissolved,
         settlementRevoked: settlementRevoked,
-        affectedProjectIds: affectedProjectIds.toList(growable: false),
-        revokedProjectIds: revocation.revokedProjectIds,
-        userMessage: _buildUserMessage(
-          mergeDissolved: mergeDissolved,
-          settlementRevoked: settlementRevoked,
-        ),
-      );
-    });
+      ),
+    );
   }
 
   /// 与既有 SaveTimingRecordUseCase 的 project_id 解析口径一致：
@@ -215,7 +243,8 @@ class LocalSaveTimingRecordWithImpactUseCase
     required TimingRecord? editing,
     required TimingRecord record,
   }) async {
-    if (editing != null && editing.legacyProjectKey != record.legacyProjectKey) {
+    if (editing != null &&
+        editing.legacyProjectKey != record.legacyProjectKey) {
       final result = await _projectResolver.resolveOrCreate(
         contact: record.contact,
         site: record.site,
@@ -260,9 +289,7 @@ class LocalSaveTimingRecordWithImpactUseCase
       recordToSave,
     );
     if (affected == 0) {
-      throw const TimingRecordSaveStaleException(
-        '这条计时记录已不存在或被并发修改，请刷新后再试',
-      );
+      throw const TimingRecordSaveStaleException('这条计时记录已不存在或被并发修改，请刷新后再试');
     }
     if (affected > 1) {
       throw StateError(

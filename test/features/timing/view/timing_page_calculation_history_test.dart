@@ -1,4 +1,5 @@
 import 'package:asset_ledger/app/adapters/account_merge_dissolve_adapter.dart';
+import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
@@ -1268,6 +1269,33 @@ class _FakeSaveTimingRecordWithImpactUseCase
   final AccountProjectMergeService _mergeService;
 
   @override
+  Future<SaveTimingRecordPreparation> prepareForSave({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  }) async {
+    return SaveTimingRecordPreparation(
+      recordToSave: record,
+      devices: const [],
+      rates: const [],
+      timestampIso: '2026-05-30T00:00:00.000Z',
+    );
+  }
+
+  @override
+  Future<SaveTimingRecordWithImpactResult> executeWithExecutor(
+    OperationDatabaseExecutor executor, {
+    required TimingRecord? editing,
+    required SaveTimingRecordPreparation preparation,
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) {
+    return execute(
+      editing: editing,
+      record: preparation.recordToSave,
+      calculationHistories: calculationHistories,
+    );
+  }
+
+  @override
   Future<SaveTimingRecordWithImpactResult> execute({
     required TimingRecord? editing,
     required TimingRecord record,
@@ -1275,8 +1303,8 @@ class _FakeSaveTimingRecordWithImpactUseCase
   }) async {
     // 1) 项目身份解析：与 LocalSaveTimingRecordWithImpactUseCase 的 pre-txn 解析一致。
     var recordToSave = record;
-    final identityChanged = editing != null &&
-        editing.legacyProjectKey != record.legacyProjectKey;
+    final identityChanged =
+        editing != null && editing.legacyProjectKey != record.legacyProjectKey;
     if (identityChanged) {
       final resolved = await _projectResolver.resolveOrCreate(
         contact: record.contact,
@@ -1305,7 +1333,8 @@ class _FakeSaveTimingRecordWithImpactUseCase
     // 3) 项目变化时解除旧合并组；失败则向上传播（C1 不再有 pending retry）。
     final oldProjectId = editing?.effectiveProjectId.trim() ?? '';
     final newProjectId = savedRecord.effectiveProjectId.trim();
-    final projectChanged = editing != null &&
+    final projectChanged =
+        editing != null &&
         oldProjectId.isNotEmpty &&
         newProjectId.isNotEmpty &&
         oldProjectId != newProjectId;

@@ -1,4 +1,5 @@
 import '../../../core/operations/operation_models.dart';
+import '../../../core/operations/operation_transaction_runner.dart';
 import '../../../data/models/operation_audit_log.dart';
 import '../../../data/repositories/operation_audit_log_repository.dart';
 import '../use_cases/save_timing_record_with_impact_use_case.dart';
@@ -46,6 +47,7 @@ class SaveTimingRecordOperationPreviewInput {
 class SaveTimingRecordOperationCommand {
   const SaveTimingRecordOperationCommand({
     this.auditRepository,
+    this.transactionRunner,
     this.actorType = OperationAuditActorType.owner,
     this.actorId,
     this.source = OperationAuditSource.app,
@@ -54,6 +56,7 @@ class SaveTimingRecordOperationCommand {
   });
 
   final OperationAuditLogRepository? auditRepository;
+  final OperationTransactionRunner? transactionRunner;
   final OperationAuditActorType actorType;
   final String? actorId;
   final OperationAuditSource source;
@@ -74,6 +77,68 @@ class SaveTimingRecordOperationCommand {
           ? OperationRiskLevel.high
           : OperationRiskLevel.medium,
     );
+  }
+
+  Future<OperationExecutionResult> executeConfirmedInTransaction({
+    required OperationPreview preview,
+    required String operationId,
+    required Future<SaveTimingRecordWithImpactResult> Function(
+      OperationDatabaseExecutor executor,
+    )
+    executeSaveWithExecutor,
+  }) async {
+    _validatePreview(preview: preview, operationId: operationId);
+
+    final runner = transactionRunner;
+    if (runner == null) {
+      throw StateError('transactionRunner is required');
+    }
+    final repo = auditRepository;
+    if (repo == null) {
+      throw StateError('auditRepository is required');
+    }
+
+    try {
+      return await runner.run((executor) async {
+        final businessResult = await executeSaveWithExecutor(executor);
+        final auditId = _resolveAuditId();
+        final log = _buildAuditLog(
+          auditId: auditId,
+          preview: preview,
+          confirmed: true,
+          result: OperationAuditResult.success,
+          errorMessage: null,
+        );
+        try {
+          await repo.insertWithExecutor(executor, log);
+        } catch (error) {
+          throw _AuditWriteFailed(error);
+        }
+        return OperationExecutionResult.success(
+          operationId: preview.operationId,
+          operationType: OperationType.saveTimingRecord,
+          affectedEntities: preview.affectedEntities,
+          userMessage: businessResult.userMessage ?? '',
+          auditId: auditId,
+        );
+      });
+    } on _AuditWriteFailed catch (error) {
+      return OperationExecutionResult.failure(
+        operationId: preview.operationId,
+        operationType: OperationType.saveTimingRecord,
+        affectedEntities: preview.affectedEntities,
+        userMessage: '保存计时记录失败，请刷新后重试。',
+        error: 'audit write failed: ${error.cause}',
+      );
+    } catch (error) {
+      return OperationExecutionResult.failure(
+        operationId: preview.operationId,
+        operationType: OperationType.saveTimingRecord,
+        affectedEntities: preview.affectedEntities,
+        userMessage: '保存计时记录失败，请刷新后重试。',
+        error: error.toString(),
+      );
+    }
   }
 
   Future<OperationExecutionResult> executeConfirmed({
@@ -184,15 +249,8 @@ class SaveTimingRecordOperationCommand {
     if (repo == null) return const _AuditOutcome._(auditId: null, error: null);
 
     final auditId = _resolveAuditId();
-    final log = OperationAuditLog(
-      id: auditId,
-      operationId: preview.operationId,
-      operationType: OperationType.saveTimingRecord,
-      actorId: actorId,
-      actorType: actorType,
-      source: source,
-      createdAt: _resolveNow(),
-      entityRefs: preview.affectedEntities,
+    final log = _buildAuditLog(
+      auditId: auditId,
       preview: preview,
       confirmed: confirmed,
       result: result,
@@ -213,6 +271,29 @@ class SaveTimingRecordOperationCommand {
     final factory = auditIdFactory;
     if (factory != null) return factory();
     return 'audit-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  OperationAuditLog _buildAuditLog({
+    required String auditId,
+    required OperationPreview preview,
+    required bool confirmed,
+    required OperationAuditResult result,
+    required String? errorMessage,
+  }) {
+    return OperationAuditLog(
+      id: auditId,
+      operationId: preview.operationId,
+      operationType: OperationType.saveTimingRecord,
+      actorId: actorId,
+      actorType: actorType,
+      source: source,
+      createdAt: _resolveNow(),
+      entityRefs: preview.affectedEntities,
+      preview: preview,
+      confirmed: confirmed,
+      result: result,
+      errorMessage: errorMessage,
+    );
   }
 
   static void _validatePreview({
@@ -307,4 +388,10 @@ class _AuditOutcome {
   const _AuditOutcome._({required this.auditId, required this.error});
   final String? auditId;
   final Object? error;
+}
+
+class _AuditWriteFailed implements Exception {
+  const _AuditWriteFailed(this.cause);
+
+  final Object cause;
 }

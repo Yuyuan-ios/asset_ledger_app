@@ -1,13 +1,24 @@
 import 'package:asset_ledger/core/operations/operation_models.dart';
+import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
+import 'package:asset_ledger/data/db/database.dart';
+import 'package:asset_ledger/data/db/db_schema.dart';
+import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/operation_audit_log.dart';
+import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
+import 'package:asset_ledger/infrastructure/local/operations/local_operation_transaction_runner.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart' show DatabaseExecutor;
+import 'package:sqflite/sqflite.dart'
+    show Database, DatabaseExecutor, inMemoryDatabasePath, openDatabase;
+
+import '../../../test_setup.dart';
 
 void main() {
+  configureTestDatabase();
+
   const command = SaveTimingRecordOperationCommand();
   const projectRef = OperationEntityRef(
     entityType: 'project',
@@ -291,33 +302,309 @@ void main() {
     });
   });
 
-  group('cancel', () {
-    test('writes cancelled audit and returns failure with cancel error', () async {
+  group('executeConfirmedInTransaction', () {
+    test('success runs save and audit in the transaction', () async {
       final repo = _FakeAuditRepo();
+      final runner = await _newFakeRunner();
       final auditCmd = SaveTimingRecordOperationCommand(
         auditRepository: repo,
-        now: () => DateTime.utc(2026, 6, 1, 12, 0, 0),
-        auditIdFactory: () => 'audit-cancel-1',
+        transactionRunner: runner,
+        auditIdFactory: () => 'audit-txn-success',
+      );
+      final preview = auditCmd.preview(input());
+      var saveCalls = 0;
+
+      final result = await auditCmd.executeConfirmedInTransaction(
+        preview: preview,
+        operationId: preview.operationId,
+        executeSaveWithExecutor: (executor) async {
+          saveCalls += 1;
+          expect(identical(executor, runner.executor), isTrue);
+          return _saveResult(userMessage: '已保存');
+        },
+      );
+
+      expect(result.success, isTrue);
+      expect(result.auditId, 'audit-txn-success');
+      expect(result.userMessage, '已保存');
+      expect(saveCalls, 1);
+      expect(runner.runCalls, 1);
+      expect(runner.commits, 1);
+      expect(runner.rollbacks, 0);
+      expect(repo.insertedWithExecutor, hasLength(1));
+      expect(repo.insertedWithExecutor.single.id, 'audit-txn-success');
+      expect(
+        repo.insertedWithExecutor.single.result,
+        OperationAuditResult.success,
+      );
+    });
+
+    test('audit insert failure rolls back the transaction result', () async {
+      final repo = _FakeAuditRepo()
+        ..throwOnInsertWithExecutor = StateError('audit disk full');
+      final runner = await _newFakeRunner();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        transactionRunner: runner,
+        auditIdFactory: () => 'audit-txn-fail',
+      );
+      final preview = auditCmd.preview(input());
+      var saveCalls = 0;
+
+      final result = await auditCmd.executeConfirmedInTransaction(
+        preview: preview,
+        operationId: preview.operationId,
+        executeSaveWithExecutor: (_) async {
+          saveCalls += 1;
+          return _saveResult(userMessage: '已保存');
+        },
+      );
+
+      expect(saveCalls, 1, reason: '业务写入已进入事务，但 audit 失败应回滚事务');
+      expect(result.success, isFalse);
+      expect(result.auditId, isNull);
+      expect(result.userMessage, '保存计时记录失败，请刷新后重试。');
+      expect(result.error, contains('audit write failed'));
+      expect(result.error, contains('audit disk full'));
+      expect(runner.runCalls, 1);
+      expect(runner.commits, 0);
+      expect(runner.rollbacks, 1);
+      expect(repo.insertedWithExecutor, isEmpty);
+    });
+
+    test('business failure rolls back and does not write audit', () async {
+      final repo = _FakeAuditRepo();
+      final runner = await _newFakeRunner();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        transactionRunner: runner,
       );
       final preview = auditCmd.preview(input());
 
-      final result = await auditCmd.cancel(
+      final result = await auditCmd.executeConfirmedInTransaction(
         preview: preview,
-        reason: 'user-tapped-cancel',
+        operationId: preview.operationId,
+        executeSaveWithExecutor: (_) async {
+          throw StateError('stale timing record');
+        },
       );
 
       expect(result.success, isFalse);
-      expect(result.error, 'user-tapped-cancel');
-      expect(result.userMessage, '操作已取消');
-      expect(result.auditId, 'audit-cancel-1');
-      expect(repo.inserted, hasLength(1));
-      final log = repo.inserted.single;
-      expect(log.id, 'audit-cancel-1');
-      expect(log.confirmed, isFalse);
-      expect(log.result, OperationAuditResult.cancelled);
-      expect(log.errorMessage, 'user-tapped-cancel');
-      expect(log.preview?.operationId, preview.operationId);
+      expect(result.error, contains('stale timing record'));
+      expect(runner.runCalls, 1);
+      expect(runner.commits, 0);
+      expect(runner.rollbacks, 1);
+      expect(repo.insertedWithExecutor, isEmpty);
     });
+
+    test('requires transactionRunner', () async {
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: _FakeAuditRepo(),
+      );
+      final preview = auditCmd.preview(input());
+
+      await expectLater(
+        auditCmd.executeConfirmedInTransaction(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSaveWithExecutor: (_) async => _saveResult(),
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('requires auditRepository', () async {
+      final runner = await _newFakeRunner();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        transactionRunner: runner,
+      );
+      final preview = auditCmd.preview(input());
+
+      await expectLater(
+        auditCmd.executeConfirmedInTransaction(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSaveWithExecutor: (_) async => _saveResult(),
+        ),
+        throwsStateError,
+      );
+      expect(runner.runCalls, 0);
+    });
+
+    test('operationId mismatch fails before transaction', () async {
+      final repo = _FakeAuditRepo();
+      final runner = await _newFakeRunner();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        transactionRunner: runner,
+      );
+      final preview = auditCmd.preview(input());
+      var saveCalls = 0;
+
+      await expectLater(
+        auditCmd.executeConfirmedInTransaction(
+          preview: preview,
+          operationId: 'another-op',
+          executeSaveWithExecutor: (_) async {
+            saveCalls += 1;
+            return _saveResult();
+          },
+        ),
+        throwsArgumentError,
+      );
+
+      expect(saveCalls, 0);
+      expect(runner.runCalls, 0);
+      expect(repo.insertedWithExecutor, isEmpty);
+    });
+
+    test('wrong operation type fails before transaction', () async {
+      final repo = _FakeAuditRepo();
+      final runner = await _newFakeRunner();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        transactionRunner: runner,
+      );
+      const wrongPreview = OperationPreview(
+        operationId: 'op-save-1',
+        operationType: OperationType.deleteTimingRecord,
+        requiresConfirmation: true,
+      );
+      var saveCalls = 0;
+
+      await expectLater(
+        auditCmd.executeConfirmedInTransaction(
+          preview: wrongPreview,
+          operationId: wrongPreview.operationId,
+          executeSaveWithExecutor: (_) async {
+            saveCalls += 1;
+            return _saveResult();
+          },
+        ),
+        throwsArgumentError,
+      );
+
+      expect(saveCalls, 0);
+      expect(runner.runCalls, 0);
+      expect(repo.insertedWithExecutor, isEmpty);
+    });
+
+    test(
+      'local runner rolls back business write when audit insert fails',
+      () async {
+        await AppDatabase.resetForTest();
+        addTearDown(AppDatabase.resetForTest);
+        final db = await _openCurrentInMemoryDb();
+        final repo = SqfliteOperationAuditLogRepository();
+        await repo.insert(_auditLog(id: 'audit-duplicate'));
+
+        final auditCmd = SaveTimingRecordOperationCommand(
+          auditRepository: repo,
+          transactionRunner: const LocalOperationTransactionRunner(),
+          auditIdFactory: () => 'audit-duplicate',
+        );
+        final preview = auditCmd.preview(input());
+
+        final result = await auditCmd.executeConfirmedInTransaction(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSaveWithExecutor: (executor) async {
+            await executor.insert(
+              'projects',
+              Project(
+                id: 'project:txn',
+                contact: '甲方',
+                site: 'txn',
+                legacyProjectKey: '甲方||txn',
+                createdAt: '2026-05-30T00:00:00.000Z',
+                updatedAt: '2026-05-30T00:00:00.000Z',
+              ).toMap(),
+            );
+            final deviceId = await executor.insert(
+              'devices',
+              Device(
+                name: 'Device',
+                brand: 'brand',
+                defaultUnitPrice: 100,
+                baseMeterHours: 0,
+              ).toMap(),
+            );
+            final record = TimingRecord(
+              deviceId: deviceId,
+              startDate: 20260530,
+              projectId: 'project:txn',
+              contact: '甲方',
+              site: 'txn',
+              type: TimingType.hours,
+              startMeter: 0,
+              endMeter: 1,
+              hours: 1,
+              income: 100,
+            );
+            final timingId = await executor.insert(
+              'timing_records',
+              record.toMap(),
+            );
+            return SaveTimingRecordWithImpactResult(
+              savedRecord: record.copyWith(id: timingId),
+              projectChanged: false,
+              mergeDissolved: false,
+              settlementRevoked: false,
+              affectedProjectIds: const ['project:txn'],
+              revokedProjectIds: const [],
+              userMessage: '已保存',
+            );
+          },
+        );
+
+        expect(result.success, isFalse);
+        expect(result.error, contains('audit write failed'));
+        expect(
+          await db.query(
+            'operation_audit_logs',
+            where: 'id = ?',
+            whereArgs: ['audit-duplicate'],
+          ),
+          hasLength(1),
+          reason: '事务前已有的 audit 应保留',
+        );
+        expect(await db.query('projects'), isEmpty);
+        expect(await db.query('devices'), isEmpty);
+        expect(await db.query('timing_records'), isEmpty);
+      },
+    );
+  });
+
+  group('cancel', () {
+    test(
+      'writes cancelled audit and returns failure with cancel error',
+      () async {
+        final repo = _FakeAuditRepo();
+        final auditCmd = SaveTimingRecordOperationCommand(
+          auditRepository: repo,
+          now: () => DateTime.utc(2026, 6, 1, 12, 0, 0),
+          auditIdFactory: () => 'audit-cancel-1',
+        );
+        final preview = auditCmd.preview(input());
+
+        final result = await auditCmd.cancel(
+          preview: preview,
+          reason: 'user-tapped-cancel',
+        );
+
+        expect(result.success, isFalse);
+        expect(result.error, 'user-tapped-cancel');
+        expect(result.userMessage, '操作已取消');
+        expect(result.auditId, 'audit-cancel-1');
+        expect(repo.inserted, hasLength(1));
+        final log = repo.inserted.single;
+        expect(log.id, 'audit-cancel-1');
+        expect(log.confirmed, isFalse);
+        expect(log.result, OperationAuditResult.cancelled);
+        expect(log.errorMessage, 'user-tapped-cancel');
+        expect(log.preview?.operationId, preview.operationId);
+      },
+    );
 
     test('cancel without reason uses default cancelled error', () async {
       final repo = _FakeAuditRepo();
@@ -333,17 +620,19 @@ void main() {
       expect(repo.inserted.single.errorMessage, isNull);
     });
 
-    test('cancel without audit repository skips audit and returns failure',
-        () async {
-      const cmd = SaveTimingRecordOperationCommand();
-      final preview = cmd.preview(input());
+    test(
+      'cancel without audit repository skips audit and returns failure',
+      () async {
+        const cmd = SaveTimingRecordOperationCommand();
+        final preview = cmd.preview(input());
 
-      final result = await cmd.cancel(preview: preview);
+        final result = await cmd.cancel(preview: preview);
 
-      expect(result.success, isFalse);
-      expect(result.error, 'cancelled');
-      expect(result.auditId, isNull);
-    });
+        expect(result.success, isFalse);
+        expect(result.error, 'cancelled');
+        expect(result.auditId, isNull);
+      },
+    );
 
     test('cancel rejects wrong-type preview without writing audit', () async {
       final repo = _FakeAuditRepo();
@@ -417,6 +706,26 @@ void main() {
   });
 }
 
+Future<_FakeTransactionRunner> _newFakeRunner() async {
+  final db = await openDatabase(inMemoryDatabasePath);
+  addTearDown(db.close);
+  return _FakeTransactionRunner(db);
+}
+
+Future<Database> _openCurrentInMemoryDb() {
+  AppDatabase.debugInitDbOverride = () {
+    return openDatabase(
+      inMemoryDatabasePath,
+      version: AppDatabase.schemaVersion,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
+      onCreate: (db, _) => DbSchema.create(db),
+    );
+  };
+  return AppDatabase.database;
+}
+
 SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
   return SaveTimingRecordWithImpactResult(
     savedRecord: const TimingRecord(
@@ -441,9 +750,46 @@ SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
   );
 }
 
+OperationAuditLog _auditLog({required String id}) {
+  return OperationAuditLog(
+    id: id,
+    operationId: 'op-existing',
+    operationType: OperationType.generic,
+    actorType: OperationAuditActorType.system,
+    source: OperationAuditSource.test,
+    createdAt: DateTime.utc(2026, 5, 30),
+    confirmed: true,
+    result: OperationAuditResult.success,
+  );
+}
+
+class _FakeTransactionRunner implements OperationTransactionRunner {
+  _FakeTransactionRunner(this.executor);
+
+  final DatabaseExecutor executor;
+  int runCalls = 0;
+  int commits = 0;
+  int rollbacks = 0;
+
+  @override
+  Future<T> run<T>(Future<T> Function(DatabaseExecutor executor) action) async {
+    runCalls += 1;
+    try {
+      final result = await action(executor);
+      commits += 1;
+      return result;
+    } catch (_) {
+      rollbacks += 1;
+      rethrow;
+    }
+  }
+}
+
 class _FakeAuditRepo implements OperationAuditLogRepository {
   final List<OperationAuditLog> inserted = [];
+  final List<OperationAuditLog> insertedWithExecutor = [];
   Object? throwOnInsert;
+  Object? throwOnInsertWithExecutor;
 
   @override
   Future<void> insert(OperationAuditLog log) async {
@@ -457,7 +803,10 @@ class _FakeAuditRepo implements OperationAuditLogRepository {
     DatabaseExecutor executor,
     OperationAuditLog log,
   ) async {
-    await insert(log);
+    final boom = throwOnInsertWithExecutor ?? throwOnInsert;
+    if (boom != null) throw boom;
+    insertedWithExecutor.add(log);
+    inserted.add(log);
   }
 
   @override
