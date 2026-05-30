@@ -110,6 +110,82 @@ void main() {
     });
   });
 
+  group('executeWithExecutor 外部事务入口', () {
+    test('在外部 transaction 内保存成功，结果与 execute 语义一致', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      final record = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260520,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+      final preparation = await useCase.prepareForSave(
+        editing: null,
+        record: record,
+      );
+
+      final result = await AppDatabase.inTransaction((txn) {
+        return useCase.executeWithExecutor(
+          txn,
+          editing: null,
+          preparation: preparation,
+        );
+      });
+
+      expect(result.projectChanged, isFalse);
+      expect(result.mergeDissolved, isFalse);
+      expect(result.settlementRevoked, isFalse);
+      expect(result.savedRecord.id, isNotNull);
+      final rows = await db.query('timing_records');
+      expect(rows, hasLength(1));
+      expect(rows.single['project_id'], 'project:alpha');
+    });
+
+    test('外部 transaction 后续失败时，executeWithExecutor 的保存会回滚', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      final record = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260520,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+      final preparation = await useCase.prepareForSave(
+        editing: null,
+        record: record,
+      );
+
+      await expectLater(
+        AppDatabase.inTransaction((txn) async {
+          await useCase.executeWithExecutor(
+            txn,
+            editing: null,
+            preparation: preparation,
+          );
+          throw StateError('rollback-after-save');
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('timing_records'), isEmpty);
+    });
+  });
+
   group('编辑计时记录，projectId 不变', () {
     test('正常保存，不解除合并，不撤销结清', () async {
       final db = await AppDatabase.database;
@@ -146,8 +222,16 @@ void main() {
   group('编辑计时记录，project A → B：自动解除合并', () {
     test('解除合并 + affectedProjectIds 包含 A、B 与组内其他成员', () async {
       final db = await AppDatabase.database;
-      final deviceA = await _seedDevice(db, name: 'DevA', defaultUnitPrice: 100);
-      final deviceB = await _seedDevice(db, name: 'DevB', defaultUnitPrice: 100);
+      final deviceA = await _seedDevice(
+        db,
+        name: 'DevA',
+        defaultUnitPrice: 100,
+      );
+      final deviceB = await _seedDevice(
+        db,
+        name: 'DevB',
+        defaultUnitPrice: 100,
+      );
 
       await _seedProject(db, projectId: 'project:A');
       await _seedProject(db, projectId: 'project:B');
@@ -156,10 +240,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:C', '甲方||C'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:C', '甲方||C')],
       );
 
       final existing = await _seedTimingRecord(
@@ -189,11 +270,10 @@ void main() {
 
       expect(result.projectChanged, isTrue);
       expect(result.mergeDissolved, isTrue);
-      expect(result.affectedProjectIds, containsAll([
-        'project:A',
-        'project:B',
-        'project:C',
-      ]));
+      expect(
+        result.affectedProjectIds,
+        containsAll(['project:A', 'project:B', 'project:C']),
+      );
 
       // 合并组已 dissolved。
       final mergeGroupRows = await db.query('account_project_merge_groups');
@@ -211,10 +291,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:B', '甲方||B'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:B', '甲方||B')],
       );
       final existing = await _seedTimingRecord(
         db,
@@ -254,22 +331,22 @@ void main() {
 
       // 1) timing_records 未被更新到新值（仍是 income=100）。
       final timingRows = await db.query('timing_records');
-      expect(timingRows.single['income'], 100,
-          reason: '保存计时应被事务回滚');
-      expect(timingRows.single['project_id'], 'project:A',
-          reason: '保存的 project_id 也应被回滚');
+      expect(timingRows.single['income'], 100, reason: '保存计时应被事务回滚');
+      expect(
+        timingRows.single['project_id'],
+        'project:A',
+        reason: '保存的 project_id 也应被回滚',
+      );
 
       // 2) merge group 仍处于 active（未被半解除）。
       final mergeGroupRows = await db.query('account_project_merge_groups');
-      expect(mergeGroupRows.single['is_active'], 1,
-          reason: '合并组解除应被事务回滚');
+      expect(mergeGroupRows.single['is_active'], 1, reason: '合并组解除应被事务回滚');
       expect(mergeGroupRows.single['dissolved_at'], isNull);
     });
   });
 
   group('结清撤销 / 不撤销', () {
-    test('旧项目改走后：fen 显示已不再覆盖 → 自动撤销结清，不删除 payment/write_off',
-        () async {
+    test('旧项目改走后：fen 显示已不再覆盖 → 自动撤销结清，不删除 payment/write_off', () async {
       final db = await AppDatabase.database;
       final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
       final deviceB = await _seedDevice(db, defaultUnitPrice: 100);
@@ -463,8 +540,11 @@ void main() {
         where: 'id = ?',
         whereArgs: ['project:A'],
       )).single;
-      expect(projectA['status'], ProjectStatus.settled.name,
-          reason: 'A 的应收已被收款覆盖，无需撤销结清');
+      expect(
+        projectA['status'],
+        ProjectStatus.settled.name,
+        reason: 'A 的应收已被收款覆盖，无需撤销结清',
+      );
     });
 
     test('1 fen 边界：fen 差 1 → 撤销；fen 刚好覆盖 → 不撤销', () async {
@@ -546,11 +626,7 @@ void main() {
 
       // 现在为了真正测"刚好差 1 fen"，构造 A 应收 = 100 元（10000 fen），已收 9999 fen：
       // 删掉刚才加的 0.01 元那条。
-      await db.delete(
-        'timing_records',
-        where: 'income = ?',
-        whereArgs: [0.01],
-      );
+      await db.delete('timing_records', where: 'income = ?', whereArgs: [0.01]);
       // A 应收回到 100.00 元（10000 fen），已收 9999 fen → 差 1 fen。
       final probe2 = await impactService.evaluate(
         executor: db,
@@ -645,8 +721,11 @@ void main() {
         ),
       );
 
-      expect(result.settlementRevoked, isFalse,
-          reason: '判断必须走 amount_fen，不应被脏 REAL 干扰');
+      expect(
+        result.settlementRevoked,
+        isFalse,
+        reason: '判断必须走 amount_fen，不应被脏 REAL 干扰',
+      );
     });
   });
 
@@ -660,10 +739,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:B', '甲方||B'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:B', '甲方||B')],
       );
       final existing = await _seedTimingRecord(
         db,
@@ -688,8 +764,11 @@ void main() {
       // 不再做任何 UI retry —— 直接断言：merge 已 dissolve、timing 已落 B、A 还在
       // （因为 status 不是 settled，所以不会触发 revoke）。
       final mergeGroupRows = await db.query('account_project_merge_groups');
-      expect(mergeGroupRows.single['is_active'], 0,
-          reason: '事务提交后，合并组应已解除，无需 UI retry');
+      expect(
+        mergeGroupRows.single['is_active'],
+        0,
+        reason: '事务提交后，合并组应已解除，无需 UI retry',
+      );
       final timingRows = await db.query('timing_records');
       expect(timingRows.single['project_id'], 'project:B');
     });
@@ -716,10 +795,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:C', '甲方||C'),
-          ('project:D', '甲方||D'),
-        ],
+        members: [('project:C', '甲方||C'), ('project:D', '甲方||D')],
       );
       // DB 里真实旧记录的 projectId 已经是 C（不是 UI 显示的 A）。
       final dbRecord = await _seedTimingRecord(
@@ -752,13 +828,15 @@ void main() {
 
       expect(result.projectChanged, isTrue);
       // 必须按 DB 权威的 C 作为 oldProjectId，而不是 UI stale 的 A。
-      expect(result.affectedProjectIds, contains('project:C'),
-          reason: 'oldProjectId 必须来自 DB（C），不是 UI stale 的 A');
+      expect(
+        result.affectedProjectIds,
+        contains('project:C'),
+        reason: 'oldProjectId 必须来自 DB（C），不是 UI stale 的 A',
+      );
       expect(result.affectedProjectIds, contains('project:B'));
       // C 在组中，解除组后 D 也应纳入受影响。
       expect(result.affectedProjectIds, contains('project:D'));
-      expect(result.mergeDissolved, isTrue,
-          reason: 'C 所在合并组应被解除');
+      expect(result.mergeDissolved, isTrue, reason: 'C 所在合并组应被解除');
 
       // 合并组（C+D）已 dissolved。
       final groupRows = await db.query('account_project_merge_groups');
@@ -775,10 +853,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:B', '甲方||B'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:B', '甲方||B')],
       );
 
       // 注意：不在 DB 中 seed 这条 timing；UI 传入的 editing.id 是 99999。
@@ -816,8 +891,7 @@ void main() {
 
       // 2) 合并组仍 active（dissolve 已回滚或根本未发生）。
       final groupRows = await db.query('account_project_merge_groups');
-      expect(groupRows.single['is_active'], 1,
-          reason: '合并组不应被触碰');
+      expect(groupRows.single['is_active'], 1, reason: '合并组不应被触碰');
     });
   });
 
@@ -830,10 +904,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:B', '甲方||B'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:B', '甲方||B')],
       );
       final existing = await _seedTimingRecord(
         db,
@@ -884,8 +955,7 @@ void main() {
   });
 
   group('A / B 分别属于不同 active 合并组：两组都自动解除', () {
-    test('group1=(A,C), group2=(B,D)，全部 contact=甲方：A -> B 应同时解除两组',
-        () async {
+    test('group1=(A,C), group2=(B,D)，全部 contact=甲方：A -> B 应同时解除两组', () async {
       final db = await AppDatabase.database;
       final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
       final deviceB = await _seedDevice(db, defaultUnitPrice: 100);
@@ -898,18 +968,12 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:C', '甲方||C'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:C', '甲方||C')],
       );
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:B', '甲方||B'),
-          ('project:D', '甲方||D'),
-        ],
+        members: [('project:B', '甲方||B'), ('project:D', '甲方||D')],
       );
       final existingOnA = await _seedTimingRecord(
         db,
@@ -937,12 +1001,10 @@ void main() {
 
       expect(result.projectChanged, isTrue);
       expect(result.mergeDissolved, isTrue);
-      expect(result.affectedProjectIds, containsAll([
-        'project:A',
-        'project:B',
-        'project:C',
-        'project:D',
-      ]));
+      expect(
+        result.affectedProjectIds,
+        containsAll(['project:A', 'project:B', 'project:C', 'project:D']),
+      );
 
       // 两个合并组都已 dissolve。
       final groupRows = await db.query(
@@ -950,8 +1012,11 @@ void main() {
         orderBy: 'id ASC',
       );
       expect(groupRows, hasLength(2));
-      expect(groupRows.every((r) => r['is_active'] == 0), isTrue,
-          reason: 'group1 和 group2 都必须 dissolve');
+      expect(
+        groupRows.every((r) => r['is_active'] == 0),
+        isTrue,
+        reason: 'group1 和 group2 都必须 dissolve',
+      );
     });
   });
 
@@ -966,10 +1031,7 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:B', '甲方||B'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:B', '甲方||B')],
       );
 
       final existingOnA = await _seedTimingRecord(
@@ -996,10 +1058,10 @@ void main() {
 
       expect(result.projectChanged, isTrue);
       expect(result.mergeDissolved, isTrue);
-      expect(result.affectedProjectIds, containsAll([
-        'project:A',
-        'project:B',
-      ]));
+      expect(
+        result.affectedProjectIds,
+        containsAll(['project:A', 'project:B']),
+      );
 
       // 只有一个 group，全部 dissolved。
       final groupRows = await db.query('account_project_merge_groups');
@@ -1013,8 +1075,7 @@ void main() {
   });
 
   group('两组合并解除中途失败：整体回滚', () {
-    test('第二次 dissolve 抛错时，第一次 dissolve 也回滚 + timing 保存回滚',
-        () async {
+    test('第二次 dissolve 抛错时，第一次 dissolve 也回滚 + timing 保存回滚', () async {
       final db = await AppDatabase.database;
       final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
       final deviceB = await _seedDevice(db, defaultUnitPrice: 100);
@@ -1025,18 +1086,12 @@ void main() {
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:A', '甲方||A'),
-          ('project:C', '甲方||C'),
-        ],
+        members: [('project:A', '甲方||A'), ('project:C', '甲方||C')],
       );
       await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: [
-          ('project:B', '甲方||B'),
-          ('project:D', '甲方||D'),
-        ],
+        members: [('project:B', '甲方||B'), ('project:D', '甲方||D')],
       );
       final existingOnA = await _seedTimingRecord(
         db,
@@ -1077,8 +1132,11 @@ void main() {
       );
 
       // 第二次 dissolve 应被尝试 ⇒ failingMergeRepo 内部计数 >= 2。
-      expect(failingMergeRepo.dissolveCalls, 2,
-          reason: '必须先 dissolve old group → 再尝试 dissolve new group → 失败');
+      expect(
+        failingMergeRepo.dissolveCalls,
+        2,
+        reason: '必须先 dissolve old group → 再尝试 dissolve new group → 失败',
+      );
 
       // 整事务回滚验证：
       // 1) timing_records 仍是 income=100、project_id=project:A。
@@ -1092,8 +1150,11 @@ void main() {
         'account_project_merge_groups',
         orderBy: 'id ASC',
       );
-      expect(groupRows.every((r) => r['is_active'] == 1), isTrue,
-          reason: '事务回滚后两个 group 都应恢复 active');
+      expect(
+        groupRows.every((r) => r['is_active'] == 1),
+        isTrue,
+        reason: '事务回滚后两个 group 都应恢复 active',
+      );
     });
   });
 }
@@ -1142,8 +1203,7 @@ class _FailingImpactService implements ProjectSettlementImpactService {
   Future<ProjectSettlementImpactDecision> evaluate({
     required DatabaseExecutor executor,
     required Map<String, int> receivableFenByProjectId,
-    ProjectSettlementImpactReason reason =
-        ProjectSettlementImpactReason.other,
+    ProjectSettlementImpactReason reason = ProjectSettlementImpactReason.other,
   }) async {
     // 返回空决策；让 applyRevocations 阶段抛错。
     return const ProjectSettlementImpactDecision(snapshots: []);
@@ -1319,19 +1379,16 @@ Future<void> _insertPayment(
   required double amount,
   required int amountFen,
 }) async {
-  await db.insert(
-    SqfliteAccountPaymentRepository.table,
-    <String, Object?>{
-      'project_id': projectId,
-      'project_key': '甲方||$projectId',
-      'ymd': 20260518,
-      'amount': amount,
-      'amount_fen': amountFen,
-      'note': null,
-      'source_type': 'manual',
-      'created_at': '2026-05-18T00:00:00.000Z',
-    },
-  );
+  await db.insert(SqfliteAccountPaymentRepository.table, <String, Object?>{
+    'project_id': projectId,
+    'project_key': '甲方||$projectId',
+    'ymd': 20260518,
+    'amount': amount,
+    'amount_fen': amountFen,
+    'note': null,
+    'source_type': 'manual',
+    'created_at': '2026-05-18T00:00:00.000Z',
+  });
 }
 
 // ignore_for_file: unused_import

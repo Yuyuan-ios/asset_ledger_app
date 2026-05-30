@@ -1,3 +1,4 @@
+import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
@@ -17,124 +18,128 @@ import 'package:flutter_test/flutter_test.dart';
 /// `save_timing_record_with_impact_test.dart` 用真实 sqflite 覆盖；本测试只
 /// 锁定上述薄包装层的契约。
 void main() {
-  group('SaveTimingRecordUseCase delegates to SaveTimingRecordWithImpactUseCase',
-      () {
-    test('forwards the editing / record / calculationHistories arguments '
-        'and reloads the timing store after the txn commits', () async {
-      final timingRepository = _SpyTimingRepository();
-      final timingStore = TimingStore(timingRepository);
-      final withImpact = _SpyWithImpactUseCase(
-        result: const SaveTimingRecordWithImpactResult(
-          savedRecord: _staticSavedRecord,
-          projectChanged: false,
-          mergeDissolved: false,
-          settlementRevoked: false,
-          affectedProjectIds: ['project:alpha'],
-          revokedProjectIds: [],
-          userMessage: null,
-        ),
-      );
-      final useCase = SaveTimingRecordUseCase(
-        timingStore: timingStore,
-        withImpact: withImpact,
-      );
+  group(
+    'SaveTimingRecordUseCase delegates to SaveTimingRecordWithImpactUseCase',
+    () {
+      test('forwards the editing / record / calculationHistories arguments '
+          'and reloads the timing store after the txn commits', () async {
+        final timingRepository = _SpyTimingRepository();
+        final timingStore = TimingStore(timingRepository);
+        final withImpact = _SpyWithImpactUseCase(
+          result: const SaveTimingRecordWithImpactResult(
+            savedRecord: _staticSavedRecord,
+            projectChanged: false,
+            mergeDissolved: false,
+            settlementRevoked: false,
+            affectedProjectIds: ['project:alpha'],
+            revokedProjectIds: [],
+            userMessage: null,
+          ),
+        );
+        final useCase = SaveTimingRecordUseCase(
+          timingStore: timingStore,
+          withImpact: withImpact,
+        );
 
-      const editing = _staticSavedRecord;
-      final newRecord = editing.copyWith(hours: 9);
-      final calcHistories = [
-        TimingCalculationHistory(
-          id: 'history-1',
-          timingRecordId: 0,
-          createdAt: DateTime.utc(2026, 5, 18),
-          expression: '1 * 100',
-          result: 100,
-          ticketCount: 1,
-        ),
-      ];
+        const editing = _staticSavedRecord;
+        final newRecord = editing.copyWith(hours: 9);
+        final calcHistories = [
+          TimingCalculationHistory(
+            id: 'history-1',
+            timingRecordId: 0,
+            createdAt: DateTime.utc(2026, 5, 18),
+            expression: '1 * 100',
+            result: 100,
+            ticketCount: 1,
+          ),
+        ];
 
-      final result = await useCase.execute(
-        editing: editing,
-        record: newRecord,
-        calculationHistories: calcHistories,
-      );
+        final result = await useCase.execute(
+          editing: editing,
+          record: newRecord,
+          calculationHistories: calcHistories,
+        );
 
-      // 1) Forwarded args 与原样一致。
-      expect(withImpact.executeCalls, 1);
-      expect(identical(withImpact.lastEditing, editing), isTrue);
-      expect(identical(withImpact.lastRecord, newRecord), isTrue);
-      expect(withImpact.lastCalculationHistories, calcHistories);
+        // 1) Forwarded args 与原样一致。
+        expect(withImpact.executeCalls, 1);
+        expect(identical(withImpact.lastEditing, editing), isTrue);
+        expect(identical(withImpact.lastRecord, newRecord), isTrue);
+        expect(withImpact.lastCalculationHistories, calcHistories);
 
-      // 2) 事务提交后刷新 store。
-      expect(timingRepository.listAllCalls, 1);
+        // 2) 事务提交后刷新 store。
+        expect(timingRepository.listAllCalls, 1);
 
-      // 3) 结果映射：mergeDissolved + 完整 impact。
-      expect(result.mergeDissolved, isFalse);
-      expect(identical(result.impact, withImpact.lastResult), isTrue);
-    });
+        // 3) 结果映射：mergeDissolved + 完整 impact。
+        expect(result.mergeDissolved, isFalse);
+        expect(identical(result.impact, withImpact.lastResult), isTrue);
+      });
 
-    test('propagates mergeDissolved=true from the impact result', () async {
-      final timingRepository = _SpyTimingRepository();
-      final timingStore = TimingStore(timingRepository);
-      final withImpact = _SpyWithImpactUseCase(
-        result: const SaveTimingRecordWithImpactResult(
-          savedRecord: _staticSavedRecord,
-          projectChanged: true,
-          mergeDissolved: true,
-          settlementRevoked: false,
-          affectedProjectIds: ['project:a', 'project:b'],
-          revokedProjectIds: [],
-          userMessage: '已保存，已自动解除相关合并项目。',
-        ),
-      );
-      final useCase = SaveTimingRecordUseCase(
-        timingStore: timingStore,
-        withImpact: withImpact,
-      );
+      test('propagates mergeDissolved=true from the impact result', () async {
+        final timingRepository = _SpyTimingRepository();
+        final timingStore = TimingStore(timingRepository);
+        final withImpact = _SpyWithImpactUseCase(
+          result: const SaveTimingRecordWithImpactResult(
+            savedRecord: _staticSavedRecord,
+            projectChanged: true,
+            mergeDissolved: true,
+            settlementRevoked: false,
+            affectedProjectIds: ['project:a', 'project:b'],
+            revokedProjectIds: [],
+            userMessage: '已保存，已自动解除相关合并项目。',
+          ),
+        );
+        final useCase = SaveTimingRecordUseCase(
+          timingStore: timingStore,
+          withImpact: withImpact,
+        );
 
-      final result = await useCase.execute(
-        editing: _staticSavedRecord,
-        record: _staticSavedRecord.copyWith(site: '工地 B'),
-      );
-
-      expect(result.mergeDissolved, isTrue);
-      expect(result.impact.projectChanged, isTrue);
-      expect(result.impact.affectedProjectIds, ['project:a', 'project:b']);
-      expect(result.impact.userMessage, contains('解除'));
-    });
-
-    test('does not reload the store when the txn throws (errors propagate)',
-        () async {
-      final timingRepository = _SpyTimingRepository();
-      final timingStore = TimingStore(timingRepository);
-      final withImpact = _SpyWithImpactUseCase(
-        result: const SaveTimingRecordWithImpactResult(
-          savedRecord: _staticSavedRecord,
-          projectChanged: false,
-          mergeDissolved: false,
-          settlementRevoked: false,
-          affectedProjectIds: [],
-          revokedProjectIds: [],
-        ),
-        throwOnExecute: const TimingRecordSaveStaleException(
-          '这条计时记录已不存在，请刷新后再试',
-        ),
-      );
-      final useCase = SaveTimingRecordUseCase(
-        timingStore: timingStore,
-        withImpact: withImpact,
-      );
-
-      await expectLater(
-        useCase.execute(
+        final result = await useCase.execute(
           editing: _staticSavedRecord,
-          record: _staticSavedRecord,
-        ),
-        throwsA(isA<TimingRecordSaveStaleException>()),
+          record: _staticSavedRecord.copyWith(site: '工地 B'),
+        );
+
+        expect(result.mergeDissolved, isTrue);
+        expect(result.impact.projectChanged, isTrue);
+        expect(result.impact.affectedProjectIds, ['project:a', 'project:b']);
+        expect(result.impact.userMessage, contains('解除'));
+      });
+
+      test(
+        'does not reload the store when the txn throws (errors propagate)',
+        () async {
+          final timingRepository = _SpyTimingRepository();
+          final timingStore = TimingStore(timingRepository);
+          final withImpact = _SpyWithImpactUseCase(
+            result: const SaveTimingRecordWithImpactResult(
+              savedRecord: _staticSavedRecord,
+              projectChanged: false,
+              mergeDissolved: false,
+              settlementRevoked: false,
+              affectedProjectIds: [],
+              revokedProjectIds: [],
+            ),
+            throwOnExecute: const TimingRecordSaveStaleException(
+              '这条计时记录已不存在，请刷新后再试',
+            ),
+          );
+          final useCase = SaveTimingRecordUseCase(
+            timingStore: timingStore,
+            withImpact: withImpact,
+          );
+
+          await expectLater(
+            useCase.execute(
+              editing: _staticSavedRecord,
+              record: _staticSavedRecord,
+            ),
+            throwsA(isA<TimingRecordSaveStaleException>()),
+          );
+          // 事务抛错时不应再调 store.loadAll —— 让上层决定刷新策略。
+          expect(timingRepository.listAllCalls, 0);
+        },
       );
-      // 事务抛错时不应再调 store.loadAll —— 让上层决定刷新策略。
-      expect(timingRepository.listAllCalls, 0);
-    });
-  });
+    },
+  );
 }
 
 const TimingRecord _staticSavedRecord = TimingRecord(
@@ -163,6 +168,33 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
   TimingRecord? lastRecord;
   List<TimingCalculationHistory> lastCalculationHistories = const [];
   SaveTimingRecordWithImpactResult? lastResult;
+
+  @override
+  Future<SaveTimingRecordPreparation> prepareForSave({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  }) async {
+    return SaveTimingRecordPreparation(
+      recordToSave: record,
+      devices: const [],
+      rates: const [],
+      timestampIso: '2026-05-30T00:00:00.000Z',
+    );
+  }
+
+  @override
+  Future<SaveTimingRecordWithImpactResult> executeWithExecutor(
+    OperationDatabaseExecutor executor, {
+    required TimingRecord? editing,
+    required SaveTimingRecordPreparation preparation,
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) {
+    return execute(
+      editing: editing,
+      record: preparation.recordToSave,
+      calculationHistories: calculationHistories,
+    );
+  }
 
   @override
   Future<SaveTimingRecordWithImpactResult> execute({
