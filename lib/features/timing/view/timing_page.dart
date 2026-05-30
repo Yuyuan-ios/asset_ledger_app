@@ -15,6 +15,7 @@ import '../application/controllers/timing_action_controller.dart';
 import '../domain/entities/timing_entities.dart';
 import '../domain/repositories/timing_calculation_history_repository.dart';
 import '../../../features/timing/model/timing_chart_data.dart';
+import '../../../features/timing/operations/save_timing_record_operation_command.dart';
 import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
@@ -475,6 +476,7 @@ class _TimingPageState extends State<TimingPage> {
             final saveUseCase = actionController.createSaveUseCase(
               timingStore: timingStore,
               withImpact: context.read<SaveTimingRecordWithImpactUseCase>(),
+              command: context.read<SaveTimingRecordOperationCommand>(),
             );
             SaveTimingRecordResult result;
             try {
@@ -486,7 +488,7 @@ class _TimingPageState extends State<TimingPage> {
             } catch (_) {
               if (!mounted) return;
               final feedback = storeActionFeedback(timingStore, action: '保存');
-              _toast(feedback.message);
+              _toast(feedback.isSuccess ? '保存失败，请重试' : feedback.message);
               return;
             }
             if (!mounted) return;

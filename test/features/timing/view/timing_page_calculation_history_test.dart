@@ -8,6 +8,7 @@ import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/fuel_log.dart';
 import 'package:asset_ledger/data/models/maintenance_record.dart';
+import 'package:asset_ledger/data/models/operation_audit_log.dart';
 import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
@@ -17,6 +18,7 @@ import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
+import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
@@ -30,6 +32,7 @@ import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/application/controllers/timing_action_controller.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
@@ -957,6 +960,11 @@ Future<void> _pumpTimingPage(
     repository: resolvedMergeRepository,
     now: () => DateTime.utc(2026, 5, 15, 1, 2, 3),
   );
+  final operationCommand = SaveTimingRecordOperationCommand(
+    auditRepository: _FakeOperationAuditRepository(),
+    transactionRunner: await _newFakeOperationTransactionRunner(),
+    auditIdFactory: () => 'audit-widget-save',
+  );
 
   await deviceStore.loadAll();
   await timingStore.loadAll();
@@ -1003,6 +1011,9 @@ Future<void> _pumpTimingPage(
               projectResolver: projectResolver,
               mergeService: mergeService,
             ),
+          ),
+          Provider<SaveTimingRecordOperationCommand>.value(
+            value: operationCommand,
           ),
         ],
         child: TimingPage(calculationHistoryRepository: historyRepository),
@@ -1242,6 +1253,66 @@ class _FakeDeleteTimingRecordWithImpactUseCase
   ) async {
     await _timingRepository.deleteById(recordId);
     return const TimingRecordDeleteOutcome();
+  }
+}
+
+Future<_FakeOperationTransactionRunner>
+_newFakeOperationTransactionRunner() async {
+  return _FakeOperationTransactionRunner(_FakeOperationDatabaseExecutor());
+}
+
+class _FakeOperationTransactionRunner implements OperationTransactionRunner {
+  _FakeOperationTransactionRunner(this.executor);
+
+  final OperationDatabaseExecutor executor;
+
+  @override
+  Future<T> run<T>(
+    Future<T> Function(OperationDatabaseExecutor executor) action,
+  ) {
+    return action(executor);
+  }
+}
+
+class _FakeOperationDatabaseExecutor implements OperationDatabaseExecutor {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeOperationAuditRepository implements OperationAuditLogRepository {
+  final inserted = <OperationAuditLog>[];
+
+  @override
+  Future<void> insert(OperationAuditLog log) async {
+    inserted.add(log);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    OperationDatabaseExecutor executor,
+    OperationAuditLog log,
+  ) async {
+    inserted.add(log);
+  }
+
+  @override
+  Future<OperationAuditLog?> findById(String id) async {
+    for (final log in inserted) {
+      if (log.id == id) return log;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listByOperationId(String operationId) async {
+    return inserted
+        .where((log) => log.operationId == operationId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listRecent({int limit = 50}) async {
+    return inserted.take(limit).toList(growable: false);
   }
 }
 
