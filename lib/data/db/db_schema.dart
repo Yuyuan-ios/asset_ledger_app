@@ -5,6 +5,7 @@ import 'schema/account_schema.dart';
 import 'schema/calculator_schema.dart';
 import 'schema/external_work_schema.dart';
 import 'schema/fleet_schema.dart';
+import 'schema/operations_schema.dart';
 import 'schema/project_schema.dart';
 import 'schema/sync_schema.dart';
 import 'schema/timing_schema.dart';
@@ -24,5 +25,6 @@ class DbSchema {
     await AccountMergeSchema.create(db);
     await ExternalWorkSchema.create(db);
     await SyncSchema.create(db);
+    await OperationsSchema.create(db);
   }
 }
