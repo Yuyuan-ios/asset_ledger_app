@@ -1,7 +1,11 @@
 import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
+import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/operation_audit_log.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_use_case.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
@@ -36,9 +40,17 @@ void main() {
             userMessage: null,
           ),
         );
+        final auditRepository = _FakeAuditRepository();
+        final runner = await _newFakeRunner();
         final useCase = SaveTimingRecordUseCase(
           timingStore: timingStore,
           withImpact: withImpact,
+          command: SaveTimingRecordOperationCommand(
+            auditRepository: auditRepository,
+            transactionRunner: runner,
+            auditIdFactory: () => 'audit-save-1',
+          ),
+          operationIdFactory: () => 'op-save-1',
         );
 
         const editing = _staticSavedRecord;
@@ -61,15 +73,34 @@ void main() {
         );
 
         // 1) Forwarded args 与原样一致。
-        expect(withImpact.executeCalls, 1);
+        expect(withImpact.prepareCalls, 1);
+        expect(withImpact.executeWithExecutorCalls, 1);
+        expect(withImpact.directExecuteCalls, 0);
         expect(identical(withImpact.lastEditing, editing), isTrue);
         expect(identical(withImpact.lastRecord, newRecord), isTrue);
         expect(withImpact.lastCalculationHistories, calcHistories);
+        expect(identical(withImpact.lastExecutor, runner.executor), isTrue);
+        expect(runner.commits, 1);
+        expect(runner.rollbacks, 0);
 
         // 2) 事务提交后刷新 store。
         expect(timingRepository.listAllCalls, 1);
 
-        // 3) 结果映射：mergeDissolved + 完整 impact。
+        // 3) command 写入 success audit，preview snapshot 可追踪。
+        expect(auditRepository.insertedWithExecutor, hasLength(1));
+        final audit = auditRepository.insertedWithExecutor.single;
+        expect(audit.id, 'audit-save-1');
+        expect(audit.operationId, 'op-save-1');
+        expect(audit.result, OperationAuditResult.success);
+        expect(audit.preview?.title, '修改计时记录');
+        expect(audit.preview?.summary, contains('SANY 1#'));
+        expect(audit.preview?.summary, contains('甲方 · alpha'));
+        expect(
+          audit.entityRefs.map((ref) => ref.entityType),
+          containsAll(['device', 'timing_record', 'project']),
+        );
+
+        // 4) 结果映射：mergeDissolved + 完整 impact。
         expect(result.mergeDissolved, isFalse);
         expect(identical(result.impact, withImpact.lastResult), isTrue);
       });
@@ -91,6 +122,8 @@ void main() {
         final useCase = SaveTimingRecordUseCase(
           timingStore: timingStore,
           withImpact: withImpact,
+          command: await _command(),
+          operationIdFactory: () => 'op-save-merge',
         );
 
         final result = await useCase.execute(
@@ -125,6 +158,8 @@ void main() {
           final useCase = SaveTimingRecordUseCase(
             timingStore: timingStore,
             withImpact: withImpact,
+            command: await _command(),
+            operationIdFactory: () => 'op-save-failure',
           );
 
           await expectLater(
@@ -132,10 +167,55 @@ void main() {
               editing: _staticSavedRecord,
               record: _staticSavedRecord,
             ),
-            throwsA(isA<TimingRecordSaveStaleException>()),
+            throwsA(isA<SaveTimingRecordOperationException>()),
           );
           // 事务抛错时不应再调 store.loadAll —— 让上层决定刷新策略。
           expect(timingRepository.listAllCalls, 0);
+        },
+      );
+
+      test(
+        'does not reload the store when audit insert fails after business save',
+        () async {
+          final timingRepository = _SpyTimingRepository();
+          final timingStore = TimingStore(timingRepository);
+          final withImpact = _SpyWithImpactUseCase(
+            result: const SaveTimingRecordWithImpactResult(
+              savedRecord: _staticSavedRecord,
+              projectChanged: false,
+              mergeDissolved: false,
+              settlementRevoked: false,
+              affectedProjectIds: ['project:alpha'],
+              revokedProjectIds: [],
+            ),
+          );
+          final auditRepository = _FakeAuditRepository()
+            ..throwOnInsertWithExecutor = StateError('audit duplicate id');
+          final useCase = SaveTimingRecordUseCase(
+            timingStore: timingStore,
+            withImpact: withImpact,
+            command: SaveTimingRecordOperationCommand(
+              auditRepository: auditRepository,
+              transactionRunner: await _newFakeRunner(),
+              auditIdFactory: () => 'audit-duplicate',
+            ),
+            operationIdFactory: () => 'op-save-audit-failure',
+          );
+
+          await expectLater(
+            useCase.execute(editing: null, record: _staticSavedRecord),
+            throwsA(
+              isA<SaveTimingRecordOperationException>().having(
+                (error) => error.error,
+                'error',
+                contains('audit write failed'),
+              ),
+            ),
+          );
+
+          expect(withImpact.executeWithExecutorCalls, 1);
+          expect(timingRepository.listAllCalls, 0);
+          expect(auditRepository.insertedWithExecutor, isEmpty);
         },
       );
     },
@@ -163,7 +243,10 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
   final SaveTimingRecordWithImpactResult result;
   final Object? throwOnExecute;
 
-  int executeCalls = 0;
+  int prepareCalls = 0;
+  int executeWithExecutorCalls = 0;
+  int directExecuteCalls = 0;
+  OperationDatabaseExecutor? lastExecutor;
   TimingRecord? lastEditing;
   TimingRecord? lastRecord;
   List<TimingCalculationHistory> lastCalculationHistories = const [];
@@ -174,9 +257,18 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
     required TimingRecord? editing,
     required TimingRecord record,
   }) async {
+    prepareCalls += 1;
     return SaveTimingRecordPreparation(
       recordToSave: record,
-      devices: const [],
+      devices: const [
+        Device(
+          id: 1,
+          name: 'SANY 1#',
+          brand: 'SANY',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+        ),
+      ],
       rates: const [],
       timestampIso: '2026-05-30T00:00:00.000Z',
     );
@@ -188,12 +280,18 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
     required TimingRecord? editing,
     required SaveTimingRecordPreparation preparation,
     List<TimingCalculationHistory> calculationHistories = const [],
-  }) {
-    return execute(
-      editing: editing,
-      record: preparation.recordToSave,
-      calculationHistories: calculationHistories,
-    );
+  }) async {
+    executeWithExecutorCalls += 1;
+    lastExecutor = executor;
+    lastEditing = editing;
+    lastRecord = preparation.recordToSave;
+    lastCalculationHistories = calculationHistories;
+    final err = throwOnExecute;
+    if (err != null) {
+      throw err;
+    }
+    lastResult = result;
+    return result;
   }
 
   @override
@@ -202,7 +300,7 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
     required TimingRecord record,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
-    executeCalls += 1;
+    directExecuteCalls += 1;
     lastEditing = editing;
     lastRecord = record;
     lastCalculationHistories = calculationHistories;
@@ -212,6 +310,87 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
     }
     lastResult = result;
     return result;
+  }
+}
+
+Future<SaveTimingRecordOperationCommand> _command() async {
+  return SaveTimingRecordOperationCommand(
+    auditRepository: _FakeAuditRepository(),
+    transactionRunner: await _newFakeRunner(),
+    auditIdFactory: () => 'audit-save',
+  );
+}
+
+Future<_FakeTransactionRunner> _newFakeRunner() async {
+  return _FakeTransactionRunner(_FakeDatabaseExecutor());
+}
+
+class _FakeTransactionRunner implements OperationTransactionRunner {
+  _FakeTransactionRunner(this.executor);
+
+  final OperationDatabaseExecutor executor;
+  int commits = 0;
+  int rollbacks = 0;
+
+  @override
+  Future<T> run<T>(
+    Future<T> Function(OperationDatabaseExecutor executor) action,
+  ) async {
+    try {
+      final result = await action(executor);
+      commits += 1;
+      return result;
+    } catch (_) {
+      rollbacks += 1;
+      rethrow;
+    }
+  }
+}
+
+class _FakeDatabaseExecutor implements OperationDatabaseExecutor {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeAuditRepository implements OperationAuditLogRepository {
+  final inserted = <OperationAuditLog>[];
+  final insertedWithExecutor = <OperationAuditLog>[];
+  Object? throwOnInsertWithExecutor;
+
+  @override
+  Future<void> insert(OperationAuditLog log) async {
+    inserted.add(log);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    OperationDatabaseExecutor executor,
+    OperationAuditLog log,
+  ) async {
+    final error = throwOnInsertWithExecutor;
+    if (error != null) throw error;
+    insertedWithExecutor.add(log);
+    inserted.add(log);
+  }
+
+  @override
+  Future<OperationAuditLog?> findById(String id) async {
+    for (final log in inserted) {
+      if (log.id == id) return log;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listByOperationId(String operationId) async {
+    return inserted
+        .where((log) => log.operationId == operationId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listRecent({int limit = 50}) async {
+    return inserted.take(limit).toList(growable: false);
   }
 }
 

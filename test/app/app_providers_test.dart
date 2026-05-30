@@ -1,4 +1,5 @@
 import 'package:asset_ledger/app/app_providers.dart';
+import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
@@ -6,6 +7,7 @@ import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/data/repositories/fuel_repository.dart';
 import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
+import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
@@ -22,6 +24,7 @@ import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +50,9 @@ void main() {
       late AccountProjectMergeRepository accountProjectMergeRepository;
       late AccountProjectMergeService accountProjectMergeService;
       late TimingMergeDissolvePort timingMergeDissolvePort;
+      late OperationAuditLogRepository operationAuditLogRepository;
+      late OperationTransactionRunner operationTransactionRunner;
+      late SaveTimingRecordOperationCommand saveTimingRecordOperationCommand;
       late ExternalImportRepository externalImportRepository;
       late ExternalWorkRecordRepository externalWorkRecordRepository;
       late ExternalWorkImportPreviewPreparer externalWorkPreviewPreparer;
@@ -86,6 +92,12 @@ void main() {
                     .read<AccountProjectMergeService>();
                 timingMergeDissolvePort = context
                     .read<TimingMergeDissolvePort>();
+                operationAuditLogRepository = context
+                    .read<OperationAuditLogRepository>();
+                operationTransactionRunner = context
+                    .read<OperationTransactionRunner>();
+                saveTimingRecordOperationCommand = context
+                    .read<SaveTimingRecordOperationCommand>();
                 externalImportRepository = context
                     .read<ExternalImportRepository>();
                 externalWorkRecordRepository = context
@@ -125,6 +137,15 @@ void main() {
       );
       expect(accountProjectMergeService, isA<AccountProjectMergeService>());
       expect(timingMergeDissolvePort, isA<TimingMergeDissolvePort>());
+      expect(
+        operationAuditLogRepository,
+        isA<SqfliteOperationAuditLogRepository>(),
+      );
+      expect(operationTransactionRunner, isA<OperationTransactionRunner>());
+      expect(
+        saveTimingRecordOperationCommand,
+        isA<SaveTimingRecordOperationCommand>(),
+      );
       expect(externalImportRepository, isA<ExternalImportRepository>());
       expect(externalWorkRecordRepository, isA<ExternalWorkRecordRepository>());
       expect(

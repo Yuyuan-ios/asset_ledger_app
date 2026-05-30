@@ -8,6 +8,7 @@ import '../../domain/repositories/timing_calculation_history_repository.dart';
 import '../../domain/services/timing_meter_bounds.dart';
 import '../../domain/services/timing_suggestions.dart';
 import '../../model/timing_chart_data.dart';
+import '../../operations/save_timing_record_operation_command.dart';
 import '../../use_cases/compute_timing_chart_finance_use_case.dart';
 import '../../use_cases/save_timing_record_use_case.dart';
 import '../../use_cases/save_timing_record_with_impact_use_case.dart';
@@ -41,10 +42,12 @@ class TimingActionController {
   SaveTimingRecordUseCase createSaveUseCase({
     required TimingStore timingStore,
     required SaveTimingRecordWithImpactUseCase withImpact,
+    required SaveTimingRecordOperationCommand command,
   }) {
     return SaveTimingRecordUseCase(
       timingStore: timingStore,
       withImpact: withImpact,
+      command: command,
     );
   }
 
