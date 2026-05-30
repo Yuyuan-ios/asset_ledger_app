@@ -1,8 +1,11 @@
 import 'package:asset_ledger/core/operations/operation_models.dart';
+import 'package:asset_ledger/data/models/operation_audit_log.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite/sqflite.dart' show DatabaseExecutor;
 
 void main() {
   const command = SaveTimingRecordOperationCommand();
@@ -191,6 +194,227 @@ void main() {
       expect(result.error, contains('stale timing record'));
     });
   });
+
+  group('executeConfirmed with audit', () {
+    test('writes success audit and returns auditId', () async {
+      final repo = _FakeAuditRepo();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        actorId: 'user-1',
+        now: () => DateTime.utc(2026, 6, 1, 12, 0, 0),
+        auditIdFactory: () => 'audit-success-1',
+      );
+      final preview = auditCmd.preview(input());
+
+      final result = await auditCmd.executeConfirmed(
+        preview: preview,
+        operationId: preview.operationId,
+        executeSave: () async => _saveResult(userMessage: '已保存'),
+      );
+
+      expect(result.success, isTrue);
+      expect(result.auditId, 'audit-success-1');
+      expect(repo.inserted, hasLength(1));
+      final log = repo.inserted.single;
+      expect(log.id, 'audit-success-1');
+      expect(log.operationId, preview.operationId);
+      expect(log.operationType, OperationType.saveTimingRecord);
+      expect(log.actorType, OperationAuditActorType.owner);
+      expect(log.actorId, 'user-1');
+      expect(log.source, OperationAuditSource.app);
+      expect(log.createdAt, DateTime.utc(2026, 6, 1, 12, 0, 0));
+      expect(log.confirmed, isTrue);
+      expect(log.result, OperationAuditResult.success);
+      expect(log.errorMessage, isNull);
+      expect(log.entityRefs, preview.affectedEntities);
+      expect(log.preview?.operationId, preview.operationId);
+      // 序列化形态完整可解析。
+      final restored = OperationAuditLog.fromMap(log.toMap());
+      expect(restored.preview?.operationId, preview.operationId);
+      expect(restored.result, OperationAuditResult.success);
+    });
+
+    test('writes failure audit when executeSave throws', () async {
+      final repo = _FakeAuditRepo();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        now: () => DateTime.utc(2026, 6, 1, 12, 0, 0),
+        auditIdFactory: () => 'audit-fail-1',
+      );
+      final preview = auditCmd.preview(input());
+
+      final result = await auditCmd.executeConfirmed(
+        preview: preview,
+        operationId: preview.operationId,
+        executeSave: () async => throw StateError('stale timing record'),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.auditId, 'audit-fail-1');
+      expect(result.error, contains('stale timing record'));
+      expect(repo.inserted, hasLength(1));
+      final log = repo.inserted.single;
+      expect(log.confirmed, isTrue);
+      expect(log.result, OperationAuditResult.failure);
+      expect(log.errorMessage, contains('stale timing record'));
+    });
+
+    test('mismatch / wrong type does not write audit', () async {
+      final repo = _FakeAuditRepo();
+      final auditCmd = SaveTimingRecordOperationCommand(auditRepository: repo);
+      const wrongTypePreview = OperationPreview(
+        operationId: 'op-x',
+        operationType: OperationType.deleteTimingRecord,
+        requiresConfirmation: true,
+      );
+
+      await expectLater(
+        auditCmd.executeConfirmed(
+          preview: wrongTypePreview,
+          operationId: wrongTypePreview.operationId,
+          executeSave: () async => _saveResult(),
+        ),
+        throwsArgumentError,
+      );
+
+      final preview = auditCmd.preview(input());
+      await expectLater(
+        auditCmd.executeConfirmed(
+          preview: preview,
+          operationId: 'mismatch',
+          executeSave: () async => _saveResult(),
+        ),
+        throwsArgumentError,
+      );
+
+      expect(repo.inserted, isEmpty);
+    });
+  });
+
+  group('cancel', () {
+    test('writes cancelled audit and returns failure with cancel error', () async {
+      final repo = _FakeAuditRepo();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        now: () => DateTime.utc(2026, 6, 1, 12, 0, 0),
+        auditIdFactory: () => 'audit-cancel-1',
+      );
+      final preview = auditCmd.preview(input());
+
+      final result = await auditCmd.cancel(
+        preview: preview,
+        reason: 'user-tapped-cancel',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, 'user-tapped-cancel');
+      expect(result.userMessage, '操作已取消');
+      expect(result.auditId, 'audit-cancel-1');
+      expect(repo.inserted, hasLength(1));
+      final log = repo.inserted.single;
+      expect(log.id, 'audit-cancel-1');
+      expect(log.confirmed, isFalse);
+      expect(log.result, OperationAuditResult.cancelled);
+      expect(log.errorMessage, 'user-tapped-cancel');
+      expect(log.preview?.operationId, preview.operationId);
+    });
+
+    test('cancel without reason uses default cancelled error', () async {
+      final repo = _FakeAuditRepo();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        auditIdFactory: () => 'audit-cancel-2',
+      );
+      final preview = auditCmd.preview(input());
+
+      final result = await auditCmd.cancel(preview: preview);
+
+      expect(result.error, 'cancelled');
+      expect(repo.inserted.single.errorMessage, isNull);
+    });
+
+    test('cancel without audit repository skips audit and returns failure',
+        () async {
+      const cmd = SaveTimingRecordOperationCommand();
+      final preview = cmd.preview(input());
+
+      final result = await cmd.cancel(preview: preview);
+
+      expect(result.success, isFalse);
+      expect(result.error, 'cancelled');
+      expect(result.auditId, isNull);
+    });
+
+    test('cancel rejects wrong-type preview without writing audit', () async {
+      final repo = _FakeAuditRepo();
+      final auditCmd = SaveTimingRecordOperationCommand(auditRepository: repo);
+      const wrongPreview = OperationPreview(
+        operationId: 'op-x',
+        operationType: OperationType.deleteTimingRecord,
+        requiresConfirmation: true,
+      );
+
+      await expectLater(
+        auditCmd.cancel(preview: wrongPreview),
+        throwsArgumentError,
+      );
+      expect(repo.inserted, isEmpty);
+    });
+  });
+
+  group('audit insert failure', () {
+    test(
+      'business success + audit insert failure → failure with combined message',
+      () async {
+        final repo = _FakeAuditRepo()..throwOnInsert = StateError('disk full');
+        final auditCmd = SaveTimingRecordOperationCommand(
+          auditRepository: repo,
+          auditIdFactory: () => 'audit-x',
+        );
+        final preview = auditCmd.preview(input());
+
+        final result = await auditCmd.executeConfirmed(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSave: () async => _saveResult(userMessage: '已保存'),
+        );
+
+        expect(result.success, isFalse);
+        expect(result.auditId, isNull);
+        expect(result.userMessage, contains('操作已执行'));
+        expect(result.userMessage, contains('审计写入失败'));
+        expect(result.error, contains('audit write failed'));
+        expect(result.error, contains('disk full'));
+      },
+    );
+
+    test(
+      'business failure + audit insert failure → failure mentions both',
+      () async {
+        final repo = _FakeAuditRepo()..throwOnInsert = StateError('disk full');
+        final auditCmd = SaveTimingRecordOperationCommand(
+          auditRepository: repo,
+          auditIdFactory: () => 'audit-x',
+        );
+        final preview = auditCmd.preview(input());
+
+        final result = await auditCmd.executeConfirmed(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSave: () async => throw StateError('stale timing record'),
+        );
+
+        expect(result.success, isFalse);
+        expect(result.auditId, isNull);
+        expect(result.userMessage, contains('保存计时记录失败'));
+        expect(result.userMessage, contains('审计写入失败'));
+        expect(result.error, contains('business:'));
+        expect(result.error, contains('stale timing record'));
+        expect(result.error, contains('audit:'));
+        expect(result.error, contains('disk full'));
+      },
+    );
+  });
 }
 
 SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
@@ -215,4 +439,45 @@ SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
     revokedProjectIds: const [],
     userMessage: userMessage,
   );
+}
+
+class _FakeAuditRepo implements OperationAuditLogRepository {
+  final List<OperationAuditLog> inserted = [];
+  Object? throwOnInsert;
+
+  @override
+  Future<void> insert(OperationAuditLog log) async {
+    final boom = throwOnInsert;
+    if (boom != null) throw boom;
+    inserted.add(log);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    DatabaseExecutor executor,
+    OperationAuditLog log,
+  ) async {
+    await insert(log);
+  }
+
+  @override
+  Future<OperationAuditLog?> findById(String id) async {
+    for (final log in inserted) {
+      if (log.id == id) return log;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listByOperationId(String operationId) async {
+    return inserted.where((log) => log.operationId == operationId).toList();
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listRecent({int limit = 50}) async {
+    if (limit <= 0) return const [];
+    final sorted = [...inserted]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.take(limit).toList();
+  }
 }
