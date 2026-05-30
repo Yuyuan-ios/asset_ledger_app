@@ -13,6 +13,7 @@ import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite/sqflite.dart';
 
 void main() {
   group('AccountStore active merge groups', () {
@@ -409,6 +410,15 @@ class _FakeProjectRepository implements ProjectRepository {
   }
 
   @override
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<Project> findOrCreateLegacyProject({
     required String contact,
     required String site,
@@ -418,6 +428,11 @@ class _FakeProjectRepository implements ProjectRepository {
 
   @override
   Future<void> insert(Project project) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> insertWithExecutor(DatabaseExecutor executor, Project project) {
     throw UnimplementedError();
   }
 

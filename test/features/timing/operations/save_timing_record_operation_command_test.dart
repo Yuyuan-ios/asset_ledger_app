@@ -4,9 +4,10 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/operation_audit_log.dart';
-import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
+import 'package:asset_ledger/data/repositories/project_repository.dart';
+import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/operations/local_operation_transaction_runner.dart';
@@ -504,22 +505,21 @@ void main() {
           auditIdFactory: () => 'audit-duplicate',
         );
         final preview = auditCmd.preview(input());
+        final resolver = ProjectResolver(
+          projectRepository: SqfliteProjectRepository(),
+          now: () => DateTime.utc(2026, 5, 30),
+        );
 
         final result = await auditCmd.executeConfirmedInTransaction(
           preview: preview,
           operationId: preview.operationId,
           executeSaveWithExecutor: (executor) async {
-            await executor.insert(
-              'projects',
-              Project(
-                id: 'project:txn',
-                contact: '甲方',
-                site: 'txn',
-                legacyProjectKey: '甲方||txn',
-                createdAt: '2026-05-30T00:00:00.000Z',
-                updatedAt: '2026-05-30T00:00:00.000Z',
-              ).toMap(),
+            final resolved = await resolver.resolveOrCreateWithExecutor(
+              executor,
+              contact: '甲方',
+              site: 'txn',
             );
+            expect(resolved.created, isTrue);
             final deviceId = await executor.insert(
               'devices',
               Device(
@@ -532,7 +532,7 @@ void main() {
             final record = TimingRecord(
               deviceId: deviceId,
               startDate: 20260530,
-              projectId: 'project:txn',
+              projectId: resolved.projectId,
               contact: '甲方',
               site: 'txn',
               type: TimingType.hours,
@@ -550,7 +550,7 @@ void main() {
               projectChanged: false,
               mergeDissolved: false,
               settlementRevoked: false,
-              affectedProjectIds: const ['project:txn'],
+              affectedProjectIds: [resolved.projectId],
               revokedProjectIds: const [],
               userMessage: '已保存',
             );

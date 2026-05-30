@@ -15,7 +15,15 @@ abstract class ProjectRepository {
     required String site,
   });
 
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  });
+
   Future<void> insert(Project project);
+
+  Future<void> insertWithExecutor(DatabaseExecutor executor, Project project);
 
   Future<Project> findOrCreateLegacyProject({
     required String contact,
@@ -55,13 +63,26 @@ class SqfliteProjectRepository implements ProjectRepository {
     required String contact,
     required String site,
   }) async {
+    final db = await AppDatabase.database;
+    return findActiveByContactSiteWithExecutor(
+      db,
+      contact: contact,
+      site: site,
+    );
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  }) async {
     final normalizedContact = contact.trim();
     final normalizedSite = site.trim();
     if (normalizedContact.isEmpty || normalizedSite.isEmpty) {
       return const [];
     }
-    final db = await AppDatabase.database;
-    final rows = await db.query(
+    final rows = await executor.query(
       table,
       where: 'contact = ? AND site = ? AND status = ?',
       whereArgs: [normalizedContact, normalizedSite, ProjectStatus.active.name],
@@ -74,6 +95,14 @@ class SqfliteProjectRepository implements ProjectRepository {
   Future<void> insert(Project project) async {
     final db = await AppDatabase.database;
     await insertWithExecutor(db, project);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    DatabaseExecutor executor,
+    Project project,
+  ) async {
+    await executor.insert(table, project.toMap());
   }
 
   @override
@@ -150,13 +179,6 @@ class SqfliteProjectRepository implements ProjectRepository {
       ),
     );
     return true;
-  }
-
-  static Future<void> insertWithExecutor(
-    DatabaseExecutor executor,
-    Project project,
-  ) async {
-    await executor.insert(table, project.toMap());
   }
 
   static Future<void> upsertWithExecutor(

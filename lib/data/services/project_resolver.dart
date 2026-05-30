@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../models/project.dart';
 import '../models/project_id.dart';
 import '../models/project_key.dart';
@@ -27,13 +29,54 @@ class ProjectResolver {
     required String site,
     DateTime? workDate,
   }) async {
+    return _resolveOrCreate(
+      contact: contact,
+      site: site,
+      findActiveByContactSite: _projectRepository.findActiveByContactSite,
+      insertProject: _projectRepository.insert,
+    );
+  }
+
+  Future<ProjectResolveResult> resolveOrCreateWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+    DateTime? workDate,
+  }) async {
+    return _resolveOrCreate(
+      contact: contact,
+      site: site,
+      findActiveByContactSite:
+          ({required String contact, required String site}) {
+            return _projectRepository.findActiveByContactSiteWithExecutor(
+              executor,
+              contact: contact,
+              site: site,
+            );
+          },
+      insertProject: (project) {
+        return _projectRepository.insertWithExecutor(executor, project);
+      },
+    );
+  }
+
+  Future<ProjectResolveResult> _resolveOrCreate({
+    required String contact,
+    required String site,
+    required Future<List<Project>> Function({
+      required String contact,
+      required String site,
+    })
+    findActiveByContactSite,
+    required Future<void> Function(Project project) insertProject,
+  }) async {
     final normalizedContact = contact.trim();
     final normalizedSite = site.trim();
     if (normalizedContact.isEmpty || normalizedSite.isEmpty) {
       throw ArgumentError('联系人和工地不能为空');
     }
 
-    final activeMatches = await _projectRepository.findActiveByContactSite(
+    final activeMatches = await findActiveByContactSite(
       contact: normalizedContact,
       site: normalizedSite,
     );
@@ -61,7 +104,7 @@ class ProjectResolver {
       updatedAt: timestamp,
       legacyProjectKey: legacyKey,
     );
-    await _projectRepository.insert(project);
+    await insertProject(project);
     return ProjectResolveResult(project: project, created: true);
   }
 

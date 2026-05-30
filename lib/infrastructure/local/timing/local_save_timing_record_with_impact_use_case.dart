@@ -66,16 +66,12 @@ class LocalSaveTimingRecordWithImpactUseCase
     required TimingRecord? editing,
     required TimingRecord record,
   }) async {
-    final recordToSave = await _resolveProjectIdForSave(
-      editing: editing,
-      record: record,
-    );
     final devices = await _deviceRepository.listAll();
     final rates = await _projectRateRepository.listAll();
     final timestamp = _now().toUtc().toIso8601String();
 
     return SaveTimingRecordPreparation(
-      recordToSave: recordToSave,
+      recordToSave: _prepareRecordForPreview(editing: editing, record: record),
       devices: devices,
       rates: rates,
       timestampIso: timestamp,
@@ -88,12 +84,11 @@ class LocalSaveTimingRecordWithImpactUseCase
     required TimingRecord record,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
-    // 1) 事务外：解析最终 project_id；与现存 SaveTimingRecordUseCase 一致 ——
-    //    project_id 解析涉及 ProjectResolver.resolveOrCreate（可能新建项目行），
-    //    保持在事务外避免嵌套事务（消除该限制属于阶段 D ProjectResolver 改造）。
+    // 事务外只做只读准备；最终 project_id 解析 / 可能创建 project
+    // 必须进入下面同一个 transaction。
     final preparation = await prepareForSave(editing: editing, record: record);
 
-    // 2) 事务内：重读旧记录 → 保存 → 解除合并（两侧）→ 重算 fen 应收 →
+    // 事务内：解析 / 创建 project → 重读旧记录 → 保存 → 解除合并（两侧）→ 重算 fen 应收 →
     //    evaluate → applyRevocations。任一步失败整体回滚。
     return AppDatabase.inTransaction((txn) {
       return executeWithExecutor(
@@ -112,7 +107,11 @@ class LocalSaveTimingRecordWithImpactUseCase
     required SaveTimingRecordPreparation preparation,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
-    final recordToSave = preparation.recordToSave;
+    final recordToSave = await _resolveProjectIdForSaveWithExecutor(
+      txn,
+      editing: editing,
+      record: preparation.recordToSave,
+    );
     final newProjectId = recordToSave.effectiveProjectId.trim();
     final devices = preparation.devices;
     final rates = preparation.rates;
@@ -239,13 +238,29 @@ class LocalSaveTimingRecordWithImpactUseCase
   /// - editing != null 且 legacy key 变化 → resolveOrCreate。
   /// - 否则若 record 已带 projectId → 直接使用。
   /// - 否则回退到 editing.projectId / resolveOrCreate。
-  Future<TimingRecord> _resolveProjectIdForSave({
+  TimingRecord _prepareRecordForPreview({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  }) {
+    if (record.projectId.trim().isNotEmpty) return record;
+    if (editing == null ||
+        editing.legacyProjectKey != record.legacyProjectKey) {
+      return record;
+    }
+    final editedProjectId = editing.effectiveProjectId.trim();
+    if (editedProjectId.isEmpty) return record;
+    return record.copyWith(projectId: editedProjectId);
+  }
+
+  Future<TimingRecord> _resolveProjectIdForSaveWithExecutor(
+    DatabaseExecutor txn, {
     required TimingRecord? editing,
     required TimingRecord record,
   }) async {
     if (editing != null &&
         editing.legacyProjectKey != record.legacyProjectKey) {
-      final result = await _projectResolver.resolveOrCreate(
+      final result = await _projectResolver.resolveOrCreateWithExecutor(
+        txn,
         contact: record.contact,
         site: record.site,
       );
@@ -256,7 +271,8 @@ class LocalSaveTimingRecordWithImpactUseCase
     if (editedProjectId != null && editedProjectId.trim().isNotEmpty) {
       return record.copyWith(projectId: editedProjectId);
     }
-    final result = await _projectResolver.resolveOrCreate(
+    final result = await _projectResolver.resolveOrCreateWithExecutor(
+      txn,
       contact: record.contact,
       site: record.site,
     );

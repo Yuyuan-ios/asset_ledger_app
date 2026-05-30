@@ -26,10 +26,7 @@ void main() {
       final db = await _openCurrentInMemoryDb();
       final resolver = _resolver();
 
-      final first = await resolver.resolveOrCreate(
-        contact: '甲方',
-        site: '一号工地',
-      );
+      final first = await resolver.resolveOrCreate(contact: '甲方', site: '一号工地');
       final second = await resolver.resolveOrCreate(
         contact: '甲方',
         site: '一号工地',
@@ -44,14 +41,36 @@ void main() {
       expect(rows.single['status'], ProjectStatus.active.name);
     });
 
+    test('withExecutor 未结清同联系人同工地：复用同一 active project_id', () async {
+      final db = await _openCurrentInMemoryDb();
+      final resolver = _resolver();
+
+      final first = await AppDatabase.inTransaction((txn) {
+        return resolver.resolveOrCreateWithExecutor(
+          txn,
+          contact: '甲方',
+          site: '事务工地',
+        );
+      });
+      final second = await AppDatabase.inTransaction((txn) {
+        return resolver.resolveOrCreateWithExecutor(
+          txn,
+          contact: '甲方',
+          site: '事务工地',
+        );
+      });
+
+      expect(first.created, isTrue);
+      expect(second.created, isFalse);
+      expect(second.projectId, first.projectId);
+      expect(await db.query('projects'), hasLength(1));
+    });
+
     test('已结清同联系人同工地：resolveOrCreate 创建新的 project_id', () async {
       final db = await _openCurrentInMemoryDb();
       final resolver = _resolver();
 
-      final first = await resolver.resolveOrCreate(
-        contact: '甲方',
-        site: '同一工地',
-      );
+      final first = await resolver.resolveOrCreate(contact: '甲方', site: '同一工地');
       // 结清旧项目。
       await db.update(
         'projects',
@@ -80,10 +99,69 @@ void main() {
       final keys = rows.map((r) => r['legacy_project_key']).toSet();
       expect(keys, hasLength(1));
       final statuses = rows.map((r) => r['status']).toList();
-      expect(statuses, containsAll([
-        ProjectStatus.settled.name,
-        ProjectStatus.active.name,
-      ]));
+      expect(
+        statuses,
+        containsAll([ProjectStatus.settled.name, ProjectStatus.active.name]),
+      );
+    });
+
+    test('withExecutor 已结清同联系人同工地：事务内创建新的 project_id', () async {
+      final db = await _openCurrentInMemoryDb();
+      final resolver = _resolver();
+
+      final first = await AppDatabase.inTransaction((txn) {
+        return resolver.resolveOrCreateWithExecutor(
+          txn,
+          contact: '甲方',
+          site: '结清后复工',
+        );
+      });
+      await db.update(
+        'projects',
+        {
+          'status': ProjectStatus.settled.name,
+          'settled_at': '2026-05-01T00:00:00.000Z',
+        },
+        where: 'id = ?',
+        whereArgs: [first.projectId],
+      );
+
+      final second = await AppDatabase.inTransaction((txn) {
+        return resolver.resolveOrCreateWithExecutor(
+          txn,
+          contact: '甲方',
+          site: '结清后复工',
+        );
+      });
+
+      expect(second.created, isTrue);
+      expect(second.projectId, isNot(first.projectId));
+      final rows = await db.query('projects');
+      expect(rows, hasLength(2));
+      expect(
+        rows.map((row) => row['legacy_project_key']).toSet(),
+        hasLength(1),
+      );
+    });
+
+    test('withExecutor transaction rollback 后，新创建的 project 不落库', () async {
+      final db = await _openCurrentInMemoryDb();
+      final resolver = _resolver();
+
+      await expectLater(
+        AppDatabase.inTransaction((txn) async {
+          final result = await resolver.resolveOrCreateWithExecutor(
+            txn,
+            contact: '甲方',
+            site: '回滚工地',
+          );
+          expect(result.created, isTrue);
+          throw StateError('rollback-project-create');
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('projects'), isEmpty);
     });
 
     test('两个 settled 项目允许拥有相同 legacy_project_key', () async {
@@ -177,10 +255,7 @@ void main() {
       final resolver = _resolver();
 
       // 1) 第一次开工：创建 active 项目。
-      final first = await resolver.resolveOrCreate(
-        contact: '甲方',
-        site: '工地 A',
-      );
+      final first = await resolver.resolveOrCreate(contact: '甲方', site: '工地 A');
       expect(first.created, isTrue);
 
       // 2) 老板结清该项目。
@@ -203,10 +278,7 @@ void main() {
       expect(second.projectId, isNot(first.projectId));
 
       // 4) 第三次开工应复用第二个 active 项目。
-      final third = await resolver.resolveOrCreate(
-        contact: '甲方',
-        site: '工地 A',
-      );
+      final third = await resolver.resolveOrCreate(contact: '甲方', site: '工地 A');
       expect(third.created, isFalse);
       expect(third.projectId, second.projectId);
 
@@ -221,43 +293,49 @@ void main() {
   });
 
   group('legacy_project_key partial unique index 迁移路径', () {
-    test('新库建表：projects 没有全局 UNIQUE 列约束，仅有 active partial unique index',
-        () async {
-      final db = await _openCurrentInMemoryDb();
+    test(
+      '新库建表：projects 没有全局 UNIQUE 列约束，仅有 active partial unique index',
+      () async {
+        final db = await _openCurrentInMemoryDb();
 
-      final tableInfo = await db.rawQuery(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='projects';",
-      );
-      final tableSql = (tableInfo.single['sql'] as String).toUpperCase();
-      // legacy_project_key 列定义部分必须不含 UNIQUE。
-      final legacyKeyLine = RegExp(r'LEGACY_PROJECT_KEY[^,)\n]*')
-          .firstMatch(tableSql)!
-          .group(0)!;
-      expect(legacyKeyLine.contains('UNIQUE'), isFalse,
-          reason: 'legacy_project_key 列不应再有 UNIQUE 约束: $legacyKeyLine');
+        final tableInfo = await db.rawQuery(
+          "SELECT sql FROM sqlite_master WHERE type='table' AND name='projects';",
+        );
+        final tableSql = (tableInfo.single['sql'] as String).toUpperCase();
+        // legacy_project_key 列定义部分必须不含 UNIQUE。
+        final legacyKeyLine = RegExp(
+          r'LEGACY_PROJECT_KEY[^,)\n]*',
+        ).firstMatch(tableSql)!.group(0)!;
+        expect(
+          legacyKeyLine.contains('UNIQUE'),
+          isFalse,
+          reason: 'legacy_project_key 列不应再有 UNIQUE 约束: $legacyKeyLine',
+        );
 
-      // 必须存在 partial unique index。
-      final indexInfo = await db.rawQuery(
-        "SELECT name, sql FROM sqlite_master WHERE type='index' "
-        "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
-      );
-      expect(indexInfo, hasLength(1));
-      final indexSql = (indexInfo.single['sql'] as String).toUpperCase();
-      expect(indexSql, contains('UNIQUE'));
-      expect(indexSql, contains("STATUS = 'ACTIVE'"));
-    });
+        // 必须存在 partial unique index。
+        final indexInfo = await db.rawQuery(
+          "SELECT name, sql FROM sqlite_master WHERE type='index' "
+          "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
+        );
+        expect(indexInfo, hasLength(1));
+        final indexSql = (indexInfo.single['sql'] as String).toUpperCase();
+        expect(indexSql, contains('UNIQUE'));
+        expect(indexSql, contains("STATUS = 'ACTIVE'"));
+      },
+    );
 
-    test('旧库升级：v20 schema（带 legacy_project_key UNIQUE）升级后应失去 UNIQUE 并具备 partial unique',
-        () async {
-      // 模拟旧 DB：legacy_project_key TEXT UNIQUE。
-      final db = await openDatabase(
-        inMemoryDatabasePath,
-        version: 20,
-        onConfigure: (db) async {
-          await db.execute('PRAGMA foreign_keys = ON');
-        },
-        onCreate: (db, _) async {
-          await db.execute('''
+    test(
+      '旧库升级：v20 schema（带 legacy_project_key UNIQUE）升级后应失去 UNIQUE 并具备 partial unique',
+      () async {
+        // 模拟旧 DB：legacy_project_key TEXT UNIQUE。
+        final db = await openDatabase(
+          inMemoryDatabasePath,
+          version: 20,
+          onConfigure: (db) async {
+            await db.execute('PRAGMA foreign_keys = ON');
+          },
+          onCreate: (db, _) async {
+            await db.execute('''
             CREATE TABLE projects (
               id TEXT PRIMARY KEY,
               contact TEXT NOT NULL,
@@ -270,73 +348,74 @@ void main() {
               legacy_project_key TEXT UNIQUE
             );
           ''');
-        },
-      );
+          },
+        );
 
-      // 写入一条 settled 数据 —— 升级后该数据应继续存在。
-      await db.insert('projects', {
-        'id': 'project:legacy-settled',
-        'contact': '甲方',
-        'site': '一号工地',
-        'status': ProjectStatus.settled.name,
-        'settled_at': '2026-04-01T00:00:00.000Z',
-        'created_at': '2026-03-01T00:00:00.000Z',
-        'updated_at': '2026-04-01T00:00:00.000Z',
-        'legacy_project_key': '甲方||一号工地',
-      });
+        // 写入一条 settled 数据 —— 升级后该数据应继续存在。
+        await db.insert('projects', {
+          'id': 'project:legacy-settled',
+          'contact': '甲方',
+          'site': '一号工地',
+          'status': ProjectStatus.settled.name,
+          'settled_at': '2026-04-01T00:00:00.000Z',
+          'created_at': '2026-03-01T00:00:00.000Z',
+          'updated_at': '2026-04-01T00:00:00.000Z',
+          'legacy_project_key': '甲方||一号工地',
+        });
 
-      // 应用 v21 迁移。
-      await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+        // 应用 v21 迁移。
+        await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
 
-      // UNIQUE 已被移除。
-      final tableInfo = await db.rawQuery(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='projects';",
-      );
-      final tableSql = (tableInfo.single['sql'] as String).toUpperCase();
-      final legacyKeyLine = RegExp(r'LEGACY_PROJECT_KEY[^,)\n]*')
-          .firstMatch(tableSql)!
-          .group(0)!;
-      expect(legacyKeyLine.contains('UNIQUE'), isFalse);
+        // UNIQUE 已被移除。
+        final tableInfo = await db.rawQuery(
+          "SELECT sql FROM sqlite_master WHERE type='table' AND name='projects';",
+        );
+        final tableSql = (tableInfo.single['sql'] as String).toUpperCase();
+        final legacyKeyLine = RegExp(
+          r'LEGACY_PROJECT_KEY[^,)\n]*',
+        ).firstMatch(tableSql)!.group(0)!;
+        expect(legacyKeyLine.contains('UNIQUE'), isFalse);
 
-      // partial unique index 已建立。
-      final indexInfo = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='index' "
-        "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
-      );
-      expect(indexInfo, hasLength(1));
+        // partial unique index 已建立。
+        final indexInfo = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='index' "
+          "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
+        );
+        expect(indexInfo, hasLength(1));
 
-      // 旧数据保留。
-      final rows = await db.query('projects');
-      expect(rows, hasLength(1));
-      expect(rows.single['id'], 'project:legacy-settled');
+        // 旧数据保留。
+        final rows = await db.query('projects');
+        expect(rows, hasLength(1));
+        expect(rows.single['id'], 'project:legacy-settled');
 
-      // 升级后允许：在已有 settled 的相同 key 下新增一个 active。
-      await db.insert('projects', {
-        'id': 'project:new-active',
-        'contact': '甲方',
-        'site': '一号工地',
-        'status': ProjectStatus.active.name,
-        'created_at': '2026-05-15T00:00:00.000Z',
-        'updated_at': '2026-05-15T00:00:00.000Z',
-        'legacy_project_key': '甲方||一号工地',
-      });
-
-      // 但第二个 active 仍被 partial unique 阻止。
-      await expectLater(
-        db.insert('projects', {
-          'id': 'project:duplicate-active',
+        // 升级后允许：在已有 settled 的相同 key 下新增一个 active。
+        await db.insert('projects', {
+          'id': 'project:new-active',
           'contact': '甲方',
           'site': '一号工地',
           'status': ProjectStatus.active.name,
-          'created_at': '2026-05-16T00:00:00.000Z',
-          'updated_at': '2026-05-16T00:00:00.000Z',
+          'created_at': '2026-05-15T00:00:00.000Z',
+          'updated_at': '2026-05-15T00:00:00.000Z',
           'legacy_project_key': '甲方||一号工地',
-        }),
-        throwsA(isA<DatabaseException>()),
-      );
+        });
 
-      await db.close();
-    });
+        // 但第二个 active 仍被 partial unique 阻止。
+        await expectLater(
+          db.insert('projects', {
+            'id': 'project:duplicate-active',
+            'contact': '甲方',
+            'site': '一号工地',
+            'status': ProjectStatus.active.name,
+            'created_at': '2026-05-16T00:00:00.000Z',
+            'updated_at': '2026-05-16T00:00:00.000Z',
+            'legacy_project_key': '甲方||一号工地',
+          }),
+          throwsA(isA<DatabaseException>()),
+        );
+
+        await db.close();
+      },
+    );
   });
 }
 

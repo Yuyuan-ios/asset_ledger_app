@@ -2,6 +2,7 @@ import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite/sqflite.dart';
 
 void main() {
   group('ProjectResolver', () {
@@ -184,6 +185,19 @@ class _FakeProjectRepository implements ProjectRepository {
     required String contact,
     required String site,
   }) async {
+    return _findActive(contact: contact, site: site);
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  }) async {
+    return _findActive(contact: contact, site: site);
+  }
+
+  List<Project> _findActive({required String contact, required String site}) {
     return [...projects, ...inserted]
         .where((project) {
           return project.contact == contact.trim() &&
@@ -195,6 +209,14 @@ class _FakeProjectRepository implements ProjectRepository {
 
   @override
   Future<void> insert(Project project) async {
+    inserted.add(project);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    DatabaseExecutor executor,
+    Project project,
+  ) async {
     inserted.add(project);
   }
 
