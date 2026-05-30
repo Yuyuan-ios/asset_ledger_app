@@ -64,10 +64,12 @@ class AppDatabase {
   // - v20：external_work_records 增加来源项目累计实收款 project_received_fen
   // - v21：移除 projects.legacy_project_key 的全局 UNIQUE 约束；改为 active-scope
   //        partial unique index（同 legacy_project_key 下只允许一个 active 项目）。
+  // - v22：新增 operation_audit_logs（append-only 操作审计表 + 3 个索引）；
+  //        不改任何旧业务表；不纳入 backup/restore（per-device 操作历史）。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 21;
+  static const int _dbVersion = 22;
 
   static int get schemaVersion => _dbVersion;
 
