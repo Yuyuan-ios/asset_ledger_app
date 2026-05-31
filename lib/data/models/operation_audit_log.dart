@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../core/operations/operation_actor_type.dart';
 import '../../core/operations/operation_models.dart';
 
 /// 阶段 D Step 3：本地操作审计记录。
@@ -15,50 +16,11 @@ import '../../core/operations/operation_models.dart';
 /// - [result] 与 [errorMessage] 对应执行结果的成功 / 失败 / 取消语义。
 
 /// 谁触发了这次操作。
-enum OperationAuditActorType {
-  owner,
-  driver,
-  partner,
-  agent,
-  system,
-  unknown;
-
-  String get wireName {
-    switch (this) {
-      case OperationAuditActorType.owner:
-        return 'owner';
-      case OperationAuditActorType.driver:
-        return 'driver';
-      case OperationAuditActorType.partner:
-        return 'partner';
-      case OperationAuditActorType.agent:
-        return 'agent';
-      case OperationAuditActorType.system:
-        return 'system';
-      case OperationAuditActorType.unknown:
-        return 'unknown';
-    }
-  }
-
-  static OperationAuditActorType fromWireName(String wireName) {
-    final parsed = tryParse(wireName);
-    if (parsed == null) {
-      throw ArgumentError.value(
-        wireName,
-        'wireName',
-        'Unknown OperationAuditActorType',
-      );
-    }
-    return parsed;
-  }
-
-  static OperationAuditActorType? tryParse(String? wireName) {
-    for (final value in OperationAuditActorType.values) {
-      if (value.wireName == wireName) return value;
-    }
-    return null;
-  }
-}
+///
+/// D25：actor 类型枚举已下沉到 core（[OperationActorType]），以解除 core → data
+/// 的非法依赖。这里保留 `OperationAuditActorType` 作为 typedef 别名，确保既有
+/// 审计 / repository / 适配层代码与测试零改动；wireName 与 DB 存储格式不变。
+typedef OperationAuditActorType = OperationActorType;
 
 /// 操作进入系统的渠道。
 enum OperationAuditSource {

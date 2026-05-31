@@ -11,11 +11,11 @@
 /// - 模型只“表达”规则与决定，不去落库或拦截真实写路径。
 /// - agent 默认不是超级用户：必须显式被委托（delegatedActorType + actorId）
 ///   才能拿到对应 actor 的低风险权限；execute 类写操作 D23 阶段一律 deny。
-/// - owner / driver / partner / agent / system / unknown 复用既有
-///   [OperationAuditActorType]，避免再发明一套 actor 枚举。
+/// - owner / driver / partner / agent / system / unknown 复用 core 层的
+///   [OperationActorType]，避免再发明一套 actor 枚举。
 library;
 
-import '../../data/models/operation_audit_log.dart' show OperationAuditActorType;
+import 'operation_actor_type.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ActorContext
@@ -23,7 +23,7 @@ import '../../data/models/operation_audit_log.dart' show OperationAuditActorType
 
 /// 描述“谁在发起这次操作”的上下文。
 ///
-/// 复用 [OperationAuditActorType] 作为 actor 类型枚举。
+/// 复用 [OperationActorType] 作为 actor 类型枚举。
 ///
 /// 业务规则（D23 第一版）：
 /// - owner 本地手动操作可允许 [actorId] 为空（本机就是 owner）。
@@ -50,7 +50,7 @@ class ActorContext {
         '${actorType.wireName} actor requires non-empty actorId',
       );
     }
-    if (actorType == OperationAuditActorType.agent) {
+    if (actorType == OperationActorType.agent) {
       // agent 的 delegated scope 必须成对出现：要么都给，要么都不给。
       final hasType = delegatedActorType != null;
       final hasId = delegatedActorId != null && delegatedActorId!.isNotEmpty;
@@ -60,14 +60,14 @@ class ActorContext {
           'delegatedActorType and non-empty delegatedActorId, or neither',
         );
       }
-      if (delegatedActorType == OperationAuditActorType.agent) {
+      if (delegatedActorType == OperationActorType.agent) {
         throw ArgumentError.value(
           delegatedActorType!.wireName,
           'delegatedActorType',
           'agent cannot delegate to another agent',
         );
       }
-      if (delegatedActorType == OperationAuditActorType.unknown) {
+      if (delegatedActorType == OperationActorType.unknown) {
         throw ArgumentError.value(
           delegatedActorType!.wireName,
           'delegatedActorType',
@@ -83,12 +83,12 @@ class ActorContext {
     }
   }
 
-  final OperationAuditActorType actorType;
+  final OperationActorType actorType;
   final String? actorId;
 
   /// 仅 agent 使用：被委托代表的真实 actor 类型（owner / driver / partner /
   /// system）。
-  final OperationAuditActorType? delegatedActorType;
+  final OperationActorType? delegatedActorType;
 
   /// 仅 agent 使用：被委托代表的真实 actor id。
   final String? delegatedActorId;
@@ -100,24 +100,24 @@ class ActorContext {
   /// [OperationAuditSource] 同语义但本模型不强耦合。
   final String? source;
 
-  bool get isOwner => actorType == OperationAuditActorType.owner;
-  bool get isDriver => actorType == OperationAuditActorType.driver;
-  bool get isPartner => actorType == OperationAuditActorType.partner;
-  bool get isAgent => actorType == OperationAuditActorType.agent;
-  bool get isSystem => actorType == OperationAuditActorType.system;
-  bool get isUnknown => actorType == OperationAuditActorType.unknown;
+  bool get isOwner => actorType == OperationActorType.owner;
+  bool get isDriver => actorType == OperationActorType.driver;
+  bool get isPartner => actorType == OperationActorType.partner;
+  bool get isAgent => actorType == OperationActorType.agent;
+  bool get isSystem => actorType == OperationActorType.system;
+  bool get isUnknown => actorType == OperationActorType.unknown;
 
   /// driver / partner / agent 必须携带 [actorId]；owner / system / unknown
   /// 可不携带。
   bool get requiresActorId {
     switch (actorType) {
-      case OperationAuditActorType.driver:
-      case OperationAuditActorType.partner:
-      case OperationAuditActorType.agent:
+      case OperationActorType.driver:
+      case OperationActorType.partner:
+      case OperationActorType.agent:
         return true;
-      case OperationAuditActorType.owner:
-      case OperationAuditActorType.system:
-      case OperationAuditActorType.unknown:
+      case OperationActorType.owner:
+      case OperationActorType.system:
+      case OperationActorType.unknown:
         return false;
     }
   }
@@ -131,7 +131,7 @@ class ActorContext {
 
   /// 用于鉴权 / 可见性判断的“有效 actor 类型”：
   /// agent 带 delegated scope 时返回 delegated 类型，否则返回原始 [actorType]。
-  OperationAuditActorType get effectiveActorType {
+  OperationActorType get effectiveActorType {
     if (isAgent && hasDelegatedScope) {
       return delegatedActorType!;
     }
@@ -154,10 +154,10 @@ class ActorContext {
     if (rawType is! String || rawType.isEmpty) {
       throw ArgumentError.value(rawType, 'actor_type', 'Missing required field');
     }
-    final actorType = OperationAuditActorType.fromWireName(rawType);
+    final actorType = OperationActorType.fromWireName(rawType);
     final rawDelegatedType = map['delegated_actor_type'];
     final delegatedActorType = rawDelegatedType is String && rawDelegatedType.isNotEmpty
-        ? OperationAuditActorType.fromWireName(rawDelegatedType)
+        ? OperationActorType.fromWireName(rawDelegatedType)
         : null;
     return ActorContext(
       actorType: actorType,
@@ -335,12 +335,12 @@ class OperationPermissionDecision {
   final bool allowed;
   final String reason;
   final OperationPermissionAction action;
-  final OperationAuditActorType actorType;
+  final OperationActorType actorType;
   final bool requiresConfirmation;
 
   factory OperationPermissionDecision.allow({
     required OperationPermissionAction action,
-    required OperationAuditActorType actorType,
+    required OperationActorType actorType,
     bool requiresConfirmation = false,
     String reason = '',
   }) {
@@ -355,7 +355,7 @@ class OperationPermissionDecision {
 
   factory OperationPermissionDecision.deny({
     required OperationPermissionAction action,
-    required OperationAuditActorType actorType,
+    required OperationActorType actorType,
     required String reason,
   }) {
     if (reason.isEmpty) {
@@ -440,15 +440,15 @@ class OperationPermissionPolicy {
     final effective = actor.effectiveActorType;
 
     switch (effective) {
-      case OperationAuditActorType.owner:
+      case OperationActorType.owner:
         return _evaluateForOwner(actor, action);
-      case OperationAuditActorType.driver:
+      case OperationActorType.driver:
         return _evaluateForDriver(actor, action);
-      case OperationAuditActorType.partner:
+      case OperationActorType.partner:
         return _evaluateForPartner(actor, action);
-      case OperationAuditActorType.agent:
-      case OperationAuditActorType.system:
-      case OperationAuditActorType.unknown:
+      case OperationActorType.agent:
+      case OperationActorType.system:
+      case OperationActorType.unknown:
         // 不应到达：上方已处理。
         return OperationPermissionDecision.deny(
           action: action,
@@ -676,11 +676,11 @@ class OperationVisibilityDecision {
   final bool visible;
   final String reason;
   final OperationVisibilityCapability capability;
-  final OperationAuditActorType actorType;
+  final OperationActorType actorType;
 
   factory OperationVisibilityDecision.visible({
     required OperationVisibilityCapability capability,
-    required OperationAuditActorType actorType,
+    required OperationActorType actorType,
     String reason = '',
   }) {
     return OperationVisibilityDecision._(
@@ -693,7 +693,7 @@ class OperationVisibilityDecision {
 
   factory OperationVisibilityDecision.hidden({
     required OperationVisibilityCapability capability,
-    required OperationAuditActorType actorType,
+    required OperationActorType actorType,
     required String reason,
   }) {
     if (reason.isEmpty) {
@@ -723,7 +723,7 @@ class OperationVisibilityDecision {
 
 /// 纯函数可见性策略（D23 第一版）。
 ///
-/// agent 不因为 [OperationAuditActorType.agent] 本身就拥有任何敏感可见性，
+/// agent 不因为 [OperationActorType.agent] 本身就拥有任何敏感可见性，
 /// 必须显式委托。
 class OperationVisibilityPolicy {
   const OperationVisibilityPolicy();
@@ -759,19 +759,19 @@ class OperationVisibilityPolicy {
     final effective = actor.effectiveActorType;
 
     switch (effective) {
-      case OperationAuditActorType.owner:
+      case OperationActorType.owner:
         return OperationVisibilityDecision.visible(
           capability: capability,
           actorType: actor.actorType,
           reason: 'owner sees everything',
         );
-      case OperationAuditActorType.driver:
+      case OperationActorType.driver:
         return _evaluateForDriver(actor, capability);
-      case OperationAuditActorType.partner:
+      case OperationActorType.partner:
         return _evaluateForPartner(actor, capability);
-      case OperationAuditActorType.agent:
-      case OperationAuditActorType.system:
-      case OperationAuditActorType.unknown:
+      case OperationActorType.agent:
+      case OperationActorType.system:
+      case OperationActorType.unknown:
         return OperationVisibilityDecision.hidden(
           capability: capability,
           actorType: actor.actorType,
