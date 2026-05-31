@@ -1,12 +1,11 @@
 import 'package:asset_ledger/core/operations/operation_access_control.dart';
-import 'package:asset_ledger/data/models/operation_audit_log.dart'
-    show OperationAuditActorType;
+import 'package:asset_ledger/core/operations/operation_actor_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ActorContext', () {
     test('owner may omit actorId', () {
-      final owner = ActorContext(actorType: OperationAuditActorType.owner);
+      final owner = ActorContext(actorType: OperationActorType.owner);
       expect(owner.isOwner, isTrue);
       expect(owner.actorId, isNull);
       expect(owner.requiresActorId, isFalse);
@@ -14,8 +13,8 @@ void main() {
 
     test('driver / partner / agent require actorId', () {
       for (final type in [
-        OperationAuditActorType.driver,
-        OperationAuditActorType.partner,
+        OperationActorType.driver,
+        OperationActorType.partner,
       ]) {
         expect(
           () => ActorContext(actorType: type),
@@ -27,7 +26,7 @@ void main() {
         expect(ok.actorId, 'a-1');
       }
       expect(
-        () => ActorContext(actorType: OperationAuditActorType.agent),
+        () => ActorContext(actorType: OperationActorType.agent),
         throwsArgumentError,
       );
     });
@@ -36,24 +35,24 @@ void main() {
       // 没有 delegated scope：仍可构造（保留为“裸 agent”），但
       // hasDelegatedScope=false，effectiveActorType=agent。
       final bareAgent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
       );
       expect(bareAgent.hasDelegatedScope, isFalse);
-      expect(bareAgent.effectiveActorType, OperationAuditActorType.agent);
+      expect(bareAgent.effectiveActorType, OperationActorType.agent);
 
       // 仅给了 type 或仅给了 id：拒绝。
       expect(
         () => ActorContext(
-          actorType: OperationAuditActorType.agent,
+          actorType: OperationActorType.agent,
           actorId: 'agent-1',
-          delegatedActorType: OperationAuditActorType.owner,
+          delegatedActorType: OperationActorType.owner,
         ),
         throwsArgumentError,
       );
       expect(
         () => ActorContext(
-          actorType: OperationAuditActorType.agent,
+          actorType: OperationActorType.agent,
           actorId: 'agent-1',
           delegatedActorId: 'owner-1',
         ),
@@ -62,30 +61,30 @@ void main() {
 
       // 同时给了 type + id：成立。
       final delegated = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
-        delegatedActorType: OperationAuditActorType.owner,
+        delegatedActorType: OperationActorType.owner,
         delegatedActorId: 'owner-1',
       );
       expect(delegated.hasDelegatedScope, isTrue);
-      expect(delegated.effectiveActorType, OperationAuditActorType.owner);
+      expect(delegated.effectiveActorType, OperationActorType.owner);
     });
 
     test('agent cannot delegate to another agent or unknown', () {
       expect(
         () => ActorContext(
-          actorType: OperationAuditActorType.agent,
+          actorType: OperationActorType.agent,
           actorId: 'agent-1',
-          delegatedActorType: OperationAuditActorType.agent,
+          delegatedActorType: OperationActorType.agent,
           delegatedActorId: 'agent-2',
         ),
         throwsArgumentError,
       );
       expect(
         () => ActorContext(
-          actorType: OperationAuditActorType.agent,
+          actorType: OperationActorType.agent,
           actorId: 'agent-1',
-          delegatedActorType: OperationAuditActorType.unknown,
+          delegatedActorType: OperationActorType.unknown,
           delegatedActorId: 'x',
         ),
         throwsArgumentError,
@@ -95,8 +94,8 @@ void main() {
     test('non-agent actors cannot carry delegated scope', () {
       expect(
         () => ActorContext(
-          actorType: OperationAuditActorType.owner,
-          delegatedActorType: OperationAuditActorType.driver,
+          actorType: OperationActorType.owner,
+          delegatedActorType: OperationActorType.driver,
           delegatedActorId: 'd-1',
         ),
         throwsArgumentError,
@@ -104,16 +103,16 @@ void main() {
     });
 
     test('unknown actor is constructible but signals legacy only', () {
-      final unknown = ActorContext(actorType: OperationAuditActorType.unknown);
+      final unknown = ActorContext(actorType: OperationActorType.unknown);
       expect(unknown.isUnknown, isTrue);
       expect(unknown.requiresActorId, isFalse);
     });
 
     test('toMap / fromMap round-trip preserves all fields', () {
       final actor = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
-        delegatedActorType: OperationAuditActorType.driver,
+        delegatedActorType: OperationActorType.driver,
         delegatedActorId: 'driver-7',
         sessionId: 'session-abc',
         source: 'mcp',
@@ -126,7 +125,7 @@ void main() {
       expect(restored.sessionId, actor.sessionId);
       expect(restored.source, actor.source);
       expect(restored.hasDelegatedScope, isTrue);
-      expect(restored.effectiveActorType, OperationAuditActorType.driver);
+      expect(restored.effectiveActorType, OperationActorType.driver);
     });
 
     test('fromMap throws on missing actor_type', () {
@@ -228,7 +227,7 @@ void main() {
 
   group('OperationPermissionPolicy / owner', () {
     const policy = OperationPermissionPolicy();
-    final owner = ActorContext(actorType: OperationAuditActorType.owner);
+    final owner = ActorContext(actorType: OperationActorType.owner);
 
     test('owner may preview save timing record', () {
       final d = policy.canPerform(
@@ -295,7 +294,7 @@ void main() {
   group('OperationPermissionPolicy / driver', () {
     const policy = OperationPermissionPolicy();
     final driver = ActorContext(
-      actorType: OperationAuditActorType.driver,
+      actorType: OperationActorType.driver,
       actorId: 'driver-1',
     );
 
@@ -368,7 +367,7 @@ void main() {
   group('OperationPermissionPolicy / partner', () {
     const policy = OperationPermissionPolicy();
     final partner = ActorContext(
-      actorType: OperationAuditActorType.partner,
+      actorType: OperationActorType.partner,
       actorId: 'partner-1',
     );
 
@@ -425,7 +424,7 @@ void main() {
 
     test('agent without delegated scope is denied everything', () {
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
       );
       for (final action in OperationPermissionAction.values) {
@@ -440,9 +439,9 @@ void main() {
 
     test('agent delegated to owner may preview, but cannot execute writes', () {
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
-        delegatedActorType: OperationAuditActorType.owner,
+        delegatedActorType: OperationActorType.owner,
         delegatedActorId: 'owner-1',
       );
 
@@ -473,9 +472,9 @@ void main() {
 
     test('agent delegated to driver may read driver-scoped data only', () {
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
-        delegatedActorType: OperationAuditActorType.driver,
+        delegatedActorType: OperationActorType.driver,
         delegatedActorId: 'driver-1',
       );
       expect(
@@ -503,7 +502,7 @@ void main() {
     const policy = OperationPermissionPolicy();
 
     test('system is denied except for readAudit', () {
-      final sys = ActorContext(actorType: OperationAuditActorType.system);
+      final sys = ActorContext(actorType: OperationActorType.system);
       expect(
         policy
             .canPerform(
@@ -524,7 +523,7 @@ void main() {
     });
 
     test('unknown actor is denied every action', () {
-      final u = ActorContext(actorType: OperationAuditActorType.unknown);
+      final u = ActorContext(actorType: OperationActorType.unknown);
       for (final action in OperationPermissionAction.values) {
         expect(
           policy.canPerform(actor: u, action: action).allowed,
@@ -584,7 +583,7 @@ void main() {
 
   group('OperationVisibilityPolicy / owner', () {
     const policy = OperationVisibilityPolicy();
-    final owner = ActorContext(actorType: OperationAuditActorType.owner);
+    final owner = ActorContext(actorType: OperationActorType.owner);
 
     test('owner sees every capability', () {
       for (final cap in OperationVisibilityCapability.values) {
@@ -611,7 +610,7 @@ void main() {
   group('OperationVisibilityPolicy / driver', () {
     const policy = OperationVisibilityPolicy();
     final driver = ActorContext(
-      actorType: OperationAuditActorType.driver,
+      actorType: OperationActorType.driver,
       actorId: 'driver-1',
     );
 
@@ -666,7 +665,7 @@ void main() {
   group('OperationVisibilityPolicy / partner', () {
     const policy = OperationVisibilityPolicy();
     final partner = ActorContext(
-      actorType: OperationAuditActorType.partner,
+      actorType: OperationActorType.partner,
       actorId: 'partner-1',
     );
 
@@ -723,7 +722,7 @@ void main() {
 
     test('agent without delegated scope sees nothing', () {
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
       );
       for (final cap in OperationVisibilityCapability.values) {
@@ -737,9 +736,9 @@ void main() {
 
     test('agent delegated to driver follows driver visibility', () {
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
-        delegatedActorType: OperationAuditActorType.driver,
+        delegatedActorType: OperationActorType.driver,
         delegatedActorId: 'driver-1',
       );
       expect(
@@ -764,9 +763,9 @@ void main() {
 
     test('agent delegated to owner sees everything', () {
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
-        delegatedActorType: OperationAuditActorType.owner,
+        delegatedActorType: OperationActorType.owner,
         delegatedActorId: 'owner-1',
       );
       for (final cap in OperationVisibilityCapability.values) {
@@ -779,7 +778,7 @@ void main() {
     });
 
     test('system actor sees nothing in D23', () {
-      final sys = ActorContext(actorType: OperationAuditActorType.system);
+      final sys = ActorContext(actorType: OperationActorType.system);
       for (final cap in OperationVisibilityCapability.values) {
         expect(
           policy.canSee(actor: sys, capability: cap).visible,
@@ -790,7 +789,7 @@ void main() {
     });
 
     test('unknown actor sees nothing', () {
-      final u = ActorContext(actorType: OperationAuditActorType.unknown);
+      final u = ActorContext(actorType: OperationActorType.unknown);
       for (final cap in OperationVisibilityCapability.values) {
         expect(
           policy.canSee(actor: u, capability: cap).visible,
@@ -804,7 +803,7 @@ void main() {
   group('Serialization of decisions', () {
     test('PermissionDecision.toMap carries all fields (allow)', () {
       const policy = OperationPermissionPolicy();
-      final owner = ActorContext(actorType: OperationAuditActorType.owner);
+      final owner = ActorContext(actorType: OperationActorType.owner);
       final d = policy.canPerform(
         actor: owner,
         action: OperationPermissionAction.settleProject,
@@ -820,7 +819,7 @@ void main() {
     test('PermissionDecision.toMap carries all fields (deny)', () {
       const policy = OperationPermissionPolicy();
       final agent = ActorContext(
-        actorType: OperationAuditActorType.agent,
+        actorType: OperationActorType.agent,
         actorId: 'agent-1',
       );
       final d = policy.canPerform(
@@ -838,7 +837,7 @@ void main() {
       expect(
         () => OperationPermissionDecision.deny(
           action: OperationPermissionAction.readDevice,
-          actorType: OperationAuditActorType.owner,
+          actorType: OperationActorType.owner,
           reason: '',
         ),
         throwsArgumentError,
@@ -847,7 +846,7 @@ void main() {
 
     test('VisibilityDecision.toMap carries all fields (visible)', () {
       const policy = OperationVisibilityPolicy();
-      final owner = ActorContext(actorType: OperationAuditActorType.owner);
+      final owner = ActorContext(actorType: OperationActorType.owner);
       final d = policy.canSee(
         actor: owner,
         capability: OperationVisibilityCapability.profit,
@@ -861,7 +860,7 @@ void main() {
     test('VisibilityDecision.toMap carries all fields (hidden)', () {
       const policy = OperationVisibilityPolicy();
       final driver = ActorContext(
-        actorType: OperationAuditActorType.driver,
+        actorType: OperationActorType.driver,
         actorId: 'd-1',
       );
       final d = policy.canSee(
@@ -879,7 +878,7 @@ void main() {
       expect(
         () => OperationVisibilityDecision.hidden(
           capability: OperationVisibilityCapability.deviceName,
-          actorType: OperationAuditActorType.owner,
+          actorType: OperationActorType.owner,
           reason: '',
         ),
         throwsArgumentError,
