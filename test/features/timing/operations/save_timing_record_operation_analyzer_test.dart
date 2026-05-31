@@ -348,6 +348,396 @@ void main() {
       },
     );
   });
+
+  group('validateFreshness', () {
+    test('returns fresh when reanalysis matches previous result', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:p1', contact: '甲方', site: 'A');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:p1',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-fresh',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(projectId: ''),
+      );
+
+      final previous = await analyzer.analyze(input);
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: previous,
+      );
+
+      expect(verdict.isFresh, isTrue);
+      expect(verdict.staleReasons, isEmpty);
+      expect(verdict.latest, isNotNull);
+      expect(verdict.latest!.oldProjectId, previous.oldProjectId);
+    });
+
+    test('returns stale when old record is deleted', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:p1', contact: '甲方', site: 'A');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:p1',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-deleted',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(projectId: ''),
+      );
+      final previous = await analyzer.analyze(input);
+
+      await db.delete(
+        'timing_records',
+        where: 'id = ?',
+        whereArgs: [oldRecord.id],
+      );
+
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: previous,
+      );
+
+      expect(verdict.isFresh, isFalse);
+      expect(verdict.latest, isNull);
+      expect(verdict.staleReasons, hasLength(1));
+      expect(
+        verdict.staleReasons.single.type,
+        SaveTimingRecordStaleReasonType.oldRecordMissing,
+      );
+      expect(verdict.staleReasons.single.message, contains('已不存在'));
+    });
+
+    test('returns stale when old record is moved to another project', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:p1', contact: '甲方', site: 'A');
+      await _seedProject(db, projectId: 'project:p2', contact: '甲方', site: 'A2');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:p1',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-moved',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(projectId: ''),
+      );
+      final previous = await analyzer.analyze(input);
+      expect(previous.oldProjectId, 'project:p1');
+
+      // 模拟旧记录被搬到另一个项目（contact/site 一并改成 A2）。
+      await db.update(
+        'timing_records',
+        {'project_id': 'project:p2', 'site': 'A2'},
+        where: 'id = ?',
+        whereArgs: [oldRecord.id],
+      );
+
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: previous,
+      );
+
+      expect(verdict.isFresh, isFalse);
+      expect(verdict.latest, isNotNull);
+      final types = verdict.staleReasons.map((r) => r.type).toSet();
+      expect(types, contains(SaveTimingRecordStaleReasonType.oldProjectChanged));
+      final old = verdict.staleReasons.firstWhere(
+        (r) => r.type == SaveTimingRecordStaleReasonType.oldProjectChanged,
+      );
+      expect(old.previousValue, 'project:p1');
+      expect(old.latestValue, 'project:p2');
+    });
+
+    test(
+      'returns stale when a matching active project appears after preview',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        final input = SaveTimingRecordOperationAnalyzeInput(
+          operationId: 'op-newproject',
+          editingRecordId: null,
+          draftRecord: _draftRecord(
+            deviceId: deviceId,
+            contact: '新甲方',
+            site: '新工地',
+          ),
+        );
+
+        final previous = await analyzer.analyze(input);
+        expect(previous.wouldCreateNewProject, isTrue);
+        expect(previous.existingNewProjectId, isNull);
+
+        // 模拟在 preview 期间，另一个入口刚刚创建了同 contact/site 的 active 项目。
+        await _seedProject(
+          db,
+          projectId: 'project:fresh',
+          contact: '新甲方',
+          site: '新工地',
+        );
+
+        final verdict = await analyzer.validateFreshness(
+          input: input,
+          previousResult: previous,
+        );
+
+        expect(verdict.isFresh, isFalse);
+        final types = verdict.staleReasons.map((r) => r.type).toSet();
+        expect(
+          types,
+          containsAll(<SaveTimingRecordStaleReasonType>[
+            SaveTimingRecordStaleReasonType.wouldCreateNewProjectChanged,
+            SaveTimingRecordStaleReasonType.targetProjectChanged,
+          ]),
+        );
+      },
+    );
+
+    test('returns stale when merge groups change', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:a', contact: '甲方', site: 'A');
+      await _seedProject(db, projectId: 'project:b', contact: '甲方', site: 'B');
+      await _seedProject(db, projectId: 'project:c', contact: '甲方', site: 'C');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:a',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      final groupId = await _seedActiveMergeGroup(
+        db,
+        contact: '甲方',
+        members: const [('project:a', '甲方||A'), ('project:c', '甲方||C')],
+      );
+
+      // 编辑 → 把记录搬去 B（active），触发 projectChanged + 合并组检测。
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-merge-change',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(
+          projectId: '',
+          contact: '甲方',
+          site: 'B',
+        ),
+      );
+      final previous = await analyzer.analyze(input);
+      expect(previous.previewInput.willDissolveMerge, isTrue);
+      expect(previous.mergeGroupIdsToDissolve, contains(groupId));
+      expect(previous.preview.riskLevel, OperationRiskLevel.high);
+
+      // 在 confirm 之前，外部入口已经把合并组解除了。
+      await db.update(
+        'account_project_merge_groups',
+        {'is_active': 0, 'dissolved_at': '2026-05-19T00:00:00.000Z'},
+        where: 'id = ?',
+        whereArgs: [groupId],
+      );
+      await db.update(
+        'account_project_merge_members',
+        {'is_active': 0},
+        where: 'group_id = ?',
+        whereArgs: [groupId],
+      );
+
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: previous,
+      );
+
+      expect(verdict.isFresh, isFalse);
+      final types = verdict.staleReasons.map((r) => r.type).toSet();
+      expect(
+        types,
+        containsAll(<SaveTimingRecordStaleReasonType>[
+          SaveTimingRecordStaleReasonType.mergeGroupsChanged,
+          SaveTimingRecordStaleReasonType.willDissolveMergeChanged,
+          SaveTimingRecordStaleReasonType.riskLevelChanged,
+        ]),
+      );
+      expect(verdict.latest, isNotNull);
+      expect(verdict.latest!.mergeGroupIdsToDissolve, isEmpty);
+      expect(verdict.latest!.previewInput.willDissolveMerge, isFalse);
+      expect(verdict.latest!.preview.riskLevel, OperationRiskLevel.medium);
+    });
+
+    test('returns stale when settlement revoke prediction changes', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db, defaultUnitPrice: 100);
+      await _seedProject(
+        db,
+        projectId: 'project:settled',
+        contact: '甲方',
+        site: 'S',
+        status: ProjectStatus.settled,
+        settledAt: '2026-05-18T00:00:00.000Z',
+      );
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:settled',
+        contact: '甲方',
+        site: 'S',
+        hours: 1,
+        income: 100,
+      );
+      // 收款刚好覆盖 receivableFen(=10000) → preview 阶段不需要撤销结清。
+      await _seedPayment(db, projectId: 'project:settled', amountFen: 10000);
+
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-revoke-shift',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(projectId: ''),
+      );
+      final previous = await analyzer.analyze(input);
+      expect(previous.previewInput.willRevokeSettlement, isFalse);
+      expect(previous.preview.riskLevel, OperationRiskLevel.medium);
+
+      // confirm 前，另一入口撤回了收款 → 应收无人覆盖，结清不再成立。
+      await db.delete(
+        'account_payments',
+        where: 'project_id = ?',
+        whereArgs: ['project:settled'],
+      );
+
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: previous,
+      );
+
+      expect(verdict.isFresh, isFalse);
+      final types = verdict.staleReasons.map((r) => r.type).toSet();
+      expect(
+        types,
+        containsAll(<SaveTimingRecordStaleReasonType>[
+          SaveTimingRecordStaleReasonType.willRevokeSettlementChanged,
+          SaveTimingRecordStaleReasonType.riskLevelChanged,
+          SaveTimingRecordStaleReasonType.warningsChanged,
+        ]),
+      );
+      expect(verdict.latest!.previewInput.willRevokeSettlement, isTrue);
+      expect(verdict.latest!.preview.riskLevel, OperationRiskLevel.high);
+    });
+
+    test('compares set fields without order sensitivity', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:a', contact: '甲方', site: 'A');
+      await _seedProject(db, projectId: 'project:b', contact: '甲方', site: 'B');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:a',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-order',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(
+          projectId: '',
+          contact: '甲方',
+          site: 'B',
+        ),
+      );
+
+      final actual = await analyzer.analyze(input);
+      // 至少包含 {project:a, project:b}，保证 reversed 与原顺序不同。
+      expect(actual.affectedProjectIds.length, greaterThanOrEqualTo(2));
+
+      // 构造一个"内容相同但顺序反转"的 previousResult，验证 set 比较顺序无关。
+      final reorderedPreviewInput = SaveTimingRecordOperationPreviewInput(
+        operationId: actual.previewInput.operationId,
+        isEditing: actual.previewInput.isEditing,
+        timingRecordId: actual.previewInput.timingRecordId,
+        deviceLabel: actual.previewInput.deviceLabel,
+        projectLabel: actual.previewInput.projectLabel,
+        oldProjectLabel: actual.previewInput.oldProjectLabel,
+        newProjectLabel: actual.previewInput.newProjectLabel,
+        projectChanged: actual.previewInput.projectChanged,
+        willDissolveMerge: actual.previewInput.willDissolveMerge,
+        willRevokeSettlement: actual.previewInput.willRevokeSettlement,
+        affectedEntities: actual.previewInput.affectedEntities,
+        warnings: actual.previewInput.warnings.reversed.toList(growable: false),
+      );
+      final reordered = SaveTimingRecordOperationAnalyzeResult(
+        previewInput: reorderedPreviewInput,
+        preview: actual.preview,
+        oldProjectId: actual.oldProjectId,
+        existingNewProjectId: actual.existingNewProjectId,
+        wouldCreateNewProject: actual.wouldCreateNewProject,
+        affectedProjectIds: actual.affectedProjectIds.reversed
+            .toList(growable: false),
+        mergeGroupIdsToDissolve: actual.mergeGroupIdsToDissolve.reversed
+            .toList(growable: false),
+        requiresReanalysisBeforeExecute: actual.requiresReanalysisBeforeExecute,
+        warnings: actual.warnings.reversed.toList(growable: false),
+      );
+
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: reordered,
+      );
+
+      expect(verdict.isFresh, isTrue);
+      expect(verdict.staleReasons, isEmpty);
+    });
+
+    test('does not write to the database while validating freshness', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:p1', contact: '甲方', site: 'A');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:p1',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      final input = SaveTimingRecordOperationAnalyzeInput(
+        operationId: 'op-no-writes',
+        editingRecordId: oldRecord.id,
+        draftRecord: oldRecord.copyWith(projectId: ''),
+      );
+      final previous = await analyzer.analyze(input);
+
+      final before = await _countRowsOfInterest(db);
+      final verdict = await analyzer.validateFreshness(
+        input: input,
+        previousResult: previous,
+      );
+      final after = await _countRowsOfInterest(db);
+
+      expect(verdict.isFresh, isTrue);
+      expect(after, before);
+    });
+  });
 }
 
 Future<Database> _openCurrentInMemoryDb() {
@@ -526,6 +916,25 @@ Future<int> _seedActiveMergeGroup(
     );
   }
   return groupId;
+}
+
+Future<Map<String, int>> _countRowsOfInterest(Database db) async {
+  const tables = [
+    'projects',
+    'timing_records',
+    'devices',
+    'account_payments',
+    'project_write_offs',
+    'account_project_merge_groups',
+    'account_project_merge_members',
+    'operation_audit_logs',
+  ];
+  final counts = <String, int>{};
+  for (final table in tables) {
+    final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM $table');
+    counts[table] = rows.first['c']! as int;
+  }
+  return counts;
 }
 
 Future<void> _seedPayment(

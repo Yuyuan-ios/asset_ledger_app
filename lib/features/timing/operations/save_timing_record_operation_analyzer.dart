@@ -63,6 +63,77 @@ class SaveTimingRecordAnalyzeException implements Exception {
   String toString() => 'SaveTimingRecordAnalyzeException: $message';
 }
 
+/// 预览过期原因。语义对应 D13 审计列出的关键状态漂移点。
+enum SaveTimingRecordStaleReasonType {
+  /// 重新 analyze 时旧 timing record 已不存在（或 analyzer 抛出 stale 异常）。
+  oldRecordMissing,
+
+  /// 旧 timing record 仍存在但归属的 oldProjectId 已变化。
+  oldProjectChanged,
+
+  /// 目标项目（existingNewProjectId）变化：另一条 active project 出现 / 消失 / 改名。
+  targetProjectChanged,
+
+  /// 是否会创建新项目的判断发生反转。
+  wouldCreateNewProjectChanged,
+
+  /// 受影响项目集合（含解除合并组带入的成员）变化。
+  affectedProjectIdsChanged,
+
+  /// 受影响合并组集合变化（dissolve、新建、成员变更等）。
+  mergeGroupsChanged,
+
+  /// previewInput.willDissolveMerge 发生反转。
+  willDissolveMergeChanged,
+
+  /// previewInput.willRevokeSettlement 发生反转。
+  willRevokeSettlementChanged,
+
+  /// preview.riskLevel 变化。
+  riskLevelChanged,
+
+  /// 警告集合（previewInput.warnings）变化。
+  warningsChanged,
+}
+
+class SaveTimingRecordStaleReason {
+  const SaveTimingRecordStaleReason({
+    required this.type,
+    required this.message,
+    this.previousValue,
+    this.latestValue,
+  });
+
+  final SaveTimingRecordStaleReasonType type;
+  final String message;
+  final Object? previousValue;
+  final Object? latestValue;
+
+  @override
+  String toString() {
+    return 'SaveTimingRecordStaleReason(${type.name}: $message; '
+        'previous=$previousValue, latest=$latestValue)';
+  }
+}
+
+/// validateFreshness 的判定结果。
+///
+/// - [isFresh] 为 true 时 [staleReasons] 必为空。
+/// - [isFresh] 为 false 时 [staleReasons] 至少包含一条原因。
+/// - [latest] 在重新 analyze 抛出 [SaveTimingRecordAnalyzeException] 时为 null
+///   （例如旧 record 已删除）；其它情况下为最新 analyze 结果。
+class SaveTimingRecordFreshnessVerdict {
+  const SaveTimingRecordFreshnessVerdict({
+    required this.isFresh,
+    required this.latest,
+    required this.staleReasons,
+  });
+
+  final bool isFresh;
+  final SaveTimingRecordOperationAnalyzeResult? latest;
+  final List<SaveTimingRecordStaleReason> staleReasons;
+}
+
 class SaveTimingRecordOperationAnalyzer {
   SaveTimingRecordOperationAnalyzer({
     required SaveTimingRecordOperationCommand command,
@@ -255,6 +326,138 @@ class SaveTimingRecordOperationAnalyzer {
       requiresReanalysisBeforeExecute: true,
       warnings: List.unmodifiable(warnings),
     );
+  }
+
+  /// 重新 analyze 同一份 [input]，与 [previousResult] 关键字段比对，判断 preview
+  /// 是否仍然新鲜。纯只读：不写 DB、不调 execute、不写 audit。
+  ///
+  /// 重新 analyze 抛 [SaveTimingRecordAnalyzeException] 时（例如旧 record 已被
+  /// 删除）不向上抛错，而是返回 `isFresh: false` + `oldRecordMissing` 原因，
+  /// 让调用方统一以 verdict 形式处理"过期"。其它异常（例如 DB 错误、
+  /// "多个 active 项目匹配同一联系人和工地" 等结构性错误）仍向上传播，因为
+  /// 它们不是"漂移"，是真实 bug。
+  Future<SaveTimingRecordFreshnessVerdict> validateFreshness({
+    required SaveTimingRecordOperationAnalyzeInput input,
+    required SaveTimingRecordOperationAnalyzeResult previousResult,
+  }) async {
+    SaveTimingRecordOperationAnalyzeResult latest;
+    try {
+      latest = await analyze(input);
+    } on SaveTimingRecordAnalyzeException catch (error) {
+      return SaveTimingRecordFreshnessVerdict(
+        isFresh: false,
+        latest: null,
+        staleReasons: List.unmodifiable([
+          SaveTimingRecordStaleReason(
+            type: SaveTimingRecordStaleReasonType.oldRecordMissing,
+            message: error.message,
+          ),
+        ]),
+      );
+    }
+
+    final reasons = <SaveTimingRecordStaleReason>[];
+
+    void diffScalar(
+      SaveTimingRecordStaleReasonType type,
+      String label,
+      Object? prev,
+      Object? next,
+    ) {
+      if (prev == next) return;
+      reasons.add(
+        SaveTimingRecordStaleReason(
+          type: type,
+          message: '$label: $prev → $next',
+          previousValue: prev,
+          latestValue: next,
+        ),
+      );
+    }
+
+    void diffSet<T>(
+      SaveTimingRecordStaleReasonType type,
+      String label,
+      Iterable<T> prev,
+      Iterable<T> next,
+    ) {
+      if (_unorderedSetEquals(prev, next)) return;
+      reasons.add(
+        SaveTimingRecordStaleReason(
+          type: type,
+          message: '$label: ${prev.toSet()} → ${next.toSet()}',
+          previousValue: prev.toList(growable: false),
+          latestValue: next.toList(growable: false),
+        ),
+      );
+    }
+
+    diffScalar(
+      SaveTimingRecordStaleReasonType.oldProjectChanged,
+      '旧项目身份',
+      previousResult.oldProjectId,
+      latest.oldProjectId,
+    );
+    diffScalar(
+      SaveTimingRecordStaleReasonType.targetProjectChanged,
+      '目标项目',
+      previousResult.existingNewProjectId,
+      latest.existingNewProjectId,
+    );
+    diffScalar(
+      SaveTimingRecordStaleReasonType.wouldCreateNewProjectChanged,
+      '是否会创建新项目',
+      previousResult.wouldCreateNewProject,
+      latest.wouldCreateNewProject,
+    );
+    diffSet(
+      SaveTimingRecordStaleReasonType.affectedProjectIdsChanged,
+      '受影响项目集合',
+      previousResult.affectedProjectIds,
+      latest.affectedProjectIds,
+    );
+    diffSet(
+      SaveTimingRecordStaleReasonType.mergeGroupsChanged,
+      '受影响合并组集合',
+      previousResult.mergeGroupIdsToDissolve,
+      latest.mergeGroupIdsToDissolve,
+    );
+    diffScalar(
+      SaveTimingRecordStaleReasonType.willDissolveMergeChanged,
+      '是否解除合并组',
+      previousResult.previewInput.willDissolveMerge,
+      latest.previewInput.willDissolveMerge,
+    );
+    diffScalar(
+      SaveTimingRecordStaleReasonType.willRevokeSettlementChanged,
+      '是否撤销结清',
+      previousResult.previewInput.willRevokeSettlement,
+      latest.previewInput.willRevokeSettlement,
+    );
+    diffScalar(
+      SaveTimingRecordStaleReasonType.riskLevelChanged,
+      '风险等级',
+      previousResult.preview.riskLevel,
+      latest.preview.riskLevel,
+    );
+    diffSet(
+      SaveTimingRecordStaleReasonType.warningsChanged,
+      '警告集合',
+      previousResult.previewInput.warnings,
+      latest.previewInput.warnings,
+    );
+
+    return SaveTimingRecordFreshnessVerdict(
+      isFresh: reasons.isEmpty,
+      latest: latest,
+      staleReasons: List.unmodifiable(reasons),
+    );
+  }
+
+  static bool _unorderedSetEquals<T>(Iterable<T> a, Iterable<T> b) {
+    final setA = a.toSet();
+    final setB = b.toSet();
+    return setA.length == setB.length && setA.containsAll(setB);
   }
 
   Future<TimingRecord?> _readOldRecord(
