@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:asset_ledger/core/operations/operation_models.dart';
 import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
+import 'package:asset_ledger/data/models/operation_audit_log.dart';
+import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
@@ -95,12 +99,159 @@ void main() {
       expect(result.auditId, isNull);
     });
 
-    test('operationId mismatch fails before analyzer and command', () async {
-      final analyzer = _FakeAnalyzer();
+    test('stale with audit writes failure audit', () async {
+      final analyzer = _FakeAnalyzer()
+        ..verdict = const SaveTimingRecordFreshnessVerdict(
+          isFresh: false,
+          latest: null,
+          staleReasons: [
+            SaveTimingRecordStaleReason(
+              type: SaveTimingRecordStaleReasonType.oldRecordMissing,
+              message: '记录已不存在',
+            ),
+          ],
+        );
+      final auditRepo = _FakeAuditRepo();
       final command = _FakeCommand();
       final adapter = SaveTimingRecordOperationConfirmAdapter(
         analyzer: analyzer,
         command: command,
+        auditRepository: auditRepo,
+        actorType: OperationAuditActorType.agent,
+        actorId: 'agent-1',
+        source: OperationAuditSource.mcp,
+        now: () => DateTime.utc(2026, 5, 31, 8),
+        auditIdFactory: () => 'audit-stale-1',
+      );
+      var saveCalled = false;
+
+      final result = await adapter.executeConfirmedWithFreshness(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        executeSaveWithExecutor: (_) async {
+          saveCalled = true;
+          return _saveResult();
+        },
+      );
+
+      expect(command.executeCalls, 0);
+      expect(saveCalled, isFalse);
+      expect(result.success, isFalse);
+      expect(result.auditId, 'audit-stale-1');
+      expect(result.error, 'preview_stale:oldRecordMissing');
+
+      expect(auditRepo.inserted, hasLength(1));
+      final audit = auditRepo.inserted.single;
+      expect(audit.id, 'audit-stale-1');
+      expect(audit.operationId, 'op-save-1');
+      expect(audit.operationType, OperationType.saveTimingRecord);
+      expect(audit.actorType, OperationAuditActorType.agent);
+      expect(audit.actorId, 'agent-1');
+      expect(audit.source, OperationAuditSource.mcp);
+      expect(audit.createdAt, DateTime.utc(2026, 5, 31, 8));
+      expect(audit.entityRefs, [_projectRef]);
+      expect(audit.preview?.operationId, 'op-save-1');
+      expect(audit.toMap()['preview_snapshot_json'], isA<String>());
+      expect(audit.confirmed, isTrue);
+      expect(audit.result, OperationAuditResult.failure);
+
+      final errorJson = jsonDecode(audit.errorMessage!) as Map<String, Object?>;
+      expect(errorJson['code'], 'preview_stale');
+      expect(errorJson['reasons'], ['oldRecordMissing']);
+    });
+
+    test('stale with multiple reasons writes all reason codes', () async {
+      final analyzer = _FakeAnalyzer()
+        ..verdict = const SaveTimingRecordFreshnessVerdict(
+          isFresh: false,
+          latest: null,
+          staleReasons: [
+            SaveTimingRecordStaleReason(
+              type: SaveTimingRecordStaleReasonType.oldProjectChanged,
+              message: '旧项目变化',
+            ),
+            SaveTimingRecordStaleReason(
+              type: SaveTimingRecordStaleReasonType.mergeGroupsChanged,
+              message: '合并组变化',
+            ),
+          ],
+        );
+      final auditRepo = _FakeAuditRepo();
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: _FakeCommand(),
+        auditRepository: auditRepo,
+        auditIdFactory: () => 'audit-stale-2',
+      );
+
+      final result = await adapter.executeConfirmedWithFreshness(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(
+        result.error,
+        'preview_stale:oldProjectChanged,mergeGroupsChanged',
+      );
+      final errorJson =
+          jsonDecode(auditRepo.inserted.single.errorMessage!)
+              as Map<String, Object?>;
+      expect(errorJson['reasons'], ['oldProjectChanged', 'mergeGroupsChanged']);
+    });
+
+    test('stale audit insert failure does not execute save', () async {
+      final analyzer = _FakeAnalyzer()
+        ..verdict = const SaveTimingRecordFreshnessVerdict(
+          isFresh: false,
+          latest: null,
+          staleReasons: [
+            SaveTimingRecordStaleReason(
+              type: SaveTimingRecordStaleReasonType.oldRecordMissing,
+              message: '记录已不存在',
+            ),
+          ],
+        );
+      final auditRepo = _FakeAuditRepo()..insertError = StateError('disk full');
+      final command = _FakeCommand();
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        auditRepository: auditRepo,
+        auditIdFactory: () => 'audit-stale-fail',
+      );
+      var saveCalled = false;
+
+      final result = await adapter.executeConfirmedWithFreshness(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        executeSaveWithExecutor: (_) async {
+          saveCalled = true;
+          return _saveResult();
+        },
+      );
+
+      expect(command.executeCalls, 0);
+      expect(saveCalled, isFalse);
+      expect(result.success, isFalse);
+      expect(result.auditId, isNull);
+      expect(result.error, contains('preview_stale:oldRecordMissing'));
+      expect(result.error, contains('audit_write_failed'));
+      expect(result.error, contains('disk full'));
+      expect(auditRepo.inserted, isEmpty);
+    });
+
+    test('operationId mismatch fails before analyzer and command', () async {
+      final analyzer = _FakeAnalyzer();
+      final command = _FakeCommand();
+      final auditRepo = _FakeAuditRepo();
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        auditRepository: auditRepo,
       );
       var saveCalled = false;
 
@@ -120,6 +271,7 @@ void main() {
       expect(analyzer.validateCalls, 0);
       expect(command.executeCalls, 0);
       expect(saveCalled, isFalse);
+      expect(auditRepo.inserted, isEmpty);
     });
 
     test(
@@ -128,9 +280,11 @@ void main() {
         final analyzer = _FakeAnalyzer()
           ..throwOnValidate = StateError('db busy');
         final command = _FakeCommand();
+        final auditRepo = _FakeAuditRepo();
         final adapter = SaveTimingRecordOperationConfirmAdapter(
           analyzer: analyzer,
           command: command,
+          auditRepository: auditRepo,
         );
         var saveCalled = false;
 
@@ -152,6 +306,7 @@ void main() {
         expect(result.error, contains('freshness_check_failed'));
         expect(result.error, contains('db busy'));
         expect(result.auditId, isNull);
+        expect(auditRepo.inserted, isEmpty);
       },
     );
 
@@ -204,9 +359,11 @@ void main() {
           auditId: 'audit-from-command',
         ),
       );
+      final auditRepo = _FakeAuditRepo();
       final adapter = SaveTimingRecordOperationConfirmAdapter(
         analyzer: analyzer,
         command: command,
+        auditRepository: auditRepo,
       );
 
       final result = await adapter.executeConfirmedWithFreshness(
@@ -219,6 +376,7 @@ void main() {
       expect(command.executeCalls, 1);
       expect(result.success, isTrue);
       expect(result.auditId, 'audit-from-command');
+      expect(auditRepo.inserted, isEmpty);
     });
   });
 }
@@ -354,4 +512,44 @@ class _FakeCommand extends SaveTimingRecordOperationCommand {
 class _FakeExecutor implements OperationDatabaseExecutor {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeAuditRepo implements OperationAuditLogRepository {
+  final inserted = <OperationAuditLog>[];
+  Object? insertError;
+
+  @override
+  Future<void> insert(OperationAuditLog log) async {
+    final error = insertError;
+    if (error != null) throw error;
+    inserted.add(log);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    Object? executor,
+    OperationAuditLog log,
+  ) async {
+    throw UnimplementedError('not used by confirm adapter tests');
+  }
+
+  @override
+  Future<OperationAuditLog?> findById(String id) async {
+    for (final log in inserted) {
+      if (log.id == id) return log;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listByOperationId(String operationId) async {
+    return inserted
+        .where((log) => log.operationId == operationId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listRecent({int limit = 50}) async {
+    return inserted.take(limit).toList(growable: false);
+  }
 }
