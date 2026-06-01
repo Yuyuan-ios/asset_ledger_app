@@ -31,31 +31,6 @@ class ProjectDetailShareButton extends StatelessWidget {
   }
 }
 
-class ProjectDetailExcelExportButton extends StatelessWidget {
-  const ProjectDetailExcelExportButton({super.key, required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 38,
-      child: IconButton(
-        key: const Key('project-detail-excel-export-button'),
-        tooltip: '导出工时表',
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-        style: IconButton.styleFrom(
-          foregroundColor: const Color(0xFF111111),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: const Icon(Icons.table_chart_outlined, size: 28),
-        onPressed: onPressed,
-      ),
-    );
-  }
-}
-
 const int _shareNameMaxLength = 30;
 
 /// 轻量输入弹窗：返回去空格后的非空名称；取消返回 null。

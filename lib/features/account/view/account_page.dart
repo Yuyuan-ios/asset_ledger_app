@@ -745,15 +745,8 @@ class _AccountPageState extends State<AccountPage>
       ),
       footerEnabled: false,
       onConfirm: () => Navigator.of(context).maybePop(),
-      titleTrailingBuilder: (_) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      titleTrailingBuilder: (_) =>
           ProjectDetailShareButton(onPressed: () => _openProjectShare(project)),
-          ProjectDetailExcelExportButton(
-            onPressed: () => _exportProjectTimingWorklog(project),
-          ),
-        ],
-      ),
       headerTrailingBuilder: (headerContext) => IconButton(
         tooltip: '关闭',
         icon: const Icon(Icons.close),
@@ -837,15 +830,7 @@ class _AccountPageState extends State<AccountPage>
       return;
     }
 
-    final scope = latestProject.kind == AccountProjectKind.merged
-        ? TimingWorklogExportScope.mergedProject(
-            memberProjectIds: latestProject.memberProjectIds,
-            fileNamePart: latestProject.displayName,
-          )
-        : TimingWorklogExportScope.singleProject(
-            projectId: latestProject.effectiveProjectId,
-            fileNamePart: latestProject.displayName,
-          );
+    final scope = _timingWorklogExportScope(latestProject);
 
     final outcome = await context
         .read<ExportTimingWorklogExcelUseCase>()
@@ -856,6 +841,23 @@ class _AccountPageState extends State<AccountPage>
         );
     if (!mounted) return;
     _toast(outcome.message);
+  }
+
+  TimingWorklogExportScope _timingWorklogExportScope(AccountProjectVM project) {
+    return project.kind == AccountProjectKind.merged
+        ? TimingWorklogExportScope.mergedProject(
+            memberProjectIds: project.memberProjectIds,
+            fileNamePart: project.displayName,
+          )
+        : TimingWorklogExportScope.singleProject(
+            projectId: project.effectiveProjectId,
+            fileNamePart: project.displayName,
+          );
+  }
+
+  bool _hasProjectTimingWorklog(AccountProjectVM project) {
+    final scope = _timingWorklogExportScope(project);
+    return context.read<TimingStore>().records.any(scope.includes);
   }
 
   // 项目详情右上角“分享项目”：输入分享人/包名 → 生成 .jzt 文件并调起系统分享面板。
@@ -1040,6 +1042,8 @@ class _AccountPageState extends State<AccountPage>
                               projects: viewData.filteredProjects,
                               isCompact: _isCompactProjectList,
                               onTap: _openProjectDetail,
+                              onExportWorklog: _exportProjectTimingWorklog,
+                              canExportWorklog: _hasProjectTimingWorklog,
                             ),
                           ),
                           _AccountProjectAreaTabBody(

@@ -25,6 +25,10 @@ const double _externalWorkCardMetricTopGap = 12;
 const double _accountProjectEmptyTopPadding = 48;
 const double _accountProjectEmptyBottomPadding = 24;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
+const Key _accountProjectWorklogExportButtonKey = Key(
+  'account-project-worklog-export-button',
+);
+const double _worklogExportButtonSize = 30;
 const Key _accountProjectLinkedExternalWorkBadgeKey = Key(
   'account-project-linked-external-work-badge',
 );
@@ -51,6 +55,8 @@ class AccountProjectList extends StatelessWidget {
     required this.onTap,
     this.externalWorkProjects = const [],
     this.isCompact = false,
+    this.onExportWorklog,
+    this.canExportWorklog,
     this.emptyText = '暂无项目（计时页有记录后将自动出现）',
   });
 
@@ -58,6 +64,8 @@ class AccountProjectList extends StatelessWidget {
   final List<AccountExternalWorkProjectVM> externalWorkProjects;
   final ValueChanged<AccountProjectVM> onTap;
   final bool isCompact;
+  final ValueChanged<AccountProjectVM>? onExportWorklog;
+  final bool Function(AccountProjectVM project)? canExportWorklog;
   final String emptyText;
 
   _PriceBadgeStyle _priceBadgeStyle(AccountProjectPriceBadgeKind kind) {
@@ -149,6 +157,66 @@ class AccountProjectList extends StatelessWidget {
     );
   }
 
+  bool _showWorklogExport(AccountProjectVM project) {
+    if (onExportWorklog == null) return false;
+    final predicate = canExportWorklog;
+    return predicate == null || predicate(project);
+  }
+
+  Widget _worklogExportButton(BuildContext context, AccountProjectVM project) {
+    final color = AppColors.textPrimary.withValues(alpha: 0.64);
+    return SizedBox.square(
+      dimension: _worklogExportButtonSize,
+      child: IconButton(
+        key: _accountProjectWorklogExportButtonKey,
+        tooltip: '导出工时表',
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(
+          width: _worklogExportButtonSize,
+          height: _worklogExportButtonSize,
+        ),
+        style: IconButton.styleFrom(
+          foregroundColor: color,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: const Icon(
+          Icons.file_upload_outlined,
+          size: 17,
+          semanticLabel: '导出工时表',
+        ),
+        onPressed: () => onExportWorklog?.call(project),
+      ),
+    );
+  }
+
+  Widget _totalHoursWithExportAction({
+    required BuildContext context,
+    required AccountProjectVM project,
+    required String totalHoursText,
+    required TextStyle? style,
+    required bool showExport,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Flexible(
+          child: Text(
+            totalHoursText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            textAlign: TextAlign.right,
+            style: style,
+          ),
+        ),
+        if (showExport) ...[
+          const SizedBox(width: 2),
+          _worklogExportButton(context, project),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final emptyStyle = AppTypography.bodySecondary(
@@ -216,6 +284,7 @@ class AccountProjectList extends StatelessWidget {
               final badgeStyle = _priceBadgeStyle(vm.priceBadgeKind);
               final isSettled = vm.isSettled;
               final displayProgress = vm.displayProgress;
+              final showExport = _showWorklogExport(p);
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;
@@ -308,15 +377,23 @@ class AccountProjectList extends StatelessWidget {
                               width: AccountTokens.projectCardTitleDateGap,
                             ),
                             Flexible(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  vm.topRightText,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.right,
-                                  style: dateStyle,
-                                ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      vm.topRightText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.right,
+                                      style: dateStyle,
+                                    ),
+                                  ),
+                                  if (isCompact && showExport) ...[
+                                    const SizedBox(width: 2),
+                                    _worklogExportButton(context, p),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
@@ -359,16 +436,12 @@ class AccountProjectList extends StatelessWidget {
                               if (totalHoursText != null) ...[
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      totalHoursText,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
-                                      textAlign: TextAlign.right,
-                                      style: totalHoursStyle,
-                                    ),
+                                  child: _totalHoursWithExportAction(
+                                    context: context,
+                                    project: p,
+                                    totalHoursText: totalHoursText,
+                                    style: totalHoursStyle,
+                                    showExport: showExport,
                                   ),
                                 ),
                               ],
