@@ -55,10 +55,11 @@ class BuildTimingWorklogReportUseCase {
   }
 
   static String _deviceDisplayName(int deviceId, Device? device) {
+    final brand = device?.brand.trim() ?? '';
+    final model = device?.model?.trim() ?? '';
+    if (brand.isNotEmpty || model.isNotEmpty) return '$brand$model';
     final name = device?.name.trim() ?? '';
     if (name.isNotEmpty) return name;
-    final brand = device?.brand.trim() ?? '';
-    if (brand.isNotEmpty) return brand;
     return '设备$deviceId';
   }
 
