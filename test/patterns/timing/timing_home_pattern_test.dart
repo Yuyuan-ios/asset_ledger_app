@@ -390,6 +390,80 @@ void main() {
     expect(importTapped, isTrue);
     expect(linkTapped, isTrue);
   });
+
+  testWidgets('recent menu exports currently filtered detail records', (
+    tester,
+  ) async {
+    final exported = <TimingRecord>[];
+    const hitachi = Device(
+      id: 1,
+      name: 'HITACHI 1#',
+      brand: 'HITACHI',
+      defaultUnitPrice: 100,
+      baseMeterHours: 2000,
+    );
+    const sany = Device(
+      id: 2,
+      name: 'SANY 1#',
+      brand: 'SANY',
+      defaultUnitPrice: 120,
+      baseMeterHours: 2000,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimingHomePattern(
+          header: const SizedBox(height: 20),
+          chart: const SizedBox(height: 80),
+          recordsSection: TimingRecordsSection.recent,
+          onRecordsSectionChanged: (_) {},
+          records: [
+            _timingRecord(
+              id: 1,
+              deviceId: 1,
+              contact: '张三',
+              site: '天眉乐',
+              startMeter: 100,
+              endMeter: 108,
+              hours: 8,
+            ),
+            _timingRecord(
+              id: 2,
+              deviceId: 2,
+              contact: '李四',
+              site: '尚义',
+              startMeter: 200,
+              endMeter: 205,
+              hours: 5,
+            ),
+          ],
+          externalWorkItems: const [],
+          deviceById: const {1: hitachi, 2: sany},
+          deviceIndexById: const {1: '1#', 2: '1#'},
+          onExportTimingWorklog: (records) => exported.addAll(records),
+          loading: false,
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HITACHI 1#'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('timing-recent-device-filter-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('导出工时表'), findsOneWidget);
+    await tester.tap(find.text('导出工时表'));
+    await tester.pumpAndSettle();
+
+    expect(exported, hasLength(1));
+    expect(exported.single.deviceId, 1);
+  });
 }
 
 TimingRecord _timingRecord({

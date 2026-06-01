@@ -19,6 +19,7 @@ import '../../../features/timing/operations/save_timing_record_operation_command
 import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
 import '../../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
+import '../../../features/reports/use_cases/export_timing_worklog_excel_use_case.dart';
 import '../../../features/external_work/import_preview/view/external_work_import_preview_page.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
@@ -703,6 +704,22 @@ class _TimingPageState extends State<TimingPage> {
 
   // 阶段6：选择 .jzt 文件 → 读取文本 → 进入现有外协导入预览。
   // 不解析 envelope（交给现有 parser/duplicate checker/importer）。
+
+  Future<void> _exportTimingWorklog(List<TimingRecord> records) async {
+    if (records.isEmpty) {
+      _toast('暂无可导出的计时记录');
+      return;
+    }
+    final outcome = await context
+        .read<ExportTimingWorklogExcelUseCase>()
+        .execute(
+          records: records,
+          devices: context.read<DeviceStore>().allDevices,
+        );
+    if (!mounted) return;
+    _toast(outcome.message);
+  }
+
   Future<void> _openImportExternalWorkShare() async {
     final result = await context
         .read<PickExternalWorkShareFileUseCase>()
@@ -795,6 +812,7 @@ class _TimingPageState extends State<TimingPage> {
       onTapExternalWorkRecord: _openExternalWorkDetail,
       onImportExternalWork: _openImportExternalWorkShare,
       onLinkExternalWork: _openExternalWorkLinkSheet,
+      onExportTimingWorklog: _exportTimingWorklog,
       loading: loading,
       error: error,
       onRetry: () => _retryLoad(),

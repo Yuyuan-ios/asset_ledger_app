@@ -6,6 +6,7 @@ import '../../data/repositories/timing_repository.dart';
 import '../../data/services/project_resolver.dart';
 import '../../features/account/use_cases/project_share_export_use_case.dart';
 import '../../features/timing/application/controllers/timing_action_controller.dart';
+import '../../features/reports/use_cases/export_timing_worklog_excel_use_case.dart';
 import '../../features/timing/state/timing_store.dart';
 
 /// Timing composition slice: timing repository + store.
@@ -46,6 +47,9 @@ class TimingProviders {
         Provider<TimingActionController>.value(value: timingActionController),
         Provider<ProjectShareExportUseCase>.value(
           value: ProjectShareExportUseCase(calculationHistoryRepository),
+        ),
+        Provider<ExportTimingWorklogExcelUseCase>.value(
+          value: ExportTimingWorklogExcelUseCase(),
         ),
         ChangeNotifierProvider<TimingStore>.value(value: timingStore),
       ],
