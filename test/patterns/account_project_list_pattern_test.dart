@@ -65,7 +65,7 @@ void main() {
   });
 
   testWidgets(
-    'normal project card shows worklog export icon after total hours',
+    'normal project card shows worklog export icon before total hours',
     (tester) async {
       const project = AccountProjectVM(
         projectKey: 'zhao-shangyi',
@@ -104,13 +104,13 @@ void main() {
       expect(find.byTooltip('导出工时表'), findsOneWidget);
       expect(find.byIcon(Icons.file_upload_outlined), findsOneWidget);
 
-      final totalRight = tester.getTopRight(find.text('总共:  10.5 h')).dx;
-      final exportLeft = tester
-          .getTopLeft(
+      final totalLeft = tester.getTopLeft(find.text('总共:  10.5 h')).dx;
+      final exportRight = tester
+          .getTopRight(
             find.byKey(const Key('account-project-worklog-export-button')),
           )
           .dx;
-      expect(exportLeft, greaterThanOrEqualTo(totalRight - 1));
+      expect((totalLeft - exportRight).abs(), lessThanOrEqualTo(1));
 
       await tester.tap(
         find.byKey(const Key('account-project-worklog-export-button')),
@@ -122,7 +122,7 @@ void main() {
   );
 
   testWidgets(
-    'merged project card shows worklog export icon after total hours',
+    'merged project card shows worklog export icon before total hours',
     (tester) async {
       const project = AccountProjectVM(
         projectKey: 'merge:1',
