@@ -9,9 +9,24 @@ import 'package:asset_ledger/features/timing/operations/save_timing_record_opera
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_confirm_adapter.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
+import 'package:asset_ledger/core/operations/operation_access_control.dart';
+import 'package:asset_ledger/core/operations/operation_actor_scope.dart';
+import 'package:asset_ledger/core/operations/operation_actor_type.dart';
+import 'package:asset_ledger/core/operations/operation_confirmation_token.dart';
+import 'package:asset_ledger/data/db/database.dart';
+import 'package:asset_ledger/data/db/db_schema.dart';
+import 'package:asset_ledger/data/models/operation_token_record.dart';
+import 'package:asset_ledger/data/repositories/operation_token_repository.dart';
+import 'package:asset_ledger/infrastructure/local/operations/local_operation_transaction_runner.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../test_setup.dart';
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  configureTestDatabase();
+
   group('SaveTimingRecordOperationConfirmAdapter', () {
     test('fresh verdict calls command and forwards execute closure', () async {
       final analyzer = _FakeAnalyzer()
@@ -379,6 +394,557 @@ void main() {
       expect(auditRepo.inserted, isEmpty);
     });
   });
+
+  group('executeConfirmedWithToken (unit, fakes)', () {
+    final scope = ActorScope.fullOwner(ownerId: 'owner-1');
+    final ownerActor = ActorContext(actorType: OperationActorType.owner);
+    final checkedNow = DateTime.utc(2026, 5, 31, 8);
+
+    test('token not found: no freshness, no command, no execute', () async {
+      final analyzer = _FakeAnalyzer();
+      final command = _FakeCommand();
+      final tokenRepo = _FakeTokenRepository();
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'missing',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, 'token_not_found');
+      expect(analyzer.validateCalls, 0);
+      expect(command.executeCalls, 0);
+      expect(tokenRepo.claimCalls, 0);
+    });
+
+    test('actor id mismatch: token_invalid, no claim, no execute', () async {
+      final driverScope = ActorScope.devices(deviceIds: const ['1']);
+      final analyzer = _FakeAnalyzer();
+      final command = _FakeCommand();
+      final tokenRepo = _FakeTokenRepository()
+        ..seed(_record(
+          _token(
+            actorType: OperationActorType.driver,
+            actorId: 'driver-A',
+            scope: driverScope,
+          ),
+        ));
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ActorContext(
+          actorType: OperationActorType.driver,
+          actorId: 'driver-B',
+        ),
+        scope: driverScope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('token_invalid'));
+      expect(result.error, contains('actor_id_mismatch'));
+      expect(analyzer.validateCalls, 0);
+      expect(command.executeCalls, 0);
+      expect(tokenRepo.claimCalls, 0);
+    });
+
+    test('scope hash mismatch: token_invalid, no claim', () async {
+      final command = _FakeCommand();
+      final tokenRepo = _FakeTokenRepository()
+        ..seed(_record(_token(scope: scope)));
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: _FakeAnalyzer(),
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: ActorScope.devices(deviceIds: const ['9']),
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('scope_hash_mismatch'));
+      expect(command.executeCalls, 0);
+      expect(tokenRepo.claimCalls, 0);
+    });
+
+    test('expired token: token_invalid token_expired, no claim', () async {
+      final command = _FakeCommand();
+      final tokenRepo = _FakeTokenRepository()
+        ..seed(_record(_token(
+          scope: scope,
+          createdAt: DateTime.utc(2026, 5, 31, 6),
+          expiresAt: DateTime.utc(2026, 5, 31, 7, 30),
+        )));
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: _FakeAnalyzer(),
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow, // 08:00 > expiresAt 07:30
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('token_expired'));
+      expect(command.executeCalls, 0);
+      expect(tokenRepo.claimCalls, 0);
+    });
+
+    test('redactedPreviewHash mismatch: token_invalid, no claim', () async {
+      final command = _FakeCommand();
+      final tokenRepo = _FakeTokenRepository()
+        ..seed(_record(_token(scope: scope, redactedPreviewHash: 'h-red')));
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: _FakeAnalyzer(),
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        redactedPreviewHash: 'tampered',
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('redacted_preview_hash_mismatch'));
+      expect(command.executeCalls, 0);
+      expect(tokenRepo.claimCalls, 0);
+    });
+
+    test('stale preview: valid token but stale -> no claim, token stays issued', () async {
+      final analyzer = _FakeAnalyzer()
+        ..verdict = const SaveTimingRecordFreshnessVerdict(
+          isFresh: false,
+          latest: null,
+          staleReasons: [
+            SaveTimingRecordStaleReason(
+              type: SaveTimingRecordStaleReasonType.oldProjectChanged,
+              message: '旧项目变化',
+            ),
+          ],
+        );
+      final command = _FakeCommand();
+      final tokenRepo = _FakeTokenRepository()
+        ..seed(_record(_token(scope: scope)));
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('preview_stale'));
+      expect(analyzer.validateCalls, 1);
+      expect(command.executeCalls, 0);
+      expect(tokenRepo.claimCalls, 0);
+      expect(
+        (await tokenRepo.findById('tok-1'))!.status,
+        OperationConfirmationTokenStatus.issued,
+      );
+    });
+
+    test('fresh + claim success + business success consumes token', () async {
+      final analyzer = _FakeAnalyzer(); // default fresh
+      final tokenRepo = _FakeTokenRepository()
+        ..seed(_record(_token(scope: scope)));
+      final auditRepo = _FakeAuditRepo();
+      final command = SaveTimingRecordOperationCommand(
+        transactionRunner: _FakeTransactionRunner(),
+        auditRepository: auditRepo,
+        auditIdFactory: () => 'audit-real-1',
+      );
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+      var saveCalled = false;
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async {
+          saveCalled = true;
+          return _saveResult(userMessage: '已保存');
+        },
+      );
+
+      expect(result.success, isTrue);
+      expect(saveCalled, isTrue);
+      expect(tokenRepo.claimCalls, 1);
+      expect(
+        (await tokenRepo.findById('tok-1'))!.status,
+        OperationConfirmationTokenStatus.consumed,
+      );
+      expect(auditRepo.inserted, hasLength(1));
+    });
+
+    test('claim false: business not executed, token_claim_failed', () async {
+      final analyzer = _FakeAnalyzer();
+      final tokenRepo = _FakeTokenRepository()
+        ..claimSucceeds = false
+        ..seed(_record(_token(scope: scope)));
+      final auditRepo = _FakeAuditRepo();
+      final command = SaveTimingRecordOperationCommand(
+        transactionRunner: _FakeTransactionRunner(),
+        auditRepository: auditRepo,
+        auditIdFactory: () => 'audit-real-2',
+      );
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: analyzer,
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+      var saveCalled = false;
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async {
+          saveCalled = true;
+          return _saveResult();
+        },
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('token_claim_failed'));
+      expect(saveCalled, isFalse);
+      expect(tokenRepo.claimCalls, 1);
+      expect(auditRepo.inserted, isEmpty);
+    });
+
+    test('missing token repository returns failure (no execute)', () async {
+      final command = _FakeCommand();
+      final adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: _FakeAnalyzer(),
+        command: command,
+      );
+
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, 'token_repository_unavailable');
+      expect(command.executeCalls, 0);
+    });
+  });
+
+  group('executeConfirmedWithToken (integration, real sqflite tx)', () {
+    final scope = ActorScope.fullOwner(ownerId: 'owner-1');
+    final ownerActor = ActorContext(actorType: OperationActorType.owner);
+    final checkedNow = DateTime.utc(2026, 5, 31, 8);
+
+    late SqfliteOperationTokenRepository tokenRepo;
+    late SqfliteOperationAuditLogRepository auditRepo;
+    late SaveTimingRecordOperationConfirmAdapter adapter;
+
+    setUp(() async {
+      await AppDatabase.resetForTest();
+      await _openCurrentInMemoryDb();
+      tokenRepo = SqfliteOperationTokenRepository();
+      auditRepo = SqfliteOperationAuditLogRepository();
+      final command = SaveTimingRecordOperationCommand(
+        transactionRunner: const LocalOperationTransactionRunner(),
+        auditRepository: auditRepo,
+        auditIdFactory: () => 'audit-int-1',
+      );
+      adapter = SaveTimingRecordOperationConfirmAdapter(
+        analyzer: _FakeAnalyzer(), // fresh
+        command: command,
+        tokenRepository: tokenRepo,
+      );
+      await tokenRepo.insert(_record(_token(scope: scope)));
+    });
+
+    tearDown(() async {
+      await AppDatabase.resetForTest();
+    });
+
+    test('success commits: token consumed + audit row written in one tx', () async {
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(userMessage: 'ok'),
+      );
+
+      expect(result.success, isTrue);
+      expect(
+        (await tokenRepo.findById('tok-1'))!.status,
+        OperationConfirmationTokenStatus.consumed,
+      );
+      expect(await auditRepo.listByOperationId('op-save-1'), hasLength(1));
+    });
+
+    test('business failure rolls back claim: token stays issued, no audit', () async {
+      final result = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => throw StateError('business boom'),
+      );
+
+      expect(result.success, isFalse);
+      expect(
+        (await tokenRepo.findById('tok-1'))!.status,
+        OperationConfirmationTokenStatus.issued,
+      );
+      expect(await auditRepo.listByOperationId('op-save-1'), isEmpty);
+    });
+
+    test('replay after success is blocked (token not issued)', () async {
+      final first = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+      expect(first.success, isTrue);
+
+      final replay = await adapter.executeConfirmedWithToken(
+        analyzeInput: _analyzeInput(),
+        previousAnalyzeResult: _previousResult(),
+        operationId: 'op-save-1',
+        tokenId: 'tok-1',
+        actor: ownerActor,
+        scope: scope,
+        now: checkedNow,
+        executeSaveWithExecutor: (_) async => _saveResult(),
+      );
+      expect(replay.success, isFalse);
+      expect(replay.error, contains('token_not_issued'));
+      // exactly one successful audit; replay wrote none.
+      expect(await auditRepo.listByOperationId('op-save-1'), hasLength(1));
+    });
+  });
+}
+
+OperationConfirmationToken _token({
+  String tokenId = 'tok-1',
+  String operationId = 'op-save-1',
+  OperationActorType actorType = OperationActorType.owner,
+  String? actorId,
+  OperationActorType? delegatedActorType,
+  String? delegatedActorId,
+  String? sessionId,
+  required ActorScope scope,
+  String? redactedPreviewHash,
+  DateTime? createdAt,
+  DateTime? expiresAt,
+}) {
+  return OperationConfirmationToken(
+    tokenId: tokenId,
+    operationId: operationId,
+    operationType: OperationType.saveTimingRecord,
+    actorType: actorType,
+    actorId: actorId,
+    delegatedActorType: delegatedActorType,
+    delegatedActorId: delegatedActorId,
+    sessionId: sessionId,
+    createdAt: createdAt ?? DateTime.utc(2026, 5, 31, 7),
+    expiresAt: expiresAt ?? DateTime.utc(2026, 5, 31, 9),
+    inputHash:
+        SaveTimingRecordOperationConfirmAdapter.inputHashFor(_analyzeInput()),
+    fullAnalysisHash: SaveTimingRecordOperationConfirmAdapter.fullAnalysisHashFor(
+      _previousResult(),
+    ),
+    redactedPreviewHash: redactedPreviewHash,
+    actorScopeHash: OperationConfirmationFingerprint.stableHash(scope.toMap()),
+  );
+}
+
+OperationTokenRecord _record(OperationConfirmationToken token) {
+  return OperationTokenRecord(token: token);
+}
+
+Future<Database> _openCurrentInMemoryDb() {
+  AppDatabase.debugInitDbOverride = () {
+    return openDatabase(
+      inMemoryDatabasePath,
+      version: AppDatabase.schemaVersion,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
+      onCreate: (db, _) => DbSchema.create(db),
+    );
+  };
+  return AppDatabase.database;
+}
+
+class _FakeTransactionRunner implements OperationTransactionRunner {
+  @override
+  Future<T> run<T>(
+    Future<T> Function(OperationDatabaseExecutor executor) action,
+  ) {
+    return action(_FakeExecutor());
+  }
+}
+
+class _FakeTokenRepository implements OperationTokenRepository {
+  final Map<String, OperationTokenRecord> _store = {};
+  bool claimSucceeds = true;
+  int claimCalls = 0;
+  String? lastClaimId;
+
+  void seed(OperationTokenRecord record) => _store[record.id] = record;
+
+  @override
+  Future<OperationTokenRecord?> findById(String id) async => _store[id];
+
+  @override
+  Future<bool> claimForConsumeWithExecutor(
+    Object? executor, {
+    required String id,
+    required DateTime now,
+  }) async {
+    claimCalls += 1;
+    lastClaimId = id;
+    if (!claimSucceeds) return false;
+    final record = _store[id];
+    if (record == null) return false;
+    if (record.status != OperationConfirmationTokenStatus.issued) return false;
+    if (!record.expiresAt.isAfter(now)) return false;
+    _store[id] = record.asConsumed(now);
+    return true;
+  }
+
+  @override
+  Future<bool> claimForConsume({
+    required String id,
+    required DateTime now,
+  }) =>
+      claimForConsumeWithExecutor(null, id: id, now: now);
+
+  @override
+  Future<void> insert(OperationTokenRecord record) async => seed(record);
+
+  @override
+  Future<void> insertWithExecutor(
+    Object? executor,
+    OperationTokenRecord record,
+  ) async =>
+      seed(record);
+
+  @override
+  Future<OperationTokenRecord?> findByIdWithExecutor(
+    Object? executor,
+    String id,
+  ) async =>
+      _store[id];
+
+  @override
+  Future<List<OperationTokenRecord>> listByOperationId(
+    String operationId,
+  ) async {
+    return _store.values
+        .where((r) => r.operationId == operationId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<OperationTokenRecord>> listActiveByActorSession({
+    required OperationActorType actorType,
+    String? actorId,
+    String? sessionId,
+    required DateTime now,
+    int limit = 50,
+  }) async =>
+      const [];
+
+  @override
+  Future<bool> markCancelled({
+    required String id,
+    required DateTime cancelledAt,
+    String? reason,
+  }) async =>
+      false;
+
+  @override
+  Future<int> markExpiredBefore(DateTime now) async => 0;
 }
 
 const _projectRef = OperationEntityRef(
@@ -530,7 +1096,9 @@ class _FakeAuditRepo implements OperationAuditLogRepository {
     Object? executor,
     OperationAuditLog log,
   ) async {
-    throw UnimplementedError('not used by confirm adapter tests');
+    final error = insertError;
+    if (error != null) throw error;
+    inserted.add(log);
   }
 
   @override
