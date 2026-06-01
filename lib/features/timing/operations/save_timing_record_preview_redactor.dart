@@ -1,4 +1,6 @@
 import '../../../core/operations/operation_access_control.dart';
+import '../../../core/operations/operation_actor_scope.dart';
+import '../../../core/operations/operation_actor_type.dart';
 import '../../../core/operations/operation_models.dart';
 import 'save_timing_record_operation_analyzer.dart';
 import 'save_timing_record_operation_command.dart';
@@ -25,14 +27,19 @@ import 'save_timing_record_operation_preview_adapter.dart';
 class SaveTimingRecordPreviewRedactor {
   const SaveTimingRecordPreviewRedactor({
     this.visibilityPolicy = const OperationVisibilityPolicy(),
+    this.scopePolicy = const OperationScopePolicy(),
   });
 
   final OperationVisibilityPolicy visibilityPolicy;
+  final OperationScopePolicy scopePolicy;
 
   RedactedSaveTimingRecordPreview redact({
     required SaveTimingRecordOperationPreviewResponse response,
     required ActorContext actor,
+    required ActorScope scope,
+    DateTime? now,
   }) {
+    final checkedAt = now ?? DateTime.now().toUtc();
     bool sees(OperationVisibilityCapability capability) =>
         visibilityPolicy.canSee(actor: actor, capability: capability).visible;
 
@@ -47,6 +54,25 @@ class SaveTimingRecordPreviewRedactor {
         sees(OperationVisibilityCapability.contactSite);
     final seesFinance = sees(OperationVisibilityCapability.financialAmount);
     final seesDevice = sees(OperationVisibilityCapability.deviceName);
+
+    final scopeCheck = _checkScope(
+      response: response,
+      actor: actor,
+      scope: scope,
+      now: checkedAt,
+    );
+    if (!scopeCheck.allowed) {
+      return _none(
+        response,
+        const [],
+        OperationVisibilityCapability.values,
+        scopeAllowed: false,
+        scopeReasons: scopeCheck.reasons,
+        summary: '预览内容已隐藏',
+        redactionReasons: const ['资源范围未授权，预览内容已隐藏'],
+        includeFreshness: false,
+      );
+    }
 
     final _Mode mode;
     if (seesProject && seesFinance) {
@@ -94,6 +120,8 @@ class SaveTimingRecordPreviewRedactor {
       redactionReasons: const [],
       visibleCapabilities: List.unmodifiable(visible),
       hiddenCapabilities: List.unmodifiable(hidden),
+      scopeAllowed: true,
+      scopeReasons: const [],
     );
   }
 
@@ -162,6 +190,8 @@ class SaveTimingRecordPreviewRedactor {
       redactionReasons: _redactionReasons(),
       visibleCapabilities: List.unmodifiable(visible),
       hiddenCapabilities: List.unmodifiable(hidden),
+      scopeAllowed: true,
+      scopeReasons: const [],
     );
   }
 
@@ -170,13 +200,18 @@ class SaveTimingRecordPreviewRedactor {
   RedactedSaveTimingRecordPreview _none(
     SaveTimingRecordOperationPreviewResponse response,
     List<OperationVisibilityCapability> visible,
-    List<OperationVisibilityCapability> hidden,
-  ) {
+    List<OperationVisibilityCapability> hidden, {
+    bool scopeAllowed = true,
+    List<String> scopeReasons = const [],
+    String summary = '',
+    List<String> redactionReasons = const ['无委托范围，全部隐藏'],
+    bool includeFreshness = true,
+  }) {
     final shell = OperationPreview(
       operationId: response.preview.operationId,
       operationType: response.preview.operationType,
       title: response.preview.title,
-      summary: '',
+      summary: summary,
       warnings: const [],
       affectedEntities: const [],
       impactItems: const [],
@@ -200,15 +235,151 @@ class SaveTimingRecordPreviewRedactor {
         mergeGroupIdsToDissolve: [],
         warnings: [],
       ),
-      freshness: _typeOnlyFreshness(response.freshness),
+      freshness: includeFreshness
+          ? _typeOnlyFreshness(response.freshness)
+          : null,
       redacted: true,
-      redactionReasons: const ['无委托范围，全部隐藏'],
+      redactionReasons: List.unmodifiable(redactionReasons),
       visibleCapabilities: List.unmodifiable(visible),
       hiddenCapabilities: List.unmodifiable(hidden),
+      scopeAllowed: scopeAllowed,
+      scopeReasons: List.unmodifiable(scopeReasons),
     );
   }
 
   // ── helpers ────────────────────────────────────────────────────────────────
+
+  _ScopeCheckResult _checkScope({
+    required SaveTimingRecordOperationPreviewResponse response,
+    required ActorContext actor,
+    required ActorScope scope,
+    required DateTime now,
+  }) {
+    if (scope.isExpired(now)) {
+      return _ScopeCheckResult.deny(const ['scope expired']);
+    }
+    if (actor.isAgent && !actor.hasDelegatedScope) {
+      return _ScopeCheckResult.deny(const ['no delegated actor scope']);
+    }
+
+    switch (actor.effectiveActorType) {
+      case OperationActorType.owner:
+        if (scope.isFullOwner) return const _ScopeCheckResult.allow();
+        return _ScopeCheckResult.deny(const ['scope missing']);
+      case OperationActorType.driver:
+        return _checkScopedCandidates(
+          response: response,
+          actor: actor,
+          scope: scope,
+          now: now,
+          allowedTypes: const {
+            OperationResourceType.device,
+            OperationResourceType.timingRecord,
+          },
+        );
+      case OperationActorType.partner:
+        return _checkScopedCandidates(
+          response: response,
+          actor: actor,
+          scope: scope,
+          now: now,
+          allowedTypes: const {
+            OperationResourceType.device,
+            OperationResourceType.externalPackage,
+          },
+        );
+      case OperationActorType.agent:
+        return _ScopeCheckResult.deny(const ['no delegated actor scope']);
+      case OperationActorType.system:
+      case OperationActorType.unknown:
+        return _ScopeCheckResult.deny(const ['scope missing']);
+    }
+  }
+
+  _ScopeCheckResult _checkScopedCandidates({
+    required SaveTimingRecordOperationPreviewResponse response,
+    required ActorContext actor,
+    required ActorScope scope,
+    required DateTime now,
+    required Set<OperationResourceType> allowedTypes,
+  }) {
+    final candidates = _resourceCandidates(response)
+        .where((candidate) => allowedTypes.contains(candidate.type))
+        .toList(growable: false);
+    if (candidates.isEmpty) {
+      return _ScopeCheckResult.deny(const ['missing resource identifiers']);
+    }
+
+    final deniedTypes = <OperationResourceType>{};
+    for (final candidate in candidates) {
+      final decision = scopePolicy.canAccessResource(
+        actor: actor,
+        scope: scope,
+        resourceType: candidate.type,
+        resourceId: candidate.id,
+        now: now,
+      );
+      if (decision.allowed) return const _ScopeCheckResult.allow();
+      deniedTypes.add(candidate.type);
+    }
+
+    return _ScopeCheckResult.deny(_scopeDeniedReasons(deniedTypes));
+  }
+
+  List<_ResourceCandidate> _resourceCandidates(
+    SaveTimingRecordOperationPreviewResponse response,
+  ) {
+    final results = <_ResourceCandidate>[];
+    final seen = <String>{};
+
+    void add(OperationResourceType type, String? rawId) {
+      final id = _trimToNull(rawId);
+      if (id == null) return;
+      final key = '${type.wireName}:$id';
+      if (seen.add(key)) results.add(_ResourceCandidate(type: type, id: id));
+    }
+
+    for (final entity in response.preview.affectedEntities) {
+      switch (entity.entityType) {
+        case 'device':
+          add(OperationResourceType.device, entity.deviceId ?? entity.entityId);
+        case 'timing_record':
+          add(OperationResourceType.timingRecord, entity.entityId);
+        case 'project':
+          add(
+            OperationResourceType.project,
+            entity.projectId ?? entity.entityId,
+          );
+        case 'external_package':
+          add(OperationResourceType.externalPackage, entity.entityId);
+      }
+    }
+
+    add(
+      OperationResourceType.timingRecord,
+      response.analysis.previewInput.timingRecordId,
+    );
+
+    return List.unmodifiable(results);
+  }
+
+  List<String> _scopeDeniedReasons(Set<OperationResourceType> deniedTypes) {
+    final reasons = <String>[];
+    if (deniedTypes.contains(OperationResourceType.device)) {
+      reasons.add('device not in actor scope');
+    }
+    if (deniedTypes.contains(OperationResourceType.timingRecord)) {
+      reasons.add('timing record not in actor scope');
+    }
+    if (reasons.isEmpty) reasons.add('scope missing');
+    return List.unmodifiable(reasons);
+  }
+
+  String? _trimToNull(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
+  }
 
   /// 非 owner 的 freshness：只保留 stale reason 的 type，丢弃可能含内部 ID /
   /// 标签的 message / previousValue / latestValue。
@@ -272,15 +443,30 @@ class SaveTimingRecordPreviewRedactor {
   }
 
   List<String> _redactionReasons() {
-    return const [
-      '项目 / 联系人 / 工地信息已隐藏',
-      '财务相关信息已隐藏',
-      '内部标识已剥离',
-    ];
+    return const ['项目 / 联系人 / 工地信息已隐藏', '财务相关信息已隐藏', '内部标识已剥离'];
   }
 }
 
 enum _Mode { full, partial, none }
+
+class _ScopeCheckResult {
+  const _ScopeCheckResult._({required this.allowed, required this.reasons});
+
+  const _ScopeCheckResult.allow() : this._(allowed: true, reasons: const []);
+
+  _ScopeCheckResult.deny(List<String> reasons)
+    : this._(allowed: false, reasons: List.unmodifiable(reasons));
+
+  final bool allowed;
+  final List<String> reasons;
+}
+
+class _ResourceCandidate {
+  const _ResourceCandidate({required this.type, required this.id});
+
+  final OperationResourceType type;
+  final String id;
+}
 
 /// 脱敏后的保存计时预览投影。对外展示用，**不是执行凭据**。
 class RedactedSaveTimingRecordPreview {
@@ -292,6 +478,8 @@ class RedactedSaveTimingRecordPreview {
     required this.redactionReasons,
     required this.visibleCapabilities,
     required this.hiddenCapabilities,
+    required this.scopeAllowed,
+    required this.scopeReasons,
   });
 
   final OperationPreview preview;
@@ -301,6 +489,8 @@ class RedactedSaveTimingRecordPreview {
   final List<String> redactionReasons;
   final List<OperationVisibilityCapability> visibleCapabilities;
   final List<OperationVisibilityCapability> hiddenCapabilities;
+  final bool scopeAllowed;
+  final List<String> scopeReasons;
 
   Map<String, Object?> toMap() {
     return {
@@ -309,12 +499,10 @@ class RedactedSaveTimingRecordPreview {
       'freshness': freshness?.toMap(),
       'redacted': redacted,
       'redaction_reasons': List<String>.from(redactionReasons),
-      'visible_capabilities': [
-        for (final c in visibleCapabilities) c.wireName,
-      ],
-      'hidden_capabilities': [
-        for (final c in hiddenCapabilities) c.wireName,
-      ],
+      'scope_allowed': scopeAllowed,
+      'scope_reasons': List<String>.from(scopeReasons),
+      'visible_capabilities': [for (final c in visibleCapabilities) c.wireName],
+      'hidden_capabilities': [for (final c in hiddenCapabilities) c.wireName],
     };
   }
 }
