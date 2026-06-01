@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/project.dart';
 import '../models/project_key.dart';
 import 'schema/external_work_schema.dart';
+import 'schema/operation_tokens_schema.dart';
 import 'schema/operations_schema.dart';
 import 'schema/sync_schema.dart';
 
@@ -14,6 +15,7 @@ part 'migrations/migration_019.dart';
 part 'migrations/migration_020.dart';
 part 'migrations/migration_021.dart';
 part 'migrations/migration_022.dart';
+part 'migrations/migration_023.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -58,6 +60,10 @@ class DbMigrations {
 
   static Future<void> ensureOperationAuditLogSchema(Database db) {
     return Migration022.ensureOperationAuditLogSchema(db);
+  }
+
+  static Future<void> ensureOperationTokensSchema(Database db) {
+    return Migration023.ensureOperationTokensSchema(db);
   }
 
   static Future<void> ensureProjectIdentitySchema(
