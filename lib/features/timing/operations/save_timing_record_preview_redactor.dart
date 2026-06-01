@@ -137,7 +137,11 @@ class SaveTimingRecordPreviewRedactor {
       affectedEntities: _deviceOnlyEntities(response.preview.affectedEntities),
       impactItems: _genericImpactItems(willDissolveMerge: willDissolveMerge),
       requiresConfirmation: response.preview.requiresConfirmation,
-      riskLevel: response.preview.riskLevel,
+      // D26.5：非 owner 一律归一化为 medium（save 基线）。上游
+      // command.preview 把 willRevokeSettlement || willDissolveMerge 映射成
+      // high；若原样透传，driver/partner/无 scope agent 可仅凭 riskLevel=high
+      // 反推出被隐藏的撤销结清 / 合并结构状态。owner 直通档不经过此处。
+      riskLevel: OperationRiskLevel.medium,
     );
 
     return RedactedSaveTimingRecordPreview(
@@ -177,7 +181,11 @@ class SaveTimingRecordPreviewRedactor {
       affectedEntities: const [],
       impactItems: const [],
       requiresConfirmation: response.preview.requiresConfirmation,
-      riskLevel: response.preview.riskLevel,
+      // D26.5：非 owner 一律归一化为 medium（save 基线）。上游
+      // command.preview 把 willRevokeSettlement || willDissolveMerge 映射成
+      // high；若原样透传，driver/partner/无 scope agent 可仅凭 riskLevel=high
+      // 反推出被隐藏的撤销结清 / 合并结构状态。owner 直通档不经过此处。
+      riskLevel: OperationRiskLevel.medium,
     );
 
     return RedactedSaveTimingRecordPreview(
