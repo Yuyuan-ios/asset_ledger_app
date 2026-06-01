@@ -769,9 +769,7 @@ void main() {
     expect(find.text('余: ¥22000 / ¥22000'), findsNothing);
   });
 
-  testWidgets('compact project card keeps worklog export icon available', (
-    tester,
-  ) async {
+  testWidgets('compact project card hides worklog export icon', (tester) async {
     const project = AccountProjectVM(
       projectKey: 'compact-export',
       displayName: '周亮 + 成都',
@@ -805,14 +803,14 @@ void main() {
     );
 
     expect(find.text('总共:  68 h'), findsNothing);
-    expect(find.byTooltip('导出工时表'), findsOneWidget);
-    expect(find.byIcon(Icons.file_upload_outlined), findsOneWidget);
-
-    await tester.tap(
+    expect(find.byTooltip('导出工时表'), findsNothing);
+    expect(find.byIcon(Icons.file_upload_outlined), findsNothing);
+    expect(
       find.byKey(const Key('account-project-worklog-export-button')),
+      findsNothing,
     );
 
-    expect(exported?.projectKey, 'compact-export');
+    expect(exported, isNull);
   });
 
   testWidgets('compact settled cards show net received text', (tester) async {
