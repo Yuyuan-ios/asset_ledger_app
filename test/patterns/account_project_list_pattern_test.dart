@@ -65,6 +65,152 @@ void main() {
   });
 
   testWidgets(
+    'normal project card shows worklog export icon after total hours',
+    (tester) async {
+      const project = AccountProjectVM(
+        projectKey: 'zhao-shangyi',
+        displayName: '赵六 · 尚义',
+        minYmd: 20260317,
+        deviceIds: [1],
+        hoursByDevice: {1: 9},
+        externalWorkHours: 1.5,
+        rentIncomeTotal: 0,
+        minRate: 120,
+        isMultiDevice: false,
+        isMultiMode: false,
+        receivable: 1080,
+        received: 1000,
+        remaining: 80,
+        ratio: 0.926,
+        payments: [],
+      );
+      AccountProjectVM? exported;
+      var openedDetail = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(
+              projects: const [project],
+              onTap: (_) => openedDetail = true,
+              onExportWorklog: (project) => exported = project,
+              canExportWorklog: (_) => true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('总共:  10.5 h'), findsOneWidget);
+      expect(find.byTooltip('导出工时表'), findsOneWidget);
+      expect(find.byIcon(Icons.file_upload_outlined), findsOneWidget);
+
+      final totalRight = tester.getTopRight(find.text('总共:  10.5 h')).dx;
+      final exportLeft = tester
+          .getTopLeft(
+            find.byKey(const Key('account-project-worklog-export-button')),
+          )
+          .dx;
+      expect(exportLeft, greaterThanOrEqualTo(totalRight - 1));
+
+      await tester.tap(
+        find.byKey(const Key('account-project-worklog-export-button')),
+      );
+
+      expect(exported?.projectKey, 'zhao-shangyi');
+      expect(openedDetail, isFalse);
+    },
+  );
+
+  testWidgets(
+    'merged project card shows worklog export icon after total hours',
+    (tester) async {
+      const project = AccountProjectVM(
+        projectKey: 'merge:1',
+        displayName: '赵六 · 合并2项目',
+        kind: AccountProjectKind.merged,
+        mergeGroupId: 1,
+        memberProjectIds: ['member-a', 'member-b'],
+        memberProjectKeys: ['赵六||尚义', '赵六||鲜滩'],
+        includedSites: ['尚义', '鲜滩'],
+        minYmd: 20260317,
+        deviceIds: [1],
+        hoursByDevice: {1: 12},
+        rentIncomeTotal: 0,
+        minRate: 120,
+        isMultiDevice: false,
+        isMultiMode: false,
+        receivable: 1440,
+        received: 1000,
+        remaining: 440,
+        ratio: 0.694,
+        payments: [],
+      );
+      AccountProjectVM? exported;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(
+              projects: const [project],
+              onTap: (_) {},
+              onExportWorklog: (project) => exported = project,
+              canExportWorklog: (_) => true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('总共:  12 h'), findsOneWidget);
+      expect(find.byTooltip('导出工时表'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const Key('account-project-worklog-export-button')),
+      );
+
+      expect(exported?.kind, AccountProjectKind.merged);
+      expect(exported?.memberProjectIds, ['member-a', 'member-b']);
+    },
+  );
+
+  testWidgets('project card hides export icon when no local worklog exists', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'external-only',
+      displayName: '赵六 · 尚义',
+      minYmd: 20260317,
+      deviceIds: [],
+      hoursByDevice: {},
+      externalWorkHours: 10,
+      rentIncomeTotal: 0,
+      minRate: 120,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1080,
+      received: 0,
+      remaining: 1080,
+      ratio: 0,
+      payments: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [project],
+            onTap: (_) {},
+            onExportWorklog: (_) {},
+            canExportWorklog: (_) => false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('总共:  10 h'), findsOneWidget);
+    expect(find.byTooltip('导出工时表'), findsNothing);
+  });
+
+  testWidgets(
     'shows included sites after received percent for merged projects',
     (tester) async {
       const project = AccountProjectVM(
@@ -621,6 +767,52 @@ void main() {
     expect(find.text('待收 ¥22000'), findsOneWidget);
     expect(find.text('余: ¥7240 / ¥12240'), findsNothing);
     expect(find.text('余: ¥22000 / ¥22000'), findsNothing);
+  });
+
+  testWidgets('compact project card keeps worklog export icon available', (
+    tester,
+  ) async {
+    const project = AccountProjectVM(
+      projectKey: 'compact-export',
+      displayName: '周亮 + 成都',
+      minYmd: 20260515,
+      deviceIds: [1, 2],
+      hoursByDevice: {1: 18, 2: 50},
+      rentIncomeTotal: 0,
+      minRate: 180,
+      isMultiDevice: true,
+      isMultiMode: false,
+      receivable: 12240,
+      received: 5000,
+      remaining: 7240,
+      ratio: 0.408,
+      payments: [],
+    );
+    AccountProjectVM? exported;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [project],
+            isCompact: true,
+            onTap: (_) {},
+            onExportWorklog: (project) => exported = project,
+            canExportWorklog: (_) => true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('总共:  68 h'), findsNothing);
+    expect(find.byTooltip('导出工时表'), findsOneWidget);
+    expect(find.byIcon(Icons.file_upload_outlined), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('account-project-worklog-export-button')),
+    );
+
+    expect(exported?.projectKey, 'compact-export');
   });
 
   testWidgets('compact settled cards show net received text', (tester) async {
