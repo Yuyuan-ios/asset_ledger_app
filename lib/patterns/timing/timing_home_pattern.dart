@@ -29,7 +29,6 @@ class TimingHomePattern extends StatefulWidget {
     this.onTapExternalWorkRecord,
     this.onImportExternalWork,
     this.onLinkExternalWork,
-    this.onExportTimingWorklog,
     required this.loading,
     this.error,
     this.onRetry,
@@ -47,7 +46,6 @@ class TimingHomePattern extends StatefulWidget {
   final ValueChanged<TimingExternalWorkRecordItem>? onTapExternalWorkRecord;
   final VoidCallback? onImportExternalWork;
   final VoidCallback? onLinkExternalWork;
-  final ValueChanged<List<TimingRecord>>? onExportTimingWorklog;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
@@ -59,7 +57,6 @@ class TimingHomePattern extends StatefulWidget {
 class _TimingHomePatternState extends State<TimingHomePattern>
     with SingleTickerProviderStateMixin {
   static const int _allDevicesMenuValue = -1;
-  static const int _exportWorklogMenuValue = -2;
 
   final Set<String> _locallyRemovedRecordKeys = <String>{};
   final Set<String> _expandedAggregateKeys = <String>{};
@@ -210,14 +207,6 @@ class _TimingHomePatternState extends State<TimingHomePattern>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       constraints: const BoxConstraints(minWidth: 172, maxWidth: 240),
       items: [
-        if (widget.onExportTimingWorklog != null)
-          const PopupMenuItem<int>(
-            value: _exportWorklogMenuValue,
-            height: 44,
-            child: _RecentDeviceFilterMenuItem(label: '导出工时表', selected: false),
-          ),
-        if (widget.onExportTimingWorklog != null)
-          const PopupMenuDivider(height: 1),
         PopupMenuItem<int>(
           value: _allDevicesMenuValue,
           height: 44,
@@ -239,10 +228,6 @@ class _TimingHomePatternState extends State<TimingHomePattern>
     );
 
     if (selected == null || !mounted) return;
-    if (selected == _exportWorklogMenuValue) {
-      widget.onExportTimingWorklog?.call(_filteredRecentRecords());
-      return;
-    }
     setState(() {
       _selectedDeviceId = selected == _allDevicesMenuValue ? null : selected;
     });

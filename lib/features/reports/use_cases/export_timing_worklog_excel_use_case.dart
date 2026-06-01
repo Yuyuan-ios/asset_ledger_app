@@ -40,6 +40,59 @@ class ExportTimingWorklogExcelOutcome {
   final String? filePath;
 }
 
+class TimingWorklogExportScope {
+  TimingWorklogExportScope._({
+    required Set<String> projectIds,
+    required String fileNamePart,
+  }) : projectIds = Set.unmodifiable(projectIds),
+       fileNamePart = _sanitizeFileNamePart(fileNamePart);
+
+  factory TimingWorklogExportScope.singleProject({
+    required String projectId,
+    required String fileNamePart,
+  }) {
+    final normalizedProjectId = projectId.trim();
+    return TimingWorklogExportScope._(
+      projectIds: normalizedProjectId.isEmpty
+          ? const <String>{}
+          : <String>{normalizedProjectId},
+      fileNamePart: fileNamePart,
+    );
+  }
+
+  factory TimingWorklogExportScope.mergedProject({
+    required Iterable<String> memberProjectIds,
+    required String fileNamePart,
+  }) {
+    final ids = memberProjectIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty && !id.startsWith('merge:'))
+        .toSet();
+    return TimingWorklogExportScope._(
+      projectIds: ids,
+      fileNamePart: fileNamePart,
+    );
+  }
+
+  final Set<String> projectIds;
+  final String fileNamePart;
+
+  bool includes(TimingRecord record) {
+    return projectIds.contains(record.effectiveProjectId.trim());
+  }
+
+  static String _sanitizeFileNamePart(String raw) {
+    final cleaned = raw
+        .trim()
+        .replaceAll(RegExp(r'\s*[·•]\s*'), '_')
+        .replaceAll(RegExp(r'''[\\/:*?"<>|\x00-\x1F]'''), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return cleaned.isEmpty ? '项目' : cleaned;
+  }
+}
+
 class ExportTimingWorklogExcelUseCase {
   ExportTimingWorklogExcelUseCase({
     BuildTimingWorklogReportUseCase reportBuilder =
@@ -59,23 +112,32 @@ class ExportTimingWorklogExcelUseCase {
   final ReportFilePresenter _presenter;
 
   Future<ExportTimingWorklogExcelOutcome> execute({
+    required TimingWorklogExportScope scope,
     required List<TimingRecord> records,
     required List<Device> devices,
   }) async {
-    if (records.isEmpty) {
-      return ExportTimingWorklogExcelOutcome.failure('暂无可导出的计时记录');
+    final scopedRecords = records.where(scope.includes).toList(growable: false);
+    if (scopedRecords.isEmpty) {
+      return ExportTimingWorklogExcelOutcome.failure('该项目暂无可导出的工时记录');
     }
     try {
-      final report = _reportBuilder.execute(records: records, devices: devices);
+      final report = _reportBuilder.execute(
+        records: scopedRecords,
+        devices: devices,
+      );
       if (report.isEmpty) {
-        return ExportTimingWorklogExcelOutcome.failure('暂无可导出的计时记录');
+        return ExportTimingWorklogExcelOutcome.failure('该项目暂无可导出的工时记录');
       }
       final bytes = _writer.write(report);
       final directory = await _directoryResolver();
       if (!await directory.exists()) {
         await directory.create(recursive: true);
       }
-      final fileName = await _resolveFileName(directory, report);
+      final fileName = await _resolveFileName(
+        directory,
+        report,
+        scope.fileNamePart,
+      );
       final file = File(p.join(directory.path, fileName));
       await file.writeAsBytes(bytes, flush: true);
 
@@ -101,10 +163,11 @@ class ExportTimingWorklogExcelUseCase {
   static Future<String> _resolveFileName(
     Directory directory,
     TimingWorklogReport report,
+    String fileNamePart,
   ) async {
     final dateRange =
         '${_compactDate(report.startDate)}-${_compactDate(report.endDate)}';
-    final stem = '挖机工时打卡汇总_${report.deviceFileNamePart}_$dateRange';
+    final stem = '挖机工时打卡汇总_${fileNamePart}_$dateRange';
     var candidate = '$stem.xlsx';
     var seq = 1;
     while (await File(p.join(directory.path, candidate)).exists()) {

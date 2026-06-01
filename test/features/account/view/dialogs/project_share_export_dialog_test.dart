@@ -22,6 +22,27 @@ void main() {
     expect(shared, isTrue);
   });
 
+  testWidgets('project detail Excel export button calls callback', (
+    tester,
+  ) async {
+    var exported = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProjectDetailExcelExportButton(
+            onPressed: () => exported = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.table_chart_outlined), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('project-detail-excel-export-button')),
+    );
+    expect(exported, isTrue);
+  });
+
   testWidgets('name dialog blocks empty and returns trimmed value', (
     tester,
   ) async {
