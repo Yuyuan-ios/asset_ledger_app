@@ -523,6 +523,10 @@ void main() {
         find.byKey(const Key('project-detail-share-button')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('project-detail-excel-export-button')),
+        findsNothing,
+      );
       final titleRect = tester.getRect(find.text('项目详情'));
       final shareRect = tester.getRect(
         find.byKey(const Key('project-detail-share-button')),

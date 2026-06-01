@@ -221,6 +221,8 @@ class AccountProjectSection extends StatelessWidget {
     required this.onTapProject,
     this.isCompactProjectList = false,
     this.onToggleCompactProjectList,
+    this.onExportWorklog,
+    this.canExportWorklog,
   });
 
   final List<AccountProjectVM> projects;
@@ -230,6 +232,8 @@ class AccountProjectSection extends StatelessWidget {
   final ValueChanged<AccountProjectVM> onTapProject;
   final bool isCompactProjectList;
   final VoidCallback? onToggleCompactProjectList;
+  final ValueChanged<AccountProjectVM>? onExportWorklog;
+  final bool Function(AccountProjectVM project)? canExportWorklog;
 
   @override
   Widget build(BuildContext context) {
@@ -250,6 +254,8 @@ class AccountProjectSection extends StatelessWidget {
           projects: projects,
           isCompact: isCompactProjectList,
           onTap: onTapProject,
+          onExportWorklog: onExportWorklog,
+          canExportWorklog: canExportWorklog,
         ),
         const SizedBox(height: AccountTokens.homeBottomGap),
       ],
