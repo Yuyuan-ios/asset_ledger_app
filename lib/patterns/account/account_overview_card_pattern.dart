@@ -442,7 +442,7 @@ class _OverviewDonut extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('净实收/已收', maxLines: 1, style: labelStyle),
+              Text('已收(净)', maxLines: 1, style: labelStyle),
               const SizedBox(height: 3),
               SizedBox(
                 width:

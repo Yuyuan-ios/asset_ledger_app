@@ -164,7 +164,7 @@ class AccountProjectList extends StatelessWidget {
   }
 
   Widget _worklogExportButton(BuildContext context, AccountProjectVM project) {
-    final color = AppColors.textPrimary.withValues(alpha: 0.64);
+    final color = AppColors.textPrimary.withValues(alpha: 0.42);
     return SizedBox.square(
       dimension: _worklogExportButtonSize,
       child: IconButton(
@@ -282,7 +282,8 @@ class AccountProjectList extends StatelessWidget {
               final badgeStyle = _priceBadgeStyle(vm.priceBadgeKind);
               final isSettled = vm.isSettled;
               final displayProgress = vm.displayProgress;
-              final showExport = !isCompact && _showWorklogExport(p);
+              final showExport =
+                  !isCompact && !isSettled && _showWorklogExport(p);
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;

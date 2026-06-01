@@ -210,6 +210,45 @@ void main() {
     expect(find.byTooltip('导出工时表'), findsNothing);
   });
 
+  testWidgets('settled project card hides worklog export icon', (tester) async {
+    const project = AccountProjectVM(
+      projectKey: 'settled-with-worklog',
+      displayName: '刘锐 · 五里山',
+      isSettled: true,
+      minYmd: 20260501,
+      deviceIds: [1],
+      hoursByDevice: {1: 7},
+      rentIncomeTotal: 0,
+      minRate: 180,
+      isMultiDevice: false,
+      isMultiMode: false,
+      receivable: 1260,
+      received: 1260,
+      remaining: 0,
+      ratio: 1,
+      payments: [],
+    );
+    AccountProjectVM? exported;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [project],
+            onTap: (_) {},
+            onExportWorklog: (project) => exported = project,
+            canExportWorklog: (_) => true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('总共:  7 h'), findsOneWidget);
+    expect(_settledCheckIcons(), findsOneWidget);
+    expect(find.byTooltip('导出工时表'), findsNothing);
+    expect(exported, isNull);
+  });
+
   testWidgets(
     'shows included sites after received percent for merged projects',
     (tester) async {
