@@ -19,10 +19,16 @@ const _legacyKey = 'legacy-key-xyz';
 const _mergeGroupId = 7777;
 const _deviceName = '挖机A';
 
-/// 构造一份「敏感的」保存计时预览 response（编辑 + 改项目 + 解除合并 + 撤销结清）。
+/// 构造一份「敏感的」保存计时预览 response（编辑 + 改项目，可选解除合并 / 撤销结清）。
 /// 纯内存构造，不使用 sqflite。
+///
+/// [willDissolveMerge] / [willRevokeSettlement] 默认都为 true（"全量"敏感场景）；
+/// 把它们单独翻成 false，可构造 merge-only / settlement-only 场景，用于验证
+/// riskLevel 侧信道（上游 command.preview 在任一为 true 时把风险升为 high）。
 SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
   bool withFreshness = true,
+  bool willDissolveMerge = true,
+  bool willRevokeSettlement = true,
 }) {
   final affectedEntities = <OperationEntityRef>[
     const OperationEntityRef(
@@ -49,19 +55,25 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
       entityId: 'new:$_legacyKey',
       label: _projectLabel,
     ),
-    const OperationEntityRef(
-      entityType: 'merge_group',
-      entityId: '$_mergeGroupId',
-      label: '合并项目 $_mergeGroupId',
-    ),
+    if (willDissolveMerge)
+      const OperationEntityRef(
+        entityType: 'merge_group',
+        entityId: '$_mergeGroupId',
+        label: '合并项目 $_mergeGroupId',
+      ),
   ];
 
   final warnings = <String>[
-    '保存后将自动解除受影响的合并项目。',
-    '保存后将自动撤销不再成立的结清状态。',
+    if (willDissolveMerge) '保存后将自动解除受影响的合并项目。',
+    if (willRevokeSettlement) '保存后将自动撤销不再成立的结清状态。',
     '当前记录指向的项目 $_oldProjectId 不存在，请刷新后再试。',
     '预览基于当前本地数据，执行前必须重新分析确认。',
   ];
+
+  // 复刻 command.preview 的风险映射：任一影响为 true → high，否则 medium。
+  final riskLevel = willDissolveMerge || willRevokeSettlement
+      ? OperationRiskLevel.high
+      : OperationRiskLevel.medium;
 
   final preview = OperationPreview(
     operationId: 'op-1',
@@ -79,21 +91,23 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
         affectedEntities: affectedEntities,
         code: 'project_changed',
       ),
-      const OperationImpactItem(
-        title: '将自动解除相关合并项目',
-        description: '保存后，受影响的合并项目会自动解除，以避免账务口径错误。',
-        severity: OperationImpactSeverity.warning,
-        code: 'merge_dissolve',
-      ),
-      const OperationImpactItem(
-        title: '将自动撤销结清状态',
-        description: '保存后，受影响项目如果不再满足结清条件，会自动恢复为进行中。',
-        severity: OperationImpactSeverity.warning,
-        code: 'settlement_revoke',
-      ),
+      if (willDissolveMerge)
+        const OperationImpactItem(
+          title: '将自动解除相关合并项目',
+          description: '保存后，受影响的合并项目会自动解除，以避免账务口径错误。',
+          severity: OperationImpactSeverity.warning,
+          code: 'merge_dissolve',
+        ),
+      if (willRevokeSettlement)
+        const OperationImpactItem(
+          title: '将自动撤销结清状态',
+          description: '保存后，受影响项目如果不再满足结清条件，会自动恢复为进行中。',
+          severity: OperationImpactSeverity.warning,
+          code: 'settlement_revoke',
+        ),
     ],
     requiresConfirmation: true,
-    riskLevel: OperationRiskLevel.high,
+    riskLevel: riskLevel,
   );
 
   final previewInput = SaveTimingRecordOperationPreviewInput(
@@ -105,8 +119,8 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
     oldProjectLabel: '老板 · 旧址',
     newProjectLabel: _projectLabel,
     projectChanged: true,
-    willDissolveMerge: true,
-    willRevokeSettlement: true,
+    willDissolveMerge: willDissolveMerge,
+    willRevokeSettlement: willRevokeSettlement,
     affectedEntities: affectedEntities,
     warnings: warnings,
   );
@@ -118,7 +132,7 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
     existingNewProjectId: _newProjectId,
     wouldCreateNewProject: false,
     affectedProjectIds: const [_oldProjectId, _newProjectId],
-    mergeGroupIdsToDissolve: const [_mergeGroupId],
+    mergeGroupIdsToDissolve: willDissolveMerge ? const [_mergeGroupId] : const [],
     requiresReanalysisBeforeExecute: true,
     warnings: warnings,
   );
@@ -185,6 +199,8 @@ void main() {
 
       expect(result.redacted, isFalse);
       expect(result.redactionReasons, isEmpty);
+      // owner 直通：riskLevel 原样保留（high），不归一化
+      expect(result.preview.riskLevel, OperationRiskLevel.high);
       // project label / contact / site 保留
       expect(result.preview.summary, contains(_projectLabel));
       // project / merge entity 保留
@@ -456,6 +472,142 @@ void main() {
         ),
       );
       expect(driverResult.freshness, isNull);
+    });
+  });
+
+  // D26.5：堵住 riskLevel 侧信道。上游 command.preview 在 willRevokeSettlement
+  // 或 willDissolveMerge 为 true 时把风险升为 high。非 owner 一律归一化为 medium，
+  // 避免仅凭 riskLevel 反推出被隐藏的撤销结清 / 合并结构状态。
+  group('riskLevel side-channel (settlement-only)', () {
+    // settlement-only：撤销结清=true、解除合并=false → 上游 riskLevel=high。
+    SaveTimingRecordOperationPreviewResponse settlementOnly() =>
+        buildSensitiveResponse(
+          willDissolveMerge: false,
+          willRevokeSettlement: true,
+        );
+
+    void expectSettlementFullyHidden(ActorContext actor) {
+      final response = settlementOnly();
+      // 前置确认：上游确实是 high，否则本测试无意义。
+      expect(response.preview.riskLevel, OperationRiskLevel.high);
+
+      final result = redactor.redact(response: response, actor: actor);
+
+      // 归一化为 medium：不得透传 high。
+      expect(result.preview.riskLevel, OperationRiskLevel.medium);
+      // 没有解除合并 → 无任何残留影响项 / 合并提示。
+      expect(result.preview.impactItems, isEmpty);
+      expect(
+        result.preview.warnings,
+        ['预览基于当前本地数据，执行前必须重新分析确认。'],
+      );
+      // 财务信号隐藏，合并标志为 false。
+      expect(result.analysis.willRevokeSettlement, isNull);
+      expect(result.analysis.willDissolveMerge, isFalse);
+      // 至此 riskLevel / impactItems / warnings / analysis / freshness 都不再
+      // 暴露结清状态。
+      assertNoSensitiveLeak(result);
+    }
+
+    test('driver cannot infer settlement revoke from riskLevel', () {
+      expectSettlementFullyHidden(
+        ActorContext(
+          actorType: OperationActorType.driver,
+          actorId: 'driver-1',
+        ),
+      );
+    });
+
+    test('partner cannot infer settlement revoke from riskLevel', () {
+      expectSettlementFullyHidden(
+        ActorContext(
+          actorType: OperationActorType.partner,
+          actorId: 'partner-1',
+        ),
+      );
+    });
+
+    test('agent-as-driver cannot infer settlement revoke from riskLevel', () {
+      expectSettlementFullyHidden(
+        ActorContext(
+          actorType: OperationActorType.agent,
+          actorId: 'agent-1',
+          delegatedActorType: OperationActorType.driver,
+          delegatedActorId: 'driver-1',
+        ),
+      );
+    });
+
+    test('agent without scope also gets normalized medium (none path)', () {
+      final response = settlementOnly();
+      final result = redactor.redact(
+        response: response,
+        actor: ActorContext(
+          actorType: OperationActorType.agent,
+          actorId: 'agent-1',
+        ),
+      );
+      expect(result.preview.riskLevel, OperationRiskLevel.medium);
+      assertNoSensitiveLeak(result);
+    });
+  });
+
+  group('riskLevel normalization (merge-only)', () {
+    test('non-owner never sees high even when merge note is surfaced', () {
+      // merge-only：解除合并=true、撤销结清=false → 上游 riskLevel=high。
+      final response = buildSensitiveResponse(
+        willDissolveMerge: true,
+        willRevokeSettlement: false,
+      );
+      expect(response.preview.riskLevel, OperationRiskLevel.high);
+
+      final result = redactor.redact(
+        response: response,
+        actor: ActorContext(
+          actorType: OperationActorType.driver,
+          actorId: 'driver-1',
+        ),
+      );
+
+      // "normalize harder"：即便合并提示被泛化展示，riskLevel 仍归一化为 medium。
+      expect(result.preview.riskLevel, OperationRiskLevel.medium);
+      // 合并结构提示仍然展示（泛化），合并标志保留。
+      expect(
+        result.preview.impactItems.map((i) => i.code).toList(),
+        ['project_structure'],
+      );
+      expect(result.analysis.willDissolveMerge, isTrue);
+      assertNoSensitiveLeak(result);
+    });
+  });
+
+  group('agent-as-partner', () {
+    test('delegated to partner: redacted like partner', () {
+      final response = buildSensitiveResponse();
+      final agentAsPartner = ActorContext(
+        actorType: OperationActorType.agent,
+        actorId: 'agent-1',
+        delegatedActorType: OperationActorType.partner,
+        delegatedActorId: 'partner-1',
+      );
+
+      final result = redactor.redact(response: response, actor: agentAsPartner);
+
+      expect(result.redacted, isTrue);
+      expect(result.preview.summary, '编辑计时；设备：$_deviceName');
+      expect(result.preview.riskLevel, OperationRiskLevel.medium);
+      expect(result.analysis.willRevokeSettlement, isNull);
+      expect(result.analysis.affectedProjectIds, isEmpty);
+      // 与 partner 一致的可见能力集合
+      expect(
+        result.visibleCapabilities.toSet(),
+        <OperationVisibilityCapability>{
+          OperationVisibilityCapability.deviceName,
+          OperationVisibilityCapability.timingBasic,
+          OperationVisibilityCapability.exportDeviceWorkHours,
+        },
+      );
+      assertNoSensitiveLeak(result);
     });
   });
 }
