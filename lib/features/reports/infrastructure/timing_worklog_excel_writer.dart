@@ -8,7 +8,7 @@ class TimingWorklogExcelWriter {
   const TimingWorklogExcelWriter({this.recordsPerPage = defaultRecordsPerPage});
 
   static const int defaultRecordsPerPage = 20;
-  static const int columnCount = 14;
+  static const int columnCount = 16;
   static const String signatureText =
       '本人已核对上述设备工时记录，确认数据真实无误，同意按此进行结算。项目负责人签字：                日期：';
 
@@ -91,7 +91,7 @@ class _SheetXmlBuilder {
     }
     return '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<dimension ref="A1:N$_row"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/>
+<dimension ref="A1:P$_row"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/>
 <cols>$_colsXml</cols><sheetData>$_rows</sheetData><mergeCells count="${_merges.length}">${_merges.map((r) => '<mergeCell ref="$r"/>').join()}</mergeCells>${_breaksXml()}
 <printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.35" bottom="0.35" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>
 </worksheet>''';
@@ -103,18 +103,18 @@ class _SheetXmlBuilder {
   }) {
     final titleRow = _row + 1;
     _textRow([report.title], 1, 30);
-    _merges.add('A$titleRow:N$titleRow');
+    _merges.add('A$titleRow:P$titleRow');
     _headerRows();
     for (final row in pageRows) {
       _dataRow(row);
     }
     for (var i = pageRows.length; i < recordsPerPage; i += 1) {
-      _mixedRow(List<_Cell>.filled(14, const _Cell.text('')), 3, 20);
+      _mixedRow(List<_Cell>.filled(16, const _Cell.text('')), 3, 20);
     }
     _totalRow(pageRows, isLast: isLast);
     final signatureRow = _row + 1;
     _textRow([TimingWorklogExcelWriter.signatureText], 5, 32);
-    _merges.add('A$signatureRow:N$signatureRow');
+    _merges.add('A$signatureRow:P$signatureRow');
     if (!isLast) _breaks.add(_row);
   }
 
@@ -129,9 +129,11 @@ class _SheetXmlBuilder {
         '施工地点',
         '',
         '工作内容',
+        '上午',
+        '中午',
+        '中午',
+        '下午',
         '合计时间（时）',
-        '',
-        '',
         '',
         '',
         '负责人',
@@ -149,10 +151,12 @@ class _SheetXmlBuilder {
         '地点',
         '项目名称',
         '',
-        '上午开始',
-        '上午结束',
-        '中午/下午开始',
-        '下午结束',
+        '',
+        '',
+        '',
+        '',
+        '上午',
+        '下午',
         '全天',
         '',
         '',
@@ -161,12 +165,12 @@ class _SheetXmlBuilder {
       22,
     );
     final bottom = _row;
-    for (final col in ['A', 'B', 'C', 'D', 'G', 'M', 'N']) {
+    for (final col in ['A', 'B', 'C', 'D', 'G', 'H', 'I', 'J', 'K', 'O', 'P']) {
       _merges.add('$col$top:$col$bottom');
     }
     _merges
       ..add('E$top:F$top')
-      ..add('H$top:L$top');
+      ..add('L$top:N$top');
   }
 
   void _dataRow(TimingWorklogReportRow row) {
@@ -179,9 +183,11 @@ class _SheetXmlBuilder {
         const _Cell.text(''),
         const _Cell.text(''),
         const _Cell.text(''),
+        const _Cell.text(''),
+        const _Cell.text(''),
+        const _Cell.text(''),
+        const _Cell.text(''),
         _Cell.number(row.startMeter),
-        const _Cell.text(''),
-        const _Cell.text(''),
         _Cell.number(row.endMeter),
         _Cell.number(row.hours),
         const _Cell.text(''),
@@ -208,6 +214,8 @@ class _SheetXmlBuilder {
         const _Cell.text(''),
         const _Cell.text(''),
         _Cell.text(label),
+        const _Cell.text(''),
+        const _Cell.text(''),
         const _Cell.text(''),
         const _Cell.text(''),
         const _Cell.text(''),
@@ -302,7 +310,16 @@ String _xml(String value) => value
     .replaceAll("'", '&apos;');
 
 const _colsXml =
-    '<col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="16" customWidth="1"/><col min="4" max="4" width="11" customWidth="1"/><col min="5" max="6" width="14" customWidth="1"/><col min="7" max="7" width="16" customWidth="1"/><col min="8" max="12" width="12" customWidth="1"/><col min="13" max="13" width="12" customWidth="1"/><col min="14" max="14" width="16" customWidth="1"/>';
+    '<col min="1" max="1" width="6" customWidth="1"/>'
+    '<col min="2" max="2" width="12" customWidth="1"/>'
+    '<col min="3" max="3" width="14" customWidth="1"/>'
+    '<col min="4" max="4" width="10" customWidth="1"/>'
+    '<col min="5" max="6" width="13" customWidth="1"/>'
+    '<col min="7" max="7" width="15" customWidth="1"/>'
+    '<col min="8" max="11" width="10" customWidth="1"/>'
+    '<col min="12" max="14" width="11" customWidth="1"/>'
+    '<col min="15" max="15" width="11" customWidth="1"/>'
+    '<col min="16" max="16" width="15" customWidth="1"/>';
 const _contentTypesXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
 const _rootRelsXml =
@@ -310,7 +327,7 @@ const _rootRelsXml =
 const _workbookRelsXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
 String _workbookXml(int lastRow) =>
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="工时打卡汇总" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'工时打卡汇总\'!\$A\$1:\$N\$$lastRow</definedName></definedNames></workbook>';
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="工时打卡汇总" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'工时打卡汇总\'!\$A\$1:\$P\$$lastRow</definedName></definedNames></workbook>';
 const _corePropsXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>挖机工时打卡汇总</dc:title><dc:creator>FleetLedger</dc:creator><cp:lastModifiedBy>FleetLedger</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:modified></cp:coreProperties>';
 const _appPropsXml =
