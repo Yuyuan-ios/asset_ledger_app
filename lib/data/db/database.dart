@@ -66,10 +66,13 @@ class AppDatabase {
   //        partial unique index（同 legacy_project_key 下只允许一个 active 项目）。
   // - v22：新增 operation_audit_logs（append-only 操作审计表 + 3 个索引）；
   //        不改任何旧业务表；不纳入 backup/restore（per-device 操作历史）。
+  // - v23：新增 operation_tokens（confirmation token 可变状态机表 + 3 个索引）；
+  //        不改任何旧业务表 / 不改 operation_audit_logs；不纳入 backup/restore
+  //        （per-device 安全 / 会话状态，恢复后旧 token 靠 hash/freshness 失效）。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 22;
+  static const int _dbVersion = 23;
 
   static int get schemaVersion => _dbVersion;
 
