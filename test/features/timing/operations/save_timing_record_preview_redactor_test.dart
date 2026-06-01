@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:asset_ledger/core/operations/operation_access_control.dart';
+import 'package:asset_ledger/core/operations/operation_actor_scope.dart';
 import 'package:asset_ledger/core/operations/operation_actor_type.dart';
 import 'package:asset_ledger/core/operations/operation_models.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
@@ -18,6 +19,7 @@ const _newProjectId = 'project:bbb';
 const _legacyKey = 'legacy-key-xyz';
 const _mergeGroupId = 7777;
 const _deviceName = '挖机A';
+final _now = DateTime.utc(2026, 1, 1, 12);
 
 /// 构造一份「敏感的」保存计时预览 response（编辑 + 改项目，可选解除合并 / 撤销结清）。
 /// 纯内存构造，不使用 sqflite。
@@ -29,21 +31,26 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
   bool withFreshness = true,
   bool willDissolveMerge = true,
   bool willRevokeSettlement = true,
+  bool includeDeviceEntity = true,
+  bool includeTimingRecordEntity = true,
+  String? timingRecordId = '101',
 }) {
   final affectedEntities = <OperationEntityRef>[
-    const OperationEntityRef(
-      entityType: 'device',
-      entityId: '42',
-      label: _deviceName,
-      deviceId: '42',
-    ),
-    const OperationEntityRef(
-      entityType: 'timing_record',
-      entityId: '101',
-      label: '计时记录 101',
-      projectId: _oldProjectId,
-      deviceId: '42',
-    ),
+    if (includeDeviceEntity)
+      const OperationEntityRef(
+        entityType: 'device',
+        entityId: '42',
+        label: _deviceName,
+        deviceId: '42',
+      ),
+    if (includeTimingRecordEntity)
+      const OperationEntityRef(
+        entityType: 'timing_record',
+        entityId: '101',
+        label: '计时记录 101',
+        projectId: _oldProjectId,
+        deviceId: '42',
+      ),
     const OperationEntityRef(
       entityType: 'project',
       entityId: _oldProjectId,
@@ -79,7 +86,8 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
     operationId: 'op-1',
     operationType: OperationType.saveTimingRecord,
     title: '修改计时记录',
-    summary: '编辑计时；设备：$_deviceName；项目：$_projectLabel；'
+    summary:
+        '编辑计时；设备：$_deviceName；项目：$_projectLabel；'
         '项目归属：老板 · 旧址 -> $_projectLabel',
     warnings: warnings,
     affectedEntities: affectedEntities,
@@ -113,7 +121,7 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
   final previewInput = SaveTimingRecordOperationPreviewInput(
     operationId: 'op-1',
     isEditing: true,
-    timingRecordId: '101',
+    timingRecordId: timingRecordId,
     deviceLabel: _deviceName,
     projectLabel: _projectLabel,
     oldProjectLabel: '老板 · 旧址',
@@ -132,7 +140,9 @@ SaveTimingRecordOperationPreviewResponse buildSensitiveResponse({
     existingNewProjectId: _newProjectId,
     wouldCreateNewProject: false,
     affectedProjectIds: const [_oldProjectId, _newProjectId],
-    mergeGroupIdsToDissolve: willDissolveMerge ? const [_mergeGroupId] : const [],
+    mergeGroupIdsToDissolve: willDissolveMerge
+        ? const [_mergeGroupId]
+        : const [],
     requiresReanalysisBeforeExecute: true,
     warnings: warnings,
   );
@@ -187,15 +197,85 @@ void assertNoSensitiveLeak(RedactedSaveTimingRecordPreview redacted) {
   }
 }
 
+ActorScope ownerScope() => ActorScope.fullOwner(ownerId: 'owner-1');
+
+ActorScope driverDeviceScope() =>
+    ActorScope.devices(deviceIds: const ['42'], actorId: 'driver-1');
+
+ActorScope driverTimingScope() => ActorScope.timingRecords(
+  timingRecordIds: const ['101'],
+  actorId: 'driver-1',
+);
+
+ActorScope partnerDeviceScope() =>
+    ActorScope.devices(deviceIds: const ['42'], actorId: 'partner-1');
+
+ActorScope deniedDeviceScope({required String actorId}) =>
+    ActorScope.devices(deviceIds: const ['99'], actorId: actorId);
+
+ActorScope expiredDeviceScope() => ActorScope.devices(
+  deviceIds: const ['42'],
+  actorId: 'driver-1',
+  expiresAt: _now,
+);
+
+ActorScope emptyScope({String? actorId}) => ActorScope.empty(actorId: actorId);
+
+void assertScopeDeniedNoLeak(RedactedSaveTimingRecordPreview result) {
+  expect(result.scopeAllowed, isFalse);
+  expect(result.redacted, isTrue);
+  expect(result.scopeReasons, isNotEmpty);
+  expect(result.visibleCapabilities, isEmpty);
+  expect(
+    result.hiddenCapabilities.toSet(),
+    OperationVisibilityCapability.values.toSet(),
+  );
+  expect(result.preview.summary, '预览内容已隐藏');
+  expect(result.preview.affectedEntities, isEmpty);
+  expect(result.preview.impactItems, isEmpty);
+  expect(result.preview.warnings, isEmpty);
+  expect(result.freshness, isNull);
+  expect(result.preview.riskLevel, OperationRiskLevel.medium);
+  expect(result.analysis.oldProjectId, isNull);
+  expect(result.analysis.existingNewProjectId, isNull);
+  expect(result.analysis.affectedProjectIds, isEmpty);
+  expect(result.analysis.mergeGroupIdsToDissolve, isEmpty);
+  expect(result.analysis.willDissolveMerge, isFalse);
+  expect(result.analysis.willRevokeSettlement, isNull);
+  expect(result.analysis.wouldCreateNewProject, isNull);
+  assertNoSensitiveLeak(result);
+  final text = serialize(result);
+  expect(text, isNot(contains(_deviceName)));
+  expect(text, isNot(contains('42')));
+  expect(text, isNot(contains('101')));
+}
+
 void main() {
   const redactor = SaveTimingRecordPreviewRedactor();
+
+  RedactedSaveTimingRecordPreview redactFor({
+    required SaveTimingRecordOperationPreviewResponse response,
+    required ActorContext actor,
+    required ActorScope scope,
+  }) {
+    return redactor.redact(
+      response: response,
+      actor: actor,
+      scope: scope,
+      now: _now,
+    );
+  }
 
   group('owner', () {
     test('receives unredacted preview (passthrough)', () {
       final response = buildSensitiveResponse();
       final owner = ActorContext(actorType: OperationActorType.owner);
 
-      final result = redactor.redact(response: response, actor: owner);
+      final result = redactFor(
+        response: response,
+        actor: owner,
+        scope: ownerScope(),
+      );
 
       expect(result.redacted, isFalse);
       expect(result.redactionReasons, isEmpty);
@@ -212,7 +292,10 @@ void main() {
       expect(result.analysis.willRevokeSettlement, isTrue);
       expect(result.analysis.oldProjectId, _oldProjectId);
       expect(result.analysis.existingNewProjectId, _newProjectId);
-      expect(result.analysis.affectedProjectIds, [_oldProjectId, _newProjectId]);
+      expect(result.analysis.affectedProjectIds, [
+        _oldProjectId,
+        _newProjectId,
+      ]);
       expect(result.analysis.mergeGroupIdsToDissolve, [_mergeGroupId]);
       // freshness 原始 message / previousValue / latestValue 保留
       final reason = result.freshness!.staleReasons.single;
@@ -229,14 +312,16 @@ void main() {
   });
 
   group('driver', () {
-    ActorContext driver() => ActorContext(
-          actorType: OperationActorType.driver,
-          actorId: 'driver-1',
-        );
+    ActorContext driver() =>
+        ActorContext(actorType: OperationActorType.driver, actorId: 'driver-1');
 
     test('redacts project / contact / site / finance / internal ids', () {
       final response = buildSensitiveResponse();
-      final result = redactor.redact(response: response, actor: driver());
+      final result = redactFor(
+        response: response,
+        actor: driver(),
+        scope: driverDeviceScope(),
+      );
 
       expect(result.redacted, isTrue);
 
@@ -256,10 +341,9 @@ void main() {
       expect(deviceEntity.deviceId, isNull);
 
       // impactItems：删除 settlement_revoke / project_changed；合并影响泛化
-      expect(
-        result.preview.impactItems.map((i) => i.code).toList(),
-        ['project_structure'],
-      );
+      expect(result.preview.impactItems.map((i) => i.code).toList(), [
+        'project_structure',
+      ]);
 
       // 财务信号隐藏
       expect(result.analysis.willRevokeSettlement, isNull);
@@ -299,22 +383,25 @@ void main() {
 
   group('partner', () {
     ActorContext partner() => ActorContext(
-          actorType: OperationActorType.partner,
-          actorId: 'partner-1',
-        );
+      actorType: OperationActorType.partner,
+      actorId: 'partner-1',
+    );
 
     test('redacts like driver: no contact/site/finance, merge generalized', () {
       final response = buildSensitiveResponse();
-      final result = redactor.redact(response: response, actor: partner());
+      final result = redactFor(
+        response: response,
+        actor: partner(),
+        scope: partnerDeviceScope(),
+      );
 
       expect(result.redacted, isTrue);
       expect(result.preview.summary, contains(_deviceName));
       expect(result.preview.summary, isNot(contains(_contact)));
       expect(result.preview.summary, isNot(contains(_site)));
-      expect(
-        result.preview.impactItems.map((i) => i.code).toList(),
-        ['project_structure'],
-      );
+      expect(result.preview.impactItems.map((i) => i.code).toList(), [
+        'project_structure',
+      ]);
       expect(result.analysis.willRevokeSettlement, isNull);
       expect(result.analysis.affectedProjectIds, isEmpty);
       assertNoSensitiveLeak(result);
@@ -329,23 +416,14 @@ void main() {
         actorId: 'agent-1',
       );
 
-      final result = redactor.redact(response: response, actor: agent);
-
-      expect(result.redacted, isTrue);
-      expect(result.visibleCapabilities, isEmpty);
-      expect(
-        result.hiddenCapabilities.toSet(),
-        OperationVisibilityCapability.values.toSet(),
+      final result = redactFor(
+        response: response,
+        actor: agent,
+        scope: emptyScope(actorId: 'agent-1'),
       );
-      // 最小空壳
-      expect(result.preview.summary, isEmpty);
-      expect(result.preview.affectedEntities, isEmpty);
-      expect(result.preview.impactItems, isEmpty);
-      expect(result.preview.warnings, isEmpty);
-      expect(result.analysis.oldProjectId, isNull);
-      expect(result.analysis.willRevokeSettlement, isNull);
-      expect(result.analysis.willDissolveMerge, isFalse);
-      assertNoSensitiveLeak(result);
+
+      expect(result.scopeReasons, ['no delegated actor scope']);
+      assertScopeDeniedNoLeak(result);
     });
 
     test('delegated to owner: equivalent to owner (passthrough)', () {
@@ -357,13 +435,20 @@ void main() {
         delegatedActorId: 'owner-1',
       );
 
-      final result = redactor.redact(response: response, actor: agentAsOwner);
+      final result = redactFor(
+        response: response,
+        actor: agentAsOwner,
+        scope: ownerScope(),
+      );
 
       expect(result.redacted, isFalse);
       expect(result.preview.summary, contains(_projectLabel));
       expect(result.analysis.willRevokeSettlement, isTrue);
       expect(result.analysis.oldProjectId, _oldProjectId);
-      expect(result.freshness!.staleReasons.single.previousValue, _oldProjectId);
+      expect(
+        result.freshness!.staleReasons.single.previousValue,
+        _oldProjectId,
+      );
     });
 
     test('delegated to driver: equivalent to driver (redacted)', () {
@@ -375,13 +460,119 @@ void main() {
         delegatedActorId: 'driver-1',
       );
 
-      final result = redactor.redact(response: response, actor: agentAsDriver);
+      final result = redactFor(
+        response: response,
+        actor: agentAsDriver,
+        scope: driverDeviceScope(),
+      );
 
       expect(result.redacted, isTrue);
       expect(result.preview.summary, '编辑计时；设备：$_deviceName');
       expect(result.analysis.willRevokeSettlement, isNull);
       expect(result.analysis.affectedProjectIds, isEmpty);
       assertNoSensitiveLeak(result);
+    });
+  });
+
+  group('scope policy', () {
+    test('owner without fullOwner scope gets minimal shell', () {
+      final response = buildSensitiveResponse();
+      final result = redactFor(
+        response: response,
+        actor: ActorContext(actorType: OperationActorType.owner),
+        scope: emptyScope(actorId: 'owner-1'),
+      );
+
+      expect(result.scopeReasons, ['scope missing']);
+      assertScopeDeniedNoLeak(result);
+    });
+
+    test('driver outside device scope gets minimal shell', () {
+      final response = buildSensitiveResponse();
+      final result = redactFor(
+        response: response,
+        actor: ActorContext(
+          actorType: OperationActorType.driver,
+          actorId: 'driver-1',
+        ),
+        scope: deniedDeviceScope(actorId: 'driver-1'),
+      );
+
+      expect(result.scopeReasons, contains('device not in actor scope'));
+      assertScopeDeniedNoLeak(result);
+    });
+
+    test(
+      'driver can pass scope by timing record id when device entity is absent',
+      () {
+        final response = buildSensitiveResponse(includeDeviceEntity: false);
+        final result = redactFor(
+          response: response,
+          actor: ActorContext(
+            actorType: OperationActorType.driver,
+            actorId: 'driver-1',
+          ),
+          scope: driverTimingScope(),
+        );
+
+        expect(result.scopeAllowed, isTrue);
+        expect(result.scopeReasons, isEmpty);
+        expect(result.redacted, isTrue);
+        expect(result.preview.summary, '编辑计时；设备：$_deviceName');
+        assertNoSensitiveLeak(result);
+      },
+    );
+
+    test(
+      'driver without device or timing record identifiers gets minimal shell',
+      () {
+        final response = buildSensitiveResponse(
+          includeDeviceEntity: false,
+          includeTimingRecordEntity: false,
+          timingRecordId: null,
+        );
+        final result = redactFor(
+          response: response,
+          actor: ActorContext(
+            actorType: OperationActorType.driver,
+            actorId: 'driver-1',
+          ),
+          scope: driverDeviceScope(),
+        );
+
+        expect(result.scopeReasons, ['missing resource identifiers']);
+        assertScopeDeniedNoLeak(result);
+      },
+    );
+
+    test('partner outside shared device scope gets minimal shell', () {
+      final response = buildSensitiveResponse();
+      final result = redactFor(
+        response: response,
+        actor: ActorContext(
+          actorType: OperationActorType.partner,
+          actorId: 'partner-1',
+        ),
+        scope: deniedDeviceScope(actorId: 'partner-1'),
+      );
+
+      expect(result.scopeReasons, ['device not in actor scope']);
+      assertScopeDeniedNoLeak(result);
+    });
+
+    test('expired scope gets minimal shell with generic reason', () {
+      final response = buildSensitiveResponse();
+      final result = redactFor(
+        response: response,
+        actor: ActorContext(
+          actorType: OperationActorType.driver,
+          actorId: 'driver-1',
+        ),
+        scope: expiredDeviceScope(),
+      );
+
+      expect(result.scopeReasons, ['scope expired']);
+      assertScopeDeniedNoLeak(result);
     });
   });
 
@@ -393,20 +584,23 @@ void main() {
       final origSummary = response.preview.summary;
       final origEntityCount = response.preview.affectedEntities.length;
       final origImpactCount = response.preview.impactItems.length;
-      final origAffectedProjectIds =
-          List<String>.from(response.analysis.affectedProjectIds);
-      final origMergeIds =
-          List<int>.from(response.analysis.mergeGroupIdsToDissolve);
+      final origAffectedProjectIds = List<String>.from(
+        response.analysis.affectedProjectIds,
+      );
+      final origMergeIds = List<int>.from(
+        response.analysis.mergeGroupIdsToDissolve,
+      );
       final origRevoke = response.analysis.previewInput.willRevokeSettlement;
       final origPrev = response.freshness!.staleReasons.single.previousValue;
 
       // 用 driver 触发最强脱敏
-      redactor.redact(
+      redactFor(
         response: response,
         actor: ActorContext(
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
+        scope: driverDeviceScope(),
       );
 
       expect(response.preview.summary, origSummary);
@@ -415,22 +609,20 @@ void main() {
       expect(response.analysis.affectedProjectIds, origAffectedProjectIds);
       expect(response.analysis.mergeGroupIdsToDissolve, origMergeIds);
       expect(response.analysis.previewInput.willRevokeSettlement, origRevoke);
-      expect(
-        response.freshness!.staleReasons.single.previousValue,
-        origPrev,
-      );
+      expect(response.freshness!.staleReasons.single.previousValue, origPrev);
     });
   });
 
   group('visibility metadata', () {
     test('driver visible/hidden capabilities match D23 policy', () {
       final response = buildSensitiveResponse();
-      final result = redactor.redact(
+      final result = redactFor(
         response: response,
         actor: ActorContext(
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
+        scope: driverDeviceScope(),
       );
 
       expect(
@@ -444,8 +636,8 @@ void main() {
       // visible 与 hidden 互补且无交集
       expect(
         result.visibleCapabilities.toSet().intersection(
-              result.hiddenCapabilities.toSet(),
-            ),
+          result.hiddenCapabilities.toSet(),
+        ),
         isEmpty,
       );
       expect(
@@ -458,18 +650,20 @@ void main() {
   group('no freshness', () {
     test('redacted freshness is null when response has none', () {
       final response = buildSensitiveResponse(withFreshness: false);
-      final ownerResult = redactor.redact(
+      final ownerResult = redactFor(
         response: response,
         actor: ActorContext(actorType: OperationActorType.owner),
+        scope: ownerScope(),
       );
       expect(ownerResult.freshness, isNull);
 
-      final driverResult = redactor.redact(
+      final driverResult = redactFor(
         response: response,
         actor: ActorContext(
           actorType: OperationActorType.driver,
           actorId: 'd-1',
         ),
+        scope: ActorScope.devices(deviceIds: const ['42'], actorId: 'd-1'),
       );
       expect(driverResult.freshness, isNull);
     });
@@ -486,21 +680,18 @@ void main() {
           willRevokeSettlement: true,
         );
 
-    void expectSettlementFullyHidden(ActorContext actor) {
+    void expectSettlementFullyHidden(ActorContext actor, ActorScope scope) {
       final response = settlementOnly();
       // 前置确认：上游确实是 high，否则本测试无意义。
       expect(response.preview.riskLevel, OperationRiskLevel.high);
 
-      final result = redactor.redact(response: response, actor: actor);
+      final result = redactFor(response: response, actor: actor, scope: scope);
 
       // 归一化为 medium：不得透传 high。
       expect(result.preview.riskLevel, OperationRiskLevel.medium);
       // 没有解除合并 → 无任何残留影响项 / 合并提示。
       expect(result.preview.impactItems, isEmpty);
-      expect(
-        result.preview.warnings,
-        ['预览基于当前本地数据，执行前必须重新分析确认。'],
-      );
+      expect(result.preview.warnings, ['预览基于当前本地数据，执行前必须重新分析确认。']);
       // 财务信号隐藏，合并标志为 false。
       expect(result.analysis.willRevokeSettlement, isNull);
       expect(result.analysis.willDissolveMerge, isFalse);
@@ -511,10 +702,8 @@ void main() {
 
     test('driver cannot infer settlement revoke from riskLevel', () {
       expectSettlementFullyHidden(
-        ActorContext(
-          actorType: OperationActorType.driver,
-          actorId: 'driver-1',
-        ),
+        ActorContext(actorType: OperationActorType.driver, actorId: 'driver-1'),
+        driverDeviceScope(),
       );
     });
 
@@ -524,6 +713,7 @@ void main() {
           actorType: OperationActorType.partner,
           actorId: 'partner-1',
         ),
+        partnerDeviceScope(),
       );
     });
 
@@ -535,17 +725,19 @@ void main() {
           delegatedActorType: OperationActorType.driver,
           delegatedActorId: 'driver-1',
         ),
+        driverDeviceScope(),
       );
     });
 
     test('agent without scope also gets normalized medium (none path)', () {
       final response = settlementOnly();
-      final result = redactor.redact(
+      final result = redactFor(
         response: response,
         actor: ActorContext(
           actorType: OperationActorType.agent,
           actorId: 'agent-1',
         ),
+        scope: emptyScope(actorId: 'agent-1'),
       );
       expect(result.preview.riskLevel, OperationRiskLevel.medium);
       assertNoSensitiveLeak(result);
@@ -561,21 +753,21 @@ void main() {
       );
       expect(response.preview.riskLevel, OperationRiskLevel.high);
 
-      final result = redactor.redact(
+      final result = redactFor(
         response: response,
         actor: ActorContext(
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
+        scope: driverDeviceScope(),
       );
 
       // "normalize harder"：即便合并提示被泛化展示，riskLevel 仍归一化为 medium。
       expect(result.preview.riskLevel, OperationRiskLevel.medium);
       // 合并结构提示仍然展示（泛化），合并标志保留。
-      expect(
-        result.preview.impactItems.map((i) => i.code).toList(),
-        ['project_structure'],
-      );
+      expect(result.preview.impactItems.map((i) => i.code).toList(), [
+        'project_structure',
+      ]);
       expect(result.analysis.willDissolveMerge, isTrue);
       assertNoSensitiveLeak(result);
     });
@@ -591,7 +783,11 @@ void main() {
         delegatedActorId: 'partner-1',
       );
 
-      final result = redactor.redact(response: response, actor: agentAsPartner);
+      final result = redactFor(
+        response: response,
+        actor: agentAsPartner,
+        scope: partnerDeviceScope(),
+      );
 
       expect(result.redacted, isTrue);
       expect(result.preview.summary, '编辑计时；设备：$_deviceName');
