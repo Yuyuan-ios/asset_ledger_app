@@ -284,7 +284,7 @@ class AccountProjectList extends StatelessWidget {
               final badgeStyle = _priceBadgeStyle(vm.priceBadgeKind);
               final isSettled = vm.isSettled;
               final displayProgress = vm.displayProgress;
-              final showExport = _showWorklogExport(p);
+              final showExport = !isCompact && _showWorklogExport(p);
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;
@@ -389,10 +389,6 @@ class AccountProjectList extends StatelessWidget {
                                       style: dateStyle,
                                     ),
                                   ),
-                                  if (isCompact && showExport) ...[
-                                    const SizedBox(width: 2),
-                                    _worklogExportButton(context, p),
-                                  ],
                                 ],
                               ),
                             ),
