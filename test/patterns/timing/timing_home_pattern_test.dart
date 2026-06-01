@@ -391,10 +391,9 @@ void main() {
     expect(linkTapped, isTrue);
   });
 
-  testWidgets('recent menu exports currently filtered detail records', (
+  testWidgets('recent menu does not expose worklog export action', (
     tester,
   ) async {
-    final exported = <TimingRecord>[];
     const hitachi = Device(
       id: 1,
       name: 'HITACHI 1#',
@@ -440,7 +439,6 @@ void main() {
           externalWorkItems: const [],
           deviceById: const {1: hitachi, 2: sany},
           deviceIndexById: const {1: '1#', 2: '1#'},
-          onExportTimingWorklog: (records) => exported.addAll(records),
           loading: false,
         ),
       ),
@@ -457,12 +455,9 @@ void main() {
       find.byKey(const Key('timing-recent-device-filter-button')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('导出工时表'), findsOneWidget);
-    await tester.tap(find.text('导出工时表'));
-    await tester.pumpAndSettle();
-
-    expect(exported, hasLength(1));
-    expect(exported.single.deviceId, 1);
+    expect(find.text('导出工时表'), findsNothing);
+    expect(find.text('全部设备'), findsOneWidget);
+    expect(find.text('HITACHI 1#'), findsWidgets);
   });
 }
 

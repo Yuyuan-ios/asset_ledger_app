@@ -34,6 +34,7 @@ import '../../../patterns/account/account_project_detail_sheet_pattern.dart';
 import '../../../patterns/account/account_project_list_pattern.dart';
 import '../../../patterns/account/account_project_section_pattern.dart';
 import '../use_cases/project_share_export_use_case.dart';
+import '../../../features/reports/use_cases/export_timing_worklog_excel_use_case.dart';
 import 'dialogs/project_share_export_dialog.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
@@ -744,8 +745,15 @@ class _AccountPageState extends State<AccountPage>
       ),
       footerEnabled: false,
       onConfirm: () => Navigator.of(context).maybePop(),
-      titleTrailingBuilder: (_) =>
+      titleTrailingBuilder: (_) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           ProjectDetailShareButton(onPressed: () => _openProjectShare(project)),
+          ProjectDetailExcelExportButton(
+            onPressed: () => _exportProjectTimingWorklog(project),
+          ),
+        ],
+      ),
       headerTrailingBuilder: (headerContext) => IconButton(
         tooltip: '关闭',
         icon: const Icon(Icons.close),
@@ -797,8 +805,7 @@ class _AccountPageState extends State<AccountPage>
                     allPayments: payments,
                     allWriteOffs: accountStore.writeOffs,
                     allRates: rates,
-                    allExternalWorkItems:
-                        externalWorkStore?.items ?? const [],
+                    allExternalWorkItems: externalWorkStore?.items ?? const [],
                     computed: computed,
                     settledProjectIds: accountStore.settledProjectIds,
                     onBatchEditRate: _openBatchRateEditor,
@@ -819,6 +826,36 @@ class _AccountPageState extends State<AccountPage>
                 },
           ),
     );
+  }
+
+  Future<void> _exportProjectTimingWorklog(AccountProjectVM project) async {
+    late final AccountProjectVM latestProject;
+    try {
+      latestProject = _latestProjectForSettlement(project);
+    } catch (_) {
+      _toast('项目不存在或已被清理');
+      return;
+    }
+
+    final scope = latestProject.kind == AccountProjectKind.merged
+        ? TimingWorklogExportScope.mergedProject(
+            memberProjectIds: latestProject.memberProjectIds,
+            fileNamePart: latestProject.displayName,
+          )
+        : TimingWorklogExportScope.singleProject(
+            projectId: latestProject.effectiveProjectId,
+            fileNamePart: latestProject.displayName,
+          );
+
+    final outcome = await context
+        .read<ExportTimingWorklogExcelUseCase>()
+        .execute(
+          scope: scope,
+          records: context.read<TimingStore>().records,
+          devices: context.read<DeviceStore>().allDevices,
+        );
+    if (!mounted) return;
+    _toast(outcome.message);
   }
 
   // 项目详情右上角“分享项目”：输入分享人/包名 → 生成 .jzt 文件并调起系统分享面板。

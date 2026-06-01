@@ -223,22 +223,130 @@ void main() {
     );
 
     final outcome = await useCase.execute(
+      scope: TimingWorklogExportScope.singleProject(
+        projectId: 'project-a',
+        fileNamePart: '李洋 · 天眉乐',
+      ),
       records: const [_record],
       devices: const [hitachi],
     );
 
     expect(outcome.ok, isTrue);
     expect(presenter.calls, 1);
-    expect(presenter.fileName, '挖机工时打卡汇总_日立150_20260526-20260526.xlsx');
+    expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260526-20260526.xlsx');
     expect(await File(presenter.filePath!).exists(), isTrue);
+  });
+
+  test('export use case filters normal project records', () async {
+    final dir = await Directory.systemTemp.createTemp(
+      'timing_worklog_project_',
+    );
+    addTearDown(() => dir.delete(recursive: true));
+    final presenter = _FakePresenter();
+    final useCase = ExportTimingWorklogExcelUseCase(
+      directoryResolver: () async => dir,
+      presenter: presenter,
+    );
+
+    final outcome = await useCase.execute(
+      scope: TimingWorklogExportScope.singleProject(
+        projectId: 'project-a',
+        fileNamePart: '李洋 · 天眉乐',
+      ),
+      records: [
+        _record.copyWith(id: 1, projectId: 'project-b', startDate: 20260520),
+        _record.copyWith(
+          id: 2,
+          projectId: 'project-a',
+          startDate: 20260521,
+          startMeter: 10,
+          endMeter: 12,
+          hours: 2,
+        ),
+        _record.copyWith(
+          id: 3,
+          projectId: 'project-a',
+          startDate: 20260526,
+          startMeter: 20,
+          endMeter: 23,
+          hours: 3,
+        ),
+      ],
+      devices: const [hitachi],
+    );
+    final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
+
+    expect(outcome.ok, isTrue);
+    expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260521-20260526.xlsx');
+    expect(cells['A4'], '1');
+    expect(cells['B4'], '2026.05.21');
+    expect(cells['L4'], '10');
+    expect(cells['M4'], '12');
+    expect(cells['N4'], '2');
+    expect(cells['A5'], '2');
+    expect(cells['B5'], '2026.05.26');
+    expect(cells['L5'], '20');
+    expect(cells['M5'], '23');
+    expect(cells['N5'], '3');
+    expect(cells['B6'], '');
+    expect(cells['N24'], '5');
+  });
+
+  test('export use case expands merged project to member projects', () async {
+    final dir = await Directory.systemTemp.createTemp('timing_worklog_merged_');
+    addTearDown(() => dir.delete(recursive: true));
+    final presenter = _FakePresenter();
+    final useCase = ExportTimingWorklogExcelUseCase(
+      directoryResolver: () async => dir,
+      presenter: presenter,
+    );
+
+    final outcome = await useCase.execute(
+      scope: TimingWorklogExportScope.mergedProject(
+        memberProjectIds: const ['member-a', 'member-b', 'merge:2'],
+        fileNamePart: '李杰 · 合并2项目',
+      ),
+      records: [
+        _record.copyWith(
+          id: 1,
+          projectId: 'member-a',
+          startDate: 20260312,
+          hours: 2,
+        ),
+        _record.copyWith(
+          id: 2,
+          projectId: 'member-b',
+          startDate: 20260601,
+          hours: 4,
+        ),
+        _record.copyWith(id: 3, projectId: 'project-c', startDate: 20260501),
+        _record.copyWith(id: 4, projectId: 'merge:2', startDate: 20260502),
+      ],
+      devices: const [hitachi],
+    );
+    final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
+
+    expect(outcome.ok, isTrue);
+    expect(presenter.fileName, '挖机工时打卡汇总_李杰_合并2项目_20260312-20260601.xlsx');
+    expect(cells['B4'], '2026.03.12');
+    expect(cells['B5'], '2026.06.01');
+    expect(cells['B6'], '');
+    expect(cells['N24'], '6');
   });
 
   test('export use case reports empty and share failure friendly', () async {
     final presenter = _FakePresenter();
     final useCase = ExportTimingWorklogExcelUseCase(presenter: presenter);
-    final empty = await useCase.execute(records: const [], devices: const []);
+    final empty = await useCase.execute(
+      scope: TimingWorklogExportScope.singleProject(
+        projectId: 'project-a',
+        fileNamePart: '李洋 · 天眉乐',
+      ),
+      records: const [],
+      devices: const [],
+    );
     expect(empty.ok, isFalse);
-    expect(empty.message, '暂无可导出的计时记录');
+    expect(empty.message, '该项目暂无可导出的工时记录');
     expect(presenter.calls, 0);
 
     final dir = await Directory.systemTemp.createTemp('timing_worklog_fail_');
@@ -250,6 +358,10 @@ void main() {
       ),
     );
     final result = await failing.execute(
+      scope: TimingWorklogExportScope.singleProject(
+        projectId: 'project-a',
+        fileNamePart: '李洋 · 天眉乐',
+      ),
       records: const [_record],
       devices: const [hitachi],
     );
@@ -263,6 +375,7 @@ const _record = TimingRecord(
   id: 1,
   deviceId: 1,
   startDate: 20260526,
+  projectId: 'project-a',
   contact: '张三',
   site: '工地',
   type: TimingType.hours,
@@ -276,6 +389,13 @@ String _sheetXml(TimingWorklogReport report) {
   final archive = ZipDecoder().decodeBytes(
     const TimingWorklogExcelWriter().write(report),
   );
+  return utf8.decode(
+    archive.findFile('xl/worksheets/sheet1.xml')!.content as List<int>,
+  );
+}
+
+String _sheetXmlFromFile(String path) {
+  final archive = ZipDecoder().decodeBytes(File(path).readAsBytesSync());
   return utf8.decode(
     archive.findFile('xl/worksheets/sheet1.xml')!.content as List<int>,
   );
