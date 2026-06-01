@@ -16,7 +16,7 @@ class AccountTokens {
   static const double overviewCardBorderWidth = 1; // 总览卡片边框宽度
   static const double overviewCardShadowBlur = 4; // 总览卡片阴影模糊
   static const double overviewCardShadowOffsetX = 2; // 总览卡片阴影右移
-  static const double overviewCardShadowOffsetY = 2; // 总览卡片阴影下移
+  static const double overviewCardShadowOffsetY = 1; // 总览卡片阴影下移
   static const double overviewCardShadowOpacity = 0.3; // 总览卡片阴影透明度
   static const double overviewCardPaddingLeft = 12; // 总览卡片左内边距
   static const double overviewCardPaddingTop = 0; // 总览卡片上内边距
