@@ -170,6 +170,7 @@ class AccountProjectList extends StatelessWidget {
       child: IconButton(
         key: _accountProjectWorklogExportButtonKey,
         tooltip: '导出工时表',
+        alignment: Alignment.centerRight,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints.tightFor(
           width: _worklogExportButtonSize,
@@ -199,6 +200,7 @@ class AccountProjectList extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        if (showExport) _worklogExportButton(context, project),
         Flexible(
           child: Text(
             totalHoursText,
@@ -209,10 +211,6 @@ class AccountProjectList extends StatelessWidget {
             style: style,
           ),
         ),
-        if (showExport) ...[
-          const SizedBox(width: 2),
-          _worklogExportButton(context, project),
-        ],
       ],
     );
   }
