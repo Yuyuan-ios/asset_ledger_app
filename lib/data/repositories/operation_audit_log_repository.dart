@@ -24,6 +24,8 @@ abstract class OperationAuditLogRepository {
 
   Future<List<OperationAuditLog>> listByOperationId(String operationId);
 
+  Future<List<OperationAuditLog>> listByTokenId(String tokenId);
+
   Future<List<OperationAuditLog>> listRecent({int limit = 50});
 }
 
@@ -72,6 +74,19 @@ class SqfliteOperationAuditLogRepository
       table,
       where: 'operation_id = ?',
       whereArgs: [normalizedOperationId],
+      orderBy: 'created_at ASC, id ASC',
+    );
+    return rows.map(OperationAuditLog.fromMap).toList(growable: false);
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listByTokenId(String tokenId) async {
+    final normalizedTokenId = _requireNonEmpty(tokenId, 'tokenId');
+    final db = await AppDatabase.database;
+    final rows = await db.query(
+      table,
+      where: 'token_id = ?',
+      whereArgs: [normalizedTokenId],
       orderBy: 'created_at ASC, id ASC',
     );
     return rows.map(OperationAuditLog.fromMap).toList(growable: false);
