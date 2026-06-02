@@ -44,21 +44,25 @@ class ComputeAccountSummaryUseCase {
       ..sort((a, b) => projects[b]!.minYmd.compareTo(projects[a]!.minYmd));
 
     final normalItems = <AccountProjectVM>[];
+    // 每个项目的权威 fen 口径快照，供合并卡按成员 fen 累加（避免成员 double
+    // 二次 rounding）。
+    final moneyFenByProjectId = <String, ProjectMoneyFen>{};
 
     for (final key in keys) {
       final agg = projects[key]!;
 
-      final money = AccountService.calcMoney(
+      final moneyFen = AccountService.calcMoneyFen(
         agg: agg,
         devices: devices,
         rates: rates,
         payments: payments,
         writeOffs: writeOffs,
       );
+      moneyFenByProjectId[agg.projectId] = moneyFen;
       final finance = ProjectFinanceCalculator.summarizeTotals(
-        receivableFen: ProjectFinanceCalculator.yuanToFen(money.receivable),
-        receivedFen: ProjectFinanceCalculator.yuanToFen(money.received),
-        writeOffFen: ProjectFinanceCalculator.yuanToFen(money.writeOff),
+        receivableFen: moneyFen.receivableFen,
+        receivedFen: moneyFen.receivedFen,
+        writeOffFen: moneyFen.writeOffFen,
         toleranceFen: 1,
       );
 
@@ -111,6 +115,7 @@ class ComputeAccountSummaryUseCase {
       normalItems: normalItems,
       activeMergeGroups: activeMergeGroups,
       settledProjectIds: settledProjectIds,
+      moneyFenByProjectId: moneyFenByProjectId,
     );
 
     final deviceById = buildDeviceByIdMap(devices);
@@ -341,16 +346,16 @@ class ComputeAccountSummaryUseCase {
     var receivedFen = 0;
     var writeOffFen = 0;
     for (final agg in projects.values) {
-      final money = AccountService.calcMoney(
+      final moneyFen = AccountService.calcMoneyFen(
         agg: agg,
         devices: devices,
         rates: rates,
         payments: annualPayments,
         writeOffs: annualWriteOffs,
       );
-      originalFen += ProjectFinanceCalculator.yuanToFen(money.receivable);
-      receivedFen += ProjectFinanceCalculator.yuanToFen(money.received);
-      writeOffFen += ProjectFinanceCalculator.yuanToFen(money.writeOff);
+      originalFen += moneyFen.receivableFen;
+      receivedFen += moneyFen.receivedFen;
+      writeOffFen += moneyFen.writeOffFen;
     }
 
     final receivableFen = originalFen > writeOffFen
@@ -377,6 +382,7 @@ class ComputeAccountSummaryUseCase {
     required List<AccountProjectVM> normalItems,
     required List<AccountProjectMergeGroupWithMembers> activeMergeGroups,
     required Set<String> settledProjectIds,
+    required Map<String, ProjectMoneyFen> moneyFenByProjectId,
   }) {
     if (activeMergeGroups.isEmpty || normalItems.isEmpty) return normalItems;
 
@@ -423,6 +429,7 @@ class ComputeAccountSummaryUseCase {
           memberProjectIds: memberProjectIds,
           includedSites: memberSites,
           settledProjectIds: settledProjectIds,
+          moneyFenByProjectId: moneyFenByProjectId,
         ),
       );
     }
@@ -445,6 +452,7 @@ class ComputeAccountSummaryUseCase {
     required List<String> memberProjectIds,
     required List<String> includedSites,
     required Set<String> settledProjectIds,
+    required Map<String, ProjectMoneyFen> moneyFenByProjectId,
   }) {
     final deviceIds = <int>{};
     final hoursByDevice = <int, double>{};
@@ -454,9 +462,10 @@ class ComputeAccountSummaryUseCase {
     var rentIncomeTotal = 0.0;
     double? minRate;
     var isMultiMode = false;
-    var receivable = 0.0;
-    var received = 0.0;
-    var writeOff = 0.0;
+    // 成员金额按权威 fen 累加，避免成员 double（已 round 过一次）再二次 rounding。
+    var receivableFen = 0;
+    var receivedFen = 0;
+    var writeOffFen = 0;
 
     for (final item in memberItems) {
       if (item.minYmd < minYmd) minYmd = item.minYmd;
@@ -471,17 +480,20 @@ class ComputeAccountSummaryUseCase {
         minRate = minRate == null ? rate : (rate < minRate ? rate : minRate);
       }
       isMultiMode = isMultiMode || item.isMultiMode;
-      receivable += item.receivable;
-      received += item.received;
-      writeOff += item.writeOff;
+      final memberMoneyFen = moneyFenByProjectId[item.projectId];
+      if (memberMoneyFen != null) {
+        receivableFen += memberMoneyFen.receivableFen;
+        receivedFen += memberMoneyFen.receivedFen;
+        writeOffFen += memberMoneyFen.writeOffFen;
+      }
       payments.addAll(item.payments);
     }
 
     payments.sort((a, b) => b.ymd.compareTo(a.ymd));
     final finance = ProjectFinanceCalculator.summarizeTotals(
-      receivableFen: ProjectFinanceCalculator.yuanToFen(receivable),
-      receivedFen: ProjectFinanceCalculator.yuanToFen(received),
-      writeOffFen: ProjectFinanceCalculator.yuanToFen(writeOff),
+      receivableFen: receivableFen,
+      receivedFen: receivedFen,
+      writeOffFen: writeOffFen,
       toleranceFen: 1,
     );
     final sortedDeviceIds = deviceIds.toList()..sort();
