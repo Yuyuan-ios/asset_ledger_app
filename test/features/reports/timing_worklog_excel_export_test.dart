@@ -4,12 +4,15 @@ import 'dart:ui';
 
 import 'package:archive/archive.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/external_import_batch.dart';
+import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/features/reports/infrastructure/timing_worklog_excel_writer.dart';
 import 'package:asset_ledger/features/reports/models/timing_worklog_report.dart';
 import 'package:asset_ledger/features/reports/presentation/report_file_presenter.dart';
 import 'package:asset_ledger/features/reports/use_cases/build_timing_worklog_report_use_case.dart';
 import 'package:asset_ledger/features/reports/use_cases/export_timing_worklog_excel_use_case.dart';
+import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakePresenter implements ReportFilePresenter {
@@ -85,6 +88,32 @@ void main() {
     expect(report.rows.first.hours, 8);
     expect(report.totalHours, 13.5);
     expect(report.deviceFileNamePart, '日立150');
+  });
+
+  test('report builder maps linked external work rows', () {
+    final report = const BuildTimingWorklogReportUseCase().execute(
+      records: const [],
+      devices: const [],
+      externalWorkItems: [
+        _externalItem(
+          id: 'external-a',
+          linkedProjectId: 'project-a',
+          workDate: 20260527,
+          hours: 4.5,
+          equipmentBrand: '卡特',
+          equipmentModel: '320',
+        ),
+      ],
+    );
+
+    expect(report.rows, hasLength(1));
+    expect(report.rows.single.sequence, 1);
+    expect(report.rows.single.date, 20260527);
+    expect(report.rows.single.deviceName, '卡特320');
+    expect(report.rows.single.startMeter, isNull);
+    expect(report.rows.single.endMeter, isNull);
+    expect(report.rows.single.hours, 4.5);
+    expect(report.totalHours, 4.5);
   });
 
   test(
@@ -237,60 +266,105 @@ void main() {
     expect(await File(presenter.filePath!).exists(), isTrue);
   });
 
-  test('export use case filters normal project records', () async {
-    final dir = await Directory.systemTemp.createTemp(
-      'timing_worklog_project_',
-    );
-    addTearDown(() => dir.delete(recursive: true));
-    final presenter = _FakePresenter();
-    final useCase = ExportTimingWorklogExcelUseCase(
-      directoryResolver: () async => dir,
-      presenter: presenter,
-    );
+  test(
+    'export use case filters normal project records and linked external work',
+    () async {
+      final dir = await Directory.systemTemp.createTemp(
+        'timing_worklog_project_',
+      );
+      addTearDown(() => dir.delete(recursive: true));
+      final presenter = _FakePresenter();
+      final useCase = ExportTimingWorklogExcelUseCase(
+        directoryResolver: () async => dir,
+        presenter: presenter,
+      );
 
-    final outcome = await useCase.execute(
-      scope: TimingWorklogExportScope.singleProject(
-        projectId: 'project-a',
-        fileNamePart: '李洋 · 天眉乐',
-      ),
-      records: [
-        _record.copyWith(id: 1, projectId: 'project-b', startDate: 20260520),
-        _record.copyWith(
-          id: 2,
+      final outcome = await useCase.execute(
+        scope: TimingWorklogExportScope.singleProject(
           projectId: 'project-a',
-          startDate: 20260521,
-          startMeter: 10,
-          endMeter: 12,
-          hours: 2,
+          fileNamePart: '李洋 · 天眉乐',
         ),
-        _record.copyWith(
-          id: 3,
-          projectId: 'project-a',
-          startDate: 20260526,
-          startMeter: 20,
-          endMeter: 23,
-          hours: 3,
-        ),
-      ],
-      devices: const [hitachi],
-    );
-    final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
+        records: [
+          _record.copyWith(id: 1, projectId: 'project-b', startDate: 20260520),
+          _record.copyWith(
+            id: 2,
+            projectId: 'project-a',
+            startDate: 20260521,
+            startMeter: 10,
+            endMeter: 12,
+            hours: 2,
+          ),
+          _record.copyWith(
+            id: 3,
+            projectId: 'project-b',
+            startDate: 20260526,
+            startMeter: 20,
+            endMeter: 23,
+            hours: 3,
+          ),
+        ],
+        devices: const [hitachi],
+        externalWorkItems: [
+          _externalItem(
+            id: 'external-a',
+            linkedProjectId: 'project-a',
+            workDate: 20260522,
+            hours: 4.5,
+            equipmentBrand: '卡特',
+            equipmentModel: '320',
+          ),
+          _externalItem(
+            id: 'external-b',
+            linkedProjectId: 'project-b',
+            workDate: 20260523,
+            hours: 9,
+          ),
+          _externalItem(
+            id: 'external-unlinked',
+            linkedProjectId: null,
+            workDate: 20260524,
+            hours: 8,
+          ),
+          _externalItem(
+            id: 'external-ignored',
+            linkedProjectId: 'project-a',
+            workDate: 20260525,
+            hours: 7,
+            status: ExternalWorkRecordStatus.ignored,
+          ),
+          _externalItem(
+            id: 'external-archived-batch',
+            linkedProjectId: 'project-a',
+            workDate: 20260526,
+            hours: 6,
+            batchStatus: ExternalImportBatchStatus.archived,
+          ),
+        ],
+      );
+      final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
 
-    expect(outcome.ok, isTrue);
-    expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260521-20260526.xlsx');
-    expect(cells['A4'], '1');
-    expect(cells['B4'], '2026.05.21');
-    expect(cells['L4'], '10');
-    expect(cells['M4'], '12');
-    expect(cells['N4'], '2');
-    expect(cells['A5'], '2');
-    expect(cells['B5'], '2026.05.26');
-    expect(cells['L5'], '20');
-    expect(cells['M5'], '23');
-    expect(cells['N5'], '3');
-    expect(cells['B6'], '');
-    expect(cells['N24'], '5');
-  });
+      expect(outcome.ok, isTrue);
+      expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260521-20260522.xlsx');
+      expect(cells['A4'], '1');
+      expect(cells['B4'], '2026.05.21');
+      expect(cells['C4'], '日立150');
+      expect(cells['L4'], '10');
+      expect(cells['M4'], '12');
+      expect(cells['N4'], '2');
+      expect(cells['A5'], '2');
+      expect(cells['B5'], '2026.05.22');
+      expect(cells['C5'], '卡特320');
+      expect(cells['H5'], '');
+      expect(cells['I5'], '');
+      expect(cells['J5'], '');
+      expect(cells['K5'], '');
+      expect(cells['L5'], '');
+      expect(cells['M5'], '');
+      expect(cells['N5'], '4.5');
+      expect(cells['B6'], '');
+      expect(cells['N24'], '6.5');
+    },
+  );
 
   test('export use case expands merged project to member projects', () async {
     final dir = await Directory.systemTemp.createTemp('timing_worklog_merged_');
@@ -323,16 +397,96 @@ void main() {
         _record.copyWith(id: 4, projectId: 'merge:2', startDate: 20260502),
       ],
       devices: const [hitachi],
+      externalWorkItems: [
+        _externalItem(
+          id: 'external-member-a',
+          linkedProjectId: 'member-a',
+          workDate: 20260313,
+          hours: 1.5,
+          equipmentBrand: '小松',
+          equipmentModel: '200',
+        ),
+        _externalItem(
+          id: 'external-member-b',
+          linkedProjectId: 'member-b',
+          workDate: 20260530,
+          hours: 2.5,
+        ),
+        _externalItem(
+          id: 'external-project-c',
+          linkedProjectId: 'project-c',
+          workDate: 20260531,
+          hours: 8,
+        ),
+        _externalItem(
+          id: 'external-merge-id',
+          linkedProjectId: 'merge:2',
+          workDate: 20260602,
+          hours: 16,
+        ),
+      ],
     );
     final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
 
     expect(outcome.ok, isTrue);
     expect(presenter.fileName, '挖机工时打卡汇总_李杰_合并2项目_20260312-20260601.xlsx');
     expect(cells['B4'], '2026.03.12');
-    expect(cells['B5'], '2026.06.01');
-    expect(cells['B6'], '');
-    expect(cells['N24'], '6');
+    expect(cells['B5'], '2026.03.13');
+    expect(cells['C5'], '小松200');
+    expect(cells['L5'], '');
+    expect(cells['M5'], '');
+    expect(cells['N5'], '1.5');
+    expect(cells['B6'], '2026.05.30');
+    expect(cells['N6'], '2.5');
+    expect(cells['B7'], '2026.06.01');
+    expect(cells['N7'], '4');
+    expect(cells['B8'], '');
+    expect(cells['N24'], '10');
   });
+
+  test(
+    'export use case allows project with only linked external work',
+    () async {
+      final dir = await Directory.systemTemp.createTemp(
+        'timing_worklog_external_only_',
+      );
+      addTearDown(() => dir.delete(recursive: true));
+      final presenter = _FakePresenter();
+      final useCase = ExportTimingWorklogExcelUseCase(
+        directoryResolver: () async => dir,
+        presenter: presenter,
+      );
+
+      final outcome = await useCase.execute(
+        scope: TimingWorklogExportScope.singleProject(
+          projectId: 'project-a',
+          fileNamePart: '李洋 · 天眉乐',
+        ),
+        records: const [],
+        devices: const [hitachi],
+        externalWorkItems: [
+          _externalItem(
+            id: 'external-only',
+            linkedProjectId: 'project-a',
+            workDate: 20260528,
+            hours: 3.5,
+            equipmentModel: '神钢75',
+          ),
+        ],
+      );
+      final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
+
+      expect(outcome.ok, isTrue);
+      expect(presenter.calls, 1);
+      expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260528-20260528.xlsx');
+      expect(cells['B4'], '2026.05.28');
+      expect(cells['C4'], '神钢75');
+      expect(cells['L4'], '');
+      expect(cells['M4'], '');
+      expect(cells['N4'], '3.5');
+      expect(cells['N24'], '3.5');
+    },
+  );
 
   test('export use case reports empty and share failure friendly', () async {
     final presenter = _FakePresenter();
@@ -344,6 +498,28 @@ void main() {
       ),
       records: const [],
       devices: const [],
+      externalWorkItems: [
+        _externalItem(
+          id: 'empty-unlinked',
+          linkedProjectId: null,
+          workDate: 20260526,
+          hours: 1,
+        ),
+        _externalItem(
+          id: 'empty-ignored',
+          linkedProjectId: 'project-a',
+          workDate: 20260526,
+          hours: 1,
+          status: ExternalWorkRecordStatus.ignored,
+        ),
+        _externalItem(
+          id: 'empty-voided-batch',
+          linkedProjectId: 'project-a',
+          workDate: 20260526,
+          hours: 1,
+          batchStatus: ExternalImportBatchStatus.voided,
+        ),
+      ],
     );
     expect(empty.ok, isFalse);
     expect(empty.message, '该项目暂无可导出的工时记录');
@@ -369,6 +545,57 @@ void main() {
     expect(result.message, '分享面板打开失败，工时表已保留，可稍后重试');
     expect(dir.listSync().whereType<File>().single.path, endsWith('.xlsx'));
   });
+}
+
+TimingExternalWorkRecordItem _externalItem({
+  required String id,
+  required String? linkedProjectId,
+  required int workDate,
+  required double hours,
+  String? equipmentBrand,
+  String? equipmentModel,
+  String? equipmentType,
+  ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
+  ExternalImportBatchStatus batchStatus = ExternalImportBatchStatus.active,
+}) {
+  final batchId = 'batch-$id';
+  const createdAt = '2026-05-01T00:00:00Z';
+  return TimingExternalWorkRecordItem(
+    record: ExternalWorkRecord.imported(
+      id: id,
+      importBatchId: batchId,
+      sourceShareId: 'share-$id',
+      sourceRecordUuid: 'record-$id',
+      sourceInstallationUuid: 'installation-$id',
+      originFingerprint: 'fingerprint-$id',
+      collaboratorName: '外协人',
+      contactSnapshot: '联系人',
+      siteSnapshot: '工地',
+      equipmentBrand: equipmentBrand,
+      equipmentModel: equipmentModel,
+      equipmentType: equipmentType,
+      workDate: workDate,
+      hoursMilli: (hours * 1000).round(),
+      amountFen: 100,
+      linkedProjectId: linkedProjectId,
+      status: status,
+      createdAt: createdAt,
+      updatedAt: createdAt,
+    ),
+    batch: ExternalImportBatch(
+      id: batchId,
+      sourceShareId: 'share-$id',
+      sourceDisplayName: '外协包',
+      recordCount: 1,
+      totalHoursMilli: (hours * 1000).round(),
+      totalAmountFen: 100,
+      siteSummary: '工地',
+      importedAt: createdAt,
+      status: batchStatus,
+      createdAt: createdAt,
+      updatedAt: createdAt,
+    ),
+  );
 }
 
 const _record = TimingRecord(
