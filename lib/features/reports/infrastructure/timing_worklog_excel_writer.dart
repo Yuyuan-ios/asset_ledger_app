@@ -187,8 +187,12 @@ class _SheetXmlBuilder {
         const _Cell.text(''),
         const _Cell.text(''),
         const _Cell.text(''),
-        _Cell.number(row.startMeter),
-        _Cell.number(row.endMeter),
+        row.startMeter == null
+            ? const _Cell.text('')
+            : _Cell.number(row.startMeter!),
+        row.endMeter == null
+            ? const _Cell.text('')
+            : _Cell.number(row.endMeter!),
         _Cell.number(row.hours),
         const _Cell.text(''),
         const _Cell.text(''),

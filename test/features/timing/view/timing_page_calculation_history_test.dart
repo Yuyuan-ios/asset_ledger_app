@@ -232,6 +232,75 @@ void main() {
     expect(find.text('甲方 · 一号工地'), findsNothing);
   });
 
+  testWidgets('editing delete blocked by payments shows dialog above sheet', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      deleteUseCase: _FakeDeleteTimingRecordWithImpactUseCase(
+        timingRepository,
+        analyzeImpactOverride: (_) =>
+            _deleteImpact(isLastTimingRecordOfProject: true, hasPayments: true),
+      ),
+    );
+
+    await tester.tap(find.text('甲方 · 一号工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '删除本记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法删除'), findsOneWidget);
+    expect(find.text('该项目已有收款记录。请先处理收款记录后再删除该项目的最后一条计时。'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '知道了'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(timingRepository.deletedIds, isEmpty);
+
+    await tester.tap(find.widgetWithText(FilledButton, '知道了'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑计时'), findsOneWidget);
+    expect(timingRepository.deletedIds, isEmpty);
+  });
+
+  testWidgets('editing delete race blocked by payments shows dialog', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      deleteUseCase: _FakeDeleteTimingRecordWithImpactUseCase(
+        timingRepository,
+        throwBlockedOnExecute: true,
+      ),
+    );
+
+    await tester.tap(find.text('甲方 · 一号工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '删除本记录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法删除'), findsOneWidget);
+    expect(find.text('该项目已有收款记录。请先处理收款记录后再删除该项目的最后一条计时。'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('已删除'), findsNothing);
+    expect(timingRepository.deletedIds, isEmpty);
+
+    await tester.tap(find.widgetWithText(FilledButton, '知道了'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑计时'), findsOneWidget);
+    expect(timingRepository.deletedIds, isEmpty);
+  });
+
   testWidgets('recent timing records no longer expose swipe delete', (
     WidgetTester tester,
   ) async {
@@ -926,6 +995,7 @@ Future<void> _pumpTimingPage(
   _FakeTimingRepository? timingRepository,
   required TimingCalculationHistoryRepository historyRepository,
   _FakeAccountProjectMergeRepository? mergeRepository,
+  DeleteTimingRecordWithImpactUseCase? deleteUseCase,
   List<ExternalImportBatch> externalBatches = const [],
   List<ExternalWorkRecord> externalRecords = const [],
 }) async {
@@ -1002,9 +1072,11 @@ Future<void> _pumpTimingPage(
             ),
           ),
           Provider<DeleteTimingRecordWithImpactUseCase>.value(
-            value: _FakeDeleteTimingRecordWithImpactUseCase(
-              resolvedTimingRepository,
-            ),
+            value:
+                deleteUseCase ??
+                _FakeDeleteTimingRecordWithImpactUseCase(
+                  resolvedTimingRepository,
+                ),
           ),
           Provider<SaveTimingRecordWithImpactUseCase>.value(
             value: _FakeSaveTimingRecordWithImpactUseCase(
@@ -1226,35 +1298,51 @@ class _FakeTimingRepository implements TimingRepository {
 
 class _FakeDeleteTimingRecordWithImpactUseCase
     implements DeleteTimingRecordWithImpactUseCase {
-  _FakeDeleteTimingRecordWithImpactUseCase(this._timingRepository);
+  _FakeDeleteTimingRecordWithImpactUseCase(
+    this._timingRepository, {
+    this.analyzeImpactOverride,
+    this.throwBlockedOnExecute = false,
+  });
 
   final _FakeTimingRepository _timingRepository;
+  final TimingRecordDeleteImpact Function(int recordId)? analyzeImpactOverride;
+  final bool throwBlockedOnExecute;
 
   @override
   Future<TimingRecordDeleteImpact> analyzeImpact(int recordId) async {
-    return TimingRecordDeleteImpact(
-      record: _record(),
-      projectId: 'project:test',
-      projectKey: 'test-key',
-      isLastTimingRecordOfProject: false,
-      hasPayments: false,
-      hasWriteOff: false,
-      isSettled: false,
-      mergeGroupId: null,
-      willRemoveMergeMember: false,
-      willDissolveMergeGroup: false,
-      linkedExternalBatchCount: 0,
-      willUnlinkExternalWork: false,
-    );
+    return analyzeImpactOverride?.call(recordId) ?? _deleteImpact();
   }
 
   @override
   Future<TimingRecordDeleteOutcome> executeDeleteWithImpact(
     int recordId,
   ) async {
+    if (throwBlockedOnExecute) {
+      throw const TimingDeleteBlockedByPaymentsException();
+    }
     await _timingRepository.deleteById(recordId);
     return const TimingRecordDeleteOutcome();
   }
+}
+
+TimingRecordDeleteImpact _deleteImpact({
+  bool isLastTimingRecordOfProject = false,
+  bool hasPayments = false,
+}) {
+  return TimingRecordDeleteImpact(
+    record: _record(),
+    projectId: 'project:test',
+    projectKey: 'test-key',
+    isLastTimingRecordOfProject: isLastTimingRecordOfProject,
+    hasPayments: hasPayments,
+    hasWriteOff: false,
+    isSettled: false,
+    mergeGroupId: null,
+    willRemoveMergeMember: false,
+    willDissolveMergeGroup: false,
+    linkedExternalBatchCount: 0,
+    willUnlinkExternalWork: false,
+  );
 }
 
 Future<_FakeOperationTransactionRunner>

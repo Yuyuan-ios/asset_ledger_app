@@ -34,8 +34,8 @@ class TimingWorklogReportRow {
   final int sequence;
   final int date;
   final String deviceName;
-  final double startMeter;
-  final double endMeter;
+  final double? startMeter;
+  final double? endMeter;
   final double hours;
 }
 
@@ -48,3 +48,5 @@ class TimingWorklogReportSourceRow {
   final TimingRecord record;
   final Device? device;
 }
+
+enum TimingWorklogReportSourceType { local, external }
