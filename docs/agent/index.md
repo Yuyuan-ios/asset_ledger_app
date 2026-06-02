@@ -30,6 +30,8 @@ tools/agent/check_full.sh
 
 - 标准流程：`docs/agent/workflow.md`
 - Prompt 规范：`docs/agent/prompt-style.md`
+- Prompt Review Gateway：`docs/agent/prompt-review-gateway.md`
+- Skills 使用说明：`docs/agent/skills.md`
 - 产品规则：`docs/product/`
 - 架构规则：`docs/architecture/`
 - 阶段记录与技术债：`docs/operations/`
