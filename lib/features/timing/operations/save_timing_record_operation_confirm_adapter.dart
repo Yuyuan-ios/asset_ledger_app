@@ -11,6 +11,7 @@ import '../../../data/repositories/operation_token_repository.dart';
 import '../use_cases/save_timing_record_with_impact_use_case.dart';
 import 'save_timing_record_operation_analyzer.dart';
 import 'save_timing_record_operation_command.dart';
+import 'save_timing_record_operation_fingerprints.dart';
 
 /// Agent / MCP 预留的保存计时确认适配层。
 ///
@@ -112,7 +113,12 @@ class SaveTimingRecordOperationConfirmAdapter {
 
     final record = await repo.findById(tokenId);
     if (record == null) {
-      return _tokenFailure(preview, 'token_not_found');
+      return _tokenFailureWithAudit(
+        preview: preview,
+        tokenId: tokenId,
+        error: _tokenNotFoundCode,
+        code: _tokenNotFoundCode,
+      );
     }
 
     // 用 repository 中的权威 token，而非调用方传入。
@@ -135,9 +141,12 @@ class SaveTimingRecordOperationConfirmAdapter {
       ),
     );
     if (!validation.isValid) {
-      return _tokenFailure(
-        preview,
-        'token_invalid:${validation.errors.join(',')}',
+      return _tokenFailureWithAudit(
+        preview: preview,
+        tokenId: tokenId,
+        error: '$_tokenInvalidCode:${validation.errors.join(',')}',
+        code: _tokenInvalidCode,
+        reasons: validation.errors,
       );
     }
 
@@ -146,13 +155,15 @@ class SaveTimingRecordOperationConfirmAdapter {
       analyzeInput: analyzeInput,
       previousAnalyzeResult: previousAnalyzeResult,
       preview: preview,
+      auditTokenId: tokenId,
     );
     if (freshnessFailure != null) return freshnessFailure;
 
     // claim 与业务、audit 同事务：claim 失败即抛错中止事务，业务不执行。
-    return command.executeConfirmedInTransaction(
+    final result = await command.executeConfirmedInTransaction(
       preview: preview,
       operationId: operationId,
+      auditTokenId: tokenId,
       executeSaveWithExecutor: (executor) async {
         final claimed = await repo.claimForConsumeWithExecutor(
           executor,
@@ -163,28 +174,40 @@ class SaveTimingRecordOperationConfirmAdapter {
         return executeSaveWithExecutor(executor);
       },
     );
+    if (!result.success && result.error == _tokenClaimFailedCode) {
+      return _tokenFailureWithAudit(
+        preview: preview,
+        tokenId: tokenId,
+        error: result.error!,
+        code: _tokenClaimFailedCode,
+        baseResult: result,
+      );
+    }
+    return result;
   }
 
   /// 稳定 inputHash：绑定 analyze 输入（草稿 + 编辑目标）。供未来签发端复用同口径。
   static String inputHashFor(SaveTimingRecordOperationAnalyzeInput input) {
-    return OperationConfirmationFingerprint.stableHash(
-      _analyzeInputCanonicalMap(input),
-    );
+    return SaveTimingRecordOperationFingerprints.inputHashFor(input);
   }
 
   /// 稳定 fullAnalysisHash：绑定执行所依据的完整 analyze 结果。供未来签发端复用同口径。
   static String fullAnalysisHashFor(
     SaveTimingRecordOperationAnalyzeResult result,
   ) {
-    return OperationConfirmationFingerprint.stableHash(
-      _analysisCanonicalMap(result),
-    );
+    return SaveTimingRecordOperationFingerprints.fullAnalysisHashFor(result);
   }
 
   static const _staleUserMessage = '数据已变化，请重新预览。';
   static const _tokenInvalidUserMessage = '操作凭据无效，请重新预览。';
+  static const _tokenNotFoundCode = 'token_not_found';
+  static const _tokenInvalidCode = 'token_invalid';
+  static const _tokenClaimFailedCode = 'token_claim_failed';
 
-  void _requireOperationIdMatches(String operationId, OperationPreview preview) {
+  void _requireOperationIdMatches(
+    String operationId,
+    OperationPreview preview,
+  ) {
     if (operationId != preview.operationId) {
       throw ArgumentError.value(
         operationId,
@@ -207,12 +230,40 @@ class SaveTimingRecordOperationConfirmAdapter {
     );
   }
 
+  Future<OperationExecutionResult> _tokenFailureWithAudit({
+    required OperationPreview preview,
+    required String tokenId,
+    required String error,
+    required String code,
+    List<String> reasons = const [],
+    OperationExecutionResult? baseResult,
+  }) async {
+    final auditOutcome = await _maybeWriteTokenFailureAudit(
+      preview: preview,
+      tokenId: tokenId,
+      code: code,
+      reasons: reasons,
+    );
+    final failureError = auditOutcome.error == null
+        ? error
+        : '$error;audit_write_failed:${auditOutcome.error}';
+    return OperationExecutionResult.failure(
+      operationId: preview.operationId,
+      operationType: OperationType.saveTimingRecord,
+      affectedEntities: preview.affectedEntities,
+      userMessage: baseResult?.userMessage ?? _tokenInvalidUserMessage,
+      error: failureError,
+      auditId: auditOutcome.auditId,
+    );
+  }
+
   /// 共享的 freshness 闸：返回非空即为应当直接返回的 failure；返回 null 表示
   /// fresh、可继续执行。stale 时按既有语义写 stale failure audit。
   Future<OperationExecutionResult?> _freshnessFailureOrNull({
     required SaveTimingRecordOperationAnalyzeInput analyzeInput,
     required SaveTimingRecordOperationAnalyzeResult previousAnalyzeResult,
     required OperationPreview preview,
+    String? auditTokenId,
   }) async {
     SaveTimingRecordFreshnessVerdict verdict;
     try {
@@ -234,6 +285,7 @@ class SaveTimingRecordOperationConfirmAdapter {
       final staleError = _staleError(verdict.staleReasons);
       final auditOutcome = await _maybeWriteStaleAudit(
         preview: preview,
+        tokenId: auditTokenId,
         staleReasons: verdict.staleReasons,
       );
       return OperationExecutionResult.failure(
@@ -252,6 +304,7 @@ class SaveTimingRecordOperationConfirmAdapter {
 
   Future<_StaleAuditOutcome> _maybeWriteStaleAudit({
     required OperationPreview preview,
+    String? tokenId,
     required List<SaveTimingRecordStaleReason> staleReasons,
   }) async {
     final repo = auditRepository;
@@ -263,6 +316,7 @@ class SaveTimingRecordOperationConfirmAdapter {
     final log = OperationAuditLog(
       id: auditId,
       operationId: preview.operationId,
+      tokenId: tokenId,
       operationType: OperationType.saveTimingRecord,
       actorId: actorId,
       actorType: actorType,
@@ -283,6 +337,45 @@ class SaveTimingRecordOperationConfirmAdapter {
     }
   }
 
+  Future<_TokenFailureAuditOutcome> _maybeWriteTokenFailureAudit({
+    required OperationPreview preview,
+    required String tokenId,
+    required String code,
+    List<String> reasons = const [],
+  }) async {
+    final repo = auditRepository;
+    if (repo == null) {
+      return const _TokenFailureAuditOutcome._(auditId: null, error: null);
+    }
+
+    final auditId = _resolveAuditId();
+    final log = OperationAuditLog(
+      id: auditId,
+      operationId: preview.operationId,
+      tokenId: tokenId,
+      operationType: OperationType.saveTimingRecord,
+      actorId: actorId,
+      actorType: actorType,
+      source: source,
+      createdAt: _resolveNow(),
+      entityRefs: preview.affectedEntities,
+      preview: preview,
+      confirmed: true,
+      result: OperationAuditResult.failure,
+      errorMessage: _tokenFailureAuditErrorMessage(
+        code: code,
+        reasons: reasons,
+      ),
+    );
+
+    try {
+      await repo.insert(log);
+      return _TokenFailureAuditOutcome._(auditId: auditId, error: null);
+    } catch (error) {
+      return _TokenFailureAuditOutcome._(auditId: null, error: error);
+    }
+  }
+
   DateTime _resolveNow() => now?.call() ?? DateTime.now();
 
   String _resolveAuditId() {
@@ -300,6 +393,16 @@ class SaveTimingRecordOperationConfirmAdapter {
     });
   }
 
+  static String _tokenFailureAuditErrorMessage({
+    required String code,
+    List<String> reasons = const [],
+  }) {
+    return jsonEncode({
+      'code': code,
+      if (reasons.isNotEmpty) 'reasons': List.unmodifiable(reasons),
+    });
+  }
+
   static String _staleError(List<SaveTimingRecordStaleReason> reasons) {
     return 'preview_stale:${_staleReasonCodes(reasons).join(',')}';
   }
@@ -310,54 +413,20 @@ class SaveTimingRecordOperationConfirmAdapter {
     final codes = reasons.map((reason) => reason.type.name).toList();
     return codes.isEmpty ? const ['unknown'] : List.unmodifiable(codes);
   }
-
-  // ── canonical maps for fingerprints（集合字段排序，保证口径稳定） ──
-
-  static Map<String, Object?> _analyzeInputCanonicalMap(
-    SaveTimingRecordOperationAnalyzeInput input,
-  ) {
-    return {
-      'operation_id': input.operationId,
-      'editing_record_id': input.editingRecordId,
-      'draft': input.draftRecord.toMap(),
-    };
-  }
-
-  static Map<String, Object?> _analysisCanonicalMap(
-    SaveTimingRecordOperationAnalyzeResult result,
-  ) {
-    final affectedProjectIds = [...result.affectedProjectIds]..sort();
-    final mergeGroupIds = [...result.mergeGroupIdsToDissolve]..sort();
-    final warnings = [...result.warnings]..sort();
-    final input = result.previewInput;
-    return {
-      'preview': result.preview.toMap(),
-      'old_project_id': result.oldProjectId,
-      'existing_new_project_id': result.existingNewProjectId,
-      'would_create_new_project': result.wouldCreateNewProject,
-      'affected_project_ids': affectedProjectIds,
-      'merge_group_ids_to_dissolve': mergeGroupIds,
-      'requires_reanalysis_before_execute':
-          result.requiresReanalysisBeforeExecute,
-      'warnings': warnings,
-      'preview_input': {
-        'operation_id': input.operationId,
-        'is_editing': input.isEditing,
-        'timing_record_id': input.timingRecordId,
-        'device_label': input.deviceLabel,
-        'project_label': input.projectLabel,
-        'old_project_label': input.oldProjectLabel,
-        'new_project_label': input.newProjectLabel,
-        'project_changed': input.projectChanged,
-        'will_dissolve_merge': input.willDissolveMerge,
-        'will_revoke_settlement': input.willRevokeSettlement,
-      },
-    };
-  }
 }
 
 class _StaleAuditOutcome {
   const _StaleAuditOutcome._({required this.auditId, required this.error});
+
+  final String? auditId;
+  final Object? error;
+}
+
+class _TokenFailureAuditOutcome {
+  const _TokenFailureAuditOutcome._({
+    required this.auditId,
+    required this.error,
+  });
 
   final String? auditId;
   final Object? error;
@@ -369,5 +438,6 @@ class _TokenClaimFailed implements Exception {
   const _TokenClaimFailed();
 
   @override
-  String toString() => 'token_claim_failed';
+  String toString() =>
+      SaveTimingRecordOperationConfirmAdapter._tokenClaimFailedCode;
 }

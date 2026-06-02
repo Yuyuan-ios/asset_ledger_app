@@ -82,6 +82,7 @@ class SaveTimingRecordOperationCommand {
   Future<OperationExecutionResult> executeConfirmedInTransaction({
     required OperationPreview preview,
     required String operationId,
+    String? auditTokenId,
     required Future<SaveTimingRecordWithImpactResult> Function(
       OperationDatabaseExecutor executor,
     )
@@ -105,6 +106,7 @@ class SaveTimingRecordOperationCommand {
         final log = _buildAuditLog(
           auditId: auditId,
           preview: preview,
+          tokenId: auditTokenId,
           confirmed: true,
           result: OperationAuditResult.success,
           errorMessage: null,
@@ -276,6 +278,7 @@ class SaveTimingRecordOperationCommand {
   OperationAuditLog _buildAuditLog({
     required String auditId,
     required OperationPreview preview,
+    String? tokenId,
     required bool confirmed,
     required OperationAuditResult result,
     required String? errorMessage,
@@ -283,6 +286,7 @@ class SaveTimingRecordOperationCommand {
     return OperationAuditLog(
       id: auditId,
       operationId: preview.operationId,
+      tokenId: tokenId,
       operationType: OperationType.saveTimingRecord,
       actorId: actorId,
       actorType: actorType,
