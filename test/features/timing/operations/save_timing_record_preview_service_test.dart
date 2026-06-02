@@ -2,12 +2,15 @@ import 'package:asset_ledger/core/operations/operation_access_control.dart';
 import 'package:asset_ledger/core/operations/operation_actor_scope.dart';
 import 'package:asset_ledger/core/operations/operation_actor_type.dart';
 import 'package:asset_ledger/core/operations/operation_models.dart';
+import 'package:asset_ledger/data/models/operation_token_record.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/data/repositories/operation_token_repository.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_preview_adapter.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_preview_redactor.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_preview_service.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_preview_token_issuer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -59,6 +62,9 @@ void main() {
       expect(result.operationId, 'op-service-only-redacted');
       expect(result.warnings, ['安全提示']);
       expect(result.canProceedToConfirm, isFalse);
+      expect(result.confirmationTokenId, isNull);
+      expect(result.confirmationExpiresAt, isNull);
+      expect(result.confirmUnavailableReasonCode, isNull);
     });
 
     test('owner response keeps passthrough projection', () async {
@@ -181,6 +187,8 @@ void main() {
         );
 
         expect(result.canProceedToConfirm, isFalse);
+        expect(result.confirmationTokenId, isNull);
+        expect(result.confirmationExpiresAt, isNull);
       }
     });
 
@@ -215,6 +223,67 @@ void main() {
           scope: ActorScope.fullOwner(ownerId: 'owner-1'),
         ),
         throwsStateError,
+      );
+    });
+
+    test(
+      'previewWithToken signs only through token issuer handle fields',
+      () async {
+        final redacted = _redactedPreview();
+        final tokenRepo = _FakeTokenRepository();
+        final service = SaveTimingRecordPreviewService(
+          previewAdapter: _FakePreviewAdapter(
+            response: _adapterResponse(redacted: redacted),
+          ),
+          tokenIssuer: SaveTimingRecordPreviewTokenIssuer(
+            tokenRepository: tokenRepo,
+            tokenIdFactory: () => 'tok-1',
+          ),
+        );
+        final now = DateTime.utc(2026, 6, 1, 12, 0);
+
+        final result = await service.previewWithToken(
+          request: SaveTimingRecordOperationPreviewRequest(input: _input()),
+          actor: ActorContext(actorType: OperationActorType.owner),
+          scope: ActorScope.fullOwner(ownerId: 'owner-1'),
+          now: now,
+        );
+
+        expect(result.preview, same(redacted));
+        expect(result.canProceedToConfirm, isTrue);
+        expect(result.confirmationTokenId, 'tok-1');
+        expect(
+          result.confirmationExpiresAt,
+          now.add(const Duration(minutes: 5)),
+        );
+        expect(result.confirmUnavailableReasonCode, isNull);
+        expect(tokenRepo.records, hasLength(1));
+        expect(tokenRepo.records.single.id, 'tok-1');
+      },
+    );
+
+    test('previewWithToken without issuer fails closed', () async {
+      final redacted = _redactedPreview();
+      final service = SaveTimingRecordPreviewService(
+        previewAdapter: _FakePreviewAdapter(
+          response: _adapterResponse(redacted: redacted),
+        ),
+      );
+
+      final result = await service.previewWithToken(
+        request: SaveTimingRecordOperationPreviewRequest(input: _input()),
+        actor: ActorContext(actorType: OperationActorType.owner),
+        scope: ActorScope.fullOwner(ownerId: 'owner-1'),
+        now: DateTime.utc(2026, 6, 1, 12, 0),
+      );
+
+      expect(result.preview, same(redacted));
+      expect(result.canProceedToConfirm, isFalse);
+      expect(result.confirmationTokenId, isNull);
+      expect(result.confirmationExpiresAt, isNull);
+      expect(
+        result.confirmUnavailableReasonCode,
+        SaveTimingRecordPreviewTokenIssueReason.tokenIssuerUnavailable,
       );
     });
   });
@@ -360,5 +429,86 @@ class _FakePreviewAdapter extends SaveTimingRecordOperationPreviewAdapter {
     final thrown = error;
     if (thrown != null) throw thrown;
     return response;
+  }
+}
+
+class _FakeTokenRepository implements OperationTokenRepository {
+  final records = <OperationTokenRecord>[];
+
+  @override
+  Future<void> insert(OperationTokenRecord record) async {
+    records.add(record);
+  }
+
+  @override
+  Future<void> insertWithExecutor(
+    Object? executor,
+    OperationTokenRecord record,
+  ) {
+    return insert(record);
+  }
+
+  @override
+  Future<OperationTokenRecord?> findById(String id) async {
+    return records.where((record) => record.id == id).firstOrNull;
+  }
+
+  @override
+  Future<OperationTokenRecord?> findByIdWithExecutor(
+    Object? executor,
+    String id,
+  ) {
+    return findById(id);
+  }
+
+  @override
+  Future<List<OperationTokenRecord>> listByOperationId(
+    String operationId,
+  ) async {
+    return records
+        .where((record) => record.operationId == operationId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<OperationTokenRecord>> listActiveByActorSession({
+    required OperationActorType actorType,
+    String? actorId,
+    String? sessionId,
+    required DateTime now,
+    int limit = 50,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<bool> claimForConsume({
+    required String id,
+    required DateTime now,
+  }) async {
+    return false;
+  }
+
+  @override
+  Future<bool> claimForConsumeWithExecutor(
+    Object? executor, {
+    required String id,
+    required DateTime now,
+  }) async {
+    return false;
+  }
+
+  @override
+  Future<bool> markCancelled({
+    required String id,
+    required DateTime cancelledAt,
+    String? reason,
+  }) async {
+    return false;
+  }
+
+  @override
+  Future<int> markExpiredBefore(DateTime now) async {
+    return 0;
   }
 }

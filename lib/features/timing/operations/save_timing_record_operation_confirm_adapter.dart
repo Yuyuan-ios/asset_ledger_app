@@ -11,6 +11,7 @@ import '../../../data/repositories/operation_token_repository.dart';
 import '../use_cases/save_timing_record_with_impact_use_case.dart';
 import 'save_timing_record_operation_analyzer.dart';
 import 'save_timing_record_operation_command.dart';
+import 'save_timing_record_operation_fingerprints.dart';
 
 /// Agent / MCP 预留的保存计时确认适配层。
 ///
@@ -187,18 +188,14 @@ class SaveTimingRecordOperationConfirmAdapter {
 
   /// 稳定 inputHash：绑定 analyze 输入（草稿 + 编辑目标）。供未来签发端复用同口径。
   static String inputHashFor(SaveTimingRecordOperationAnalyzeInput input) {
-    return OperationConfirmationFingerprint.stableHash(
-      _analyzeInputCanonicalMap(input),
-    );
+    return SaveTimingRecordOperationFingerprints.inputHashFor(input);
   }
 
   /// 稳定 fullAnalysisHash：绑定执行所依据的完整 analyze 结果。供未来签发端复用同口径。
   static String fullAnalysisHashFor(
     SaveTimingRecordOperationAnalyzeResult result,
   ) {
-    return OperationConfirmationFingerprint.stableHash(
-      _analysisCanonicalMap(result),
-    );
+    return SaveTimingRecordOperationFingerprints.fullAnalysisHashFor(result);
   }
 
   static const _staleUserMessage = '数据已变化，请重新预览。';
@@ -415,50 +412,6 @@ class SaveTimingRecordOperationConfirmAdapter {
   ) {
     final codes = reasons.map((reason) => reason.type.name).toList();
     return codes.isEmpty ? const ['unknown'] : List.unmodifiable(codes);
-  }
-
-  // ── canonical maps for fingerprints（集合字段排序，保证口径稳定） ──
-
-  static Map<String, Object?> _analyzeInputCanonicalMap(
-    SaveTimingRecordOperationAnalyzeInput input,
-  ) {
-    return {
-      'operation_id': input.operationId,
-      'editing_record_id': input.editingRecordId,
-      'draft': input.draftRecord.toMap(),
-    };
-  }
-
-  static Map<String, Object?> _analysisCanonicalMap(
-    SaveTimingRecordOperationAnalyzeResult result,
-  ) {
-    final affectedProjectIds = [...result.affectedProjectIds]..sort();
-    final mergeGroupIds = [...result.mergeGroupIdsToDissolve]..sort();
-    final warnings = [...result.warnings]..sort();
-    final input = result.previewInput;
-    return {
-      'preview': result.preview.toMap(),
-      'old_project_id': result.oldProjectId,
-      'existing_new_project_id': result.existingNewProjectId,
-      'would_create_new_project': result.wouldCreateNewProject,
-      'affected_project_ids': affectedProjectIds,
-      'merge_group_ids_to_dissolve': mergeGroupIds,
-      'requires_reanalysis_before_execute':
-          result.requiresReanalysisBeforeExecute,
-      'warnings': warnings,
-      'preview_input': {
-        'operation_id': input.operationId,
-        'is_editing': input.isEditing,
-        'timing_record_id': input.timingRecordId,
-        'device_label': input.deviceLabel,
-        'project_label': input.projectLabel,
-        'old_project_label': input.oldProjectLabel,
-        'new_project_label': input.newProjectLabel,
-        'project_changed': input.projectChanged,
-        'will_dissolve_merge': input.willDissolveMerge,
-        'will_revoke_settlement': input.willRevokeSettlement,
-      },
-    };
   }
 }
 
