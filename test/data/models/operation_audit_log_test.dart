@@ -44,6 +44,7 @@ void main() {
     OperationAuditLog sample({
       String id = 'audit-1',
       String operationId = 'op-1',
+      String? tokenId = 'token-1',
       OperationAuditResult result = OperationAuditResult.success,
       bool confirmed = true,
       String? errorMessage,
@@ -55,6 +56,7 @@ void main() {
       return OperationAuditLog(
         id: id,
         operationId: operationId,
+        tokenId: tokenId,
         operationType: OperationType.saveTimingRecord,
         actorId: 'user-1',
         actorType: OperationAuditActorType.owner,
@@ -82,17 +84,20 @@ void main() {
       expect(map['preview_snapshot_json'], isA<String>());
       final restored = OperationAuditLog.fromMap(map);
       expect(restored.toMap(), map);
+      expect(restored.tokenId, 'token-1');
       expect(restored.preview, isNotNull);
       expect(restored.preview!.operationId, 'op-1');
       expect(restored.preview!.riskLevel, OperationRiskLevel.medium);
     });
 
     test('round-trip without preview (preview_snapshot_json NULL)', () {
-      final log = sample();
+      final log = sample(tokenId: null);
       final map = log.toMap();
       expect(map['preview_snapshot_json'], isNull);
+      expect(map['token_id'], isNull);
       final restored = OperationAuditLog.fromMap(map);
       expect(restored.preview, isNull);
+      expect(restored.tokenId, isNull);
       expect(restored.toMap(), map);
     });
 

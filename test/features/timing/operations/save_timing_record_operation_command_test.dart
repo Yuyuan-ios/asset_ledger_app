@@ -340,6 +340,28 @@ void main() {
       );
     });
 
+    test('success audit stores auditTokenId when provided', () async {
+      final repo = _FakeAuditRepo();
+      final runner = await _newFakeRunner();
+      final auditCmd = SaveTimingRecordOperationCommand(
+        auditRepository: repo,
+        transactionRunner: runner,
+        auditIdFactory: () => 'audit-txn-token',
+      );
+      final preview = auditCmd.preview(input());
+
+      final result = await auditCmd.executeConfirmedInTransaction(
+        preview: preview,
+        operationId: preview.operationId,
+        auditTokenId: 'tok-1',
+        executeSaveWithExecutor: (_) async => _saveResult(userMessage: '已保存'),
+      );
+
+      expect(result.success, isTrue);
+      expect(repo.insertedWithExecutor, hasLength(1));
+      expect(repo.insertedWithExecutor.single.tokenId, 'tok-1');
+    });
+
     test('audit insert failure rolls back the transaction result', () async {
       final repo = _FakeAuditRepo()
         ..throwOnInsertWithExecutor = StateError('audit disk full');
@@ -820,6 +842,13 @@ class _FakeAuditRepo implements OperationAuditLogRepository {
   @override
   Future<List<OperationAuditLog>> listByOperationId(String operationId) async {
     return inserted.where((log) => log.operationId == operationId).toList();
+  }
+
+  @override
+  Future<List<OperationAuditLog>> listByTokenId(String tokenId) async {
+    return inserted
+        .where((log) => log.tokenId == tokenId)
+        .toList(growable: false);
   }
 
   @override

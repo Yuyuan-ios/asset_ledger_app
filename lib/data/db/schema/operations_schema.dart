@@ -15,6 +15,7 @@ class OperationsSchema {
       CREATE TABLE IF NOT EXISTS operation_audit_logs (
         id TEXT PRIMARY KEY,
         operation_id TEXT NOT NULL,
+        token_id TEXT,
         operation_type TEXT NOT NULL,
         actor_id TEXT,
         actor_type TEXT NOT NULL,
@@ -33,6 +34,11 @@ class OperationsSchema {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_operation_audit_logs_operation_id
       ON operation_audit_logs(operation_id);
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_operation_audit_logs_token_id
+      ON operation_audit_logs(token_id);
     ''');
 
     await db.execute('''

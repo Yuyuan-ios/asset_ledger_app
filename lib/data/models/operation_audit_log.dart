@@ -109,6 +109,7 @@ class OperationAuditLog {
   const OperationAuditLog({
     required this.id,
     required this.operationId,
+    this.tokenId,
     required this.operationType,
     this.actorId,
     required this.actorType,
@@ -121,14 +122,18 @@ class OperationAuditLog {
     required this.confirmed,
     required this.result,
     this.errorMessage,
-  })  : assert(id != '', 'id must not be empty'),
-        assert(operationId != '', 'operationId must not be empty');
+  }) : assert(id != '', 'id must not be empty'),
+       assert(operationId != '', 'operationId must not be empty');
 
   /// 审计记录自身 id（建议 UUID）。
   final String id;
 
   /// 对应 [OperationPreview.operationId] / [OperationExecutionResult.operationId]。
   final String operationId;
+
+  /// 关联的 confirmation token id；可空，历史审计或非 token 操作不填。
+  final String? tokenId;
+
   final OperationType operationType;
 
   /// 触发者 id（未来用户 / 设备 / agent）；D3 通常为 null。
@@ -155,16 +160,16 @@ class OperationAuditLog {
     return {
       'id': id,
       'operation_id': operationId,
+      'token_id': tokenId,
       'operation_type': operationType.wireName,
       'actor_id': actorId,
       'actor_type': actorType.wireName,
       'source': source.wireName,
       'created_at': createdAt.toUtc().toIso8601String(),
-      'entity_refs_json': jsonEncode(
-        entityRefs.map((e) => e.toMap()).toList(),
-      ),
-      'preview_snapshot_json':
-          preview == null ? null : jsonEncode(preview!.toMap()),
+      'entity_refs_json': jsonEncode(entityRefs.map((e) => e.toMap()).toList()),
+      'preview_snapshot_json': preview == null
+          ? null
+          : jsonEncode(preview!.toMap()),
       'before_snapshot_json': beforeSnapshotJson,
       'after_snapshot_json': afterSnapshotJson,
       'confirmed': confirmed ? 1 : 0,
@@ -179,6 +184,7 @@ class OperationAuditLog {
     return OperationAuditLog(
       id: _requiredString(map, 'id'),
       operationId: _requiredString(map, 'operation_id'),
+      tokenId: map['token_id'] as String?,
       operationType: OperationType.fromWireName(
         _requiredString(map, 'operation_type'),
       ),
@@ -197,9 +203,7 @@ class OperationAuditLog {
       beforeSnapshotJson: map['before_snapshot_json'] as String?,
       afterSnapshotJson: map['after_snapshot_json'] as String?,
       confirmed: _intToBool(map['confirmed'], 'confirmed'),
-      result: OperationAuditResult.fromWireName(
-        _requiredString(map, 'result'),
-      ),
+      result: OperationAuditResult.fromWireName(_requiredString(map, 'result')),
       errorMessage: map['error_message'] as String?,
     );
   }
@@ -230,13 +234,11 @@ bool _intToBool(Object? raw, String key) {
 List<OperationEntityRef> _decodeEntityRefs(String json) {
   final decoded = jsonDecode(json);
   if (decoded is! List) {
-    throw ArgumentError.value(
-      json,
-      'entity_refs_json',
-      'Expected JSON array',
-    );
+    throw ArgumentError.value(json, 'entity_refs_json', 'Expected JSON array');
   }
   return decoded
-      .map((e) => OperationEntityRef.fromMap(Map<String, Object?>.from(e as Map)))
+      .map(
+        (e) => OperationEntityRef.fromMap(Map<String, Object?>.from(e as Map)),
+      )
       .toList(growable: false);
 }
