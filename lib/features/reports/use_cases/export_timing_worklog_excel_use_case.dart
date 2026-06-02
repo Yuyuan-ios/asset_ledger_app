@@ -4,10 +4,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../data/models/device.dart';
+import '../../../data/models/external_import_batch.dart';
+import '../../../data/models/external_work_record.dart';
 import '../../../data/models/timing_record.dart';
 import '../infrastructure/timing_worklog_excel_writer.dart';
 import '../models/timing_worklog_report.dart';
 import '../presentation/report_file_presenter.dart';
+import '../../timing/state/timing_external_work_store.dart';
 import 'build_timing_worklog_report_use_case.dart';
 
 class ExportTimingWorklogExcelOutcome {
@@ -81,6 +84,14 @@ class TimingWorklogExportScope {
     return projectIds.contains(record.effectiveProjectId.trim());
   }
 
+  bool includesExternal(TimingExternalWorkRecordItem item) {
+    final record = item.record;
+    if (record.status != ExternalWorkRecordStatus.active) return false;
+    if (item.batch?.status != ExternalImportBatchStatus.active) return false;
+    final linkedProjectId = record.linkedProjectId?.trim() ?? '';
+    return linkedProjectId.isNotEmpty && projectIds.contains(linkedProjectId);
+  }
+
   static String _sanitizeFileNamePart(String raw) {
     final cleaned = raw
         .trim()
@@ -115,15 +126,20 @@ class ExportTimingWorklogExcelUseCase {
     required TimingWorklogExportScope scope,
     required List<TimingRecord> records,
     required List<Device> devices,
+    List<TimingExternalWorkRecordItem> externalWorkItems = const [],
   }) async {
     final scopedRecords = records.where(scope.includes).toList(growable: false);
-    if (scopedRecords.isEmpty) {
+    final scopedExternalWorkItems = externalWorkItems
+        .where(scope.includesExternal)
+        .toList(growable: false);
+    if (scopedRecords.isEmpty && scopedExternalWorkItems.isEmpty) {
       return ExportTimingWorklogExcelOutcome.failure('该项目暂无可导出的工时记录');
     }
     try {
       final report = _reportBuilder.execute(
         records: scopedRecords,
         devices: devices,
+        externalWorkItems: scopedExternalWorkItems,
       );
       if (report.isEmpty) {
         return ExportTimingWorklogExcelOutcome.failure('该项目暂无可导出的工时记录');
