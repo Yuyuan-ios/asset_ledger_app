@@ -831,6 +831,9 @@ class _AccountPageState extends State<AccountPage>
     }
 
     final scope = _timingWorklogExportScope(latestProject);
+    final externalWorkItems =
+        context.read<TimingExternalWorkStore?>()?.items ??
+        const <TimingExternalWorkRecordItem>[];
 
     final outcome = await context
         .read<ExportTimingWorklogExcelUseCase>()
@@ -838,6 +841,7 @@ class _AccountPageState extends State<AccountPage>
           scope: scope,
           records: context.read<TimingStore>().records,
           devices: context.read<DeviceStore>().allDevices,
+          externalWorkItems: externalWorkItems,
         );
     if (!mounted) return;
     _toast(outcome.message);
@@ -857,7 +861,15 @@ class _AccountPageState extends State<AccountPage>
 
   bool _hasProjectTimingWorklog(AccountProjectVM project) {
     final scope = _timingWorklogExportScope(project);
-    return context.read<TimingStore>().records.any(scope.includes);
+    final hasLocalRecords = context.read<TimingStore>().records.any(
+      scope.includes,
+    );
+    if (hasLocalRecords) return true;
+
+    final externalWorkItems =
+        context.read<TimingExternalWorkStore?>()?.items ??
+        const <TimingExternalWorkRecordItem>[];
+    return externalWorkItems.any(scope.includesExternal);
   }
 
   // 项目详情右上角“分享项目”：输入分享人/包名 → 生成 .jzt 文件并调起系统分享面板。

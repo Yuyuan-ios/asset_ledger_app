@@ -31,6 +31,75 @@ Future<bool> showAppConfirmDialog({
   return ok == true;
 }
 
+Future<void> showAppAlertDialog({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String confirmText = '知道了',
+  bool barrierDismissible = false,
+}) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    builder: (_) => AppAlertDialog(
+      title: title,
+      message: message,
+      confirmText: confirmText,
+    ),
+  );
+}
+
+class AppAlertDialog extends StatelessWidget {
+  const AppAlertDialog({
+    super.key,
+    required this.title,
+    required this.message,
+    this.confirmText = '知道了',
+  });
+
+  final String title;
+  final String message;
+  final String confirmText;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textPrimary,
+    );
+    final contentStyle =
+        AppTypography.body(context, color: AppColors.textPrimary)?.copyWith(
+          fontFamilyFallback: const ['Apple Color Emoji', 'Noto Color Emoji'],
+        );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: GlassTokens.blur,
+          sigmaY: GlassTokens.blur,
+        ),
+        child: AlertDialog(
+          backgroundColor: GlassTokens.surfaceBottomBackground,
+          surfaceTintColor: Colors.transparent,
+          title: Text(title, style: titleStyle),
+          content: DefaultTextStyle.merge(
+            style: contentStyle,
+            child: Text(message),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(confirmText),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class AppConfirmDialog extends StatelessWidget {
   const AppConfirmDialog({
     super.key,
