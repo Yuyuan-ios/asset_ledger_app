@@ -34,4 +34,5 @@ tools/agent/check_full.sh
 - Skills 使用说明：`docs/agent/skills.md`
 - 产品规则：`docs/product/`
 - 架构规则：`docs/architecture/`
+- 当前阶段事实源：`docs/operations/active/current-stage.md`
 - 阶段记录与技术债：`docs/operations/`

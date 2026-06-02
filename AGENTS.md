@@ -27,7 +27,7 @@ rule area you are touching.
 | Layer boundaries and architecture | `docs/architecture/layers.md` |
 | Database migrations | `docs/architecture/database-migration-rules.md` |
 | Test and verification commands | `docs/architecture/testing-rules.md` |
-| Active or completed operation phases | `docs/operations/active/README.md`, `docs/operations/completed/README.md` |
+| Active or completed operation phases | `docs/operations/active/current-stage.md`, `docs/operations/active/README.md`, `docs/operations/completed/README.md` |
 | Known technical debt | `docs/operations/tech-debt.md` |
 
 ## Task Templates
