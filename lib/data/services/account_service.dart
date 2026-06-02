@@ -48,6 +48,13 @@ class ProjectAgg {
   /// 租金模式汇总（若你后续要展示 rent 部分，可以用）
   final double rentIncomeTotal;
 
+  /// 租金模式收入的整数分（fen）汇总。
+  ///
+  /// 由 [AccountService.buildProjects] 逐条 rent 记录 `round(income * 100)` 后
+  /// 累加，是 fen 权威口径（避免先 double 求和再转 fen 的精度漂移）。可选默认 0，
+  /// 兼容直接构造 [ProjectAgg] 的旧测试。
+  final int rentIncomeFen;
+
   const ProjectAgg({
     this.projectId = '',
     required this.projectKey,
@@ -59,6 +66,7 @@ class ProjectAgg {
     required this.normalHoursByDevice,
     required this.breakingHoursByDevice,
     required this.rentIncomeTotal,
+    this.rentIncomeFen = 0,
   });
 
   ProjectKey get pk => ProjectKey.fromKey(projectKey);
@@ -81,6 +89,28 @@ class ProjectMoney {
     required this.remaining,
     required this.ratio,
     required this.settlementRatio,
+  });
+}
+
+/// 项目金额的整数分（fen）原始口径载体（R2）。
+///
+/// 与 [ProjectMoney]（double 元，供 UI / 旧调用兼容）分工明确：本类只承载三笔
+/// 权威整数分（应收 / 实收 / 核销），不做 remaining/ratio/overPaid/isSettled 的
+/// 派生计算——那些交给 features 层的 `ProjectFinanceCalculator.summarizeTotals`
+/// 统一计算，从而消除 double -> yuanToFen 的 round-trip 精度漂移。
+///
+/// 之所以放在 data 层而非直接返回 `ProjectFinanceSummary`：`AccountService`
+/// 位于 data 层，不能 import features 层的 `ProjectFinanceCalculator`
+/// （`no_data_layer_imports_from_features` 架构约束）。
+class ProjectMoneyFen {
+  final int receivableFen;
+  final int receivedFen;
+  final int writeOffFen;
+
+  const ProjectMoneyFen({
+    required this.receivableFen,
+    required this.receivedFen,
+    required this.writeOffFen,
   });
 }
 
@@ -124,6 +154,8 @@ class AccountService {
       // rent：只累计 income（供你后续显示）
       if (t.type == TimingType.rent) {
         mut.rentIncomeTotal += t.income;
+        // fen 权威口径：逐记录 round 后累加，不先 double 求和再转 fen。
+        mut.rentIncomeFen += Money.fromYuan(t.income).fen;
         continue;
       }
 
@@ -155,6 +187,7 @@ class AccountService {
         normalHoursByDevice: Map.unmodifiable(mut.normalHoursByDevice),
         breakingHoursByDevice: Map.unmodifiable(mut.breakingHoursByDevice),
         rentIncomeTotal: mut.rentIncomeTotal,
+        rentIncomeFen: mut.rentIncomeFen,
       );
     }
     return out;
@@ -233,6 +266,78 @@ class AccountService {
       remaining: remaining,
       ratio: ratio,
       settlementRatio: settlementRatio,
+    );
+  }
+
+  /// fen-native 项目金额口径（R2）。
+  ///
+  /// 与 [calcMoney] 并行存在，互不替换：
+  /// - [calcMoney] 返回 double 元，供 UI / 旧调用方（计时分析、图表、保存影响等）
+  ///   兼容，行为不变。
+  /// - 本方法返回整数分 [ProjectMoneyFen]，供 ComputeAccountSummaryUseCase 直出
+  ///   fen，消除 `double -> yuanToFen` 的 round-trip 精度漂移。
+  ///
+  /// 口径：
+  /// - receivableFen：工时收入按 [AmountPolicy] 整数分规则计算（毫工时 × 分/小时）；
+  ///   租金/台班收入取 [ProjectAgg.rentIncomeFen]（buildProjects 逐记录 round 累加）。
+  /// - receivedFen：累加 [AccountPayment.amountFen]（权威，不读 amount double）。
+  /// - writeOffFen：累加 [ProjectWriteOff.amountFen]（权威，不读 amount double）。
+  ///
+  /// remaining / ratio / overPaid / isSettled 不在此计算，交由上层
+  /// `ProjectFinanceCalculator.summarizeTotals` 统一处理。
+  static ProjectMoneyFen calcMoneyFen({
+    required ProjectAgg agg,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+    required List<AccountPayment> payments,
+    List<ProjectWriteOff> writeOffs = const [],
+  }) {
+    final effectiveRate = buildEffectiveRateMap(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      devices: devices,
+      rates: rates,
+      isBreaking: false,
+    );
+    final effectiveBreakingRate = buildEffectiveRateMap(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      devices: devices,
+      rates: rates,
+      isBreaking: true,
+    );
+
+    var receivableFen = 0;
+    for (final entry in agg.normalHoursByDevice.entries) {
+      receivableFen += _hoursAmountFen(
+        hours: entry.value,
+        rate: effectiveRate[entry.key] ?? 0.0,
+      );
+    }
+    for (final entry in agg.breakingHoursByDevice.entries) {
+      receivableFen += _hoursAmountFen(
+        hours: entry.value,
+        rate: effectiveBreakingRate[entry.key] ?? 0.0,
+      );
+    }
+    // rent：纳入应收（与 calcMoney 一致），使用逐记录累加的 fen。
+    receivableFen += agg.rentIncomeFen;
+
+    final receivedFen = sumReceivedFenByProject(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      payments: payments,
+    );
+    final writeOffFen = sumWriteOffFenByProject(
+      projectKey: agg.projectKey,
+      projectId: agg.projectId,
+      writeOffs: writeOffs,
+    );
+
+    return ProjectMoneyFen(
+      receivableFen: receivableFen,
+      receivedFen: receivedFen,
+      writeOffFen: writeOffFen,
     );
   }
 
@@ -417,6 +522,45 @@ class AccountService {
     return sum;
   }
 
+  /// fen 权威实收汇总：累加 [AccountPayment.amountFen]（派生自 amount_fen 列），
+  /// 不读 amount double，避免跨记录 double 求和的浮点累积。
+  static int sumReceivedFenByProject({
+    String? projectKey,
+    String? projectId,
+    required List<AccountPayment> payments,
+    int? excludePaymentId,
+  }) {
+    var sum = 0;
+    final targetProjectId = _resolveProjectId(
+      projectId: projectId,
+      projectKey: projectKey,
+    );
+    for (final p in payments) {
+      if (p.effectiveProjectId != targetProjectId) continue;
+      if (excludePaymentId != null && p.id == excludePaymentId) continue;
+      sum += p.amountFen;
+    }
+    return sum;
+  }
+
+  /// fen 权威核销汇总：累加 [ProjectWriteOff.amountFen]，不读 amount double。
+  static int sumWriteOffFenByProject({
+    String? projectKey,
+    String? projectId,
+    required List<ProjectWriteOff> writeOffs,
+  }) {
+    var sum = 0;
+    final targetProjectId = _resolveProjectId(
+      projectId: projectId,
+      projectKey: projectKey,
+    );
+    for (final writeOff in writeOffs) {
+      if (writeOff.projectId != targetProjectId) continue;
+      sum += writeOff.amountFen;
+    }
+    return sum;
+  }
+
   static String _resolveProjectId({String? projectId, String? projectKey}) {
     final normalizedId = projectId?.trim() ?? '';
     if (normalizedId.isNotEmpty) return normalizedId;
@@ -431,6 +575,15 @@ class AccountService {
       hours: WorkHours.fromHours(hours),
       unitPrice: UnitPrice.fromYuanPerHour(rate),
     ).yuan;
+  }
+
+  /// 工时收入的整数分：与 [_calculateHoursAmount] 同一 [AmountPolicy] 规则，
+  /// 但直接取 `.fen` 不经 yuan double 中转。
+  static int _hoursAmountFen({required double hours, required double rate}) {
+    return AmountPolicy.calculateAmount(
+      hours: WorkHours.fromHours(hours),
+      unitPrice: UnitPrice.fromYuanPerHour(rate),
+    ).fen;
   }
 }
 
@@ -447,6 +600,7 @@ class _MutAgg {
   final Map<int, double> normalHoursByDevice = {};
   final Map<int, double> breakingHoursByDevice = {};
   double rentIncomeTotal = 0.0;
+  int rentIncomeFen = 0;
 
   _MutAgg(this.projectId, this.projectKey, this.contact, this.site);
 }
