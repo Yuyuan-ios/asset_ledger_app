@@ -7,6 +7,7 @@
 - 当前阶段事实源：`docs/operations/active/current-stage.md`
 - Stage D operation token / audit 入口：`docs/operations/active/stage-d-operation-token-audit.md`
 - OpenClaw / MiniMax 生成 DRAFT 前必须先读取 active docs，再读取相关 agent/product/architecture docs。
+- Active status must label sources as `repo-verified`, `user-provided`, `needs verification`, or `unknown`.
 
 ## 维护方式
 

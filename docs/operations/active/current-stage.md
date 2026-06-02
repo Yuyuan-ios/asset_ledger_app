@@ -11,50 +11,83 @@ should be read:
 - To prevent agents from acting only from chat history, fuzzy memory, or stale
   assumptions.
 
-## 2. Current Repository Status
+## 2. Status Source Labels
 
-- Repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Active branch: `dev`
-- Current HEAD verified while creating this document: `65714c4 docs(agent): add prompt gateway dry run`
+Use these labels whenever active-stage status is recorded or referenced:
+
+- `repo-verified`: Confirmed by current repository files or git commands.
+- `user-provided`: Provided by the user as latest stage notes, but not directly
+  verified from the current repository in this task.
+- `needs verification`: Must be checked before generating an implementation
+  prompt.
+- `unknown`: Not known from current docs, git state, or user-provided notes.
+
+Do not present `user-provided` status as `repo-verified`.
+
+## 3. Current Repository Status
+
+- Repository: `/Users/yu/Flutter_Projects/fleet_ledger_app` (`repo-verified`)
+- Active branch: `dev` (`repo-verified`)
+- Current HEAD verified while updating this document:
+  `e2ead0e docs(agent): add active stage context` (`repo-verified`)
 - Latest known Harness commits:
-  - `2a0d34c chore(agent): add repository harness for coding agents`
-  - `6cead73 chore(agent): add prompt review gateway skill`
-  - `65714c4 docs(agent): add prompt gateway dry run`
-- Push status: not pushed / no upstream was shown for `dev` by `git branch -vv`
-  at verification time. Re-check git state before reporting current push status.
+  - `2a0d34c chore(agent): add repository harness for coding agents` (`repo-verified`)
+  - `6cead73 chore(agent): add prompt review gateway skill` (`repo-verified`)
+  - `65714c4 docs(agent): add prompt gateway dry run` (`repo-verified`)
+  - `e2ead0e docs(agent): add active stage context` (`repo-verified`)
+- Push status: not verified in this task. Re-check git remote/upstream state
+  before reporting current push status. (`needs verification`)
 - Business code status: Harness stages did not modify `lib/`, `test/`,
   `pubspec.yaml`, DB schema/migration files, or `$HOME/.agents`.
+  (`repo-verified` for Harness commits and current task scope)
 
 If current git state differs from the values above, use actual command output
 and write `verified current state differs` in the task report.
 
-## 3. Active Stage Summary
+## 4. Active Stage Summary
 
-- Stage 1: Repository Harness completed.
-- Stage 2: Prompt Review Gateway + Skill completed.
-- Stage 3: Prompt Gateway Dry Run completed.
-- Stage 3.5: Active Stage Context in progress.
+- Stage 1: Repository Harness completed. (`repo-verified`)
+- Stage 2: Prompt Review Gateway + Skill completed. (`repo-verified`)
+- Stage 3: Prompt Gateway Dry Run completed. (`repo-verified`)
+- Stage 3.5: Active Stage Context completed. (`repo-verified`)
+- Stage 3.6: Supplement Stage D current state in progress. (`repo-verified`)
 
-## 4. Current Active Product / Engineering Stream
+## 5. Current Active Product / Engineering Stream
 
 The current real engineering stream is not the Harness itself. The active stream
 is Stage D: operation token / operation audit / confirmation token /
-preview-confirm workflow.
+preview-confirm workflow. (`user-provided`)
 
-Known repository evidence:
+Latest user-provided Stage D milestone:
 
-- Recent `dev` history includes operation/token commits:
-  - `6a2f08c merge: operation command audit and token infrastructure`
-  - `5a5462c feat(operations): consume confirmation token inside confirm transaction`
-  - `9350926 feat(operations): persist operation tokens with state machine repository`
-  - `701bede feat(operations): add confirmation token contract models`
-- Recent branch list includes `feature/audit` at `cbf2fdb feat(operations): audit token failure paths`, but worktree and branch state must be verified before using it.
+- D60 design audit completed and recommended D61 PreviewService token issuing.
+  (`user-provided`)
+- Recommended next is D61: generate a `DRAFT_PROMPT_PACKAGE` for ChatGPT review
+  before any implementation. (`user-provided`)
+
+Repository/worktree state verified during this update:
+
+- Main Harness docs live in `/Users/yu/Flutter_Projects/fleet_ledger_app` on
+  `dev` at `e2ead0e`. (`repo-verified`)
+- Stage D worktree path exists at
+  `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`. (`repo-verified`)
+- That worktree is on `feature/audit`, HEAD `a8a731c`, with clean
+  `git status --short`. (`repo-verified`)
+- This differs from the user-provided latest known Stage D commit
+  `cbf2fdb feat(operations): audit token failure paths`; therefore detailed
+  Stage D status must be verified before implementation prompts.
+  (`needs verification`)
+- Because `a8a731c` is titled `feat(timing): issue confirmation tokens from
+  preview service`, it may already contain D61-related implementation. The next
+  step should be a readonly status-alignment audit, not a new implementation
+  prompt. (`needs verification`)
 
 Detailed Stage D implementation status must be updated from latest
 user-provided report or repository evidence before generating implementation
-prompts. Do not treat the commit titles above as a complete Stage D status.
+prompts. Do not treat commit titles or user-provided milestones as complete
+proof of implementation state.
 
-## 5. Required Docs Before Drafting Prompts
+## 6. Required Docs Before Drafting Prompts
 
 OpenClaw / MiniMax must read these before generating a DRAFT:
 
@@ -69,7 +102,7 @@ OpenClaw / MiniMax must read these before generating a DRAFT:
 - `docs/agent/prompt-review-gateway.md`
 - `docs/architecture/testing-rules.md`
 
-## 6. Default Workflow
+## 7. Default Workflow
 
 1. OpenClaw / MiniMax generates `DRAFT_PROMPT_PACKAGE`.
 2. ChatGPT reviews the DRAFT and outputs `FINAL_CODEX_PROMPT`.
@@ -78,7 +111,7 @@ OpenClaw / MiniMax must read these before generating a DRAFT:
 5. OpenClaw / MiniMax summarizes the Codex report.
 6. ChatGPT or the user reviews the next step.
 
-## 7. Global Active-Stage Guardrails
+## 8. Global Active-Stage Guardrails
 
 - OpenClaw / MiniMax cannot bypass ChatGPT review.
 - Codex cannot execute DRAFT prompts.
@@ -89,8 +122,27 @@ OpenClaw / MiniMax must read these before generating a DRAFT:
   or product rules unless the task explicitly targets them.
 - Do not rely on chat memory alone.
 
-## 8. Next Recommended Work
+## 9. Worktree Caution
 
-- First keep active stage context updated.
-- Then generate Stage D prompts through Prompt Review Gateway.
+- Harness docs live in `/Users/yu/Flutter_Projects/fleet_ledger_app`.
+- Stage D implementation may live in
+  `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`.
+- Agents must not assume both paths share the same HEAD or working tree state.
+- Before implementation, verify the execution path, branch, HEAD, and dirty
+  state in the target worktree.
+
+## 10. Next Immediate Recommendation
+
+- Generate a D61/D63 status-alignment `DRAFT_PROMPT_PACKAGE` through Prompt
+  Review Gateway.
+- Do not bypass ChatGPT review.
+- Do not run implementation before confirming the correct worktree and current
+  git state.
+- Do not generate a new D61 implementation prompt until `a8a731c` is reviewed
+  against the user-provided D60 -> D61 plan.
+
+## 11. Next Recommended Work
+
+- Keep active stage context updated.
+- Generate Stage D prompts through Prompt Review Gateway.
 - Telegram command contract can come after active context is stable.
