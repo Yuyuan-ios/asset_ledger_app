@@ -146,6 +146,7 @@ class SaveTimingRecordOperationConfirmAdapter {
       analyzeInput: analyzeInput,
       previousAnalyzeResult: previousAnalyzeResult,
       preview: preview,
+      auditTokenId: tokenId,
     );
     if (freshnessFailure != null) return freshnessFailure;
 
@@ -153,6 +154,7 @@ class SaveTimingRecordOperationConfirmAdapter {
     return command.executeConfirmedInTransaction(
       preview: preview,
       operationId: operationId,
+      auditTokenId: tokenId,
       executeSaveWithExecutor: (executor) async {
         final claimed = await repo.claimForConsumeWithExecutor(
           executor,
@@ -184,7 +186,10 @@ class SaveTimingRecordOperationConfirmAdapter {
   static const _staleUserMessage = '数据已变化，请重新预览。';
   static const _tokenInvalidUserMessage = '操作凭据无效，请重新预览。';
 
-  void _requireOperationIdMatches(String operationId, OperationPreview preview) {
+  void _requireOperationIdMatches(
+    String operationId,
+    OperationPreview preview,
+  ) {
     if (operationId != preview.operationId) {
       throw ArgumentError.value(
         operationId,
@@ -213,6 +218,7 @@ class SaveTimingRecordOperationConfirmAdapter {
     required SaveTimingRecordOperationAnalyzeInput analyzeInput,
     required SaveTimingRecordOperationAnalyzeResult previousAnalyzeResult,
     required OperationPreview preview,
+    String? auditTokenId,
   }) async {
     SaveTimingRecordFreshnessVerdict verdict;
     try {
@@ -234,6 +240,7 @@ class SaveTimingRecordOperationConfirmAdapter {
       final staleError = _staleError(verdict.staleReasons);
       final auditOutcome = await _maybeWriteStaleAudit(
         preview: preview,
+        tokenId: auditTokenId,
         staleReasons: verdict.staleReasons,
       );
       return OperationExecutionResult.failure(
@@ -252,6 +259,7 @@ class SaveTimingRecordOperationConfirmAdapter {
 
   Future<_StaleAuditOutcome> _maybeWriteStaleAudit({
     required OperationPreview preview,
+    String? tokenId,
     required List<SaveTimingRecordStaleReason> staleReasons,
   }) async {
     final repo = auditRepository;
@@ -263,6 +271,7 @@ class SaveTimingRecordOperationConfirmAdapter {
     final log = OperationAuditLog(
       id: auditId,
       operationId: preview.operationId,
+      tokenId: tokenId,
       operationType: OperationType.saveTimingRecord,
       actorId: actorId,
       actorType: actorType,
