@@ -32,6 +32,7 @@ void main() {
     expect(found, isNotNull);
     expect(found!.id, 'audit-1');
     expect(found.operationId, 'op-1');
+    expect(found.tokenId, 'token-op-1');
     expect(found.actorType, OperationAuditActorType.owner);
     expect(found.confirmed, isTrue);
     expect(found.result, OperationAuditResult.success);
@@ -46,43 +47,95 @@ void main() {
   });
 
   test('listByOperationId returns logs in created_at ASC order', () async {
-    await repository.insert(_log(
-      id: 'a-c',
-      operationId: 'op-1',
-      createdAt: DateTime.utc(2026, 6, 1, 12, 0, 2),
-    ));
-    await repository.insert(_log(
-      id: 'a-a',
-      operationId: 'op-1',
-      createdAt: DateTime.utc(2026, 6, 1, 12, 0, 0),
-    ));
-    await repository.insert(_log(
-      id: 'a-b',
-      operationId: 'op-1',
-      createdAt: DateTime.utc(2026, 6, 1, 12, 0, 1),
-    ));
+    await repository.insert(
+      _log(
+        id: 'a-c',
+        operationId: 'op-1',
+        createdAt: DateTime.utc(2026, 6, 1, 12, 0, 2),
+      ),
+    );
+    await repository.insert(
+      _log(
+        id: 'a-a',
+        operationId: 'op-1',
+        createdAt: DateTime.utc(2026, 6, 1, 12, 0, 0),
+      ),
+    );
+    await repository.insert(
+      _log(
+        id: 'a-b',
+        operationId: 'op-1',
+        createdAt: DateTime.utc(2026, 6, 1, 12, 0, 1),
+      ),
+    );
     await repository.insert(_log(id: 'a-other', operationId: 'op-2'));
 
     final rows = await repository.listByOperationId('op-1');
     expect(rows.map((r) => r.id).toList(), ['a-a', 'a-b', 'a-c']);
   });
 
+  test('listByTokenId returns logs in created_at ASC order', () async {
+    await repository.insert(
+      _log(
+        id: 't-c',
+        operationId: 'op-1',
+        tokenId: 'token-1',
+        createdAt: DateTime.utc(2026, 6, 1, 12, 0, 2),
+      ),
+    );
+    await repository.insert(
+      _log(
+        id: 't-a',
+        operationId: 'op-2',
+        tokenId: 'token-1',
+        createdAt: DateTime.utc(2026, 6, 1, 12, 0, 0),
+      ),
+    );
+    await repository.insert(
+      _log(
+        id: 't-b',
+        operationId: 'op-3',
+        tokenId: 'token-1',
+        createdAt: DateTime.utc(2026, 6, 1, 12, 0, 1),
+      ),
+    );
+    await repository.insert(
+      _log(id: 't-null', operationId: 'op-4', tokenId: null),
+    );
+    await repository.insert(
+      _log(id: 't-other', operationId: 'op-5', tokenId: 'token-2'),
+    );
+
+    final rows = await repository.listByTokenId('token-1');
+    expect(rows.map((r) => r.id).toList(), ['t-a', 't-b', 't-c']);
+  });
+
+  test('listByTokenId rejects empty tokenId', () async {
+    expect(() => repository.listByTokenId('   '), throwsArgumentError);
+  });
+
   test('listRecent orders by created_at DESC and respects limit', () async {
-    await repository.insert(_log(
-      id: '1',
-      operationId: 'op-1',
-      createdAt: DateTime.utc(2026, 6, 1, 0, 0, 0),
-    ));
-    await repository.insert(_log(
-      id: '2',
-      operationId: 'op-2',
-      createdAt: DateTime.utc(2026, 6, 1, 0, 0, 1),
-    ));
-    await repository.insert(_log(
-      id: '3',
-      operationId: 'op-3',
-      createdAt: DateTime.utc(2026, 6, 1, 0, 0, 2),
-    ));
+    await repository.insert(
+      _log(
+        id: '1',
+        operationId: 'op-1',
+        createdAt: DateTime.utc(2026, 6, 1, 0, 0, 0),
+      ),
+    );
+    await repository.insert(
+      _log(
+        id: '2',
+        operationId: 'op-2',
+        createdAt: DateTime.utc(2026, 6, 1, 0, 0, 1),
+      ),
+    );
+    await repository.insert(
+      _log(
+        id: '3',
+        operationId: 'op-3',
+        createdAt: DateTime.utc(2026, 6, 1, 0, 0, 2),
+      ),
+    );
 
     final recent = await repository.listRecent(limit: 2);
     expect(recent.map((r) => r.id).toList(), ['3', '2']);
@@ -94,14 +147,16 @@ void main() {
   test('duplicate id is aborted (no silent replace)', () async {
     await repository.insert(_log(id: 'dup', operationId: 'op-1'));
     expect(
-      () => repository.insert(_log(
-        id: 'dup',
-        operationId: 'op-1',
-        // 不同字段也不应覆盖。
-        confirmed: false,
-        result: OperationAuditResult.failure,
-        errorMessage: '冲突',
-      )),
+      () => repository.insert(
+        _log(
+          id: 'dup',
+          operationId: 'op-1',
+          // 不同字段也不应覆盖。
+          confirmed: false,
+          result: OperationAuditResult.failure,
+          errorMessage: '冲突',
+        ),
+      ),
       throwsA(isA<DatabaseException>()),
     );
 
@@ -141,7 +196,6 @@ void main() {
     // 业务回滚后审计也必须随之回滚。
     expect(await repository.findById('txn-rollback'), isNull);
   });
-
 }
 
 Future<Database> _openCurrentInMemoryDb() {
@@ -158,9 +212,12 @@ Future<Database> _openCurrentInMemoryDb() {
   return AppDatabase.database;
 }
 
+const Object _defaultTokenId = Object();
+
 OperationAuditLog _log({
   required String id,
   required String operationId,
+  Object? tokenId = _defaultTokenId,
   bool confirmed = true,
   OperationAuditResult result = OperationAuditResult.success,
   String? errorMessage,
@@ -169,6 +226,9 @@ OperationAuditLog _log({
   return OperationAuditLog(
     id: id,
     operationId: operationId,
+    tokenId: tokenId == _defaultTokenId
+        ? 'token-$operationId'
+        : tokenId as String?,
     operationType: OperationType.saveTimingRecord,
     actorType: OperationAuditActorType.owner,
     source: OperationAuditSource.app,

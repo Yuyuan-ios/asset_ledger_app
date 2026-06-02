@@ -1117,6 +1117,13 @@ class _FakeAuditRepo implements OperationAuditLogRepository {
   }
 
   @override
+  Future<List<OperationAuditLog>> listByTokenId(String tokenId) async {
+    return inserted
+        .where((log) => log.tokenId == tokenId)
+        .toList(growable: false);
+  }
+
+  @override
   Future<List<OperationAuditLog>> listRecent({int limit = 50}) async {
     return inserted.take(limit).toList(growable: false);
   }

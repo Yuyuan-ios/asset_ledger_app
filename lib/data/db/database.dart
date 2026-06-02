@@ -69,10 +69,12 @@ class AppDatabase {
   // - v23：新增 operation_tokens（confirmation token 可变状态机表 + 3 个索引）；
   //        不改任何旧业务表 / 不改 operation_audit_logs；不纳入 backup/restore
   //        （per-device 安全 / 会话状态，恢复后旧 token 靠 hash/freshness 失效）。
+  // - v24：operation_audit_logs 新增 nullable token_id + token_id 索引；
+  //        不加 FK，不纳入 backup/restore。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 23;
+  static const int _dbVersion = 24;
 
   static int get schemaVersion => _dbVersion;
 
