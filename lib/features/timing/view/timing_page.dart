@@ -536,7 +536,11 @@ class _TimingPageState extends State<TimingPage> {
     if (!mounted) return;
 
     if (impact.isBlockedByPayments) {
-      _toast(const TimingDeleteBlockedByPaymentsException().message);
+      if (!sheetContext.mounted) return;
+      await _showDeleteBlockedDialog(
+        sheetContext,
+        const TimingDeleteBlockedByPaymentsException().message,
+      );
       return;
     }
 
@@ -553,7 +557,8 @@ class _TimingPageState extends State<TimingPage> {
     try {
       outcome = await deleteUseCase.executeDeleteWithImpact(recordId);
     } on TimingDeleteBlockedByPaymentsException catch (error) {
-      if (mounted) _toast(error.message);
+      if (!mounted || !sheetContext.mounted) return;
+      await _showDeleteBlockedDialog(sheetContext, error.message);
       return;
     } catch (_) {
       if (mounted) _toast('删除失败，请重试');
@@ -566,6 +571,19 @@ class _TimingPageState extends State<TimingPage> {
     _toast(_deleteSuccessMessage(outcome));
     if (!sheetContext.mounted) return;
     Navigator.of(sheetContext).pop();
+  }
+
+  Future<void> _showDeleteBlockedDialog(
+    BuildContext sheetContext,
+    String message,
+  ) async {
+    if (!mounted || !sheetContext.mounted) return;
+    await showAppAlertDialog(
+      context: sheetContext,
+      title: '无法删除',
+      message: message,
+      confirmText: '知道了',
+    );
   }
 
   String _deleteConfirmContent(TimingRecordDeleteImpact impact) {
