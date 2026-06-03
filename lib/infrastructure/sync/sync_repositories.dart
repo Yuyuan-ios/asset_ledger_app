@@ -16,6 +16,14 @@ abstract class SyncOutboxRepository {
     required Map<String, Object?> payload,
   });
 
+  Future<SyncOutboxEntry> enqueueWithExecutor(
+    DatabaseExecutor executor, {
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  });
+
   Future<List<SyncOutboxEntry>> listPending({int limit = 50});
 }
 
@@ -32,11 +40,30 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
     required String operation,
     required Map<String, Object?> payload,
   }) async {
-    final nowIso = _now().toUtc().toIso8601String();
+    final db = await AppDatabase.database;
+    return enqueueWithExecutor(
+      db,
+      entityType: entityType,
+      entityId: entityId,
+      operation: operation,
+      payload: payload,
+    );
+  }
+
+  @override
+  Future<SyncOutboxEntry> enqueueWithExecutor(
+    DatabaseExecutor executor, {
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) async {
+    final now = _now().toUtc();
+    final nowIso = now.toIso8601String();
     final payloadJson = jsonEncode(payload);
     final payloadHash = sha256.convert(utf8.encode(payloadJson)).toString();
     final entry = SyncOutboxEntry(
-      id: 'outbox-${_now().toUtc().microsecondsSinceEpoch}',
+      id: 'outbox-${now.microsecondsSinceEpoch}',
       entityType: entityType,
       entityId: entityId,
       operation: operation,
@@ -47,8 +74,7 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
       createdAt: nowIso,
       updatedAt: nowIso,
     );
-    final db = await AppDatabase.database;
-    await db.insert('sync_outbox', entry.toMap());
+    await executor.insert('sync_outbox', entry.toMap());
     return entry;
   }
 
@@ -69,6 +95,11 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
 abstract class EntitySyncMetaRepository {
   Future<void> upsert(EntitySyncMeta meta);
 
+  Future<void> upsertWithExecutor(
+    DatabaseExecutor executor,
+    EntitySyncMeta meta,
+  );
+
   Future<EntitySyncMeta?> find({
     required String entityType,
     required String localId,
@@ -81,7 +112,15 @@ class LocalEntitySyncMetaRepository implements EntitySyncMetaRepository {
   @override
   Future<void> upsert(EntitySyncMeta meta) async {
     final db = await AppDatabase.database;
-    await db.insert(
+    await upsertWithExecutor(db, meta);
+  }
+
+  @override
+  Future<void> upsertWithExecutor(
+    DatabaseExecutor executor,
+    EntitySyncMeta meta,
+  ) async {
+    await executor.insert(
       'entity_sync_meta',
       meta.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,

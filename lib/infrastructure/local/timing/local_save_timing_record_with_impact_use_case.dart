@@ -14,6 +14,9 @@ import '../../../data/services/account_service.dart';
 import '../../../data/services/project_resolver.dart';
 import '../../../features/account/domain/services/project_finance_calculator.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
+import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_repositories.dart';
+import '../../sync/sync_status.dart';
 import '../account/project_settlement_impact_service.dart';
 
 /// [SaveTimingRecordWithImpactUseCase] 的本地实现。
@@ -41,6 +44,8 @@ class LocalSaveTimingRecordWithImpactUseCase
     required ProjectRateRepository projectRateRepository,
     required ProjectResolver projectResolver,
     required ProjectSettlementImpactService impactService,
+    SyncOutboxRepository? syncOutboxRepository,
+    EntitySyncMetaRepository? entitySyncMetaRepository,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _timingCalculationHistoryRepository = timingCalculationHistoryRepository,
@@ -49,6 +54,10 @@ class LocalSaveTimingRecordWithImpactUseCase
        _projectRateRepository = projectRateRepository,
        _projectResolver = projectResolver,
        _impactService = impactService,
+       _syncOutboxRepository =
+           syncOutboxRepository ?? const LocalSyncOutboxRepository(),
+       _entitySyncMetaRepository =
+           entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -59,7 +68,12 @@ class LocalSaveTimingRecordWithImpactUseCase
   final ProjectRateRepository _projectRateRepository;
   final ProjectResolver _projectResolver;
   final ProjectSettlementImpactService _impactService;
+  final SyncOutboxRepository _syncOutboxRepository;
+  final EntitySyncMetaRepository _entitySyncMetaRepository;
   final DateTime Function() _now;
+
+  static const String _timingRecordEntityType = 'timing_record';
+  static const String _ownerAppSource = 'owner_app';
 
   @override
   Future<SaveTimingRecordPreparation> prepareForSave({
@@ -220,6 +234,12 @@ class LocalSaveTimingRecordWithImpactUseCase
 
     final settlementRevoked = revocation.revokedProjectIds.isNotEmpty;
 
+    await _enqueueSyncForSavedRecord(
+      txn,
+      savedRecord: savedRecord,
+      isEditing: editing != null,
+    );
+
     return SaveTimingRecordWithImpactResult(
       savedRecord: savedRecord,
       projectChanged: projectChanged,
@@ -230,6 +250,44 @@ class LocalSaveTimingRecordWithImpactUseCase
       userMessage: _buildUserMessage(
         mergeDissolved: mergeDissolved,
         settlementRevoked: settlementRevoked,
+      ),
+    );
+  }
+
+  Future<void> _enqueueSyncForSavedRecord(
+    DatabaseExecutor txn, {
+    required TimingRecord savedRecord,
+    required bool isEditing,
+  }) async {
+    final id = savedRecord.id;
+    if (id == null) {
+      throw StateError('sync_outbox 入队需要最终落库后的 timing_record id');
+    }
+    final operation = isEditing ? 'update' : 'create';
+    final entityId = id.toString();
+    final entry = await _syncOutboxRepository.enqueueWithExecutor(
+      txn,
+      entityType: _timingRecordEntityType,
+      entityId: entityId,
+      operation: operation,
+      payload: {
+        'entity_type': _timingRecordEntityType,
+        'entity_id': entityId,
+        'operation': operation,
+        'record': savedRecord.toMap(),
+      },
+    );
+    await _entitySyncMetaRepository.upsertWithExecutor(
+      txn,
+      EntitySyncMeta(
+        entityType: _timingRecordEntityType,
+        localId: entityId,
+        syncStatus: isEditing
+            ? SyncStatus.pendingUpdate
+            : SyncStatus.pendingUpload,
+        version: 0,
+        source: _ownerAppSource,
+        payloadHash: entry.payloadHash,
       ),
     );
   }

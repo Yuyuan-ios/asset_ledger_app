@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group.dart';
@@ -18,6 +20,9 @@ import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/infrastructure/local/account/project_settlement_impact_service.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/timing/local_save_timing_record_with_impact_use_case.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_outbox_entry.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -107,6 +112,57 @@ void main() {
       // 真实落库：timing_records 有这一行。
       final rows = await db.query('timing_records');
       expect(rows, hasLength(1));
+    });
+
+    test('成功保存后同事务写入 pending create outbox 和 pendingUpload meta', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+
+      final result = await useCase.execute(
+        editing: null,
+        record: TimingRecord(
+          deviceId: deviceId,
+          startDate: 20260520,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          type: TimingType.hours,
+          startMeter: 0,
+          endMeter: 1,
+          hours: 1,
+          income: 100,
+        ),
+      );
+
+      final savedId = result.savedRecord.id.toString();
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['entity_type'], 'timing_record');
+      expect(outboxRows.single['entity_id'], savedId);
+      expect(outboxRows.single['operation'], 'create');
+      expect(outboxRows.single['status'], SyncOutboxStatus.pending.name);
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      expect(payload['entity_type'], 'timing_record');
+      expect(payload['entity_id'], savedId);
+      expect(payload['operation'], 'create');
+      expect(
+        (payload['record'] as Map<String, Object?>)['id'],
+        result.savedRecord.id,
+      );
+
+      final metaRows = await db.query('entity_sync_meta');
+      expect(metaRows, hasLength(1));
+      expect(metaRows.single['entity_type'], 'timing_record');
+      expect(metaRows.single['local_id'], savedId);
+      expect(metaRows.single['sync_status'], SyncStatus.pendingUpload.name);
+      expect(metaRows.single['source'], 'owner_app');
+      expect(
+        metaRows.single['payload_hash'],
+        outboxRows.single['payload_hash'],
+      );
     });
   });
 
@@ -359,6 +415,49 @@ void main() {
       expect(rows, hasLength(1));
       expect((rows.single['income'] as num).toDouble(), 200);
     });
+
+    test('编辑成功后同事务写入 pending update outbox 和 pendingUpdate meta', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      final existing = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        hours: 1,
+        income: 100,
+      );
+
+      final result = await useCase.execute(
+        editing: existing,
+        record: existing.copyWith(hours: 2, income: 200),
+      );
+
+      final savedId = result.savedRecord.id.toString();
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['entity_type'], 'timing_record');
+      expect(outboxRows.single['entity_id'], savedId);
+      expect(outboxRows.single['operation'], 'update');
+      expect(outboxRows.single['status'], SyncOutboxStatus.pending.name);
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      expect(payload['operation'], 'update');
+      expect((payload['record'] as Map<String, Object?>)['income'], 200);
+
+      final metaRows = await db.query('entity_sync_meta');
+      expect(metaRows, hasLength(1));
+      expect(metaRows.single['entity_type'], 'timing_record');
+      expect(metaRows.single['local_id'], savedId);
+      expect(metaRows.single['sync_status'], SyncStatus.pendingUpdate.name);
+      expect(
+        metaRows.single['payload_hash'],
+        outboxRows.single['payload_hash'],
+      );
+    });
   });
 
   group('编辑计时记录，project A → B：自动解除合并', () {
@@ -484,6 +583,48 @@ void main() {
       final mergeGroupRows = await db.query('account_project_merge_groups');
       expect(mergeGroupRows.single['is_active'], 1, reason: '合并组解除应被事务回滚');
       expect(mergeGroupRows.single['dissolved_at'], isNull);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+    });
+
+    test('sync_outbox 写失败时保存整体回滚', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      final failingUseCase = LocalSaveTimingRecordWithImpactUseCase(
+        timingRepository: timingRepository,
+        timingCalculationHistoryRepository: calculationHistoryRepository,
+        mergeRepository: mergeRepository,
+        deviceRepository: deviceRepository,
+        projectRateRepository: projectRateRepository,
+        projectResolver: projectResolver,
+        impactService: impactService,
+        syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+        now: () => DateTime.utc(2026, 5, 26, 12),
+      );
+
+      await expectLater(
+        failingUseCase.execute(
+          editing: null,
+          record: TimingRecord(
+            deviceId: deviceId,
+            startDate: 20260520,
+            projectId: 'project:alpha',
+            contact: '甲方',
+            site: 'alpha',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 1,
+            hours: 1,
+            income: 100,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('timing_records'), isEmpty);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
     });
   });
 
@@ -1358,6 +1499,36 @@ class _FailingImpactService implements ProjectSettlementImpactService {
     required String updatedAtIso,
   }) async {
     throw StateError('注入的失败：模拟事务后期失败 → 应触发整体回滚');
+  }
+}
+
+class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
+  const _ThrowingSyncOutboxRepository();
+
+  @override
+  Future<SyncOutboxEntry> enqueue({
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) {
+    throw StateError('注入的失败：sync_outbox 写入失败');
+  }
+
+  @override
+  Future<SyncOutboxEntry> enqueueWithExecutor(
+    DatabaseExecutor executor, {
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) {
+    throw StateError('注入的失败：sync_outbox 写入失败');
+  }
+
+  @override
+  Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
+    return const [];
   }
 }
 

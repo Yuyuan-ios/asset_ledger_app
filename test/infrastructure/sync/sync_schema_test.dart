@@ -83,4 +83,43 @@ void main() {
     expect(saved?.serverId, 'server-1');
     expect(saved?.syncStatus, SyncStatus.pendingUpload);
   });
+
+  test(
+    'executor-aware sync writes roll back with the surrounding transaction',
+    () async {
+      final db = await AppDatabase.database;
+      final outbox = LocalSyncOutboxRepository(
+        now: () => DateTime.utc(2026, 5, 18, 12),
+      );
+      const metaRepository = LocalEntitySyncMetaRepository();
+
+      await expectLater(
+        AppDatabase.inTransaction((txn) async {
+          final entry = await outbox.enqueueWithExecutor(
+            txn,
+            entityType: 'timing_record',
+            entityId: '1',
+            operation: 'create',
+            payload: const {'id': 1},
+          );
+          await metaRepository.upsertWithExecutor(
+            txn,
+            EntitySyncMeta(
+              entityType: 'timing_record',
+              localId: '1',
+              syncStatus: SyncStatus.pendingUpload,
+              version: 0,
+              source: 'owner_app',
+              payloadHash: entry.payloadHash,
+            ),
+          );
+          throw StateError('rollback-sync-writes');
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+    },
+  );
 }
