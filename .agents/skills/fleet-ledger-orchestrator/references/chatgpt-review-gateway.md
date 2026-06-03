@@ -37,6 +37,15 @@ misreadings before Codex modifies the repository.
 15. Does the prompt misuse `/approve` as push, merge, release, or publish?
 16. Does the FINAL prompt include Goal, Context, Scope, Constraints, Forbidden
     changes, Validation, and Final report format?
+17. Does the mobile Telegram review card fit mobile reading while still naming
+    risk, scope, forbidden changes, and validation?
+18. Could GUI automation bypass a Telegram approval gate?
+19. Does the flow stop if GUI automation cannot confirm ChatGPT or Codex state?
+20. Can the Codex report be compressed into a safe Telegram summary?
+21. If the user requested a long goal or broad feature, did the draft produce a
+    stage plan before any implementation prompt?
+22. Does each long-goal stage have scope, forbidden changes, validation, stop
+    conditions, and final report requirements?
 
 ## Must Reject And Rewrite
 
@@ -55,6 +64,11 @@ Reject the draft when any of these are true:
 - The prompt points to `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`
   without explicit user instruction.
 - The prompt treats Telegram `/approve` as push, merge, release, or publishing.
+- GUI automation could call Codex before user approval.
+- GUI automation page state is uncertain and the prompt does not stop.
+- The user requested a long goal but the draft jumps directly to
+  implementation.
+- A long-goal prompt tries to execute multiple stages in one Codex run.
 
 ## May Output Final Prompt
 
@@ -69,6 +83,10 @@ ChatGPT may output a `FINAL_CODEX_PROMPT` when:
 - Any uncertain product detail is marked `待确认`.
 - Default baseline is `/Users/yu/Flutter_Projects/fleet_ledger_app` on `dev`
   unless the user explicitly requests another path.
+- Mobile GUI automation approval gates are explicit when OpenClaw is expected
+  to bridge ChatGPT, Telegram, and Codex.
+- Long goals use `FINAL_STAGE_PLAN` first, then one `FINAL_CODEX_PROMPT` per
+  approved stage.
 
 ## DRAFT_PROMPT_PACKAGE Format
 
@@ -102,6 +120,12 @@ Draft Codex prompt:
 Questions for ChatGPT reviewer:
 - <需要 ChatGPT 判断的问题>
 ```
+
+When the task uses mobile GUI automation, include
+`docs/agent/mobile-gui-automation-workflow.md` in the relevant docs read list.
+When the task is a long goal, include
+`docs/agent/long-goal-automation-protocol.md` and
+`docs/agent/templates/long-goal-plan.md`.
 
 ## FINAL_CODEX_PROMPT Format
 

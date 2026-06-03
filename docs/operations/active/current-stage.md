@@ -27,7 +27,7 @@ Do not present `user-provided` status as `repo-verified`.
 - Default execution baseline: `dev`
 - Current actual HEAD must be verified by git before every task.
 - Latest known audited HEAD:
-  `90f186a feat(account): calculate account summaries with fen precision`.
+  `a2a7899 docs(agent): define dev-only orchestration contracts`.
 
 If execution-time git state differs from this document, use actual command
 output and write `verified current state differs` in the report. Do not reset,
@@ -37,9 +37,18 @@ checkout, or repair state unless the user explicitly asks.
 
 - OpenClaw backend brain: MiniMax.
 - MiniMax / OpenClaw only drafts and orchestrates.
+- OpenClaw uses GUI automation to connect ChatGPT and Codex on the home
+  MacBook.
 - ChatGPT reviews, corrects, narrows, and finalizes prompts.
 - Codex performs programming execution.
-- The user reviews in Telegram and chooses review / approve / stop / next.
+- The user reviews from Telegram while away from the computer and chooses
+  review / approve / stop / next.
+- The current active goal is the mobile GUI automation orchestration loop:
+  OpenClaw / MiniMax -> ChatGPT -> Telegram approval -> Codex -> Telegram
+  report review.
+- The current long-goal target is to run a mobile office long-goal automation
+  dry run after the protocol docs are complete.
+- Recommended first long-goal sample: date picker functionality.
 
 ## 5. Audit Worktree Policy
 
@@ -55,18 +64,31 @@ checkout, or repair state unless the user explicitly asks.
 
 ## 6. Current Active Workflow
 
-The immediate next workflow is dev-only orchestration contract hardening and a
-real `/draft` end-to-end dry run.
+The immediate next workflow is a first real `/draft` mobile office long-goal
+dry run on the `dev` baseline.
+
+For the recommended date picker sample, the first stage must be a read-only
+audit and must not modify code.
 
 The next default task is not D61/D63 audit-worktree status alignment. Stage D
 documents are task-specific references only when the user explicitly asks about
 Stage D / operation token / operation audit work.
 
-Before the real `/draft` dry run, these contracts must be clear:
+These contracts define the current workflow:
 
 - `docs/agent/telegram-review-contract.md`
 - `docs/agent/codex-execution-contract.md`
 - `docs/agent/openclaw-minimax-orchestration.md`
+- `docs/agent/mobile-gui-automation-workflow.md`
+- `docs/agent/long-goal-automation-protocol.md`
+- `docs/operations/active/date-picker-dry-run-plan.md`
+
+Terminal copy/paste may be used only as an early debugging fallback. It is not
+the long-term target workflow.
+
+Stage 5 mobile GUI workflow docs and Stage 5.1 long-goal protocol docs remain
+uncommitted documentation closure work until the user explicitly requests a
+commit.
 
 ## 7. Required Docs Before Drafting Prompts
 
@@ -77,6 +99,8 @@ OpenClaw / MiniMax must read these before generating a DRAFT:
 - `docs/agent/telegram-review-contract.md`
 - `docs/agent/codex-execution-contract.md`
 - `docs/agent/openclaw-minimax-orchestration.md`
+- `docs/agent/mobile-gui-automation-workflow.md`
+- `docs/agent/long-goal-automation-protocol.md`
 - `.agents/skills/fleet-ledger-orchestrator/SKILL.md`
 - `.agents/skills/fleet-ledger-orchestrator/references/chatgpt-review-gateway.md`
 - `.agents/skills/fleet-ledger-orchestrator/references/prompt-rules.md`
@@ -91,11 +115,17 @@ preview-confirm workflow.
 ## 8. Default Workflow
 
 1. OpenClaw / MiniMax generates `DRAFT_PROMPT_PACKAGE`.
-2. ChatGPT reviews the DRAFT and outputs `FINAL_CODEX_PROMPT`.
-3. User approves through Telegram.
-4. Codex executes FINAL only.
-5. OpenClaw / MiniMax summarizes the Codex report.
-6. ChatGPT or the user reviews the next step.
+2. OpenClaw sends DRAFT to ChatGPT through GUI automation.
+3. ChatGPT reviews the DRAFT and outputs `FINAL_CODEX_PROMPT`.
+4. OpenClaw sends the FINAL review card to Telegram.
+5. User approves, revises, or stops through Telegram.
+6. Codex executes FINAL only after approval.
+7. OpenClaw summarizes the Codex report to Telegram.
+8. User chooses next, revise, or stop.
+
+For long goals, OpenClaw / MiniMax must generate a `DRAFT_STAGE_PLAN` first,
+ChatGPT must produce `FINAL_STAGE_PLAN`, and the user must approve the plan
+before Stage 1 execution begins.
 
 ## 9. Guardrails
 
@@ -106,8 +136,15 @@ preview-confirm workflow.
 - Do not modify business code outside scope.
 - Do not leak MiniMax, Telegram, OpenClaw, Codex, or other private credentials.
 - Do not point work to old audit worktrees unless the user explicitly asks.
+- Do not let GUI automation bypass Telegram approval gates.
+- Do not treat `/next` as permission to execute the next stage.
+- Do not implement long goals before a stage plan is approved.
+- Do not execute more than one long-goal stage per Codex run.
 
 ## 10. Next Recommended Work
 
-- Complete dev-only orchestration contract docs.
-- Then run a real `/draft` end-to-end dry run on the `dev` baseline.
+- Run a first real `/draft` mobile office long-goal dry run on the `dev`
+  baseline.
+- Prefer the date picker sample in
+  `docs/operations/active/date-picker-dry-run-plan.md`.
+- Ensure Stage 0 is a read-only audit with no code changes.
