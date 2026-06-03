@@ -19,6 +19,8 @@ rule area you are touching.
 | Agent workflow, reports, and commits | `docs/agent/index.md`, `docs/agent/workflow.md` |
 | Prompt review gateway and project skill | `docs/agent/prompt-review-gateway.md`, `.agents/skills/fleet-ledger-orchestrator/SKILL.md` |
 | Telegram review, Codex execution, orchestration contracts | `docs/agent/telegram-review-contract.md`, `docs/agent/codex-execution-contract.md`, `docs/agent/openclaw-minimax-orchestration.md` |
+| Mobile GUI automation workflow | `docs/agent/mobile-gui-automation-workflow.md` |
+| Long-goal multi-stage automation | `docs/agent/long-goal-automation-protocol.md`, `docs/agent/templates/long-goal-plan.md` |
 | Prompt format for future agent tasks | `docs/agent/prompt-style.md` |
 | Project identity, project title, contact/site | `docs/product/project-identity.md` |
 | External work import/export and wording | `docs/product/external-work.md` |
@@ -38,6 +40,7 @@ rule area you are touching.
 - Merge review: `docs/agent/templates/merge-review.md`
 - UI polish: `docs/agent/templates/ui-polish.md`
 - Migration change: `docs/agent/templates/migration-change.md`
+- Long-goal plan: `docs/agent/templates/long-goal-plan.md`
 
 If a rule is not covered by these documents, mark it as `待确认` in the report
 instead of inventing product behavior.

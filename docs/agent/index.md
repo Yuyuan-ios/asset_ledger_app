@@ -35,6 +35,9 @@ tools/agent/check_full.sh
 - Telegram Review Contract：`docs/agent/telegram-review-contract.md`
 - Codex Execution Contract：`docs/agent/codex-execution-contract.md`
 - OpenClaw / MiniMax 编排：`docs/agent/openclaw-minimax-orchestration.md`
+- Mobile GUI Automation Workflow：`docs/agent/mobile-gui-automation-workflow.md`
+- Long Goal Automation Protocol：`docs/agent/long-goal-automation-protocol.md`
+- Long Goal Plan Template：`docs/agent/templates/long-goal-plan.md`
 - 产品规则：`docs/product/`
 - 架构规则：`docs/architecture/`
 - 当前阶段事实源：`docs/operations/active/current-stage.md`
