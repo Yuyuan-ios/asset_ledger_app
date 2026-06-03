@@ -12,6 +12,9 @@ Use task type to select the right repository template and review depth.
 | `report-review` | `references/report-checklist.md` |
 | `prompt-review` | `references/chatgpt-review-gateway.md` |
 | `next-stage-planning` | `docs/operations/active/README.md` and related active-stage docs |
+| `telegram-review-contract` | `docs/agent/telegram-review-contract.md` |
+| `codex-execution-contract` | `docs/agent/codex-execution-contract.md` |
+| `openclaw-minimax-orchestration` | `docs/agent/openclaw-minimax-orchestration.md` |
 
 ## Routing Notes
 

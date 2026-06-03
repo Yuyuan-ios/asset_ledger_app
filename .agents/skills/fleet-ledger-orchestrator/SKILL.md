@@ -17,10 +17,23 @@ Always start with:
 
 - `AGENTS.md`
 - `docs/agent/index.md`
+- `docs/operations/active/current-stage.md`
 - `docs/agent/prompt-review-gateway.md`
+- `docs/agent/telegram-review-contract.md`
+- `docs/agent/codex-execution-contract.md`
+- `docs/agent/openclaw-minimax-orchestration.md`
 - The relevant product or architecture docs listed in `AGENTS.md`
 
 Do not rely on chat memory alone when drafting or executing a task.
+
+## Default Baseline
+
+- Default repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
+- Default branch: `dev`
+- Do not generate prompts pointing to the old audit worktree unless the user
+  explicitly asks for that worktree.
+- If a non-default path is explicitly requested, verify path, branch, HEAD, and
+  git status before drafting or execution.
 
 ## Roles
 
@@ -57,6 +70,7 @@ Do not rely on chat memory alone when drafting or executing a task.
 - Runs verification commands.
 - Produces an execution report.
 - Does not automatically push.
+- Follows `docs/agent/codex-execution-contract.md`.
 
 ## Standard Flow
 
@@ -76,6 +90,8 @@ Do not rely on chat memory alone when drafting or executing a task.
 - Prompt writing rules: `references/prompt-rules.md`
 - Codex report checklist: `references/report-checklist.md`
 - Task types and templates: `references/task-types.md`
+- Telegram review semantics: `docs/agent/telegram-review-contract.md`
+- Codex execution boundary: `docs/agent/codex-execution-contract.md`
 
 ## Prohibited
 
@@ -87,3 +103,4 @@ Do not rely on chat memory alone when drafting or executing a task.
 - Do not inject branch rules unless the user task explicitly requires them.
 - Do not let OpenClaw / MiniMax bypass ChatGPT and call Codex directly.
 - Do not interpret Telegram `/approve` as permission to push or merge.
+- Do not treat Telegram `/approve` as release or publish permission.
