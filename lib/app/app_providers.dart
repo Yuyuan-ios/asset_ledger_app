@@ -11,6 +11,7 @@ import '../features/timing/state/timing_store.dart';
 import 'providers/account_merge_providers.dart';
 import 'providers/device_fleet_providers.dart';
 import 'providers/external_work_providers.dart';
+import 'providers/identity_providers.dart';
 import 'providers/project_providers.dart';
 import 'providers/timing_delete_providers.dart';
 import 'providers/timing_providers.dart';
@@ -22,6 +23,7 @@ import 'providers/timing_save_providers.dart';
 class AppProviders {
   static AppProviderBundle build() {
     final deviceFleet = DeviceFleetProviders.build();
+    final identity = IdentityProviders.build();
     final project = ProjectProviders.build();
     final timing = TimingProviders.build(
       projectResolver: project.projectResolver,
@@ -31,6 +33,7 @@ class AppProviders {
     final timingDelete = TimingDeleteProviders.build();
     final timingSave = TimingSaveProviders.build(
       projectResolver: project.projectResolver,
+      actorContext: identity.actorContext,
     );
 
     return AppProviderBundle(
@@ -44,6 +47,7 @@ class AppProviders {
       timingExternalWorkStore: externalWork.timingExternalWorkStore,
       providers: [
         ...deviceFleet.providers,
+        ...identity.providers,
         ...project.providers,
         ...timing.providers,
         ...accountMerge.providers,

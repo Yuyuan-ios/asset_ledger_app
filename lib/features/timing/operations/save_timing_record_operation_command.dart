@@ -1,3 +1,4 @@
+import '../../../core/operations/operation_access_control.dart';
 import '../../../core/operations/operation_models.dart';
 import '../../../core/operations/operation_transaction_runner.dart';
 import '../../../data/models/operation_audit_log.dart';
@@ -48,6 +49,7 @@ class SaveTimingRecordOperationCommand {
   const SaveTimingRecordOperationCommand({
     this.auditRepository,
     this.transactionRunner,
+    this.actorContext,
     this.actorType = OperationAuditActorType.owner,
     this.actorId,
     this.source = OperationAuditSource.app,
@@ -57,6 +59,11 @@ class SaveTimingRecordOperationCommand {
 
   final OperationAuditLogRepository? auditRepository;
   final OperationTransactionRunner? transactionRunner;
+
+  /// 真实 ActorContext（R3）。
+  /// 提供时覆盖 [actorType] / [actorId] / [sessionId] 的默认值。
+  final ActorContext? actorContext;
+
   final OperationAuditActorType actorType;
   final String? actorId;
   final OperationAuditSource source;
@@ -283,13 +290,21 @@ class SaveTimingRecordOperationCommand {
     required OperationAuditResult result,
     required String? errorMessage,
   }) {
+    // R3：优先使用 actorContext（真实注入），fallback 到默认值
+    final resolvedActorId = actorContext?.actorId ?? actorId;
+    final resolvedActorType =
+        actorContext != null
+            ? OperationAuditActorType.fromWireName(
+                actorContext!.actorType.wireName,
+              )
+            : actorType;
     return OperationAuditLog(
       id: auditId,
       operationId: preview.operationId,
       tokenId: tokenId,
       operationType: OperationType.saveTimingRecord,
-      actorId: actorId,
-      actorType: actorType,
+      actorId: resolvedActorId,
+      actorType: resolvedActorType,
       source: source,
       createdAt: _resolveNow(),
       entityRefs: preview.affectedEntities,

@@ -1,3 +1,7 @@
+import 'package:asset_ledger/core/operations/operation_access_control.dart';
+import 'package:asset_ledger/core/operations/operation_actor_scope.dart';
+import 'package:asset_ledger/core/operations/operation_actor_type.dart';
+import 'package:asset_ledger/core/operations/operation_models.dart';
 import 'package:asset_ledger/core/operations/operation_transaction_runner.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/operation_audit_log.dart';
@@ -5,7 +9,12 @@ import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/operation_audit_log_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_confirm_adapter.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_preview_adapter.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_preview_redactor.dart';
+import 'package:asset_ledger/features/timing/operations/save_timing_record_preview_service.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_use_case.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
@@ -220,6 +229,7 @@ void main() {
       );
     },
   );
+  _registerExecuteWithTokenTests();
 }
 
 const TimingRecord _staticSavedRecord = TimingRecord(
@@ -443,4 +453,381 @@ class _SpyTimingRepository implements TimingRepository {
   Future<int> deleteByIds(Iterable<int> ids) {
     throw UnimplementedError();
   }
+}
+
+void _registerExecuteWithTokenTests() {
+  group('SaveTimingRecordUseCase executeWithToken', () {
+    test(
+      'executes token-aware save when all dependencies are provided',
+      () async {
+        final timingRepository = _SpyTimingRepository();
+        final timingStore = TimingStore(timingRepository);
+        final withImpact = _SpyWithImpactUseCase(
+          result: const SaveTimingRecordWithImpactResult(
+            savedRecord: _staticSavedRecord,
+            projectChanged: false,
+            mergeDissolved: false,
+            settlementRevoked: false,
+            affectedProjectIds: ['project:alpha'],
+            revokedProjectIds: [],
+            userMessage: null,
+          ),
+        );
+        final auditRepository = _FakeAuditRepository();
+        final runner = await _newFakeRunner();
+        final actorCtx = ActorContext(
+          actorType: OperationActorType.owner,
+          actorId: 'owner-test',
+        );
+        final command = SaveTimingRecordOperationCommand(
+          auditRepository: auditRepository,
+          transactionRunner: runner,
+          actorContext: actorCtx,
+          auditIdFactory: () => 'audit-save-e2e',
+        );
+        final analyzer = _FakeAnalyzer(command: command);
+        final previewService = _FakePreviewService();
+        final confirmAdapter = _FakeConfirmAdapter(command: command);
+
+        const editing = _staticSavedRecord;
+        final newRecord = editing.copyWith(hours: 8);
+
+        final useCase = SaveTimingRecordUseCase(
+          timingStore: timingStore,
+          withImpact: withImpact,
+          command: command,
+          analyzer: analyzer,
+          previewService: previewService,
+          confirmAdapter: confirmAdapter,
+          actorContext: actorCtx,
+          operationIdFactory: () => 'op-execute-with-token',
+        );
+
+        final result = await useCase.executeWithToken(
+          editing: editing,
+          record: newRecord,
+        );
+
+        // Verify token-aware flow was used.
+        expect(
+          previewService.tokenIssuedCallCount,
+          1,
+          reason: 'previewWithToken must be called',
+        );
+        expect(previewService.lastActor, same(actorCtx));
+        expect(previewService.lastScope?.isFullOwner, isTrue);
+        expect(analyzer.analyzeCalls, 1);
+        expect(analyzer.lastInput?.operationId, 'op-execute-with-token');
+        expect(
+          confirmAdapter.tokenConsumedCallCount,
+          1,
+          reason: 'executeConfirmedWithToken must be called',
+        );
+        expect(confirmAdapter.lastTokenId, 'test-token-id');
+        expect(confirmAdapter.lastActor, same(actorCtx));
+        expect(confirmAdapter.lastScope?.isFullOwner, isTrue);
+        expect(confirmAdapter.lastRedactedPreviewHash, isNotNull);
+        expect(auditRepository.insertedWithExecutor, hasLength(1));
+        final audit = auditRepository.insertedWithExecutor.single;
+        expect(audit.tokenId, 'test-token-id');
+        expect(audit.actorId, 'owner-test');
+        expect(audit.actorType, OperationAuditActorType.owner);
+        expect(result.mergeDissolved, isFalse);
+        expect(result.impact, isNotNull);
+        expect(withImpact.directExecuteCalls, 0);
+      },
+    );
+
+    test(
+      'throws SaveTimingRecordOperationException when preview cannot confirm',
+      () async {
+        final timingRepository = _SpyTimingRepository();
+        final timingStore = TimingStore(timingRepository);
+        final withImpact = _SpyWithImpactUseCase(
+          result: const SaveTimingRecordWithImpactResult(
+            savedRecord: _staticSavedRecord,
+            projectChanged: false,
+            mergeDissolved: false,
+            settlementRevoked: false,
+            affectedProjectIds: ['project:alpha'],
+            revokedProjectIds: [],
+            userMessage: null,
+          ),
+        );
+        final auditRepository = _FakeAuditRepository();
+        final runner = await _newFakeRunner();
+        final command = SaveTimingRecordOperationCommand(
+          auditRepository: auditRepository,
+          transactionRunner: runner,
+          auditIdFactory: () => 'audit-save-fail',
+        );
+        final analyzer = _FakeAnalyzer(command: command);
+
+        // Preview service that refuses to issue token
+        final previewService = _FakePreviewService(canProceedToConfirm: false);
+        final confirmAdapter = _FakeConfirmAdapter(command: command);
+
+        final actorCtx = ActorContext(actorType: OperationActorType.owner);
+        const editing = _staticSavedRecord;
+        final newRecord = editing.copyWith(hours: 9);
+
+        final useCase = SaveTimingRecordUseCase(
+          timingStore: timingStore,
+          withImpact: withImpact,
+          command: command,
+          analyzer: analyzer,
+          previewService: previewService,
+          confirmAdapter: confirmAdapter,
+          actorContext: actorCtx,
+          operationIdFactory: () => 'op-execute-token-fail',
+        );
+
+        expect(
+          () => useCase.executeWithToken(editing: editing, record: newRecord),
+          throwsA(isA<SaveTimingRecordOperationException>()),
+        );
+        expect(confirmAdapter.tokenConsumedCallCount, 0);
+      },
+    );
+
+    test(
+      'throws SaveTimingRecordOperationException when preview omits token',
+      () async {
+        final timingRepository = _SpyTimingRepository();
+        final timingStore = TimingStore(timingRepository);
+        final withImpact = _SpyWithImpactUseCase(
+          result: const SaveTimingRecordWithImpactResult(
+            savedRecord: _staticSavedRecord,
+            projectChanged: false,
+            mergeDissolved: false,
+            settlementRevoked: false,
+            affectedProjectIds: ['project:alpha'],
+            revokedProjectIds: [],
+            userMessage: null,
+          ),
+        );
+        final command = SaveTimingRecordOperationCommand(
+          auditRepository: _FakeAuditRepository(),
+          transactionRunner: await _newFakeRunner(),
+          auditIdFactory: () => 'audit-save-no-token',
+        );
+        final analyzer = _FakeAnalyzer(command: command);
+        final previewService = _FakePreviewService(tokenId: null);
+        final confirmAdapter = _FakeConfirmAdapter(command: command);
+
+        final actorCtx = ActorContext(actorType: OperationActorType.owner);
+        final useCase = SaveTimingRecordUseCase(
+          timingStore: timingStore,
+          withImpact: withImpact,
+          command: command,
+          analyzer: analyzer,
+          previewService: previewService,
+          confirmAdapter: confirmAdapter,
+          actorContext: actorCtx,
+          operationIdFactory: () => 'op-execute-token-missing',
+        );
+
+        await expectLater(
+          useCase.executeWithToken(
+            editing: _staticSavedRecord,
+            record: _staticSavedRecord.copyWith(hours: 10),
+          ),
+          throwsA(isA<SaveTimingRecordOperationException>()),
+        );
+        expect(confirmAdapter.tokenConsumedCallCount, 0);
+      },
+    );
+  });
+}
+
+/// Fake preview service that issues or refuses tokens based on constructor flag.
+class _FakePreviewService implements SaveTimingRecordPreviewService {
+  _FakePreviewService({
+    this.canProceedToConfirm = true,
+    this.tokenId = 'test-token-id',
+  });
+
+  int tokenIssuedCallCount = 0;
+  final bool canProceedToConfirm;
+  final String? tokenId;
+  ActorContext? lastActor;
+  ActorScope? lastScope;
+  SaveTimingRecordOperationPreviewRequest? lastRequest;
+
+  @override
+  Future<SaveTimingRecordPreviewServiceResponse> previewWithToken({
+    required SaveTimingRecordOperationPreviewRequest request,
+    required ActorContext actor,
+    required ActorScope scope,
+    DateTime? now,
+    String? sessionId,
+    String? source,
+  }) async {
+    tokenIssuedCallCount++;
+    lastActor = actor;
+    lastScope = scope;
+    lastRequest = request;
+    final analysis = _analysisForInput(request.input);
+    final redacted = RedactedSaveTimingRecordPreview(
+      preview: analysis.preview,
+      analysis: RedactedSaveTimingRecordAnalysis(
+        wouldCreateNewProject: false,
+        willDissolveMerge: false,
+        willRevokeSettlement: false,
+        oldProjectId: null,
+        existingNewProjectId: 'project:alpha',
+        affectedProjectIds: const ['project:alpha'],
+        mergeGroupIdsToDissolve: const [],
+        warnings: const [],
+      ),
+      freshness: null,
+      redacted: false,
+      redactionReasons: const [],
+      visibleCapabilities: const [],
+      hiddenCapabilities: const [],
+      scopeAllowed: true,
+      scopeReasons: const [],
+    );
+    return SaveTimingRecordPreviewServiceResponse(
+      preview: redacted,
+      operationId: request.input.operationId,
+      canProceedToConfirm: canProceedToConfirm,
+      requiresReanalysisBeforeExecute: true,
+      confirmationTokenId: canProceedToConfirm ? tokenId : null,
+      confirmUnavailableReasonCode: canProceedToConfirm
+          ? null
+          : 'preview_denied',
+      warnings: const [],
+    );
+  }
+
+  @override
+  Future<SaveTimingRecordPreviewServiceResponse> preview({
+    required SaveTimingRecordOperationPreviewRequest request,
+    required ActorContext actor,
+    required ActorScope scope,
+    DateTime? now,
+  }) async {
+    return previewWithToken(
+      request: request,
+      actor: actor,
+      scope: scope,
+      now: now,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Fake confirm adapter that records call count and delegates to command.
+class _FakeConfirmAdapter implements SaveTimingRecordOperationConfirmAdapter {
+  _FakeConfirmAdapter({required this.command});
+
+  int tokenConsumedCallCount = 0;
+  @override
+  final SaveTimingRecordOperationCommand command;
+  String? lastTokenId;
+  ActorContext? lastActor;
+  ActorScope? lastScope;
+  String? lastRedactedPreviewHash;
+
+  @override
+  Future<OperationExecutionResult> executeConfirmedWithToken({
+    required SaveTimingRecordOperationAnalyzeInput analyzeInput,
+    required SaveTimingRecordOperationAnalyzeResult previousAnalyzeResult,
+    required String operationId,
+    required String tokenId,
+    required ActorContext actor,
+    required ActorScope scope,
+    required Future<SaveTimingRecordWithImpactResult> Function(
+      OperationDatabaseExecutor executor,
+    )
+    executeSaveWithExecutor,
+    String? redactedPreviewHash,
+    DateTime? now,
+    String? sessionId,
+  }) async {
+    tokenConsumedCallCount++;
+    lastTokenId = tokenId;
+    lastActor = actor;
+    lastScope = scope;
+    lastRedactedPreviewHash = redactedPreviewHash;
+    return command.executeConfirmedInTransaction(
+      preview: previousAnalyzeResult.preview,
+      operationId: operationId,
+      auditTokenId: tokenId,
+      executeSaveWithExecutor: executeSaveWithExecutor,
+    );
+  }
+
+  @override
+  Future<OperationExecutionResult> executeConfirmedWithFreshness({
+    required SaveTimingRecordOperationAnalyzeInput analyzeInput,
+    required SaveTimingRecordOperationAnalyzeResult previousAnalyzeResult,
+    required String operationId,
+    required Future<SaveTimingRecordWithImpactResult> Function(
+      OperationDatabaseExecutor executor,
+    )
+    executeSaveWithExecutor,
+  }) async {
+    return command.executeConfirmedInTransaction(
+      preview: previousAnalyzeResult.preview,
+      operationId: operationId,
+      executeSaveWithExecutor: executeSaveWithExecutor,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeAnalyzer extends SaveTimingRecordOperationAnalyzer {
+  _FakeAnalyzer({required super.command});
+
+  int analyzeCalls = 0;
+  SaveTimingRecordOperationAnalyzeInput? lastInput;
+
+  @override
+  Future<SaveTimingRecordOperationAnalyzeResult> analyze(
+    SaveTimingRecordOperationAnalyzeInput input,
+  ) async {
+    analyzeCalls++;
+    lastInput = input;
+    return _analysisForInput(input);
+  }
+}
+
+SaveTimingRecordOperationAnalyzeResult _analysisForInput(
+  SaveTimingRecordOperationAnalyzeInput input,
+) {
+  final previewInput = SaveTimingRecordOperationPreviewInput(
+    operationId: input.operationId,
+    isEditing: input.editingRecordId != null,
+    timingRecordId: input.editingRecordId?.toString(),
+    deviceLabel: 'test-device',
+    projectLabel: 'test-project',
+    affectedEntities: const [],
+    warnings: const [],
+  );
+  final preview = OperationPreview(
+    operationId: input.operationId,
+    operationType: OperationType.saveTimingRecord,
+    title: '修改计时记录',
+    summary: '测试保存计时',
+    affectedEntities: const [],
+    requiresConfirmation: true,
+    riskLevel: OperationRiskLevel.low,
+  );
+  return SaveTimingRecordOperationAnalyzeResult(
+    previewInput: previewInput,
+    preview: preview,
+    oldProjectId: null,
+    existingNewProjectId: 'project:alpha',
+    wouldCreateNewProject: false,
+    affectedProjectIds: const ['project:alpha'],
+    mergeGroupIdsToDissolve: const [],
+    requiresReanalysisBeforeExecute: true,
+    warnings: const [],
+  );
 }
