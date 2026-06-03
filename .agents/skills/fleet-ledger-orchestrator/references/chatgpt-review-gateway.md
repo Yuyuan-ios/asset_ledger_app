@@ -32,6 +32,11 @@ misreadings before Codex modifies the repository.
     settlement, write-off, or project identity behavior?
 11. Does the prompt clearly say whether commit is allowed?
 12. Is OpenClaw / MiniMax making too many implementation decisions by itself?
+13. Is OpenClaw / MiniMax incorrectly treating DRAFT as FINAL?
+14. Does the prompt incorrectly point to the old audit worktree?
+15. Does the prompt misuse `/approve` as push, merge, release, or publish?
+16. Does the FINAL prompt include Goal, Context, Scope, Constraints, Forbidden
+    changes, Validation, and Final report format?
 
 ## Must Reject And Rewrite
 
@@ -47,6 +52,9 @@ Reject the draft when any of these are true:
   that were not requested.
 - OpenClaw / MiniMax is trying to approve, execute, push, merge, or bypass
   ChatGPT review.
+- The prompt points to `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`
+  without explicit user instruction.
+- The prompt treats Telegram `/approve` as push, merge, release, or publishing.
 
 ## May Output Final Prompt
 
@@ -59,6 +67,8 @@ ChatGPT may output a `FINAL_CODEX_PROMPT` when:
 - The report format is complete.
 - Commit, push, merge, and branch behavior are unambiguous.
 - Any uncertain product detail is marked `待确认`.
+- Default baseline is `/Users/yu/Flutter_Projects/fleet_ledger_app` on `dev`
+  unless the user explicitly requests another path.
 
 ## DRAFT_PROMPT_PACKAGE Format
 
@@ -108,3 +118,6 @@ Changes made by ChatGPT:
 Final Codex prompt:
 <最终可交给 Codex 的完整 prompt>
 ```
+
+The final Codex prompt must include Goal, Context, Scope, Constraints,
+Forbidden changes, Validation, and Final report format.

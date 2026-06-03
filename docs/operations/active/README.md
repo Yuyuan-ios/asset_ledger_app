@@ -9,6 +9,15 @@
 - OpenClaw / MiniMax 生成 DRAFT 前必须先读取 active docs，再读取相关 agent/product/architecture docs。
 - Active status must label sources as `repo-verified`, `user-provided`, `needs verification`, or `unknown`.
 
+## 默认读取顺序
+
+1. `docs/operations/active/current-stage.md`
+2. `docs/agent/telegram-review-contract.md`
+3. `docs/agent/codex-execution-contract.md`
+4. `.agents/skills/fleet-ledger-orchestrator/SKILL.md`
+5. 任务相关 `docs/product/`、`docs/architecture/`、`docs/agent/templates/`
+6. 只有当任务明确涉及 Stage D / operation token / audit 时，才读取 `docs/operations/active/stage-d-operation-token-audit.md`
+
 ## 维护方式
 
 - 每个活跃阶段使用独立文档。

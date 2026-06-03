@@ -18,6 +18,7 @@ rule area you are touching.
 | --- | --- |
 | Agent workflow, reports, and commits | `docs/agent/index.md`, `docs/agent/workflow.md` |
 | Prompt review gateway and project skill | `docs/agent/prompt-review-gateway.md`, `.agents/skills/fleet-ledger-orchestrator/SKILL.md` |
+| Telegram review, Codex execution, orchestration contracts | `docs/agent/telegram-review-contract.md`, `docs/agent/codex-execution-contract.md`, `docs/agent/openclaw-minimax-orchestration.md` |
 | Prompt format for future agent tasks | `docs/agent/prompt-style.md` |
 | Project identity, project title, contact/site | `docs/product/project-identity.md` |
 | External work import/export and wording | `docs/product/external-work.md` |

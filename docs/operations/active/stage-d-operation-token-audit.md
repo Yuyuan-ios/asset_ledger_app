@@ -2,33 +2,38 @@
 
 ## 1. Purpose
 
-This is the active context entry point for Stage D operation token, operation
-audit, and preview-confirm workflow tasks. It is not a full historical report.
-It is the current fact entry used when agents generate, review, or execute
-prompts.
+This document is historical and task-specific context for Stage D operation
+token, operation audit, and preview-confirm workflow tasks.
 
-## 2. Current Known Status
+It is not the current default execution baseline. The current default execution
+baseline is `/Users/yu/Flutter_Projects/fleet_ledger_app` on branch `dev`.
 
-Safe confirmed status:
+OpenClaw / MiniMax should not read this document as the default next step unless
+the user explicitly asks for Stage D, operation token, operation audit, or
+preview-confirm work.
 
-- Stage D exists as the active engineering stream. (`user-provided`)
-- It involves operation preview, confirmation token, operation audit log, token
-  persistence, token-aware confirm paths, and save timing record preview/confirm
-  flow. (`user-provided`)
-- Stage D worktree path
-  `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit` exists and is on
-  `feature/audit`, HEAD `a8a731c`, clean status. (`repo-verified`)
-- User-provided latest known Stage D commit was
-  `cbf2fdb feat(operations): audit token failure paths`. (`user-provided`)
-- Because the repo-verified worktree HEAD is now `a8a731c`, current Stage D
-  implementation state must be re-verified before any implementation prompt.
-  (`needs verification`)
+## 2. Baseline Policy
 
-Detailed implementation state must be verified from repository commits, reports,
-or user-provided latest stage notes before any implementation prompt. Do not
-infer completion status from commit titles alone.
+- Default repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
+- Default branch: `dev`
+- Old audit worktree path:
+  `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`
+- The old audit worktree path is historical reference only.
+- Do not use the old audit worktree as a default execution path.
+- If future work reopens Stage D, first use current `dev` git state and confirm
+  relevant code has been merged to `dev`.
+- If the user explicitly requires the audit worktree, verify path, branch, HEAD,
+  and git status before drafting.
 
-## 3. Current Stage D Status Snapshot
+## 3. Status Source Labels
+
+- `repo-verified`: Confirmed by current repository files or git commands.
+- `user-provided`: Provided by the user as latest stage notes, not directly
+  verified in this document.
+- `needs verification`: Must be checked before implementation.
+- `unknown`: Not known.
+
+## 4. Historical Stage D Status Snapshot
 
 | Stage | Status | Source |
 | --- | --- | --- |
@@ -55,23 +60,19 @@ infer completion status from commit titles alone.
 | D58 | `token_not_found` / `token_invalid` / `token_claim_failed` token-aware confirm failure paths write failure audit, committed as `cbf2fdb` | user-provided |
 | D60 | PreviewService token issuing read-only design audit completed and passed | user-provided |
 
-## 4. Latest Known Checkpoint
+## 5. Latest Known Checkpoints
 
 - D58 token failure audit committed as
   `cbf2fdb feat(operations): audit token failure paths`. (`user-provided`)
 - D60 design audit completed and recommended D61. (`user-provided`)
-- The currently verified `fleet_ledger_audit` worktree is already at
-  `a8a731c feat(timing): issue confirmation tokens from preview service`.
-  (`repo-verified`)
-- The difference between `cbf2fdb` and `a8a731c` must be reviewed before using
-  either as the basis for a new D61 prompt. (`needs verification`)
-- Because `a8a731c` appears to describe preview-service token issuing, it may
-  already contain D61-related implementation. The next step is status alignment,
-  not direct implementation. (`needs verification`)
+- Later dev history includes operation token audit infrastructure and preview
+  token confirmation test commits. (`repo-verified` from recent git log)
+- Future Stage D work must use current `dev` state unless the user explicitly
+  provides another execution target. (`repo-verified` baseline policy)
 
-## 5. Recommended D61 Direction
+## 6. Recommended D61 Direction
 
-The user-provided D60 recommendation for D61:
+The historical user-provided D60 recommendation for D61:
 
 - Add `SaveTimingRecordPreviewTokenIssuer`.
 - PreviewService token-aware path calls the token issuer.
@@ -94,7 +95,7 @@ The user-provided D60 recommendation for D61:
 
 Source for all bullets in this section: `user-provided`.
 
-## 6. Known Risk Areas
+## 7. Known Risk Areas
 
 - Operation token state machine.
 - Operation audit append-only semantics.
@@ -109,68 +110,41 @@ Source for all bullets in this section: `user-provided`.
 - Token repository must not support delete/replace style mutation unless
   explicitly designed.
 
-## 7. Default Task Routing
+## 8. Required Verification Before Future Stage D Prompts
 
-- If the user asks for the next Stage D implementation, first generate a DRAFT
-  prompt and send it to ChatGPT review.
-- If detailed current state is missing, the next task should be readonly audit
-  or prompt-planning, not implementation.
-- If a task mentions DB schema/migration, use the migration-change template.
-- If a task only asks to review a Codex report, use `report-checklist.md`.
-- If a task asks to implement token/audit behavior, require scoped files,
-  forbidden changes, and targeted tests.
+Before generating a Stage D implementation prompt:
 
-## 8. Required Docs / Files Before Stage D Prompt Generation
-
-- `docs/operations/active/current-stage.md`
-- `docs/operations/active/stage-d-operation-token-audit.md`
-- `.agents/skills/fleet-ledger-orchestrator/references/chatgpt-review-gateway.md`
-- `docs/agent/templates/readonly-audit.md`
-- `docs/agent/templates/implementation-task.md`
-- `docs/architecture/testing-rules.md`
-- Relevant repository files discovered by search, but do not hardcode files
-  unless verified for the current task.
-
-## 9. Required Verification Before D61 Implementation Prompt
-
-Before generating an implementation prompt for D61:
-
-- Verify the actual execution worktree path.
+- Verify the execution repository path.
 - Verify branch.
 - Verify HEAD.
 - Verify git status clean/dirty state.
-- Inspect current PreviewService, TokenRepository, ConfirmationToken,
-  fingerprint helper, and ConfirmAdapter files before writing the prompt.
-- Confirm whether D58 and D60 changes are present in the execution worktree.
-- If `fleet_ledger_app` dev and `fleet_ledger_audit` feature/audit differ,
-  state the execution path and risk explicitly.
+- Confirm relevant code is present in current `dev`.
+- Inspect current task-relevant files before writing the prompt.
+- Confirm whether historical D58/D60/D61 assumptions are already superseded by
+  current `dev` commits.
 
-## 10. Forbidden Assumptions
+## 9. Forbidden Assumptions
 
 - Do not assume the latest Stage D step from chat memory.
-- Do not assume `fleet_ledger_app` dev and `fleet_ledger_audit` feature/audit
-  are synchronized.
-- Do not assume D61 can be executed directly on `dev`.
-- Do not assume a worktree path unless the user provides it or git confirms it.
+- Do not assume old audit worktree state is current.
+- Do not assume `fleet_ledger_app` dev and any audit worktree are synchronized.
+- Do not assume D61 can be executed on an old branch or old worktree.
 - Do not assume a commit is present unless git confirms it.
-- Do not assume schema version or migration state without reading the repository.
-- Do not assume token failure audit, preview token issuing, or confirm adapter
-  integration is already complete unless verified.
+- Do not assume schema version or migration state without reading the
+  repository.
 - Do not assume token schema needs to change.
 - Do not assume UI, MCP, outbox, external work, statistics, Excel/export, or
   product rules can be modified.
 - Do not assume push is allowed.
 
-## 11. Recommended Next Prompt Type
+## 10. Recommended Next Prompt Type
 
-The current default next prompt type is:
+Only when the user explicitly asks for Stage D work, default to:
 
 ```text
-prompt-review / implementation-draft:
-Generate D61/D63 status-alignment readonly audit DRAFT_PROMPT_PACKAGE for ChatGPT review
+prompt-review / readonly-audit:
+Generate a dev-baseline Stage D status audit DRAFT_PROMPT_PACKAGE for ChatGPT review
 ```
 
-OpenClaw / MiniMax should not generate FINAL prompts directly. Do not default to
-direct implementation until current Stage D status, execution worktree, and
-scope are confirmed, especially because `a8a731c` may already cover part of the
-user-provided D61 direction.
+Do not default to direct implementation until current `dev` status and task
+scope are confirmed.
