@@ -1,26 +1,33 @@
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 
+import '../../../core/operations/operation_access_control.dart';
+import '../../../core/operations/operation_actor_scope.dart';
 import '../../../core/operations/operation_models.dart';
 import '../../../data/models/timing_record.dart';
+import '../operations/save_timing_record_operation_analyzer.dart';
+import '../operations/save_timing_record_operation_confirm_adapter.dart';
 import '../operations/save_timing_record_operation_command.dart';
+import '../operations/save_timing_record_operation_fingerprints.dart';
+import '../operations/save_timing_record_operation_preview_adapter.dart';
+import '../operations/save_timing_record_preview_service.dart';
 import '../state/timing_store.dart';
 import 'save_timing_record_with_impact_use_case.dart';
 
 /// Thin façade for the timing editor save flow.
 ///
-/// 阶段 C Step 1（C1）后语义：
-/// - 唯一权威保存路径是 [SaveTimingRecordWithImpactUseCase]（阶段 B Step 3 引入
-///   的事务化路径：保存计时 + 解除合并 + 撤销结清 同一事务）。
-/// - 本类作为 feature 层的薄包装：调用事务化路径、拉取最新 store 数据、把
-///   impact 信息归一化成 UI 友好的 [SaveTimingRecordResult]。
-/// - 不再保留"store.save + retry merge dissolve"的遗留两步保存路径，也不再
-///   有 pending retry / [PendingTimingMergeDissolve]。Provider 缺失现在直接
-///   fail-fast，由 [context.read] 抛 `ProviderNotFoundException`。
+/// R4：新增 [executeWithToken] 方法，使用 token-aware save 路径。
+/// 生产路径优先通过 provider 注入 [previewService] + [confirmAdapter] +
+/// [actorContext]，走 previewWithToken → executeConfirmedWithToken 链路。
+/// 保留旧 [execute] 方法作为后向兼容路径。
 class SaveTimingRecordUseCase {
   const SaveTimingRecordUseCase({
     required TimingStore timingStore,
     required SaveTimingRecordWithImpactUseCase withImpact,
     required SaveTimingRecordOperationCommand command,
+    this.analyzer,
+    this.previewService,
+    this.confirmAdapter,
+    this.actorContext,
     String Function()? operationIdFactory,
   }) : _timingStore = timingStore,
        _withImpact = withImpact,
@@ -32,6 +39,115 @@ class SaveTimingRecordUseCase {
   final SaveTimingRecordOperationCommand _command;
   final String Function() _operationIdFactory;
 
+  /// R4：与 preview/confirm 共享的 analyzer，用于复建 confirm 所需完整 analysis。
+  final SaveTimingRecordOperationAnalyzer? analyzer;
+
+  /// R4：token-aware 预览服务（可选注入）。
+  final SaveTimingRecordPreviewService? previewService;
+
+  /// R4：token-aware 确认适配器（可选注入）。
+  final SaveTimingRecordOperationConfirmAdapter? confirmAdapter;
+
+  /// R4：真实 ActorContext（可选注入，来自 R3）。
+  final ActorContext? actorContext;
+
+  /// R4：token-aware 保存路径。
+  ///
+  /// 使用 [previewService.previewWithToken] 获得带有 confirmation token 的预览，
+  /// 再通过 [confirmAdapter.executeConfirmedWithToken] 执行保存。
+  /// 需要 [previewService]、[confirmAdapter]、[actorContext] 全部注入。
+  /// 若任一缺失，抛 [SaveTimingRecordOperationException]。
+  Future<SaveTimingRecordResult> executeWithToken({
+    required TimingRecord? editing,
+    required TimingRecord record,
+    List<TimingCalculationHistory> calculationHistories = const [],
+  }) async {
+    final svc = previewService;
+    final adapter = confirmAdapter;
+    final operationAnalyzer = analyzer;
+    final actorCtx = actorContext;
+    if (svc == null ||
+        adapter == null ||
+        operationAnalyzer == null ||
+        actorCtx == null) {
+      throw const SaveTimingRecordOperationException(
+        'token-aware save 未就绪：缺少 previewService / confirmAdapter / analyzer / actorContext',
+      );
+    }
+
+    final preparation = await _withImpact.prepareForSave(
+      editing: editing,
+      record: record,
+    );
+    SaveTimingRecordWithImpactResult? impact;
+
+    // 1) 构建 analyze input（与 operationAnalyzer 的产物签名一致）
+    final operationId = _operationIdFactory();
+    final analyzeInput = SaveTimingRecordOperationAnalyzeInput(
+      operationId: operationId,
+      draftRecord: record,
+      editingRecordId: editing?.id,
+    );
+
+    // 2) token-aware preview（由 previewService 内部完成 analyze + token 签发）
+    final previewResult = await svc.previewWithToken(
+      request: SaveTimingRecordOperationPreviewRequest(input: analyzeInput),
+      actor: actorCtx,
+      scope: ActorScope.fullOwner(),
+    );
+
+    final tokenId = previewResult.confirmationTokenId;
+    if (tokenId == null || !previewResult.canProceedToConfirm) {
+      throw SaveTimingRecordOperationException(
+        previewResult.confirmUnavailableReasonCode ?? '无法获取确认 token',
+      );
+    }
+
+    // 3) 用同一 analyzer 复建完整 analysis，保持 token 签发和确认校验的 hash 口径一致。
+    final previousAnalyzeResult = await operationAnalyzer.analyze(analyzeInput);
+
+    // 4) token-aware 确认执行
+    final execution = await adapter.executeConfirmedWithToken(
+      analyzeInput: analyzeInput,
+      previousAnalyzeResult: previousAnalyzeResult,
+      operationId: operationId,
+      tokenId: tokenId,
+      actor: actorCtx,
+      scope: ActorScope.fullOwner(),
+      redactedPreviewHash:
+          SaveTimingRecordOperationFingerprints.redactedPreviewHashFor(
+            previewResult.preview,
+          ),
+      executeSaveWithExecutor: (executor) async {
+        final result = await _withImpact.executeWithExecutor(
+          executor,
+          editing: editing,
+          preparation: preparation,
+          calculationHistories: calculationHistories,
+        );
+        impact = result;
+        return result;
+      },
+    );
+
+    if (!execution.success) {
+      throw SaveTimingRecordOperationException(
+        execution.userMessage.isEmpty ? '保存失败，请重试' : execution.userMessage,
+        error: execution.error,
+      );
+    }
+    final committedImpact = impact;
+    if (committedImpact == null) {
+      throw const SaveTimingRecordOperationException('保存失败，请重试');
+    }
+    await _timingStore.loadAll();
+    return SaveTimingRecordResult(
+      mergeDissolved: committedImpact.mergeDissolved,
+      impact: committedImpact,
+    );
+  }
+
+  /// 保留的旧保存路径（后向兼容）。
   Future<SaveTimingRecordResult> execute({
     required TimingRecord? editing,
     required TimingRecord record,
@@ -69,7 +185,6 @@ class SaveTimingRecordUseCase {
     if (committedImpact == null) {
       throw const SaveTimingRecordOperationException('保存失败，请重试');
     }
-    // 事务提交后刷新内存 store，让 UI 看到最新落库列表 + 级联后的状态。
     await _timingStore.loadAll();
     return SaveTimingRecordResult(
       mergeDissolved: committedImpact.mergeDissolved,
