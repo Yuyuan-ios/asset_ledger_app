@@ -66,17 +66,36 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
   Future<void> insertAllInTransaction(List<AccountPayment> payments) async {
     if (payments.isEmpty) return;
     await AppDatabase.inTransaction<void>((txn) async {
-      for (final payment in payments) {
-        await _ensureProjectWithExecutor(txn, payment);
-        await txn.insert(table, payment.toMap());
-      }
+      await insertAllWithExecutor(txn, payments);
     });
+  }
+
+  /// 事务化批量新增：逐条 ensureProject + insert，返回各行落库 id（顺序与入参一致）。
+  /// 供合并批次同事务接 sync_outbox 的协调器复用（R5.6）。
+  Future<List<int>> insertAllWithExecutor(
+    DatabaseExecutor executor,
+    List<AccountPayment> payments,
+  ) async {
+    final ids = <int>[];
+    for (final payment in payments) {
+      await _ensureProjectWithExecutor(executor, payment);
+      ids.add(await executor.insert(table, payment.toMap()));
+    }
+    return ids;
   }
 
   @override
   Future<List<AccountPayment>> listByMergeBatchId(String batchId) async {
     final db = await AppDatabase.database;
-    final rows = await db.query(
+    return listByMergeBatchIdWithExecutor(db, batchId);
+  }
+
+  /// 事务内按批次重读合并收款（删除前取权威快照写 delete payload）。
+  Future<List<AccountPayment>> listByMergeBatchIdWithExecutor(
+    DatabaseExecutor executor,
+    String batchId,
+  ) async {
+    final rows = await executor.query(
       table,
       where: 'source_type = ? AND merge_batch_id = ?',
       whereArgs: [AccountPayment.sourceTypeMergeAllocation, batchId],
@@ -88,7 +107,15 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
   @override
   Future<int> deleteByMergeBatchId(String batchId) async {
     final db = await AppDatabase.database;
-    return db.delete(
+    return deleteByMergeBatchIdWithExecutor(db, batchId);
+  }
+
+  /// 事务化按批次删除合并收款。
+  Future<int> deleteByMergeBatchIdWithExecutor(
+    DatabaseExecutor executor,
+    String batchId,
+  ) async {
+    return executor.delete(
       table,
       where: 'source_type = ? AND merge_batch_id = ?',
       whereArgs: [AccountPayment.sourceTypeMergeAllocation, batchId],
@@ -100,21 +127,16 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
     required String batchId,
     required List<AccountPayment> newRows,
   }) async {
-    _validateMergeBatchReplacement(batchId: batchId, newRows: newRows);
+    validateMergeBatchReplacement(batchId: batchId, newRows: newRows);
     await AppDatabase.inTransaction<void>((txn) async {
-      await txn.delete(
-        table,
-        where: 'source_type = ? AND merge_batch_id = ?',
-        whereArgs: [AccountPayment.sourceTypeMergeAllocation, batchId],
-      );
-      for (final payment in newRows) {
-        await _ensureProjectWithExecutor(txn, payment);
-        await txn.insert(table, payment.toMap());
-      }
+      await deleteByMergeBatchIdWithExecutor(txn, batchId);
+      await insertAllWithExecutor(txn, newRows);
     });
   }
 
-  void _validateMergeBatchReplacement({
+  /// 校验合并批次替换的入参合法性（全为分摊、同批次、同总额、金额 > 0 等）。
+  /// 公开供 R5.6 同事务协调器在 executor 路径上复用同款校验。
+  void validateMergeBatchReplacement({
     required String batchId,
     required List<AccountPayment> newRows,
   }) {

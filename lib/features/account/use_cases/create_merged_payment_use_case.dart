@@ -2,18 +2,25 @@ import '../../../core/utils/format_utils.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../model/account_view_model.dart';
+import 'account_payment_write_use_case.dart';
 import 'merged_payment_allocation_helpers.dart';
 
 class CreateMergedPaymentUseCase {
   CreateMergedPaymentUseCase({
     required AccountPaymentRepository repository,
+    AccountPaymentWriteUseCase? writeUseCase,
     DateTime Function()? now,
     String Function()? batchIdFactory,
   }) : _repository = repository,
+       _writeUseCase = writeUseCase,
        _now = now ?? DateTime.now,
        _batchIdFactory = batchIdFactory;
 
   final AccountPaymentRepository _repository;
+
+  /// 注入时（生产路径）批次写走 sync-aware 入口（同事务入队 outbox/meta）；
+  /// 未注入时回退到 repository 直接批量写（不入队），保持既有测试兼容。
+  final AccountPaymentWriteUseCase? _writeUseCase;
   final DateTime Function() _now;
   final String Function()? _batchIdFactory;
 
@@ -63,6 +70,10 @@ class CreateMergedPaymentUseCase {
       createdAt: createdAt,
     );
 
+    final writeUseCase = _writeUseCase;
+    if (writeUseCase != null) {
+      return writeUseCase.createBatch(allocations);
+    }
     await _repository.insertAllInTransaction(allocations);
     return allocations;
   }

@@ -2,14 +2,20 @@ import '../../../core/utils/format_utils.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../model/account_view_model.dart';
+import 'account_payment_write_use_case.dart';
 import 'merged_payment_allocation_helpers.dart';
 
 class UpdateMergedPaymentBatchUseCase {
   UpdateMergedPaymentBatchUseCase({
     required AccountPaymentRepository repository,
-  }) : _repository = repository;
+    AccountPaymentWriteUseCase? writeUseCase,
+  }) : _repository = repository,
+       _writeUseCase = writeUseCase;
 
   final AccountPaymentRepository _repository;
+
+  /// 注入时批次替换走 sync-aware 入口；未注入时回退 repository 直接替换。
+  final AccountPaymentWriteUseCase? _writeUseCase;
 
   Future<List<AccountPayment>> execute({
     required AccountProjectVM mergedProject,
@@ -98,6 +104,10 @@ class UpdateMergedPaymentBatchUseCase {
       throw StateError('合并收款分摊结果不合法');
     }
 
+    final writeUseCase = _writeUseCase;
+    if (writeUseCase != null) {
+      return writeUseCase.replaceBatch(batchId: batchId, newRows: allocations);
+    }
     await _repository.replaceMergeBatchInTransaction(
       batchId: batchId,
       newRows: allocations,

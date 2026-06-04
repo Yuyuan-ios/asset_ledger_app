@@ -6,6 +6,7 @@ import '../../model/account_view_model.dart';
 import '../../state/account_payment_store.dart';
 import '../../state/account_store.dart';
 import '../../state/project_rate_store.dart';
+import '../../use_cases/account_payment_write_use_case.dart';
 import '../../use_cases/create_merged_payment_use_case.dart';
 import '../../use_cases/delete_merged_payment_batch_use_case.dart';
 import '../../use_cases/project_settlement_use_case.dart';
@@ -20,15 +21,20 @@ class AccountActionController {
     required AccountProjectMergeService mergeService,
     required ProjectSettlementUseCase settlementUseCase,
     required SettleMergedProjectUseCase settleMergedProjectUseCase,
+    AccountPaymentWriteUseCase? paymentWriteUseCase,
   }) : _paymentRepository = paymentRepository,
        _mergeService = mergeService,
        _settlementUseCase = settlementUseCase,
-       _settleMergedProjectUseCase = settleMergedProjectUseCase;
+       _settleMergedProjectUseCase = settleMergedProjectUseCase,
+       _paymentWriteUseCase = paymentWriteUseCase;
 
   final AccountPaymentRepository _paymentRepository;
   final AccountProjectMergeService _mergeService;
   final ProjectSettlementUseCase _settlementUseCase;
   final SettleMergedProjectUseCase _settleMergedProjectUseCase;
+
+  /// 合并批次收款的 sync-aware 写入口（R5.6）；为空时各 use case 回退直接写。
+  final AccountPaymentWriteUseCase? _paymentWriteUseCase;
 
   Future<void> createMergedPayment({
     required AccountProjectVM project,
@@ -47,7 +53,10 @@ class AccountActionController {
       rateStore: rateStore,
       accountStore: accountStore,
     );
-    await CreateMergedPaymentUseCase(repository: _paymentRepository).execute(
+    await CreateMergedPaymentUseCase(
+      repository: _paymentRepository,
+      writeUseCase: _paymentWriteUseCase,
+    ).execute(
       mergedProject: project,
       memberProjects: memberProjects,
       ymd: payment.ymd,
@@ -79,6 +88,7 @@ class AccountActionController {
     );
     await UpdateMergedPaymentBatchUseCase(
       repository: _paymentRepository,
+      writeUseCase: _paymentWriteUseCase,
     ).execute(
       mergedProject: project,
       memberProjects: memberProjects,
@@ -97,6 +107,7 @@ class AccountActionController {
   }) async {
     await DeleteMergedPaymentBatchUseCase(
       repository: _paymentRepository,
+      writeUseCase: _paymentWriteUseCase,
     ).execute(mergeBatchId: mergeBatchId);
     await Future.wait([paymentStore.loadAll(), accountStore.loadAll()]);
   }
