@@ -96,6 +96,97 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
     });
   }
 
+  @override
+  Future<List<AccountPayment>> createBatch(
+    List<AccountPayment> payments,
+  ) async {
+    if (payments.isEmpty) return const [];
+    return AppDatabase.inTransaction((txn) async {
+      final ids = await _paymentRepository.insertAllWithExecutor(txn, payments);
+      final saved = <AccountPayment>[];
+      for (var i = 0; i < payments.length; i += 1) {
+        final row = payments[i].copyWith(id: ids[i]);
+        saved.add(row);
+        await _enqueueSync(
+          txn,
+          payment: row,
+          operation: 'create',
+          status: SyncStatus.pendingUpload,
+        );
+      }
+      return saved;
+    });
+  }
+
+  @override
+  Future<List<AccountPayment>> replaceBatch({
+    required String batchId,
+    required List<AccountPayment> newRows,
+  }) async {
+    // 与 repository.replaceMergeBatchInTransaction 同款入参校验。
+    SqfliteAccountPaymentRepository().validateMergeBatchReplacement(
+      batchId: batchId,
+      newRows: newRows,
+    );
+    return AppDatabase.inTransaction((txn) async {
+      // 1) 事务内重读旧批次权威快照（delete payload 源）。
+      final oldRows = await _paymentRepository.listByMergeBatchIdWithExecutor(
+        txn,
+        batchId,
+      );
+      // 2) 删旧。
+      await _paymentRepository.deleteByMergeBatchIdWithExecutor(txn, batchId);
+      // 3) 插新并拿最终 id。
+      final ids = await _paymentRepository.insertAllWithExecutor(txn, newRows);
+      // 4) 旧行 delete/pendingDelete。
+      for (final old in oldRows) {
+        await _enqueueSync(
+          txn,
+          payment: old,
+          operation: 'delete',
+          status: SyncStatus.pendingDelete,
+        );
+      }
+      // 5) 新行 create/pendingUpload。
+      final saved = <AccountPayment>[];
+      for (var i = 0; i < newRows.length; i += 1) {
+        final row = newRows[i].copyWith(id: ids[i]);
+        saved.add(row);
+        await _enqueueSync(
+          txn,
+          payment: row,
+          operation: 'create',
+          status: SyncStatus.pendingUpload,
+        );
+      }
+      return saved;
+    });
+  }
+
+  @override
+  Future<int> deleteBatch(String batchId) async {
+    return AppDatabase.inTransaction((txn) async {
+      final oldRows = await _paymentRepository.listByMergeBatchIdWithExecutor(
+        txn,
+        batchId,
+      );
+      final deleted = await _paymentRepository.deleteByMergeBatchIdWithExecutor(
+        txn,
+        batchId,
+      );
+      // 批次为空 → 幂等 0，不入队。
+      for (final old in oldRows) {
+        await _enqueueSync(
+          txn,
+          payment: old,
+          operation: 'delete',
+          status: SyncStatus.pendingDelete,
+        );
+      }
+      return deleted;
+    });
+  }
+
   Future<void> _enqueueSync(
     DatabaseExecutor txn, {
     required AccountPayment payment,

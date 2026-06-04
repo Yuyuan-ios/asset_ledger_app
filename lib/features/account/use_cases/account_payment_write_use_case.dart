@@ -7,9 +7,9 @@ import '../../../data/models/account_payment.dart';
 /// SQLite transaction。实现位于 infrastructure 层（需要数据库事务），
 /// UI / store 仅依赖此抽象。
 ///
-/// 仅覆盖**单条**收款；合并收款批次（insertAllInTransaction /
-/// deleteByMergeBatchId / replaceMergeBatchInTransaction）与结清流程内创建的
-/// 收款属于多行 / 跨流程写入，暂不接入（见 R5.3 deferred）。
+/// 覆盖**单条**收款（create/update/delete）与**合并批次**多行收款
+/// （createBatch/replaceBatch/deleteBatch，R5.6）。结清流程内创建的收款属于跨
+/// 流程写入，暂不接入（见 deferred）。
 abstract class AccountPaymentWriteUseCase {
   /// 新建收款，返回落库后的 id；同事务入队 create / pendingUpload。
   Future<int> create(AccountPayment payment);
@@ -19,4 +19,20 @@ abstract class AccountPaymentWriteUseCase {
 
   /// 删除收款；命中时同事务入队 delete / pendingDelete，未命中为幂等空操作。
   Future<void> deleteById(int id);
+
+  /// 合并批次新建：同事务插入 N 条 + 逐条入队 create / pendingUpload。
+  /// 返回带最终 id 的已落库收款列表。
+  Future<List<AccountPayment>> createBatch(List<AccountPayment> payments);
+
+  /// 合并批次替换（delete old + insert new 语义）：同事务读旧快照 → 删旧 → 插新，
+  /// 旧行逐条入队 delete / pendingDelete，新行逐条入队 create / pendingUpload。
+  /// 返回带最终 id 的新收款列表。
+  Future<List<AccountPayment>> replaceBatch({
+    required String batchId,
+    required List<AccountPayment> newRows,
+  });
+
+  /// 合并批次删除：同事务读旧快照 → 删除 → 逐条入队 delete / pendingDelete。
+  /// 返回删除行数（批次为空为幂等 0，不入队）。
+  Future<int> deleteBatch(String batchId);
 }

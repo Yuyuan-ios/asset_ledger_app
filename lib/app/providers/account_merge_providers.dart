@@ -75,6 +75,7 @@ class AccountMergeProviders {
       mergeService: accountProjectMergeService,
       settlementUseCase: projectSettlementUseCase,
       settleMergedProjectUseCase: settleMergedProjectUseCase,
+      paymentWriteUseCase: accountPaymentWriteUseCase,
     );
 
     return AccountMergeProviders._(
