@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../data/db/database.dart';
 import 'entity_sync_meta.dart';
+import 'outbox_id_generator.dart';
 import 'sync_outbox_entry.dart';
 import 'sync_status.dart';
 
@@ -28,10 +29,22 @@ abstract class SyncOutboxRepository {
 }
 
 class LocalSyncOutboxRepository implements SyncOutboxRepository {
-  const LocalSyncOutboxRepository({DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  const LocalSyncOutboxRepository({
+    DateTime Function()? now,
+    OutboxIdGenerator? idGenerator,
+  }) : _now = now ?? DateTime.now,
+       _idGenerator = idGenerator;
 
   final DateTime Function() _now;
+
+  /// 可注入的 id 生成器；为空时用共享的安全随机默认实现。
+  /// 保持构造可 const（业务路径的 `const LocalSyncOutboxRepository()` 不变）。
+  final OutboxIdGenerator? _idGenerator;
+
+  /// 共享默认生成器。每次 `generate()` 取新随机熵，无需协调即避免碰撞，
+  /// 因此共享单例不构成"靠共享可变状态避免碰撞"。
+  static final OutboxIdGenerator _defaultIdGenerator =
+      SecureRandomOutboxIdGenerator();
 
   @override
   Future<SyncOutboxEntry> enqueue({
@@ -63,7 +76,7 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
     final payloadJson = jsonEncode(payload);
     final payloadHash = sha256.convert(utf8.encode(payloadJson)).toString();
     final entry = SyncOutboxEntry(
-      id: 'outbox-${now.microsecondsSinceEpoch}',
+      id: (_idGenerator ?? _defaultIdGenerator).generate(),
       entityType: entityType,
       entityId: entityId,
       operation: operation,
