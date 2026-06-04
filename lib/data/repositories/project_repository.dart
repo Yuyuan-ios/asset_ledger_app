@@ -34,6 +34,8 @@ abstract class ProjectRepository {
 }
 
 class SqfliteProjectRepository implements ProjectRepository {
+  const SqfliteProjectRepository();
+
   static const String table = 'projects';
 
   @override

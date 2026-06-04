@@ -22,6 +22,8 @@ abstract class ProjectWriteOffRepository {
 }
 
 class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
+  const SqfliteProjectWriteOffRepository();
+
   static const String table = 'project_write_offs';
 
   @override
