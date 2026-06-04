@@ -17,6 +17,7 @@ import '../../features/account/state/project_rate_store.dart';
 import '../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../features/account/use_cases/settle_merged_project_use_case.dart';
 import '../../features/timing/use_cases/timing_merge_dissolve_port.dart';
+import '../../infrastructure/local/account/local_account_payment_write_use_case.dart';
 import '../../infrastructure/local/account/local_project_settlement_repository.dart';
 
 /// Account + project-merge composition slice: payment / rate / merge
@@ -50,7 +51,13 @@ class AccountMergeProviders {
       accountProjectMergeService,
     );
 
-    final paymentStore = AccountPaymentStore(accountPaymentRepository);
+    final accountPaymentWriteUseCase = LocalAccountPaymentWriteUseCase(
+      paymentRepository: accountPaymentRepository,
+    );
+    final paymentStore = AccountPaymentStore(
+      accountPaymentRepository,
+      writeUseCase: accountPaymentWriteUseCase,
+    );
     final projectRateStore = ProjectRateStore(projectRateRepository);
     final accountStore = AccountStore(
       mergeService: accountProjectMergeService,
