@@ -200,6 +200,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       var receivedFenBefore = 0;
       var writeOffFenBefore = 0;
       var allocatedWriteOffFen = 0;
+      final settledProjectIds = <String>{};
       final memberProjects = <String, Project>{};
       final memberById = {
         for (final member in request.members) member.projectId: member,
@@ -273,19 +274,18 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           );
         }
 
-        await txn.insert(
-          SqfliteProjectWriteOffRepository.table,
-          ProjectWriteOff(
-            id: allocation.writeOffId,
-            projectId: allocation.projectId,
-            amount: allocation.writeOffAmount,
-            reason: reason,
-            note: request.note,
-            writeOffDate: request.writeOffDate,
-            createdAt: request.createdAtIso,
-            updatedAt: request.createdAtIso,
-          ).toMap(),
+        final writeOff = ProjectWriteOff(
+          id: allocation.writeOffId,
+          projectId: allocation.projectId,
+          amount: allocation.writeOffAmount,
+          reason: reason,
+          note: request.note,
+          writeOffDate: request.writeOffDate,
+          createdAt: request.createdAtIso,
+          updatedAt: request.createdAtIso,
         );
+        await _projectWriteOffRepository.insertWithExecutor(txn, writeOff);
+        await _projectWriteOffSyncEnqueuer.enqueueCreate(txn, writeOff);
 
         final memberWriteOffFenAfter = memberWriteOffFenBefore + allocationFen;
         final memberRemainingFenAfter =
@@ -301,6 +301,8 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
               updatedAt: request.createdAtIso,
             ),
           );
+          settledProjectIds.add(allocation.projectId);
+          await _enqueueProjectUpdate(txn, allocation.projectId);
         }
 
         allocatedWriteOffFen += allocationFen;
@@ -318,7 +320,9 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       if (remainingFenAfter <= 0) {
         for (final member in request.members) {
           final project = memberProjects[member.projectId];
-          if (project == null || project.status == ProjectStatus.settled) {
+          if (project == null ||
+              project.status == ProjectStatus.settled ||
+              settledProjectIds.contains(member.projectId)) {
             continue;
           }
           final memberReceivedFen = await _sumFenByProjectId(
@@ -344,6 +348,8 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
                 updatedAt: request.createdAtIso,
               ),
             );
+            settledProjectIds.add(member.projectId);
+            await _enqueueProjectUpdate(txn, member.projectId);
           }
         }
       }
@@ -552,6 +558,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         if (deleted != 1) {
           throw StateError('核销记录删除失败，请刷新后重试');
         }
+        await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
         // deletedAmount 仅用于结果对象的展示字段（yuan），逐项使用模型的
         // amount（已通过 fromMap 优先 amount_fen → yuan 还原）累计。
         deletedAmount += writeOff.amount;
@@ -597,6 +604,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           restoredActive = true;
+          await _enqueueProjectUpdate(txn, projectId);
         }
       }
 
@@ -697,6 +705,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           restoredActive = true;
+          await _enqueueProjectUpdate(txn, member.projectId);
         }
       }
 
