@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('external work sync strategy invariant', () {
-    test('external work model supports row level sync with reset still deferred', () {
+    test('external work model supports row level sync with reset covered', () {
       final model = _read('lib/data/models/external_work_record.dart');
       final schema = _read('lib/data/db/schema/external_work_schema.dart');
       final repository = _read(
@@ -76,12 +76,18 @@ void main() {
       _expectAllContains(repository, const [
         "static const String table = 'external_work_records';",
         'ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer()',
+        'ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer',
+        'ProjectSyncEnqueuer projectSyncEnqueuer = const ProjectSyncEnqueuer()',
         'final ExternalWorkSyncEnqueuer _syncEnqueuer;',
+        'final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;',
+        'final ProjectSyncEnqueuer _projectSyncEnqueuer;',
         'ExternalWorkRecord.fromMap',
         'record.toMap()',
         'await _syncEnqueuer.enqueueDelete(txn, record: snapshot);',
         'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);',
         'await _syncEnqueuer.enqueueUpdate(executor, record: snapshot);',
+        'await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);',
+        'await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);',
       ]);
       _expectAllContains(syncEnqueuer, const [
         'class ExternalWorkSyncEnqueuer',
@@ -110,7 +116,7 @@ void main() {
     });
 
     test(
-      'external work future strategy keeps reset as the remaining blocker',
+      'external work future strategy keeps cloud readiness as the remaining blocker',
       () {
         expect(
           _externalWorkSyncStrategy.externalWorkEntityType,
@@ -150,10 +156,14 @@ void main() {
           isTrue,
         );
         expect(
-          _externalWorkSyncStrategy.externalWorkAllProductionOutboxCovered,
-          isFalse,
+          _externalWorkSyncStrategy.externalWorkSettlementResetCovered,
+          isTrue,
         );
-        expect(_externalWorkSyncStrategy.externalWorkResetCovered, isFalse);
+        expect(
+          _externalWorkSyncStrategy.externalWorkMajorProductionOutboxCovered,
+          isTrue,
+        );
+        expect(_externalWorkSyncStrategy.externalWorkCloudReady, isFalse);
         expect(
           _externalWorkSyncStrategy.restoreRequiresReconcileBeforePush,
           isTrue,
@@ -279,7 +289,7 @@ void main() {
     });
 
     test(
-      'external work settlement reset remains an explicit cross aggregate blocker',
+      'external work settlement reset is sync-covered but still needs cloud ordering',
       () {
         final repository = _read(
           'lib/data/repositories/external_work_record_repository.dart',
@@ -296,46 +306,30 @@ void main() {
         _expectAllContains(resetSlice, const [
           'AppDatabase.inTransaction<int>((txn) async {',
           'linkBatchToProjectWithExecutor(',
-          'SqfliteProjectWriteOffRepository.table',
-          "where: 'project_id = ?'",
-          'SqfliteProjectRepository.table',
-          'Project.fromMap(projectRows.single)',
-          'project.status == ProjectStatus.settled',
-          'SqfliteProjectRepository.upsertWithExecutor(',
-          'status: ProjectStatus.active',
-          'settledAt: null',
-          'settledSnapshot: null',
+          'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);',
+          'listByProjectIdWithExecutor(txn, normalizedProjectId)',
+          'deleteByIdWithExecutor(',
+          'await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);',
+          'restoreActiveWithExecutor(',
+          'final project = await _projectRepository.findByIdWithExecutor(',
+          'await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);',
         ]);
         _expectInOrder(resetSlice, const [
           'linkBatchToProjectWithExecutor(',
-          'SqfliteProjectWriteOffRepository.table',
-          'Project.fromMap(projectRows.single)',
-          'ProjectStatus.active',
+          '_enqueueBatchUpdates(txn, batchId: normalizedBatchId)',
+          'listByProjectIdWithExecutor(txn, normalizedProjectId)',
+          'deleteByIdWithExecutor(',
+          '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+          'restoreActiveWithExecutor(',
+          '_projectRepository.findByIdWithExecutor(',
+          '_projectSyncEnqueuer.enqueueUpdate(txn, project: project)',
           'return linked;',
         ]);
-        expect(
-          resetSlice,
-          isNot(contains('ExternalWorkSyncEnqueuer')),
-          reason:
-              'Settlement reset ExternalWork body update is still deferred.',
-        );
-        expect(
-          resetSlice,
-          isNot(contains('ProjectWriteOffSyncEnqueuer')),
-          reason:
-              'Reset deletes write-offs today, but this repository path has no sync enqueuer yet.',
-        );
-        expect(
-          resetSlice,
-          isNot(contains('ProjectSyncEnqueuer')),
-          reason:
-              'Reset restores project status today, but Cloud push ordering is deferred.',
-        );
 
         _expectAllContains(statusInvariant, const [
-          'externalWorkSettlementResetIsDeferred: true',
+          'externalWorkSettlementResetIsCovered: true',
           'mustCoverExternalWorkSettlementReset: true',
-          'external work settlement reset deferred coverage path',
+          'external work settlement reset sync-covered transaction entry',
         ]);
       },
     );
@@ -530,8 +524,9 @@ const _externalWorkSyncStrategy = _ExternalWorkSyncStrategy(
   externalWorkOrdinaryUnlinkOutboxCovered: true,
   externalWorkDeleteOutboxCovered: true,
   timingDeleteCascadeExternalWorkUnlinkCovered: true,
-  externalWorkAllProductionOutboxCovered: false,
-  externalWorkResetCovered: false,
+  externalWorkSettlementResetCovered: true,
+  externalWorkMajorProductionOutboxCovered: true,
+  externalWorkCloudReady: false,
   restoreRequiresReconcileBeforePush: true,
   requiresOrderingOrTransactionGroupBeforeCloudPush: true,
   singleProjectSettlementCovered: true,
@@ -561,12 +556,12 @@ const Map<String, String> _registeredExternalWorkWriteFiles = {
       'sync-covered import confirm entry',
 
   // Production store/view actions mutate ordinary ExternalWork link, unlink,
-  // and delete through sync-covered repository methods. The settled reset
-  // branch remains a Cloud-push blocker until ordering/grouping is designed.
+  // delete, and settled reset through sync-covered repository methods. The
+  // reset branch remains a Cloud-push ordering/grouping blocker.
   'lib/features/timing/state/timing_external_work_store.dart':
-      'covered ordinary store writes plus deferred reset entry',
+      'covered ordinary and reset store writes',
   'lib/features/timing/view/timing_page.dart':
-      'covered ordinary view actions plus deferred reset entry',
+      'covered ordinary and reset view actions',
 
   // Timing delete sync-covers TimingRecord, ProjectWriteOff, Project, and
   // ExternalWork unlink side effects in one transaction.
@@ -835,8 +830,9 @@ class _ExternalWorkSyncStrategy {
     required this.externalWorkOrdinaryUnlinkOutboxCovered,
     required this.externalWorkDeleteOutboxCovered,
     required this.timingDeleteCascadeExternalWorkUnlinkCovered,
-    required this.externalWorkAllProductionOutboxCovered,
-    required this.externalWorkResetCovered,
+    required this.externalWorkSettlementResetCovered,
+    required this.externalWorkMajorProductionOutboxCovered,
+    required this.externalWorkCloudReady,
     required this.restoreRequiresReconcileBeforePush,
     required this.requiresOrderingOrTransactionGroupBeforeCloudPush,
     required this.singleProjectSettlementCovered,
@@ -856,8 +852,9 @@ class _ExternalWorkSyncStrategy {
   final bool externalWorkOrdinaryUnlinkOutboxCovered;
   final bool externalWorkDeleteOutboxCovered;
   final bool timingDeleteCascadeExternalWorkUnlinkCovered;
-  final bool externalWorkAllProductionOutboxCovered;
-  final bool externalWorkResetCovered;
+  final bool externalWorkSettlementResetCovered;
+  final bool externalWorkMajorProductionOutboxCovered;
+  final bool externalWorkCloudReady;
   final bool restoreRequiresReconcileBeforePush;
   final bool requiresOrderingOrTransactionGroupBeforeCloudPush;
   final bool singleProjectSettlementCovered;

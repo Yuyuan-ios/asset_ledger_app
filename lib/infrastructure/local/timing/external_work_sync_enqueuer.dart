@@ -9,11 +9,10 @@ import '../../sync/sync_status.dart';
 /// transaction executor.
 ///
 /// This helper is a reusable sync building block. ExternalWork import confirm,
-/// ordinary link/unlink/delete, and timing-delete cascade unlink paths call it
-/// inside their existing business transactions. Settlement reset,
-/// restore/migration, and lower-level executor writes remain explicit
-/// deferred/exemption paths until their full cross-aggregate sync semantics are
-/// designed.
+/// ordinary link/unlink/delete, settlement reset, and timing-delete cascade
+/// unlink paths call it inside their existing business transactions.
+/// Restore/migration and lower-level executor writes remain explicit
+/// deferred/exemption paths until their full sync semantics are designed.
 class ExternalWorkSyncEnqueuer {
   const ExternalWorkSyncEnqueuer({
     SyncOutboxRepository? syncOutboxRepository,

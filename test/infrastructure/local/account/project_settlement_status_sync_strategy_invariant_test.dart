@@ -117,10 +117,13 @@ void main() {
 
       _expectAllContains(externalWorkRepository, const [
         'Future<int> linkBatchToProjectWithSettlementReset(',
-        'SqfliteProjectWriteOffRepository.table',
-        'status: ProjectStatus.active',
-        'settledAt: null',
-        'settledSnapshot: null',
+        'ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer',
+        'ProjectSyncEnqueuer projectSyncEnqueuer',
+        'listByProjectIdWithExecutor(txn, normalizedProjectId)',
+        'deleteByIdWithExecutor(',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+        'restoreActiveWithExecutor(',
+        '_projectSyncEnqueuer.enqueueUpdate(txn, project: project)',
       ]);
     });
 
@@ -214,7 +217,7 @@ void main() {
         isTrue,
       );
       expect(
-        _settlementStatusStrategy.externalWorkSettlementResetIsDeferred,
+        _settlementStatusStrategy.externalWorkSettlementResetIsCovered,
         isTrue,
       );
       expect(
@@ -348,7 +351,7 @@ const _settlementStatusStrategy = _SettlementStatusStrategy(
   mustCoverPaymentOnlySettlement: true,
   mustCoverStatusOnlyRevoke: true,
   timingDeleteCascadeRestoreIsCovered: true,
-  externalWorkSettlementResetIsDeferred: true,
+  externalWorkSettlementResetIsCovered: true,
   mustCoverTimingDeleteCascadeRestore: true,
   mustCoverExternalWorkSettlementReset: true,
 );
@@ -360,8 +363,7 @@ const _registeredProjectSettlementStatusWriteFiles = <String, String>{
       'low-level projects status persistence',
 
   // Main settlement cluster. Single-project and merged settlement status writes
-  // are sync-covered here; ExternalWork status reset remains deferred outside
-  // this repository.
+  // are sync-covered here.
   'lib/infrastructure/local/account/local_project_settlement_repository.dart':
       'single and merged project settlement status writes',
 
@@ -379,10 +381,10 @@ const _registeredProjectSettlementStatusWriteFiles = <String, String>{
   'lib/infrastructure/local/timing/local_delete_timing_record_with_impact_use_case.dart':
       'timing delete cascade sync-covered transaction entry',
 
-  // External work relink is a deferred sync coverage path. It resets settlement
-  // status and write-offs today, so future Project.status sync must cover it.
+  // External work relink resets settlement status and write-offs, and is
+  // sync-covered inside its reset transaction.
   'lib/data/repositories/external_work_record_repository.dart':
-      'external work settlement reset deferred coverage path',
+      'external work settlement reset sync-covered transaction entry',
 
   // Migration/schema backfill is not a production write path. It remains an
   // explicit exemption so it is not mistaken for sync-covered business logic.
@@ -557,7 +559,7 @@ class _SettlementStatusStrategy {
     required this.mustCoverPaymentOnlySettlement,
     required this.mustCoverStatusOnlyRevoke,
     required this.timingDeleteCascadeRestoreIsCovered,
-    required this.externalWorkSettlementResetIsDeferred,
+    required this.externalWorkSettlementResetIsCovered,
     required this.mustCoverTimingDeleteCascadeRestore,
     required this.mustCoverExternalWorkSettlementReset,
   });
@@ -572,7 +574,7 @@ class _SettlementStatusStrategy {
   final bool mustCoverPaymentOnlySettlement;
   final bool mustCoverStatusOnlyRevoke;
   final bool timingDeleteCascadeRestoreIsCovered;
-  final bool externalWorkSettlementResetIsDeferred;
+  final bool externalWorkSettlementResetIsCovered;
   final bool mustCoverTimingDeleteCascadeRestore;
   final bool mustCoverExternalWorkSettlementReset;
 }

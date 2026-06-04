@@ -1,10 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/errors/external_work_errors.dart';
+import '../../infrastructure/local/account/project_sync_enqueuer.dart';
+import '../../infrastructure/local/account/project_write_off_sync_enqueuer.dart';
 import '../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
 import '../db/database.dart';
 import '../models/external_work_record.dart';
-import '../models/project.dart';
 import 'external_import_repository.dart';
 import 'project_repository.dart';
 import 'project_write_off_repository.dart';
@@ -68,11 +69,22 @@ class SqfliteExternalWorkRecordRepository
     implements ExternalWorkRecordRepository {
   const SqfliteExternalWorkRecordRepository({
     ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer(),
-  }) : _syncEnqueuer = syncEnqueuer;
+    ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer =
+        const ProjectWriteOffSyncEnqueuer(),
+    ProjectSyncEnqueuer projectSyncEnqueuer = const ProjectSyncEnqueuer(),
+  }) : _syncEnqueuer = syncEnqueuer,
+       _projectWriteOffSyncEnqueuer = projectWriteOffSyncEnqueuer,
+       _projectSyncEnqueuer = projectSyncEnqueuer;
 
   static const String table = 'external_work_records';
+  static const SqfliteProjectWriteOffRepository _writeOffRepository =
+      SqfliteProjectWriteOffRepository();
+  static const SqfliteProjectRepository _projectRepository =
+      SqfliteProjectRepository();
 
   final ExternalWorkSyncEnqueuer _syncEnqueuer;
+  final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
+  final ProjectSyncEnqueuer _projectSyncEnqueuer;
 
   @override
   Future<void> insertRecord(ExternalWorkRecord record) async {
@@ -191,32 +203,35 @@ class SqfliteExternalWorkRecordRepository
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
 
       // 2) 同事务内撤销结清：删除该项目核销记录 + 已结清恢复未结清。
-      await txn.delete(
-        SqfliteProjectWriteOffRepository.table,
-        where: 'project_id = ?',
-        whereArgs: [normalizedProjectId],
-      );
-      final projectRows = await txn.query(
-        SqfliteProjectRepository.table,
-        where: 'id = ?',
-        whereArgs: [normalizedProjectId],
-        limit: 1,
-      );
-      if (projectRows.isNotEmpty) {
-        final project = Project.fromMap(projectRows.single);
-        if (project.status == ProjectStatus.settled) {
-          await SqfliteProjectRepository.upsertWithExecutor(
-            txn,
-            project.copyWith(
-              status: ProjectStatus.active,
-              settledAt: null,
-              settledSnapshot: null,
-              updatedAt: updatedAt,
-            ),
-          );
+      final writeOffSnapshots = await _writeOffRepository
+          .listByProjectIdWithExecutor(txn, normalizedProjectId);
+      for (final writeOff in writeOffSnapshots) {
+        final deleted = await _writeOffRepository.deleteByIdWithExecutor(
+          txn,
+          writeOff.id,
+        );
+        if (deleted > 0) {
+          await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
         }
+      }
+
+      final restoredActive = await _projectRepository.restoreActiveWithExecutor(
+        txn,
+        projectId: normalizedProjectId,
+        updatedAt: updatedAt,
+      );
+      if (restoredActive) {
+        final project = await _projectRepository.findByIdWithExecutor(
+          txn,
+          normalizedProjectId,
+        );
+        if (project == null) {
+          throw StateError('Project sync enqueue requires project snapshot');
+        }
+        await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);
       }
 
       return linked;
