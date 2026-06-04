@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
@@ -9,7 +11,12 @@ import 'package:asset_ledger/data/repositories/project_write_off_repository.dart
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
 import 'package:asset_ledger/features/account/use_cases/settle_merged_project_use_case.dart';
+import 'package:asset_ledger/infrastructure/local/account/account_payment_sync_enqueuer.dart';
 import 'package:asset_ledger/infrastructure/local/account/local_project_settlement_repository.dart';
+import 'package:asset_ledger/infrastructure/sync/entity_sync_meta.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_outbox_entry.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -112,6 +119,112 @@ void main() {
       expect(await _writeOffCount(db), 1);
       expect(await _writeOffSum(db), 10000);
       expect(await _projectStatus(db), ProjectStatus.settled);
+
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['entity_type'], 'account_payment');
+      expect(outboxRows.single['operation'], 'create');
+      expect(outboxRows.single['status'], SyncOutboxStatus.pending.name);
+      final paymentId = result.paymentId;
+      expect(outboxRows.single['entity_id'], paymentId.toString());
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      expect(payload['entity_type'], 'account_payment');
+      expect(payload['entity_id'], paymentId.toString());
+      expect(payload['operation'], 'create');
+      final record = payload['record'] as Map<String, Object?>;
+      expect(record['id'], paymentId);
+      expect(record['project_id'], 'project:1');
+      expect(record['amount_fen'], 500000);
+      expect(record['source_type'], AccountPayment.sourceTypeManual);
+
+      final metaRows = await db.query('entity_sync_meta');
+      expect(metaRows, hasLength(1));
+      expect(metaRows.single['entity_type'], 'account_payment');
+      expect(metaRows.single['local_id'], paymentId.toString());
+      expect(metaRows.single['sync_status'], SyncStatus.pendingUpload.name);
+      expect(
+        metaRows.single['payload_hash'],
+        outboxRows.single['payload_hash'],
+      );
+      expect(
+        await db.query(
+          'sync_outbox',
+          where: 'entity_type = ?',
+          whereArgs: ['project_write_off'],
+        ),
+        isEmpty,
+      );
+    });
+
+    test(
+      'outbox write failure rolls back settlement payment and write-off',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProject(db);
+        await _seedPayment(db, amount: 5000);
+        final useCase = _useCase(
+          repository: LocalProjectSettlementRepository(
+            accountPaymentSyncEnqueuer: AccountPaymentSyncEnqueuer(
+              syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.execute(
+            projectId: 'project:1',
+            projectKey: '甲方||一号工地',
+            receivable: 20000,
+            paymentAmount: 5000,
+            writeOffAmount: 10000,
+            writeOffReason: ProjectWriteOffReason.settlement,
+            ymd: 20260518,
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _paymentCount(db), 1);
+        expect(await _paymentSum(db), 5000);
+        expect(await _writeOffCount(db), 0);
+        expect(await _projectStatus(db), ProjectStatus.active);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test('meta write failure rolls back settlement and outbox row', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProject(db);
+      await _seedPayment(db, amount: 5000);
+      final useCase = _useCase(
+        repository: LocalProjectSettlementRepository(
+          accountPaymentSyncEnqueuer: AccountPaymentSyncEnqueuer(
+            entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(),
+          ),
+        ),
+      );
+
+      await expectLater(
+        useCase.execute(
+          projectId: 'project:1',
+          projectKey: '甲方||一号工地',
+          receivable: 20000,
+          paymentAmount: 5000,
+          writeOffAmount: 10000,
+          writeOffReason: ProjectWriteOffReason.settlement,
+          ymd: 20260518,
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _paymentCount(db), 1);
+      expect(await _paymentSum(db), 5000);
+      expect(await _writeOffCount(db), 0);
+      expect(await _projectStatus(db), ProjectStatus.active);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
     });
 
     test('requires a reason when write-off amount is positive', () async {
@@ -338,6 +451,52 @@ void main() {
       expect(await _paymentSum(db), 1200);
       expect(await _writeOffCount(db), 0);
     });
+
+    test(
+      'deleting write-off does not enqueue account payment delete outbox',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProject(db);
+        await _seedPayment(db, amount: 500);
+        final useCase = _useCase();
+        final settlement = await useCase.execute(
+          projectId: 'project:1',
+          projectKey: '甲方||一号工地',
+          receivable: 1000,
+          paymentAmount: 400,
+          writeOffAmount: 100,
+          writeOffReason: ProjectWriteOffReason.settlement,
+          ymd: 20260518,
+        );
+        expect(settlement.settled, isTrue);
+
+        final outboxBefore = await db.query('sync_outbox');
+        expect(outboxBefore, hasLength(1));
+        expect(outboxBefore.single['operation'], 'create');
+
+        final result = await useCase.deleteWriteOff(
+          projectId: 'project:1',
+          writeOffId: 'write-off-1',
+          receivable: 1000,
+        );
+
+        expect(result.restoredActive, isTrue);
+        expect(await _paymentCount(db), 2);
+        expect(await _paymentSum(db), 900);
+        expect(await _writeOffCount(db), 0);
+        final outboxAfter = await db.query('sync_outbox');
+        expect(outboxAfter, hasLength(1));
+        expect(outboxAfter.single['operation'], 'create');
+        expect(
+          await db.query(
+            'sync_outbox',
+            where: 'entity_type = ? AND operation = ?',
+            whereArgs: ['account_payment', 'delete'],
+          ),
+          isEmpty,
+        );
+      },
+    );
 
     test('rolls back status when write-off delete target is missing', () async {
       final db = await _openCurrentInMemoryDb();
@@ -697,9 +856,12 @@ void main() {
   });
 }
 
-ProjectSettlementUseCase _useCase() {
+ProjectSettlementUseCase _useCase({
+  LocalProjectSettlementRepository repository =
+      const LocalProjectSettlementRepository(),
+}) {
   return ProjectSettlementUseCase(
-    repository: const LocalProjectSettlementRepository(),
+    repository: repository,
     now: () => DateTime.utc(2026, 5, 18, 1, 2, 3),
     writeOffIdFactory: (_, _) => 'write-off-1',
   );
@@ -954,4 +1116,59 @@ Future<Project> _projectRow(Database db) async {
     whereArgs: ['project:1'],
   );
   return Project.fromMap(rows.single);
+}
+
+class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
+  const _ThrowingSyncOutboxRepository();
+
+  @override
+  Future<SyncOutboxEntry> enqueue({
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) {
+    throw StateError('注入的失败：sync_outbox 写入失败');
+  }
+
+  @override
+  Future<SyncOutboxEntry> enqueueWithExecutor(
+    DatabaseExecutor executor, {
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) {
+    throw StateError('注入的失败：sync_outbox 写入失败');
+  }
+
+  @override
+  Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
+    return const [];
+  }
+}
+
+class _ThrowingEntitySyncMetaRepository implements EntitySyncMetaRepository {
+  const _ThrowingEntitySyncMetaRepository();
+
+  @override
+  Future<void> upsert(EntitySyncMeta meta) {
+    throw StateError('注入的失败：entity_sync_meta 写入失败');
+  }
+
+  @override
+  Future<void> upsertWithExecutor(
+    DatabaseExecutor executor,
+    EntitySyncMeta meta,
+  ) {
+    throw StateError('注入的失败：entity_sync_meta 写入失败');
+  }
+
+  @override
+  Future<EntitySyncMeta?> find({
+    required String entityType,
+    required String localId,
+  }) async {
+    return null;
+  }
 }

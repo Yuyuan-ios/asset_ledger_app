@@ -10,9 +10,16 @@ import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../features/account/domain/entities/project_settlement_result.dart';
 import '../../../features/account/domain/repositories/project_settlement_repository.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../sync/sync_status.dart';
+import 'account_payment_sync_enqueuer.dart';
 
 class LocalProjectSettlementRepository implements ProjectSettlementRepository {
-  const LocalProjectSettlementRepository();
+  const LocalProjectSettlementRepository({
+    AccountPaymentSyncEnqueuer accountPaymentSyncEnqueuer =
+        const AccountPaymentSyncEnqueuer(),
+  }) : _accountPaymentSyncEnqueuer = accountPaymentSyncEnqueuer;
+
+  final AccountPaymentSyncEnqueuer _accountPaymentSyncEnqueuer;
 
   @override
   Future<ProjectSettlementResult> settle(
@@ -75,16 +82,23 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       int? paymentId;
       String? writeOffId;
       if (paymentFen > 0) {
+        final payment = AccountPayment(
+          projectId: request.projectId,
+          projectKey: request.projectKey,
+          ymd: request.ymd,
+          amount: request.paymentAmount,
+          note: request.note,
+          createdAt: request.createdAtIso,
+        );
         paymentId = await txn.insert(
           SqfliteAccountPaymentRepository.table,
-          AccountPayment(
-            projectId: request.projectId,
-            projectKey: request.projectKey,
-            ymd: request.ymd,
-            amount: request.paymentAmount,
-            note: request.note,
-            createdAt: request.createdAtIso,
-          ).toMap(),
+          payment.toMap(),
+        );
+        await _accountPaymentSyncEnqueuer.enqueue(
+          txn,
+          payment: payment.copyWith(id: paymentId),
+          operation: 'create',
+          status: SyncStatus.pendingUpload,
         );
       }
 
@@ -397,8 +411,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         table: SqfliteProjectWriteOffRepository.table,
         projectId: request.projectId,
       );
-      final remainingFenAfter =
-          receivableFen - receivedFen - writeOffFenAfter;
+      final remainingFenAfter = receivableFen - receivedFen - writeOffFenAfter;
       final shouldRestoreActive =
           remainingFenAfter > 0 && project.status == ProjectStatus.settled;
       if (shouldRestoreActive) {

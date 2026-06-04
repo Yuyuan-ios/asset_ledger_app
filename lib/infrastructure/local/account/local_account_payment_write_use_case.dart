@@ -4,9 +4,9 @@ import '../../../data/db/database.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../features/account/use_cases/account_payment_write_use_case.dart';
-import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
+import 'account_payment_sync_enqueuer.dart';
 
 /// [AccountPaymentWriteUseCase] 的本地实现（R5.3）。
 ///
@@ -29,17 +29,13 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
   }) : _paymentRepository = paymentRepository,
-       _syncOutboxRepository =
-           syncOutboxRepository ?? const LocalSyncOutboxRepository(),
-       _entitySyncMetaRepository =
-           entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository();
+       _syncEnqueuer = AccountPaymentSyncEnqueuer(
+         syncOutboxRepository: syncOutboxRepository,
+         entitySyncMetaRepository: entitySyncMetaRepository,
+       );
 
   final SqfliteAccountPaymentRepository _paymentRepository;
-  final SyncOutboxRepository _syncOutboxRepository;
-  final EntitySyncMetaRepository _entitySyncMetaRepository;
-
-  static const String _entityType = 'account_payment';
-  static const String _ownerAppSource = 'owner_app';
+  final AccountPaymentSyncEnqueuer _syncEnqueuer;
 
   @override
   Future<int> create(AccountPayment payment) async {
@@ -61,7 +57,10 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
       throw StateError('更新收款需要 id');
     }
     await AppDatabase.inTransaction((txn) async {
-      final affected = await _paymentRepository.updateWithExecutor(txn, payment);
+      final affected = await _paymentRepository.updateWithExecutor(
+        txn,
+        payment,
+      );
       if (affected == 0) {
         throw StateError('收款记录不存在或已被并发修改，请刷新后再试');
       }
@@ -124,7 +123,7 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
     required List<AccountPayment> newRows,
   }) async {
     // 与 repository.replaceMergeBatchInTransaction 同款入参校验。
-    SqfliteAccountPaymentRepository().validateMergeBatchReplacement(
+    _paymentRepository.validateMergeBatchReplacement(
       batchId: batchId,
       newRows: newRows,
     );
@@ -193,33 +192,11 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
     required String operation,
     required SyncStatus status,
   }) async {
-    final id = payment.id;
-    if (id == null) {
-      throw StateError('sync_outbox 入队需要最终落库后的 account_payment id');
-    }
-    final entityId = id.toString();
-    final entry = await _syncOutboxRepository.enqueueWithExecutor(
+    await _syncEnqueuer.enqueue(
       txn,
-      entityType: _entityType,
-      entityId: entityId,
+      payment: payment,
       operation: operation,
-      payload: {
-        'entity_type': _entityType,
-        'entity_id': entityId,
-        'operation': operation,
-        'record': payment.toMap(),
-      },
-    );
-    await _entitySyncMetaRepository.upsertWithExecutor(
-      txn,
-      EntitySyncMeta(
-        entityType: _entityType,
-        localId: entityId,
-        syncStatus: status,
-        version: 0,
-        source: _ownerAppSource,
-        payloadHash: entry.payloadHash,
-      ),
+      status: status,
     );
   }
 }
