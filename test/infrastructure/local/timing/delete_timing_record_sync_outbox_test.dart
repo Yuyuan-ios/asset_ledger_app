@@ -5,12 +5,15 @@ import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
+import 'package:asset_ledger/data/models/external_import_batch.dart';
+import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_key.dart';
 import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
+import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
@@ -18,6 +21,7 @@ import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/account/project_sync_enqueuer.dart';
 import 'package:asset_ledger/infrastructure/local/account/project_write_off_sync_enqueuer.dart';
+import 'package:asset_ledger/infrastructure/local/timing/external_work_sync_enqueuer.dart';
 import 'package:asset_ledger/infrastructure/local/timing/local_delete_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/sync/entity_sync_meta.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_outbox_entry.dart';
@@ -253,6 +257,73 @@ void main() {
     },
   );
 
+  test('删除最后一条计时记录时：ExternalWork 解绑与 delete outbox 同事务落库', () async {
+    final db = await AppDatabase.database;
+    await _insertProject(db, id: 'project:a');
+    final recordId = await _insertTiming(projectId: 'project:a');
+    await _insertLinkedExternalWorkRecords(projectId: 'project:a');
+
+    final outcome = await _useCase().executeDeleteWithImpact(recordId);
+
+    expect(outcome.externalWorkUnlinked, isTrue);
+    expect(await SqfliteTimingRepository().findById(recordId), isNull);
+    final externalRecords = await SqfliteExternalWorkRecordRepository()
+        .listByBatchId('external-batch-1');
+    expect(externalRecords, hasLength(2));
+    expect(
+      externalRecords.every((record) => record.linkedProjectId == null),
+      isTrue,
+    );
+    expect(externalRecords.map((record) => record.updatedAt).toSet(), {
+      '2026-06-01T12:00:00.000Z',
+    });
+
+    final outboxRows = await db.query('sync_outbox');
+    expect(outboxRows, hasLength(3));
+    _expectUniqueOutboxIds(outboxRows);
+    expect(
+      _outboxRows(outboxRows, entityType: 'timing_record', operation: 'delete'),
+      hasLength(1),
+    );
+    final externalRows = _outboxRows(
+      outboxRows,
+      entityType: ExternalWorkSyncEnqueuer.entityType,
+      operation: 'update',
+    );
+    expect(externalRows, hasLength(2));
+    expect(externalRows.map((row) => row['entity_id']).toSet(), {
+      'external-record-a',
+      'external-record-b',
+    });
+    for (final row in externalRows) {
+      final record = _payloadRecord(row);
+      expect(record['linked_project_id'], isNull);
+      expect(record['updated_at'], '2026-06-01T12:00:00.000Z');
+    }
+
+    final metaRows = await db.query('entity_sync_meta');
+    expect(metaRows, hasLength(3));
+    _expectMetaMatchesOutbox(
+      outboxRows,
+      metaRows,
+      entityType: 'timing_record',
+      entityId: recordId.toString(),
+      status: SyncStatus.pendingDelete,
+    );
+    for (final externalRecordId in const [
+      'external-record-a',
+      'external-record-b',
+    ]) {
+      _expectMetaMatchesOutbox(
+        outboxRows,
+        metaRows,
+        entityType: ExternalWorkSyncEnqueuer.entityType,
+        entityId: externalRecordId,
+        status: SyncStatus.pendingUpdate,
+      );
+    }
+  });
+
   test('analyzeImpact 只读：不删核销、不恢复项目、不入队 sync', () async {
     final db = await AppDatabase.database;
     await _insertProject(
@@ -411,6 +482,43 @@ void main() {
     );
 
     await _expectCascadeRolledBack(db, deleteId: deleteId);
+  });
+
+  test('ExternalWork update outbox 失败：整笔 timing delete cascade 回滚', () async {
+    final db = await AppDatabase.database;
+    final deleteId = await _seedSettledProjectCascadeWithExternalWork(db);
+
+    final failingUseCase = _useCase(
+      syncOutboxRepository: const _ThrowingSyncOutboxRepository(
+        entityType: ExternalWorkSyncEnqueuer.entityType,
+        operation: 'update',
+      ),
+    );
+
+    await expectLater(
+      failingUseCase.executeDeleteWithImpact(deleteId),
+      throwsA(isA<StateError>()),
+    );
+
+    await _expectCascadeWithExternalWorkRolledBack(db, deleteId: deleteId);
+  });
+
+  test('ExternalWork update meta 失败：整笔 timing delete cascade 回滚', () async {
+    final db = await AppDatabase.database;
+    final deleteId = await _seedSettledProjectCascadeWithExternalWork(db);
+
+    final failingUseCase = _useCase(
+      entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(
+        entityType: ExternalWorkSyncEnqueuer.entityType,
+      ),
+    );
+
+    await expectLater(
+      failingUseCase.executeDeleteWithImpact(deleteId),
+      throwsA(isA<StateError>()),
+    );
+
+    await _expectCascadeWithExternalWorkRolledBack(db, deleteId: deleteId);
   });
 
   test('删除触发合并解除时：解除与 delete outbox 同事务落库', () async {
@@ -627,6 +735,67 @@ Future<void> _insertWriteOff(
   );
 }
 
+Future<List<ExternalWorkRecord>> _insertLinkedExternalWorkRecords({
+  required String projectId,
+}) async {
+  await SqfliteExternalImportRepository().insertBatch(
+    ExternalImportBatch(
+      id: 'external-batch-1',
+      sourceShareId: 'external-share-1',
+      sourceDisplayName: '王师傅',
+      recordCount: 2,
+      totalHoursMilli: 3000,
+      totalAmountFen: 90000,
+      siteSummary: '工地',
+      importedAt: '2026-05-18T00:00:00.000Z',
+      createdAt: '2026-05-18T00:00:00.000Z',
+      updatedAt: '2026-05-18T00:00:00.000Z',
+    ),
+  );
+  final records = [
+    _externalWorkRecord(
+      id: 'external-record-a',
+      sourceRecordUuid: 'external-source-a',
+      projectId: projectId,
+    ),
+    _externalWorkRecord(
+      id: 'external-record-b',
+      sourceRecordUuid: 'external-source-b',
+      projectId: projectId,
+    ),
+  ];
+  await SqfliteExternalWorkRecordRepository().insertRecords(records);
+  return records;
+}
+
+ExternalWorkRecord _externalWorkRecord({
+  required String id,
+  required String sourceRecordUuid,
+  required String projectId,
+}) {
+  return ExternalWorkRecord.create(
+    id: id,
+    importBatchId: 'external-batch-1',
+    sourceShareId: 'external-share-1',
+    sourceRecordUuid: sourceRecordUuid,
+    sourceInstallationUuid: 'external-installation',
+    originFingerprint: 'fingerprint-$sourceRecordUuid',
+    collaboratorName: '王师傅',
+    contactSnapshot: '甲方',
+    siteSnapshot: '工地',
+    equipmentBrand: '三一',
+    equipmentModel: '75',
+    equipmentType: 'excavator',
+    workDate: 20260518,
+    hoursMilli: 1500,
+    sourceUnitPriceFen: 30000,
+    projectReceivedFen: 0,
+    linkedProjectId: projectId,
+    createdAt: '2026-05-18T00:00:00.000Z',
+    updatedAt: '2026-05-18T00:00:00.000Z',
+  );
+}
+
 Future<void> _createMergeGroup(
   List<String> projectIds, {
   String contact = '甲方',
@@ -679,6 +848,21 @@ Future<int> _seedSettledProjectCascade(Database db) async {
   return deleteId;
 }
 
+Future<int> _seedSettledProjectCascadeWithExternalWork(Database db) async {
+  await _insertProject(
+    db,
+    id: 'project:a',
+    status: ProjectStatus.settled,
+    settledAt: '2026-05-20T00:00:00.000Z',
+    settledSnapshot: '{"remaining":0}',
+  );
+  final deleteId = await _insertTiming(projectId: 'project:a');
+  await _insertWriteOff(db, 'project:a', id: 'writeoff-a-1');
+  await _insertWriteOff(db, 'project:a', id: 'writeoff-a-2', amount: 50);
+  await _insertLinkedExternalWorkRecords(projectId: 'project:a');
+  return deleteId;
+}
+
 Future<void> _expectCascadeRolledBack(
   Database db, {
   required int deleteId,
@@ -691,6 +875,22 @@ Future<void> _expectCascadeRolledBack(
   expect(project?.settledSnapshot, '{"remaining":0}');
   expect(await db.query('sync_outbox'), isEmpty);
   expect(await db.query('entity_sync_meta'), isEmpty);
+}
+
+Future<void> _expectCascadeWithExternalWorkRolledBack(
+  Database db, {
+  required int deleteId,
+}) async {
+  await _expectCascadeRolledBack(db, deleteId: deleteId);
+  final externalRecords = await SqfliteExternalWorkRecordRepository()
+      .listByBatchId('external-batch-1');
+  expect(externalRecords, hasLength(2));
+  expect(externalRecords.map((record) => record.linkedProjectId).toSet(), {
+    'project:a',
+  });
+  expect(externalRecords.map((record) => record.updatedAt).toSet(), {
+    '2026-05-18T00:00:00.000Z',
+  });
 }
 
 List<Map<String, Object?>> _outboxRows(

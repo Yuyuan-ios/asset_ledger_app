@@ -10,11 +10,12 @@ import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
-import '../account/project_sync_enqueuer.dart';
-import '../account/project_write_off_sync_enqueuer.dart';
 import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
+import '../account/project_sync_enqueuer.dart';
+import '../account/project_write_off_sync_enqueuer.dart';
+import 'external_work_sync_enqueuer.dart';
 
 /// 删除计时记录影响分析 + 联动清理的本地实现。
 ///
@@ -33,6 +34,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
     EntitySyncMetaRepository? entitySyncMetaRepository,
     ProjectWriteOffSyncEnqueuer? projectWriteOffSyncEnqueuer,
     ProjectSyncEnqueuer? projectSyncEnqueuer,
+    ExternalWorkSyncEnqueuer? externalWorkSyncEnqueuer,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _paymentRepository = paymentRepository,
@@ -56,6 +58,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
              syncOutboxRepository: syncOutboxRepository,
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
+       _externalWorkSyncEnqueuer =
+           externalWorkSyncEnqueuer ??
+           ExternalWorkSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -68,6 +76,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final EntitySyncMetaRepository _entitySyncMetaRepository;
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
+  final ExternalWorkSyncEnqueuer _externalWorkSyncEnqueuer;
   final DateTime Function() _now;
 
   static const int _minActiveMergeMembers = 2;
@@ -226,12 +235,26 @@ class LocalDeleteTimingRecordWithImpactUseCase
           }
         }
 
+        final externalWorkSnapshots = await _externalWorkRecordRepository
+            .listByLinkedProjectIdWithExecutor(txn, projectId);
         final unlinked = await _externalWorkRecordRepository
             .unlinkByProjectIdWithExecutor(
               txn,
               projectId: projectId,
               updatedAt: timestamp,
             );
+        if (unlinked > 0) {
+          for (final snapshot in externalWorkSnapshots) {
+            final updated = await _externalWorkRecordRepository
+                .findByIdWithExecutor(txn, snapshot.id);
+            if (updated == null) {
+              throw StateError(
+                'ExternalWork sync enqueue requires final unlink snapshot',
+              );
+            }
+            await _externalWorkSyncEnqueuer.enqueueUpdate(txn, record: updated);
+          }
+        }
         externalWorkUnlinked = unlinked > 0;
       }
 

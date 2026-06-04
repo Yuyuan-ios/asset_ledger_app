@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/errors/external_work_errors.dart';
+import '../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
 import '../db/database.dart';
 import '../models/external_work_record.dart';
 import '../models/project.dart';
@@ -65,7 +66,13 @@ abstract class ExternalWorkRecordRepository {
 
 class SqfliteExternalWorkRecordRepository
     implements ExternalWorkRecordRepository {
+  const SqfliteExternalWorkRecordRepository({
+    ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer(),
+  }) : _syncEnqueuer = syncEnqueuer;
+
   static const String table = 'external_work_records';
+
+  final ExternalWorkSyncEnqueuer _syncEnqueuer;
 
   @override
   Future<void> insertRecord(ExternalWorkRecord record) async {
@@ -100,18 +107,13 @@ class SqfliteExternalWorkRecordRepository
     final normalized = recordId.trim();
     if (normalized.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
-      final rows = await txn.query(
-        table,
-        columns: const ['import_batch_id'],
-        where: 'id = ?',
-        whereArgs: [normalized],
-        limit: 1,
-      );
-      if (rows.isEmpty) return 0;
+      final snapshot = await findByIdWithExecutor(txn, normalized);
+      if (snapshot == null) return 0;
 
-      final batchId = rows.single['import_batch_id'] as String;
+      final batchId = snapshot.importBatchId;
       final deleted = await deleteByIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
+      await _syncEnqueuer.enqueueDelete(txn, record: snapshot);
 
       final remaining = await txn.query(
         table,
@@ -136,8 +138,12 @@ class SqfliteExternalWorkRecordRepository
     final normalized = batchId.trim();
     if (normalized.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
+      final snapshots = await listByBatchIdWithExecutor(txn, normalized);
       final deleted = await deleteByBatchIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
+      for (final snapshot in snapshots) {
+        await _syncEnqueuer.enqueueDelete(txn, record: snapshot);
+      }
 
       await txn.delete(
         SqfliteExternalImportRepository.table,
@@ -157,12 +163,14 @@ class SqfliteExternalWorkRecordRepository
     final normalizedBatchId = importBatchId.trim();
     final normalizedProjectId = _requireProjectId(projectId);
     return AppDatabase.inTransaction<int>((txn) async {
-      return linkBatchToProjectWithExecutor(
+      final linked = await linkBatchToProjectWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      return linked;
     });
   }
 
@@ -222,11 +230,13 @@ class SqfliteExternalWorkRecordRepository
   }) async {
     final normalizedBatchId = importBatchId.trim();
     return AppDatabase.inTransaction<int>((txn) async {
-      return unlinkBatchWithExecutor(
+      final unlinked = await unlinkBatchWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         updatedAt: updatedAt,
       );
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      return unlinked;
     });
   }
 
@@ -420,6 +430,16 @@ class SqfliteExternalWorkRecordRepository
       where: 'linked_project_id = ?',
       whereArgs: [normalized],
     );
+  }
+
+  Future<void> _enqueueBatchUpdates(
+    DatabaseExecutor executor, {
+    required String batchId,
+  }) async {
+    final snapshots = await listByBatchIdWithExecutor(executor, batchId);
+    for (final snapshot in snapshots) {
+      await _syncEnqueuer.enqueueUpdate(executor, record: snapshot);
+    }
   }
 
   @override
