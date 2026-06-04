@@ -102,6 +102,7 @@ class DbSchemaCompat {
     await DbMigrations.ensureOperationAuditLogSchema(db);
     await DbMigrations.ensureOperationTokensSchema(db);
     await DbMigrations.ensureTimingAllocationCutoffDate(db);
+    await DbMigrations.ensureSyncStateGateState(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
