@@ -423,6 +423,43 @@ void main() {
     expect(find.text('编辑计时'), findsOneWidget);
   });
 
+  testWidgets('editing date save refreshes recent record date group', (
+    WidgetTester tester,
+  ) async {
+    final timingRepository = _FakeTimingRepository(seed: [_record()]);
+
+    await _pumpTimingPage(
+      tester,
+      timingRepository: timingRepository,
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    expect(find.text('2026.05.14'), findsOneWidget);
+    expect(find.text('2026.05.20'), findsNothing);
+
+    await tester.tap(find.text('甲方 · 一号工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('选择日期'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260520')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(timingRepository.saveCalls, 0);
+    expect(find.text('2026.05.20'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(timingRepository.saveCalls, 1);
+    expect(timingRepository.savedRecords.single.startDate, 20260520);
+    expect(find.text('2026.05.20'), findsOneWidget);
+    expect(find.text('2026.05.14'), findsNothing);
+  });
+
   testWidgets('external work empty scaffold has no edit or delete entry', (
     WidgetTester tester,
   ) async {
@@ -1278,7 +1315,16 @@ class _FakeTimingRepository implements TimingRepository {
     saveCalls++;
     savedRecords.add(record);
     savedCalculationHistories.add(List.of(calculationHistories));
-    return record.id == null ? record.copyWith(id: 1) : record;
+    final savedRecord = record.id == null ? record.copyWith(id: 1) : record;
+    final existingIndex = _records.indexWhere(
+      (existing) => existing.id == savedRecord.id,
+    );
+    if (existingIndex >= 0) {
+      _records[existingIndex] = savedRecord;
+    } else {
+      _records.add(savedRecord);
+    }
+    return savedRecord;
   }
 
   @override

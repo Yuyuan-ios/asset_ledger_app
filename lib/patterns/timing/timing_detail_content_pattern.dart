@@ -314,11 +314,12 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   }
 
   Future<void> _pickDate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final picked = await showSheetDatePickerDialog(
       context: context,
       initialDate: _selectedDate,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
       _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
