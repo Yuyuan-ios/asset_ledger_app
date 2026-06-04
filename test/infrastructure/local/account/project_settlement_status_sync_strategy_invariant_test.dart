@@ -201,7 +201,7 @@ void main() {
         isTrue,
       );
       expect(_settlementStatusStrategy.singleProjectStatusIsCovered, isTrue);
-      expect(_settlementStatusStrategy.mergedProjectStatusIsDeferred, isTrue);
+      expect(_settlementStatusStrategy.mergedProjectStatusIsCovered, isTrue);
       expect(_settlementStatusStrategy.mustCoverPaymentOnlySettlement, isTrue);
       expect(_settlementStatusStrategy.mustCoverStatusOnlyRevoke, isTrue);
       expect(
@@ -339,7 +339,7 @@ const _settlementStatusStrategy = _SettlementStatusStrategy(
   recommendedProjectStatusOperation: 'update',
   requiresSameTransactionWithSettlementCluster: true,
   singleProjectStatusIsCovered: true,
-  mergedProjectStatusIsDeferred: true,
+  mergedProjectStatusIsCovered: true,
   mustCoverPaymentOnlySettlement: true,
   mustCoverStatusOnlyRevoke: true,
   timingDeleteCascadeRestoreIsDeferred: true,
@@ -354,9 +354,9 @@ const _registeredProjectSettlementStatusWriteFiles = <String, String>{
   'lib/data/repositories/project_repository.dart':
       'low-level projects status persistence',
 
-  // Main settlement cluster. Single-project settlement status writes are now
-  // sync-covered; merged settlement status writes remain explicit deferred
-  // paths until their full cluster semantics are wired.
+  // Main settlement cluster. Single-project and merged settlement status
+  // writes are sync-covered here; Timing/ExternalWork status reset paths remain
+  // explicit deferred coverage outside this repository.
   'lib/infrastructure/local/account/local_project_settlement_repository.dart':
       'single and merged project settlement status writes',
 
@@ -548,7 +548,7 @@ class _SettlementStatusStrategy {
     required this.recommendedProjectStatusOperation,
     required this.requiresSameTransactionWithSettlementCluster,
     required this.singleProjectStatusIsCovered,
-    required this.mergedProjectStatusIsDeferred,
+    required this.mergedProjectStatusIsCovered,
     required this.mustCoverPaymentOnlySettlement,
     required this.mustCoverStatusOnlyRevoke,
     required this.timingDeleteCascadeRestoreIsDeferred,
@@ -563,7 +563,7 @@ class _SettlementStatusStrategy {
   final String recommendedProjectStatusOperation;
   final bool requiresSameTransactionWithSettlementCluster;
   final bool singleProjectStatusIsCovered;
-  final bool mergedProjectStatusIsDeferred;
+  final bool mergedProjectStatusIsCovered;
   final bool mustCoverPaymentOnlySettlement;
   final bool mustCoverStatusOnlyRevoke;
   final bool timingDeleteCascadeRestoreIsDeferred;

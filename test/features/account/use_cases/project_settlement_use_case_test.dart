@@ -1119,6 +1119,61 @@ void main() {
           await _projectStatusById(db, 'project:2'),
           ProjectStatus.settled,
         );
+
+        final writeOffOutbox = await _outboxRows(
+          db,
+          entityType: ProjectWriteOffSyncEnqueuer.entityType,
+          operation: 'create',
+        );
+        final projectOutbox = await _outboxRows(
+          db,
+          entityType: ProjectSyncEnqueuer.entityType,
+          operation: 'update',
+        );
+        expect(writeOffOutbox, hasLength(2));
+        expect(projectOutbox, hasLength(2));
+        _expectUniqueOutboxIds([...writeOffOutbox, ...projectOutbox]);
+        expect(await _outboxRows(db, entityType: 'account_payment'), isEmpty);
+        expect(
+          await _outboxRows(
+            db,
+            entityType: ProjectWriteOffSyncEnqueuer.entityType,
+            operation: 'delete',
+          ),
+          isEmpty,
+        );
+
+        final writeOffById = {
+          for (final row in writeOffOutbox) row['entity_id'] as String: row,
+        };
+        expect(writeOffById.keys, {'writeoff-merge-7-0', 'writeoff-merge-7-1'});
+        final firstWriteOff = _payloadRecord(
+          writeOffById['writeoff-merge-7-0']!,
+        );
+        expect(firstWriteOff['project_id'], 'project:1');
+        expect(firstWriteOff['amount_fen'], 100000);
+        expect(
+          firstWriteOff['reason'],
+          ProjectWriteOffReason.settlement.dbValue,
+        );
+        expect(firstWriteOff['write_off_date'], '2026-05-18');
+        final secondWriteOff = _payloadRecord(
+          writeOffById['writeoff-merge-7-1']!,
+        );
+        expect(secondWriteOff['project_id'], 'project:2');
+        expect(secondWriteOff['amount_fen'], 200000);
+
+        for (final row in writeOffOutbox) {
+          await _expectMetaMatchesOutbox(db, row, SyncStatus.pendingUpload);
+        }
+        for (final row in projectOutbox) {
+          final projectRecord = _payloadRecord(row);
+          expect(projectRecord['id'], isIn(['project:1', 'project:2']));
+          expect(projectRecord['status'], ProjectStatus.settled.name);
+          expect(projectRecord['settled_at'], '2026-05-18T01:02:03.000Z');
+          expect(projectRecord.containsKey('settled_snapshot'), isTrue);
+          await _expectMetaMatchesOutbox(db, row, SyncStatus.pendingUpdate);
+        }
       },
     );
 
@@ -1258,6 +1313,208 @@ void main() {
       },
     );
 
+    test(
+      'merged settlement write-off outbox failure rolls back cluster',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+        await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+        final useCase = _mergedUseCase(
+          repository: LocalProjectSettlementRepository(
+            projectWriteOffSyncEnqueuer: ProjectWriteOffSyncEnqueuer(
+              syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.execute(
+            mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            paymentAmount: 0,
+            writeOffAmount: 3000,
+            writeOffReason: ProjectWriteOffReason.settlement,
+            ymd: 20260518,
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 0);
+        expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+        expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test(
+      'merged settlement write-off meta failure rolls back cluster',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+        await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+        final useCase = _mergedUseCase(
+          repository: LocalProjectSettlementRepository(
+            projectWriteOffSyncEnqueuer: ProjectWriteOffSyncEnqueuer(
+              entitySyncMetaRepository:
+                  const _ThrowingEntitySyncMetaRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.execute(
+            mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            paymentAmount: 0,
+            writeOffAmount: 3000,
+            writeOffReason: ProjectWriteOffReason.settlement,
+            ymd: 20260518,
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 0);
+        expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+        expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test(
+      'merged settlement project outbox failure rolls back cluster',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+        await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+        final useCase = _mergedUseCase(
+          repository: LocalProjectSettlementRepository(
+            projectSyncEnqueuer: ProjectSyncEnqueuer(
+              syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.execute(
+            mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            paymentAmount: 0,
+            writeOffAmount: 3000,
+            writeOffReason: ProjectWriteOffReason.settlement,
+            ymd: 20260518,
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 0);
+        expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+        expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test('merged settlement project meta failure rolls back cluster', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProjectWithId(db, id: 'project:1', site: '一号工地');
+      await _seedProjectWithId(db, id: 'project:2', site: '二号工地');
+      final useCase = _mergedUseCase(
+        repository: LocalProjectSettlementRepository(
+          projectSyncEnqueuer: ProjectSyncEnqueuer(
+            entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(),
+          ),
+        ),
+      );
+
+      await expectLater(
+        useCase.execute(
+          mergedProject: _mergedProjectVm(remaining: 3000, receivable: 3000),
+          memberProjects: [
+            _memberProjectVm(
+              id: 'project:1',
+              key: '甲方||一号工地',
+              site: '一号工地',
+              receivable: 1000,
+              remaining: 1000,
+              minYmd: 20260501,
+            ),
+            _memberProjectVm(
+              id: 'project:2',
+              key: '甲方||二号工地',
+              site: '二号工地',
+              receivable: 2000,
+              remaining: 2000,
+              minYmd: 20260502,
+            ),
+          ],
+          paymentAmount: 0,
+          writeOffAmount: 3000,
+          writeOffReason: ProjectWriteOffReason.settlement,
+          ymd: 20260518,
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _writeOffCount(db), 0);
+      expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+      expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+    });
+
     test('revokes merged settlement from real member projects', () async {
       final db = await _openCurrentInMemoryDb();
       await _seedProjectWithId(
@@ -1321,6 +1578,548 @@ void main() {
       expect(await _writeOffCount(db), 0);
       expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
       expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+
+      final writeOffDeleteOutbox = await _outboxRows(
+        db,
+        entityType: ProjectWriteOffSyncEnqueuer.entityType,
+        operation: 'delete',
+      );
+      final projectOutbox = await _outboxRows(
+        db,
+        entityType: ProjectSyncEnqueuer.entityType,
+        operation: 'update',
+      );
+      expect(writeOffDeleteOutbox, hasLength(2));
+      expect(projectOutbox, hasLength(2));
+      _expectUniqueOutboxIds([...writeOffDeleteOutbox, ...projectOutbox]);
+      expect(
+        await _outboxRows(
+          db,
+          entityType: ProjectWriteOffSyncEnqueuer.entityType,
+          operation: 'create',
+        ),
+        isEmpty,
+      );
+      expect(
+        await _outboxRows(
+          db,
+          entityType: 'account_payment',
+          operation: 'delete',
+        ),
+        isEmpty,
+      );
+
+      for (final row in writeOffDeleteOutbox) {
+        final record = _payloadRecord(row);
+        expect(record['id'], row['entity_id']);
+        expect(record['project_id'], isIn(['project:1', 'project:2']));
+        expect(record['amount_fen'], isIn([100000, 200000]));
+        expect(record['reason'], ProjectWriteOffReason.settlement.dbValue);
+        await _expectMetaMatchesOutbox(db, row, SyncStatus.pendingDelete);
+      }
+      for (final row in projectOutbox) {
+        final record = _payloadRecord(row);
+        expect(record['id'], isIn(['project:1', 'project:2']));
+        expect(record['status'], ProjectStatus.active.name);
+        expect(record['settled_at'], isNull);
+        expect(record['settled_snapshot'], isNull);
+        await _expectMetaMatchesOutbox(db, row, SyncStatus.pendingUpdate);
+      }
+    });
+
+    test(
+      'merged write-off delete outbox failure rolls back deleteWriteOffs',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(
+          db,
+          id: 'project:1',
+          site: '一号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedProjectWithId(
+          db,
+          id: 'project:2',
+          site: '二号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-0',
+          projectId: 'project:1',
+          amount: 1000,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-1',
+          projectId: 'project:2',
+          amount: 2000,
+        );
+        final useCase = _mergedUseCase(
+          repository: LocalProjectSettlementRepository(
+            projectWriteOffSyncEnqueuer: ProjectWriteOffSyncEnqueuer(
+              syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.deleteWriteOffs(
+            mergedProject: _mergedProjectVm(
+              remaining: 0,
+              receivable: 3000,
+              writeOff: 3000,
+            ),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 0,
+                writeOff: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 0,
+                writeOff: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            writeOffs: await _writeOffRows(db),
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 2);
+        expect(
+          await _projectStatusById(db, 'project:1'),
+          ProjectStatus.settled,
+        );
+        expect(
+          await _projectStatusById(db, 'project:2'),
+          ProjectStatus.settled,
+        );
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test(
+      'merged project update outbox failure rolls back deleteWriteOffs',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(
+          db,
+          id: 'project:1',
+          site: '一号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedProjectWithId(
+          db,
+          id: 'project:2',
+          site: '二号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-0',
+          projectId: 'project:1',
+          amount: 1000,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-1',
+          projectId: 'project:2',
+          amount: 2000,
+        );
+        final useCase = _mergedUseCase(
+          repository: LocalProjectSettlementRepository(
+            projectSyncEnqueuer: ProjectSyncEnqueuer(
+              syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.deleteWriteOffs(
+            mergedProject: _mergedProjectVm(
+              remaining: 0,
+              receivable: 3000,
+              writeOff: 3000,
+            ),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 0,
+                writeOff: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 0,
+                writeOff: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            writeOffs: await _writeOffRows(db),
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 2);
+        expect(
+          await _projectStatusById(db, 'project:1'),
+          ProjectStatus.settled,
+        );
+        expect(
+          await _projectStatusById(db, 'project:2'),
+          ProjectStatus.settled,
+        );
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test(
+      'merged project update meta failure rolls back deleteWriteOffs',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(
+          db,
+          id: 'project:1',
+          site: '一号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedProjectWithId(
+          db,
+          id: 'project:2',
+          site: '二号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-0',
+          projectId: 'project:1',
+          amount: 1000,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-1',
+          projectId: 'project:2',
+          amount: 2000,
+        );
+        final useCase = _mergedUseCase(
+          repository: LocalProjectSettlementRepository(
+            projectSyncEnqueuer: ProjectSyncEnqueuer(
+              entitySyncMetaRepository:
+                  const _ThrowingEntitySyncMetaRepository(),
+            ),
+          ),
+        );
+
+        await expectLater(
+          useCase.deleteWriteOffs(
+            mergedProject: _mergedProjectVm(
+              remaining: 0,
+              receivable: 3000,
+              writeOff: 3000,
+            ),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 0,
+                writeOff: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 0,
+                writeOff: 2000,
+                minYmd: 20260502,
+              ),
+            ],
+            writeOffs: await _writeOffRows(db),
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await _writeOffCount(db), 2);
+        expect(
+          await _projectStatusById(db, 'project:1'),
+          ProjectStatus.settled,
+        );
+        expect(
+          await _projectStatusById(db, 'project:2'),
+          ProjectStatus.settled,
+        );
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test('revokes merged settlement status without write-off outbox', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProjectWithId(
+        db,
+        id: 'project:1',
+        site: '一号工地',
+        status: ProjectStatus.settled,
+      );
+      await _seedProjectWithId(
+        db,
+        id: 'project:2',
+        site: '二号工地',
+        status: ProjectStatus.settled,
+      );
+      final useCase = _mergedUseCase();
+
+      final result = await useCase.revokeSettlementStatus(
+        mergedProject: _mergedProjectVm(remaining: 0, receivable: 3000),
+        memberProjects: [
+          _memberProjectVm(
+            id: 'project:1',
+            key: '甲方||一号工地',
+            site: '一号工地',
+            receivable: 1000,
+            remaining: 0,
+            minYmd: 20260501,
+          ),
+          _memberProjectVm(
+            id: 'project:2',
+            key: '甲方||二号工地',
+            site: '二号工地',
+            receivable: 2000,
+            remaining: 0,
+            minYmd: 20260502,
+          ),
+        ],
+      );
+
+      expect(result.projectId, 'merge:7');
+      expect(result.restoredActive, isTrue);
+      expect(await _projectStatusById(db, 'project:1'), ProjectStatus.active);
+      expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
+      expect(
+        await _outboxRows(
+          db,
+          entityType: ProjectWriteOffSyncEnqueuer.entityType,
+        ),
+        isEmpty,
+      );
+      expect(await _outboxRows(db, entityType: 'account_payment'), isEmpty);
+
+      final projectOutbox = await _outboxRows(
+        db,
+        entityType: ProjectSyncEnqueuer.entityType,
+        operation: 'update',
+      );
+      expect(projectOutbox, hasLength(2));
+      _expectUniqueOutboxIds(projectOutbox);
+      for (final row in projectOutbox) {
+        final record = _payloadRecord(row);
+        expect(record['id'], isIn(['project:1', 'project:2']));
+        expect(record['status'], ProjectStatus.active.name);
+        expect(record['settled_at'], isNull);
+        expect(record['settled_snapshot'], isNull);
+        await _expectMetaMatchesOutbox(db, row, SyncStatus.pendingUpdate);
+      }
+    });
+
+    test(
+      'revoke merged settlement rejects write-offs and does not enqueue',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _seedProjectWithId(
+          db,
+          id: 'project:1',
+          site: '一号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedProjectWithId(
+          db,
+          id: 'project:2',
+          site: '二号工地',
+          status: ProjectStatus.settled,
+        );
+        await _seedWriteOffForProject(
+          db,
+          id: 'writeoff-merge-7-0',
+          projectId: 'project:1',
+          amount: 1000,
+        );
+        final useCase = _mergedUseCase();
+
+        await expectLater(
+          useCase.revokeSettlementStatus(
+            mergedProject: _mergedProjectVm(
+              remaining: 0,
+              receivable: 3000,
+              writeOff: 1000,
+            ),
+            memberProjects: [
+              _memberProjectVm(
+                id: 'project:1',
+                key: '甲方||一号工地',
+                site: '一号工地',
+                receivable: 1000,
+                remaining: 0,
+                writeOff: 1000,
+                minYmd: 20260501,
+              ),
+              _memberProjectVm(
+                id: 'project:2',
+                key: '甲方||二号工地',
+                site: '二号工地',
+                receivable: 2000,
+                remaining: 0,
+                minYmd: 20260502,
+              ),
+            ],
+          ),
+          throwsA(
+            predicate(
+              (error) =>
+                  error is StateError &&
+                  error.message == '该项目存在核销记录，请先撤销核销后再处理。',
+            ),
+          ),
+        );
+
+        expect(
+          await _projectStatusById(db, 'project:1'),
+          ProjectStatus.settled,
+        );
+        expect(
+          await _projectStatusById(db, 'project:2'),
+          ProjectStatus.settled,
+        );
+        expect(await _writeOffCount(db), 1);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test('merged revoke project outbox failure rolls back status', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProjectWithId(
+        db,
+        id: 'project:1',
+        site: '一号工地',
+        status: ProjectStatus.settled,
+      );
+      await _seedProjectWithId(
+        db,
+        id: 'project:2',
+        site: '二号工地',
+        status: ProjectStatus.settled,
+      );
+      final useCase = _mergedUseCase(
+        repository: LocalProjectSettlementRepository(
+          projectSyncEnqueuer: ProjectSyncEnqueuer(
+            syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+          ),
+        ),
+      );
+
+      await expectLater(
+        useCase.revokeSettlementStatus(
+          mergedProject: _mergedProjectVm(remaining: 0, receivable: 3000),
+          memberProjects: [
+            _memberProjectVm(
+              id: 'project:1',
+              key: '甲方||一号工地',
+              site: '一号工地',
+              receivable: 1000,
+              remaining: 0,
+              minYmd: 20260501,
+            ),
+            _memberProjectVm(
+              id: 'project:2',
+              key: '甲方||二号工地',
+              site: '二号工地',
+              receivable: 2000,
+              remaining: 0,
+              minYmd: 20260502,
+            ),
+          ],
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _projectStatusById(db, 'project:1'), ProjectStatus.settled);
+      expect(await _projectStatusById(db, 'project:2'), ProjectStatus.settled);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+    });
+
+    test('merged revoke project meta failure rolls back status', () async {
+      final db = await _openCurrentInMemoryDb();
+      await _seedProjectWithId(
+        db,
+        id: 'project:1',
+        site: '一号工地',
+        status: ProjectStatus.settled,
+      );
+      await _seedProjectWithId(
+        db,
+        id: 'project:2',
+        site: '二号工地',
+        status: ProjectStatus.settled,
+      );
+      final useCase = _mergedUseCase(
+        repository: LocalProjectSettlementRepository(
+          projectSyncEnqueuer: ProjectSyncEnqueuer(
+            entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(),
+          ),
+        ),
+      );
+
+      await expectLater(
+        useCase.revokeSettlementStatus(
+          mergedProject: _mergedProjectVm(remaining: 0, receivable: 3000),
+          memberProjects: [
+            _memberProjectVm(
+              id: 'project:1',
+              key: '甲方||一号工地',
+              site: '一号工地',
+              receivable: 1000,
+              remaining: 0,
+              minYmd: 20260501,
+            ),
+            _memberProjectVm(
+              id: 'project:2',
+              key: '甲方||二号工地',
+              site: '二号工地',
+              receivable: 2000,
+              remaining: 0,
+              minYmd: 20260502,
+            ),
+          ],
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _projectStatusById(db, 'project:1'), ProjectStatus.settled);
+      expect(await _projectStatusById(db, 'project:2'), ProjectStatus.settled);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
     });
   });
 }
@@ -1336,9 +2135,12 @@ ProjectSettlementUseCase _useCase({
   );
 }
 
-SettleMergedProjectUseCase _mergedUseCase() {
+SettleMergedProjectUseCase _mergedUseCase({
+  LocalProjectSettlementRepository repository =
+      const LocalProjectSettlementRepository(),
+}) {
   return SettleMergedProjectUseCase(
-    repository: const LocalProjectSettlementRepository(),
+    repository: repository,
     now: () => DateTime.utc(2026, 5, 18, 1, 2, 3),
     writeOffIdFactory:
         ({
@@ -1651,6 +2453,10 @@ Future<void> _expectMetaMatchesOutbox(
   final meta = rows.single;
   expect(meta['sync_status'], syncStatus.name);
   expect(meta['payload_hash'], outbox['payload_hash']);
+}
+
+void _expectUniqueOutboxIds(List<Map<String, Object?>> rows) {
+  expect(rows.map((row) => row['id']).toSet(), hasLength(rows.length));
 }
 
 class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
