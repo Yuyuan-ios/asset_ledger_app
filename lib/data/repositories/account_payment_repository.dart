@@ -49,10 +49,17 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
 
   @override
   Future<int> insert(AccountPayment p) async {
-    return AppDatabase.inTransaction((txn) async {
-      await _ensureProjectWithExecutor(txn, p);
-      return txn.insert(table, p.toMap());
-    });
+    return AppDatabase.inTransaction((txn) => insertWithExecutor(txn, p));
+  }
+
+  /// 事务化单条新增：供同事务内接 sync_outbox 的协调器复用（R5.3）。
+  /// 行为与 [insert] 一致（确保项目存在 + 插入），但使用调用方传入的 executor。
+  Future<int> insertWithExecutor(
+    DatabaseExecutor executor,
+    AccountPayment p,
+  ) async {
+    await _ensureProjectWithExecutor(executor, p);
+    return executor.insert(table, p.toMap());
   }
 
   @override
@@ -177,16 +184,42 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
 
   @override
   Future<int> update(AccountPayment p) async {
-    return AppDatabase.inTransaction((txn) async {
-      await _ensureProjectWithExecutor(txn, p);
-      return txn.update(table, p.toMap(), where: 'id = ?', whereArgs: [p.id]);
-    });
+    return AppDatabase.inTransaction((txn) => updateWithExecutor(txn, p));
+  }
+
+  /// 事务化单条更新：供同事务内接 sync_outbox 的协调器复用（R5.3）。
+  Future<int> updateWithExecutor(
+    DatabaseExecutor executor,
+    AccountPayment p,
+  ) async {
+    await _ensureProjectWithExecutor(executor, p);
+    return executor.update(table, p.toMap(), where: 'id = ?', whereArgs: [p.id]);
   }
 
   @override
   Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
-    return db.delete(table, where: 'id = ?', whereArgs: [id]);
+    return deleteByIdWithExecutor(db, id);
+  }
+
+  /// 事务化单条删除：供同事务内接 sync_outbox 的协调器复用（R5.3）。
+  Future<int> deleteByIdWithExecutor(DatabaseExecutor executor, int id) {
+    return executor.delete(table, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// 事务内按 id 重读单条收款，供删除前取权威快照写入 outbox payload。
+  Future<AccountPayment?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    int id,
+  ) async {
+    final rows = await executor.query(
+      table,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AccountPayment.fromMap(rows.single);
   }
 
   // 删除影响协调器使用的具体读辅助（不纳入抽象接口）。

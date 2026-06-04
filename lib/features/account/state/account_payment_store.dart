@@ -1,14 +1,22 @@
 import '../../../data/models/account_payment.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../core/utils/base_store.dart';
+import '../use_cases/account_payment_write_use_case.dart';
 
 /// 收款记录状态管理类
 /// 负责收款记录的加载、新增、编辑、删除等操作，继承自基础状态管理类 BaseStore
 /// 封装了与收款记录相关的所有业务逻辑和状态维护
 class AccountPaymentStore extends BaseStore {
-  AccountPaymentStore(this._repository);
+  /// [writeUseCase] 注入时（生产路径），单条收款的 create/update/delete 走事务化
+  /// 入口并同事务入队 sync_outbox + entity_sync_meta（R5.3）。未注入时回退到旧的
+  /// 直接 repository 写（不入队），保持既有测试 / 早期路径兼容。
+  AccountPaymentStore(
+    this._repository, {
+    AccountPaymentWriteUseCase? writeUseCase,
+  }) : _writeUseCase = writeUseCase;
 
   final AccountPaymentRepository _repository;
+  final AccountPaymentWriteUseCase? _writeUseCase;
 
   /// 收款记录列表（私有变量）
   /// 使用下划线标记为私有，通过 get 方法对外暴露，保证数据不可直接修改
@@ -52,10 +60,17 @@ class AccountPaymentStore extends BaseStore {
         : p;
     await writeAndPatchLocalState(
       write: () async {
+        final writeUseCase = _writeUseCase;
         if (payment.id == null) {
-          return await _repository.insert(payment);
+          return writeUseCase != null
+              ? await writeUseCase.create(payment)
+              : await _repository.insert(payment);
         }
-        await _repository.update(payment);
+        if (writeUseCase != null) {
+          await writeUseCase.update(payment);
+        } else {
+          await _repository.update(payment);
+        }
         return payment.id!;
       },
       patch: (paymentId) {
@@ -77,7 +92,14 @@ class AccountPaymentStore extends BaseStore {
   /// [id] 要删除的收款记录 ID
   Future<void> deleteById(int id) async {
     await writeAndPatchLocalState(
-      write: () => _repository.deleteById(id),
+      write: () async {
+        final writeUseCase = _writeUseCase;
+        if (writeUseCase != null) {
+          await writeUseCase.deleteById(id);
+        } else {
+          await _repository.deleteById(id);
+        }
+      },
       patch: (_) {
         _records = _records.where((item) => item.id != id).toList();
       },
