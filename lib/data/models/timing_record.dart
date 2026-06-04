@@ -24,6 +24,12 @@ class TimingRecord {
   /// 开始日期（YYYYMMDD）
   final int startDate;
 
+  /// 隐式分摊右开边界（YYYYMMDD）。
+  ///
+  /// null 表示继续使用当前 legacy 隐式下一条同设备记录规则；该字段只表达
+  /// 分摊截止边界，不改变当前单日记录语义。
+  final int? allocationCutoffDate;
+
   /// 稳定项目身份。旧数据为空时由 contact/site 兼容生成。
   final String projectId;
 
@@ -62,6 +68,7 @@ class TimingRecord {
     this.id,
     required this.deviceId,
     required this.startDate,
+    this.allocationCutoffDate,
     this.projectId = '',
     required this.contact,
     required this.site,
@@ -81,6 +88,7 @@ class TimingRecord {
     int? id,
     int? deviceId,
     int? startDate,
+    Object? allocationCutoffDate = _sentinel,
     String? projectId,
     String? contact,
     String? site,
@@ -96,6 +104,9 @@ class TimingRecord {
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       startDate: startDate ?? this.startDate,
+      allocationCutoffDate: identical(allocationCutoffDate, _sentinel)
+          ? this.allocationCutoffDate
+          : allocationCutoffDate as int?,
       projectId: projectId ?? this.projectId,
       contact: contact ?? this.contact,
       site: site ?? this.site,
@@ -113,8 +124,8 @@ class TimingRecord {
   // ---------------------------------------------------------------------------
   // SQLite → Map
   // ---------------------------------------------------------------------------
-  Map<String, Object?> toMap() {
-    return {
+  Map<String, Object?> toMap({bool includeNullAllocationCutoffDate = false}) {
+    final map = <String, Object?>{
       'id': id,
       'project_id': effectiveProjectId,
       'device_id': deviceId,
@@ -130,6 +141,13 @@ class TimingRecord {
       'exclude_from_fuel_eff': excludeFromFuelEfficiency ? 1 : 0,
       'is_breaking': isBreaking ? 1 : 0,
     };
+    final cutoff = allocationCutoffDate;
+    if (cutoff != null) {
+      map['allocation_cutoff_date'] = cutoff;
+    } else if (includeNullAllocationCutoffDate) {
+      map['allocation_cutoff_date'] = null;
+    }
+    return map;
   }
 
   // ---------------------------------------------------------------------------
@@ -141,6 +159,7 @@ class TimingRecord {
       id: m['id'] as int?,
       deviceId: m['device_id'] as int,
       startDate: m['start_date'] as int,
+      allocationCutoffDate: (m['allocation_cutoff_date'] as num?)?.toInt(),
       projectId: (m['project_id'] as String?) ?? '',
       contact: (m['contact'] as String?) ?? '',
       site: (m['site'] as String?) ?? '',
@@ -178,6 +197,9 @@ class TimingRecord {
   @override
   String toString() =>
       'TimingRecord(id:$id deviceId:$deviceId date:$startDate '
+      'allocationCutoffDate:$allocationCutoffDate '
       'hours:$hours excludeFuel:$excludeFromFuelEfficiency '
       'isBreaking:$isBreaking)';
 }
+
+const _sentinel = Object();

@@ -135,6 +135,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     // UI 传入的 editing 可能已 stale（其它入口删除 / 恢复 / 修改）；
     // 必须以 DB 为准。
     String oldProjectId = '';
+    TimingRecord? existingRecord;
     if (editing != null) {
       final editingId = editing.id;
       if (editingId == null) {
@@ -147,6 +148,7 @@ class LocalSaveTimingRecordWithImpactUseCase
       if (fresh == null) {
         throw const TimingRecordSaveStaleException('这条计时记录已不存在，请刷新后再试');
       }
+      existingRecord = fresh;
       oldProjectId = fresh.effectiveProjectId.trim();
     }
 
@@ -237,6 +239,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     await _enqueueSyncForSavedRecord(
       txn,
       savedRecord: savedRecord,
+      existingRecord: existingRecord,
       isEditing: editing != null,
     );
 
@@ -257,6 +260,7 @@ class LocalSaveTimingRecordWithImpactUseCase
   Future<void> _enqueueSyncForSavedRecord(
     DatabaseExecutor txn, {
     required TimingRecord savedRecord,
+    required TimingRecord? existingRecord,
     required bool isEditing,
   }) async {
     final id = savedRecord.id;
@@ -265,6 +269,10 @@ class LocalSaveTimingRecordWithImpactUseCase
     }
     final operation = isEditing ? 'update' : 'create';
     final entityId = id.toString();
+    final shouldIncludeNullAllocationCutoffDate =
+        isEditing &&
+        savedRecord.allocationCutoffDate == null &&
+        existingRecord?.allocationCutoffDate != null;
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,
@@ -274,7 +282,10 @@ class LocalSaveTimingRecordWithImpactUseCase
         'entity_type': _timingRecordEntityType,
         'entity_id': entityId,
         'operation': operation,
-        'record': savedRecord.toMap(),
+        'record': savedRecord.toMap(
+          includeNullAllocationCutoffDate:
+              shouldIncludeNullAllocationCutoffDate,
+        ),
       },
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
