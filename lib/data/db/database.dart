@@ -71,10 +71,12 @@ class AppDatabase {
   //        （per-device 安全 / 会话状态，恢复后旧 token 靠 hash/freshness 失效）。
   // - v24：operation_audit_logs 新增 nullable token_id + token_id 索引；
   //        不加 FK，不纳入 backup/restore。
+  // - v25：timing_records 新增 nullable allocation_cutoff_date；
+  //        仅作为未来显式分摊右开边界持久化基线，当前业务逻辑不读取。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 24;
+  static const int _dbVersion = 25;
 
   static int get schemaVersion => _dbVersion;
 

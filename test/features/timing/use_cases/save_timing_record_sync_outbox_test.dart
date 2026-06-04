@@ -78,6 +78,7 @@ void main() {
         record: TimingRecord(
           deviceId: deviceId,
           startDate: 20260601,
+          allocationCutoffDate: 20260610,
           projectId: 'project:alpha',
           contact: '甲方',
           site: 'alpha',
@@ -109,6 +110,10 @@ void main() {
         (payload['record'] as Map<String, Object?>)['id'],
         result.impact.savedRecord.id,
       );
+      expect(
+        (payload['record'] as Map<String, Object?>)['allocation_cutoff_date'],
+        20260610,
+      );
 
       final metaRows = await db.query('entity_sync_meta');
       expect(metaRows, hasLength(1));
@@ -119,6 +124,147 @@ void main() {
         metaRows.single['payload_hash'],
         outboxRows.single['payload_hash'],
       );
+    },
+  );
+
+  test(
+    'create with null allocation cutoff keeps legacy outbox payload clean',
+    () async {
+      final db = await AppDatabase.database;
+      final deviceId = await db.insert(
+        'devices',
+        const Device(
+          name: 'SANY 1#',
+          brand: 'SANY',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+        ).toMap(),
+      );
+      await db.insert(
+        'projects',
+        const Project(
+          id: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          status: ProjectStatus.active,
+          createdAt: '2026-06-01T00:00:00.000Z',
+          updatedAt: '2026-06-01T00:00:00.000Z',
+        ).toMap(),
+      );
+      final providers = TimingSaveProviders.build(
+        projectResolver: ProjectResolver(
+          projectRepository: SqfliteProjectRepository(),
+        ),
+        actorContext: ActorContext(
+          actorType: OperationActorType.owner,
+          actorId: 'owner-r5-token',
+        ),
+      );
+
+      final result = await providers.saveUseCase.executeWithToken(
+        editing: null,
+        record: TimingRecord(
+          deviceId: deviceId,
+          startDate: 20260601,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          type: TimingType.hours,
+          startMeter: 0,
+          endMeter: 2,
+          hours: 2,
+          income: 200,
+        ),
+      );
+
+      final row = (await db.query(
+        'timing_records',
+        where: 'id = ?',
+        whereArgs: [result.impact.savedRecord.id],
+      )).single;
+      expect(row['allocation_cutoff_date'], isNull);
+
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      final recordPayload = payload['record'] as Map<String, Object?>;
+      expect(recordPayload.containsKey('allocation_cutoff_date'), isFalse);
+    },
+  );
+
+  test(
+    'cutoff clear update writes null to DB and expresses null in outbox payload',
+    () async {
+      final db = await AppDatabase.database;
+      final deviceId = await db.insert(
+        'devices',
+        const Device(
+          name: 'SANY 1#',
+          brand: 'SANY',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+        ).toMap(),
+      );
+      await db.insert(
+        'projects',
+        const Project(
+          id: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          status: ProjectStatus.active,
+          createdAt: '2026-06-01T00:00:00.000Z',
+          updatedAt: '2026-06-01T00:00:00.000Z',
+        ).toMap(),
+      );
+      final existing = TimingRecord(
+        deviceId: deviceId,
+        startDate: 20260601,
+        allocationCutoffDate: 20260610,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 2,
+        hours: 2,
+        income: 200,
+      );
+      final existingId = await db.insert('timing_records', existing.toMap());
+      final editing = existing.copyWith(id: existingId);
+      final providers = TimingSaveProviders.build(
+        projectResolver: ProjectResolver(
+          projectRepository: SqfliteProjectRepository(),
+        ),
+        actorContext: ActorContext(
+          actorType: OperationActorType.owner,
+          actorId: 'owner-r5-token',
+        ),
+      );
+
+      final result = await providers.saveUseCase.executeWithToken(
+        editing: editing,
+        record: editing.copyWith(allocationCutoffDate: null),
+      );
+
+      expect(result.impact.savedRecord.allocationCutoffDate, isNull);
+      final row = (await db.query(
+        'timing_records',
+        where: 'id = ?',
+        whereArgs: [existingId],
+      )).single;
+      expect(row['allocation_cutoff_date'], isNull);
+
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['operation'], 'update');
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      final recordPayload = payload['record'] as Map<String, Object?>;
+      expect(recordPayload.containsKey('allocation_cutoff_date'), isTrue);
+      expect(recordPayload['allocation_cutoff_date'], isNull);
     },
   );
 }

@@ -458,6 +458,69 @@ void main() {
         outboxRows.single['payload_hash'],
       );
     });
+
+    test('只清空 allocation cutoff 不触发业务影响并写 update outbox', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db, defaultUnitPrice: 100);
+      await _seedProject(
+        db,
+        projectId: 'project:alpha',
+        status: ProjectStatus.settled,
+        settledAt: '2026-05-20T00:00:00.000Z',
+      );
+      await _insertPayment(
+        db,
+        projectId: 'project:alpha',
+        amount: 100,
+        amountFen: 10000,
+      );
+      final existing = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        hours: 1,
+        income: 100,
+        allocationCutoffDate: 20260610,
+      );
+
+      final result = await useCase.execute(
+        editing: existing,
+        record: existing.copyWith(allocationCutoffDate: null),
+      );
+
+      expect(result.projectChanged, isFalse);
+      expect(result.mergeDissolved, isFalse);
+      expect(result.settlementRevoked, isFalse);
+      expect(result.revokedProjectIds, isEmpty);
+      expect(result.savedRecord.income, 100);
+      expect(result.savedRecord.allocationCutoffDate, isNull);
+
+      final timingRows = await db.query('timing_records');
+      expect(timingRows, hasLength(1));
+      expect(timingRows.single['allocation_cutoff_date'], isNull);
+      expect(timingRows.single['income'], 100);
+
+      final projectRows = await db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: ['project:alpha'],
+      );
+      expect(projectRows.single['status'], ProjectStatus.settled.name);
+      expect(projectRows.single['settled_at'], isNotNull);
+      expect(await db.query('account_project_merge_groups'), isEmpty);
+
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['operation'], 'update');
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      final recordPayload = payload['record'] as Map<String, Object?>;
+      expect(recordPayload.containsKey('allocation_cutoff_date'), isTrue);
+      expect(recordPayload['allocation_cutoff_date'], isNull);
+    });
   });
 
   group('编辑计时记录，project A → B：自动解除合并', () {
@@ -1592,10 +1655,12 @@ Future<TimingRecord> _seedTimingRecord(
   required String site,
   required double hours,
   required double income,
+  int? allocationCutoffDate,
 }) async {
   final record = TimingRecord(
     deviceId: deviceId,
     startDate: 20260518,
+    allocationCutoffDate: allocationCutoffDate,
     projectId: projectId,
     contact: contact,
     site: site,

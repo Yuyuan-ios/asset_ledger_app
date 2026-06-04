@@ -260,6 +260,7 @@ class SqfliteTimingRepository implements TimingRepository {
       'project_id': r.effectiveProjectId,
       'device_id': r.deviceId,
       'start_date': r.startDate,
+      'allocation_cutoff_date': r.allocationCutoffDate,
       'contact': r.contact,
       'site': r.site,
       'type': r.type.name,
