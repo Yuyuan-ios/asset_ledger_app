@@ -9,6 +9,7 @@ import 'package:asset_ledger/data/repositories/operation_audit_log_repository.da
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
+import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/operations/local_operation_transaction_runner.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -205,6 +206,34 @@ void main() {
       expect(result.auditId, isNull);
       expect(result.error, contains('stale timing record'));
     });
+
+    test(
+      'maps allocation cutoff validation exception to friendly failure',
+      () async {
+        final preview = command.preview(input());
+
+        final result = await command.executeConfirmed(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSave: () async {
+            throw const SaveTimingRecordAllocationCutoffValidationException(
+              code: SaveTimingRecordAllocationCutoffValidationException
+                  .cutoffNotAfterStartDate,
+              message: '分摊截止日期必须晚于计时日期',
+            );
+          },
+        );
+
+        expect(result.success, isFalse);
+        expect(result.userMessage, '分摊截止日期必须晚于计时日期');
+        expect(
+          result.error,
+          SaveTimingRecordAllocationCutoffValidationException
+              .cutoffNotAfterStartDate,
+        );
+        expect(result.auditId, isNull);
+      },
+    );
   });
 
   group('executeConfirmed with audit', () {
@@ -419,6 +448,43 @@ void main() {
       expect(runner.rollbacks, 1);
       expect(repo.insertedWithExecutor, isEmpty);
     });
+
+    test(
+      'allocation cutoff validation failure rolls back with validation code',
+      () async {
+        final repo = _FakeAuditRepo();
+        final runner = await _newFakeRunner();
+        final auditCmd = SaveTimingRecordOperationCommand(
+          auditRepository: repo,
+          transactionRunner: runner,
+        );
+        final preview = auditCmd.preview(input());
+
+        final result = await auditCmd.executeConfirmedInTransaction(
+          preview: preview,
+          operationId: preview.operationId,
+          executeSaveWithExecutor: (_) async {
+            throw const SaveTimingRecordAllocationCutoffValidationException(
+              code: SaveTimingRecordAllocationCutoffValidationException
+                  .cutoffAfterNextSameDeviceStartDate,
+              message: '分摊截止日期不能晚于下一条同设备记录的计时日期',
+            );
+          },
+        );
+
+        expect(result.success, isFalse);
+        expect(result.userMessage, '分摊截止日期不能晚于下一条同设备记录的计时日期');
+        expect(
+          result.error,
+          SaveTimingRecordAllocationCutoffValidationException
+              .cutoffAfterNextSameDeviceStartDate,
+        );
+        expect(runner.runCalls, 1);
+        expect(runner.commits, 0);
+        expect(runner.rollbacks, 1);
+        expect(repo.insertedWithExecutor, isEmpty);
+      },
+    );
 
     test('requires transactionRunner', () async {
       final auditCmd = SaveTimingRecordOperationCommand(

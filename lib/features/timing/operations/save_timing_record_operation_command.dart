@@ -3,6 +3,7 @@ import '../../../core/operations/operation_models.dart';
 import '../../../core/operations/operation_transaction_runner.dart';
 import '../../../data/models/operation_audit_log.dart';
 import '../../../data/repositories/operation_audit_log_repository.dart';
+import '../use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import '../use_cases/save_timing_record_with_impact_use_case.dart';
 
 class SaveTimingRecordOperationPreviewInput {
@@ -139,6 +140,14 @@ class SaveTimingRecordOperationCommand {
         userMessage: '保存计时记录失败，请刷新后重试。',
         error: 'audit write failed: ${error.cause}',
       );
+    } on SaveTimingRecordAllocationCutoffValidationException catch (error) {
+      return OperationExecutionResult.failure(
+        operationId: preview.operationId,
+        operationType: OperationType.saveTimingRecord,
+        affectedEntities: preview.affectedEntities,
+        userMessage: error.message,
+        error: error.code,
+      );
     } catch (error) {
       return OperationExecutionResult.failure(
         operationId: preview.operationId,
@@ -191,6 +200,18 @@ class SaveTimingRecordOperationCommand {
     }
 
     if (businessError != null) {
+      if (businessError
+          is SaveTimingRecordAllocationCutoffValidationException) {
+        final error = businessError;
+        return OperationExecutionResult.failure(
+          operationId: preview.operationId,
+          operationType: OperationType.saveTimingRecord,
+          affectedEntities: preview.affectedEntities,
+          userMessage: error.message,
+          error: error.code,
+          auditId: auditOutcome.auditId,
+        );
+      }
       return OperationExecutionResult.failure(
         operationId: preview.operationId,
         operationType: OperationType.saveTimingRecord,
@@ -292,12 +313,9 @@ class SaveTimingRecordOperationCommand {
   }) {
     // R3：优先使用 actorContext（真实注入），fallback 到默认值
     final resolvedActorId = actorContext?.actorId ?? actorId;
-    final resolvedActorType =
-        actorContext != null
-            ? OperationAuditActorType.fromWireName(
-                actorContext!.actorType.wireName,
-              )
-            : actorType;
+    final resolvedActorType = actorContext != null
+        ? OperationAuditActorType.fromWireName(actorContext!.actorType.wireName)
+        : actorType;
     return OperationAuditLog(
       id: auditId,
       operationId: preview.operationId,

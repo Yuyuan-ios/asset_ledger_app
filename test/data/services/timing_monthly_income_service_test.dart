@@ -25,14 +25,18 @@ void main() {
       required int deviceId,
       required int startDate,
       required double hours,
+      int? allocationCutoffDate,
+      String projectId = '',
       double startMeter = 0,
       String contact = '甲方',
       String site = '工地',
     }) {
       return TimingRecord(
         id: id,
+        projectId: projectId,
         deviceId: deviceId,
         startDate: startDate,
+        allocationCutoffDate: allocationCutoffDate,
         contact: contact,
         site: site,
         type: TimingType.hours,
@@ -58,6 +62,7 @@ void main() {
       required List<Device> devices,
       required int targetMonth,
       required DateTime asOfDate,
+      List<ProjectWriteOff> projectWriteOffs = const [],
     }) {
       return TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
         records: records,
@@ -66,6 +71,7 @@ void main() {
         targetYear: 2026,
         targetMonth: targetMonth,
         asOfDate: asOfDate,
+        projectWriteOffs: projectWriteOffs,
       );
     }
 
@@ -267,6 +273,284 @@ void main() {
         expect(monthly[6], closeTo(1000.0, 0.001));
         expect(monthly.take(5).every((v) => v == 0.0), isTrue);
         expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+    });
+
+    group('allocation cutoff monthly allocation', () {
+      test('null cutoff keeps legacy implicit monthly allocation', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              hours: 9,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260610,
+              startMeter: 9,
+              hours: 31,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // A: [Jun 1, Jun 10) = 9 days at 100/day.
+        // B: [Jun 10, Jul 11) = 31 days at 100/day.
+        expect(monthly[5], closeTo(3000.0, 0.001));
+        expect(monthly[6], closeTo(1000.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
+      test('cutoff equal to next start preserves legacy allocation', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260610,
+              hours: 9,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260610,
+              startMeter: 9,
+              hours: 31,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // cutoff is right-open: Jun 10 is not allocated to A.
+        // This matches the legacy nextStartExclusive boundary.
+        expect(monthly[5], closeTo(3000.0, 0.001));
+        expect(monthly[6], closeTo(1000.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
+      test('cutoff before next start creates an unallocated gap', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260605,
+              hours: 4,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260610,
+              startMeter: 4,
+              hours: 1,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 6,
+          asOfDate: DateTime(2026, 6, 10),
+        );
+
+        // A: [Jun 1, Jun 5) = 4 days at 100/day = 400.
+        // Jun 5-Jun 9 is a gap. B starts on Jun 10 = 100.
+        expect(monthly[5], closeTo(500.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+      });
+
+      test('no next record cutoff stops allocation before statistics cutoff', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260620,
+              hours: 19,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // A: [Jun 1, Jun 20) = 19 days at 100/day.
+        expect(monthly[5], closeTo(1900.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
+      test('cutoff after statistics cutoff is capped by statistics boundary', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260720,
+              hours: 10,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 6,
+          asOfDate: DateTime(2026, 6, 10),
+        );
+
+        // Statistics cutoff is Jun 10, so the right-open boundary is Jun 11.
+        // The later explicit cutoff must not allocate after Jun 10.
+        expect(monthly[5], closeTo(1000.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+      });
+
+      test('cross-month cutoff splits income before cutoff date', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260625,
+              allocationCutoffDate: 20260705,
+              hours: 10,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 5),
+        );
+
+        // A: [Jun 25, Jul 5) = 10 days at 100/day.
+        // Jun has 6 days, Jul has 4 days; Jul 5 is excluded.
+        expect(monthly[5], closeTo(600.0, 0.001));
+        expect(monthly[6], closeTo(400.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
+      test('rent allocation cutoff is ignored', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: const [
+            TimingRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260701,
+              contact: '甲方',
+              site: '台班',
+              type: TimingType.rent,
+              startMeter: 0,
+              endMeter: 0,
+              hours: 0,
+              income: 1000,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 31),
+        );
+
+        // Rent remains a one-time record-month income. The cutoff does not
+        // spread or move any amount into July.
+        expect(monthly[5], closeTo(1000.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
+      test('invalid cutoff on start date falls back to legacy allocation', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260601,
+              hours: 9,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260610,
+              startMeter: 9,
+              hours: 31,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // Persisted invalid cutoff <= startDate is ignored for chart safety.
+        expect(monthly[5], closeTo(3000.0, 0.001));
+        expect(monthly[6], closeTo(1000.0, 0.001));
+      });
+
+      test('same-day next with invalid explicit cutoff keeps legacy day', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffDate: 20260602,
+              hours: 2,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260601,
+              startMeter: 2,
+              hours: 3,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 6,
+          asOfDate: DateTime(2026, 6, 1),
+        );
+
+        // Same-day next records preserve the legacy one-day behavior even if a
+        // persisted non-null cutoff somehow bypassed the save-layer validator.
+        expect(monthly[5], closeTo(500.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+      });
+
+      test('write-off allocation follows cutoff monthly income distribution', () {
+        const projectId = 'project:cutoff-write-off';
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              projectId: projectId,
+              deviceId: 1,
+              startDate: 20260625,
+              allocationCutoffDate: 20260705,
+              hours: 10,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 5),
+          projectWriteOffs: [writeOff(projectId, 100)],
+        );
+
+        // Before write-off: Jun 600, Jul 400. The 100 write-off follows the
+        // cutoff-created 60/40 monthly distribution, so total deduction is 100.
+        expect(monthly[5], closeTo(540.0, 0.001));
+        expect(monthly[6], closeTo(360.0, 0.001));
+        expect(monthly[5] + monthly[6], closeTo(900.0, 0.001));
+        expect(monthly.every((value) => value >= 0), isTrue);
       });
     });
 

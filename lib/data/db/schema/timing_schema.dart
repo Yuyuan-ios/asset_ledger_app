@@ -10,6 +10,7 @@ class TimingSchema {
         project_id TEXT NOT NULL,
         device_id INTEGER NOT NULL,
         start_date INTEGER NOT NULL,
+        allocation_cutoff_date INTEGER,
         contact TEXT NOT NULL,
         site TEXT NOT NULL,
         type TEXT NOT NULL,
