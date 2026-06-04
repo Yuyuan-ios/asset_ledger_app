@@ -223,6 +223,112 @@ void main() {
     expect(find.text('填入'), findsOneWidget);
   });
 
+  testWidgets('editing date picker updates draft and submit writes startDate', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    expect(find.text('2026.03.15'), findsOneWidget);
+
+    await tester.tap(find.text('2026.03.15'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260320')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026.03.20'), findsOneWidget);
+    expect(submittedRecord, isNull);
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.startDate, 20260320);
+  });
+
+  testWidgets('closing date picker keeps editing draft unchanged', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.text('2026.03.15'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026.03.15'), findsOneWidget);
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.startDate, 20260315);
+  });
+
+  testWidgets('new timing date picker updates draft before creating record', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.byTooltip('选择日期'));
+    await tester.pumpAndSettle();
+    final defaultPickerMonth = visibleInitialPickerMonth(DateTime.now());
+    final pickedDate = DateTime(
+      defaultPickerMonth.year,
+      defaultPickerMonth.month,
+      2,
+    );
+    final pickedDateYmd = ymdFromDate(pickedDate);
+    await tester.tap(
+      find.byKey(ValueKey('jzt-date-picker-day-$pickedDateYmd')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord, isNull);
+    await tester.enterText(find.widgetWithText(TextField, '联系人'), '新甲方');
+    await tester.enterText(find.widgetWithText(TextField, '使用地址/工地'), '新工地');
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.id, isNull);
+    expect(submittedRecord?.startDate, pickedDateYmd);
+  });
+
   testWidgets('submits an empty calculation history list by default', (
     WidgetTester tester,
   ) async {
@@ -415,4 +521,19 @@ void main() {
       const TextInputType.numberWithOptions(decimal: true),
     );
   });
+}
+
+DateTime visibleInitialPickerMonth(DateTime initialDate) {
+  final day = DateTime(initialDate.year, initialDate.month, initialDate.day);
+  if (day.isBefore(DateTime(2026, 1, 1))) {
+    return DateTime(2026, 1);
+  }
+  if (day.isAfter(DateTime(2027, 12, 31))) {
+    return DateTime(2027, 12);
+  }
+  return DateTime(day.year, day.month);
+}
+
+int ymdFromDate(DateTime date) {
+  return date.year * 10000 + date.month * 100 + date.day;
 }
