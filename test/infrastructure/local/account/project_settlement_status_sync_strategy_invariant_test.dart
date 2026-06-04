@@ -105,8 +105,13 @@ void main() {
 
       _expectAllContains(timingDeleteUseCase, const [
         'executeDeleteWithImpact(',
-        'deleteByProjectIdWithExecutor(',
+        'ProjectWriteOffSyncEnqueuer',
+        'ProjectSyncEnqueuer',
+        'listByProjectIdWithExecutor(',
+        'deleteByIdWithExecutor(',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete',
         'restoreActiveWithExecutor(',
+        '_projectSyncEnqueuer.enqueueUpdate',
         'settlementRevoked',
       ]);
 
@@ -205,7 +210,7 @@ void main() {
       expect(_settlementStatusStrategy.mustCoverPaymentOnlySettlement, isTrue);
       expect(_settlementStatusStrategy.mustCoverStatusOnlyRevoke, isTrue);
       expect(
-        _settlementStatusStrategy.timingDeleteCascadeRestoreIsDeferred,
+        _settlementStatusStrategy.timingDeleteCascadeRestoreIsCovered,
         isTrue,
       );
       expect(
@@ -342,7 +347,7 @@ const _settlementStatusStrategy = _SettlementStatusStrategy(
   mergedProjectStatusIsCovered: true,
   mustCoverPaymentOnlySettlement: true,
   mustCoverStatusOnlyRevoke: true,
-  timingDeleteCascadeRestoreIsDeferred: true,
+  timingDeleteCascadeRestoreIsCovered: true,
   externalWorkSettlementResetIsDeferred: true,
   mustCoverTimingDeleteCascadeRestore: true,
   mustCoverExternalWorkSettlementReset: true,
@@ -354,9 +359,9 @@ const _registeredProjectSettlementStatusWriteFiles = <String, String>{
   'lib/data/repositories/project_repository.dart':
       'low-level projects status persistence',
 
-  // Main settlement cluster. Single-project and merged settlement status
-  // writes are sync-covered here; Timing/ExternalWork status reset paths remain
-  // explicit deferred coverage outside this repository.
+  // Main settlement cluster. Single-project and merged settlement status writes
+  // are sync-covered here; ExternalWork status reset remains deferred outside
+  // this repository.
   'lib/infrastructure/local/account/local_project_settlement_repository.dart':
       'single and merged project settlement status writes',
 
@@ -370,9 +375,9 @@ const _registeredProjectSettlementStatusWriteFiles = <String, String>{
       'timing edit status restore transaction entry',
 
   // Timing delete deletes write-offs and restores project status in the same
-  // transaction through ProjectSettlementImpactService.
+  // delete transaction, then enqueues ProjectWriteOff delete and Project update.
   'lib/infrastructure/local/timing/local_delete_timing_record_with_impact_use_case.dart':
-      'timing delete status restore transaction entry',
+      'timing delete cascade sync-covered transaction entry',
 
   // External work relink is a deferred sync coverage path. It resets settlement
   // status and write-offs today, so future Project.status sync must cover it.
@@ -551,7 +556,7 @@ class _SettlementStatusStrategy {
     required this.mergedProjectStatusIsCovered,
     required this.mustCoverPaymentOnlySettlement,
     required this.mustCoverStatusOnlyRevoke,
-    required this.timingDeleteCascadeRestoreIsDeferred,
+    required this.timingDeleteCascadeRestoreIsCovered,
     required this.externalWorkSettlementResetIsDeferred,
     required this.mustCoverTimingDeleteCascadeRestore,
     required this.mustCoverExternalWorkSettlementReset,
@@ -566,7 +571,7 @@ class _SettlementStatusStrategy {
   final bool mergedProjectStatusIsCovered;
   final bool mustCoverPaymentOnlySettlement;
   final bool mustCoverStatusOnlyRevoke;
-  final bool timingDeleteCascadeRestoreIsDeferred;
+  final bool timingDeleteCascadeRestoreIsCovered;
   final bool externalWorkSettlementResetIsDeferred;
   final bool mustCoverTimingDeleteCascadeRestore;
   final bool mustCoverExternalWorkSettlementReset;
