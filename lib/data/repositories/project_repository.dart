@@ -48,7 +48,16 @@ class SqfliteProjectRepository implements ProjectRepository {
     final normalized = id.trim();
     if (normalized.isEmpty) return null;
     final db = await AppDatabase.database;
-    final rows = await db.query(
+    return findByIdWithExecutor(db, normalized);
+  }
+
+  Future<Project?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return null;
+    final rows = await executor.query(
       table,
       where: 'id = ?',
       whereArgs: [normalized],
@@ -103,6 +112,20 @@ class SqfliteProjectRepository implements ProjectRepository {
     Project project,
   ) async {
     await executor.insert(table, project.toMap());
+  }
+
+  Future<int> updateWithExecutor(
+    DatabaseExecutor executor,
+    Project project,
+  ) async {
+    final normalized = project.id.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.update(
+      table,
+      project.toMap(),
+      where: 'id = ?',
+      whereArgs: [normalized],
+    );
   }
 
   @override
