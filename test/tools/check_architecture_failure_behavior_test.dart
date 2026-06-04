@@ -89,7 +89,8 @@ void main() {
   // ==========================================================================
 
   _archProbeTest(
-    name: 'patterns_timing_no_data_services: '
+    name:
+        'patterns_timing_no_data_services: '
         'data/services import in lib/patterns/timing fails',
     relativeProbePath:
         'lib/patterns/timing/__arch_probe_data_services_import.dart',
@@ -101,7 +102,8 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_timing_no_timing_service: '
+    name:
+        'patterns_timing_no_timing_service: '
         'direct TimingService call in lib/patterns/timing fails',
     relativeProbePath:
         'lib/patterns/timing/__arch_probe_timing_service_call.dart',
@@ -113,7 +115,8 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_timing_no_device_label: '
+    name:
+        'patterns_timing_no_device_label: '
         'direct DeviceLabel call in lib/patterns/timing fails',
     relativeProbePath:
         'lib/patterns/timing/__arch_probe_device_label_call.dart',
@@ -123,10 +126,10 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_timing_no_provider_context: '
+    name:
+        'patterns_timing_no_provider_context: '
         'Provider.of usage in lib/patterns/timing fails',
-    relativeProbePath:
-        'lib/patterns/timing/__arch_probe_provider_of.dart',
+    relativeProbePath: 'lib/patterns/timing/__arch_probe_provider_of.dart',
     probeContent:
         "// Probe: patterns_timing_no_provider_context\n"
         "import 'package:flutter/widgets.dart';\n"
@@ -136,7 +139,8 @@ void main() {
   // 阶段 C Step 4：service 边界规则扩大到 lib/patterns/device，下面两个探针
   // 验证 device pattern 同样会被守住。
   _archProbeTest(
-    name: 'patterns_ui_no_data_services: '
+    name:
+        'patterns_ui_no_data_services: '
         'data/services import in lib/patterns/device fails',
     relativeProbePath:
         'lib/patterns/device/__arch_probe_data_services_import.dart',
@@ -147,7 +151,8 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_ui_no_device_label: '
+    name:
+        'patterns_ui_no_device_label: '
         'direct DeviceLabel call in lib/patterns/device fails',
     relativeProbePath:
         'lib/patterns/device/__arch_probe_device_label_call.dart',
@@ -157,7 +162,8 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_no_infrastructure_imports: '
+    name:
+        'patterns_no_infrastructure_imports: '
         'infrastructure import anywhere under lib/patterns fails',
     relativeProbePath:
         'lib/patterns/account/__arch_probe_infrastructure_import.dart',
@@ -169,7 +175,8 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_no_repository_imports: '
+    name:
+        'patterns_no_repository_imports: '
         'repository import anywhere under lib/patterns fails',
     relativeProbePath:
         'lib/patterns/account/__arch_probe_repository_import.dart',
@@ -181,10 +188,10 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_no_db_imports: '
+    name:
+        'patterns_no_db_imports: '
         'db import anywhere under lib/patterns fails',
-    relativeProbePath:
-        'lib/patterns/account/__arch_probe_db_import.dart',
+    relativeProbePath: 'lib/patterns/account/__arch_probe_db_import.dart',
     probeContent:
         "// Probe: patterns_no_db_imports\n"
         "import 'package:asset_ledger/data/db/database.dart';\n"
@@ -192,10 +199,10 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'patterns_no_use_case_imports: '
+    name:
+        'patterns_no_use_case_imports: '
         'use_cases import anywhere under lib/patterns fails',
-    relativeProbePath:
-        'lib/patterns/account/__arch_probe_use_case_import.dart',
+    relativeProbePath: 'lib/patterns/account/__arch_probe_use_case_import.dart',
     probeContent:
         "// Probe: patterns_no_use_case_imports\n"
         "import 'package:asset_ledger/features/timing/use_cases/"
@@ -206,7 +213,8 @@ void main() {
   // R5.24: composition_no_default_const_sync_enqueuer — a bare/no-arg
   // *SyncEnqueuer() construction in the composition root must fail the script.
   _archProbeTest(
-    name: 'composition_no_default_const_sync_enqueuer: '
+    name:
+        'composition_no_default_const_sync_enqueuer: '
         'const no-arg SyncEnqueuer construction in lib/app fails',
     relativeProbePath:
         'lib/app/providers/__arch_probe_default_const_enqueuer.dart',
@@ -216,49 +224,116 @@ void main() {
   );
 
   _archProbeTest(
-    name: 'composition_no_default_const_sync_enqueuer: '
+    name:
+        'composition_no_default_const_sync_enqueuer: '
         'bare no-arg SyncEnqueuer construction in lib/app fails',
-    relativeProbePath:
-        'lib/app/providers/__arch_probe_bare_enqueuer.dart',
+    relativeProbePath: 'lib/app/providers/__arch_probe_bare_enqueuer.dart',
     probeContent:
         "// Probe: composition_no_default_const_sync_enqueuer (bare)\n"
         "Object archProbe() => ExternalWorkSyncEnqueuer();\n",
   );
 
+  _archProbeTest(
+    name:
+        'no_default_sync_enqueuer_construction: '
+        'method body no-arg SyncEnqueuer construction in lib/data fails',
+    relativeProbePath:
+        'lib/data/repositories/__arch_probe_sync_enqueuer_method_body.dart',
+    probeContent:
+        "// Probe: no_default_sync_enqueuer_construction method body\n"
+        "Object archProbe() {\n"
+        "  return const AccountPaymentSyncEnqueuer();\n"
+        "}\n",
+  );
+
+  _archProbeTest(
+    name:
+        'no_default_sync_enqueuer_construction: '
+        'getter and provider body no-arg SyncEnqueuer construction fails',
+    relativeProbePath:
+        'lib/infrastructure/local/account/'
+        '__arch_probe_sync_enqueuer_getter_provider.dart',
+    probeContent:
+        "// Probe: no_default_sync_enqueuer_construction getter/provider body\n"
+        "Object get archProbeGetter => ProjectWriteOffSyncEnqueuer();\n"
+        "Object archProbeProvider() => const ProjectSyncEnqueuer();\n",
+  );
+
   // Non-regression: enqueuer construction WITH explicit dependencies, a doc
   // comment mentioning an enqueuer, and a plain type annotation must NOT be
   // flagged in the composition root.
+  test('arch script does not flag explicit-dependency enqueuer construction or '
+      'type references in lib/app', () async {
+    final probePath = p.join(
+      _repoRoot,
+      'lib/app/providers/__arch_probe_enqueuer_false_positive.dart',
+    );
+    final probe = File(probePath);
+    try {
+      await probe.writeAsString(
+        "// Probe: composition enqueuer false-positive guard.\n"
+        "// const AccountPaymentSyncEnqueuer() mentioned in a comment only.\n"
+        "/// Doc reference to ProjectSyncEnqueuer should not match.\n"
+        "class _Holder {\n"
+        "  // Explicit-dependency construction is the sanctioned form and\n"
+        "  // must not be flagged (non-empty parens).\n"
+        "  final Object e = AccountPaymentSyncEnqueuer(\n"
+        "    syncOutboxRepository: _fakeRepo,\n"
+        "  );\n"
+        "  final Object? typeOnly = null; // ExternalWorkSyncEnqueuer ref in comment\n"
+        "}\n"
+        "Object? _fakeRepo;\n",
+      );
+      final result = await _runArchScript();
+      expect(
+        result.exitCode,
+        0,
+        reason:
+            'explicit-dependency enqueuer construction and comment/type '
+            'references must not trip the rule. '
+            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+      );
+    } finally {
+      if (await probe.exists()) {
+        await probe.delete();
+      }
+    }
+    final after = await _runArchScript();
+    expect(
+      after.exitCode,
+      0,
+      reason:
+          'baseline must pass after removing the false-positive probe. '
+          'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+    );
+  }, tags: ['arch-script']);
+
   test(
-    'arch script does not flag explicit-dependency enqueuer construction or '
-    'type references in lib/app',
+    'arch script does not flag SyncEnqueuer constructor default parameters',
     () async {
       final probePath = p.join(
         _repoRoot,
-        'lib/app/providers/__arch_probe_enqueuer_false_positive.dart',
+        'lib/data/repositories/__arch_probe_sync_enqueuer_default_param.dart',
       );
       final probe = File(probePath);
       try {
         await probe.writeAsString(
-          "// Probe: composition enqueuer false-positive guard.\n"
-          "// const AccountPaymentSyncEnqueuer() mentioned in a comment only.\n"
-          "/// Doc reference to ProjectSyncEnqueuer should not match.\n"
-          "class _Holder {\n"
-          "  // Explicit-dependency construction is the sanctioned form and\n"
-          "  // must not be flagged (non-empty parens).\n"
-          "  final Object e = AccountPaymentSyncEnqueuer(\n"
-          "    syncOutboxRepository: _fakeRepo,\n"
-          "  );\n"
-          "  final Object? typeOnly = null; // ExternalWorkSyncEnqueuer ref in comment\n"
-          "}\n"
-          "Object? _fakeRepo;\n",
+          "// Probe: default parameter SyncEnqueuer seams stay legal.\n"
+          "class _ArchProbeRepository {\n"
+          "  const _ArchProbeRepository({\n"
+          "    AccountPaymentSyncEnqueuer syncEnqueuer =\n"
+          "        const AccountPaymentSyncEnqueuer(),\n"
+          "    this.projectSyncEnqueuer = const ProjectSyncEnqueuer(),\n"
+          "  });\n"
+          "  final ProjectSyncEnqueuer projectSyncEnqueuer;\n"
+          "}\n",
         );
         final result = await _runArchScript();
         expect(
           result.exitCode,
           0,
           reason:
-              'explicit-dependency enqueuer construction and comment/type '
-              'references must not trip the rule. '
+              'constructor default-parameter enqueuer seams must stay legal. '
               'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
         );
       } finally {
@@ -270,12 +345,56 @@ void main() {
       expect(
         after.exitCode,
         0,
-        reason: 'baseline must pass after removing the false-positive probe. '
+        reason:
+            'baseline must pass after removing the default-parameter probe. '
             'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
       );
     },
     tags: ['arch-script'],
   );
+
+  test('arch script does not flag SyncEnqueuer comments, type annotations, or '
+      'class declarations', () async {
+    final probePath = p.join(
+      _repoRoot,
+      'lib/infrastructure/local/account/'
+      '__arch_probe_sync_enqueuer_non_creation_refs.dart',
+    );
+    final probe = File(probePath);
+    try {
+      await probe.writeAsString(
+        "// Probe: comments/type/class refs are not constructions.\n"
+        "// const AccountPaymentSyncEnqueuer() appears in a comment only.\n"
+        "/// ProjectWriteOffSyncEnqueuer() is doc-only.\n"
+        "class TimingRecordSyncEnqueuer {}\n"
+        "class _ArchProbeTypeHolder {\n"
+        "  const _ArchProbeTypeHolder(this.enqueuer);\n"
+        "  final AccountPaymentSyncEnqueuer? enqueuer;\n"
+        "}\n",
+      );
+      final result = await _runArchScript();
+      expect(
+        result.exitCode,
+        0,
+        reason:
+            'comments, class declarations, and type annotations must not '
+            'trip the SyncEnqueuer construction rule. '
+            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+      );
+    } finally {
+      if (await probe.exists()) {
+        await probe.delete();
+      }
+    }
+    final after = await _runArchScript();
+    expect(
+      after.exitCode,
+      0,
+      reason:
+          'baseline must pass after removing the non-creation refs probe. '
+          'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+    );
+  }, tags: ['arch-script']);
 
   // 非误伤回归：往 patterns/timing 写一个"看似可疑但实际合法"的 Dart 片段，
   // 验证既不触发任何新规则也不影响既有 baseline。
@@ -285,54 +404,52 @@ void main() {
   //   - 名为 myTimingService 的局部变量（不应被当成 TimingService 误判）
   //   - 注释里提及 TimingService（已有先例：timing_detail_content_pattern.dart 顶部 doc）
   //   - SingleTickerProviderStateMixin / ChangeNotifierProvider 命名
-  test(
-    'arch script does not regress on legitimate patterns code shapes '
-    '(data/models import, lookalike local var names, comments)',
-    () async {
-      final probePath = p.join(
-        _repoRoot,
-        'lib/patterns/timing/__arch_probe_false_positive_guard.dart',
+  test('arch script does not regress on legitimate patterns code shapes '
+      '(data/models import, lookalike local var names, comments)', () async {
+    final probePath = p.join(
+      _repoRoot,
+      'lib/patterns/timing/__arch_probe_false_positive_guard.dart',
+    );
+    final probe = File(probePath);
+    try {
+      await probe.writeAsString(
+        "// Probe: false-positive guard for C3 rules.\n"
+        "// Mentions TimingService.currentMeter in a doc comment only.\n"
+        "/// TimingService.currentMeter — doc-only reference.\n"
+        "import 'package:asset_ledger/data/models/device.dart';\n"
+        "String archProbeFalsePositiveGuard(Device d) {\n"
+        "  final selectedDeviceLabel = d.name;\n"
+        "  final myTimingService = d.name;\n"
+        "  // ChangeNotifierProvider / SingleTickerProviderStateMixin are\n"
+        "  // first-class Flutter symbols and must not match the\n"
+        "  // patterns_timing_no_provider_context rule.\n"
+        "  const _ = 'ChangeNotifierProvider<int> SingleTickerProviderStateMixin';\n"
+        "  return selectedDeviceLabel + myTimingService;\n"
+        "}\n",
       );
-      final probe = File(probePath);
-      try {
-        await probe.writeAsString(
-          "// Probe: false-positive guard for C3 rules.\n"
-          "// Mentions TimingService.currentMeter in a doc comment only.\n"
-          "/// TimingService.currentMeter — doc-only reference.\n"
-          "import 'package:asset_ledger/data/models/device.dart';\n"
-          "String archProbeFalsePositiveGuard(Device d) {\n"
-          "  final selectedDeviceLabel = d.name;\n"
-          "  final myTimingService = d.name;\n"
-          "  // ChangeNotifierProvider / SingleTickerProviderStateMixin are\n"
-          "  // first-class Flutter symbols and must not match the\n"
-          "  // patterns_timing_no_provider_context rule.\n"
-          "  const _ = 'ChangeNotifierProvider<int> SingleTickerProviderStateMixin';\n"
-          "  return selectedDeviceLabel + myTimingService;\n"
-          "}\n",
-        );
-        final result = await _runArchScript();
-        expect(
-          result.exitCode,
-          0,
-          reason: 'legitimate patterns code must not trigger any new rule. '
-              'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
-        );
-      } finally {
-        if (await probe.exists()) {
-          await probe.delete();
-        }
-      }
-      // baseline still passes after cleanup.
-      final after = await _runArchScript();
+      final result = await _runArchScript();
       expect(
-        after.exitCode,
+        result.exitCode,
         0,
-        reason: 'baseline must pass after removing the false-positive probe. '
-            'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+        reason:
+            'legitimate patterns code must not trigger any new rule. '
+            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
       );
-    },
-    tags: ['arch-script'],
-  );
+    } finally {
+      if (await probe.exists()) {
+        await probe.delete();
+      }
+    }
+    // baseline still passes after cleanup.
+    final after = await _runArchScript();
+    expect(
+      after.exitCode,
+      0,
+      reason:
+          'baseline must pass after removing the false-positive probe. '
+          'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+    );
+  }, tags: ['arch-script']);
 }
 
 /// 通用探针测试封装：写一个临时 .dart 文件触发某条规则，验证脚本失败 +
@@ -342,42 +459,41 @@ void _archProbeTest({
   required String relativeProbePath,
   required String probeContent,
 }) {
-  test(
-    name,
-    () async {
-      final probePath = p.join(_repoRoot, relativeProbePath);
-      final probe = File(probePath);
-      final probeFilename = p.basename(relativeProbePath);
-      try {
-        await probe.writeAsString(probeContent);
-        final result = await _runArchScript();
-        expect(
-          result.exitCode,
-          isNot(0),
-          reason: 'rule should make arch script fail. '
-              'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
-        );
-        expect(
-          result.stdout + result.stderr,
-          contains(probeFilename),
-          reason: 'failure output must point at the offending file ($probeFilename). '
-              'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
-        );
-      } finally {
-        if (await probe.exists()) {
-          await probe.delete();
-        }
-      }
-      final after = await _runArchScript();
+  test(name, () async {
+    final probePath = p.join(_repoRoot, relativeProbePath);
+    final probe = File(probePath);
+    final probeFilename = p.basename(relativeProbePath);
+    try {
+      await probe.writeAsString(probeContent);
+      final result = await _runArchScript();
       expect(
-        after.exitCode,
-        0,
-        reason: 'after removing probe, arch script must pass again. '
-            'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+        result.exitCode,
+        isNot(0),
+        reason:
+            'rule should make arch script fail. '
+            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
       );
-    },
-    tags: ['arch-script'],
-  );
+      expect(
+        result.stdout + result.stderr,
+        contains(probeFilename),
+        reason:
+            'failure output must point at the offending file ($probeFilename). '
+            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+      );
+    } finally {
+      if (await probe.exists()) {
+        await probe.delete();
+      }
+    }
+    final after = await _runArchScript();
+    expect(
+      after.exitCode,
+      0,
+      reason:
+          'after removing probe, arch script must pass again. '
+          'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+    );
+  }, tags: ['arch-script']);
 }
 
 String get _repoRoot {
