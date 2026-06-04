@@ -27,9 +27,71 @@ void main() {
       expect(updated.id, 1);
       expect(updated.deviceId, 2);
       expect(updated.startDate, 20260301);
+      expect(updated.allocationCutoffDate, isNull);
       expect(updated.type, TimingType.rent);
       expect(updated.income, 900);
       expect(updated.excludeFromFuelEfficiency, isTrue);
+    });
+
+    test('copyWith preserves allocationCutoffDate when omitted', () {
+      const record = TimingRecord(
+        id: 1,
+        deviceId: 2,
+        startDate: 20260601,
+        allocationCutoffDate: 20260610,
+        contact: 'Alice',
+        site: 'Yard A',
+        type: TimingType.hours,
+        startMeter: 100,
+        endMeter: 105,
+        hours: 5,
+        income: 500,
+      );
+
+      final updated = record.copyWith(income: 600);
+
+      expect(updated.allocationCutoffDate, 20260610);
+      expect(updated.income, 600);
+    });
+
+    test('copyWith updates allocationCutoffDate when provided', () {
+      const record = TimingRecord(
+        id: 1,
+        deviceId: 2,
+        startDate: 20260601,
+        contact: 'Alice',
+        site: 'Yard A',
+        type: TimingType.hours,
+        startMeter: 100,
+        endMeter: 105,
+        hours: 5,
+        income: 500,
+      );
+
+      final updated = record.copyWith(allocationCutoffDate: 20260610);
+
+      expect(updated.allocationCutoffDate, 20260610);
+    });
+
+    test('copyWith clears allocationCutoffDate when requested', () {
+      const record = TimingRecord(
+        id: 1,
+        deviceId: 2,
+        startDate: 20260601,
+        allocationCutoffDate: 20260610,
+        contact: 'Alice',
+        site: 'Yard A',
+        type: TimingType.hours,
+        startMeter: 100,
+        endMeter: 105,
+        hours: 5,
+        income: 500,
+      );
+
+      final updated = record.copyWith(allocationCutoffDate: null);
+
+      expect(updated.allocationCutoffDate, isNull);
+      expect(updated.income, 500);
     });
 
     test('toMap and fromMap encode enum names and bool flags for storage', () {
@@ -47,6 +109,7 @@ void main() {
         excludeFromFuelEfficiency: true,
       );
 
+      expect(record.toMap().containsKey('allocation_cutoff_date'), isFalse);
       expect(record.toMap(), {
         'id': 2,
         'project_id': ProjectId.legacyFromParts(contact: 'Bob', site: 'Yard B'),
@@ -78,6 +141,7 @@ void main() {
 
       expect(rebuilt.id, 4);
       expect(rebuilt.deviceId, 7);
+      expect(rebuilt.allocationCutoffDate, isNull);
       expect(rebuilt.contact, '');
       expect(rebuilt.site, '');
       expect(
@@ -92,6 +156,59 @@ void main() {
       expect(rebuilt.excludeFromFuelEfficiency, isFalse);
       expect(rebuilt.toString(), contains('excludeFuel:false'));
     });
+
+    test('toMap writes non-null allocation cutoff and fromMap restores it', () {
+      const record = TimingRecord(
+        id: 9,
+        deviceId: 3,
+        startDate: 20260601,
+        allocationCutoffDate: 20260610,
+        contact: 'Bob',
+        site: 'Yard B',
+        type: TimingType.hours,
+        startMeter: 10,
+        endMeter: 15,
+        hours: 5,
+        income: 500,
+      );
+
+      final map = record.toMap();
+
+      expect(map['allocation_cutoff_date'], 20260610);
+      expect(TimingRecord.fromMap(map).allocationCutoffDate, 20260610);
+    });
+
+    test(
+      'toMap can explicitly include null allocation cutoff for sync payload',
+      () {
+        const record = TimingRecord(
+          id: 9,
+          deviceId: 3,
+          startDate: 20260601,
+          contact: 'Bob',
+          site: 'Yard B',
+          type: TimingType.hours,
+          startMeter: 10,
+          endMeter: 15,
+          hours: 5,
+          income: 500,
+        );
+
+        expect(record.toMap().containsKey('allocation_cutoff_date'), isFalse);
+        expect(
+          record
+              .toMap(includeNullAllocationCutoffDate: true)
+              .containsKey('allocation_cutoff_date'),
+          isTrue,
+        );
+        expect(
+          record.toMap(
+            includeNullAllocationCutoffDate: true,
+          )['allocation_cutoff_date'],
+          isNull,
+        );
+      },
+    );
 
     test('fromMap falls back to hours for unknown timing type', () {
       final rebuilt = TimingRecord.fromMap({

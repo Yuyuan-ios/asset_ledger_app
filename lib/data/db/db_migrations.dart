@@ -17,6 +17,7 @@ part 'migrations/migration_021.dart';
 part 'migrations/migration_022.dart';
 part 'migrations/migration_023.dart';
 part 'migrations/migration_024.dart';
+part 'migrations/migration_025.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -63,6 +64,10 @@ class DbMigrations {
 
   static Future<void> ensureOperationAuditLogSchema(Database db) {
     return Migration024.ensureOperationAuditLogTokenId(db);
+  }
+
+  static Future<void> ensureTimingAllocationCutoffDate(Database db) {
+    return Migration025.ensureTimingAllocationCutoffDate(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

@@ -53,6 +53,7 @@ class TimingMonthlyIncomeService {
     // 统计截止日：不晚于目标月份月末，同时不晚于业务日(asOfDate/今天)。
     final asOf = _dateOnly(asOfDate ?? DateTime.now());
     final cutoffDate = asOf.isBefore(targetMonthEnd) ? asOf : targetMonthEnd;
+    final statisticsExclusiveCutoff = cutoffDate.add(const Duration(days: 1));
     final monthly = List<double>.filled(12, 0.0);
     final projectMonthlyIncome = <String, Map<int, double>>{};
     final rateCache = <String, Map<int, double>>{};
@@ -112,21 +113,22 @@ class TimingMonthlyIncomeService {
           continue;
         }
 
-        DateTime end;
-        if (i + 1 < safeRecords.length) {
-          final nextStart = FormatUtils.dateFromYmd(
-            safeRecords[i + 1].startDate,
-          );
-          end = _isSameDay(start, nextStart)
-              ? start
-              : nextStart.subtract(const Duration(days: 1));
-        } else {
-          end = cutoffDate;
-        }
-
-        if (end.isAfter(cutoffDate)) {
-          end = cutoffDate;
-        }
+        final nextStart = i + 1 < safeRecords.length
+            ? FormatUtils.dateFromYmd(safeRecords[i + 1].startDate)
+            : null;
+        final implicitExclusiveCutoff = _resolveImplicitExclusiveCutoff(
+          start: start,
+          nextStart: nextStart,
+          statisticsExclusiveCutoff: statisticsExclusiveCutoff,
+        );
+        final effectiveExclusiveCutoff = _resolveEffectiveExclusiveCutoff(
+          start: start,
+          nextStart: nextStart,
+          implicitExclusiveCutoff: implicitExclusiveCutoff,
+          statisticsExclusiveCutoff: statisticsExclusiveCutoff,
+          allocationCutoffDate: current.allocationCutoffDate,
+        );
+        final end = effectiveExclusiveCutoff.subtract(const Duration(days: 1));
 
         if (end.isBefore(start)) {
           continue;
@@ -188,6 +190,72 @@ class TimingMonthlyIncomeService {
   /// 因此这里不再做粗粒度去重。
   static List<TimingRecord> _keepLastRecordPerDay(List<TimingRecord> sorted) {
     return sorted;
+  }
+
+  static DateTime _resolveImplicitExclusiveCutoff({
+    required DateTime start,
+    required DateTime? nextStart,
+    required DateTime statisticsExclusiveCutoff,
+  }) {
+    if (nextStart == null) {
+      return statisticsExclusiveCutoff;
+    }
+    if (_isSameDay(start, nextStart)) {
+      return start.add(const Duration(days: 1));
+    }
+    return nextStart;
+  }
+
+  static DateTime _resolveEffectiveExclusiveCutoff({
+    required DateTime start,
+    required DateTime? nextStart,
+    required DateTime implicitExclusiveCutoff,
+    required DateTime statisticsExclusiveCutoff,
+    required int? allocationCutoffDate,
+  }) {
+    final explicitCutoff = _validExplicitCutoffForCalculation(
+      start: start,
+      nextStart: nextStart,
+      allocationCutoffDate: allocationCutoffDate,
+    );
+    return _minDate(
+      _minDate(
+        explicitCutoff ?? implicitExclusiveCutoff,
+        implicitExclusiveCutoff,
+      ),
+      statisticsExclusiveCutoff,
+    );
+  }
+
+  static DateTime? _validExplicitCutoffForCalculation({
+    required DateTime start,
+    required DateTime? nextStart,
+    required int? allocationCutoffDate,
+  }) {
+    if (allocationCutoffDate == null) {
+      return null;
+    }
+    if (nextStart != null && _isSameDay(start, nextStart)) {
+      return null;
+    }
+
+    final explicitCutoff = _tryDateFromYmd(allocationCutoffDate);
+    if (explicitCutoff == null || !explicitCutoff.isAfter(start)) {
+      return null;
+    }
+    return explicitCutoff;
+  }
+
+  static DateTime? _tryDateFromYmd(int ymd) {
+    try {
+      return FormatUtils.dateFromYmd(ymd);
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  static DateTime _minDate(DateTime a, DateTime b) {
+    return a.isBefore(b) ? a : b;
   }
 
   static void _distributeToMonths({

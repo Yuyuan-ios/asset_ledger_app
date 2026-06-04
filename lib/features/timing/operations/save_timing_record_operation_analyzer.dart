@@ -16,6 +16,7 @@ import '../../../data/repositories/timing_repository.dart';
 import '../../../data/services/account_service.dart';
 import '../../account/domain/services/project_finance_calculator.dart';
 import '../../../infrastructure/local/account/project_settlement_impact_service.dart';
+import '../use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import 'save_timing_record_operation_command.dart';
 
 class SaveTimingRecordOperationAnalyzeInput {
@@ -55,12 +56,16 @@ class SaveTimingRecordOperationAnalyzeResult {
 }
 
 class SaveTimingRecordAnalyzeException implements Exception {
-  const SaveTimingRecordAnalyzeException(this.message);
+  const SaveTimingRecordAnalyzeException(this.message, {this.code});
 
   final String message;
+  final String? code;
 
   @override
-  String toString() => 'SaveTimingRecordAnalyzeException: $message';
+  String toString() {
+    final suffix = code == null ? '' : ' ($code)';
+    return 'SaveTimingRecordAnalyzeException: $message$suffix';
+  }
 }
 
 /// 预览过期原因。语义对应 D13 审计列出的关键状态漂移点。
@@ -173,6 +178,11 @@ class SaveTimingRecordOperationAnalyzer {
     final draft = input.draftRecord;
 
     final oldRecord = await _readOldRecord(executor, input.editingRecordId);
+    await _validateAllocationCutoff(
+      executor,
+      draft: draft,
+      editingRecordId: input.editingRecordId,
+    );
     final oldProjectId = _trimToNull(oldRecord?.effectiveProjectId);
     final target = await _resolveTargetProject(
       executor,
@@ -473,6 +483,25 @@ class SaveTimingRecordOperationAnalyzer {
       throw SaveTimingRecordAnalyzeException('这条计时记录已不存在，请刷新后再试');
     }
     return record;
+  }
+
+  Future<void> _validateAllocationCutoff(
+    DatabaseExecutor executor, {
+    required TimingRecord draft,
+    required int? editingRecordId,
+  }) async {
+    if (draft.allocationCutoffDate == null) return;
+    final sameDeviceRecords = await _timingRepository
+        .listByDeviceIdWithExecutor(executor, draft.deviceId);
+    try {
+      SaveTimingRecordAllocationCutoffValidator.validate(
+        record: draft,
+        sameDeviceRecords: sameDeviceRecords,
+        editingRecordId: editingRecordId ?? draft.id,
+      );
+    } on SaveTimingRecordAllocationCutoffValidationException catch (error) {
+      throw SaveTimingRecordAnalyzeException(error.message, code: error.code);
+    }
   }
 
   Future<_TargetProjectResolution> _resolveTargetProject(

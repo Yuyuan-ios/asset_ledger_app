@@ -13,6 +13,7 @@ import '../../../data/repositories/timing_repository.dart';
 import '../../../data/services/account_service.dart';
 import '../../../data/services/project_resolver.dart';
 import '../../../features/account/domain/services/project_finance_calculator.dart';
+import '../../../features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_repositories.dart';
@@ -121,6 +122,16 @@ class LocalSaveTimingRecordWithImpactUseCase
     required SaveTimingRecordPreparation preparation,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
+    final editingRecordId = editing?.id;
+    if (editing != null && editingRecordId == null) {
+      throw const TimingRecordSaveStaleException('编辑模式下计时记录必须带 id');
+    }
+    await _validateAllocationCutoffWithExecutor(
+      txn,
+      record: preparation.recordToSave,
+      editingRecordId: editingRecordId ?? preparation.recordToSave.id,
+    );
+
     final recordToSave = await _resolveProjectIdForSaveWithExecutor(
       txn,
       editing: editing,
@@ -135,18 +146,16 @@ class LocalSaveTimingRecordWithImpactUseCase
     // UI 传入的 editing 可能已 stale（其它入口删除 / 恢复 / 修改）；
     // 必须以 DB 为准。
     String oldProjectId = '';
+    TimingRecord? existingRecord;
     if (editing != null) {
-      final editingId = editing.id;
-      if (editingId == null) {
-        throw const TimingRecordSaveStaleException('编辑模式下计时记录必须带 id');
-      }
       final fresh = await _timingRepository.findByIdWithExecutor(
         txn,
-        editingId,
+        editingRecordId!,
       );
       if (fresh == null) {
         throw const TimingRecordSaveStaleException('这条计时记录已不存在，请刷新后再试');
       }
+      existingRecord = fresh;
       oldProjectId = fresh.effectiveProjectId.trim();
     }
 
@@ -237,6 +246,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     await _enqueueSyncForSavedRecord(
       txn,
       savedRecord: savedRecord,
+      existingRecord: existingRecord,
       isEditing: editing != null,
     );
 
@@ -257,6 +267,7 @@ class LocalSaveTimingRecordWithImpactUseCase
   Future<void> _enqueueSyncForSavedRecord(
     DatabaseExecutor txn, {
     required TimingRecord savedRecord,
+    required TimingRecord? existingRecord,
     required bool isEditing,
   }) async {
     final id = savedRecord.id;
@@ -265,6 +276,10 @@ class LocalSaveTimingRecordWithImpactUseCase
     }
     final operation = isEditing ? 'update' : 'create';
     final entityId = id.toString();
+    final shouldIncludeNullAllocationCutoffDate =
+        isEditing &&
+        savedRecord.allocationCutoffDate == null &&
+        existingRecord?.allocationCutoffDate != null;
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,
@@ -274,7 +289,10 @@ class LocalSaveTimingRecordWithImpactUseCase
         'entity_type': _timingRecordEntityType,
         'entity_id': entityId,
         'operation': operation,
-        'record': savedRecord.toMap(),
+        'record': savedRecord.toMap(
+          includeNullAllocationCutoffDate:
+              shouldIncludeNullAllocationCutoffDate,
+        ),
       },
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
@@ -289,6 +307,21 @@ class LocalSaveTimingRecordWithImpactUseCase
         source: _ownerAppSource,
         payloadHash: entry.payloadHash,
       ),
+    );
+  }
+
+  Future<void> _validateAllocationCutoffWithExecutor(
+    DatabaseExecutor txn, {
+    required TimingRecord record,
+    required int? editingRecordId,
+  }) async {
+    if (record.allocationCutoffDate == null) return;
+    final sameDeviceRecords = await _timingRepository
+        .listByDeviceIdWithExecutor(txn, record.deviceId);
+    SaveTimingRecordAllocationCutoffValidator.validate(
+      record: record,
+      sameDeviceRecords: sameDeviceRecords,
+      editingRecordId: editingRecordId,
     );
   }
 
