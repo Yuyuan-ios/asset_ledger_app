@@ -26,9 +26,16 @@ class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
 
   @override
   Future<void> insert(ProjectWriteOff item) async {
-    _validate(item);
     final db = await AppDatabase.database;
-    await db.insert(
+    await insertWithExecutor(db, item);
+  }
+
+  Future<void> insertWithExecutor(
+    DatabaseExecutor executor,
+    ProjectWriteOff item,
+  ) async {
+    _validate(item);
+    await executor.insert(
       table,
       item.toMap(),
       conflictAlgorithm: ConflictAlgorithm.abort,
@@ -49,28 +56,60 @@ class SqfliteProjectWriteOffRepository implements ProjectWriteOffRepository {
 
   @override
   Future<int> deleteById(String id) async {
-    final normalizedId = id.trim();
-    if (normalizedId.isEmpty) {
-      throw ArgumentError.value(id, 'id', '核销记录 ID 不能为空');
-    }
     final db = await AppDatabase.database;
-    return db.delete(table, where: 'id = ?', whereArgs: [normalizedId]);
+    return deleteByIdWithExecutor(db, id);
   }
 
   @override
   Future<List<ProjectWriteOff>> listByProjectId(String projectId) async {
+    final db = await AppDatabase.database;
+    return listByProjectIdWithExecutor(db, projectId);
+  }
+
+  Future<ProjectWriteOff?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw ArgumentError.value(id, 'id', '核销记录 ID 不能为空');
+    }
+    final rows = await executor.query(
+      table,
+      where: 'id = ?',
+      whereArgs: [normalizedId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return ProjectWriteOff.fromMap(rows.single);
+  }
+
+  Future<List<ProjectWriteOff>> listByProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
     final normalizedProjectId = projectId.trim();
     if (normalizedProjectId.isEmpty) {
       throw ArgumentError.value(projectId, 'projectId', '项目 ID 不能为空');
     }
-    final db = await AppDatabase.database;
-    final rows = await db.query(
+    final rows = await executor.query(
       table,
       where: 'project_id = ?',
       whereArgs: [normalizedProjectId],
       orderBy: 'write_off_date DESC, created_at DESC, id DESC',
     );
     return rows.map(ProjectWriteOff.fromMap).toList(growable: false);
+  }
+
+  Future<int> deleteByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw ArgumentError.value(id, 'id', '核销记录 ID 不能为空');
+    }
+    return executor.delete(table, where: 'id = ?', whereArgs: [normalizedId]);
   }
 
   @override
