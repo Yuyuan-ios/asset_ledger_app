@@ -10,6 +10,7 @@ import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
+import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import 'package:asset_ledger/infrastructure/local/account/project_settlement_impact_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -349,6 +350,124 @@ void main() {
     );
   });
 
+  group('allocation cutoff validation preview', () {
+    test(
+      'rejects allocation cutoff after next same-device start date without writes',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(
+          db,
+          projectId: 'project:a',
+          contact: '甲方',
+          site: 'A',
+        );
+        await _seedProject(
+          db,
+          projectId: 'project:b',
+          contact: '甲方',
+          site: 'B',
+        );
+        final oldRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:a',
+          contact: '甲方',
+          site: 'A',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:b',
+          contact: '甲方',
+          site: 'B',
+          startDate: 20260610,
+          hours: 1,
+          income: 100,
+        );
+
+        final before = await _countRowsOfInterest(db);
+        await expectLater(
+          analyzer.analyze(
+            SaveTimingRecordOperationAnalyzeInput(
+              operationId: 'op-cutoff-after-next',
+              editingRecordId: oldRecord.id,
+              draftRecord: oldRecord.copyWith(allocationCutoffDate: 20260611),
+            ),
+          ),
+          throwsA(
+            isA<SaveTimingRecordAnalyzeException>()
+                .having(
+                  (error) => error.code,
+                  'code',
+                  SaveTimingRecordAllocationCutoffValidationException
+                      .cutoffAfterNextSameDeviceStartDate,
+                )
+                .having((error) => error.message, 'message', contains('不能晚于')),
+          ),
+        );
+        final after = await _countRowsOfInterest(db);
+
+        expect(after, before, reason: 'analyzer validation must be read-only');
+      },
+    );
+
+    test(
+      'allows allocation cutoff equal to next same-device start date',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(
+          db,
+          projectId: 'project:a',
+          contact: '甲方',
+          site: 'A',
+        );
+        await _seedProject(
+          db,
+          projectId: 'project:b',
+          contact: '甲方',
+          site: 'B',
+        );
+        final oldRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:a',
+          contact: '甲方',
+          site: 'A',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:b',
+          contact: '甲方',
+          site: 'B',
+          startDate: 20260610,
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await analyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-cutoff-equals-next',
+            editingRecordId: oldRecord.id,
+            draftRecord: oldRecord.copyWith(allocationCutoffDate: 20260610),
+          ),
+        );
+
+        expect(result.preview.operationId, 'op-cutoff-equals-next');
+        expect(result.preview.riskLevel, OperationRiskLevel.medium);
+        expect(await db.query('timing_records'), hasLength(2));
+      },
+    );
+  });
+
   group('validateFreshness', () {
     test('returns fresh when reanalysis matches previous result', () async {
       final db = await AppDatabase.database;
@@ -426,7 +545,12 @@ void main() {
       final db = await AppDatabase.database;
       final deviceId = await _seedDevice(db);
       await _seedProject(db, projectId: 'project:p1', contact: '甲方', site: 'A');
-      await _seedProject(db, projectId: 'project:p2', contact: '甲方', site: 'A2');
+      await _seedProject(
+        db,
+        projectId: 'project:p2',
+        contact: '甲方',
+        site: 'A2',
+      );
       final oldRecord = await _seedTimingRecord(
         db,
         deviceId: deviceId,
@@ -460,7 +584,10 @@ void main() {
       expect(verdict.isFresh, isFalse);
       expect(verdict.latest, isNotNull);
       final types = verdict.staleReasons.map((r) => r.type).toSet();
-      expect(types, contains(SaveTimingRecordStaleReasonType.oldProjectChanged));
+      expect(
+        types,
+        contains(SaveTimingRecordStaleReasonType.oldProjectChanged),
+      );
       final old = verdict.staleReasons.firstWhere(
         (r) => r.type == SaveTimingRecordStaleReasonType.oldProjectChanged,
       );
@@ -690,10 +817,12 @@ void main() {
         oldProjectId: actual.oldProjectId,
         existingNewProjectId: actual.existingNewProjectId,
         wouldCreateNewProject: actual.wouldCreateNewProject,
-        affectedProjectIds: actual.affectedProjectIds.reversed
-            .toList(growable: false),
-        mergeGroupIdsToDissolve: actual.mergeGroupIdsToDissolve.reversed
-            .toList(growable: false),
+        affectedProjectIds: actual.affectedProjectIds.reversed.toList(
+          growable: false,
+        ),
+        mergeGroupIdsToDissolve: actual.mergeGroupIdsToDissolve.reversed.toList(
+          growable: false,
+        ),
         requiresReanalysisBeforeExecute: actual.requiresReanalysisBeforeExecute,
         warnings: actual.warnings.reversed.toList(growable: false),
       );
@@ -761,10 +890,13 @@ TimingRecord _draftRecord({
   String projectId = '',
   double hours = 1,
   double income = 100,
+  int startDate = 20260520,
+  int? allocationCutoffDate,
 }) {
   return TimingRecord(
     deviceId: deviceId,
-    startDate: 20260520,
+    startDate: startDate,
+    allocationCutoffDate: allocationCutoffDate,
     projectId: projectId,
     contact: contact,
     site: site,
@@ -831,35 +963,13 @@ Future<TimingRecord> _seedTimingRecord(
   required String site,
   required double hours,
   required double income,
+  int startDate = 20260518,
+  int? allocationCutoffDate,
 }) async {
-  final id = await db.rawInsert(
-    '''
-    INSERT INTO timing_records (
-      project_id, device_id, start_date, contact, site, type,
-      start_meter, end_meter, hours, income, exclude_from_fuel_eff,
-      is_breaking
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''',
-    [
-      projectId,
-      deviceId,
-      20260518,
-      contact,
-      site,
-      TimingType.hours.name,
-      0.0,
-      hours,
-      hours,
-      income,
-      0,
-      0,
-    ],
-  );
-  return TimingRecord(
-    id: id,
+  final record = TimingRecord(
     deviceId: deviceId,
-    startDate: 20260518,
+    startDate: startDate,
+    allocationCutoffDate: allocationCutoffDate,
     projectId: projectId,
     contact: contact,
     site: site,
@@ -869,6 +979,8 @@ Future<TimingRecord> _seedTimingRecord(
     hours: hours,
     income: income,
   );
+  final id = await db.insert('timing_records', record.toMap());
+  return record.copyWith(id: id);
 }
 
 Future<int> _seedActiveMergeGroup(
