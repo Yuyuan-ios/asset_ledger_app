@@ -174,30 +174,91 @@ void main() {
     });
 
     test('unknown account payment production writes must be registered', () {
-      final actual = <String>{
+      final actual = <String, List<String>>{
         for (final file in _libDartFiles())
-          if (_hasAccountPaymentWriteMarker(_read(file))) file,
+          if (_accountPaymentWriteMarkers(_read(file)).isNotEmpty)
+            file: _accountPaymentWriteMarkers(_read(file)),
       };
       final expected = _registeredAccountPaymentWriteFiles.keys.toSet();
+      final actualPaths = actual.keys.toSet();
 
       expect(
-        actual.difference(expected),
+        actualPaths.difference(expected),
         isEmpty,
         reason:
             'Unregistered account_payments production write paths must be wired '
             'through AccountPaymentWriteUseCase or AccountPaymentSyncEnqueuer, '
-            'or added to this invariant allowlist with an explicit exemption.\n'
+            'or added to this invariant allowlist with an explicit exemption '
+            'for restore/migration paths.\n'
             '${_describeUnexpected(actual, expected)}',
       );
       expect(
-        expected.difference(actual),
+        expected.difference(actualPaths),
         isEmpty,
         reason:
             'A registered account_payments write/exemption path no longer '
             'contains write markers. Remove stale allowlist entries only after '
             'checking the coverage invariant is still represented.\n'
-            '${_describeMissing(actual, expected)}',
+            '${_describeMissing(actualPaths, expected)}',
       );
+    });
+
+    test('direct write detector catches common account_payments write shapes', () {
+      const writeExamples = {
+        'executor.insert literal':
+            "await executor.insert('account_payments', data);",
+        'db.update uppercase literal':
+            'await db.update("ACCOUNT_PAYMENTS", data);',
+        'database.delete quoted literal':
+            "await database.delete('\"account_payments\"', where: 'id = ?');",
+        'txn.insert repository table':
+            'await txn.insert(SqfliteAccountPaymentRepository.table, data);',
+        'table const write':
+            "const table = 'account_payments'; await client.insert(table, row);",
+        'raw insert lowercase':
+            "await db.rawInsert('insert into account_payments (id) values (?)');",
+        'raw update uppercase':
+            "await db.rawUpdate('UPDATE ACCOUNT_PAYMENTS SET amount = ?');",
+        'raw delete mixed case':
+            "await db.rawDelete('Delete From \"account_payments\" WHERE id = ?');",
+        'execute raw insert':
+            "await db.execute('INSERT INTO account_payments (id) VALUES (1)');",
+        'repository insert':
+            'final AccountPaymentRepository repository; '
+            'await repository.insert(payment);',
+        'repository executor delete':
+            'final SqfliteAccountPaymentRepository paymentRepository; '
+            'await paymentRepository.deleteByIdWithExecutor(txn, id);',
+        'repository batch replace':
+            'final AccountPaymentRepository _repository; '
+            'await _repository.replaceMergeBatchInTransaction('
+            'batchId: batchId, newRows: rows);',
+      };
+
+      for (final entry in writeExamples.entries) {
+        expect(
+          _accountPaymentWriteMarkers(entry.value),
+          isNotEmpty,
+          reason: 'Detector missed ${entry.key}: ${entry.value}',
+        );
+      }
+
+      const nonWrites = [
+        "await executor.insert('timing_records', data);",
+        "await db.rawInsert('INSERT INTO project_write_offs (id) VALUES (1)');",
+        'final TimingRecordRepository repository; '
+            'await repository.deleteByIdWithExecutor(txn, id);',
+        'final AccountPaymentRepository repository; '
+            'await repository.countByProjectId(projectId);',
+      ];
+
+      for (final source in nonWrites) {
+        expect(
+          _accountPaymentWriteMarkers(source),
+          isEmpty,
+          reason: 'Detector should ignore non account_payments writes: $source',
+        );
+      }
     });
 
     test(
@@ -264,11 +325,6 @@ const Map<String, String> _registeredAccountPaymentWriteFiles = {
   'lib/features/account/use_cases/delete_merged_payment_batch_use_case.dart':
       'legacy fallback guarded by production writeUseCase injection',
 
-  // Timing delete uses the account payment repository for impact analysis; the
-  // direct write marker in this file belongs to timing record deletion.
-  'lib/infrastructure/local/timing/local_delete_timing_record_with_impact_use_case.dart':
-      'account payment read dependency; timing delete write marker',
-
   // Schema/migration account_payments writes are historical data movement and
   // intentionally outside row-level sync coverage.
   'lib/data/db/migrations/migration_018.dart': 'migration exemption',
@@ -299,36 +355,83 @@ List<String> _libDartFiles() {
   return files;
 }
 
-bool _hasAccountPaymentWriteMarker(String source) {
-  final hasAccountPaymentMarker =
-      source.contains('account_payments') ||
-      source.contains('SqfliteAccountPaymentRepository') ||
-      source.contains('AccountPaymentRepository');
-  if (!hasAccountPaymentMarker) {
-    return false;
+List<String> _accountPaymentWriteMarkers(String source) {
+  final normalizedSource = _normalizeWriteSource(source);
+  final markers = <String>{};
+  for (final pattern in _directAccountPaymentsTableWritePatterns.entries) {
+    if (pattern.value.hasMatch(normalizedSource)) {
+      markers.add(pattern.key);
+    }
+  }
+  if (_mentionsAccountPaymentsTableLiteral(normalizedSource) &&
+      _tableVariableCrudPattern.hasMatch(normalizedSource)) {
+    markers.add('sqflite account_payments table variable CRUD call');
   }
 
-  return const [
-    'insertWithExecutor(',
-    'insertAllWithExecutor(',
-    'updateWithExecutor(',
-    'deleteByIdWithExecutor(',
-    'deleteByMergeBatchIdWithExecutor(',
-    '.insert(payment)',
-    '.update(payment)',
-    '.deleteById(id)',
-    'insertAllInTransaction(',
-    'replaceMergeBatchInTransaction(',
-    'deleteByMergeBatchId(',
-    'txn.insert(',
-    'batch.insert(',
-    'db.insert(',
-    'db.update(',
-    'db.delete(',
-    'INSERT INTO account_payments',
-    'UPDATE account_payments',
-    'DELETE FROM account_payments',
-  ].any(source.contains);
+  for (final repositoryName in _accountPaymentRepositoryVariableNames(source)) {
+    final escapedName = RegExp.escape(repositoryName);
+    final repositoryWritePattern = RegExp(
+      '$escapedName\\s*\\.\\s*'
+      '(insertWithExecutor|insertAllWithExecutor|updateWithExecutor|'
+      'deleteByIdWithExecutor|deleteByMergeBatchIdWithExecutor|'
+      'insertAllInTransaction|replaceMergeBatchInTransaction|'
+      'deleteByMergeBatchId|insert|update|deleteById)\\s*\\(',
+    );
+    if (repositoryWritePattern.hasMatch(source)) {
+      markers.add('AccountPaymentRepository direct write call');
+    }
+  }
+
+  return markers.toList()..sort();
+}
+
+final Map<String, RegExp> _directAccountPaymentsTableWritePatterns = {
+  'sqflite table CRUD call': RegExp(
+    r'\.\s*(insert|update|delete)\s*\(\s*'
+    r'(account_payments|sqfliteaccountpaymentrepository\.table|'
+    r'accountpaymentstable|accountpaymenttable|paymenttable)\b',
+  ),
+  'raw SQL account_payments write': RegExp(
+    r'\b(rawinsert|rawupdate|rawdelete|execute)\s*\(\s*'
+    r'(?:r)?\s*(insert\s+into|update|delete\s+from)\s+'
+    r'account_payments(?:\b|_)',
+  ),
+};
+
+final RegExp _tableVariableCrudPattern = RegExp(
+  r'\.\s*(insert|update|delete)\s*\(\s*table\b',
+);
+
+bool _mentionsAccountPaymentsTableLiteral(String source) {
+  return source.contains('account_payments');
+}
+
+String _normalizeWriteSource(String source) {
+  return source
+      .toLowerCase()
+      .replaceAll('"', '')
+      .replaceAll("'", '')
+      .replaceAll('`', '');
+}
+
+Set<String> _accountPaymentRepositoryVariableNames(String source) {
+  final names = <String>{};
+  final typedRepositoryPattern = RegExp(
+    '\\b(?:AccountPaymentRepository|SqfliteAccountPaymentRepository)\\??\\s+'
+    '([A-Za-z_]\\w*)',
+  );
+  final constructedRepositoryPattern = RegExp(
+    '\\b(?:final\\s+|var\\s+)?([A-Za-z_]\\w*)\\s*=\\s*'
+    'SqfliteAccountPaymentRepository\\s*\\(',
+  );
+
+  for (final match in typedRepositoryPattern.allMatches(source)) {
+    names.add(match.group(1)!);
+  }
+  for (final match in constructedRepositoryPattern.allMatches(source)) {
+    names.add(match.group(1)!);
+  }
+  return names;
 }
 
 void _expectAllContains(String source, Iterable<String> snippets) {
@@ -358,12 +461,18 @@ void _expectInOrder(String source, List<String> snippets) {
 int _occurrences(String source, String needle) =>
     RegExp(RegExp.escape(needle)).allMatches(source).length;
 
-String _describeUnexpected(Set<String> actual, Set<String> expected) {
-  final unexpected = actual.difference(expected).toList()..sort();
+String _describeUnexpected(
+  Map<String, List<String>> actual,
+  Set<String> expected,
+) {
+  final unexpected = actual.keys.toSet().difference(expected).toList()..sort();
   if (unexpected.isEmpty) {
     return 'No unexpected account_payments write paths.';
   }
-  return 'Unexpected paths:\n${unexpected.join('\n')}';
+  return 'Unexpected paths:\n${unexpected.map((path) {
+    final markers = actual[path]!.join(', ');
+    return '$path: $markers';
+  }).join('\n')}';
 }
 
 String _describeMissing(Set<String> actual, Set<String> expected) {
