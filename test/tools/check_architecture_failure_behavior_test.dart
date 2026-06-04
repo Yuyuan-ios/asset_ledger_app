@@ -203,6 +203,80 @@ void main() {
         "void archProbe() { SaveTimingRecordUseCase; }\n",
   );
 
+  // R5.24: composition_no_default_const_sync_enqueuer — a bare/no-arg
+  // *SyncEnqueuer() construction in the composition root must fail the script.
+  _archProbeTest(
+    name: 'composition_no_default_const_sync_enqueuer: '
+        'const no-arg SyncEnqueuer construction in lib/app fails',
+    relativeProbePath:
+        'lib/app/providers/__arch_probe_default_const_enqueuer.dart',
+    probeContent:
+        "// Probe: composition_no_default_const_sync_enqueuer\n"
+        "Object archProbe() => const AccountPaymentSyncEnqueuer();\n",
+  );
+
+  _archProbeTest(
+    name: 'composition_no_default_const_sync_enqueuer: '
+        'bare no-arg SyncEnqueuer construction in lib/app fails',
+    relativeProbePath:
+        'lib/app/providers/__arch_probe_bare_enqueuer.dart',
+    probeContent:
+        "// Probe: composition_no_default_const_sync_enqueuer (bare)\n"
+        "Object archProbe() => ExternalWorkSyncEnqueuer();\n",
+  );
+
+  // Non-regression: enqueuer construction WITH explicit dependencies, a doc
+  // comment mentioning an enqueuer, and a plain type annotation must NOT be
+  // flagged in the composition root.
+  test(
+    'arch script does not flag explicit-dependency enqueuer construction or '
+    'type references in lib/app',
+    () async {
+      final probePath = p.join(
+        _repoRoot,
+        'lib/app/providers/__arch_probe_enqueuer_false_positive.dart',
+      );
+      final probe = File(probePath);
+      try {
+        await probe.writeAsString(
+          "// Probe: composition enqueuer false-positive guard.\n"
+          "// const AccountPaymentSyncEnqueuer() mentioned in a comment only.\n"
+          "/// Doc reference to ProjectSyncEnqueuer should not match.\n"
+          "class _Holder {\n"
+          "  // Explicit-dependency construction is the sanctioned form and\n"
+          "  // must not be flagged (non-empty parens).\n"
+          "  final Object e = AccountPaymentSyncEnqueuer(\n"
+          "    syncOutboxRepository: _fakeRepo,\n"
+          "  );\n"
+          "  final Object? typeOnly = null; // ExternalWorkSyncEnqueuer ref in comment\n"
+          "}\n"
+          "Object? _fakeRepo;\n",
+        );
+        final result = await _runArchScript();
+        expect(
+          result.exitCode,
+          0,
+          reason:
+              'explicit-dependency enqueuer construction and comment/type '
+              'references must not trip the rule. '
+              'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+        );
+      } finally {
+        if (await probe.exists()) {
+          await probe.delete();
+        }
+      }
+      final after = await _runArchScript();
+      expect(
+        after.exitCode,
+        0,
+        reason: 'baseline must pass after removing the false-positive probe. '
+            'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+      );
+    },
+    tags: ['arch-script'],
+  );
+
   // 非误伤回归：往 patterns/timing 写一个"看似可疑但实际合法"的 Dart 片段，
   // 验证既不触发任何新规则也不影响既有 baseline。
   // 包含：
