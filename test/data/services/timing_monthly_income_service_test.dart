@@ -20,6 +20,256 @@ void main() {
       );
     }
 
+    TimingRecord legacyHoursRecord({
+      required int id,
+      required int deviceId,
+      required int startDate,
+      required double hours,
+      double startMeter = 0,
+      String contact = '甲方',
+      String site = '工地',
+    }) {
+      return TimingRecord(
+        id: id,
+        deviceId: deviceId,
+        startDate: startDate,
+        contact: contact,
+        site: site,
+        type: TimingType.hours,
+        startMeter: startMeter,
+        endMeter: startMeter + hours,
+        hours: hours,
+        income: 0,
+      );
+    }
+
+    Device legacyDevice({required int id, double rate = 100}) {
+      return Device(
+        id: id,
+        name: 'Device $id',
+        brand: 'Brand $id',
+        defaultUnitPrice: rate,
+        baseMeterHours: 0,
+      );
+    }
+
+    List<double> computeLegacyMonthlyIncome({
+      required List<TimingRecord> records,
+      required List<Device> devices,
+      required int targetMonth,
+      required DateTime asOfDate,
+    }) {
+      return TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: records,
+        devices: devices,
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: targetMonth,
+        asOfDate: asOfDate,
+      );
+    }
+
+    group('implicit allocation cutoff legacy behavior', () {
+      test(
+        'different-day next same-device record acts as exclusive implicit cutoff',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260601,
+                hours: 9,
+              ),
+              legacyHoursRecord(
+                id: 2,
+                deviceId: 1,
+                startDate: 20260610,
+                startMeter: 9,
+                hours: 31,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 7,
+            asOfDate: DateTime(2026, 7, 10),
+          );
+
+          // A: Jun 1-Jun 9, 9 days at 100/day = 900.
+          // B: Jun 10-Jul 10, 31 days at 100/day = 3100.
+          // B therefore owns the post-boundary segment; A does not continue
+          // past the implicit nextStartExclusive boundary.
+          expect(monthly[5], closeTo(3000.0, 0.001));
+          expect(monthly[6], closeTo(1000.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+        },
+      );
+
+      test(
+        'same-day same-device records preserve one-day legacy allocation',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260601,
+                hours: 2,
+              ),
+              legacyHoursRecord(
+                id: 2,
+                deviceId: 1,
+                startDate: 20260601,
+                startMeter: 2,
+                hours: 3,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 6,
+            asOfDate: DateTime(2026, 6, 1),
+          );
+
+          // Same-day records keep the legacy one-day behavior:
+          // A contributes 2h * 100, B contributes 3h * 100.
+          expect(monthly[5], closeTo(500.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+        },
+      );
+
+      test(
+        'same-day records and later next start preserve legacy mixed allocation model',
+        () {
+          final records = [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              hours: 2,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260601,
+              startMeter: 2,
+              hours: 9,
+            ),
+            legacyHoursRecord(
+              id: 3,
+              deviceId: 1,
+              startDate: 20260610,
+              startMeter: 11,
+              hours: 1,
+            ),
+          ];
+
+          final beforeLaterStart = computeLegacyMonthlyIncome(
+            records: records,
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 6,
+            asOfDate: DateTime(2026, 6, 9),
+          );
+          final atLaterStart = computeLegacyMonthlyIncome(
+            records: records,
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 6,
+            asOfDate: DateTime(2026, 6, 10),
+          );
+
+          // A keeps one legacy day: 2h * 100 = 200.
+          // B spans Jun 1-Jun 9 before C starts: 9h * 100 = 900.
+          // C starts contributing on Jun 10: 1h * 100 = 100.
+          expect(beforeLaterStart[5], closeTo(1100.0, 0.001));
+          expect(atLaterStart[5], closeTo(1200.0, 0.001));
+        },
+      );
+
+      test('last same-device record is capped by statistics cutoff', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              hours: 40,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // Last same-device record uses stats cutoff: Jun 1-Jul 10 = 40 days.
+        // 40h * 100 = 4000, split as Jun 30 days and Jul 10 days.
+        expect(monthly[5], closeTo(3000.0, 0.001));
+        expect(monthly[6], closeTo(1000.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
+      test(
+        'cross-month implicit cutoff splits income before next start date',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260625,
+                hours: 10,
+              ),
+              legacyHoursRecord(
+                id: 2,
+                deviceId: 1,
+                startDate: 20260705,
+                startMeter: 10,
+                hours: 1,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 7,
+            asOfDate: DateTime(2026, 7, 5),
+          );
+
+          // A: Jun 25-Jul 4 = 10 days at 100/day.
+          // B: Jul 5 = 1 day at 100/day. Jul 5 is not allocated to A.
+          expect(monthly[5], closeTo(600.0, 0.001));
+          expect(monthly[6], closeTo(500.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+        },
+      );
+
+      test('records from different devices do not act as implicit cutoff', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              hours: 40,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 2,
+              startDate: 20260610,
+              hours: 1,
+            ),
+          ],
+          devices: [legacyDevice(id: 1), legacyDevice(id: 2, rate: 0)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // Device 2 has zero realtime income, but its Jun 10 date must not cap
+        // device 1. Device 1 remains a last same-device record through Jul 10.
+        expect(monthly[5], closeTo(3000.0, 0.001));
+        expect(monthly[6], closeTo(1000.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+    });
+
     test('dynamically amortizes across months by target month end', () {
       final monthlyAtFeb =
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
