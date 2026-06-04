@@ -3,6 +3,7 @@ import '../../models/external_import_batch.dart';
 import '../../models/external_work_record.dart';
 import '../../repositories/external_import_repository.dart';
 import '../../repositories/external_work_record_repository.dart';
+import '../../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
 import 'project_external_work_duplicate_checker.dart';
 import 'project_external_work_import_preview.dart';
 import 'project_external_work_import_result.dart';
@@ -12,9 +13,12 @@ class ProjectExternalWorkImporter {
   const ProjectExternalWorkImporter({
     ProjectExternalWorkDuplicateChecker duplicateChecker =
         const ProjectExternalWorkDuplicateChecker(),
-  }) : _duplicateChecker = duplicateChecker;
+    ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer(),
+  }) : _duplicateChecker = duplicateChecker,
+       _syncEnqueuer = syncEnqueuer;
 
   final ProjectExternalWorkDuplicateChecker _duplicateChecker;
+  final ExternalWorkSyncEnqueuer _syncEnqueuer;
 
   Future<ExternalWorkImportPreview> buildPreview(
     ParsedProjectExternalWorkShare parsed,
@@ -34,16 +38,21 @@ class ProjectExternalWorkImporter {
     }
 
     final now = importedAt ?? DateTime.now().toUtc().toIso8601String();
+    final records = [
+      for (final line in preview.lines)
+        _recordFromPreviewLine(preview: preview, line: line, now: now),
+    ];
     await AppDatabase.inTransaction<void>((txn) async {
       await SqfliteExternalImportRepository.insertBatchWithExecutor(
         txn,
         _batchFromPreview(preview, now),
       );
-      for (final line in preview.lines) {
+      for (final record in records) {
         await SqfliteExternalWorkRecordRepository.insertRecordWithExecutor(
           txn,
-          _recordFromPreviewLine(preview: preview, line: line, now: now),
+          record,
         );
+        await _syncEnqueuer.enqueueCreate(txn, record: record);
       }
     });
 
