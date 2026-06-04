@@ -17,6 +17,7 @@ import 'package:asset_ledger/data/repositories/project_write_off_repository.dart
 import 'package:asset_ledger/data/repositories/timing_calculation_history_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
+import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import 'package:asset_ledger/infrastructure/local/account/project_settlement_impact_service.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/timing/local_save_timing_record_with_impact_use_case.dart';
@@ -521,6 +522,448 @@ void main() {
       expect(recordPayload.containsKey('allocation_cutoff_date'), isTrue);
       expect(recordPayload['allocation_cutoff_date'], isNull);
     });
+  });
+
+  group('allocation cutoff save-layer validation', () {
+    test(
+      'allows null allocation cutoff and preserves legacy save path',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(db, projectId: 'project:alpha');
+
+        final result = await useCase.execute(
+          editing: null,
+          record: TimingRecord(
+            deviceId: deviceId,
+            startDate: 20260601,
+            projectId: 'project:alpha',
+            contact: '甲方',
+            site: 'alpha',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 1,
+            hours: 1,
+            income: 100,
+          ),
+        );
+
+        expect(result.savedRecord.allocationCutoffDate, isNull);
+        expect(result.projectChanged, isFalse);
+        final timingRows = await db.query('timing_records');
+        expect(timingRows, hasLength(1));
+        expect(timingRows.single['allocation_cutoff_date'], isNull);
+        expect(await db.query('sync_outbox'), hasLength(1));
+        expect(await db.query('entity_sync_meta'), hasLength(1));
+      },
+    );
+
+    test('rejects allocation cutoff on or before start date', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      final existing = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        startDate: 20260601,
+        hours: 1,
+        income: 100,
+      );
+
+      for (final cutoff in [20260601, 20260531]) {
+        await expectLater(
+          useCase.execute(
+            editing: existing,
+            record: existing.copyWith(allocationCutoffDate: cutoff),
+          ),
+          throwsA(
+            isA<SaveTimingRecordAllocationCutoffValidationException>().having(
+              (error) => error.code,
+              'code',
+              SaveTimingRecordAllocationCutoffValidationException
+                  .cutoffNotAfterStartDate,
+            ),
+          ),
+        );
+      }
+
+      final timingRows = await db.query('timing_records');
+      expect(timingRows, hasLength(1));
+      expect(timingRows.single['allocation_cutoff_date'], isNull);
+      expect(timingRows.single['income'], 100);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+    });
+
+    test(
+      'rejects explicit allocation cutoff when next same-device record is same-day',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(db, projectId: 'project:alpha');
+        await _seedProject(db, projectId: 'project:beta');
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          startMeter: 0,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:beta',
+          contact: '甲方',
+          site: 'beta',
+          startDate: 20260601,
+          startMeter: 10,
+          hours: 1,
+          income: 100,
+        );
+
+        await expectLater(
+          useCase.execute(
+            editing: existing,
+            record: existing.copyWith(allocationCutoffDate: 20260602),
+          ),
+          throwsA(
+            isA<SaveTimingRecordAllocationCutoffValidationException>().having(
+              (error) => error.code,
+              'code',
+              SaveTimingRecordAllocationCutoffValidationException
+                  .cutoffSameDayNextRecordNotSupported,
+            ),
+          ),
+        );
+
+        final timingRows = await db.query('timing_records', orderBy: 'id ASC');
+        expect(timingRows, hasLength(2));
+        expect(timingRows.first['allocation_cutoff_date'], isNull);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test(
+      'allows allocation cutoff equal to next same-device start date',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(db, projectId: 'project:alpha');
+        await _seedProject(db, projectId: 'project:beta');
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:beta',
+          contact: '甲方',
+          site: 'beta',
+          startDate: 20260610,
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await useCase.execute(
+          editing: existing,
+          record: existing.copyWith(allocationCutoffDate: 20260610),
+        );
+
+        expect(result.savedRecord.allocationCutoffDate, 20260610);
+        expect(result.projectChanged, isFalse);
+        expect(result.mergeDissolved, isFalse);
+        expect(result.settlementRevoked, isFalse);
+        final timingRows = await db.query(
+          'timing_records',
+          where: 'id = ?',
+          whereArgs: [existing.id],
+        );
+        expect(timingRows.single['allocation_cutoff_date'], 20260610);
+        expect(timingRows.single['income'], 100);
+        expect((await db.query('sync_outbox')).single['operation'], 'update');
+      },
+    );
+
+    test(
+      'rejects allocation cutoff after next same-device start date',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(db, projectId: 'project:alpha');
+        await _seedProject(db, projectId: 'project:beta');
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:beta',
+          contact: '甲方',
+          site: 'beta',
+          startDate: 20260610,
+          hours: 1,
+          income: 100,
+        );
+
+        await expectLater(
+          useCase.execute(
+            editing: existing,
+            record: existing.copyWith(allocationCutoffDate: 20260611),
+          ),
+          throwsA(
+            isA<SaveTimingRecordAllocationCutoffValidationException>().having(
+              (error) => error.code,
+              'code',
+              SaveTimingRecordAllocationCutoffValidationException
+                  .cutoffAfterNextSameDeviceStartDate,
+            ),
+          ),
+        );
+
+        final timingRows = await db.query(
+          'timing_records',
+          where: 'id = ?',
+          whereArgs: [existing.id],
+        );
+        expect(timingRows.single['allocation_cutoff_date'], isNull);
+        expect(timingRows.single['income'], 100);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
+      },
+    );
+
+    test(
+      'allows allocation cutoff before later next same-device start date',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(db, projectId: 'project:alpha');
+        await _seedProject(db, projectId: 'project:beta');
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:beta',
+          contact: '甲方',
+          site: 'beta',
+          startDate: 20260610,
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await useCase.execute(
+          editing: existing,
+          record: existing.copyWith(allocationCutoffDate: 20260605),
+        );
+
+        expect(result.savedRecord.allocationCutoffDate, 20260605);
+        expect(result.projectChanged, isFalse);
+        expect(result.settlementRevoked, isFalse);
+        final timingRows = await db.query(
+          'timing_records',
+          where: 'id = ?',
+          whereArgs: [existing.id],
+        );
+        expect(timingRows.single['allocation_cutoff_date'], 20260605);
+        expect((await db.query('sync_outbox')).single['operation'], 'update');
+      },
+    );
+
+    test(
+      'ignores different-device records when validating allocation cutoff',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceA = await _seedDevice(db, name: 'Device A');
+        final deviceB = await _seedDevice(db, name: 'Device B');
+        await _seedProject(db, projectId: 'project:alpha');
+        await _seedProject(db, projectId: 'project:beta');
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceB,
+          projectId: 'project:beta',
+          contact: '甲方',
+          site: 'beta',
+          startDate: 20260605,
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await useCase.execute(
+          editing: existing,
+          record: existing.copyWith(allocationCutoffDate: 20260610),
+        );
+
+        expect(result.savedRecord.allocationCutoffDate, 20260610);
+        final timingRows = await db.query(
+          'timing_records',
+          where: 'id = ?',
+          whereArgs: [existing.id],
+        );
+        expect(timingRows.single['allocation_cutoff_date'], 20260610);
+      },
+    );
+
+    test(
+      'allows allocation cutoff when no next same-device record exists',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(db, projectId: 'project:alpha');
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await useCase.execute(
+          editing: existing,
+          record: existing.copyWith(allocationCutoffDate: 20260701),
+        );
+
+        expect(result.savedRecord.allocationCutoffDate, 20260701);
+        expect(result.projectChanged, isFalse);
+        expect(result.mergeDissolved, isFalse);
+        expect(result.settlementRevoked, isFalse);
+        final timingRows = await db.query('timing_records');
+        expect(timingRows.single['allocation_cutoff_date'], 20260701);
+      },
+    );
+
+    test(
+      'cutoff-only legal edit does not change project state and writes update outbox',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db, defaultUnitPrice: 100);
+        await _seedProject(
+          db,
+          projectId: 'project:alpha',
+          status: ProjectStatus.settled,
+          settledAt: '2026-06-01T00:00:00.000Z',
+        );
+        await _seedProject(db, projectId: 'project:beta');
+        await _seedProject(db, projectId: 'project:gamma');
+        await _seedActiveMergeGroup(
+          db,
+          contact: '甲方',
+          members: [
+            ('project:alpha', '甲方||alpha'),
+            ('project:gamma', '甲方||gamma'),
+          ],
+        );
+        await _insertPayment(
+          db,
+          projectId: 'project:alpha',
+          amount: 100,
+          amountFen: 10000,
+        );
+        final existing = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          startDate: 20260601,
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:beta',
+          contact: '甲方',
+          site: 'beta',
+          startDate: 20260610,
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await useCase.execute(
+          editing: existing,
+          record: existing.copyWith(allocationCutoffDate: 20260610),
+        );
+
+        expect(result.projectChanged, isFalse);
+        expect(result.mergeDissolved, isFalse);
+        expect(result.settlementRevoked, isFalse);
+        expect(result.revokedProjectIds, isEmpty);
+        expect(result.savedRecord.income, 100);
+        expect(result.savedRecord.allocationCutoffDate, 20260610);
+
+        final projectRows = await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:alpha'],
+        );
+        expect(projectRows.single['status'], ProjectStatus.settled.name);
+        expect(projectRows.single['settled_at'], isNotNull);
+        final mergeRows = await db.query('account_project_merge_groups');
+        expect(mergeRows.single['is_active'], 1);
+        expect(mergeRows.single['dissolved_at'], isNull);
+
+        final timingRows = await db.query(
+          'timing_records',
+          where: 'id = ?',
+          whereArgs: [existing.id],
+        );
+        expect(timingRows.single['income'], 100);
+        expect(timingRows.single['allocation_cutoff_date'], 20260610);
+
+        final outboxRows = await db.query('sync_outbox');
+        expect(outboxRows, hasLength(1));
+        expect(outboxRows.single['operation'], 'update');
+        final payload =
+            jsonDecode(outboxRows.single['payload_json'] as String)
+                as Map<String, Object?>;
+        final recordPayload = payload['record'] as Map<String, Object?>;
+        expect(recordPayload['allocation_cutoff_date'], 20260610);
+      },
+    );
   });
 
   group('编辑计时记录，project A → B：自动解除合并', () {
@@ -1655,17 +2098,19 @@ Future<TimingRecord> _seedTimingRecord(
   required String site,
   required double hours,
   required double income,
+  int startDate = 20260518,
+  double startMeter = 0,
   int? allocationCutoffDate,
 }) async {
   final record = TimingRecord(
     deviceId: deviceId,
-    startDate: 20260518,
+    startDate: startDate,
     allocationCutoffDate: allocationCutoffDate,
     projectId: projectId,
     contact: contact,
     site: site,
     type: TimingType.hours,
-    startMeter: 0,
+    startMeter: startMeter,
     endMeter: hours,
     hours: hours,
     income: income,

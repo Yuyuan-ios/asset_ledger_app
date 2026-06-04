@@ -141,6 +141,21 @@ class SqfliteTimingRepository implements TimingRepository {
     return rows.map(_fromRow).toList();
   }
 
+  /// 事务内按 device_id 列出计时记录。保存层 allocation cutoff 校验只读使用；
+  /// 排序口径与月收入隐式分摊一致：start_date → start_meter → id。
+  Future<List<TimingRecord>> listByDeviceIdWithExecutor(
+    DatabaseExecutor executor,
+    int deviceId,
+  ) async {
+    final rows = await executor.query(
+      _table,
+      where: 'device_id = ?',
+      whereArgs: [deviceId],
+      orderBy: 'start_date ASC, start_meter ASC, id ASC',
+    );
+    return rows.map(_fromRow).toList();
+  }
+
   // =====================================================================
   // ============================== 四、新增（Create） ==============================
   // =====================================================================
