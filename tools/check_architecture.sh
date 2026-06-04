@@ -246,6 +246,206 @@ run_forbidden_pattern_check "Checking composition root for default-const SyncEnq
   lib/app \
   lib/main.dart
 
+# Rule: no_default_sync_enqueuer_construction
+#
+# R5.24 hardening: production code under lib/** must not construct a
+# *SyncEnqueuer with no arguments from executable code. The only permitted
+# no-arg construction shape is an existing DI seam/default parameter, e.g.
+# `Foo({BarSyncEnqueuer enqueuer = const BarSyncEnqueuer()})` or
+# `Foo({this.enqueuer = const BarSyncEnqueuer()})`.
+#
+# This intentionally scans beyond the composition root rule above. It catches
+# future method/function/getter/provider-body fallbacks in lib/data and
+# lib/infrastructure while keeping current constructor default-parameter seams
+# legal until a larger enqueuer DI abstraction is deliberately introduced.
+run_no_default_sync_enqueuer_construction_check() {
+  local label="$1"
+  shift
+
+  require_paths "$label" "$@" || return 0
+
+  echo "$label..."
+  local output
+  set +e
+  output="$(python3 - "$@" <<'PY' 2>&1
+import os
+import re
+import sys
+
+RULE = "no_default_sync_enqueuer_construction"
+ENQUEUER_RE = re.compile(
+    r"(?<![A-Za-z0-9_])(?:const\s+)?"
+    r"[A-Za-z_][A-Za-z0-9_]*SyncEnqueuer\s*\(\s*\)",
+    re.MULTILINE,
+)
+DECL_PREFIX_RE = re.compile(
+    r"^(?:external\s+|static\s+|const\s+|factory\s+)*"
+    r"(?:(?:[A-Za-z_][A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_]*<[^;\n{}=]*>)\s+)?"
+    r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$"
+)
+DEFAULT_ASSIGNMENT_RE = re.compile(r"(?<![=!<>])=(?!>)")
+
+
+def mask_comments_and_strings(text):
+    chars = list(text)
+    i = 0
+    n = len(text)
+    while i < n:
+        if text.startswith("//", i):
+            j = text.find("\n", i)
+            if j == -1:
+                j = n
+            _blank(chars, i, j)
+            i = j
+            continue
+        if text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            end = n if j == -1 else j + 2
+            _blank(chars, i, end)
+            i = end
+            continue
+
+        raw = text[i] == "r" and i + 1 < n and text[i + 1] in ("'", '"')
+        quote_index = i + 1 if raw else i
+        if quote_index < n and text[quote_index] in ("'", '"'):
+            quote = text[quote_index]
+            triple = text.startswith(quote * 3, quote_index)
+            start = i
+            j = quote_index + (3 if triple else 1)
+            while j < n:
+                if not raw and text[j] == "\\":
+                    j += 2
+                    continue
+                if triple and text.startswith(quote * 3, j):
+                    j += 3
+                    break
+                if not triple and text[j] == quote:
+                    j += 1
+                    break
+                j += 1
+            _blank(chars, start, min(j, n))
+            i = min(j, n)
+            continue
+        i += 1
+    return "".join(chars)
+
+
+def _blank(chars, start, end):
+    for idx in range(start, end):
+        if chars[idx] != "\n":
+            chars[idx] = " "
+
+
+def is_default_parameter_context(clean, start):
+    open_paren = _find_enclosing_paren_before(clean, start)
+    if open_paren < 0:
+        return False
+
+    segment = clean[open_paren + 1 : start]
+    current_param_start = max(segment.rfind(","), segment.rfind("{"), segment.rfind("["))
+    current_param = segment[current_param_start + 1 :]
+    if DEFAULT_ASSIGNMENT_RE.search(current_param) is None:
+        return False
+
+    prefix_start = max(
+        clean.rfind("\n", 0, open_paren),
+        clean.rfind(";", 0, open_paren),
+        clean.rfind("{", 0, open_paren),
+        clean.rfind("}", 0, open_paren),
+    ) + 1
+    prefix = clean[prefix_start:open_paren].strip()
+    if not prefix:
+        return False
+    return DECL_PREFIX_RE.match(prefix) is not None
+
+
+def _find_enclosing_paren_before(clean, start):
+    depth = 0
+    idx = start - 1
+    while idx >= 0:
+        ch = clean[idx]
+        if ch == ")":
+            depth += 1
+        elif ch == "(":
+            if depth == 0:
+                return idx
+            depth -= 1
+        elif ch == ";" and depth == 0:
+            return -1
+        idx -= 1
+    return -1
+
+
+def line_number_at(line_starts, offset):
+    lo = 0
+    hi = len(line_starts)
+    while lo + 1 < hi:
+        mid = (lo + hi) // 2
+        if line_starts[mid] <= offset:
+            lo = mid
+        else:
+            hi = mid
+    return lo + 1
+
+
+def iter_dart_files(paths):
+    for path in paths:
+        if os.path.isfile(path):
+            if path.endswith(".dart"):
+                yield path
+            continue
+        for root, _, files in os.walk(path):
+            for name in files:
+                if name.endswith(".dart"):
+                    yield os.path.join(root, name)
+
+
+violations = []
+for path in iter_dart_files(sys.argv[1:]):
+    with open(path, "r", encoding="utf-8") as handle:
+        text = handle.read()
+    clean = mask_comments_and_strings(text)
+    line_starts = [0]
+    line_starts.extend(match.end() for match in re.finditer(r"\n", text))
+    lines = text.splitlines()
+    for match in ENQUEUER_RE.finditer(clean):
+        if is_default_parameter_context(clean, match.start()):
+            continue
+        line_no = line_number_at(line_starts, match.start())
+        snippet = lines[line_no - 1].strip() if line_no - 1 < len(lines) else ""
+        violations.append((path, line_no, snippet))
+
+if violations:
+    print(f"[{RULE}] no-arg *SyncEnqueuer() construction is only allowed in DI default parameters.")
+    for path, line_no, snippet in violations:
+        print(f"{path}:{line_no}: {snippet}")
+    sys.exit(1)
+PY
+)"
+  local check_status=$?
+  set -e
+
+  case "$check_status" in
+    0)
+      :
+      ;;
+    1)
+      echo "$output"
+      echo "  -> [$label] forbidden pattern matched."
+      failures=$((failures + 1))
+      ;;
+    *)
+      echo "$output"
+      echo "  -> [$label] sync enqueuer construction check failed with exit code $check_status."
+      failures=$((failures + 1))
+      ;;
+  esac
+}
+
+run_no_default_sync_enqueuer_construction_check \
+  "Checking lib for no-arg SyncEnqueuer construction outside DI defaults" \
+  lib
+
 if [[ "$failures" -ne 0 ]]; then
   echo "Architecture boundary checks failed: $failures violation(s) / error(s)."
   exit 1
