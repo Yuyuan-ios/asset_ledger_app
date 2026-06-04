@@ -26,7 +26,7 @@ void main() {
         "'entity_type': _timingRecordEntityType",
         "'entity_id': entityId",
         "'operation': operation",
-        "'record': savedRecord.toMap()",
+        "'record': savedRecord.toMap(",
         'SyncStatus.pendingUpdate',
         'SyncStatus.pendingUpload',
         'payloadHash: entry.payloadHash',
