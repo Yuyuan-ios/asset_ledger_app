@@ -10,6 +10,8 @@ import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
+import 'package:asset_ledger/infrastructure/local/account/project_sync_enqueuer.dart';
+import 'package:asset_ledger/infrastructure/local/account/project_write_off_sync_enqueuer.dart';
 import 'package:asset_ledger/infrastructure/local/timing/external_work_sync_enqueuer.dart';
 import 'package:asset_ledger/infrastructure/sync/entity_sync_meta.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_outbox_entry.dart';
@@ -691,6 +693,81 @@ void main() {
   });
 
   group('linkBatchToProjectWithSettlementReset (atomic)', () {
+    test(
+      'success enqueues ExternalWork update, ProjectWriteOff delete and Project update',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        final project = _project(
+          id: 'project:a',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-19T00:00:00.000Z',
+          settledSnapshot: '{"remaining":0}',
+        );
+        final writeOffs = [
+          _writeOff('project:a', id: 'writeoff-a-1'),
+          _writeOff(
+            'project:a',
+            id: 'writeoff-a-2',
+            amount: 50.25,
+            note: 'tail',
+            writeOffDate: '2026-05-20',
+          ),
+        ];
+        await db.insert('projects', project.toMap());
+        for (final writeOff in writeOffs) {
+          await db.insert('project_write_offs', writeOff.toMap());
+        }
+        await importRepo.insertBatch(_batch());
+        await recordRepo.insertRecords([
+          _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+          _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+        ]);
+
+        final linked = await recordRepo.linkBatchToProjectWithSettlementReset(
+          importBatchId: 'batch-1',
+          projectId: 'project:a',
+          updatedAt: '2026-05-20T00:00:00.000Z',
+        );
+
+        expect(linked, 2);
+        final records = await recordRepo.listByBatchId('batch-1');
+        expect(records, hasLength(2));
+        expect(records.map((r) => r.linkedProjectId).toSet(), {'project:a'});
+        expect(records.map((r) => r.updatedAt).toSet(), {
+          '2026-05-20T00:00:00.000Z',
+        });
+        expect(await db.query('project_write_offs'), isEmpty);
+        final finalProject = Project.fromMap(
+          (await db.query(
+            'projects',
+            where: 'id = ?',
+            whereArgs: ['project:a'],
+          )).single,
+        );
+        expect(finalProject.status, ProjectStatus.active);
+        expect(finalProject.settledAt, isNull);
+        expect(finalProject.settledSnapshot, isNull);
+        expect(finalProject.updatedAt, '2026-05-20T00:00:00.000Z');
+
+        await _expectExternalWorkSyncRows(
+          db,
+          records,
+          operation: 'update',
+          syncStatus: SyncStatus.pendingUpdate,
+        );
+        await _expectProjectWriteOffSyncRows(db, writeOffs);
+        await _expectProjectSyncRows(db, [finalProject]);
+        await _expectOnlySyncEntities(db, const {
+          ExternalWorkSyncEnqueuer.entityType,
+          ProjectWriteOffSyncEnqueuer.entityType,
+          ProjectSyncEnqueuer.entityType,
+        });
+        _expectUniqueOutboxIds(await db.query('sync_outbox'));
+      },
+    );
+
     test('links batch, deletes write-offs and restores active', () async {
       final db = await _openCurrentInMemoryDb();
       final importRepo = SqfliteExternalImportRepository();
@@ -762,6 +839,227 @@ void main() {
           ProjectStatus.active,
         );
         expect(await recordRepo.getLinkedProjectId('batch-1'), 'project:a');
+        final records = await recordRepo.listByBatchId('batch-1');
+        await _expectExternalWorkSyncRows(
+          db,
+          records,
+          operation: 'update',
+          syncStatus: SyncStatus.pendingUpdate,
+        );
+        await _expectNoSyncRowsForEntity(
+          db,
+          ProjectWriteOffSyncEnqueuer.entityType,
+        );
+        await _expectProjectSyncRows(db, [Project.fromMap(projectRows.single)]);
+      },
+    );
+
+    test(
+      'active project reset only enqueues ExternalWork updates when status does not change',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        await db.insert('projects', _project(id: 'project:a').toMap());
+        await importRepo.insertBatch(_batch());
+        await recordRepo.insertRecords([
+          _record(id: 'external-record-a', sourceRecordUuid: 'source-a'),
+          _record(id: 'external-record-b', sourceRecordUuid: 'source-b'),
+        ]);
+
+        final linked = await recordRepo.linkBatchToProjectWithSettlementReset(
+          importBatchId: 'batch-1',
+          projectId: 'project:a',
+          updatedAt: '2026-05-20T00:00:00.000Z',
+        );
+
+        expect(linked, 2);
+        final records = await recordRepo.listByBatchId('batch-1');
+        expect(records.map((record) => record.linkedProjectId).toSet(), {
+          'project:a',
+        });
+        final projectRows = await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:a'],
+        );
+        final project = Project.fromMap(projectRows.single);
+        expect(project.status, ProjectStatus.active);
+        expect(project.updatedAt, '2026-05-18T00:00:00.000Z');
+
+        await _expectExternalWorkSyncRows(
+          db,
+          records,
+          operation: 'update',
+          syncStatus: SyncStatus.pendingUpdate,
+        );
+        await _expectNoSyncRowsForEntity(
+          db,
+          ProjectWriteOffSyncEnqueuer.entityType,
+        );
+        await _expectNoSyncRowsForEntity(db, ProjectSyncEnqueuer.entityType);
+        await _expectOnlySyncEntities(db, const {
+          ExternalWorkSyncEnqueuer.entityType,
+        });
+      },
+    );
+
+    test(
+      'ExternalWork update outbox failure rolls back the whole settlement reset',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final fixture = await _seedSettlementResetFixture(db);
+        final recordRepo = SqfliteExternalWorkRecordRepository(
+          syncEnqueuer: ExternalWorkSyncEnqueuer(
+            syncOutboxRepository: const _ThrowingSyncOutboxRepository(
+              entityType: ExternalWorkSyncEnqueuer.entityType,
+              operation: 'update',
+            ),
+          ),
+        );
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: fixture.batchId,
+            projectId: fixture.projectId,
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        await _expectSettlementResetRolledBack(db, fixture);
+      },
+    );
+
+    test(
+      'ExternalWork update meta failure rolls back the whole settlement reset',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final fixture = await _seedSettlementResetFixture(db);
+        final recordRepo = SqfliteExternalWorkRecordRepository(
+          syncEnqueuer: ExternalWorkSyncEnqueuer(
+            entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(
+              entityType: ExternalWorkSyncEnqueuer.entityType,
+            ),
+          ),
+        );
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: fixture.batchId,
+            projectId: fixture.projectId,
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        await _expectSettlementResetRolledBack(db, fixture);
+      },
+    );
+
+    test(
+      'ProjectWriteOff delete outbox failure rolls back the whole settlement reset',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final fixture = await _seedSettlementResetFixture(db);
+        final recordRepo = SqfliteExternalWorkRecordRepository(
+          projectWriteOffSyncEnqueuer: ProjectWriteOffSyncEnqueuer(
+            syncOutboxRepository: const _ThrowingSyncOutboxRepository(
+              entityType: ProjectWriteOffSyncEnqueuer.entityType,
+              operation: 'delete',
+            ),
+          ),
+        );
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: fixture.batchId,
+            projectId: fixture.projectId,
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        await _expectSettlementResetRolledBack(db, fixture);
+      },
+    );
+
+    test(
+      'ProjectWriteOff delete meta failure rolls back the whole settlement reset',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final fixture = await _seedSettlementResetFixture(db);
+        final recordRepo = SqfliteExternalWorkRecordRepository(
+          projectWriteOffSyncEnqueuer: ProjectWriteOffSyncEnqueuer(
+            entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(
+              entityType: ProjectWriteOffSyncEnqueuer.entityType,
+            ),
+          ),
+        );
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: fixture.batchId,
+            projectId: fixture.projectId,
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        await _expectSettlementResetRolledBack(db, fixture);
+      },
+    );
+
+    test(
+      'Project update outbox failure rolls back the whole settlement reset',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final fixture = await _seedSettlementResetFixture(db);
+        final recordRepo = SqfliteExternalWorkRecordRepository(
+          projectSyncEnqueuer: ProjectSyncEnqueuer(
+            syncOutboxRepository: const _ThrowingSyncOutboxRepository(
+              entityType: ProjectSyncEnqueuer.entityType,
+              operation: 'update',
+            ),
+          ),
+        );
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: fixture.batchId,
+            projectId: fixture.projectId,
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        await _expectSettlementResetRolledBack(db, fixture);
+      },
+    );
+
+    test(
+      'Project update meta failure rolls back the whole settlement reset',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final fixture = await _seedSettlementResetFixture(db);
+        final recordRepo = SqfliteExternalWorkRecordRepository(
+          projectSyncEnqueuer: ProjectSyncEnqueuer(
+            entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(
+              entityType: ProjectSyncEnqueuer.entityType,
+            ),
+          ),
+        );
+
+        await expectLater(
+          recordRepo.linkBatchToProjectWithSettlementReset(
+            importBatchId: fixture.batchId,
+            projectId: fixture.projectId,
+            updatedAt: '2026-05-20T00:00:00.000Z',
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        await _expectSettlementResetRolledBack(db, fixture);
       },
     );
 
@@ -800,6 +1098,7 @@ void main() {
           Project.fromMap(projectRows.single).status,
           ProjectStatus.settled,
         );
+        await _expectNoSyncRows(db);
       },
     );
   });
@@ -938,43 +1237,84 @@ Future<void> _expectExternalWorkSyncRows(
   required String operation,
   required SyncStatus syncStatus,
 }) async {
-  final expected = records.toList(growable: false)
-    ..sort((a, b) => a.id.compareTo(b.id));
+  await _expectRowLevelSyncRows(
+    db,
+    entityType: ExternalWorkSyncEnqueuer.entityType,
+    operation: operation,
+    syncStatus: syncStatus,
+    recordsById: {for (final record in records) record.id: record.toMap()},
+  );
+}
+
+Future<void> _expectProjectWriteOffSyncRows(
+  Database db,
+  Iterable<ProjectWriteOff> writeOffs,
+) {
+  return _expectRowLevelSyncRows(
+    db,
+    entityType: ProjectWriteOffSyncEnqueuer.entityType,
+    operation: 'delete',
+    syncStatus: SyncStatus.pendingDelete,
+    recordsById: {
+      for (final writeOff in writeOffs) writeOff.id: writeOff.toMap(),
+    },
+  );
+}
+
+Future<void> _expectProjectSyncRows(Database db, Iterable<Project> projects) {
+  return _expectRowLevelSyncRows(
+    db,
+    entityType: ProjectSyncEnqueuer.entityType,
+    operation: 'update',
+    syncStatus: SyncStatus.pendingUpdate,
+    recordsById: {for (final project in projects) project.id: project.toMap()},
+  );
+}
+
+Future<List<Map<String, Object?>>> _expectRowLevelSyncRows(
+  Database db, {
+  required String entityType,
+  required String operation,
+  required SyncStatus syncStatus,
+  required Map<String, Map<String, Object?>> recordsById,
+}) async {
   final outboxRows = await db.query(
     'sync_outbox',
     where: 'entity_type = ? AND operation = ?',
-    whereArgs: [ExternalWorkSyncEnqueuer.entityType, operation],
+    whereArgs: [entityType, operation],
     orderBy: 'entity_id ASC',
   );
-  expect(outboxRows, hasLength(expected.length));
+  expect(outboxRows, hasLength(recordsById.length));
   _expectUniqueOutboxIds(outboxRows);
 
   final metaRows = await db.query(
     'entity_sync_meta',
     where: 'entity_type = ?',
-    whereArgs: [ExternalWorkSyncEnqueuer.entityType],
+    whereArgs: [entityType],
     orderBy: 'local_id ASC',
   );
-  expect(metaRows, hasLength(expected.length));
+  expect(metaRows, hasLength(recordsById.length));
 
-  for (final record in expected) {
+  for (final entry in recordsById.entries) {
     final outbox = outboxRows.singleWhere(
-      (row) => row['entity_id'] == record.id,
+      (row) => row['entity_id'] == entry.key,
     );
     expect(outbox['status'], SyncOutboxStatus.pending.name);
     final payload =
         jsonDecode(outbox['payload_json'] as String) as Map<String, Object?>;
-    expect(payload['entity_type'], ExternalWorkSyncEnqueuer.entityType);
-    expect(payload['entity_id'], record.id);
+    expect(payload['entity_type'], entityType);
+    expect(payload['entity_id'], entry.key);
     expect(payload['operation'], operation);
-    expect(payload['record'], record.toMap());
+    expect(payload['record'], entry.value);
 
-    final meta = metaRows.singleWhere((row) => row['local_id'] == record.id);
+    final meta = metaRows.singleWhere((row) => row['local_id'] == entry.key);
     expect(meta['sync_status'], syncStatus.name);
     expect(meta['source'], ExternalWorkSyncEnqueuer.ownerAppSource);
     expect(meta['version'], 0);
     expect(meta['payload_hash'], outbox['payload_hash']);
   }
+
+  return outboxRows;
 }
 
 Future<void> _expectNoNonExternalWorkSyncRows(Database db) async {
@@ -988,6 +1328,50 @@ Future<void> _expectNoNonExternalWorkSyncRows(Database db) async {
   );
 }
 
+Future<void> _expectNoSyncRowsForEntity(Database db, String entityType) async {
+  expect(
+    await db.query(
+      'sync_outbox',
+      where: 'entity_type = ?',
+      whereArgs: [entityType],
+    ),
+    isEmpty,
+  );
+  expect(
+    await db.query(
+      'entity_sync_meta',
+      where: 'entity_type = ?',
+      whereArgs: [entityType],
+    ),
+    isEmpty,
+  );
+}
+
+Future<void> _expectOnlySyncEntities(
+  Database db,
+  Set<String> entityTypes,
+) async {
+  final outboxRows = await db.query('sync_outbox');
+  expect(
+    outboxRows.map((row) => row['entity_type'] as String).toSet(),
+    entityTypes,
+  );
+  expect(
+    outboxRows
+        .where((row) => row['entity_type'] == 'external_import_batch')
+        .toList(growable: false),
+    isEmpty,
+  );
+  expect(
+    outboxRows.where((row) => row['entity_type'] == 'account_payment').toList(),
+    isEmpty,
+  );
+  expect(
+    outboxRows.where((row) => row['entity_type'] == 'timing_record').toList(),
+    isEmpty,
+  );
+}
+
 Future<void> _expectNoSyncRows(Database db) async {
   expect(await db.query('sync_outbox'), isEmpty);
   expect(await db.query('entity_sync_meta'), isEmpty);
@@ -997,13 +1381,90 @@ void _expectUniqueOutboxIds(List<Map<String, Object?>> rows) {
   expect(rows.map((row) => row['id']).toSet(), hasLength(rows.length));
 }
 
-ProjectWriteOff _writeOff(String projectId) {
-  return ProjectWriteOff(
-    id: 'writeoff-$projectId',
+class _SettlementResetFixture {
+  const _SettlementResetFixture({
+    required this.projectId,
+    required this.batchId,
+    required this.writeOffs,
+  });
+
+  final String projectId;
+  final String batchId;
+  final List<ProjectWriteOff> writeOffs;
+}
+
+Future<_SettlementResetFixture> _seedSettlementResetFixture(Database db) async {
+  const projectId = 'project:a';
+  const batchId = 'batch-1';
+  final project = _project(
+    id: projectId,
+    status: ProjectStatus.settled,
+    settledAt: '2026-05-19T00:00:00.000Z',
+    settledSnapshot: '{"remaining":0}',
+  );
+  final writeOffs = [
+    _writeOff(projectId, id: 'writeoff-a-1'),
+    _writeOff(projectId, id: 'writeoff-a-2', amount: 50),
+  ];
+  await db.insert('projects', project.toMap());
+  for (final writeOff in writeOffs) {
+    await db.insert('project_write_offs', writeOff.toMap());
+  }
+  await _insertBatchRecords(batchId: batchId);
+  return _SettlementResetFixture(
     projectId: projectId,
-    amount: 100,
+    batchId: batchId,
+    writeOffs: writeOffs,
+  );
+}
+
+Future<void> _expectSettlementResetRolledBack(
+  Database db,
+  _SettlementResetFixture fixture,
+) async {
+  final records = await SqfliteExternalWorkRecordRepository().listByBatchId(
+    fixture.batchId,
+  );
+  expect(records, hasLength(2));
+  expect(records.every((record) => record.linkedProjectId == null), isTrue);
+  expect(records.map((record) => record.updatedAt).toSet(), {
+    '2026-05-18T00:00:00.000Z',
+  });
+
+  final writeOffRows = await db.query('project_write_offs', orderBy: 'id ASC');
+  expect(writeOffRows, hasLength(fixture.writeOffs.length));
+  expect(writeOffRows.map((row) => row['id']).toSet(), {
+    for (final writeOff in fixture.writeOffs) writeOff.id,
+  });
+
+  final project = Project.fromMap(
+    (await db.query(
+      'projects',
+      where: 'id = ?',
+      whereArgs: [fixture.projectId],
+    )).single,
+  );
+  expect(project.status, ProjectStatus.settled);
+  expect(project.settledAt, '2026-05-19T00:00:00.000Z');
+  expect(project.settledSnapshot, '{"remaining":0}');
+  expect(project.updatedAt, '2026-05-18T00:00:00.000Z');
+  await _expectNoSyncRows(db);
+}
+
+ProjectWriteOff _writeOff(
+  String projectId, {
+  String? id,
+  double amount = 100,
+  String? note,
+  String writeOffDate = '2026-05-19',
+}) {
+  return ProjectWriteOff(
+    id: id ?? 'writeoff-$projectId',
+    projectId: projectId,
+    amount: amount,
     reason: ProjectWriteOffReason.settlement.dbValue,
-    writeOffDate: '2026-05-19',
+    note: note,
+    writeOffDate: writeOffDate,
     createdAt: '2026-05-19T00:00:00.000Z',
     updatedAt: '2026-05-19T00:00:00.000Z',
   );
@@ -1079,6 +1540,7 @@ Project _project({
   String id = 'project:linked',
   ProjectStatus status = ProjectStatus.active,
   String? settledAt,
+  String? settledSnapshot,
 }) {
   return Project(
     id: id,
@@ -1086,6 +1548,7 @@ Project _project({
     site: '一号工地',
     status: status,
     settledAt: settledAt,
+    settledSnapshot: settledSnapshot,
     createdAt: '2026-05-18T00:00:00.000Z',
     updatedAt: '2026-05-18T00:00:00.000Z',
   );
