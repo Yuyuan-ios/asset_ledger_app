@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('external work sync strategy invariant', () {
     test(
-      'external work model supports row level snapshots but sync is still deferred',
+      'external work model supports row level import sync with deferred mutations',
       () {
         final model = _read('lib/data/models/external_work_record.dart');
         final schema = _read('lib/data/db/schema/external_work_schema.dart');
@@ -15,11 +15,13 @@ void main() {
         final syncEnqueuer = _read(
           'lib/infrastructure/local/timing/external_work_sync_enqueuer.dart',
         );
-        final productionSourceWithoutHelper = _libDartFiles()
+        final productionSourceWithoutHelperAndImport = _libDartFiles()
             .where(
               (file) =>
                   _relativePath(file) !=
-                  'lib/infrastructure/local/timing/external_work_sync_enqueuer.dart',
+                      'lib/infrastructure/local/timing/external_work_sync_enqueuer.dart' &&
+                  _relativePath(file) !=
+                      'lib/data/share/jztshare/project_external_work_importer.dart',
             )
             .map((file) => _read(_relativePath(file)))
             .join('\n');
@@ -86,16 +88,17 @@ void main() {
         ]);
 
         expect(
-          productionSourceWithoutHelper,
+          productionSourceWithoutHelperAndImport,
           isNot(contains('ExternalWorkSyncEnqueuer(')),
           reason:
-              'The helper may exist, but production ExternalWork import/link/unlink/delete/reset '
-              'paths remain deferred until they explicitly wire it in their transactions.',
+              'The helper may exist, and ExternalWork import may wire it, but '
+              'link/unlink/delete/reset paths remain deferred until they '
+              'explicitly wire it in their transactions.',
         );
       },
     );
 
-    test('external work future strategy keeps row level contract deferred', () {
+    test('external work future strategy keeps only import create covered', () {
       expect(
         _externalWorkSyncStrategy.externalWorkEntityType,
         'external_work_record',
@@ -112,7 +115,11 @@ void main() {
         isTrue,
       );
       expect(_externalWorkSyncStrategy.externalWorkHelperImplemented, isTrue);
-      expect(_externalWorkSyncStrategy.externalWorkOutboxImplemented, isFalse);
+      expect(_externalWorkSyncStrategy.externalWorkImportOutboxCovered, isTrue);
+      expect(
+        _externalWorkSyncStrategy.externalWorkAllProductionOutboxCovered,
+        isFalse,
+      );
       expect(_externalWorkSyncStrategy.externalWorkResetCovered, isFalse);
       expect(
         _externalWorkSyncStrategy.restoreRequiresReconcileBeforePush,
@@ -132,7 +139,7 @@ void main() {
     });
 
     test(
-      'external work production writes are registered as cloud push blockers',
+      'external work production writes are registered as covered or deferred',
       () {
         final actual = <String, List<String>>{};
         for (final file in _libDartFiles()) {
@@ -151,9 +158,9 @@ void main() {
           isEmpty,
           reason:
               'Unregistered external_work_records production write path(s) must '
-              'be explicitly classified. Route new production writes through a '
-              'future ExternalWorkSyncEnqueuer/transactional sync boundary, or '
-              'register restore/migration/deferred paths here with a narrow '
+              'be explicitly classified. Route new production writes through '
+              'ExternalWorkSyncEnqueuer inside their transaction, or register '
+              'restore/migration/deferred paths here with a narrow '
               'exemption.\n${_describeUnexpected(actual, expected)}',
         );
         expect(
@@ -296,64 +303,70 @@ void main() {
       },
     );
 
-    test('external work import preview remains read only', () {
-      final prepareUseCase = _read(
-        'lib/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart',
-      );
-      final duplicateChecker = _read(
-        'lib/data/share/jztshare/project_external_work_duplicate_checker.dart',
-      );
-      final importer = _read(
-        'lib/data/share/jztshare/project_external_work_importer.dart',
-      );
-      final confirmUseCase = _read(
-        'lib/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart',
-      );
-      final viewModel = _read(
-        'lib/features/external_work/import_preview/view_model/external_work_import_preview_view_model.dart',
-      );
+    test(
+      'external work import preview stays read only and confirm create is covered',
+      () {
+        final prepareUseCase = _read(
+          'lib/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart',
+        );
+        final duplicateChecker = _read(
+          'lib/data/share/jztshare/project_external_work_duplicate_checker.dart',
+        );
+        final importer = _read(
+          'lib/data/share/jztshare/project_external_work_importer.dart',
+        );
+        final confirmUseCase = _read(
+          'lib/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart',
+        );
+        final viewModel = _read(
+          'lib/features/external_work/import_preview/view_model/external_work_import_preview_view_model.dart',
+        );
 
-      _expectAllContains(prepareUseCase, const [
-        'parseProjectExternalWorkShare',
-        '_importer.buildPreview(parsed)',
-      ]);
-      expect(
-        _externalWorkWriteMarkers(prepareUseCase),
-        isEmpty,
-        reason:
-            'PrepareExternalWorkImportPreviewUseCase must parse and preview only.',
-      );
+        _expectAllContains(prepareUseCase, const [
+          'parseProjectExternalWorkShare',
+          '_importer.buildPreview(parsed)',
+        ]);
+        expect(
+          _externalWorkWriteMarkers(prepareUseCase),
+          isEmpty,
+          reason:
+              'PrepareExternalWorkImportPreviewUseCase must parse and preview only.',
+        );
 
-      _expectAllContains(duplicateChecker, const [
-        'Future<ExternalWorkImportPreview> buildPreview(',
-        'Future<ExternalWorkImportPreview> buildPreviewWithExecutor(',
-        'executor.query(',
-        "'external_work_records'",
-      ]);
-      expect(
-        _externalWorkWriteMarkers(duplicateChecker),
-        isEmpty,
-        reason:
-            'Duplicate preview may query external_work_records but not write.',
-      );
+        _expectAllContains(duplicateChecker, const [
+          'Future<ExternalWorkImportPreview> buildPreview(',
+          'Future<ExternalWorkImportPreview> buildPreviewWithExecutor(',
+          'executor.query(',
+          "'external_work_records'",
+        ]);
+        expect(
+          _externalWorkWriteMarkers(duplicateChecker),
+          isEmpty,
+          reason:
+              'Duplicate preview may query external_work_records but not write.',
+        );
 
-      _expectAllContains(importer, const [
-        'Future<ProjectExternalWorkImportResult> importParsed(',
-        'AppDatabase.inTransaction<void>((txn) async {',
-        'SqfliteExternalImportRepository.insertBatchWithExecutor(',
-        'SqfliteExternalWorkRecordRepository.insertRecordWithExecutor(',
-      ]);
-      _expectAllContains(confirmUseCase, const [
-        'class ConfirmExternalWorkImportUseCase',
-        '_importer.importParsed(session.parsed)',
-      ]);
-      _expectAllContains(viewModel, const [
-        'Future<void> prepare(String content) async',
-        'Future<void> confirmImport() async',
-        '_preparePreview.execute(content)',
-        '_confirmImport.execute(session)',
-      ]);
-    });
+        _expectAllContains(importer, const [
+          'ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer()',
+          'final ExternalWorkSyncEnqueuer _syncEnqueuer;',
+          'Future<ProjectExternalWorkImportResult> importParsed(',
+          'AppDatabase.inTransaction<void>((txn) async {',
+          'SqfliteExternalImportRepository.insertBatchWithExecutor(',
+          'SqfliteExternalWorkRecordRepository.insertRecordWithExecutor(',
+          'await _syncEnqueuer.enqueueCreate(txn, record: record);',
+        ]);
+        _expectAllContains(confirmUseCase, const [
+          'class ConfirmExternalWorkImportUseCase',
+          '_importer.importParsed(session.parsed)',
+        ]);
+        _expectAllContains(viewModel, const [
+          'Future<void> prepare(String content) async',
+          'Future<void> confirmImport() async',
+          '_preparePreview.execute(content)',
+          '_confirmImport.execute(session)',
+        ]);
+      },
+    );
 
     test(
       'restore and migration external work writes remain explicit exemptions',
@@ -475,7 +488,8 @@ const _externalWorkSyncStrategy = _ExternalWorkSyncStrategy(
   resetRequiresExternalWorkUpdateProjectWriteOffDeleteAndProjectUpdate: true,
   externalWorkResetIsCloudPushBlocker: true,
   externalWorkHelperImplemented: true,
-  externalWorkOutboxImplemented: false,
+  externalWorkImportOutboxCovered: true,
+  externalWorkAllProductionOutboxCovered: false,
   externalWorkResetCovered: false,
   restoreRequiresReconcileBeforePush: true,
   requiresOrderingOrTransactionGroupBeforeCloudPush: true,
@@ -492,11 +506,11 @@ const Map<String, String> _registeredExternalWorkWriteFiles = {
       'low-level ExternalWork CRUD and settlement reset path',
 
   // Import confirm performs row-level ExternalWork creates inside one local
-  // transaction today. It remains deferred until ExternalWork row outbox exists.
+  // transaction and is covered by ExternalWorkSyncEnqueuer create outbox/meta.
   'lib/data/share/jztshare/project_external_work_importer.dart':
-      'deferred bulk import create path',
+      'sync-covered bulk import create path',
   'lib/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart':
-      'deferred import confirm entry',
+      'sync-covered import confirm entry',
 
   // Production store/view actions mutate ExternalWork link, unlink, delete, and
   // reset state through the repository today. They are Cloud-push blockers until
@@ -768,7 +782,8 @@ class _ExternalWorkSyncStrategy {
     required this.resetRequiresExternalWorkUpdateProjectWriteOffDeleteAndProjectUpdate,
     required this.externalWorkResetIsCloudPushBlocker,
     required this.externalWorkHelperImplemented,
-    required this.externalWorkOutboxImplemented,
+    required this.externalWorkImportOutboxCovered,
+    required this.externalWorkAllProductionOutboxCovered,
     required this.externalWorkResetCovered,
     required this.restoreRequiresReconcileBeforePush,
     required this.requiresOrderingOrTransactionGroupBeforeCloudPush,
@@ -784,7 +799,8 @@ class _ExternalWorkSyncStrategy {
   resetRequiresExternalWorkUpdateProjectWriteOffDeleteAndProjectUpdate;
   final bool externalWorkResetIsCloudPushBlocker;
   final bool externalWorkHelperImplemented;
-  final bool externalWorkOutboxImplemented;
+  final bool externalWorkImportOutboxCovered;
+  final bool externalWorkAllProductionOutboxCovered;
   final bool externalWorkResetCovered;
   final bool restoreRequiresReconcileBeforePush;
   final bool requiresOrderingOrTransactionGroupBeforeCloudPush;
