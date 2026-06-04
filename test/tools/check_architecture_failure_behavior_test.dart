@@ -259,6 +259,49 @@ void main() {
         "Object archProbeProvider() => const ProjectSyncEnqueuer();\n",
   );
 
+  // Lock the harder-to-grep construction shapes the rule must still catch:
+  // multi-line empty parens, spaced empty parens, and a field initializer that
+  // bypasses DI. These are verified working today; the probes guard against a
+  // future regex simplification quietly dropping them.
+  _archProbeTest(
+    name:
+        'no_default_sync_enqueuer_construction: '
+        'multi-line empty-parens SyncEnqueuer construction fails',
+    relativeProbePath:
+        'lib/data/repositories/__arch_probe_sync_enqueuer_multiline.dart',
+    probeContent:
+        "// Probe: no_default_sync_enqueuer_construction multi-line empty parens\n"
+        "Object archProbe() {\n"
+        "  return AccountPaymentSyncEnqueuer(\n"
+        "  );\n"
+        "}\n",
+  );
+
+  _archProbeTest(
+    name:
+        'no_default_sync_enqueuer_construction: '
+        'spaced empty-parens SyncEnqueuer construction fails',
+    relativeProbePath:
+        'lib/data/repositories/__arch_probe_sync_enqueuer_spaced.dart',
+    probeContent:
+        "// Probe: no_default_sync_enqueuer_construction spaced empty parens\n"
+        "Object archProbe() => AccountPaymentSyncEnqueuer ( ) ;\n",
+  );
+
+  _archProbeTest(
+    name:
+        'no_default_sync_enqueuer_construction: '
+        'field-initializer no-arg SyncEnqueuer construction fails',
+    relativeProbePath:
+        'lib/infrastructure/local/account/'
+        '__arch_probe_sync_enqueuer_field_initializer.dart',
+    probeContent:
+        "// Probe: no_default_sync_enqueuer_construction field initializer\n"
+        "class _ArchProbeHolder {\n"
+        "  final Object enqueuer = const AccountPaymentSyncEnqueuer();\n"
+        "}\n",
+  );
+
   // Non-regression: enqueuer construction WITH explicit dependencies, a doc
   // comment mentioning an enqueuer, and a plain type annotation must NOT be
   // flagged in the composition root.

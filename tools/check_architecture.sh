@@ -264,6 +264,18 @@ run_no_default_sync_enqueuer_construction_check() {
 
   require_paths "$label" "$@" || return 0
 
+  # This rule is implemented in Python (comment/string masking + default-param
+  # detection are not reliably expressible in a single grep). Fail closed with
+  # an actionable message if python3 is unavailable, instead of surfacing a raw
+  # "exit code 127". The composition-root grep rule above still guards the
+  # highest-risk path (lib/app) without any external interpreter.
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  -> [$label] python3 is required for this rule but was not found on PATH."
+    echo "     Install python3 (e.g. 'brew install python') or ensure it is on PATH."
+    failures=$((failures + 1))
+    return 0
+  fi
+
   echo "$label..."
   local output
   set +e
