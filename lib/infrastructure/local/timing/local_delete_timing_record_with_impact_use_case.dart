@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../../data/db/database.dart';
 import '../../../data/models/project.dart';
+import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../data/repositories/account_project_merge_repository.dart';
 import '../../../data/repositories/external_work_record_repository.dart';
@@ -9,6 +10,9 @@ import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
+import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_repositories.dart';
+import '../../sync/sync_status.dart';
 
 /// 删除计时记录影响分析 + 联动清理的本地实现。
 ///
@@ -23,6 +27,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
     required SqfliteExternalWorkRecordRepository externalWorkRecordRepository,
     required SqfliteProjectWriteOffRepository writeOffRepository,
     required SqfliteProjectRepository projectRepository,
+    SyncOutboxRepository? syncOutboxRepository,
+    EntitySyncMetaRepository? entitySyncMetaRepository,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _paymentRepository = paymentRepository,
@@ -30,6 +36,10 @@ class LocalDeleteTimingRecordWithImpactUseCase
        _externalWorkRecordRepository = externalWorkRecordRepository,
        _writeOffRepository = writeOffRepository,
        _projectRepository = projectRepository,
+       _syncOutboxRepository =
+           syncOutboxRepository ?? const LocalSyncOutboxRepository(),
+       _entitySyncMetaRepository =
+           entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -38,9 +48,13 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final SqfliteExternalWorkRecordRepository _externalWorkRecordRepository;
   final SqfliteProjectWriteOffRepository _writeOffRepository;
   final SqfliteProjectRepository _projectRepository;
+  final SyncOutboxRepository _syncOutboxRepository;
+  final EntitySyncMetaRepository _entitySyncMetaRepository;
   final DateTime Function() _now;
 
   static const int _minActiveMergeMembers = 2;
+  static const String _timingRecordEntityType = 'timing_record';
+  static const String _ownerAppSource = 'owner_app';
 
   @override
   Future<TimingRecordDeleteImpact> analyzeImpact(int recordId) async {
@@ -192,6 +206,10 @@ class LocalDeleteTimingRecordWithImpactUseCase
         externalWorkUnlinked = unlinked > 0;
       }
 
+      // 5) 删除成功 + 影响处理完成后，在同一事务内入队 delete outbox。
+      //    任一写入失败 → 整个删除事务回滚（记录不删、联动清理不生效）。
+      await _enqueueSyncForDeletedRecord(txn, deletedRecord: record);
+
       return TimingRecordDeleteOutcome(
         settlementRevoked: settlementRevoked,
         mergeMemberRemoved: mergeMemberRemoved,
@@ -199,6 +217,48 @@ class LocalDeleteTimingRecordWithImpactUseCase
         externalWorkUnlinked: externalWorkUnlinked,
       );
     });
+  }
+
+  /// 删除成功后在同一事务内入队 sync_outbox + entity_sync_meta。
+  ///
+  /// 与 [LocalSaveTimingRecordWithImpactUseCase] 的 create/update 入队同构：
+  /// - sync_outbox：operation = delete，status = pending，payload 携带被删除记录的
+  ///   完整快照（含 id / project_id / device_id / start_date 等未来同步删除所需字段）。
+  /// - entity_sync_meta：sync_status = pendingDelete，payload_hash 与 outbox 同源。
+  ///
+  /// id 缺失直接抛错（不写半条）；写失败由外层事务整体回滚。
+  Future<void> _enqueueSyncForDeletedRecord(
+    DatabaseExecutor txn, {
+    required TimingRecord deletedRecord,
+  }) async {
+    final id = deletedRecord.id;
+    if (id == null) {
+      throw StateError('sync_outbox 入队需要被删除 timing_record 的 id');
+    }
+    final entityId = id.toString();
+    final entry = await _syncOutboxRepository.enqueueWithExecutor(
+      txn,
+      entityType: _timingRecordEntityType,
+      entityId: entityId,
+      operation: 'delete',
+      payload: {
+        'entity_type': _timingRecordEntityType,
+        'entity_id': entityId,
+        'operation': 'delete',
+        'record': deletedRecord.toMap(),
+      },
+    );
+    await _entitySyncMetaRepository.upsertWithExecutor(
+      txn,
+      EntitySyncMeta(
+        entityType: _timingRecordEntityType,
+        localId: entityId,
+        syncStatus: SyncStatus.pendingDelete,
+        version: 0,
+        source: _ownerAppSource,
+        payloadHash: entry.payloadHash,
+      ),
+    );
   }
 
   /// 「有效成员」判定：项目仍有任一痕迹（计时 / 收款 / 核销 / 已结清 / 外协关联）
