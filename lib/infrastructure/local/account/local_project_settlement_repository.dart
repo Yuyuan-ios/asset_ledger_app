@@ -12,14 +12,31 @@ import '../../../features/account/domain/repositories/project_settlement_reposit
 import '../../../core/utils/format_utils.dart';
 import '../../sync/sync_status.dart';
 import 'account_payment_sync_enqueuer.dart';
+import 'project_sync_enqueuer.dart';
+import 'project_write_off_sync_enqueuer.dart';
 
 class LocalProjectSettlementRepository implements ProjectSettlementRepository {
   const LocalProjectSettlementRepository({
+    SqfliteProjectRepository projectRepository =
+        const SqfliteProjectRepository(),
+    SqfliteProjectWriteOffRepository projectWriteOffRepository =
+        const SqfliteProjectWriteOffRepository(),
     AccountPaymentSyncEnqueuer accountPaymentSyncEnqueuer =
         const AccountPaymentSyncEnqueuer(),
-  }) : _accountPaymentSyncEnqueuer = accountPaymentSyncEnqueuer;
+    ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer =
+        const ProjectWriteOffSyncEnqueuer(),
+    ProjectSyncEnqueuer projectSyncEnqueuer = const ProjectSyncEnqueuer(),
+  }) : _projectRepository = projectRepository,
+       _projectWriteOffRepository = projectWriteOffRepository,
+       _accountPaymentSyncEnqueuer = accountPaymentSyncEnqueuer,
+       _projectWriteOffSyncEnqueuer = projectWriteOffSyncEnqueuer,
+       _projectSyncEnqueuer = projectSyncEnqueuer;
 
+  final SqfliteProjectRepository _projectRepository;
+  final SqfliteProjectWriteOffRepository _projectWriteOffRepository;
   final AccountPaymentSyncEnqueuer _accountPaymentSyncEnqueuer;
+  final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
+  final ProjectSyncEnqueuer _projectSyncEnqueuer;
 
   @override
   Future<ProjectSettlementResult> settle(
@@ -108,19 +125,18 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         if (reason == null || reason.trim().isEmpty || writeOffId == null) {
           throw StateError('核销信息不完整');
         }
-        await txn.insert(
-          SqfliteProjectWriteOffRepository.table,
-          ProjectWriteOff(
-            id: writeOffId,
-            projectId: request.projectId,
-            amount: request.writeOffAmount,
-            reason: reason,
-            note: request.note,
-            writeOffDate: request.writeOffDate,
-            createdAt: request.createdAtIso,
-            updatedAt: request.createdAtIso,
-          ).toMap(),
+        final writeOff = ProjectWriteOff(
+          id: writeOffId,
+          projectId: request.projectId,
+          amount: request.writeOffAmount,
+          reason: reason,
+          note: request.note,
+          writeOffDate: request.writeOffDate,
+          createdAt: request.createdAtIso,
+          updatedAt: request.createdAtIso,
         );
+        await _projectWriteOffRepository.insertWithExecutor(txn, writeOff);
+        await _projectWriteOffSyncEnqueuer.enqueueCreate(txn, writeOff);
       }
 
       final receivedFenAfter = receivedFenBefore + paymentFen;
@@ -137,6 +153,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.createdAtIso,
           ),
         );
+        await _enqueueProjectUpdate(txn, request.projectId);
       }
 
       return ProjectSettlementResult(
@@ -383,7 +400,13 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       if (writeOffRows.isEmpty) {
         throw StateError('核销记录不存在或已被删除');
       }
-      final writeOff = ProjectWriteOff.fromMap(writeOffRows.single);
+      final writeOff = await _projectWriteOffRepository.findByIdWithExecutor(
+        txn,
+        request.writeOffId,
+      );
+      if (writeOff == null || writeOff.projectId != request.projectId) {
+        throw StateError('核销记录不存在或已被删除');
+      }
 
       final receivableFen = _yuanToFen(request.receivable);
       final receivedFen = await _sumFenByProjectId(
@@ -405,6 +428,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       if (deleted != 1) {
         throw StateError('核销记录删除失败，请刷新后重试');
       }
+      await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
 
       final writeOffFenAfter = await _sumFenByProjectId(
         txn,
@@ -424,6 +448,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.updatedAtIso,
           ),
         );
+        await _enqueueProjectUpdate(txn, request.projectId);
       }
 
       return DeleteProjectWriteOffResult(
@@ -626,6 +651,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.updatedAtIso,
           ),
         );
+        await _enqueueProjectUpdate(txn, request.projectId);
       }
 
       return RevokeProjectSettlementStatusResult(
@@ -715,4 +741,18 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
 
   /// fen → yuan 转换：用于结果对象（仍以 yuan double 暴露给上层）。
   static double _fenToYuan(int fen) => fen / 100.0;
+
+  Future<void> _enqueueProjectUpdate(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final snapshot = await _projectRepository.findByIdWithExecutor(
+      executor,
+      projectId,
+    );
+    if (snapshot == null) {
+      throw StateError('项目不存在，无法写入同步队列');
+    }
+    await _projectSyncEnqueuer.enqueueUpdate(executor, project: snapshot);
+  }
 }

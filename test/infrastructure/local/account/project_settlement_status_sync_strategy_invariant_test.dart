@@ -76,6 +76,11 @@ void main() {
         'Future<DeleteProjectWriteOffResult> deleteMergedWriteOffs(',
         'Future<RevokeProjectSettlementStatusResult> revokeSettlementStatus(',
         'Future<RevokeProjectSettlementStatusResult> revokeMergedSettlementStatus(',
+        'ProjectWriteOffSyncEnqueuer',
+        'ProjectSyncEnqueuer',
+        '_projectWriteOffSyncEnqueuer.enqueueCreate',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete',
+        '_projectSyncEnqueuer.enqueueUpdate',
         'status: ProjectStatus.settled',
         'settledAt: request.createdAtIso',
         'status: ProjectStatus.active',
@@ -126,9 +131,11 @@ void main() {
         'if (paymentFen > 0)',
         '_accountPaymentSyncEnqueuer.enqueue(',
         'if (writeOffFen > 0)',
+        '_projectWriteOffSyncEnqueuer.enqueueCreate',
         'final settled = remainingFenAfter <= 0;',
         'status: ProjectStatus.settled',
         'settledAt: request.createdAtIso',
+        '_enqueueProjectUpdate(txn, request.projectId)',
       ]);
 
       _expectAllContains(settlementTests, const [
@@ -136,6 +143,7 @@ void main() {
         'writeOffAmount: 0',
         'expect(await _writeOffCount(db), 0)',
         'expect(await _projectStatus(db), ProjectStatus.settled)',
+        'ProjectSyncEnqueuer.entityType',
       ]);
     });
 
@@ -159,7 +167,9 @@ void main() {
         'status: ProjectStatus.active',
         'settledAt: null',
         'settledSnapshot: null',
+        '_enqueueProjectUpdate(txn, request.projectId)',
       ]);
+      expect(revokeSlice, isNot(contains('_projectWriteOffSyncEnqueuer')));
       expect(revokeSlice, isNot(contains('await txn.delete(')));
       expect(
         revokeSlice,
@@ -190,8 +200,18 @@ void main() {
         _settlementStatusStrategy.requiresSameTransactionWithSettlementCluster,
         isTrue,
       );
+      expect(_settlementStatusStrategy.singleProjectStatusIsCovered, isTrue);
+      expect(_settlementStatusStrategy.mergedProjectStatusIsDeferred, isTrue);
       expect(_settlementStatusStrategy.mustCoverPaymentOnlySettlement, isTrue);
       expect(_settlementStatusStrategy.mustCoverStatusOnlyRevoke, isTrue);
+      expect(
+        _settlementStatusStrategy.timingDeleteCascadeRestoreIsDeferred,
+        isTrue,
+      );
+      expect(
+        _settlementStatusStrategy.externalWorkSettlementResetIsDeferred,
+        isTrue,
+      );
       expect(
         _settlementStatusStrategy.mustCoverTimingDeleteCascadeRestore,
         isTrue,
@@ -318,8 +338,12 @@ const _settlementStatusStrategy = _SettlementStatusStrategy(
   recommendedProjectEntityType: 'project',
   recommendedProjectStatusOperation: 'update',
   requiresSameTransactionWithSettlementCluster: true,
+  singleProjectStatusIsCovered: true,
+  mergedProjectStatusIsDeferred: true,
   mustCoverPaymentOnlySettlement: true,
   mustCoverStatusOnlyRevoke: true,
+  timingDeleteCascadeRestoreIsDeferred: true,
+  externalWorkSettlementResetIsDeferred: true,
   mustCoverTimingDeleteCascadeRestore: true,
   mustCoverExternalWorkSettlementReset: true,
 );
@@ -330,8 +354,9 @@ const _registeredProjectSettlementStatusWriteFiles = <String, String>{
   'lib/data/repositories/project_repository.dart':
       'low-level projects status persistence',
 
-  // Main settlement cluster. It currently writes Project.status in the same
-  // transaction as payments and write-offs, and is the primary future sync hook.
+  // Main settlement cluster. Single-project settlement status writes are now
+  // sync-covered; merged settlement status writes remain explicit deferred
+  // paths until their full cluster semantics are wired.
   'lib/infrastructure/local/account/local_project_settlement_repository.dart':
       'single and merged project settlement status writes',
 
@@ -481,8 +506,8 @@ $details
 
 Project.status/settled_at/settled_snapshot mutations are Cloud-push blockers.
 Register intentional restore/migration/deferred paths in this invariant, or
-route production settlement status changes through the future Project status
-sync enqueuer in the same transaction as the settlement cluster.
+route production settlement status changes through ProjectSyncEnqueuer in the
+same transaction as the settlement cluster.
 ''';
 }
 
@@ -522,8 +547,12 @@ class _SettlementStatusStrategy {
     required this.recommendedProjectEntityType,
     required this.recommendedProjectStatusOperation,
     required this.requiresSameTransactionWithSettlementCluster,
+    required this.singleProjectStatusIsCovered,
+    required this.mergedProjectStatusIsDeferred,
     required this.mustCoverPaymentOnlySettlement,
     required this.mustCoverStatusOnlyRevoke,
+    required this.timingDeleteCascadeRestoreIsDeferred,
+    required this.externalWorkSettlementResetIsDeferred,
     required this.mustCoverTimingDeleteCascadeRestore,
     required this.mustCoverExternalWorkSettlementReset,
   });
@@ -533,8 +562,12 @@ class _SettlementStatusStrategy {
   final String recommendedProjectEntityType;
   final String recommendedProjectStatusOperation;
   final bool requiresSameTransactionWithSettlementCluster;
+  final bool singleProjectStatusIsCovered;
+  final bool mergedProjectStatusIsDeferred;
   final bool mustCoverPaymentOnlySettlement;
   final bool mustCoverStatusOnlyRevoke;
+  final bool timingDeleteCascadeRestoreIsDeferred;
+  final bool externalWorkSettlementResetIsDeferred;
   final bool mustCoverTimingDeleteCascadeRestore;
   final bool mustCoverExternalWorkSettlementReset;
 }
