@@ -12,7 +12,15 @@ void main() {
         final repository = _read(
           'lib/data/repositories/external_work_record_repository.dart',
         );
-        final libSource = _libDartFiles()
+        final syncEnqueuer = _read(
+          'lib/infrastructure/local/timing/external_work_sync_enqueuer.dart',
+        );
+        final productionSourceWithoutHelper = _libDartFiles()
+            .where(
+              (file) =>
+                  _relativePath(file) !=
+                  'lib/infrastructure/local/timing/external_work_sync_enqueuer.dart',
+            )
             .map((file) => _read(_relativePath(file)))
             .join('\n');
 
@@ -69,18 +77,20 @@ void main() {
           'ExternalWorkRecord.fromMap',
           'record.toMap()',
         ]);
+        _expectAllContains(syncEnqueuer, const [
+          'class ExternalWorkSyncEnqueuer',
+          "static const String entityType = 'external_work_record';",
+          'enqueueCreate(',
+          'enqueueUpdate(',
+          'enqueueDelete(',
+        ]);
 
         expect(
-          libSource,
-          isNot(contains('class ExternalWorkSyncEnqueuer')),
-          reason:
-              'ExternalWork outbox coverage is intentionally not implemented in this slice.',
-        );
-        expect(
-          libSource,
+          productionSourceWithoutHelper,
           isNot(contains('ExternalWorkSyncEnqueuer(')),
           reason:
-              'No production ExternalWork path should imply row-level outbox coverage yet.',
+              'The helper may exist, but production ExternalWork import/link/unlink/delete/reset '
+              'paths remain deferred until they explicitly wire it in their transactions.',
         );
       },
     );
@@ -101,6 +111,7 @@ void main() {
         _externalWorkSyncStrategy.externalWorkResetIsCloudPushBlocker,
         isTrue,
       );
+      expect(_externalWorkSyncStrategy.externalWorkHelperImplemented, isTrue);
       expect(_externalWorkSyncStrategy.externalWorkOutboxImplemented, isFalse);
       expect(_externalWorkSyncStrategy.externalWorkResetCovered, isFalse);
       expect(
@@ -240,7 +251,7 @@ void main() {
 
         _expectAllContains(resetSlice, const [
           'AppDatabase.inTransaction<int>((txn) async {',
-          '_linkBatchWithExecutor(',
+          'linkBatchToProjectWithExecutor(',
           'SqfliteProjectWriteOffRepository.table',
           "where: 'project_id = ?'",
           'SqfliteProjectRepository.table',
@@ -252,7 +263,7 @@ void main() {
           'settledSnapshot: null',
         ]);
         _expectInOrder(resetSlice, const [
-          '_linkBatchWithExecutor(',
+          'linkBatchToProjectWithExecutor(',
           'SqfliteProjectWriteOffRepository.table',
           'Project.fromMap(projectRows.single)',
           'ProjectStatus.active',
@@ -463,6 +474,7 @@ const _externalWorkSyncStrategy = _ExternalWorkSyncStrategy(
   bulkImportUsesRowLevelCreates: true,
   resetRequiresExternalWorkUpdateProjectWriteOffDeleteAndProjectUpdate: true,
   externalWorkResetIsCloudPushBlocker: true,
+  externalWorkHelperImplemented: true,
   externalWorkOutboxImplemented: false,
   externalWorkResetCovered: false,
   restoreRequiresReconcileBeforePush: true,
@@ -755,6 +767,7 @@ class _ExternalWorkSyncStrategy {
     required this.bulkImportUsesRowLevelCreates,
     required this.resetRequiresExternalWorkUpdateProjectWriteOffDeleteAndProjectUpdate,
     required this.externalWorkResetIsCloudPushBlocker,
+    required this.externalWorkHelperImplemented,
     required this.externalWorkOutboxImplemented,
     required this.externalWorkResetCovered,
     required this.restoreRequiresReconcileBeforePush,
@@ -770,6 +783,7 @@ class _ExternalWorkSyncStrategy {
   final bool
   resetRequiresExternalWorkUpdateProjectWriteOffDeleteAndProjectUpdate;
   final bool externalWorkResetIsCloudPushBlocker;
+  final bool externalWorkHelperImplemented;
   final bool externalWorkOutboxImplemented;
   final bool externalWorkResetCovered;
   final bool restoreRequiresReconcileBeforePush;
