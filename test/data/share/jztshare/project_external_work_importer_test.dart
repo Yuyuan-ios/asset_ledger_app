@@ -12,6 +12,11 @@ import 'package:asset_ledger/data/share/jztshare/project_external_work_importer.
 import 'package:asset_ledger/data/share/jztshare/share_envelope.dart';
 import 'package:asset_ledger/data/share/jztshare/share_envelope_parser.dart';
 import 'package:asset_ledger/data/share/jztshare/share_envelope_validator.dart';
+import 'package:asset_ledger/infrastructure/local/timing/external_work_sync_enqueuer.dart';
+import 'package:asset_ledger/infrastructure/sync/entity_sync_meta.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_outbox_entry.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -35,7 +40,7 @@ void main() {
     test(
       'builds an import preview with summaries and duplicate status',
       () async {
-        await _openCurrentInMemoryDb();
+        final db = await _openCurrentInMemoryDb();
         final parsed = _parsed(
           lines: [
             _line(siteSnapshot: '一号工地', hoursMilli: 1000, unitPriceFen: 30000),
@@ -66,6 +71,10 @@ void main() {
         expect(preview.lines.map((line) => line.duplicateStatus).toSet(), {
           ExternalWorkDuplicateStatus.none,
         });
+        expect(await db.query('external_import_batches'), isEmpty);
+        expect(await db.query('external_work_records'), isEmpty);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
       },
     );
 
@@ -106,7 +115,64 @@ void main() {
       expect(await db.query('timing_records'), isEmpty);
       expect(await db.query('account_payments'), isEmpty);
       expect(await db.query('projects'), isEmpty);
+      await _expectExternalWorkCreateSync(
+        db,
+        records.map(ExternalWorkRecord.fromMap).toList(),
+      );
+      expect(await _nonExternalWorkOutboxRows(db), isEmpty);
       expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+    });
+
+    test('import with many records uses row-level create outbox', () async {
+      final db = await _openCurrentInMemoryDb();
+      final parsed = _parsed(
+        lines: [
+          for (var i = 1; i <= 5; i++)
+            _line(
+              exportLineUuid: 'line-$i',
+              originFingerprint: 'fingerprint-$i',
+              siteSnapshot: '工地$i',
+              hoursMilli: 1000 + i,
+              sourceUnitPriceFen: 30000 + i,
+            ),
+        ],
+      );
+
+      final result = await importer.importParsed(
+        parsed,
+        importedAt: '2026-05-18T00:00:00.000Z',
+      );
+
+      expect(result.status, ProjectExternalWorkImportStatus.imported);
+      expect(result.insertedRecordCount, 5);
+      final records = (await db.query(
+        'external_work_records',
+      )).map(ExternalWorkRecord.fromMap).toList();
+      expect(records, hasLength(5));
+      final outboxRows = await _externalWorkCreateOutboxRows(db);
+      expect(outboxRows, hasLength(5));
+      expect(
+        outboxRows.map((row) => row['entity_id']).toSet(),
+        records.map((record) => record.id).toSet(),
+      );
+      expect(
+        outboxRows.every(
+          (row) => row['entity_type'] == ExternalWorkSyncEnqueuer.entityType,
+        ),
+        isTrue,
+      );
+      expect(
+        outboxRows.map((row) => row['id']).toSet(),
+        hasLength(outboxRows.length),
+      );
+      expect(
+        await db.query(
+          'sync_outbox',
+          where: 'entity_type = ?',
+          whereArgs: ['external_import_batch'],
+        ),
+        isEmpty,
+      );
     });
 
     test('rejects duplicate share_id without inserting new rows', () async {
@@ -117,6 +183,8 @@ void main() {
         parsed,
         importedAt: '2026-05-18T00:00:00.000Z',
       );
+      final beforeOutbox = await db.query('sync_outbox');
+      final beforeMeta = await db.query('entity_sync_meta');
       final result = await importer.importParsed(
         parsed,
         importedAt: '2026-05-18T01:00:00.000Z',
@@ -131,6 +199,8 @@ void main() {
       );
       expect(await db.query('external_import_batches'), hasLength(1));
       expect(await db.query('external_work_records'), hasLength(1));
+      expect(await db.query('sync_outbox'), beforeOutbox);
+      expect(await db.query('entity_sync_meta'), beforeMeta);
     });
 
     test('rejects duplicate source share and record UUID', () async {
@@ -155,6 +225,8 @@ void main() {
       );
       expect(await db.query('external_import_batches'), hasLength(1));
       expect(await db.query('external_work_records'), hasLength(1));
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
     });
 
     test('marks origin fingerprint duplicates as suspicious only', () async {
@@ -202,6 +274,64 @@ void main() {
 
       expect(await db.query('external_import_batches'), isEmpty);
       expect(await db.query('external_work_records'), isEmpty);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+    });
+
+    test('outbox failure rolls back entire import transaction', () async {
+      final db = await _openCurrentInMemoryDb();
+      final throwingImporter = ProjectExternalWorkImporter(
+        syncEnqueuer: ExternalWorkSyncEnqueuer(
+          syncOutboxRepository: const _ThrowingSyncOutboxRepository(),
+        ),
+      );
+
+      await expectLater(
+        throwingImporter.importParsed(
+          _parsed(
+            lines: [
+              _line(exportLineUuid: 'line-1', originFingerprint: 'fp-1'),
+              _line(exportLineUuid: 'line-2', originFingerprint: 'fp-2'),
+            ],
+          ),
+          importedAt: '2026-05-18T00:00:00.000Z',
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('external_import_batches'), isEmpty);
+      expect(await db.query('external_work_records'), isEmpty);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+      expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
+    });
+
+    test('meta failure rolls back entire import transaction', () async {
+      final db = await _openCurrentInMemoryDb();
+      final throwingImporter = ProjectExternalWorkImporter(
+        syncEnqueuer: ExternalWorkSyncEnqueuer(
+          entitySyncMetaRepository: const _ThrowingEntitySyncMetaRepository(),
+        ),
+      );
+
+      await expectLater(
+        throwingImporter.importParsed(
+          _parsed(
+            lines: [
+              _line(exportLineUuid: 'line-1', originFingerprint: 'fp-1'),
+              _line(exportLineUuid: 'line-2', originFingerprint: 'fp-2'),
+            ],
+          ),
+          importedAt: '2026-05-18T00:00:00.000Z',
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await db.query('external_import_batches'), isEmpty);
+      expect(await db.query('external_work_records'), isEmpty);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
       expect(await db.rawQuery('PRAGMA foreign_key_check;'), isEmpty);
     });
 
@@ -273,6 +403,11 @@ void main() {
             ),
           ),
         );
+        final db = await AppDatabase.database;
+        expect(await db.query('external_import_batches'), isEmpty);
+        expect(await db.query('external_work_records'), isEmpty);
+        expect(await db.query('sync_outbox'), isEmpty);
+        expect(await db.query('entity_sync_meta'), isEmpty);
       },
     );
   });
@@ -393,6 +528,146 @@ Future<void> _seedExistingRecord({
       updatedAt: now,
     ),
   );
+}
+
+Future<void> _expectExternalWorkCreateSync(
+  DatabaseExecutor executor,
+  List<ExternalWorkRecord> records,
+) async {
+  final expectedById = {for (final record in records) record.id: record};
+  final outboxRows = await _externalWorkCreateOutboxRows(executor);
+  expect(outboxRows, hasLength(records.length));
+  expect(
+    outboxRows.map((row) => row['entity_id']).toSet(),
+    expectedById.keys.toSet(),
+  );
+  expect(
+    outboxRows.map((row) => row['id']).toSet(),
+    hasLength(outboxRows.length),
+  );
+
+  final metaRows = await executor.query(
+    'entity_sync_meta',
+    where: 'entity_type = ?',
+    whereArgs: [ExternalWorkSyncEnqueuer.entityType],
+  );
+  final metaById = {for (final row in metaRows) row['local_id'] as String: row};
+  expect(metaById.keys.toSet(), expectedById.keys.toSet());
+
+  for (final outbox in outboxRows) {
+    final entityId = outbox['entity_id'] as String;
+    final expected = expectedById[entityId]!;
+    expect(outbox['entity_type'], ExternalWorkSyncEnqueuer.entityType);
+    expect(outbox['operation'], 'create');
+    expect(outbox['status'], SyncOutboxStatus.pending.name);
+
+    final payload =
+        jsonDecode(outbox['payload_json'] as String) as Map<String, Object?>;
+    expect(payload['entity_type'], ExternalWorkSyncEnqueuer.entityType);
+    expect(payload['entity_id'], entityId);
+    expect(payload['operation'], 'create');
+    expect(payload['record'], expected.toMap());
+
+    final payloadRecord = payload['record'] as Map<String, Object?>;
+    expect(payloadRecord['id'], expected.id);
+    expect(payloadRecord['import_batch_id'], expected.importBatchId);
+    expect(payloadRecord['source_share_id'], expected.sourceShareId);
+    expect(payloadRecord['source_record_uuid'], expected.sourceRecordUuid);
+    expect(payloadRecord['origin_fingerprint'], expected.originFingerprint);
+    expect(payloadRecord['work_date'], expected.workDate);
+    expect(payloadRecord['hours_milli'], expected.hoursMilli);
+    expect(payloadRecord['amount_fen'], expected.amountFen);
+    expect(payloadRecord['project_received_fen'], expected.projectReceivedFen);
+    expect(payloadRecord['linked_project_id'], expected.linkedProjectId);
+    expect(payloadRecord['record_kind'], expected.recordKind.name);
+    expect(payloadRecord['status'], expected.status.name);
+    expect(payloadRecord['created_at'], expected.createdAt);
+    expect(payloadRecord['updated_at'], expected.updatedAt);
+
+    final meta = metaById[entityId]!;
+    expect(meta['entity_type'], ExternalWorkSyncEnqueuer.entityType);
+    expect(meta['local_id'], entityId);
+    expect(meta['sync_status'], SyncStatus.pendingUpload.name);
+    expect(meta['source'], ExternalWorkSyncEnqueuer.ownerAppSource);
+    expect(meta['version'], 0);
+    expect(meta['payload_hash'], outbox['payload_hash']);
+  }
+}
+
+Future<List<Map<String, Object?>>> _externalWorkCreateOutboxRows(
+  DatabaseExecutor executor,
+) {
+  return executor.query(
+    'sync_outbox',
+    where: 'entity_type = ? AND operation = ?',
+    whereArgs: [ExternalWorkSyncEnqueuer.entityType, 'create'],
+    orderBy: 'entity_id ASC',
+  );
+}
+
+Future<List<Map<String, Object?>>> _nonExternalWorkOutboxRows(
+  DatabaseExecutor executor,
+) {
+  return executor.query(
+    'sync_outbox',
+    where: 'entity_type != ?',
+    whereArgs: [ExternalWorkSyncEnqueuer.entityType],
+  );
+}
+
+class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
+  const _ThrowingSyncOutboxRepository();
+
+  @override
+  Future<SyncOutboxEntry> enqueue({
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) {
+    throw StateError('injected failure: sync_outbox write failed');
+  }
+
+  @override
+  Future<SyncOutboxEntry> enqueueWithExecutor(
+    DatabaseExecutor executor, {
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required Map<String, Object?> payload,
+  }) {
+    throw StateError('injected failure: sync_outbox write failed');
+  }
+
+  @override
+  Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
+    return const [];
+  }
+}
+
+class _ThrowingEntitySyncMetaRepository implements EntitySyncMetaRepository {
+  const _ThrowingEntitySyncMetaRepository();
+
+  @override
+  Future<void> upsert(EntitySyncMeta meta) {
+    throw StateError('injected failure: entity_sync_meta write failed');
+  }
+
+  @override
+  Future<void> upsertWithExecutor(
+    DatabaseExecutor executor,
+    EntitySyncMeta meta,
+  ) {
+    throw StateError('injected failure: entity_sync_meta write failed');
+  }
+
+  @override
+  Future<EntitySyncMeta?> find({
+    required String entityType,
+    required String localId,
+  }) async {
+    return null;
+  }
 }
 
 Future<Database> _openCurrentInMemoryDb() {

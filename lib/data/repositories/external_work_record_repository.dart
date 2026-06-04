@@ -1,9 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/errors/external_work_errors.dart';
+import '../../infrastructure/local/account/project_sync_enqueuer.dart';
+import '../../infrastructure/local/account/project_write_off_sync_enqueuer.dart';
+import '../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
 import '../db/database.dart';
 import '../models/external_work_record.dart';
-import '../models/project.dart';
 import 'external_import_repository.dart';
 import 'project_repository.dart';
 import 'project_write_off_repository.dart';
@@ -65,7 +67,24 @@ abstract class ExternalWorkRecordRepository {
 
 class SqfliteExternalWorkRecordRepository
     implements ExternalWorkRecordRepository {
+  const SqfliteExternalWorkRecordRepository({
+    ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer(),
+    ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer =
+        const ProjectWriteOffSyncEnqueuer(),
+    ProjectSyncEnqueuer projectSyncEnqueuer = const ProjectSyncEnqueuer(),
+  }) : _syncEnqueuer = syncEnqueuer,
+       _projectWriteOffSyncEnqueuer = projectWriteOffSyncEnqueuer,
+       _projectSyncEnqueuer = projectSyncEnqueuer;
+
   static const String table = 'external_work_records';
+  static const SqfliteProjectWriteOffRepository _writeOffRepository =
+      SqfliteProjectWriteOffRepository();
+  static const SqfliteProjectRepository _projectRepository =
+      SqfliteProjectRepository();
+
+  final ExternalWorkSyncEnqueuer _syncEnqueuer;
+  final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
+  final ProjectSyncEnqueuer _projectSyncEnqueuer;
 
   @override
   Future<void> insertRecord(ExternalWorkRecord record) async {
@@ -77,40 +96,22 @@ class SqfliteExternalWorkRecordRepository
   Future<void> insertRecords(List<ExternalWorkRecord> records) async {
     if (records.isEmpty) return;
     await AppDatabase.inTransaction<void>((txn) async {
-      for (final record in records) {
-        await insertRecordWithExecutor(txn, record);
-      }
+      await insertRecordsWithExecutor(txn, records: records);
     });
   }
 
   @override
   Future<List<ExternalWorkRecord>> listByBatchId(String batchId) async {
-    final normalized = batchId.trim();
-    if (normalized.isEmpty) return const [];
     final db = await AppDatabase.database;
-    final rows = await db.query(
-      table,
-      where: 'import_batch_id = ?',
-      whereArgs: [normalized],
-      orderBy: 'work_date ASC, id ASC',
-    );
-    return rows.map(ExternalWorkRecord.fromMap).toList();
+    return listByBatchIdWithExecutor(db, batchId);
   }
 
   @override
   Future<List<ExternalWorkRecord>> listByLinkedProjectId(
     String projectId,
   ) async {
-    final normalized = projectId.trim();
-    if (normalized.isEmpty) return const [];
     final db = await AppDatabase.database;
-    final rows = await db.query(
-      table,
-      where: 'linked_project_id = ?',
-      whereArgs: [normalized],
-      orderBy: 'work_date ASC, id ASC',
-    );
-    return rows.map(ExternalWorkRecord.fromMap).toList();
+    return listByLinkedProjectIdWithExecutor(db, projectId);
   }
 
   @override
@@ -118,22 +119,13 @@ class SqfliteExternalWorkRecordRepository
     final normalized = recordId.trim();
     if (normalized.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
-      final rows = await txn.query(
-        table,
-        columns: const ['import_batch_id'],
-        where: 'id = ?',
-        whereArgs: [normalized],
-        limit: 1,
-      );
-      if (rows.isEmpty) return 0;
+      final snapshot = await findByIdWithExecutor(txn, normalized);
+      if (snapshot == null) return 0;
 
-      final batchId = rows.single['import_batch_id'] as String;
-      final deleted = await txn.delete(
-        table,
-        where: 'id = ?',
-        whereArgs: [normalized],
-      );
+      final batchId = snapshot.importBatchId;
+      final deleted = await deleteByIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
+      await _syncEnqueuer.enqueueDelete(txn, record: snapshot);
 
       final remaining = await txn.query(
         table,
@@ -158,12 +150,12 @@ class SqfliteExternalWorkRecordRepository
     final normalized = batchId.trim();
     if (normalized.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
-      final deleted = await txn.delete(
-        table,
-        where: 'import_batch_id = ?',
-        whereArgs: [normalized],
-      );
+      final snapshots = await listByBatchIdWithExecutor(txn, normalized);
+      final deleted = await deleteByBatchIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
+      for (final snapshot in snapshots) {
+        await _syncEnqueuer.enqueueDelete(txn, record: snapshot);
+      }
 
       await txn.delete(
         SqfliteExternalImportRepository.table,
@@ -183,12 +175,14 @@ class SqfliteExternalWorkRecordRepository
     final normalizedBatchId = importBatchId.trim();
     final normalizedProjectId = _requireProjectId(projectId);
     return AppDatabase.inTransaction<int>((txn) async {
-      return _linkBatchWithExecutor(
+      final linked = await linkBatchToProjectWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      return linked;
     });
   }
 
@@ -203,38 +197,41 @@ class SqfliteExternalWorkRecordRepository
     return AppDatabase.inTransaction<int>((txn) async {
       // 1) 先写关联：batch 已不存在（0 行）会抛异常，使整个事务回滚，
       //    确保不会出现"撤销结清成功但关联失败"的中间态。
-      final linked = await _linkBatchWithExecutor(
+      final linked = await linkBatchToProjectWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
 
       // 2) 同事务内撤销结清：删除该项目核销记录 + 已结清恢复未结清。
-      await txn.delete(
-        SqfliteProjectWriteOffRepository.table,
-        where: 'project_id = ?',
-        whereArgs: [normalizedProjectId],
-      );
-      final projectRows = await txn.query(
-        SqfliteProjectRepository.table,
-        where: 'id = ?',
-        whereArgs: [normalizedProjectId],
-        limit: 1,
-      );
-      if (projectRows.isNotEmpty) {
-        final project = Project.fromMap(projectRows.single);
-        if (project.status == ProjectStatus.settled) {
-          await SqfliteProjectRepository.upsertWithExecutor(
-            txn,
-            project.copyWith(
-              status: ProjectStatus.active,
-              settledAt: null,
-              settledSnapshot: null,
-              updatedAt: updatedAt,
-            ),
-          );
+      final writeOffSnapshots = await _writeOffRepository
+          .listByProjectIdWithExecutor(txn, normalizedProjectId);
+      for (final writeOff in writeOffSnapshots) {
+        final deleted = await _writeOffRepository.deleteByIdWithExecutor(
+          txn,
+          writeOff.id,
+        );
+        if (deleted > 0) {
+          await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
         }
+      }
+
+      final restoredActive = await _projectRepository.restoreActiveWithExecutor(
+        txn,
+        projectId: normalizedProjectId,
+        updatedAt: updatedAt,
+      );
+      if (restoredActive) {
+        final project = await _projectRepository.findByIdWithExecutor(
+          txn,
+          normalizedProjectId,
+        );
+        if (project == null) {
+          throw StateError('Project sync enqueue requires project snapshot');
+        }
+        await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);
       }
 
       return linked;
@@ -248,16 +245,13 @@ class SqfliteExternalWorkRecordRepository
   }) async {
     final normalizedBatchId = importBatchId.trim();
     return AppDatabase.inTransaction<int>((txn) async {
-      final count = await txn.update(
-        table,
-        {'linked_project_id': null, 'updated_at': updatedAt},
-        where: 'import_batch_id = ?',
-        whereArgs: [normalizedBatchId],
+      final unlinked = await unlinkBatchWithExecutor(
+        txn,
+        importBatchId: normalizedBatchId,
+        updatedAt: updatedAt,
       );
-      if (count == 0) {
-        throw ExternalWorkBatchUnavailableException();
-      }
-      return count;
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      return unlinked;
     });
   }
 
@@ -269,18 +263,132 @@ class SqfliteExternalWorkRecordRepository
     return normalized;
   }
 
+  Future<List<String>> insertRecordsWithExecutor(
+    DatabaseExecutor executor, {
+    required List<ExternalWorkRecord> records,
+  }) async {
+    final ids = <String>[];
+    for (final record in records) {
+      await insertRecordWithExecutor(executor, record);
+      ids.add(record.id);
+    }
+    return ids;
+  }
+
+  Future<ExternalWorkRecord?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return null;
+    final rows = await executor.query(
+      table,
+      where: 'id = ?',
+      whereArgs: [normalized],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return ExternalWorkRecord.fromMap(rows.single);
+  }
+
+  Future<List<ExternalWorkRecord>> listByBatchIdWithExecutor(
+    DatabaseExecutor executor,
+    String batchId,
+  ) async {
+    final normalized = batchId.trim();
+    if (normalized.isEmpty) return const [];
+    final rows = await executor.query(
+      table,
+      where: 'import_batch_id = ?',
+      whereArgs: [normalized],
+      orderBy: 'work_date ASC, id ASC',
+    );
+    return rows.map(ExternalWorkRecord.fromMap).toList();
+  }
+
+  Future<List<ExternalWorkRecord>> listByLinkedProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return const [];
+    final rows = await executor.query(
+      table,
+      where: 'linked_project_id = ?',
+      whereArgs: [normalized],
+      orderBy: 'work_date ASC, id ASC',
+    );
+    return rows.map(ExternalWorkRecord.fromMap).toList();
+  }
+
+  Future<int> updateWithExecutor(
+    DatabaseExecutor executor,
+    ExternalWorkRecord record,
+  ) async {
+    final normalized = record.id.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.update(
+      table,
+      record.toMap(),
+      where: 'id = ?',
+      whereArgs: [normalized],
+    );
+  }
+
+  Future<int> deleteByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.delete(table, where: 'id = ?', whereArgs: [normalized]);
+  }
+
+  Future<int> deleteByBatchIdWithExecutor(
+    DatabaseExecutor executor,
+    String batchId,
+  ) async {
+    final normalized = batchId.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.delete(
+      table,
+      where: 'import_batch_id = ?',
+      whereArgs: [normalized],
+    );
+  }
+
   /// 在给定执行器（事务）内把 batch 的所有记录关联到项目；0 行抛异常。
-  static Future<int> _linkBatchWithExecutor(
+  Future<int> linkBatchToProjectWithExecutor(
     DatabaseExecutor executor, {
     required String importBatchId,
     required String projectId,
     required String updatedAt,
   }) async {
+    final normalizedBatchId = importBatchId.trim();
+    final normalizedProjectId = _requireProjectId(projectId);
     final count = await executor.update(
       table,
-      {'linked_project_id': projectId, 'updated_at': updatedAt},
+      {'linked_project_id': normalizedProjectId, 'updated_at': updatedAt},
       where: 'import_batch_id = ?',
-      whereArgs: [importBatchId],
+      whereArgs: [normalizedBatchId],
+    );
+    if (count == 0) {
+      throw ExternalWorkBatchUnavailableException();
+    }
+    return count;
+  }
+
+  Future<int> unlinkBatchWithExecutor(
+    DatabaseExecutor executor, {
+    required String importBatchId,
+    required String updatedAt,
+  }) async {
+    final normalizedBatchId = importBatchId.trim();
+    final count = await executor.update(
+      table,
+      {'linked_project_id': null, 'updated_at': updatedAt},
+      where: 'import_batch_id = ?',
+      whereArgs: [normalizedBatchId],
     );
     if (count == 0) {
       throw ExternalWorkBatchUnavailableException();
@@ -337,6 +445,16 @@ class SqfliteExternalWorkRecordRepository
       where: 'linked_project_id = ?',
       whereArgs: [normalized],
     );
+  }
+
+  Future<void> _enqueueBatchUpdates(
+    DatabaseExecutor executor, {
+    required String batchId,
+  }) async {
+    final snapshots = await listByBatchIdWithExecutor(executor, batchId);
+    for (final snapshot in snapshots) {
+      await _syncEnqueuer.enqueueUpdate(executor, record: snapshot);
+    }
   }
 
   @override
