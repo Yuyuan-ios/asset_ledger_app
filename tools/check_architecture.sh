@@ -215,6 +215,37 @@ run_forbidden_pattern_check "Checking patterns for use_cases imports" \
   '^import\s+.*/use_cases/' \
   lib/patterns
 
+# ============================================================================
+# R5.24: composition_no_default_const_sync_enqueuer
+#
+# The composition root (lib/app/** and lib/main.dart) must NOT construct a
+# *SyncEnqueuer with no arguments (bare `XSyncEnqueuer()` or `const
+# XSyncEnqueuer()`). A no-arg enqueuer silently falls back to the default
+# `const LocalSyncOutboxRepository()` / `const LocalEntitySyncMetaRepository()`,
+# which bypasses dependency injection and makes the transaction boundary / test
+# doubles impossible to confirm at the wiring layer.
+#
+# Allowed (NOT matched):
+# - Enqueuer construction WITH explicit dependencies, e.g.
+#   `AccountPaymentSyncEnqueuer(syncOutboxRepository: repo)` — non-empty parens.
+# - The legitimate DI seams in lib/data/** and lib/infrastructure/** where
+#   `= const XSyncEnqueuer()` is a constructor *default parameter value*. Those
+#   files are intentionally out of scope: they are the injection points, not the
+#   composition root, and rewriting them would require an enqueuer base class /
+#   factory refactor that is explicitly out of scope for R5.24.
+# - Enqueuer class declarations (they live under lib/infrastructure, not here).
+#
+# Pattern notes:
+# - `^(?!\s*//)` skips comment lines so doc comments mentioning an enqueuer name
+#   are not flagged.
+# - `(?<![A-Za-z0-9_])` guards the left word boundary so `_AccountPaymentSyncEnqueuer`
+#   or similar are not partial-matched.
+# - `\(\s*\)` requires EMPTY parens, i.e. the no-arg default construction only.
+run_forbidden_pattern_check "Checking composition root for default-const SyncEnqueuer construction" \
+  '^(?!\s*//).*(?<![A-Za-z0-9_])[A-Za-z0-9_]*SyncEnqueuer\s*\(\s*\)' \
+  lib/app \
+  lib/main.dart
+
 if [[ "$failures" -ne 0 ]]; then
   echo "Architecture boundary checks failed: $failures violation(s) / error(s)."
   exit 1
