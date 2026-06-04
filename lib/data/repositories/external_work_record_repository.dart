@@ -77,40 +77,22 @@ class SqfliteExternalWorkRecordRepository
   Future<void> insertRecords(List<ExternalWorkRecord> records) async {
     if (records.isEmpty) return;
     await AppDatabase.inTransaction<void>((txn) async {
-      for (final record in records) {
-        await insertRecordWithExecutor(txn, record);
-      }
+      await insertRecordsWithExecutor(txn, records: records);
     });
   }
 
   @override
   Future<List<ExternalWorkRecord>> listByBatchId(String batchId) async {
-    final normalized = batchId.trim();
-    if (normalized.isEmpty) return const [];
     final db = await AppDatabase.database;
-    final rows = await db.query(
-      table,
-      where: 'import_batch_id = ?',
-      whereArgs: [normalized],
-      orderBy: 'work_date ASC, id ASC',
-    );
-    return rows.map(ExternalWorkRecord.fromMap).toList();
+    return listByBatchIdWithExecutor(db, batchId);
   }
 
   @override
   Future<List<ExternalWorkRecord>> listByLinkedProjectId(
     String projectId,
   ) async {
-    final normalized = projectId.trim();
-    if (normalized.isEmpty) return const [];
     final db = await AppDatabase.database;
-    final rows = await db.query(
-      table,
-      where: 'linked_project_id = ?',
-      whereArgs: [normalized],
-      orderBy: 'work_date ASC, id ASC',
-    );
-    return rows.map(ExternalWorkRecord.fromMap).toList();
+    return listByLinkedProjectIdWithExecutor(db, projectId);
   }
 
   @override
@@ -128,11 +110,7 @@ class SqfliteExternalWorkRecordRepository
       if (rows.isEmpty) return 0;
 
       final batchId = rows.single['import_batch_id'] as String;
-      final deleted = await txn.delete(
-        table,
-        where: 'id = ?',
-        whereArgs: [normalized],
-      );
+      final deleted = await deleteByIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
 
       final remaining = await txn.query(
@@ -158,11 +136,7 @@ class SqfliteExternalWorkRecordRepository
     final normalized = batchId.trim();
     if (normalized.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
-      final deleted = await txn.delete(
-        table,
-        where: 'import_batch_id = ?',
-        whereArgs: [normalized],
-      );
+      final deleted = await deleteByBatchIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
 
       await txn.delete(
@@ -183,7 +157,7 @@ class SqfliteExternalWorkRecordRepository
     final normalizedBatchId = importBatchId.trim();
     final normalizedProjectId = _requireProjectId(projectId);
     return AppDatabase.inTransaction<int>((txn) async {
-      return _linkBatchWithExecutor(
+      return linkBatchToProjectWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         projectId: normalizedProjectId,
@@ -203,7 +177,7 @@ class SqfliteExternalWorkRecordRepository
     return AppDatabase.inTransaction<int>((txn) async {
       // 1) 先写关联：batch 已不存在（0 行）会抛异常，使整个事务回滚，
       //    确保不会出现"撤销结清成功但关联失败"的中间态。
-      final linked = await _linkBatchWithExecutor(
+      final linked = await linkBatchToProjectWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         projectId: normalizedProjectId,
@@ -248,16 +222,11 @@ class SqfliteExternalWorkRecordRepository
   }) async {
     final normalizedBatchId = importBatchId.trim();
     return AppDatabase.inTransaction<int>((txn) async {
-      final count = await txn.update(
-        table,
-        {'linked_project_id': null, 'updated_at': updatedAt},
-        where: 'import_batch_id = ?',
-        whereArgs: [normalizedBatchId],
+      return unlinkBatchWithExecutor(
+        txn,
+        importBatchId: normalizedBatchId,
+        updatedAt: updatedAt,
       );
-      if (count == 0) {
-        throw ExternalWorkBatchUnavailableException();
-      }
-      return count;
     });
   }
 
@@ -269,18 +238,132 @@ class SqfliteExternalWorkRecordRepository
     return normalized;
   }
 
+  Future<List<String>> insertRecordsWithExecutor(
+    DatabaseExecutor executor, {
+    required List<ExternalWorkRecord> records,
+  }) async {
+    final ids = <String>[];
+    for (final record in records) {
+      await insertRecordWithExecutor(executor, record);
+      ids.add(record.id);
+    }
+    return ids;
+  }
+
+  Future<ExternalWorkRecord?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return null;
+    final rows = await executor.query(
+      table,
+      where: 'id = ?',
+      whereArgs: [normalized],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return ExternalWorkRecord.fromMap(rows.single);
+  }
+
+  Future<List<ExternalWorkRecord>> listByBatchIdWithExecutor(
+    DatabaseExecutor executor,
+    String batchId,
+  ) async {
+    final normalized = batchId.trim();
+    if (normalized.isEmpty) return const [];
+    final rows = await executor.query(
+      table,
+      where: 'import_batch_id = ?',
+      whereArgs: [normalized],
+      orderBy: 'work_date ASC, id ASC',
+    );
+    return rows.map(ExternalWorkRecord.fromMap).toList();
+  }
+
+  Future<List<ExternalWorkRecord>> listByLinkedProjectIdWithExecutor(
+    DatabaseExecutor executor,
+    String projectId,
+  ) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return const [];
+    final rows = await executor.query(
+      table,
+      where: 'linked_project_id = ?',
+      whereArgs: [normalized],
+      orderBy: 'work_date ASC, id ASC',
+    );
+    return rows.map(ExternalWorkRecord.fromMap).toList();
+  }
+
+  Future<int> updateWithExecutor(
+    DatabaseExecutor executor,
+    ExternalWorkRecord record,
+  ) async {
+    final normalized = record.id.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.update(
+      table,
+      record.toMap(),
+      where: 'id = ?',
+      whereArgs: [normalized],
+    );
+  }
+
+  Future<int> deleteByIdWithExecutor(
+    DatabaseExecutor executor,
+    String id,
+  ) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.delete(table, where: 'id = ?', whereArgs: [normalized]);
+  }
+
+  Future<int> deleteByBatchIdWithExecutor(
+    DatabaseExecutor executor,
+    String batchId,
+  ) async {
+    final normalized = batchId.trim();
+    if (normalized.isEmpty) return 0;
+    return executor.delete(
+      table,
+      where: 'import_batch_id = ?',
+      whereArgs: [normalized],
+    );
+  }
+
   /// 在给定执行器（事务）内把 batch 的所有记录关联到项目；0 行抛异常。
-  static Future<int> _linkBatchWithExecutor(
+  Future<int> linkBatchToProjectWithExecutor(
     DatabaseExecutor executor, {
     required String importBatchId,
     required String projectId,
     required String updatedAt,
   }) async {
+    final normalizedBatchId = importBatchId.trim();
+    final normalizedProjectId = _requireProjectId(projectId);
     final count = await executor.update(
       table,
-      {'linked_project_id': projectId, 'updated_at': updatedAt},
+      {'linked_project_id': normalizedProjectId, 'updated_at': updatedAt},
       where: 'import_batch_id = ?',
-      whereArgs: [importBatchId],
+      whereArgs: [normalizedBatchId],
+    );
+    if (count == 0) {
+      throw ExternalWorkBatchUnavailableException();
+    }
+    return count;
+  }
+
+  Future<int> unlinkBatchWithExecutor(
+    DatabaseExecutor executor, {
+    required String importBatchId,
+    required String updatedAt,
+  }) async {
+    final normalizedBatchId = importBatchId.trim();
+    final count = await executor.update(
+      table,
+      {'linked_project_id': null, 'updated_at': updatedAt},
+      where: 'import_batch_id = ?',
+      whereArgs: [normalizedBatchId],
     );
     if (count == 0) {
       throw ExternalWorkBatchUnavailableException();
