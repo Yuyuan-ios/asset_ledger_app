@@ -10,6 +10,8 @@ import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
+import '../account/project_sync_enqueuer.dart';
+import '../account/project_write_off_sync_enqueuer.dart';
 import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
@@ -29,6 +31,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
     required SqfliteProjectRepository projectRepository,
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
+    ProjectWriteOffSyncEnqueuer? projectWriteOffSyncEnqueuer,
+    ProjectSyncEnqueuer? projectSyncEnqueuer,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _paymentRepository = paymentRepository,
@@ -40,6 +44,18 @@ class LocalDeleteTimingRecordWithImpactUseCase
            syncOutboxRepository ?? const LocalSyncOutboxRepository(),
        _entitySyncMetaRepository =
            entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
+       _projectWriteOffSyncEnqueuer =
+           projectWriteOffSyncEnqueuer ??
+           ProjectWriteOffSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
+       _projectSyncEnqueuer =
+           projectSyncEnqueuer ??
+           ProjectSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -50,6 +66,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final SqfliteProjectRepository _projectRepository;
   final SyncOutboxRepository _syncOutboxRepository;
   final EntitySyncMetaRepository _entitySyncMetaRepository;
+  final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
+  final ProjectSyncEnqueuer _projectSyncEnqueuer;
   final DateTime Function() _now;
 
   static const int _minActiveMergeMembers = 2;
@@ -87,8 +105,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
       final activeMembers = await _mergeRepository.countActiveMembersByGroupId(
         mergeGroupId,
       );
-      willDissolveMergeGroup =
-          (activeMembers - 1) < _minActiveMergeMembers;
+      willDissolveMergeGroup = (activeMembers - 1) < _minActiveMergeMembers;
     }
 
     final linkedBatchCount = await _externalWorkRecordRepository
@@ -135,10 +152,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
           );
       final isLast = otherCount == 0;
 
-      final paymentCount = await _paymentRepository.countByProjectIdWithExecutor(
-        txn,
-        projectId,
-      );
+      final paymentCount = await _paymentRepository
+          .countByProjectIdWithExecutor(txn, projectId);
       // 最后一条 + 有收款：阻止删除，整笔事务不产生任何写入。
       if (isLast && paymentCount > 0) {
         throw const TimingDeleteBlockedByPaymentsException();
@@ -148,13 +163,27 @@ class LocalDeleteTimingRecordWithImpactUseCase
       await _timingRepository.deleteByIdWithExecutor(txn, recordId);
 
       // 3) 撤销结清：删除核销 + 已结清恢复为进行中（收款不动）。
-      final deletedWriteOffs = await _writeOffRepository
-          .deleteByProjectIdWithExecutor(txn, projectId);
+      final writeOffSnapshots = await _writeOffRepository
+          .listByProjectIdWithExecutor(txn, projectId);
+      var deletedWriteOffs = 0;
+      for (final writeOff in writeOffSnapshots) {
+        final deleted = await _writeOffRepository.deleteByIdWithExecutor(
+          txn,
+          writeOff.id,
+        );
+        if (deleted > 0) {
+          deletedWriteOffs += deleted;
+          await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
+        }
+      }
       final restoredActive = await _projectRepository.restoreActiveWithExecutor(
         txn,
         projectId: projectId,
         updatedAt: timestamp,
       );
+      if (restoredActive) {
+        await _enqueueProjectUpdate(txn, projectId: projectId);
+      }
       final settlementRevoked = deletedWriteOffs > 0 || restoredActive;
 
       var mergeMemberRemoved = false;
@@ -217,6 +246,20 @@ class LocalDeleteTimingRecordWithImpactUseCase
         externalWorkUnlinked: externalWorkUnlinked,
       );
     });
+  }
+
+  Future<void> _enqueueProjectUpdate(
+    DatabaseExecutor txn, {
+    required String projectId,
+  }) async {
+    final project = await _projectRepository.findByIdWithExecutor(
+      txn,
+      projectId,
+    );
+    if (project == null) {
+      throw StateError('Project sync enqueue requires project snapshot');
+    }
+    await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);
   }
 
   /// 删除成功后在同一事务内入队 sync_outbox + entity_sync_meta。
