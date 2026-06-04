@@ -30,6 +30,7 @@ class SyncSchema {
         last_push_at TEXT,
         last_success_at TEXT,
         last_error TEXT,
+        gate_state TEXT,
         updated_at TEXT NOT NULL
       );
     ''');

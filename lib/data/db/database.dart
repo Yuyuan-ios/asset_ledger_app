@@ -73,10 +73,13 @@ class AppDatabase {
   //        不加 FK，不纳入 backup/restore。
   // - v25：timing_records 新增 nullable allocation_cutoff_date；
   //        仅作为未来显式分摊右开边界持久化基线，当前业务逻辑不读取。
+  // - v26：sync_state 新增 nullable gate_state（R5.21 push gate）；
+  //        restore 同事务写 'restore-pending'，SyncManager.pushPending 在 push 前
+  //        据此短路；不动旧业务表 / sync_outbox / entity_sync_meta。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 25;
+  static const int _dbVersion = 26;
 
   static int get schemaVersion => _dbVersion;
 

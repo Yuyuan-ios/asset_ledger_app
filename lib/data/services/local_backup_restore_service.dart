@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../../infrastructure/sync/sync_state_repository.dart';
 import '../db/database.dart';
 import '../models/account_payment.dart';
 import '../models/backup_restore_result.dart';

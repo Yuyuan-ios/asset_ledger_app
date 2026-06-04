@@ -4,11 +4,14 @@ class LocalRestoreService {
   const LocalRestoreService({
     required LocalBackupImportPreviewService previewService,
     Future<LocalBackupExportResult> Function()? exportBackup,
+    SyncStateRepository syncStateRepository = const LocalSyncStateRepository(),
   }) : _previewService = previewService,
-       _exportBackup = exportBackup;
+       _exportBackup = exportBackup,
+       _syncStateRepository = syncStateRepository;
 
   final LocalBackupImportPreviewService _previewService;
   final Future<LocalBackupExportResult> Function()? _exportBackup;
+  final SyncStateRepository _syncStateRepository;
 
   Future<BackupRestoreResult> restoreFromJsonString(String rawJson) async {
     try {
@@ -74,6 +77,14 @@ class LocalRestoreService {
         }
 
         await batch.commit(noResult: true);
+
+        // R5.21 restore reconcile：在同一事务里把同步状态清空并打上
+        // push gate=restore-pending。三件事与业务恢复同时提交或同时回滚，
+        // 避免「业务表已 restore 但 sync_outbox 仍残留旧 pending 行」
+        // 在未来 Cloud push 接通时把残留 outbox 静默推到云端。
+        await txn.delete('sync_outbox');
+        await txn.delete('entity_sync_meta');
+        await _syncStateRepository.markPushGateRestorePendingWithExecutor(txn);
       });
 
       return BackupRestoreResult.success(
