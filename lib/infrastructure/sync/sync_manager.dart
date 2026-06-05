@@ -55,15 +55,19 @@ class SyncManager {
     required SyncOutboxPushRepository outboxRepository,
     required CloudApiClient apiClient,
     SyncStateRepository syncStateRepository = const LocalSyncStateRepository(),
+    EntitySyncMetaAckRepository metaRepository =
+        const LocalEntitySyncMetaRepository(),
     DateTime Function()? now,
   }) : _outboxRepository = outboxRepository,
        _apiClient = apiClient,
        _syncStateRepository = syncStateRepository,
+       _metaRepository = metaRepository,
        _now = now ?? DateTime.now;
 
   final SyncOutboxPushRepository _outboxRepository;
   final CloudApiClient _apiClient;
   final SyncStateRepository _syncStateRepository;
+  final EntitySyncMetaAckRepository _metaRepository;
   final DateTime Function() _now;
 
   /// 指数退避（秒）：第 1 次失败 60s、第 2 次 5min、第 3 次及以后 30min。
@@ -89,12 +93,17 @@ class SyncManager {
     var invalid = 0;
 
     for (final group in groups) {
-      // 非法元数据组：保守处理 —— 不调用 CloudApiClient，对每行 bump retry，
-      // 写明确诊断 last_error，并打 backoff。其他合法组不受影响继续推送。
+      // 非法元数据组（本地数据损坏 / 程序错误）：不调用 CloudApiClient，
+      // 标记为 TERMINAL failed（status=failed、清 next_retry_at），写明确诊断
+      // last_error。listPending 只取 pending，故不再无限退避重试，等待人工修数据。
+      // 其他合法组不受影响继续推送。
       final invalidReason = group.invalidReason;
       if (invalidReason != null) {
         for (final entry in group.rows) {
-          await _markFailed(entry, 'invalid_metadata: $invalidReason');
+          await _outboxRepository.markTerminalFailed(
+            id: entry.id,
+            lastError: 'invalid_metadata: $invalidReason',
+          );
           invalid += 1;
         }
         continue;
@@ -110,8 +119,17 @@ class SyncManager {
 
         final outcome = await _send(entry);
         if (outcome.success) {
-          // 成功 ack：删除该行，保证下次 listPending 不再读到、不重复 push。
+          // 成功 ack：先删除 outbox 行（权威 ack：保证下次 listPending 不再读到、
+          // 不重复 push），再尽力清掉对应 entity_sync_meta 的 pending 状态，避免
+          // 成功后仍残留 pendingUpload/pendingUpdate 的幽灵状态。meta 清理失败
+          // 不影响 ack 正确性，只退化为旧行为（cosmetic ghost）。
           await _outboxRepository.deleteAcknowledged(entry.id);
+          await _metaRepository.markPushAcknowledged(
+            entityType: entry.entityType,
+            localId: entry.entityId,
+            operation: entry.operation,
+            syncedAtIso: _now().toUtc().toIso8601String(),
+          );
           pushed += 1;
         } else {
           await _markFailed(entry, outcome.error);

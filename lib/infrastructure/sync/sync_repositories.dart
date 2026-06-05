@@ -45,12 +45,24 @@ abstract class SyncOutboxPushRepository {
   /// again. (R5.22-B keeps the deleted row as the authoritative ack.)
   Future<void> deleteAcknowledged(String id);
 
-  /// Record a push failure: retry_count += 1, last_error and next_retry_at set,
-  /// updated_at refreshed. The row stays pending so it is retried after backoff.
+  /// Record a transient push failure (network / server error): retry_count += 1,
+  /// last_error and next_retry_at set, updated_at refreshed. The row stays
+  /// pending so it is retried after the backoff window elapses.
   Future<void> markFailed({
     required String id,
     required String lastError,
     required String nextRetryAtIso,
+  });
+
+  /// R5.22-B-Hardening: record a TERMINAL failure (e.g. corrupt/invalid local
+  /// metadata that can never push as-is). status -> failed, next_retry_at
+  /// cleared, retry_count untouched. listPending only returns status = pending,
+  /// so a terminal-failed row is never read/sent/retried again until a human
+  /// repairs the data. This stops invalid rows from looping forever on backoff
+  /// without losing the row or its diagnostic last_error.
+  Future<void> markTerminalFailed({
+    required String id,
+    required String lastError,
   });
 }
 
@@ -171,6 +183,47 @@ class LocalSyncOutboxRepository
       [lastError, nextRetryAtIso, nowIso, id],
     );
   }
+
+  @override
+  Future<void> markTerminalFailed({
+    required String id,
+    required String lastError,
+  }) async {
+    final db = await AppDatabase.database;
+    final nowIso = _now().toUtc().toIso8601String();
+    // Terminal: leave status=failed (excluded by listPending) and clear any
+    // backoff timestamp so it is not even considered. retry_count is left as-is.
+    await db.rawUpdate(
+      'UPDATE sync_outbox SET status = ?, last_error = ?, '
+      'next_retry_at = NULL, updated_at = ? WHERE id = ?',
+      [SyncOutboxStatus.failed.name, lastError, nowIso, id],
+    );
+  }
+}
+
+/// R5.22-B-Hardening: the push-success acknowledgement side of
+/// `entity_sync_meta`, segregated from [EntitySyncMetaRepository] so the
+/// SyncManager only depends on what it needs and the many enqueue-side meta test
+/// doubles do not have to implement it (ISP).
+abstract class EntitySyncMetaAckRepository {
+  /// After a row's push is acknowledged (server accepted it), clear the local
+  /// "pending" sync state of the matching meta row so a later status query does
+  /// not still read it as pendingUpload/pendingUpdate.
+  ///
+  /// Operation semantics:
+  /// - 'create' → flips an existing `pendingUpload` row to `synced`.
+  /// - 'update' → flips an existing `pendingUpdate` row to `synced`.
+  /// - 'delete' → no-op (the entity is locally gone; a deleted-entity meta
+  ///   lifecycle is intentionally deferred — see report).
+  ///
+  /// Only an existing row is updated; no meta row is fabricated. Returns the
+  /// number of meta rows updated (0 when none matched / delete).
+  Future<int> markPushAcknowledged({
+    required String entityType,
+    required String localId,
+    required String operation,
+    required String syncedAtIso,
+  });
 }
 
 /// R5.22-A-Hardening: enforce that `transaction_group_id` and `local_sequence`
@@ -228,7 +281,8 @@ abstract class EntitySyncMetaRepository {
   });
 }
 
-class LocalEntitySyncMetaRepository implements EntitySyncMetaRepository {
+class LocalEntitySyncMetaRepository
+    implements EntitySyncMetaRepository, EntitySyncMetaAckRepository {
   const LocalEntitySyncMetaRepository();
 
   static const String _table = 'entity_sync_meta';
@@ -275,6 +329,39 @@ class LocalEntitySyncMetaRepository implements EntitySyncMetaRepository {
   }) async {
     final db = await AppDatabase.database;
     return _findWithExecutor(db, entityType: entityType, localId: localId);
+  }
+
+  @override
+  Future<int> markPushAcknowledged({
+    required String entityType,
+    required String localId,
+    required String operation,
+    required String syncedAtIso,
+  }) async {
+    // Map the pushed operation to the pending status it should clear. Delete is
+    // intentionally a no-op (deferred deleted-entity meta lifecycle).
+    final SyncStatus? clearsFrom;
+    switch (operation) {
+      case 'create':
+        clearsFrom = SyncStatus.pendingUpload;
+        break;
+      case 'update':
+        clearsFrom = SyncStatus.pendingUpdate;
+        break;
+      default:
+        clearsFrom = null;
+    }
+    if (clearsFrom == null) return 0;
+
+    final db = await AppDatabase.database;
+    // Only flip an existing row that is still in the expected pending state;
+    // never fabricate a meta row and never touch synced/conflict/failed states.
+    return db.update(
+      _table,
+      {'sync_status': SyncStatus.synced.name, 'last_synced_at': syncedAtIso},
+      where: 'entity_type = ? AND local_id = ? AND sync_status = ?',
+      whereArgs: [entityType, localId, clearsFrom.name],
+    );
   }
 
   Future<EntitySyncMeta?> _findWithExecutor(
