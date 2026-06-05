@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
@@ -188,8 +189,8 @@ void main() {
 
   group('sync_manager_invalid_transaction_group_metadata', () {
     test(
-      'a group with non-contiguous/duplicate sequences is not sent; other '
-      'valid groups still push',
+      'an invalid group becomes terminal failed (not infinite backoff), is not '
+      'sent, is not re-processed, while valid groups still push',
       () async {
         final db = await AppDatabase.database;
         // Invalid group: duplicate sequence (1,1) — only possible via legacy/bad
@@ -213,13 +214,31 @@ void main() {
         final bad2 = await _rowByMark(db, 'BAD2');
         expect(bad1, isNotNull);
         expect(bad2, isNotNull);
-        expect(bad1!['retry_count'], 1);
+        // R5.22-B-Hardening: terminal failed, not transient backoff.
+        expect(bad1!['status'], 'failed');
+        expect(bad1['next_retry_at'], isNull, reason: 'no future retry window');
+        expect(bad1['retry_count'], 0, reason: 'terminal, not a backoff retry');
         expect(bad1['last_error'].toString(), contains('invalid_metadata'));
-        expect(bad2!['last_error'].toString(), contains('invalid_metadata'));
+        expect(bad2!['status'], 'failed');
+        expect(bad2['last_error'].toString(), contains('invalid_metadata'));
+
+        // A second push must NOT re-process the terminal-failed rows (they are
+        // no longer pending) and must not call the client again.
+        final client2 = _ProgrammableClient.alwaysSuccess();
+        final result2 = await managerWith(client2).pushPending();
+        expect(client2.sentMarks, isEmpty);
+        expect(result2.invalid, 0);
+        expect(result2.pushed, 0);
+        // Even forcing next_retry_at to the past keeps them out (status=failed).
+        await _forceDue(db);
+        final client3 = _ProgrammableClient.alwaysSuccess();
+        final result3 = await managerWith(client3).pushPending();
+        expect(client3.sentMarks, isEmpty);
+        expect(result3.invalid, 0);
       },
     );
 
-    test('a grouped row missing local_sequence is rejected as invalid', () async {
+    test('a grouped row missing local_sequence is terminal failed', () async {
       final db = await AppDatabase.database;
       await _insertOutbox(db, mark: 'NOSEQ', groupId: 'txn-z', seq: null, createdAt: '2026-06-01T00:00:01.000Z');
 
@@ -229,8 +248,71 @@ void main() {
       expect(result.invalid, 1);
       final row = await _rowByMark(db, 'NOSEQ');
       expect(row, isNotNull);
-      expect(row!['last_error'].toString(), contains('invalid_metadata'));
+      expect(row!['status'], 'failed');
+      expect(row['next_retry_at'], isNull);
+      expect(row['last_error'].toString(), contains('invalid_metadata'));
     });
+  });
+
+  group('sync_manager_pushPending_has_no_production_caller', () {
+    test(
+      'lib/ does not call SyncManager.pushPending anywhere (only the '
+      'declaration in sync_manager.dart); wiring it is a deliberate change',
+      () {
+        final libDir = Directory('${Directory.current.path}/lib');
+        final callers = <String>[];
+        for (final entity in libDir.listSync(recursive: true)) {
+          if (entity is! File || !entity.path.endsWith('.dart')) continue;
+          final rel = entity.path
+              .substring(Directory.current.path.length + 1)
+              .replaceAll('\\', '/');
+          if (rel == 'lib/infrastructure/sync/sync_manager.dart') continue;
+          if (entity.readAsStringSync().contains('pushPending(')) {
+            callers.add(rel);
+          }
+        }
+        expect(
+          callers,
+          isEmpty,
+          reason:
+              'SyncManager.pushPending has no production caller; the return '
+              'type SyncPushResult is therefore safe. If you wire it into a '
+              'scheduler/UI, update this lock and the caller together.\n'
+              '${callers.join('\n')}',
+        );
+      },
+    );
+  });
+
+  group('sync_manager_push_success_meta_ack', () {
+    test(
+      'create/update success clears pendingUpload/pendingUpdate meta to synced; '
+      'delete leaves meta untouched; no meta is fabricated',
+      () async {
+        final db = await AppDatabase.database;
+        // Seed outbox rows + matching entity_sync_meta in pending states.
+        await _insertOutbox(db, mark: 'C', entityType: 'account_payment', entityId: '1', operation: 'create', createdAt: '2026-06-01T00:00:01.000Z');
+        await _insertMeta(db, entityType: 'account_payment', localId: '1', status: 'pendingUpload');
+        await _insertOutbox(db, mark: 'U', entityType: 'account_payment', entityId: '2', operation: 'update', createdAt: '2026-06-01T00:00:02.000Z');
+        await _insertMeta(db, entityType: 'account_payment', localId: '2', status: 'pendingUpdate');
+        await _insertOutbox(db, mark: 'D', entityType: 'account_payment', entityId: '3', operation: 'delete', createdAt: '2026-06-01T00:00:03.000Z');
+        await _insertMeta(db, entityType: 'account_payment', localId: '3', status: 'pendingDelete');
+        // A create whose meta row does NOT exist → must not be fabricated.
+        await _insertOutbox(db, mark: 'N', entityType: 'account_payment', entityId: '4', operation: 'create', createdAt: '2026-06-01T00:00:04.000Z');
+
+        final result = await managerWith(_ProgrammableClient.alwaysSuccess()).pushPending();
+        expect(result.pushed, 4);
+        expect(await _outboxCount(db), 0, reason: 'all acked/deleted');
+
+        // create/update meta flipped to synced.
+        expect(await _metaStatus(db, 'account_payment', '1'), 'synced');
+        expect(await _metaStatus(db, 'account_payment', '2'), 'synced');
+        // delete meta left untouched (deferred deleted-entity lifecycle).
+        expect(await _metaStatus(db, 'account_payment', '3'), 'pendingDelete');
+        // no meta fabricated for entity 4.
+        expect(await _metaStatus(db, 'account_payment', '4'), isNull);
+      },
+    );
   });
 }
 
@@ -242,12 +324,15 @@ Future<void> _insertOutbox(
   String? groupId,
   int? seq,
   required String createdAt,
+  String entityType = 'timing_record',
+  String? entityId,
+  String operation = 'create',
 }) async {
   await db.insert('sync_outbox', {
     'id': 'outbox-$mark',
-    'entity_type': 'timing_record',
-    'entity_id': mark,
-    'operation': 'create',
+    'entity_type': entityType,
+    'entity_id': entityId ?? mark,
+    'operation': operation,
     'payload_json': jsonEncode({'mark': mark}),
     'payload_hash': 'hash-$mark',
     'status': 'pending',
@@ -259,6 +344,34 @@ Future<void> _insertOutbox(
     'created_at': createdAt,
     'updated_at': createdAt,
   });
+}
+
+Future<void> _insertMeta(
+  Database db, {
+  required String entityType,
+  required String localId,
+  required String status,
+}) async {
+  await db.insert('entity_sync_meta', {
+    'entity_type': entityType,
+    'local_id': localId,
+    'sync_status': status,
+    'version': 0,
+    'source': 'owner_app',
+  });
+}
+
+Future<Object?> _metaStatus(
+  Database db,
+  String entityType,
+  String localId,
+) async {
+  final rows = await db.query(
+    'entity_sync_meta',
+    where: 'entity_type = ? AND local_id = ?',
+    whereArgs: [entityType, localId],
+  );
+  return rows.isEmpty ? null : rows.single['sync_status'];
 }
 
 Future<int> _outboxCount(Database db) async {
