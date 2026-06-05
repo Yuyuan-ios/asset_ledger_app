@@ -32,7 +32,30 @@ abstract class SyncOutboxRepository {
   Future<List<SyncOutboxEntry>> listPending({int limit = 50});
 }
 
-class LocalSyncOutboxRepository implements SyncOutboxRepository {
+/// R5.22-B: the push-side lifecycle of `sync_outbox`, segregated from the
+/// enqueue/write side so the SyncManager only depends on what it needs (ISP) and
+/// the many enqueue-only test doubles do not have to implement push methods.
+abstract class SyncOutboxPushRepository {
+  /// Pending rows that are eligible to push right now: status = pending AND
+  /// (next_retry_at IS NULL OR next_retry_at <= now). Base order is created_at
+  /// ASC; the SyncManager re-orders by transaction group / local_sequence.
+  Future<List<SyncOutboxEntry>> listPending({int limit = 50});
+
+  /// Acknowledge a successfully pushed row by removing it so it is never pushed
+  /// again. (R5.22-B keeps the deleted row as the authoritative ack.)
+  Future<void> deleteAcknowledged(String id);
+
+  /// Record a push failure: retry_count += 1, last_error and next_retry_at set,
+  /// updated_at refreshed. The row stays pending so it is retried after backoff.
+  Future<void> markFailed({
+    required String id,
+    required String lastError,
+    required String nextRetryAtIso,
+  });
+}
+
+class LocalSyncOutboxRepository
+    implements SyncOutboxRepository, SyncOutboxPushRepository {
   const LocalSyncOutboxRepository({
     DateTime Function()? now,
     OutboxIdGenerator? idGenerator,
@@ -114,14 +137,39 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
   @override
   Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
     final db = await AppDatabase.database;
+    // R5.22-B: skip rows whose backoff window has not elapsed. next_retry_at
+    // NULL means "never failed / immediately eligible". ISO8601 UTC strings
+    // compare lexicographically in chronological order.
+    final nowIso = _now().toUtc().toIso8601String();
     final rows = await db.query(
       'sync_outbox',
-      where: 'status = ?',
-      whereArgs: [SyncOutboxStatus.pending.name],
+      where: 'status = ? AND (next_retry_at IS NULL OR next_retry_at <= ?)',
+      whereArgs: [SyncOutboxStatus.pending.name, nowIso],
       orderBy: 'created_at ASC',
       limit: limit,
     );
     return rows.map(SyncOutboxEntry.fromMap).toList(growable: false);
+  }
+
+  @override
+  Future<void> deleteAcknowledged(String id) async {
+    final db = await AppDatabase.database;
+    await db.delete('sync_outbox', where: 'id = ?', whereArgs: [id]);
+  }
+
+  @override
+  Future<void> markFailed({
+    required String id,
+    required String lastError,
+    required String nextRetryAtIso,
+  }) async {
+    final db = await AppDatabase.database;
+    final nowIso = _now().toUtc().toIso8601String();
+    await db.rawUpdate(
+      'UPDATE sync_outbox SET retry_count = retry_count + 1, '
+      'last_error = ?, next_retry_at = ?, updated_at = ? WHERE id = ?',
+      [lastError, nextRetryAtIso, nowIso, id],
+    );
   }
 }
 

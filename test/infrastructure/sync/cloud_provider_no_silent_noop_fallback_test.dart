@@ -101,7 +101,7 @@ void main() {
           syncStateRepository: const LocalSyncStateRepository(),
         );
 
-        final pushed = await manager.pushPending();
+        final result = await manager.pushPending();
         // The single pending row was sent through the injected client exactly
         // once. pushPending never reports progress without invoking the client.
         expect(
@@ -110,7 +110,7 @@ void main() {
           reason: 'pushPending must delegate each pending row to the client',
         );
         expect(
-          pushed,
+          result.pushed,
           spy.sendCallCount,
           reason:
               'every counted push corresponds to a real client send; there is '

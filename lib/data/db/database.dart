@@ -79,10 +79,12 @@ class AppDatabase {
   // - v27：sync_outbox 新增 nullable transaction_group_id / local_sequence
   //        （R5.22-A）；标记同事务 cluster 的多条 outbox 为有序组。入队侧写入，
   //        SyncManager push ordering/replay 留待 R5.22-B；旧行与单条入队保持 NULL。
+  // - v28：sync_outbox 新增 nullable next_retry_at（R5.22-B）；push 失败后写入
+  //        退避时间点，listPending 跳过未到期行；成功行删除，旧/未失败行保持 NULL。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 27;
+  static const int _dbVersion = 28;
 
   static int get schemaVersion => _dbVersion;
 

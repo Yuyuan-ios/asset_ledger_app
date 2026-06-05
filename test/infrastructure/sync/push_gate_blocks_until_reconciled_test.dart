@@ -84,10 +84,11 @@ void main() {
       expect(await gateRepo.isPushGated(), isFalse);
 
       // 再调一次：不应抛 SyncPushBlockedException；CloudApiClient 至少被调用一次
-      // （此处用 _SpyCloudApiClient：返回 204、isSuccess=false，不计入 pushed），
+      // （此处用 _SpyCloudApiClient：返回 204 → isSuccess=true → ack 删除），
       // 关键断言是「不再被 gate 拦截」。
       final result = await manager.pushPending();
-      expect(result, isA<int>());
+      expect(result, isA<SyncPushResult>());
+      expect(result.pushed, 1, reason: '204 from spy is success → row acked');
       expect(
         spyClient.sendCallCount,
         greaterThanOrEqualTo(1),

@@ -13,6 +13,7 @@ class SyncOutboxEntry {
     required this.createdAt,
     required this.updatedAt,
     this.lastError,
+    this.nextRetryAt,
     this.transactionGroupId,
     this.localSequence,
   });
@@ -26,6 +27,10 @@ class SyncOutboxEntry {
   final SyncOutboxStatus status;
   final int retryCount;
   final String? lastError;
+
+  /// R5.22-B: ISO8601 UTC timestamp before which this failed row must not be
+  /// retried. Null means "immediately eligible" (never failed / legacy row).
+  final String? nextRetryAt;
 
   /// R5.22-A: id shared by every outbox row produced inside one business
   /// transaction. Null for ordinary single-row enqueues. Outbox metadata only —
@@ -50,6 +55,7 @@ class SyncOutboxEntry {
       'status': status.name,
       'retry_count': retryCount,
       'last_error': lastError,
+      'next_retry_at': nextRetryAt,
       'transaction_group_id': transactionGroupId,
       'local_sequence': localSequence,
       'created_at': createdAt,
@@ -68,6 +74,7 @@ class SyncOutboxEntry {
       status: SyncOutboxStatus.parse(map['status'] as String),
       retryCount: (map['retry_count'] as num).toInt(),
       lastError: map['last_error'] as String?,
+      nextRetryAt: map['next_retry_at'] as String?,
       transactionGroupId: map['transaction_group_id'] as String?,
       localSequence: (map['local_sequence'] as num?)?.toInt(),
       createdAt: map['created_at'] as String,
