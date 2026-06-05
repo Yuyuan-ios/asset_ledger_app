@@ -6,6 +6,7 @@ import '../../../data/repositories/account_payment_repository.dart';
 import '../../../features/account/use_cases/account_payment_write_use_case.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
+import '../../sync/sync_transaction_group.dart';
 import 'account_payment_sync_enqueuer.dart';
 
 /// [AccountPaymentWriteUseCase] 的本地实现（R5.3）。
@@ -101,6 +102,9 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
   ) async {
     if (payments.isEmpty) return const [];
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：合并批次新建是一个同事务 cluster，N 条 create outbox 共享
+      // 一个 transaction_group_id，并按插入顺序写 local_sequence 1..N。
+      final group = SyncTransactionGroup.create();
       final ids = await _paymentRepository.insertAllWithExecutor(txn, payments);
       final saved = <AccountPayment>[];
       for (var i = 0; i < payments.length; i += 1) {
@@ -111,6 +115,7 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
           payment: row,
           operation: 'create',
           status: SyncStatus.pendingUpload,
+          group: group,
         );
       }
       return saved;
@@ -128,6 +133,10 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
       newRows: newRows,
     );
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：替换批次（删旧 + 插新）是一个同事务 cluster。所有旧行 delete
+      // 与新行 create 共享一个 transaction_group_id，local_sequence 先覆盖旧行
+      // delete、再覆盖新行 create，反映业务因果顺序。
+      final group = SyncTransactionGroup.create();
       // 1) 事务内重读旧批次权威快照（delete payload 源）。
       final oldRows = await _paymentRepository.listByMergeBatchIdWithExecutor(
         txn,
@@ -144,6 +153,7 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
           payment: old,
           operation: 'delete',
           status: SyncStatus.pendingDelete,
+          group: group,
         );
       }
       // 5) 新行 create/pendingUpload。
@@ -156,6 +166,7 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
           payment: row,
           operation: 'create',
           status: SyncStatus.pendingUpload,
+          group: group,
         );
       }
       return saved;
@@ -165,6 +176,8 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
   @override
   Future<int> deleteBatch(String batchId) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：删除批次的多条 delete outbox 共享一个 transaction_group_id。
+      final group = SyncTransactionGroup.create();
       final oldRows = await _paymentRepository.listByMergeBatchIdWithExecutor(
         txn,
         batchId,
@@ -180,23 +193,28 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
           payment: old,
           operation: 'delete',
           status: SyncStatus.pendingDelete,
+          group: group,
         );
       }
       return deleted;
     });
   }
 
+  /// 透传 sync 入队；[group] 非空时为同事务 cluster 写入同组 id + 递增 sequence。
   Future<void> _enqueueSync(
     DatabaseExecutor txn, {
     required AccountPayment payment,
     required String operation,
     required SyncStatus status,
+    SyncTransactionGroup? group,
   }) async {
     await _syncEnqueuer.enqueue(
       txn,
       payment: payment,
       operation: operation,
       status: status,
+      transactionGroupId: group?.id,
+      localSequence: group?.nextSequence(),
     );
   }
 }

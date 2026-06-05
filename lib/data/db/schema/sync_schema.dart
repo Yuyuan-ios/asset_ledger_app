@@ -13,6 +13,8 @@ class SyncSchema {
         status TEXT NOT NULL,
         retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
         last_error TEXT,
+        transaction_group_id TEXT,
+        local_sequence INTEGER,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );

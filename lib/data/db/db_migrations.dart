@@ -19,6 +19,7 @@ part 'migrations/migration_023.dart';
 part 'migrations/migration_024.dart';
 part 'migrations/migration_025.dart';
 part 'migrations/migration_026.dart';
+part 'migrations/migration_027.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -73,6 +74,10 @@ class DbMigrations {
 
   static Future<void> ensureSyncStateGateState(Database db) {
     return Migration026.ensureSyncStateGateState(db);
+  }
+
+  static Future<void> ensureSyncOutboxTransactionGroup(Database db) {
+    return Migration027.ensureSyncOutboxTransactionGroup(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

@@ -121,9 +121,9 @@ void main() {
         'ProjectSyncEnqueuer projectSyncEnqueuer',
         'listByProjectIdWithExecutor(txn, normalizedProjectId)',
         'deleteByIdWithExecutor(',
-        '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete(',
         'restoreActiveWithExecutor(',
-        '_projectSyncEnqueuer.enqueueUpdate(txn, project: project)',
+        '_projectSyncEnqueuer.enqueueUpdate(',
       ]);
     });
 
@@ -143,7 +143,7 @@ void main() {
         'final settled = remainingFenAfter <= 0;',
         'status: ProjectStatus.settled',
         'settledAt: request.createdAtIso',
-        '_enqueueProjectUpdate(txn, request.projectId)',
+        '_enqueueProjectUpdate(txn, request.projectId',
       ]);
 
       _expectAllContains(settlementTests, const [
@@ -175,7 +175,7 @@ void main() {
         'status: ProjectStatus.active',
         'settledAt: null',
         'settledSnapshot: null',
-        '_enqueueProjectUpdate(txn, request.projectId)',
+        '_enqueueProjectUpdate(txn, request.projectId',
       ]);
       expect(revokeSlice, isNot(contains('_projectWriteOffSyncEnqueuer')));
       expect(revokeSlice, isNot(contains('await txn.delete(')));

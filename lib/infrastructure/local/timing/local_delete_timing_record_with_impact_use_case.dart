@@ -13,6 +13,7 @@ import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_
 import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
+import '../../sync/sync_transaction_group.dart';
 import '../account/project_sync_enqueuer.dart';
 import '../account/project_write_off_sync_enqueuer.dart';
 import 'external_work_sync_enqueuer.dart';
@@ -143,6 +144,11 @@ class LocalDeleteTimingRecordWithImpactUseCase
   ) async {
     final timestamp = _now().toUtc().toIso8601String();
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：删除计时是一个跨聚合的同事务 cluster（ProjectWriteOff delete +
+      // Project status update + ExternalWork unlink update + TimingRecord
+      // delete）。所有 outbox 共享一个 group id，local_sequence 按发生顺序递增：
+      // writeOff delete → project update → external work updates → timing delete。
+      final group = SyncTransactionGroup.create();
       // 1) 事务内重新读取记录与权威状态，避免基于过期分析结果误删。
       final record = await _timingRepository.findByIdWithExecutor(
         txn,
@@ -182,7 +188,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
         );
         if (deleted > 0) {
           deletedWriteOffs += deleted;
-          await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
+          await _projectWriteOffSyncEnqueuer.enqueueDelete(
+            txn,
+            writeOff,
+            transactionGroupId: group.id,
+            localSequence: group.nextSequence(),
+          );
         }
       }
       final restoredActive = await _projectRepository.restoreActiveWithExecutor(
@@ -191,7 +202,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
         updatedAt: timestamp,
       );
       if (restoredActive) {
-        await _enqueueProjectUpdate(txn, projectId: projectId);
+        await _enqueueProjectUpdate(txn, projectId: projectId, group: group);
       }
       final settlementRevoked = deletedWriteOffs > 0 || restoredActive;
 
@@ -252,7 +263,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
                 'ExternalWork sync enqueue requires final unlink snapshot',
               );
             }
-            await _externalWorkSyncEnqueuer.enqueueUpdate(txn, record: updated);
+            await _externalWorkSyncEnqueuer.enqueueUpdate(
+              txn,
+              record: updated,
+              transactionGroupId: group.id,
+              localSequence: group.nextSequence(),
+            );
           }
         }
         externalWorkUnlinked = unlinked > 0;
@@ -260,7 +276,11 @@ class LocalDeleteTimingRecordWithImpactUseCase
 
       // 5) 删除成功 + 影响处理完成后，在同一事务内入队 delete outbox。
       //    任一写入失败 → 整个删除事务回滚（记录不删、联动清理不生效）。
-      await _enqueueSyncForDeletedRecord(txn, deletedRecord: record);
+      await _enqueueSyncForDeletedRecord(
+        txn,
+        deletedRecord: record,
+        group: group,
+      );
 
       return TimingRecordDeleteOutcome(
         settlementRevoked: settlementRevoked,
@@ -274,6 +294,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
   Future<void> _enqueueProjectUpdate(
     DatabaseExecutor txn, {
     required String projectId,
+    SyncTransactionGroup? group,
   }) async {
     final project = await _projectRepository.findByIdWithExecutor(
       txn,
@@ -282,7 +303,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
     if (project == null) {
       throw StateError('Project sync enqueue requires project snapshot');
     }
-    await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);
+    await _projectSyncEnqueuer.enqueueUpdate(
+      txn,
+      project: project,
+      transactionGroupId: group?.id,
+      localSequence: group?.nextSequence(),
+    );
   }
 
   /// 删除成功后在同一事务内入队 sync_outbox + entity_sync_meta。
@@ -296,6 +322,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
   Future<void> _enqueueSyncForDeletedRecord(
     DatabaseExecutor txn, {
     required TimingRecord deletedRecord,
+    SyncTransactionGroup? group,
   }) async {
     final id = deletedRecord.id;
     if (id == null) {
@@ -313,6 +340,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
         'operation': 'delete',
         'record': deletedRecord.toMap(),
       },
+      transactionGroupId: group?.id,
+      localSequence: group?.nextSequence(),
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
       txn,

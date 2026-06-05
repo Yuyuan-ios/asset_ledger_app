@@ -31,36 +31,48 @@ class ExternalWorkSyncEnqueuer {
   Future<void> enqueueCreate(
     DatabaseExecutor executor, {
     required ExternalWorkRecord record,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     return _enqueue(
       executor,
       record: record,
       operation: 'create',
       status: SyncStatus.pendingUpload,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
   Future<void> enqueueUpdate(
     DatabaseExecutor executor, {
     required ExternalWorkRecord record,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     return _enqueue(
       executor,
       record: record,
       operation: 'update',
       status: SyncStatus.pendingUpdate,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
   Future<void> enqueueDelete(
     DatabaseExecutor executor, {
     required ExternalWorkRecord record,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     return _enqueue(
       executor,
       record: record,
       operation: 'delete',
       status: SyncStatus.pendingDelete,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
@@ -69,6 +81,8 @@ class ExternalWorkSyncEnqueuer {
     required ExternalWorkRecord record,
     required String operation,
     required SyncStatus status,
+    String? transactionGroupId,
+    int? localSequence,
   }) async {
     final entityId = record.id;
     if (entityId.trim().isEmpty) {
@@ -86,6 +100,8 @@ class ExternalWorkSyncEnqueuer {
         'operation': operation,
         'record': record.toMap(),
       },
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
       executor,

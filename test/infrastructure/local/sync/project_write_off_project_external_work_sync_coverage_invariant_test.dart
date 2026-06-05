@@ -37,18 +37,18 @@ void main() {
         'ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer',
         'final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;',
         '_projectWriteOffRepository.insertWithExecutor(txn, writeOff)',
-        '_projectWriteOffSyncEnqueuer.enqueueCreate(txn, writeOff)',
-        '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+        '_projectWriteOffSyncEnqueuer.enqueueCreate(',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete(',
       ]);
       _expectInOrder(settlement, const [
         'final writeOff = ProjectWriteOff(',
         '_projectWriteOffRepository.insertWithExecutor(txn, writeOff)',
-        '_projectWriteOffSyncEnqueuer.enqueueCreate(txn, writeOff)',
+        '_projectWriteOffSyncEnqueuer.enqueueCreate(',
       ]);
       _expectInOrder(settlement, const [
         'final writeOff = await _projectWriteOffRepository.findByIdWithExecutor(',
         'await txn.delete(',
-        '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete(',
       ]);
 
       _expectAllContains(timingDelete, const [
@@ -67,12 +67,12 @@ void main() {
       _expectAllContains(resetSlice, const [
         'listByProjectIdWithExecutor(txn, normalizedProjectId)',
         'deleteByIdWithExecutor(',
-        '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete(',
       ]);
       _expectInOrder(resetSlice, const [
         'final writeOffSnapshots = await _writeOffRepository',
         'deleteByIdWithExecutor(',
-        '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+        '_projectWriteOffSyncEnqueuer.enqueueDelete(',
       ]);
     });
 
@@ -120,7 +120,7 @@ void main() {
         'settledAt: null',
         'settledSnapshot: null',
         '_enqueueProjectUpdate(txn,',
-        '_projectSyncEnqueuer.enqueueUpdate(executor, project: snapshot)',
+        '_projectSyncEnqueuer.enqueueUpdate(',
       ]);
       _expectAllContains(timingDelete, const [
         'ProjectSyncEnqueuer? projectSyncEnqueuer',
@@ -132,7 +132,7 @@ void main() {
         'ProjectSyncEnqueuer projectSyncEnqueuer',
         'restoreActiveWithExecutor(',
         '_projectRepository.findByIdWithExecutor(',
-        '_projectSyncEnqueuer.enqueueUpdate(txn, project: project)',
+        '_projectSyncEnqueuer.enqueueUpdate(',
       ]);
     });
 
@@ -167,13 +167,13 @@ void main() {
         'ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer()',
         'AppDatabase.inTransaction<void>((txn) async {',
         'SqfliteExternalWorkRecordRepository.insertRecordWithExecutor(',
-        'await _syncEnqueuer.enqueueCreate(txn, record: record);',
+        'await _syncEnqueuer.enqueueCreate(',
       ]);
       _expectAllContains(repository, const [
         'ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer()',
-        'await _syncEnqueuer.enqueueDelete(txn, record: snapshot);',
-        'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);',
-        'await _syncEnqueuer.enqueueUpdate(executor, record: snapshot);',
+        'await _syncEnqueuer.enqueueDelete(',
+        'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);',
+        'await _syncEnqueuer.enqueueUpdate(',
       ]);
       _expectAllContains(timingDelete, const [
         'ExternalWorkSyncEnqueuer? externalWorkSyncEnqueuer',

@@ -83,11 +83,13 @@ void main() {
         'final ProjectSyncEnqueuer _projectSyncEnqueuer;',
         'ExternalWorkRecord.fromMap',
         'record.toMap()',
-        'await _syncEnqueuer.enqueueDelete(txn, record: snapshot);',
-        'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);',
-        'await _syncEnqueuer.enqueueUpdate(executor, record: snapshot);',
-        'await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);',
-        'await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);',
+        // R5.22-A: enqueue call sites now also thread transaction group/sequence
+        // metadata, so the markers assert the call prefixes (args may span lines).
+        'await _syncEnqueuer.enqueueDelete(',
+        'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);',
+        'await _syncEnqueuer.enqueueUpdate(',
+        'await _projectWriteOffSyncEnqueuer.enqueueDelete(',
+        'await _projectSyncEnqueuer.enqueueUpdate(',
       ]);
       _expectAllContains(syncEnqueuer, const [
         'class ExternalWorkSyncEnqueuer',
@@ -306,23 +308,27 @@ void main() {
         _expectAllContains(resetSlice, const [
           'AppDatabase.inTransaction<int>((txn) async {',
           'linkBatchToProjectWithExecutor(',
-          'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);',
+          // R5.22-A: reset now allocates one SyncTransactionGroup and threads it
+          // through every enqueue call (args may span lines).
+          'final group = SyncTransactionGroup.create();',
+          'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);',
           'listByProjectIdWithExecutor(txn, normalizedProjectId)',
           'deleteByIdWithExecutor(',
-          'await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);',
+          'await _projectWriteOffSyncEnqueuer.enqueueDelete(',
           'restoreActiveWithExecutor(',
           'final project = await _projectRepository.findByIdWithExecutor(',
-          'await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);',
+          'await _projectSyncEnqueuer.enqueueUpdate(',
         ]);
         _expectInOrder(resetSlice, const [
+          'final group = SyncTransactionGroup.create();',
           'linkBatchToProjectWithExecutor(',
-          '_enqueueBatchUpdates(txn, batchId: normalizedBatchId)',
+          '_enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group)',
           'listByProjectIdWithExecutor(txn, normalizedProjectId)',
           'deleteByIdWithExecutor(',
-          '_projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff)',
+          '_projectWriteOffSyncEnqueuer.enqueueDelete(',
           'restoreActiveWithExecutor(',
           '_projectRepository.findByIdWithExecutor(',
-          '_projectSyncEnqueuer.enqueueUpdate(txn, project: project)',
+          '_projectSyncEnqueuer.enqueueUpdate(',
           'return linked;',
         ]);
 
@@ -384,7 +390,7 @@ void main() {
           'AppDatabase.inTransaction<void>((txn) async {',
           'SqfliteExternalImportRepository.insertBatchWithExecutor(',
           'SqfliteExternalWorkRecordRepository.insertRecordWithExecutor(',
-          'await _syncEnqueuer.enqueueCreate(txn, record: record);',
+          'await _syncEnqueuer.enqueueCreate(',
         ]);
         _expectAllContains(confirmUseCase, const [
           'class ConfirmExternalWorkImportUseCase',
@@ -485,9 +491,11 @@ void main() {
           'payload_json TEXT NOT NULL',
           'payload_hash TEXT NOT NULL',
           'created_at TEXT NOT NULL',
+          // R5.22-A: the outbox now carries ordering metadata columns
+          // (nullable) so same-transaction clusters can be grouped/ordered.
+          'transaction_group_id TEXT',
+          'local_sequence INTEGER',
         ]);
-        expect(syncSchema, isNot(contains('transaction_id')));
-        expect(syncSchema, isNot(contains('local_sequence')));
 
         _expectAllContains(syncRepositories, const [
           'Future<List<SyncOutboxEntry>> listPending({int limit = 50})',
@@ -499,13 +507,23 @@ void main() {
           'for (final entry in pending)',
           "path: '/sync/outbox'",
         ]);
+        // R5.22-A only adds the columns + enqueue-side writes. The push side
+        // (ordering / grouped replay) is still deferred to R5.22-B, so the
+        // SyncManager must NOT yet read these columns to order or batch pushes.
         expect(
           syncManager,
-          isNot(contains('transaction_id')),
+          isNot(contains('transaction_group_id')),
           reason:
               'ExternalWork reset spans ExternalWork, ProjectWriteOff, and Project. '
-              'Cloud push needs explicit ordering/grouping before this blocker '
-              'can be considered covered.',
+              'Cloud push ordering/grouped replay (R5.22-B) is not implemented '
+              'yet; SyncManager must not reference transaction_group_id.',
+        );
+        expect(
+          syncManager,
+          isNot(contains('local_sequence')),
+          reason:
+              'SyncManager push ordering by local_sequence is R5.22-B and must '
+              'not be implemented in this slice.',
         );
       },
     );

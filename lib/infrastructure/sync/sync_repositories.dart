@@ -15,6 +15,8 @@ abstract class SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   });
 
   Future<SyncOutboxEntry> enqueueWithExecutor(
@@ -23,6 +25,8 @@ abstract class SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   });
 
   Future<List<SyncOutboxEntry>> listPending({int limit = 50});
@@ -52,6 +56,8 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   }) async {
     final db = await AppDatabase.database;
     return enqueueWithExecutor(
@@ -60,6 +66,8 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
       entityId: entityId,
       operation: operation,
       payload: payload,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
@@ -70,6 +78,8 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   }) async {
     final now = _now().toUtc();
     final nowIso = now.toIso8601String();
@@ -84,6 +94,10 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
       payloadHash: payloadHash,
       status: SyncOutboxStatus.pending,
       retryCount: 0,
+      // R5.22-A outbox metadata (null for ordinary single-row enqueues); not
+      // part of the business payload.
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
       createdAt: nowIso,
       updatedAt: nowIso,
     );

@@ -11,6 +11,7 @@ import '../../../features/account/domain/entities/project_settlement_result.dart
 import '../../../features/account/domain/repositories/project_settlement_repository.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../sync/sync_status.dart';
+import '../../sync/sync_transaction_group.dart';
 import 'account_payment_sync_enqueuer.dart';
 import 'project_sync_enqueuer.dart';
 import 'project_write_off_sync_enqueuer.dart';
@@ -43,6 +44,10 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     ProjectSettlementRequest request,
   ) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：单项目结清是一个同事务 cluster（payment create + writeOff
+      // create + project status update 可同时发生），共享一个 group id，
+      // local_sequence 按 payment → writeOff → project 的业务因果顺序递增。
+      final group = SyncTransactionGroup.create();
       final projectRows = await txn.query(
         SqfliteProjectRepository.table,
         where: 'id = ?',
@@ -116,6 +121,8 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           payment: payment.copyWith(id: paymentId),
           operation: 'create',
           status: SyncStatus.pendingUpload,
+          transactionGroupId: group.id,
+          localSequence: group.nextSequence(),
         );
       }
 
@@ -136,7 +143,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           updatedAt: request.createdAtIso,
         );
         await _projectWriteOffRepository.insertWithExecutor(txn, writeOff);
-        await _projectWriteOffSyncEnqueuer.enqueueCreate(txn, writeOff);
+        await _projectWriteOffSyncEnqueuer.enqueueCreate(
+          txn,
+          writeOff,
+          transactionGroupId: group.id,
+          localSequence: group.nextSequence(),
+        );
       }
 
       final receivedFenAfter = receivedFenBefore + paymentFen;
@@ -153,7 +165,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.createdAtIso,
           ),
         );
-        await _enqueueProjectUpdate(txn, request.projectId);
+        await _enqueueProjectUpdate(txn, request.projectId, group: group);
       }
 
       return ProjectSettlementResult(
@@ -179,6 +191,9 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     MergedProjectSettlementRequest request,
   ) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：合并结清是一个同事务 cluster，跨多个成员的 writeOff create
+      // 与 project status update 共享一个 group id，按写入顺序递增 local_sequence。
+      final group = SyncTransactionGroup.create();
       if (request.members.isEmpty) {
         throw StateError('合并项目没有可结清的成员项目');
       }
@@ -285,7 +300,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           updatedAt: request.createdAtIso,
         );
         await _projectWriteOffRepository.insertWithExecutor(txn, writeOff);
-        await _projectWriteOffSyncEnqueuer.enqueueCreate(txn, writeOff);
+        await _projectWriteOffSyncEnqueuer.enqueueCreate(
+          txn,
+          writeOff,
+          transactionGroupId: group.id,
+          localSequence: group.nextSequence(),
+        );
 
         final memberWriteOffFenAfter = memberWriteOffFenBefore + allocationFen;
         final memberRemainingFenAfter =
@@ -302,7 +322,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           settledProjectIds.add(allocation.projectId);
-          await _enqueueProjectUpdate(txn, allocation.projectId);
+          await _enqueueProjectUpdate(txn, allocation.projectId, group: group);
         }
 
         allocatedWriteOffFen += allocationFen;
@@ -349,7 +369,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
               ),
             );
             settledProjectIds.add(member.projectId);
-            await _enqueueProjectUpdate(txn, member.projectId);
+            await _enqueueProjectUpdate(txn, member.projectId, group: group);
           }
         }
       }
@@ -378,6 +398,8 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     DeleteProjectWriteOffRequest request,
   ) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：删除核销 + 可能的撤销结清（project status 还原）同事务 cluster。
+      final group = SyncTransactionGroup.create();
       final projectRows = await txn.query(
         SqfliteProjectRepository.table,
         where: 'id = ?',
@@ -434,7 +456,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       if (deleted != 1) {
         throw StateError('核销记录删除失败，请刷新后重试');
       }
-      await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
+      await _projectWriteOffSyncEnqueuer.enqueueDelete(
+        txn,
+        writeOff,
+        transactionGroupId: group.id,
+        localSequence: group.nextSequence(),
+      );
 
       final writeOffFenAfter = await _sumFenByProjectId(
         txn,
@@ -454,7 +481,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.updatedAtIso,
           ),
         );
-        await _enqueueProjectUpdate(txn, request.projectId);
+        await _enqueueProjectUpdate(txn, request.projectId, group: group);
       }
 
       return DeleteProjectWriteOffResult(
@@ -476,6 +503,9 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     DeleteMergedProjectWriteOffsRequest request,
   ) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：合并撤销核销同事务 cluster：多条 writeOff delete + 多个成员
+      // project status 还原共享一个 group id。
+      final group = SyncTransactionGroup.create();
       final memberByProjectId = {
         for (final member in request.members) member.projectId: member,
       };
@@ -558,7 +588,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         if (deleted != 1) {
           throw StateError('核销记录删除失败，请刷新后重试');
         }
-        await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
+        await _projectWriteOffSyncEnqueuer.enqueueDelete(
+          txn,
+          writeOff,
+          transactionGroupId: group.id,
+          localSequence: group.nextSequence(),
+        );
         // deletedAmount 仅用于结果对象的展示字段（yuan），逐项使用模型的
         // amount（已通过 fromMap 优先 amount_fen → yuan 还原）累计。
         deletedAmount += writeOff.amount;
@@ -604,7 +639,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           restoredActive = true;
-          await _enqueueProjectUpdate(txn, projectId);
+          await _enqueueProjectUpdate(txn, projectId, group: group);
         }
       }
 
@@ -629,6 +664,9 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     RevokeProjectSettlementStatusRequest request,
   ) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：撤销结清状态归一为 settlement cluster 入口；这里至多产生 1 条
+      // project update outbox，仍分配 group（sequence=1）以与合并撤销保持一致。
+      final group = SyncTransactionGroup.create();
       final projectRows = await txn.query(
         SqfliteProjectRepository.table,
         where: 'id = ?',
@@ -659,7 +697,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.updatedAtIso,
           ),
         );
-        await _enqueueProjectUpdate(txn, request.projectId);
+        await _enqueueProjectUpdate(txn, request.projectId, group: group);
       }
 
       return RevokeProjectSettlementStatusResult(
@@ -674,6 +712,8 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     RevokeMergedProjectSettlementStatusRequest request,
   ) async {
     return AppDatabase.inTransaction((txn) async {
+      // R5.22-A：合并撤销结清状态同事务 cluster：多个成员 project update 共享组。
+      final group = SyncTransactionGroup.create();
       var restoredActive = false;
       for (final member in request.members) {
         final projectRows = await txn.query(
@@ -705,7 +745,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           restoredActive = true;
-          await _enqueueProjectUpdate(txn, member.projectId);
+          await _enqueueProjectUpdate(txn, member.projectId, group: group);
         }
       }
 
@@ -753,8 +793,9 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
 
   Future<void> _enqueueProjectUpdate(
     DatabaseExecutor executor,
-    String projectId,
-  ) async {
+    String projectId, {
+    SyncTransactionGroup? group,
+  }) async {
     final snapshot = await _projectRepository.findByIdWithExecutor(
       executor,
       projectId,
@@ -762,6 +803,11 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     if (snapshot == null) {
       throw StateError('项目不存在，无法写入同步队列');
     }
-    await _projectSyncEnqueuer.enqueueUpdate(executor, project: snapshot);
+    await _projectSyncEnqueuer.enqueueUpdate(
+      executor,
+      project: snapshot,
+      transactionGroupId: group?.id,
+      localSequence: group?.nextSequence(),
+    );
   }
 }
