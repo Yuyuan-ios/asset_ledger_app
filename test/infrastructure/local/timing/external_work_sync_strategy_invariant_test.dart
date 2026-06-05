@@ -475,7 +475,8 @@ void main() {
     );
 
     test(
-      'external work reset still requires ordering or transaction group before cloud push',
+      'external work reset push is ordered by transaction group and acked '
+      '(R5.22-B)',
       () {
         final syncSchema = _read('lib/data/db/schema/sync_schema.dart');
         final syncRepositories = _read(
@@ -491,40 +492,35 @@ void main() {
           'payload_json TEXT NOT NULL',
           'payload_hash TEXT NOT NULL',
           'created_at TEXT NOT NULL',
-          // R5.22-A: the outbox now carries ordering metadata columns
-          // (nullable) so same-transaction clusters can be grouped/ordered.
+          // R5.22-A: the outbox carries ordering metadata columns (nullable).
           'transaction_group_id TEXT',
           'local_sequence INTEGER',
+          // R5.22-B: nullable backoff timestamp for failed push retries.
+          'next_retry_at TEXT',
         ]);
 
         _expectAllContains(syncRepositories, const [
           'Future<List<SyncOutboxEntry>> listPending({int limit = 50})',
           "orderBy: 'created_at ASC'",
+          // R5.22-B push-side lifecycle.
+          'next_retry_at IS NULL OR next_retry_at <= ?',
+          'Future<void> deleteAcknowledged(String id)',
+          'Future<void> markFailed({',
         ]);
+        // R5.22-B: SyncManager now orders the pending rows by transaction group
+        // and local sequence, acks (deletes) successes, and bumps retry/backoff
+        // on failures.
         _expectAllContains(syncManager, const [
-          'Future<int> pushPending({int limit = 50}) async',
+          'Future<SyncPushResult> pushPending({int limit = 50}) async',
           'final pending = await _outboxRepository.listPending(limit: limit)',
-          'for (final entry in pending)',
+          '_buildOrderedGroups(pending)',
+          'entry.transactionGroupId',
+          'entry.localSequence',
+          'deleteAcknowledged(entry.id)',
+          '_outboxRepository.markFailed(',
+          '_backoffSeconds = [60, 300, 1800]',
           "path: '/sync/outbox'",
         ]);
-        // R5.22-A only adds the columns + enqueue-side writes. The push side
-        // (ordering / grouped replay) is still deferred to R5.22-B, so the
-        // SyncManager must NOT yet read these columns to order or batch pushes.
-        expect(
-          syncManager,
-          isNot(contains('transaction_group_id')),
-          reason:
-              'ExternalWork reset spans ExternalWork, ProjectWriteOff, and Project. '
-              'Cloud push ordering/grouped replay (R5.22-B) is not implemented '
-              'yet; SyncManager must not reference transaction_group_id.',
-        );
-        expect(
-          syncManager,
-          isNot(contains('local_sequence')),
-          reason:
-              'SyncManager push ordering by local_sequence is R5.22-B and must '
-              'not be implemented in this slice.',
-        );
       },
     );
   });

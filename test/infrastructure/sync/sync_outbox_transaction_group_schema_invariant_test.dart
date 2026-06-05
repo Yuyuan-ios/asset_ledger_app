@@ -35,6 +35,8 @@ void main() {
             'status',
             'retry_count',
             'last_error',
+            // R5.22-B: nullable backoff timestamp for failed push retries.
+            'next_retry_at',
             'transaction_group_id',
             'local_sequence',
             'created_at',
