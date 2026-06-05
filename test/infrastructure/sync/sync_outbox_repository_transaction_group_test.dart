@@ -115,4 +115,125 @@ void main() {
     expect(rows.single['transaction_group_id'], 'txn-xyz');
     expect(rows.single['local_sequence'], 1);
   });
+
+  group('transaction group metadata validation', () {
+    test('group without sequence is rejected', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        outbox.enqueue(
+          entityType: 'project',
+          entityId: 'p1',
+          operation: 'update',
+          payload: const {'id': 'p1'},
+          transactionGroupId: 'txn-abc',
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0, reason: 'rejected enqueue writes nothing');
+    });
+
+    test('sequence without group is rejected', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        outbox.enqueue(
+          entityType: 'project',
+          entityId: 'p1',
+          operation: 'update',
+          payload: const {'id': 'p1'},
+          localSequence: 1,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0);
+    });
+
+    test('empty group id is rejected', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        outbox.enqueue(
+          entityType: 'project',
+          entityId: 'p1',
+          operation: 'update',
+          payload: const {'id': 'p1'},
+          transactionGroupId: '',
+          localSequence: 1,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0);
+    });
+
+    test('whitespace-only group id is rejected', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        outbox.enqueue(
+          entityType: 'project',
+          entityId: 'p1',
+          operation: 'update',
+          payload: const {'id': 'p1'},
+          transactionGroupId: '   ',
+          localSequence: 1,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0);
+    });
+
+    test('sequence == 0 is rejected', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        outbox.enqueue(
+          entityType: 'project',
+          entityId: 'p1',
+          operation: 'update',
+          payload: const {'id': 'p1'},
+          transactionGroupId: 'txn-abc',
+          localSequence: 0,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0);
+    });
+
+    test('negative sequence is rejected', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        outbox.enqueue(
+          entityType: 'project',
+          entityId: 'p1',
+          operation: 'update',
+          payload: const {'id': 'p1'},
+          transactionGroupId: 'txn-abc',
+          localSequence: -1,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0);
+    });
+
+    test('enqueueWithExecutor enforces the same validation', () async {
+      const outbox = LocalSyncOutboxRepository();
+      await expectLater(
+        AppDatabase.inTransaction((txn) async {
+          await outbox.enqueueWithExecutor(
+            txn,
+            entityType: 'project',
+            entityId: 'p1',
+            operation: 'update',
+            payload: const {'id': 'p1'},
+            transactionGroupId: 'txn-abc',
+            // missing sequence
+          );
+        }),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await _outboxCount(), 0);
+    });
+  });
+}
+
+Future<int> _outboxCount() async {
+  final db = await AppDatabase.database;
+  final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM sync_outbox');
+  return (rows.single['c'] as num).toInt();
 }
