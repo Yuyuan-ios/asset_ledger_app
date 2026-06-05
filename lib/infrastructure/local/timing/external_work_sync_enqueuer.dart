@@ -1,7 +1,9 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/operations/operation_access_control.dart';
 import '../../../data/models/external_work_record.dart';
 import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
 
@@ -33,6 +35,7 @@ class ExternalWorkSyncEnqueuer {
     required ExternalWorkRecord record,
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) {
     return _enqueue(
       executor,
@@ -41,6 +44,7 @@ class ExternalWorkSyncEnqueuer {
       status: SyncStatus.pendingUpload,
       transactionGroupId: transactionGroupId,
       localSequence: localSequence,
+      actor: actor,
     );
   }
 
@@ -49,6 +53,7 @@ class ExternalWorkSyncEnqueuer {
     required ExternalWorkRecord record,
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) {
     return _enqueue(
       executor,
@@ -57,6 +62,7 @@ class ExternalWorkSyncEnqueuer {
       status: SyncStatus.pendingUpdate,
       transactionGroupId: transactionGroupId,
       localSequence: localSequence,
+      actor: actor,
     );
   }
 
@@ -65,6 +71,7 @@ class ExternalWorkSyncEnqueuer {
     required ExternalWorkRecord record,
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) {
     return _enqueue(
       executor,
@@ -73,6 +80,7 @@ class ExternalWorkSyncEnqueuer {
       status: SyncStatus.pendingDelete,
       transactionGroupId: transactionGroupId,
       localSequence: localSequence,
+      actor: actor,
     );
   }
 
@@ -83,21 +91,25 @@ class ExternalWorkSyncEnqueuer {
     required SyncStatus status,
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) async {
     final entityId = record.id;
     if (entityId.trim().isEmpty) {
       throw StateError('ExternalWorkRecord sync enqueue id missing');
     }
 
+    final resolvedActor = resolveSyncActor(actor);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       executor,
       entityType: entityType,
       entityId: entityId,
       operation: operation,
       payload: {
+        'payload_schema_version': kSyncPayloadSchemaVersion,
         'entity_type': entityType,
         'entity_id': entityId,
         'operation': operation,
+        'actor': syncActorPayload(resolvedActor),
         'record': record.toMap(),
       },
       transactionGroupId: transactionGroupId,
@@ -111,6 +123,7 @@ class ExternalWorkSyncEnqueuer {
         syncStatus: status,
         version: 0,
         source: ownerAppSource,
+        updatedBy: resolvedActor.actorId,
         payloadHash: entry.payloadHash,
       ),
     );

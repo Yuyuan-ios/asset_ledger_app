@@ -11,6 +11,7 @@ import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
 import '../../sync/sync_transaction_group.dart';
@@ -329,15 +330,20 @@ class LocalDeleteTimingRecordWithImpactUseCase
       throw StateError('sync_outbox 入队需要被删除 timing_record 的 id');
     }
     final entityId = id.toString();
+    // R5.25: no ActorContext is threaded into this use case yet → owner-app
+    // fallback (deferred composition-root threading; see report).
+    final resolvedActor = resolveSyncActor(null);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,
       entityId: entityId,
       operation: 'delete',
       payload: {
+        'payload_schema_version': kSyncPayloadSchemaVersion,
         'entity_type': _timingRecordEntityType,
         'entity_id': entityId,
         'operation': 'delete',
+        'actor': syncActorPayload(resolvedActor),
         'record': deletedRecord.toMap(),
       },
       transactionGroupId: group?.id,
@@ -351,6 +357,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
         syncStatus: SyncStatus.pendingDelete,
         version: 0,
         source: _ownerAppSource,
+        updatedBy: resolvedActor.actorId,
         payloadHash: entry.payloadHash,
       ),
     );

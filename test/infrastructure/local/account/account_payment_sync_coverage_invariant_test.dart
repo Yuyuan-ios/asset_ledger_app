@@ -13,6 +13,10 @@ void main() {
         'class AccountPaymentSyncEnqueuer',
         'enqueueWithExecutor(',
         'upsertWithExecutor(',
+        // R5.25 payload schema version + actor traceability + updated_by.
+        "'payload_schema_version': kSyncPayloadSchemaVersion",
+        "'actor': syncActorPayload(resolvedActor)",
+        'updatedBy: resolvedActor.actorId',
         "'entity_type': entityType",
         "'entity_id': entityId",
         "'operation': operation",

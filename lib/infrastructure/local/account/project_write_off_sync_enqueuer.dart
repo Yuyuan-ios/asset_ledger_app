@@ -1,7 +1,9 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/operations/operation_access_control.dart';
 import '../../../data/models/project_write_off.dart';
 import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
 
@@ -27,6 +29,7 @@ class ProjectWriteOffSyncEnqueuer {
     ProjectWriteOff writeOff, {
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) {
     return _enqueue(
       executor,
@@ -35,6 +38,7 @@ class ProjectWriteOffSyncEnqueuer {
       status: SyncStatus.pendingUpload,
       transactionGroupId: transactionGroupId,
       localSequence: localSequence,
+      actor: actor,
     );
   }
 
@@ -43,6 +47,7 @@ class ProjectWriteOffSyncEnqueuer {
     ProjectWriteOff writeOff, {
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) {
     return _enqueue(
       executor,
@@ -51,6 +56,7 @@ class ProjectWriteOffSyncEnqueuer {
       status: SyncStatus.pendingDelete,
       transactionGroupId: transactionGroupId,
       localSequence: localSequence,
+      actor: actor,
     );
   }
 
@@ -61,21 +67,25 @@ class ProjectWriteOffSyncEnqueuer {
     required SyncStatus status,
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) async {
     final entityId = writeOff.id;
     if (entityId.trim().isEmpty) {
       throw StateError('ProjectWriteOff sync enqueue id missing');
     }
 
+    final resolvedActor = resolveSyncActor(actor);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       executor,
       entityType: entityType,
       entityId: entityId,
       operation: operation,
       payload: {
+        'payload_schema_version': kSyncPayloadSchemaVersion,
         'entity_type': entityType,
         'entity_id': entityId,
         'operation': operation,
+        'actor': syncActorPayload(resolvedActor),
         'record': writeOff.toMap(),
       },
       transactionGroupId: transactionGroupId,
@@ -89,6 +99,7 @@ class ProjectWriteOffSyncEnqueuer {
         syncStatus: status,
         version: 0,
         source: ownerAppSource,
+        updatedBy: resolvedActor.actorId,
         payloadHash: entry.payloadHash,
       ),
     );
