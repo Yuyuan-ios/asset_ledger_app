@@ -24,25 +24,33 @@ class ProjectWriteOffSyncEnqueuer {
 
   Future<void> enqueueCreate(
     DatabaseExecutor executor,
-    ProjectWriteOff writeOff,
-  ) {
+    ProjectWriteOff writeOff, {
+    String? transactionGroupId,
+    int? localSequence,
+  }) {
     return _enqueue(
       executor,
       writeOff: writeOff,
       operation: 'create',
       status: SyncStatus.pendingUpload,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
   Future<void> enqueueDelete(
     DatabaseExecutor executor,
-    ProjectWriteOff writeOff,
-  ) {
+    ProjectWriteOff writeOff, {
+    String? transactionGroupId,
+    int? localSequence,
+  }) {
     return _enqueue(
       executor,
       writeOff: writeOff,
       operation: 'delete',
       status: SyncStatus.pendingDelete,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
@@ -51,6 +59,8 @@ class ProjectWriteOffSyncEnqueuer {
     required ProjectWriteOff writeOff,
     required String operation,
     required SyncStatus status,
+    String? transactionGroupId,
+    int? localSequence,
   }) async {
     final entityId = writeOff.id;
     if (entityId.trim().isEmpty) {
@@ -68,6 +78,8 @@ class ProjectWriteOffSyncEnqueuer {
         'operation': operation,
         'record': writeOff.toMap(),
       },
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
       executor,

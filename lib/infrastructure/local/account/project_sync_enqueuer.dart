@@ -28,6 +28,8 @@ class ProjectSyncEnqueuer {
   Future<void> enqueueUpdate(
     DatabaseExecutor executor, {
     required Project project,
+    String? transactionGroupId,
+    int? localSequence,
   }) async {
     final entityId = project.id;
     if (entityId.trim().isEmpty) {
@@ -45,6 +47,8 @@ class ProjectSyncEnqueuer {
         'operation': 'update',
         'record': project.toMap(),
       },
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
       executor,

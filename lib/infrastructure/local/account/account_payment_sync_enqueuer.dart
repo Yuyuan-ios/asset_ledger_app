@@ -27,6 +27,8 @@ class AccountPaymentSyncEnqueuer {
     required AccountPayment payment,
     required String operation,
     required SyncStatus status,
+    String? transactionGroupId,
+    int? localSequence,
   }) async {
     final id = payment.id;
     if (id == null) {
@@ -44,6 +46,8 @@ class AccountPaymentSyncEnqueuer {
         'operation': operation,
         'record': payment.toMap(),
       },
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
       executor,

@@ -4,6 +4,7 @@ import '../../core/errors/external_work_errors.dart';
 import '../../infrastructure/local/account/project_sync_enqueuer.dart';
 import '../../infrastructure/local/account/project_write_off_sync_enqueuer.dart';
 import '../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
+import '../../infrastructure/sync/sync_transaction_group.dart';
 import '../db/database.dart';
 import '../models/external_work_record.dart';
 import 'external_import_repository.dart';
@@ -150,11 +151,18 @@ class SqfliteExternalWorkRecordRepository
     final normalized = batchId.trim();
     if (normalized.isEmpty) return 0;
     return AppDatabase.inTransaction<int>((txn) async {
+      // R5.22-A：删除整个 batch 的多条 external_work delete outbox 共享一个 group。
+      final group = SyncTransactionGroup.create();
       final snapshots = await listByBatchIdWithExecutor(txn, normalized);
       final deleted = await deleteByBatchIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
       for (final snapshot in snapshots) {
-        await _syncEnqueuer.enqueueDelete(txn, record: snapshot);
+        await _syncEnqueuer.enqueueDelete(
+          txn,
+          record: snapshot,
+          transactionGroupId: group.id,
+          localSequence: group.nextSequence(),
+        );
       }
 
       await txn.delete(
@@ -175,13 +183,16 @@ class SqfliteExternalWorkRecordRepository
     final normalizedBatchId = importBatchId.trim();
     final normalizedProjectId = _requireProjectId(projectId);
     return AppDatabase.inTransaction<int>((txn) async {
+      // R5.22-A：把整个 batch 关联到项目会对该 batch 的每条记录写一条 update
+      // outbox，共享一个 group id。
+      final group = SyncTransactionGroup.create();
       final linked = await linkBatchToProjectWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
-      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);
       return linked;
     });
   }
@@ -195,6 +206,11 @@ class SqfliteExternalWorkRecordRepository
     final normalizedBatchId = importBatchId.trim();
     final normalizedProjectId = _requireProjectId(projectId);
     return AppDatabase.inTransaction<int>((txn) async {
+      // R5.22-A：settlement reset 是跨 ExternalWork / ProjectWriteOff / Project
+      // 的同事务 cluster（strategy invariant 标注的 cloud-push 重点）。所有 outbox
+      // 共享一个 group id，local_sequence 按 external work updates → writeOff
+      // deletes → project update 的因果顺序递增。
+      final group = SyncTransactionGroup.create();
       // 1) 先写关联：batch 已不存在（0 行）会抛异常，使整个事务回滚，
       //    确保不会出现"撤销结清成功但关联失败"的中间态。
       final linked = await linkBatchToProjectWithExecutor(
@@ -203,7 +219,7 @@ class SqfliteExternalWorkRecordRepository
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
-      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);
 
       // 2) 同事务内撤销结清：删除该项目核销记录 + 已结清恢复未结清。
       final writeOffSnapshots = await _writeOffRepository
@@ -214,7 +230,12 @@ class SqfliteExternalWorkRecordRepository
           writeOff.id,
         );
         if (deleted > 0) {
-          await _projectWriteOffSyncEnqueuer.enqueueDelete(txn, writeOff);
+          await _projectWriteOffSyncEnqueuer.enqueueDelete(
+            txn,
+            writeOff,
+            transactionGroupId: group.id,
+            localSequence: group.nextSequence(),
+          );
         }
       }
 
@@ -231,7 +252,12 @@ class SqfliteExternalWorkRecordRepository
         if (project == null) {
           throw StateError('Project sync enqueue requires project snapshot');
         }
-        await _projectSyncEnqueuer.enqueueUpdate(txn, project: project);
+        await _projectSyncEnqueuer.enqueueUpdate(
+          txn,
+          project: project,
+          transactionGroupId: group.id,
+          localSequence: group.nextSequence(),
+        );
       }
 
       return linked;
@@ -245,12 +271,14 @@ class SqfliteExternalWorkRecordRepository
   }) async {
     final normalizedBatchId = importBatchId.trim();
     return AppDatabase.inTransaction<int>((txn) async {
+      // R5.22-A：解除 batch 关联的多条 update outbox 共享一个 group id。
+      final group = SyncTransactionGroup.create();
       final unlinked = await unlinkBatchWithExecutor(
         txn,
         importBatchId: normalizedBatchId,
         updatedAt: updatedAt,
       );
-      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId);
+      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);
       return unlinked;
     });
   }
@@ -450,10 +478,16 @@ class SqfliteExternalWorkRecordRepository
   Future<void> _enqueueBatchUpdates(
     DatabaseExecutor executor, {
     required String batchId,
+    SyncTransactionGroup? group,
   }) async {
     final snapshots = await listByBatchIdWithExecutor(executor, batchId);
     for (final snapshot in snapshots) {
-      await _syncEnqueuer.enqueueUpdate(executor, record: snapshot);
+      await _syncEnqueuer.enqueueUpdate(
+        executor,
+        record: snapshot,
+        transactionGroupId: group?.id,
+        localSequence: group?.nextSequence(),
+      );
     }
   }
 

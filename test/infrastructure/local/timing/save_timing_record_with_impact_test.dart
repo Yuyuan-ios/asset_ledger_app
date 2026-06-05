@@ -2017,6 +2017,8 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     throw StateError('注入的失败：sync_outbox 写入失败');
   }
@@ -2028,6 +2030,8 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     throw StateError('注入的失败：sync_outbox 写入失败');
   }

@@ -1116,6 +1116,8 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     _throwIfMatched(entityType: entityType, operation: operation);
     return const LocalSyncOutboxRepository().enqueue(
@@ -1123,6 +1125,8 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
       entityId: entityId,
       operation: operation,
       payload: payload,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
@@ -1133,6 +1137,8 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
     required String entityId,
     required String operation,
     required Map<String, Object?> payload,
+    String? transactionGroupId,
+    int? localSequence,
   }) {
     _throwIfMatched(entityType: entityType, operation: operation);
     return const LocalSyncOutboxRepository().enqueueWithExecutor(
@@ -1141,6 +1147,8 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
       entityId: entityId,
       operation: operation,
       payload: payload,
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
     );
   }
 
