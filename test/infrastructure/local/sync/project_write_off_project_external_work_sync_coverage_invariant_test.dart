@@ -23,6 +23,10 @@ void main() {
         "static const String entityType = 'project_write_off';",
         'enqueueCreate(',
         'enqueueDelete(',
+        // R5.25 payload schema version + actor traceability + updated_by.
+        "'payload_schema_version': kSyncPayloadSchemaVersion",
+        "'actor': syncActorPayload(resolvedActor)",
+        'updatedBy: resolvedActor.actorId',
         "'record': writeOff.toMap()",
         'SyncStatus.pendingUpload',
         'SyncStatus.pendingDelete',
@@ -98,6 +102,10 @@ void main() {
         "static const String entityType = 'project';",
         'enqueueUpdate(',
         "'operation': 'update'",
+        // R5.25 payload schema version + actor traceability + updated_by.
+        "'payload_schema_version': kSyncPayloadSchemaVersion",
+        "'actor': syncActorPayload(resolvedActor)",
+        'updatedBy: resolvedActor.actorId',
         "'record': project.toMap()",
         'SyncStatus.pendingUpdate',
         'payloadHash: entry.payloadHash',
@@ -160,6 +168,10 @@ void main() {
         'enqueueCreate(',
         'enqueueUpdate(',
         'enqueueDelete(',
+        // R5.25 payload schema version + actor traceability + updated_by.
+        "'payload_schema_version': kSyncPayloadSchemaVersion",
+        "'actor': syncActorPayload(resolvedActor)",
+        'updatedBy: resolvedActor.actorId',
         "'record': record.toMap()",
         'payloadHash: entry.payloadHash',
       ]);

@@ -16,6 +16,7 @@ import '../../../features/account/domain/services/project_finance_calculator.dar
 import '../../../features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
 import '../account/project_settlement_impact_service.dart';
@@ -280,15 +281,20 @@ class LocalSaveTimingRecordWithImpactUseCase
         isEditing &&
         savedRecord.allocationCutoffDate == null &&
         existingRecord?.allocationCutoffDate != null;
+    // R5.25: no ActorContext is threaded into this use case yet → owner-app
+    // fallback (deferred composition-root threading; see report).
+    final resolvedActor = resolveSyncActor(null);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,
       entityId: entityId,
       operation: operation,
       payload: {
+        'payload_schema_version': kSyncPayloadSchemaVersion,
         'entity_type': _timingRecordEntityType,
         'entity_id': entityId,
         'operation': operation,
+        'actor': syncActorPayload(resolvedActor),
         'record': savedRecord.toMap(
           includeNullAllocationCutoffDate:
               shouldIncludeNullAllocationCutoffDate,
@@ -305,6 +311,7 @@ class LocalSaveTimingRecordWithImpactUseCase
             : SyncStatus.pendingUpload,
         version: 0,
         source: _ownerAppSource,
+        updatedBy: resolvedActor.actorId,
         payloadHash: entry.payloadHash,
       ),
     );

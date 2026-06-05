@@ -1,7 +1,9 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/operations/operation_access_control.dart';
 import '../../../data/models/project.dart';
 import '../../sync/entity_sync_meta.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
 
@@ -30,21 +32,25 @@ class ProjectSyncEnqueuer {
     required Project project,
     String? transactionGroupId,
     int? localSequence,
+    ActorContext? actor,
   }) async {
     final entityId = project.id;
     if (entityId.trim().isEmpty) {
       throw StateError('Project sync enqueue id missing');
     }
 
+    final resolvedActor = resolveSyncActor(actor);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       executor,
       entityType: entityType,
       entityId: entityId,
       operation: 'update',
       payload: {
+        'payload_schema_version': kSyncPayloadSchemaVersion,
         'entity_type': entityType,
         'entity_id': entityId,
         'operation': 'update',
+        'actor': syncActorPayload(resolvedActor),
         'record': project.toMap(),
       },
       transactionGroupId: transactionGroupId,
@@ -58,6 +64,7 @@ class ProjectSyncEnqueuer {
         syncStatus: SyncStatus.pendingUpdate,
         version: 0,
         source: ownerAppSource,
+        updatedBy: resolvedActor.actorId,
         payloadHash: entry.payloadHash,
       ),
     );
