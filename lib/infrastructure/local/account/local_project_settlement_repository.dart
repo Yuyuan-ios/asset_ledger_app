@@ -534,7 +534,16 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       }
 
       final mergeWriteOffPrefix = 'writeoff-merge-${request.mergeGroupId}-';
-      final writeOffs = writeOffRows.map(ProjectWriteOff.fromMap).toList();
+      // R5.22-A-Hardening: `id IN (...)` returns rows in an unspecified order.
+      // Sort deterministically (createdAt ASC, then id ASC) so the delete
+      // outbox rows below get a stable, reproducible local_sequence instead of
+      // depending on SQLite's row order.
+      final writeOffs = writeOffRows.map(ProjectWriteOff.fromMap).toList()
+        ..sort((a, b) {
+          final byCreatedAt = a.createdAt.compareTo(b.createdAt);
+          if (byCreatedAt != 0) return byCreatedAt;
+          return a.id.compareTo(b.id);
+        });
       for (final writeOff in writeOffs) {
         final projectId = writeOff.projectId.trim();
         if (!memberByProjectId.containsKey(projectId) ||

@@ -81,6 +81,12 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
     String? transactionGroupId,
     int? localSequence,
   }) async {
+    // R5.22-A-Hardening: validate the grouping metadata at the single write
+    // boundary (enqueue() delegates here too).
+    _validateTransactionGroupMetadata(
+      transactionGroupId: transactionGroupId,
+      localSequence: localSequence,
+    );
     final now = _now().toUtc();
     final nowIso = now.toIso8601String();
     final payloadJson = jsonEncode(payload);
@@ -116,6 +122,47 @@ class LocalSyncOutboxRepository implements SyncOutboxRepository {
       limit: limit,
     );
     return rows.map(SyncOutboxEntry.fromMap).toList(growable: false);
+  }
+}
+
+/// R5.22-A-Hardening: enforce that `transaction_group_id` and `local_sequence`
+/// are written as a valid pair.
+///
+/// - both null → ordinary single-row enqueue (allowed).
+/// - both non-null → a grouped row; the id must be non-blank and the sequence
+///   must be 1-based positive.
+/// - exactly one non-null → rejected (a half-written grouping is a programming
+///   error that would silently break cloud-push ordering later).
+void _validateTransactionGroupMetadata({
+  required String? transactionGroupId,
+  required int? localSequence,
+}) {
+  final hasGroup = transactionGroupId != null;
+  final hasSequence = localSequence != null;
+
+  if (!hasGroup && !hasSequence) return;
+
+  if (hasGroup != hasSequence) {
+    throw ArgumentError(
+      'sync_outbox transactionGroupId and localSequence must be set together '
+      'or both omitted (got transactionGroupId=$transactionGroupId, '
+      'localSequence=$localSequence).',
+    );
+  }
+
+  if (transactionGroupId!.trim().isEmpty) {
+    throw ArgumentError.value(
+      transactionGroupId,
+      'transactionGroupId',
+      'must not be empty or blank when grouping outbox rows',
+    );
+  }
+  if (localSequence! <= 0) {
+    throw ArgumentError.value(
+      localSequence,
+      'localSequence',
+      'must be a 1-based positive sequence within the transaction group',
+    );
   }
 }
 
