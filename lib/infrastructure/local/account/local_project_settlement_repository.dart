@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/operations/operation_access_control.dart';
 import '../../../data/db/database.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/project.dart';
@@ -10,6 +11,7 @@ import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../features/account/domain/entities/project_settlement_result.dart';
 import '../../../features/account/domain/repositories/project_settlement_repository.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_status.dart';
 import '../../sync/sync_transaction_group.dart';
 import 'account_payment_sync_enqueuer.dart';
@@ -17,6 +19,11 @@ import 'project_sync_enqueuer.dart';
 import 'project_write_off_sync_enqueuer.dart';
 
 class LocalProjectSettlementRepository implements ProjectSettlementRepository {
+  /// R5.25-Hardening: stays `const`-constructible (`SyncActorProvider?`
+  /// defaults to null) so existing `const LocalProjectSettlementRepository()`
+  /// test sites keep compiling. The composition root passes a real
+  /// AppIdentityService-backed provider for production writes; tests/legacy
+  /// callers omit it and fall back to ownerAppSyncActor inside the enqueuers.
   const LocalProjectSettlementRepository({
     SqfliteProjectRepository projectRepository =
         const SqfliteProjectRepository(),
@@ -27,17 +34,20 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer =
         const ProjectWriteOffSyncEnqueuer(),
     ProjectSyncEnqueuer projectSyncEnqueuer = const ProjectSyncEnqueuer(),
+    SyncActorProvider? actorProvider,
   }) : _projectRepository = projectRepository,
        _projectWriteOffRepository = projectWriteOffRepository,
        _accountPaymentSyncEnqueuer = accountPaymentSyncEnqueuer,
        _projectWriteOffSyncEnqueuer = projectWriteOffSyncEnqueuer,
-       _projectSyncEnqueuer = projectSyncEnqueuer;
+       _projectSyncEnqueuer = projectSyncEnqueuer,
+       _actorProvider = actorProvider;
 
   final SqfliteProjectRepository _projectRepository;
   final SqfliteProjectWriteOffRepository _projectWriteOffRepository;
   final AccountPaymentSyncEnqueuer _accountPaymentSyncEnqueuer;
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
+  final SyncActorProvider? _actorProvider;
 
   @override
   Future<ProjectSettlementResult> settle(
@@ -48,6 +58,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       // create + project status update 可同时发生），共享一个 group id，
       // local_sequence 按 payment → writeOff → project 的业务因果顺序递增。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       final projectRows = await txn.query(
         SqfliteProjectRepository.table,
         where: 'id = ?',
@@ -123,6 +134,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           status: SyncStatus.pendingUpload,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
       }
 
@@ -148,6 +160,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           writeOff,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
       }
 
@@ -165,7 +178,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.createdAtIso,
           ),
         );
-        await _enqueueProjectUpdate(txn, request.projectId, group: group);
+        await _enqueueProjectUpdate(
+          txn,
+          request.projectId,
+          group: group,
+          actor: actor,
+        );
       }
 
       return ProjectSettlementResult(
@@ -194,6 +212,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       // R5.22-A：合并结清是一个同事务 cluster，跨多个成员的 writeOff create
       // 与 project status update 共享一个 group id，按写入顺序递增 local_sequence。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       if (request.members.isEmpty) {
         throw StateError('合并项目没有可结清的成员项目');
       }
@@ -305,6 +324,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           writeOff,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
 
         final memberWriteOffFenAfter = memberWriteOffFenBefore + allocationFen;
@@ -322,7 +342,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           settledProjectIds.add(allocation.projectId);
-          await _enqueueProjectUpdate(txn, allocation.projectId, group: group);
+          await _enqueueProjectUpdate(
+            txn,
+            allocation.projectId,
+            group: group,
+            actor: actor,
+          );
         }
 
         allocatedWriteOffFen += allocationFen;
@@ -369,7 +394,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
               ),
             );
             settledProjectIds.add(member.projectId);
-            await _enqueueProjectUpdate(txn, member.projectId, group: group);
+            await _enqueueProjectUpdate(
+              txn,
+              member.projectId,
+              group: group,
+              actor: actor,
+            );
           }
         }
       }
@@ -400,6 +430,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     return AppDatabase.inTransaction((txn) async {
       // R5.22-A：删除核销 + 可能的撤销结清（project status 还原）同事务 cluster。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       final projectRows = await txn.query(
         SqfliteProjectRepository.table,
         where: 'id = ?',
@@ -461,6 +492,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         writeOff,
         transactionGroupId: group.id,
         localSequence: group.nextSequence(),
+        actor: actor,
       );
 
       final writeOffFenAfter = await _sumFenByProjectId(
@@ -481,7 +513,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.updatedAtIso,
           ),
         );
-        await _enqueueProjectUpdate(txn, request.projectId, group: group);
+        await _enqueueProjectUpdate(
+          txn,
+          request.projectId,
+          group: group,
+          actor: actor,
+        );
       }
 
       return DeleteProjectWriteOffResult(
@@ -506,6 +543,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       // R5.22-A：合并撤销核销同事务 cluster：多条 writeOff delete + 多个成员
       // project status 还原共享一个 group id。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       final memberByProjectId = {
         for (final member in request.members) member.projectId: member,
       };
@@ -602,6 +640,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           writeOff,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
         // deletedAmount 仅用于结果对象的展示字段（yuan），逐项使用模型的
         // amount（已通过 fromMap 优先 amount_fen → yuan 还原）累计。
@@ -648,7 +687,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           restoredActive = true;
-          await _enqueueProjectUpdate(txn, projectId, group: group);
+          await _enqueueProjectUpdate(
+            txn,
+            projectId,
+            group: group,
+            actor: actor,
+          );
         }
       }
 
@@ -676,6 +720,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       // R5.22-A：撤销结清状态归一为 settlement cluster 入口；这里至多产生 1 条
       // project update outbox，仍分配 group（sequence=1）以与合并撤销保持一致。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       final projectRows = await txn.query(
         SqfliteProjectRepository.table,
         where: 'id = ?',
@@ -706,7 +751,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             updatedAt: request.updatedAtIso,
           ),
         );
-        await _enqueueProjectUpdate(txn, request.projectId, group: group);
+        await _enqueueProjectUpdate(
+          txn,
+          request.projectId,
+          group: group,
+          actor: actor,
+        );
       }
 
       return RevokeProjectSettlementStatusResult(
@@ -723,6 +773,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     return AppDatabase.inTransaction((txn) async {
       // R5.22-A：合并撤销结清状态同事务 cluster：多个成员 project update 共享组。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       var restoredActive = false;
       for (final member in request.members) {
         final projectRows = await txn.query(
@@ -754,7 +805,12 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             ),
           );
           restoredActive = true;
-          await _enqueueProjectUpdate(txn, member.projectId, group: group);
+          await _enqueueProjectUpdate(
+            txn,
+            member.projectId,
+            group: group,
+            actor: actor,
+          );
         }
       }
 
@@ -804,6 +860,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
     DatabaseExecutor executor,
     String projectId, {
     SyncTransactionGroup? group,
+    ActorContext? actor,
   }) async {
     final snapshot = await _projectRepository.findByIdWithExecutor(
       executor,
@@ -817,6 +874,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       project: snapshot,
       transactionGroupId: group?.id,
       localSequence: group?.nextSequence(),
+      actor: actor,
     );
   }
 }

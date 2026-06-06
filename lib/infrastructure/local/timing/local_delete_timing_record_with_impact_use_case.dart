@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/operations/operation_access_control.dart';
 import '../../../data/db/database.dart';
 import '../../../data/models/project.dart';
 import '../../../data/models/timing_record.dart';
@@ -37,6 +38,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
     ProjectWriteOffSyncEnqueuer? projectWriteOffSyncEnqueuer,
     ProjectSyncEnqueuer? projectSyncEnqueuer,
     ExternalWorkSyncEnqueuer? externalWorkSyncEnqueuer,
+    SyncActorProvider? actorProvider,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _paymentRepository = paymentRepository,
@@ -66,6 +68,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
              syncOutboxRepository: syncOutboxRepository,
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
+       _actorProvider = actorProvider,
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -79,6 +82,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
   final ExternalWorkSyncEnqueuer _externalWorkSyncEnqueuer;
+  final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
 
   static const int _minActiveMergeMembers = 2;
@@ -179,6 +183,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
       await _timingRepository.deleteByIdWithExecutor(txn, recordId);
 
       // 3) 撤销结清：删除核销 + 已结清恢复为进行中（收款不动）。
+      final actor = _actorProvider?.call();
       final writeOffSnapshots = await _writeOffRepository
           .listByProjectIdWithExecutor(txn, projectId);
       var deletedWriteOffs = 0;
@@ -194,6 +199,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
             writeOff,
             transactionGroupId: group.id,
             localSequence: group.nextSequence(),
+            actor: actor,
           );
         }
       }
@@ -203,7 +209,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
         updatedAt: timestamp,
       );
       if (restoredActive) {
-        await _enqueueProjectUpdate(txn, projectId: projectId, group: group);
+        await _enqueueProjectUpdate(
+          txn,
+          projectId: projectId,
+          group: group,
+          actor: actor,
+        );
       }
       final settlementRevoked = deletedWriteOffs > 0 || restoredActive;
 
@@ -269,6 +280,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
               record: updated,
               transactionGroupId: group.id,
               localSequence: group.nextSequence(),
+              actor: actor,
             );
           }
         }
@@ -281,6 +293,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
         txn,
         deletedRecord: record,
         group: group,
+        actor: actor,
       );
 
       return TimingRecordDeleteOutcome(
@@ -296,6 +309,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
     DatabaseExecutor txn, {
     required String projectId,
     SyncTransactionGroup? group,
+    ActorContext? actor,
   }) async {
     final project = await _projectRepository.findByIdWithExecutor(
       txn,
@@ -309,6 +323,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
       project: project,
       transactionGroupId: group?.id,
       localSequence: group?.nextSequence(),
+      actor: actor,
     );
   }
 
@@ -324,15 +339,19 @@ class LocalDeleteTimingRecordWithImpactUseCase
     DatabaseExecutor txn, {
     required TimingRecord deletedRecord,
     SyncTransactionGroup? group,
+    ActorContext? actor,
   }) async {
     final id = deletedRecord.id;
     if (id == null) {
       throw StateError('sync_outbox 入队需要被删除 timing_record 的 id');
     }
     final entityId = id.toString();
-    // R5.25: no ActorContext is threaded into this use case yet → owner-app
-    // fallback (deferred composition-root threading; see report).
-    final resolvedActor = resolveSyncActor(null);
+    // R5.25-Hardening: production composition root threads a SyncActorProvider
+    // backed by AppIdentityService so payload.actor.id and
+    // entity_sync_meta.updated_by carry the persisted owner id; tests/legacy
+    // paths without a provider fall back to ownerAppSyncActor (null actor id),
+    // covered by production_owner_actor_provider_invariant_test.
+    final resolvedActor = resolveSyncActor(actor);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,

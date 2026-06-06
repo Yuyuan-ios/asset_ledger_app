@@ -74,6 +74,15 @@ class TimingSaveProviders {
     final tokenRepository = SqfliteOperationTokenRepository();
     const transactionRunner = LocalOperationTransactionRunner();
 
+    // --- actor 注入 ---
+    final resolvedActorContext =
+        actorContext ?? ActorContext(actorType: OperationActorType.owner);
+    // R5.25-Hardening: thread the resolved owner ActorContext (from
+    // AppIdentityService via IdentityProviders) into the sync-covered save
+    // path so payload.actor.id and entity_sync_meta.updated_by carry the
+    // persisted owner id instead of falling back to ownerAppSyncActor.
+    ActorContext actorProvider() => resolvedActorContext;
+
     // --- 低层同步用例 ---
     final withImpact = LocalSaveTimingRecordWithImpactUseCase(
       timingRepository: timingRepository,
@@ -83,11 +92,8 @@ class TimingSaveProviders {
       projectRateRepository: projectRateRepository,
       projectResolver: projectResolver,
       impactService: impactService,
+      actorProvider: actorProvider,
     );
-
-    // --- actor 注入 ---
-    final resolvedActorContext =
-        actorContext ?? ActorContext(actorType: OperationActorType.owner);
 
     // --- OperationCommand（R3 已支持 actorContext） ---
     final operationCommand = SaveTimingRecordOperationCommand(

@@ -4,6 +4,7 @@ import '../../models/external_work_record.dart';
 import '../../repositories/external_import_repository.dart';
 import '../../repositories/external_work_record_repository.dart';
 import '../../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
+import '../../../infrastructure/sync/sync_actor.dart';
 import '../../../infrastructure/sync/sync_transaction_group.dart';
 import 'project_external_work_duplicate_checker.dart';
 import 'project_external_work_import_preview.dart';
@@ -15,11 +16,14 @@ class ProjectExternalWorkImporter {
     ProjectExternalWorkDuplicateChecker duplicateChecker =
         const ProjectExternalWorkDuplicateChecker(),
     ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer(),
+    SyncActorProvider? actorProvider,
   }) : _duplicateChecker = duplicateChecker,
-       _syncEnqueuer = syncEnqueuer;
+       _syncEnqueuer = syncEnqueuer,
+       _actorProvider = actorProvider;
 
   final ProjectExternalWorkDuplicateChecker _duplicateChecker;
   final ExternalWorkSyncEnqueuer _syncEnqueuer;
+  final SyncActorProvider? _actorProvider;
 
   Future<ExternalWorkImportPreview> buildPreview(
     ParsedProjectExternalWorkShare parsed,
@@ -47,6 +51,7 @@ class ProjectExternalWorkImporter {
       // R5.22-A：批量导入是一个同事务 cluster；N 条 external_work create outbox
       // 共享一个 group id，按记录写入顺序递增 local_sequence。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       await SqfliteExternalImportRepository.insertBatchWithExecutor(
         txn,
         _batchFromPreview(preview, now),
@@ -61,6 +66,7 @@ class ProjectExternalWorkImporter {
           record: record,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
       }
     });

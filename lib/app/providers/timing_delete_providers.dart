@@ -1,6 +1,7 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../../core/operations/operation_access_control.dart';
 import '../../data/repositories/account_payment_repository.dart';
 import '../../data/repositories/account_project_merge_repository.dart';
 import '../../data/repositories/external_work_record_repository.dart';
@@ -21,14 +22,23 @@ class TimingDeleteProviders {
   final DeleteTimingRecordWithImpactUseCase deleteUseCase;
   final List<SingleChildWidget> providers;
 
-  factory TimingDeleteProviders.build() {
+  factory TimingDeleteProviders.build({ActorContext? actorContext}) {
+    // R5.25-Hardening: thread the persisted owner ActorContext into both the
+    // delete use case (timing_record delete + cascade enqueues) and the
+    // external work repository it consults (which itself enqueues on its own
+    // mutation paths). The repo here is local to this slice — see
+    // ExternalWorkProviders for the slice that wires the *shared* repo.
+    final actorProvider = actorContext == null ? null : () => actorContext;
     final deleteUseCase = LocalDeleteTimingRecordWithImpactUseCase(
       timingRepository: SqfliteTimingRepository(),
       paymentRepository: SqfliteAccountPaymentRepository(),
       mergeRepository: SqfliteAccountProjectMergeRepository(),
-      externalWorkRecordRepository: SqfliteExternalWorkRecordRepository(),
+      externalWorkRecordRepository: SqfliteExternalWorkRecordRepository(
+        actorProvider: actorProvider,
+      ),
       writeOffRepository: SqfliteProjectWriteOffRepository(),
       projectRepository: SqfliteProjectRepository(),
+      actorProvider: actorProvider,
     );
     return TimingDeleteProviders._(
       deleteUseCase: deleteUseCase,

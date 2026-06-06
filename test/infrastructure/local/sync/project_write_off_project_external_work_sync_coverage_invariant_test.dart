@@ -127,7 +127,11 @@ void main() {
         'status: ProjectStatus.active',
         'settledAt: null',
         'settledSnapshot: null',
-        '_enqueueProjectUpdate(txn,',
+        // R5.25-Hardening: the helper call now spans multiple lines to add
+        // `actor:`, so match the call prefix only (the order/arg invariant
+        // in project_settlement_status_sync_strategy_invariant_test pins
+        // the args).
+        '_enqueueProjectUpdate(',
         '_projectSyncEnqueuer.enqueueUpdate(',
       ]);
       _expectAllContains(timingDelete, const [
@@ -184,7 +188,9 @@ void main() {
       _expectAllContains(repository, const [
         'ExternalWorkSyncEnqueuer syncEnqueuer = const ExternalWorkSyncEnqueuer()',
         'await _syncEnqueuer.enqueueDelete(',
-        'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);',
+        // R5.25-Hardening: call spans multiple lines to add `actor:`; the
+        // external_work_sync_strategy_invariant pins the body args.
+        'await _enqueueBatchUpdates(',
         'await _syncEnqueuer.enqueueUpdate(',
       ]);
       _expectAllContains(timingDelete, const [

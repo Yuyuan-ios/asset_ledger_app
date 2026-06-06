@@ -143,7 +143,9 @@ void main() {
         'final settled = remainingFenAfter <= 0;',
         'status: ProjectStatus.settled',
         'settledAt: request.createdAtIso',
-        '_enqueueProjectUpdate(txn, request.projectId',
+        // R5.25-Hardening reformatted the call across lines to add
+        // `actor:`; the order-only check still anchors on the helper name.
+        '_enqueueProjectUpdate(',
       ]);
 
       _expectAllContains(settlementTests, const [
@@ -175,7 +177,11 @@ void main() {
         'status: ProjectStatus.active',
         'settledAt: null',
         'settledSnapshot: null',
-        '_enqueueProjectUpdate(txn, request.projectId',
+        // R5.25-Hardening reformatted the call across lines to add
+        // `actor:`. The slice still pins the helper invocation and the
+        // request.projectId arg via `request.projectId`.
+        '_enqueueProjectUpdate(',
+        'request.projectId',
       ]);
       expect(revokeSlice, isNot(contains('_projectWriteOffSyncEnqueuer')));
       expect(revokeSlice, isNot(contains('await txn.delete(')));

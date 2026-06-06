@@ -83,10 +83,12 @@ void main() {
         'final ProjectSyncEnqueuer _projectSyncEnqueuer;',
         'ExternalWorkRecord.fromMap',
         'record.toMap()',
-        // R5.22-A: enqueue call sites now also thread transaction group/sequence
-        // metadata, so the markers assert the call prefixes (args may span lines).
+        // R5.22-A: enqueue call sites thread transaction group/sequence
+        // metadata; R5.25-Hardening additionally threads actor: through the
+        // composition-root SyncActorProvider, so the markers assert call
+        // prefixes only (args span multiple lines).
         'await _syncEnqueuer.enqueueDelete(',
-        'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);',
+        'await _enqueueBatchUpdates(',
         'await _syncEnqueuer.enqueueUpdate(',
         'await _projectWriteOffSyncEnqueuer.enqueueDelete(',
         'await _projectSyncEnqueuer.enqueueUpdate(',
@@ -310,8 +312,10 @@ void main() {
           'linkBatchToProjectWithExecutor(',
           // R5.22-A: reset now allocates one SyncTransactionGroup and threads it
           // through every enqueue call (args may span lines).
+          // R5.25-Hardening: also threads actor: from the SyncActorProvider, so
+          // each call now spans multiple lines — match call prefixes only.
           'final group = SyncTransactionGroup.create();',
-          'await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);',
+          'await _enqueueBatchUpdates(',
           'listByProjectIdWithExecutor(txn, normalizedProjectId)',
           'deleteByIdWithExecutor(',
           'await _projectWriteOffSyncEnqueuer.enqueueDelete(',
@@ -322,7 +326,7 @@ void main() {
         _expectInOrder(resetSlice, const [
           'final group = SyncTransactionGroup.create();',
           'linkBatchToProjectWithExecutor(',
-          '_enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group)',
+          '_enqueueBatchUpdates(',
           'listByProjectIdWithExecutor(txn, normalizedProjectId)',
           'deleteByIdWithExecutor(',
           '_projectWriteOffSyncEnqueuer.enqueueDelete(',
