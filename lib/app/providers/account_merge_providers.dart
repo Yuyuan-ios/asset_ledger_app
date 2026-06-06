@@ -2,6 +2,7 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../adapters/account_merge_dissolve_adapter.dart';
+import '../../core/operations/operation_access_control.dart';
 import '../../data/repositories/account_payment_repository.dart';
 import '../../data/repositories/account_project_merge_repository.dart';
 import '../../data/repositories/project_repository.dart';
@@ -35,11 +36,19 @@ class AccountMergeProviders {
   final AccountStore accountStore;
   final List<SingleChildWidget> providers;
 
-  factory AccountMergeProviders.build() {
+  factory AccountMergeProviders.build({ActorContext? actorContext}) {
+    // R5.25-Hardening: thread the persisted owner ActorContext (from
+    // AppIdentityService via IdentityProviders) into every write path that
+    // enqueues sync_outbox payloads. The provider is a no-op closure when
+    // actorContext is null (tests / legacy bootstrap), which keeps the
+    // ownerAppSyncActor fallback documented in sync_actor.dart in play.
+    final actorProvider = actorContext == null ? null : () => actorContext;
     final accountPaymentRepository = SqfliteAccountPaymentRepository();
     final projectRateRepository = SqfliteProjectRateRepository();
     final projectWriteOffRepository = SqfliteProjectWriteOffRepository();
-    const projectSettlementRepository = LocalProjectSettlementRepository();
+    final projectSettlementRepository = LocalProjectSettlementRepository(
+      actorProvider: actorProvider,
+    );
     final projectRepository = SqfliteProjectRepository();
     final accountProjectMergeRepository =
         SqfliteAccountProjectMergeRepository();
@@ -53,6 +62,7 @@ class AccountMergeProviders {
 
     final accountPaymentWriteUseCase = LocalAccountPaymentWriteUseCase(
       paymentRepository: accountPaymentRepository,
+      actorProvider: actorProvider,
     );
     final paymentStore = AccountPaymentStore(
       accountPaymentRepository,

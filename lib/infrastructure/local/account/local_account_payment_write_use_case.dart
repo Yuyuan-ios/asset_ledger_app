@@ -4,6 +4,7 @@ import '../../../data/db/database.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../features/account/use_cases/account_payment_write_use_case.dart';
+import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
 import '../../sync/sync_transaction_group.dart';
@@ -29,14 +30,17 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
     required SqfliteAccountPaymentRepository paymentRepository,
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
+    SyncActorProvider? actorProvider,
   }) : _paymentRepository = paymentRepository,
        _syncEnqueuer = AccountPaymentSyncEnqueuer(
          syncOutboxRepository: syncOutboxRepository,
          entitySyncMetaRepository: entitySyncMetaRepository,
-       );
+       ),
+       _actorProvider = actorProvider;
 
   final SqfliteAccountPaymentRepository _paymentRepository;
   final AccountPaymentSyncEnqueuer _syncEnqueuer;
+  final SyncActorProvider? _actorProvider;
 
   @override
   Future<int> create(AccountPayment payment) async {
@@ -201,6 +205,11 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
   }
 
   /// 透传 sync 入队；[group] 非空时为同事务 cluster 写入同组 id + 递增 sequence。
+  ///
+  /// R5.25-Hardening: production composition root threads a [SyncActorProvider]
+  /// backed by AppIdentityService so each enqueue carries the persisted owner
+  /// actor; tests/legacy paths without a provider fall back to
+  /// ownerAppSyncActor (null actor id) inside the enqueuer.
   Future<void> _enqueueSync(
     DatabaseExecutor txn, {
     required AccountPayment payment,
@@ -215,6 +224,7 @@ class LocalAccountPaymentWriteUseCase implements AccountPaymentWriteUseCase {
       status: status,
       transactionGroupId: group?.id,
       localSequence: group?.nextSequence(),
+      actor: _actorProvider?.call(),
     );
   }
 }

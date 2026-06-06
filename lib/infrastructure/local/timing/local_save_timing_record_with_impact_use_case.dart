@@ -48,6 +48,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     required ProjectSettlementImpactService impactService,
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
+    SyncActorProvider? actorProvider,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _timingCalculationHistoryRepository = timingCalculationHistoryRepository,
@@ -60,6 +61,7 @@ class LocalSaveTimingRecordWithImpactUseCase
            syncOutboxRepository ?? const LocalSyncOutboxRepository(),
        _entitySyncMetaRepository =
            entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
+       _actorProvider = actorProvider,
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -72,6 +74,7 @@ class LocalSaveTimingRecordWithImpactUseCase
   final ProjectSettlementImpactService _impactService;
   final SyncOutboxRepository _syncOutboxRepository;
   final EntitySyncMetaRepository _entitySyncMetaRepository;
+  final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
 
   static const String _timingRecordEntityType = 'timing_record';
@@ -281,9 +284,12 @@ class LocalSaveTimingRecordWithImpactUseCase
         isEditing &&
         savedRecord.allocationCutoffDate == null &&
         existingRecord?.allocationCutoffDate != null;
-    // R5.25: no ActorContext is threaded into this use case yet → owner-app
-    // fallback (deferred composition-root threading; see report).
-    final resolvedActor = resolveSyncActor(null);
+    // R5.25-Hardening: production composition root threads a SyncActorProvider
+    // backed by AppIdentityService so payload.actor.id and
+    // entity_sync_meta.updated_by carry the persisted owner id; tests/legacy
+    // paths without a provider fall back to ownerAppSyncActor (null actor id),
+    // covered by production_owner_actor_provider_invariant_test.
+    final resolvedActor = resolveSyncActor(_actorProvider?.call());
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,

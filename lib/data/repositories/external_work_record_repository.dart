@@ -1,9 +1,11 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../core/errors/external_work_errors.dart';
+import '../../core/operations/operation_access_control.dart';
 import '../../infrastructure/local/account/project_sync_enqueuer.dart';
 import '../../infrastructure/local/account/project_write_off_sync_enqueuer.dart';
 import '../../infrastructure/local/timing/external_work_sync_enqueuer.dart';
+import '../../infrastructure/sync/sync_actor.dart';
 import '../../infrastructure/sync/sync_transaction_group.dart';
 import '../db/database.dart';
 import '../models/external_work_record.dart';
@@ -73,9 +75,11 @@ class SqfliteExternalWorkRecordRepository
     ProjectWriteOffSyncEnqueuer projectWriteOffSyncEnqueuer =
         const ProjectWriteOffSyncEnqueuer(),
     ProjectSyncEnqueuer projectSyncEnqueuer = const ProjectSyncEnqueuer(),
+    SyncActorProvider? actorProvider,
   }) : _syncEnqueuer = syncEnqueuer,
        _projectWriteOffSyncEnqueuer = projectWriteOffSyncEnqueuer,
-       _projectSyncEnqueuer = projectSyncEnqueuer;
+       _projectSyncEnqueuer = projectSyncEnqueuer,
+       _actorProvider = actorProvider;
 
   static const String table = 'external_work_records';
   static const SqfliteProjectWriteOffRepository _writeOffRepository =
@@ -86,6 +90,7 @@ class SqfliteExternalWorkRecordRepository
   final ExternalWorkSyncEnqueuer _syncEnqueuer;
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
+  final SyncActorProvider? _actorProvider;
 
   @override
   Future<void> insertRecord(ExternalWorkRecord record) async {
@@ -126,7 +131,11 @@ class SqfliteExternalWorkRecordRepository
       final batchId = snapshot.importBatchId;
       final deleted = await deleteByIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
-      await _syncEnqueuer.enqueueDelete(txn, record: snapshot);
+      await _syncEnqueuer.enqueueDelete(
+        txn,
+        record: snapshot,
+        actor: _actorProvider?.call(),
+      );
 
       final remaining = await txn.query(
         table,
@@ -153,6 +162,7 @@ class SqfliteExternalWorkRecordRepository
     return AppDatabase.inTransaction<int>((txn) async {
       // R5.22-A：删除整个 batch 的多条 external_work delete outbox 共享一个 group。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       final snapshots = await listByBatchIdWithExecutor(txn, normalized);
       final deleted = await deleteByBatchIdWithExecutor(txn, normalized);
       if (deleted == 0) return 0;
@@ -162,6 +172,7 @@ class SqfliteExternalWorkRecordRepository
           record: snapshot,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
       }
 
@@ -192,7 +203,12 @@ class SqfliteExternalWorkRecordRepository
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
-      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);
+      await _enqueueBatchUpdates(
+        txn,
+        batchId: normalizedBatchId,
+        group: group,
+        actor: _actorProvider?.call(),
+      );
       return linked;
     });
   }
@@ -211,6 +227,7 @@ class SqfliteExternalWorkRecordRepository
       // 共享一个 group id，local_sequence 按 external work updates → writeOff
       // deletes → project update 的因果顺序递增。
       final group = SyncTransactionGroup.create();
+      final actor = _actorProvider?.call();
       // 1) 先写关联：batch 已不存在（0 行）会抛异常，使整个事务回滚，
       //    确保不会出现"撤销结清成功但关联失败"的中间态。
       final linked = await linkBatchToProjectWithExecutor(
@@ -219,7 +236,12 @@ class SqfliteExternalWorkRecordRepository
         projectId: normalizedProjectId,
         updatedAt: updatedAt,
       );
-      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);
+      await _enqueueBatchUpdates(
+        txn,
+        batchId: normalizedBatchId,
+        group: group,
+        actor: actor,
+      );
 
       // 2) 同事务内撤销结清：删除该项目核销记录 + 已结清恢复未结清。
       final writeOffSnapshots = await _writeOffRepository
@@ -235,6 +257,7 @@ class SqfliteExternalWorkRecordRepository
             writeOff,
             transactionGroupId: group.id,
             localSequence: group.nextSequence(),
+            actor: actor,
           );
         }
       }
@@ -257,6 +280,7 @@ class SqfliteExternalWorkRecordRepository
           project: project,
           transactionGroupId: group.id,
           localSequence: group.nextSequence(),
+          actor: actor,
         );
       }
 
@@ -278,7 +302,12 @@ class SqfliteExternalWorkRecordRepository
         importBatchId: normalizedBatchId,
         updatedAt: updatedAt,
       );
-      await _enqueueBatchUpdates(txn, batchId: normalizedBatchId, group: group);
+      await _enqueueBatchUpdates(
+        txn,
+        batchId: normalizedBatchId,
+        group: group,
+        actor: _actorProvider?.call(),
+      );
       return unlinked;
     });
   }
@@ -479,6 +508,7 @@ class SqfliteExternalWorkRecordRepository
     DatabaseExecutor executor, {
     required String batchId,
     SyncTransactionGroup? group,
+    ActorContext? actor,
   }) async {
     final snapshots = await listByBatchIdWithExecutor(executor, batchId);
     for (final snapshot in snapshots) {
@@ -487,6 +517,7 @@ class SqfliteExternalWorkRecordRepository
         record: snapshot,
         transactionGroupId: group?.id,
         localSequence: group?.nextSequence(),
+        actor: actor,
       );
     }
   }

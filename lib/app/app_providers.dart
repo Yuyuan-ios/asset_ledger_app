@@ -28,9 +28,20 @@ class AppProviders {
     final timing = TimingProviders.build(
       projectResolver: project.projectResolver,
     );
-    final accountMerge = AccountMergeProviders.build();
-    final externalWork = ExternalWorkProviders.build();
-    final timingDelete = TimingDeleteProviders.build();
+    // R5.25-Hardening: thread the persisted owner ActorContext (resolved by
+    // IdentityProviders from AppIdentityService.currentActorContext) into
+    // every write slice that enqueues sync_outbox payloads, so payload.actor.id
+    // and entity_sync_meta.updated_by carry the persisted owner id instead of
+    // falling back to ownerAppSyncActor.
+    final accountMerge = AccountMergeProviders.build(
+      actorContext: identity.actorContext,
+    );
+    final externalWork = ExternalWorkProviders.build(
+      actorContext: identity.actorContext,
+    );
+    final timingDelete = TimingDeleteProviders.build(
+      actorContext: identity.actorContext,
+    );
     final timingSave = TimingSaveProviders.build(
       projectResolver: project.projectResolver,
       actorContext: identity.actorContext,
