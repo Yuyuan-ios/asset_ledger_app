@@ -514,10 +514,16 @@ void main() {
         // R5.22-B: SyncManager now orders the pending rows by transaction group
         // and local sequence, acks (deletes) successes, and bumps retry/backoff
         // on failures.
+        // R5.23: a folding step runs between listPending and ordering — it
+        // drops same-entity create+delete / update+delete pairs from the
+        // snapshot via deleteSuperseded. The ordering call now takes the
+        // folded-survivor list.
         _expectAllContains(syncManager, const [
           'Future<SyncPushResult> pushPending({int limit = 50}) async',
           'final pending = await _outboxRepository.listPending(limit: limit)',
-          '_buildOrderedGroups(pending)',
+          '_foldPending(pending)',
+          'deleteSuperseded(',
+          '_buildOrderedGroups(foldDecision.remaining)',
           'entry.transactionGroupId',
           'entry.localSequence',
           'deleteAcknowledged(entry.id)',
