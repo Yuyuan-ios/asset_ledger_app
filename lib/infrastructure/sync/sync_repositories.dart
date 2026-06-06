@@ -45,6 +45,17 @@ abstract class SyncOutboxPushRepository {
   /// again. (R5.22-B keeps the deleted row as the authoritative ack.)
   Future<void> deleteAcknowledged(String id);
 
+  /// R5.23: remove a pending row that the SyncManager folded out before push
+  /// (a later pending row for the same `(entity_type, entity_id)` supersedes
+  /// it — e.g. a `create` followed by a `delete` in the same listPending
+  /// snapshot).
+  ///
+  /// Semantically distinct from [deleteAcknowledged]: the server NEVER saw
+  /// this row. Structurally identical today (a plain delete by id), but kept
+  /// as its own method so SyncManager telemetry, future meta-cleanup hooks,
+  /// and casual readers can tell folding-side cleanup apart from server acks.
+  Future<void> deleteSuperseded(String id);
+
   /// Record a transient push failure (network / server error): retry_count += 1,
   /// last_error and next_retry_at set, updated_at refreshed. The row stays
   /// pending so it is retried after the backoff window elapses.
@@ -165,6 +176,18 @@ class LocalSyncOutboxRepository
 
   @override
   Future<void> deleteAcknowledged(String id) async {
+    final db = await AppDatabase.database;
+    await db.delete('sync_outbox', where: 'id = ?', whereArgs: [id]);
+  }
+
+  @override
+  Future<void> deleteSuperseded(String id) async {
+    // R5.23: structurally identical to [deleteAcknowledged] today (a plain
+    // delete by id). Kept as its own method so the semantic split between
+    // "client-side folded" and "server-acked" is visible at the call site
+    // and so a future revision can attach side-effects to one but not the
+    // other (e.g. only fold-side may eventually want to clear pendingDelete
+    // meta rows).
     final db = await AppDatabase.database;
     await db.delete('sync_outbox', where: 'id = ?', whereArgs: [id]);
   }

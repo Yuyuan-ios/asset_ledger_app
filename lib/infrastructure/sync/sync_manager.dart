@@ -26,6 +26,7 @@ class SyncPushResult {
     this.failed = 0,
     this.skipped = 0,
     this.invalid = 0,
+    this.folded = 0,
   });
 
   /// 成功发送并 ack（删除）的行数。
@@ -41,13 +42,19 @@ class SyncPushResult {
   /// 保守 bump retry 的行数。
   final int invalid;
 
+  /// R5.23: 因同一 `(entity_type, entity_id)` 在本次 due-pending 快照中
+  /// 出现了 supersede 关系（create→delete / update→delete）而被本地折叠剔除、
+  /// 未发往 CloudApiClient 的行数。折叠行会被 [SyncOutboxPushRepository.deleteSuperseded]
+  /// 从 sync_outbox 删除，不进入 retry/backoff，也不计入 invalid。
+  final int folded;
+
   /// 本轮实际调用 CloudApiClient.send 的行数。
   int get attempted => pushed + failed;
 
   @override
   String toString() =>
       'SyncPushResult(pushed: $pushed, failed: $failed, '
-      'skipped: $skipped, invalid: $invalid)';
+      'skipped: $skipped, invalid: $invalid, folded: $folded)';
 }
 
 class SyncManager {
@@ -83,9 +90,20 @@ class SyncManager {
     }
 
     final pending = await _outboxRepository.listPending(limit: limit);
+    // R5.23：在 ordering / send 之前，对同一 (entity_type, entity_id) 的 due
+    // pending 行做最小折叠：create+delete 整体剔除、update→delete 中的 update
+    // 剔除。折叠后从 outbox 真删除（deleteSuperseded），不进 CloudApiClient、
+    // 不计 invalid。仅对 "ungrouped 行" 或 "整组都属于同一 entity 的同组行"
+    // 生效，以保留 R5.22-A 的 transaction_group local_sequence 1..n 不变量。
+    final foldDecision = _foldPending(pending);
+    for (final id in foldDecision.foldedIds) {
+      await _outboxRepository.deleteSuperseded(id);
+    }
+    final folded = foldDecision.foldedIds.length;
+
     // R5.22-B：按 transaction_group_id / local_sequence 把 pending 重排为
     // "组内因果有序、组间稳定" 的发送顺序。
-    final groups = _buildOrderedGroups(pending);
+    final groups = _buildOrderedGroups(foldDecision.remaining);
 
     var pushed = 0;
     var failed = 0;
@@ -144,7 +162,110 @@ class SyncManager {
       failed: failed,
       skipped: skipped,
       invalid: invalid,
+      folded: folded,
     );
+  }
+
+  /// R5.23: per-entity folding of due pending rows.
+  ///
+  /// Rules (only applied when group-safety holds, see below):
+  /// - If an entity's snapshot ends with `delete`:
+  ///   - and an earlier `create` exists → fold every row for that entity
+  ///     (create + any intermediate updates + delete). Server never sees it.
+  ///   - else (earlier rows are only updates) → fold every update; keep the
+  ///     delete to push normally.
+  /// - Otherwise (no terminating delete) → no folding for that entity.
+  ///   This intentionally preserves create→update sequences as-is: there is
+  ///   no safe in-place payload merge today (R5.23 is folding, not deep
+  ///   payload merge).
+  ///
+  /// Group safety: a row is foldable only if it is ungrouped, OR every row of
+  /// its `transaction_group_id` in this snapshot belongs to the SAME
+  /// `(entity_type, entity_id)` being folded. Mixed groups (e.g. an account
+  /// settlement cluster: payment + write-off + project status) are NOT
+  /// folded, so R5.22-A's 1..n local_sequence invariant is preserved (a
+  /// surviving group of any size remains the original 1..n).
+  _FoldDecision _foldPending(List<SyncOutboxEntry> pending) {
+    if (pending.isEmpty) {
+      return const _FoldDecision(remaining: [], foldedIds: []);
+    }
+
+    // Group the snapshot by entity for per-entity analysis, and by
+    // transaction_group for the group-safety check.
+    final perEntity = <String, List<SyncOutboxEntry>>{};
+    final perGroup = <String, List<SyncOutboxEntry>>{};
+    for (final entry in pending) {
+      final key = '${entry.entityType}::${entry.entityId}';
+      (perEntity[key] ??= <SyncOutboxEntry>[]).add(entry);
+      final gid = entry.transactionGroupId;
+      if (gid != null) {
+        (perGroup[gid] ??= <SyncOutboxEntry>[]).add(entry);
+      }
+    }
+
+    final foldedIds = <String>{};
+    perEntity.forEach((entityKey, rows) {
+      if (rows.length < 2) return; // single row has nothing to fold against
+      // Stable order: by created_at ASC, then id ASC. Mirrors the existing
+      // listPending base order + a deterministic tie-break.
+      final sorted = [...rows]..sort((a, b) {
+        final byCreated = a.createdAt.compareTo(b.createdAt);
+        if (byCreated != 0) return byCreated;
+        return a.id.compareTo(b.id);
+      });
+
+      final lastOp = sorted.last.operation;
+      if (lastOp != 'delete') return; // R5.23 only folds delete-terminated runs
+
+      // Decide which rows we WANT to fold for this entity.
+      final hasCreateBeforeDelete = sorted
+          .take(sorted.length - 1)
+          .any((r) => r.operation == 'create');
+      final candidates = <SyncOutboxEntry>[];
+      if (hasCreateBeforeDelete) {
+        // Fold every row: the entity was created and deleted locally; server
+        // never needs to see either op.
+        candidates.addAll(sorted);
+      } else {
+        // No create in this snapshot — just collapse stale updates into the
+        // delete: fold every update, keep the delete.
+        for (final entry in sorted) {
+          if (entry.operation == 'update') candidates.add(entry);
+        }
+        if (candidates.isEmpty) return; // nothing to fold (e.g. lone delete)
+      }
+
+      // Group safety: every candidate must be either ungrouped, or in a
+      // group whose entire snapshot membership belongs to this entity.
+      for (final candidate in candidates) {
+        final gid = candidate.transactionGroupId;
+        if (gid == null) continue; // ungrouped — always safe to fold
+        final groupRows = perGroup[gid]!;
+        final uniform = groupRows.every(
+          (r) => '${r.entityType}::${r.entityId}' == entityKey,
+        );
+        if (!uniform) {
+          // Mixed group (e.g. settlement cluster) — abort folding for this
+          // entity to keep the surviving group as the original 1..n
+          // sequence. The rows will push normally; a future revision can
+          // teach folding to renumber groups safely.
+          return;
+        }
+      }
+
+      for (final entry in candidates) {
+        foldedIds.add(entry.id);
+      }
+    });
+
+    if (foldedIds.isEmpty) {
+      return _FoldDecision(remaining: pending, foldedIds: const []);
+    }
+    final remaining = [
+      for (final entry in pending)
+        if (!foldedIds.contains(entry.id)) entry,
+    ];
+    return _FoldDecision(remaining: remaining, foldedIds: foldedIds.toList());
   }
 
   Future<_SendOutcome> _send(SyncOutboxEntry entry) async {
@@ -299,4 +420,14 @@ class _SendOutcome {
 
   final bool success;
   final String error;
+}
+
+/// R5.23: result of folding the due pending snapshot. [remaining] preserves
+/// the input order minus folded ids; [foldedIds] is the set of outbox ids to
+/// delete via [SyncOutboxPushRepository.deleteSuperseded] before push.
+class _FoldDecision {
+  const _FoldDecision({required this.remaining, required this.foldedIds});
+
+  final List<SyncOutboxEntry> remaining;
+  final List<String> foldedIds;
 }
