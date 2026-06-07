@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'color_tokens.dart';
+
 /// Timing 弹窗专用 token（仅放业务特有，不放通用 sheet/field）
 class TimingTokens {
   // ===== 计时主页：页面容器与整体间距 =====
@@ -23,9 +25,8 @@ class TimingTokens {
   static const double headerAddButtonHorizontalPadding = 16; // “+ 新建”按钮水平内边距
   static const double headerAddButtonTextSize = 20; // “+ 新建”按钮字号
   static const double headerAddButtonTextLineHeight = 1; // “+ 新建”按钮行高
-  static const Color headerAddButtonBackground = Color(
-    0xFFC45A2D,
-  ); // “+ 新建”按钮背景色
+  static const Color headerAddButtonBackground =
+      AppColors.primaryActionCapsule; // “+ 新建”按钮背景色
 
   // ===== 计时主页：年度图表卡片 =====
   static const double chartCardHeight = 240; // 图表卡片高度

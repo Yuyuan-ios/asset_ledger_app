@@ -43,7 +43,7 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: tokens.SheetColors.action,
+          backgroundColor: tokens.AppColors.primaryActionCapsule,
           foregroundColor: tokens.SheetColors.actionOn,
         ),
       ),

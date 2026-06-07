@@ -402,6 +402,8 @@ class _BottomSheetFooter extends StatelessWidget {
             child: FilledButton(
               onPressed: onConfirm,
               style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryActionCapsule,
+                foregroundColor: SheetColors.actionOn,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(
                     BottomSheetTokens.actionButtonRadius,
