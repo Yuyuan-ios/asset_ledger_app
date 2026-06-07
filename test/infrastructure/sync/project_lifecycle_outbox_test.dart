@@ -6,6 +6,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
@@ -258,6 +259,179 @@ void main() {
         expect(meta.single['updated_by'], isNull);
       },
     );
+
+    test(
+      'project create plus revocation uses one group with project create '
+      'timing and old project update order',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceA = await _seedDevice(db);
+        final deviceB = await _seedDevice(db);
+        await _seedProject(
+          db,
+          projectId: 'project:old',
+          contact: '旧甲方',
+          site: '旧工地',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-20T00:00:00.000Z',
+        );
+        await _seedRate(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:old',
+          projectKey: '旧甲方||旧工地',
+          rate: 100,
+        );
+        await _insertPayment(
+          db,
+          projectId: 'project:old',
+          projectKey: '旧甲方||旧工地',
+          amount: 100,
+          amountFen: 10000,
+        );
+        final existingOnOld = await _seedTimingRecord(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:old',
+          contact: '旧甲方',
+          site: '旧工地',
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:old',
+          contact: '旧甲方',
+          site: '旧工地',
+          hours: 2,
+          income: 200,
+        );
+
+        useCase = buildUseCase(
+          actorProvider: () => owner(
+            id: 'owner-combo-1',
+            sessionId: 'session-combo-1',
+          ),
+        );
+
+        final result = await useCase.execute(
+          editing: existingOnOld,
+          record: existingOnOld.copyWith(
+            deviceId: deviceB,
+            contact: '新甲方',
+            site: '新工地',
+            projectId: '',
+            hours: 1,
+            income: 100,
+          ),
+        );
+        final newProjectId = result.savedRecord.effectiveProjectId;
+        expect(newProjectId, isNot('project:old'));
+        expect(result.projectChanged, isTrue);
+        expect(result.settlementRevoked, isTrue);
+        expect(result.revokedProjectIds, <String>['project:old']);
+
+        final projectRows = await db.query(
+          'projects',
+          orderBy: 'created_at ASC, id ASC',
+        );
+        expect(projectRows, hasLength(2));
+        final oldProject = projectRows.singleWhere(
+          (row) => row['id'] == 'project:old',
+        );
+        final newProject = projectRows.singleWhere(
+          (row) => row['id'] == newProjectId,
+        );
+        expect(oldProject['status'], ProjectStatus.active.name);
+        expect(oldProject['settled_at'], isNull);
+        expect(oldProject['settled_snapshot'], isNull);
+        expect(newProject['contact'], '新甲方');
+        expect(newProject['site'], '新工地');
+        expect(newProject['status'], ProjectStatus.active.name);
+
+        final rows = await db.query(
+          'sync_outbox',
+          orderBy: 'local_sequence ASC',
+        );
+        expect(rows, hasLength(3));
+        final groupId = rows.first['transaction_group_id'];
+        expect(groupId, isA<String>());
+        expect(groupId as String, startsWith('txn-'));
+        expect(rows.map((r) => r['transaction_group_id']).toSet(), {groupId});
+        expect(rows.map((r) => r['local_sequence']).toList(), <int>[1, 2, 3]);
+
+        expect(rows[0]['entity_type'], ProjectSyncEnqueuer.entityType);
+        expect(rows[0]['entity_id'], newProjectId);
+        expect(rows[0]['operation'], 'create');
+        expect(rows[1]['entity_type'], 'timing_record');
+        expect(rows[1]['entity_id'], result.savedRecord.id.toString());
+        expect(rows[1]['operation'], 'update');
+        expect(rows[2]['entity_type'], ProjectSyncEnqueuer.entityType);
+        expect(rows[2]['entity_id'], 'project:old');
+        expect(rows[2]['operation'], 'update');
+
+        for (final row in rows) {
+          final payload = (jsonDecode(row['payload_json'] as String) as Map)
+              .cast<String, Object?>();
+          expect(payload['payload_schema_version'], 1);
+          expect(payload['entity_type'], row['entity_type']);
+          expect(payload['entity_id'], row['entity_id']);
+          expect(payload['operation'], row['operation']);
+          final actor = payload['actor'] as Map<String, Object?>;
+          expect(actor['type'], 'owner');
+          expect(actor['id'], 'owner-combo-1');
+          expect(actor['session_id'], 'session-combo-1');
+          final record = payload['record'] as Map<String, Object?>;
+          expect(record.containsKey('actor'), isFalse);
+          expect(record.containsKey('payload_schema_version'), isFalse);
+        }
+
+        final createdPayload =
+            (jsonDecode(rows[0]['payload_json'] as String) as Map)
+                .cast<String, Object?>();
+        final createdRecord =
+            createdPayload['record'] as Map<String, Object?>;
+        expect(createdRecord['id'], newProjectId);
+        expect(createdRecord['contact'], '新甲方');
+
+        final restoredPayload =
+            (jsonDecode(rows[2]['payload_json'] as String) as Map)
+                .cast<String, Object?>();
+        final restoredRecord =
+            restoredPayload['record'] as Map<String, Object?>;
+        expect(restoredRecord['id'], 'project:old');
+        expect(restoredRecord['status'], ProjectStatus.active.name);
+        expect(restoredRecord['settled_at'], isNull);
+
+        final metaRows = await db.query(
+          'entity_sync_meta',
+          orderBy: 'entity_type ASC, local_id ASC',
+        );
+        expect(metaRows, hasLength(3));
+        final newProjectMeta = metaRows.singleWhere(
+          (row) =>
+              row['entity_type'] == ProjectSyncEnqueuer.entityType &&
+              row['local_id'] == newProjectId,
+        );
+        final timingMeta = metaRows.singleWhere(
+          (row) =>
+              row['entity_type'] == 'timing_record' &&
+              row['local_id'] == result.savedRecord.id.toString(),
+        );
+        final oldProjectMeta = metaRows.singleWhere(
+          (row) =>
+              row['entity_type'] == ProjectSyncEnqueuer.entityType &&
+              row['local_id'] == 'project:old',
+        );
+        expect(newProjectMeta['sync_status'], 'pendingUpload');
+        expect(timingMeta['sync_status'], 'pendingUpdate');
+        expect(oldProjectMeta['sync_status'], 'pendingUpdate');
+        expect(metaRows.map((row) => row['updated_by']).toSet(), {
+          'owner-combo-1',
+        });
+      },
+    );
   });
 
   group('create rollback (no half-write)', () {
@@ -403,6 +577,8 @@ Future<void> _seedProject(
   required String projectId,
   required String contact,
   required String site,
+  ProjectStatus status = ProjectStatus.active,
+  String? settledAt,
 }) async {
   await db.insert(
     SqfliteProjectRepository.table,
@@ -410,12 +586,75 @@ Future<void> _seedProject(
       id: projectId,
       contact: contact,
       site: site,
-      status: ProjectStatus.active,
+      status: status,
+      settledAt: settledAt,
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: '2026-05-01T00:00:00.000Z',
       legacyProjectKey: '$contact||$site',
     ).toMap(),
   );
+}
+
+Future<TimingRecord> _seedTimingRecord(
+  Database db, {
+  required int deviceId,
+  required String projectId,
+  required String contact,
+  required String site,
+  required double hours,
+  required double income,
+}) async {
+  final record = TimingRecord(
+    deviceId: deviceId,
+    startDate: 20260518,
+    projectId: projectId,
+    contact: contact,
+    site: site,
+    type: TimingType.hours,
+    startMeter: 0,
+    endMeter: hours,
+    hours: hours,
+    income: income,
+  );
+  final id = await db.insert('timing_records', record.toMap());
+  return record.copyWith(id: id);
+}
+
+Future<void> _seedRate(
+  Database db, {
+  required int deviceId,
+  required String projectId,
+  required String projectKey,
+  required double rate,
+}) async {
+  await db.insert(
+    'project_device_rates',
+    ProjectDeviceRate(
+      projectId: projectId,
+      projectKey: projectKey,
+      deviceId: deviceId,
+      rate: rate,
+    ).toMap(),
+  );
+}
+
+Future<void> _insertPayment(
+  Database db, {
+  required String projectId,
+  required String projectKey,
+  required double amount,
+  required int amountFen,
+}) async {
+  await db.insert('account_payments', <String, Object?>{
+    'project_id': projectId,
+    'project_key': projectKey,
+    'ymd': 20260518,
+    'amount': amount,
+    'amount_fen': amountFen,
+    'note': null,
+    'source_type': 'manual',
+    'created_at': '2026-05-18T00:00:00.000Z',
+  });
 }
 
 Project _project({required String id}) {
