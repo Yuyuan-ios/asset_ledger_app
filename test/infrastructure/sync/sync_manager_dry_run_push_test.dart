@@ -267,6 +267,59 @@ void main() {
         expect(await _rowByMark(db, 'OK'), isNull);
       },
     );
+
+    test('dry-run reports invalid grouped row missing local sequence without '
+        'terminal failure', () async {
+      final db = await AppDatabase.database;
+      await _insertOutbox(
+        db,
+        mark: 'NOSEQ',
+        groupId: 'txn-missing-seq',
+        seq: null,
+        createdAt: '2026-06-01T00:00:01.000Z',
+      );
+      await _insertOutbox(
+        db,
+        mark: 'OK',
+        createdAt: '2026-06-01T00:00:02.000Z',
+      );
+      await _insertMeta(
+        db,
+        entityType: 'timing_record',
+        localId: 'NOSEQ',
+        status: 'pendingUpdate',
+      );
+
+      final beforeOutbox = await _outboxSnapshot(db);
+      final beforeMeta = await _metaSnapshot(db);
+      final client = _RecordingClient.alwaysSuccess();
+      final result = await managerWith(
+        client,
+      ).pushPending(mode: SyncPushMode.dryRun);
+
+      expect(result.isDryRun, isTrue);
+      expect(result.invalid, 1);
+      expect(result.wouldPush, 1);
+      expect(result.plannedOutboxIds, <String>['outbox-OK']);
+      expect(client.sentMarks, isEmpty);
+      expect(await _outboxCount(db), 2);
+      expect(await _outboxSnapshot(db), beforeOutbox);
+      expect(await _metaSnapshot(db), beforeMeta);
+
+      final bad = await _rowByMark(db, 'NOSEQ');
+      expect(bad, isNotNull);
+      expect(bad!['status'], 'pending');
+      expect(bad['retry_count'], 0);
+      expect(bad['last_error'], isNull);
+      expect(bad['next_retry_at'], isNull);
+
+      final ok = await _rowByMark(db, 'OK');
+      expect(ok, isNotNull, reason: 'dry-run must not delete planned rows');
+      expect(ok!['status'], 'pending');
+      expect(ok['retry_count'], 0);
+      expect(ok['last_error'], isNull);
+      expect(ok['next_retry_at'], isNull);
+    });
   });
 
   group('sync_manager_dry_run_respects_push_gate', () {
