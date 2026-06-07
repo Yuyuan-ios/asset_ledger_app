@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/operations/operation_access_control.dart';
 import '../../../data/db/database.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project_device_rate.dart';
@@ -8,6 +9,7 @@ import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/account_project_merge_repository.dart';
 import '../../../data/repositories/device_repository.dart';
 import '../../../data/repositories/project_rate_repository.dart';
+import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/timing_calculation_history_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../data/services/account_service.dart';
@@ -19,6 +21,8 @@ import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_status.dart';
+import '../../sync/sync_transaction_group.dart';
+import '../account/project_sync_enqueuer.dart';
 import '../account/project_settlement_impact_service.dart';
 
 /// [SaveTimingRecordWithImpactUseCase] 的本地实现。
@@ -44,10 +48,12 @@ class LocalSaveTimingRecordWithImpactUseCase
     required SqfliteAccountProjectMergeRepository mergeRepository,
     required DeviceRepository deviceRepository,
     required ProjectRateRepository projectRateRepository,
+    SqfliteProjectRepository? projectRepository,
     required ProjectResolver projectResolver,
     required ProjectSettlementImpactService impactService,
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
+    ProjectSyncEnqueuer? projectSyncEnqueuer,
     SyncActorProvider? actorProvider,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
@@ -55,12 +61,20 @@ class LocalSaveTimingRecordWithImpactUseCase
        _mergeRepository = mergeRepository,
        _deviceRepository = deviceRepository,
        _projectRateRepository = projectRateRepository,
+       _projectRepository =
+           projectRepository ?? const SqfliteProjectRepository(),
        _projectResolver = projectResolver,
        _impactService = impactService,
        _syncOutboxRepository =
            syncOutboxRepository ?? const LocalSyncOutboxRepository(),
        _entitySyncMetaRepository =
            entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
+       _projectSyncEnqueuer =
+           projectSyncEnqueuer ??
+           ProjectSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
        _actorProvider = actorProvider,
        _now = now ?? DateTime.now;
 
@@ -70,10 +84,12 @@ class LocalSaveTimingRecordWithImpactUseCase
   final SqfliteAccountProjectMergeRepository _mergeRepository;
   final DeviceRepository _deviceRepository;
   final ProjectRateRepository _projectRateRepository;
+  final SqfliteProjectRepository _projectRepository;
   final ProjectResolver _projectResolver;
   final ProjectSettlementImpactService _impactService;
   final SyncOutboxRepository _syncOutboxRepository;
   final EntitySyncMetaRepository _entitySyncMetaRepository;
+  final ProjectSyncEnqueuer _projectSyncEnqueuer;
   final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
 
@@ -246,13 +262,30 @@ class LocalSaveTimingRecordWithImpactUseCase
     );
 
     final settlementRevoked = revocation.revokedProjectIds.isNotEmpty;
+    final actor = _actorProvider?.call();
+    // Save is the causal write, restored project status is the consequence:
+    // when both exist, push replays timing_record first, then project update(s).
+    // No revocation keeps the legacy single-row, ungrouped timing outbox shape.
+    final group = settlementRevoked ? SyncTransactionGroup.create() : null;
 
     await _enqueueSyncForSavedRecord(
       txn,
       savedRecord: savedRecord,
       existingRecord: existingRecord,
       isEditing: editing != null,
+      group: group,
+      actor: actor,
     );
+    if (group != null) {
+      for (final projectId in revocation.revokedProjectIds) {
+        await _enqueueRevokedProjectUpdate(
+          txn,
+          projectId: projectId,
+          group: group,
+          actor: actor,
+        );
+      }
+    }
 
     return SaveTimingRecordWithImpactResult(
       savedRecord: savedRecord,
@@ -273,6 +306,8 @@ class LocalSaveTimingRecordWithImpactUseCase
     required TimingRecord savedRecord,
     required TimingRecord? existingRecord,
     required bool isEditing,
+    SyncTransactionGroup? group,
+    ActorContext? actor,
   }) async {
     final id = savedRecord.id;
     if (id == null) {
@@ -289,7 +324,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     // entity_sync_meta.updated_by carry the persisted owner id; tests/legacy
     // paths without a provider fall back to ownerAppSyncActor (null actor id),
     // covered by production_owner_actor_provider_invariant_test.
-    final resolvedActor = resolveSyncActor(_actorProvider?.call());
+    final resolvedActor = resolveSyncActor(actor);
     final entry = await _syncOutboxRepository.enqueueWithExecutor(
       txn,
       entityType: _timingRecordEntityType,
@@ -306,6 +341,8 @@ class LocalSaveTimingRecordWithImpactUseCase
               shouldIncludeNullAllocationCutoffDate,
         ),
       },
+      transactionGroupId: group?.id,
+      localSequence: group?.nextSequence(),
     );
     await _entitySyncMetaRepository.upsertWithExecutor(
       txn,
@@ -320,6 +357,30 @@ class LocalSaveTimingRecordWithImpactUseCase
         updatedBy: resolvedActor.actorId,
         payloadHash: entry.payloadHash,
       ),
+    );
+  }
+
+  Future<void> _enqueueRevokedProjectUpdate(
+    DatabaseExecutor txn, {
+    required String projectId,
+    required SyncTransactionGroup group,
+    ActorContext? actor,
+  }) async {
+    final project = await _projectRepository.findByIdWithExecutor(
+      txn,
+      projectId,
+    );
+    if (project == null) {
+      throw StateError(
+        'Project sync enqueue requires restored project snapshot',
+      );
+    }
+    await _projectSyncEnqueuer.enqueueUpdate(
+      txn,
+      project: project,
+      transactionGroupId: group.id,
+      localSequence: group.nextSequence(),
+      actor: actor,
     );
   }
 

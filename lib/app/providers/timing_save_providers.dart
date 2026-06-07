@@ -90,6 +90,7 @@ class TimingSaveProviders {
       mergeRepository: mergeRepository,
       deviceRepository: deviceRepository,
       projectRateRepository: projectRateRepository,
+      projectRepository: projectRepository,
       projectResolver: projectResolver,
       impactService: impactService,
       actorProvider: actorProvider,
