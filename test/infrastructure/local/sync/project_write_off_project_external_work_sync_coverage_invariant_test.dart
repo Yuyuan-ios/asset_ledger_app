@@ -101,7 +101,12 @@ void main() {
         'class ProjectSyncEnqueuer',
         "static const String entityType = 'project';",
         'enqueueUpdate(',
-        "'operation': 'update'",
+        // R5.26-A: create/update/delete now share a parameterized `_enqueue`,
+        // so the payload carries `'operation': operation` and enqueueUpdate
+        // passes operation: 'update' + SyncStatus.pendingUpdate. The settlement
+        // status update path remains covered.
+        "operation: 'update'",
+        "'operation': operation",
         // R5.25 payload schema version + actor traceability + updated_by.
         "'payload_schema_version': kSyncPayloadSchemaVersion",
         "'actor': syncActorPayload(resolvedActor)",
