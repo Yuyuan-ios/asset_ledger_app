@@ -20,7 +20,11 @@
   `https://yuyuan-ios.github.io/asset_ledger_app/`
 - 确认 `Privacy Policy URL` 使用：
   `https://yuyuan-ios.github.io/asset_ledger_app/privacy.html`
+- 确认 EULA field 或 App Description 提供 Terms/EULA 链接：
+  `https://yuyuan-ios.github.io/asset_ledger_app/terms.html`
 - 按 `docs/store-privacy-declarations.md` 填写 `App Privacy`
+- 如提交自动续期订阅，确认 App 内购买前展示订阅名称、周期、StoreKit 本地化价格、单位价格、权益、自动续期说明、Privacy Policy、Terms/EULA 和 Restore Purchases。
+- 核对 App Store Connect 中 Pro 月订阅 / Pro 年订阅的 display name、description、duration、price、localization 与 App 内展示一致。
 - 检查 iOS 主 Bundle Identifier 是否为你自己的正式值
   当前主包名已是：`com.yuyuan.asset-ledger`
 - 检查截图、预览视频、应用描述中是否仍出现旧名称
@@ -43,6 +47,7 @@
 - 访问使用条款页，确认可匿名打开
 - 确认页面都为 HTTPS
 - 确认页面里的邮箱、抖音账号、链接都正确
+- 如更新隐私政策或使用条款，部署 GitHub Pages 后重新确认线上页面不含旧的订阅未上线口径。
 
 ## 五、构建与功能回归
 
@@ -62,7 +67,7 @@
 
 - 将 Android `com.yuyuan.assetledger` 与 Google Play、华为后台、知识产权材料里的包名保持一致
 - 将 Windows / Linux / macOS 的公司标识从 `com.example` 替换为你自己的组织标识
-- 如果未来接入登录、云同步、订阅支付、崩溃上报、统计或广告，重新填写隐私声明
+- 如果未来接入登录、云同步、开发者侧订阅校验接口、崩溃上报、统计或广告，重新填写隐私声明
 
 ## 七、当前最需要你决定的一件事
 

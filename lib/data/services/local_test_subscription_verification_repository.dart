@@ -11,7 +11,7 @@ class LocalTestSubscriptionVerificationRepository
   Future<VerifiedEntitlement> verifyPurchase(PurchaseDetails purchase) async {
     final now = DateTime.now();
 
-    if (purchase.productID == SubscriptionProductIds.monthly) {
+    if (purchase.productID == SubscriptionProductIds.proMonthly) {
       return VerifiedEntitlement(
         outcome: SubscriptionVerificationOutcome.verifiedActiveMonthly,
         productId: purchase.productID,
@@ -19,7 +19,7 @@ class LocalTestSubscriptionVerificationRepository
       );
     }
 
-    if (purchase.productID == SubscriptionProductIds.yearly) {
+    if (purchase.productID == SubscriptionProductIds.proYearly) {
       return VerifiedEntitlement(
         outcome: SubscriptionVerificationOutcome.verifiedActiveYearly,
         productId: purchase.productID,
