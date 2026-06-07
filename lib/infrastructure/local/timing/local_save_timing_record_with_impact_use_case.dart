@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../../core/operations/operation_access_control.dart';
 import '../../../data/db/database.dart';
 import '../../../data/models/device.dart';
+import '../../../data/models/project.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_calculation_history.dart';
 import '../../../data/models/timing_record.dart';
@@ -152,11 +153,15 @@ class LocalSaveTimingRecordWithImpactUseCase
       editingRecordId: editingRecordId ?? preparation.recordToSave.id,
     );
 
-    final recordToSave = await _resolveProjectIdForSaveWithExecutor(
+    final resolved = await _resolveProjectIdForSaveWithExecutor(
       txn,
       editing: editing,
       record: preparation.recordToSave,
     );
+    final recordToSave = resolved.record;
+    // R5.26-A: a brand-new project created while resolving this save must be
+    // enqueued as a `create` outbox; null when an existing project was reused.
+    final createdProject = resolved.createdProject;
     final newProjectId = recordToSave.effectiveProjectId.trim();
     final devices = preparation.devices;
     final rates = preparation.rates;
@@ -263,11 +268,26 @@ class LocalSaveTimingRecordWithImpactUseCase
 
     final settlementRevoked = revocation.revokedProjectIds.isNotEmpty;
     final actor = _actorProvider?.call();
-    // Save is the causal write, restored project status is the consequence:
-    // when both exist, push replays timing_record first, then project update(s).
-    // No revocation keeps the legacy single-row, ungrouped timing outbox shape.
-    final group = settlementRevoked ? SyncTransactionGroup.create() : null;
+    // R5.26-A: when this save also created a new project, OR restored a settled
+    // project's status, the transaction produces >1 outbox row and becomes a
+    // R5.22-A cluster. Causal push order: project create (FK prerequisite) →
+    // timing_record → restored project update(s). A new project is always
+    // `active`, so it can never also appear in revokedProjectIds (no
+    // create+update for the same project). No new project and no revocation
+    // keeps the legacy single-row, ungrouped timing outbox shape.
+    final needsGroup = createdProject != null || settlementRevoked;
+    final group = needsGroup ? SyncTransactionGroup.create() : null;
 
+    if (createdProject != null) {
+      // group is non-null here because needsGroup is true.
+      await _projectSyncEnqueuer.enqueueCreate(
+        txn,
+        project: createdProject,
+        transactionGroupId: group!.id,
+        localSequence: group.nextSequence(),
+        actor: actor,
+      );
+    }
     await _enqueueSyncForSavedRecord(
       txn,
       savedRecord: savedRecord,
@@ -417,7 +437,11 @@ class LocalSaveTimingRecordWithImpactUseCase
     return record.copyWith(projectId: editedProjectId);
   }
 
-  Future<TimingRecord> _resolveProjectIdForSaveWithExecutor(
+  /// Resolves the final project_id for the save and surfaces the brand-new
+  /// [Project] when `resolveOrCreate` actually created one (R5.26-A). A
+  /// non-null [_ResolvedProjectForSave.createdProject] means a project row was
+  /// inserted in this transaction and must be enqueued as a `create` outbox.
+  Future<_ResolvedProjectForSave> _resolveProjectIdForSaveWithExecutor(
     DatabaseExecutor txn, {
     required TimingRecord? editing,
     required TimingRecord record,
@@ -429,19 +453,30 @@ class LocalSaveTimingRecordWithImpactUseCase
         contact: record.contact,
         site: record.site,
       );
-      return record.copyWith(projectId: result.projectId);
+      return _ResolvedProjectForSave(
+        record: record.copyWith(projectId: result.projectId),
+        createdProject: result.created ? result.project : null,
+      );
     }
-    if (record.projectId.trim().isNotEmpty) return record;
+    if (record.projectId.trim().isNotEmpty) {
+      return _ResolvedProjectForSave(record: record, createdProject: null);
+    }
     final editedProjectId = editing?.effectiveProjectId;
     if (editedProjectId != null && editedProjectId.trim().isNotEmpty) {
-      return record.copyWith(projectId: editedProjectId);
+      return _ResolvedProjectForSave(
+        record: record.copyWith(projectId: editedProjectId),
+        createdProject: null,
+      );
     }
     final result = await _projectResolver.resolveOrCreateWithExecutor(
       txn,
       contact: record.contact,
       site: record.site,
     );
-    return record.copyWith(projectId: result.projectId);
+    return _ResolvedProjectForSave(
+      record: record.copyWith(projectId: result.projectId),
+      createdProject: result.created ? result.project : null,
+    );
   }
 
   Future<TimingRecord> _saveRecordWithExecutor(
@@ -527,4 +562,17 @@ class LocalSaveTimingRecordWithImpactUseCase
     if (settlementRevoked) parts.add('已自动撤销结清状态');
     return '已保存，${parts.join('，')}。';
   }
+}
+
+/// R5.26-A: internal result of resolving the save's project_id. [createdProject]
+/// is the brand-new project row when `resolveOrCreate` inserted one this
+/// transaction (so it can be enqueued as a `create` outbox), else null.
+class _ResolvedProjectForSave {
+  const _ResolvedProjectForSave({
+    required this.record,
+    required this.createdProject,
+  });
+
+  final TimingRecord record;
+  final Project? createdProject;
 }
