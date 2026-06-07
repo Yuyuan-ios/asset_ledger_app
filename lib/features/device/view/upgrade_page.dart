@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/support_feedback_config.dart';
 import '../../../core/foundation/typography.dart';
+import '../../../data/services/support_feedback_service.dart';
 import '../../../patterns/device/upgrade_benefit_item_pattern.dart';
 import '../../../patterns/device/upgrade_footer_links_pattern.dart';
 import '../../../patterns/device/upgrade_header_pattern.dart';
 import '../../../patterns/device/upgrade_plan_card_pattern.dart';
+import '../../../patterns/device/upgrade_subscription_disclosure_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/subscription.dart';
@@ -18,6 +21,34 @@ extension on _UpgradePlan {
     return switch (this) {
       _UpgradePlan.annual => SubscriptionProductKind.yearly,
       _UpgradePlan.monthly => SubscriptionProductKind.monthly,
+    };
+  }
+
+  String get fallbackTitle {
+    return switch (this) {
+      _UpgradePlan.annual => '机账通 Pro 年度订阅',
+      _UpgradePlan.monthly => '机账通 Pro 月度订阅',
+    };
+  }
+
+  String get periodLabel {
+    return switch (this) {
+      _UpgradePlan.annual => '每年 / 1 year',
+      _UpgradePlan.monthly => '每月 / 1 month',
+    };
+  }
+
+  String get unitLabel {
+    return switch (this) {
+      _UpgradePlan.annual => '年',
+      _UpgradePlan.monthly => '月',
+    };
+  }
+
+  String get planCardTitle {
+    return switch (this) {
+      _UpgradePlan.annual => '年套餐',
+      _UpgradePlan.monthly => '月套餐',
     };
   }
 }
@@ -48,26 +79,58 @@ class _UpgradePageState extends State<UpgradePage> {
     await _subscriptionController.restorePurchases();
   }
 
-  void _openTermsPage() {
+  Future<void> _openTermsPage() async {
+    final opened = await SupportFeedbackService.openTermsOfService();
+    if (opened || !mounted) return;
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const TermsPage()));
   }
 
-  void _openPrivacyPage() {
+  Future<void> _openPrivacyPage() async {
+    final opened = await SupportFeedbackService.openPrivacyPolicy();
+    if (opened || !mounted) return;
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const PrivacyPage()));
   }
 
-  String _planPrice({
+  String _productTitle({
     required SubscriptionSnapshot snapshot,
-    required SubscriptionProductKind kind,
-    required String fallback,
+    required _UpgradePlan plan,
   }) {
-    final product = snapshot.productFor(kind);
-    if (product == null) return fallback;
-    return product.price;
+    final title = snapshot.productFor(plan.productKind)?.title.trim();
+    if (title == null || title.isEmpty) return plan.fallbackTitle;
+    return title;
+  }
+
+  String _priceLabel({
+    required SubscriptionSnapshot snapshot,
+    required _UpgradePlan plan,
+  }) {
+    final price = snapshot.productFor(plan.productKind)?.price.trim();
+    if (price == null || price.isEmpty) {
+      return '等待 App Store 商品信息 / Loading from App Store';
+    }
+    return price;
+  }
+
+  String _unitPriceLabel({
+    required SubscriptionSnapshot snapshot,
+    required _UpgradePlan plan,
+  }) {
+    final price = snapshot.productFor(plan.productKind)?.price.trim();
+    if (price == null || price.isEmpty) {
+      return '商品信息加载后显示 / Available after product details load';
+    }
+    return '$price / ${plan.unitLabel}';
+  }
+
+  String _planSubtitle({
+    required SubscriptionSnapshot snapshot,
+    required _UpgradePlan plan,
+  }) {
+    return '${_priceLabel(snapshot: snapshot, plan: plan)} · ${plan.periodLabel}';
   }
 
   Widget _buildStatusMessage(
@@ -77,7 +140,7 @@ class _UpgradePageState extends State<UpgradePage> {
     final canUsePurchaseFlow = _subscriptionController.canUsePurchaseFlow;
     String? message = snapshot.errorMessage;
     if (!canUsePurchaseFlow) {
-      message = '当前版本暂未开放订阅购买';
+      message = '订阅购买服务暂不可用，请稍后重试';
     } else if (snapshot.isLoadingProducts) {
       message = '正在加载 App Store 订阅商品...';
     } else if (!snapshot.hasProducts) {
@@ -118,16 +181,6 @@ class _UpgradePageState extends State<UpgradePage> {
         // with local entitlement verification. Production builds must keep
         // server-side verification enabled.
         final canUsePurchaseFlow = subscriptionVerificationConfigured;
-        final yearlyPrice = _planPrice(
-          snapshot: snapshot,
-          kind: SubscriptionProductKind.yearly,
-          fallback: '6元/年',
-        );
-        final monthlyPrice = _planPrice(
-          snapshot: snapshot,
-          kind: SubscriptionProductKind.monthly,
-          fallback: '1元/月',
-        );
         final purchasing =
             snapshot.isPurchasing ||
             snapshot.status == SubscriptionStatus.pending;
@@ -140,7 +193,7 @@ class _UpgradePageState extends State<UpgradePage> {
         final buttonText = snapshot.isLoadingProducts
             ? '加载中...'
             : !canUsePurchaseFlow
-            ? '暂未开放'
+            ? '暂不可购买'
             : purchasing
             ? '处理中...'
             : snapshot.allowsProFeatures
@@ -182,13 +235,16 @@ class _UpgradePageState extends State<UpgradePage> {
                         const SizedBox(
                           height: DeviceTokens.upgradeHeroToBenefitsGap,
                         ),
-                        const UpgradeBenefitItem(text: '多留一份清楚的电子账'),
-                        const UpgradeBenefitItem(text: '云备份、协作记录、高级统计将优先开放'),
+                        const UpgradeBenefitItem(text: '解锁自定义设备头像等 Pro 功能'),
+                        const UpgradeBenefitItem(text: '订阅有效期内持续使用已开放高级功能'),
                         UpgradePlanCard(
-                          title: '年套餐',
-                          subtitle1: '$yearlyPrice · 年度订阅',
-                          subtitle2: '如果对您有帮助，请开发者喝瓶红牛持续维护。',
-                          badge: '省50%',
+                          title: _UpgradePlan.annual.planCardTitle,
+                          subtitle1: _planSubtitle(
+                            snapshot: snapshot,
+                            plan: _UpgradePlan.annual,
+                          ),
+                          subtitle2: '订阅有效期内持续使用当前 Pro 权益。',
+                          badge: '推荐',
                           emphasized: _selectedPlan == _UpgradePlan.annual,
                           onTap: snapshot.isBusy
                               ? null
@@ -198,9 +254,12 @@ class _UpgradePageState extends State<UpgradePage> {
                         ),
                         const SizedBox(height: DeviceTokens.upgradePlanGap),
                         UpgradePlanCard(
-                          title: '月套餐',
-                          subtitle1: '$monthlyPrice · 按月订阅',
-                          subtitle2: '按月支持开发，体验当前 Pro 权益。',
+                          title: _UpgradePlan.monthly.planCardTitle,
+                          subtitle1: _planSubtitle(
+                            snapshot: snapshot,
+                            plan: _UpgradePlan.monthly,
+                          ),
+                          subtitle2: '按月订阅，订阅有效期内持续使用当前 Pro 权益。',
                           emphasized: _selectedPlan == _UpgradePlan.monthly,
                           onTap: snapshot.isBusy
                               ? null
@@ -212,6 +271,29 @@ class _UpgradePageState extends State<UpgradePage> {
                         const SizedBox(
                           height: DeviceTokens.upgradeContinueTopGap,
                         ),
+                        UpgradeSubscriptionDisclosurePattern(
+                          subscriptionTitle: _productTitle(
+                            snapshot: snapshot,
+                            plan: _selectedPlan,
+                          ),
+                          subscriptionLength: _selectedPlan.periodLabel,
+                          subscriptionPrice: _priceLabel(
+                            snapshot: snapshot,
+                            plan: _selectedPlan,
+                          ),
+                          unitPrice: _unitPriceLabel(
+                            snapshot: snapshot,
+                            plan: _selectedPlan,
+                          ),
+                          canPurchaseSelectedProduct: selectedProduct != null,
+                          privacyPolicyUrl:
+                              SupportFeedbackConfig.privacyPolicyUrl,
+                          termsOfServiceUrl:
+                              SupportFeedbackConfig.termsOfServiceUrl,
+                          onPrivacyTap: _openPrivacyPage,
+                          onTermsTap: _openTermsPage,
+                        ),
+                        const SizedBox(height: DeviceTokens.upgradePlanGap),
                         SizedBox(
                           height: DeviceTokens.upgradeContinueHeight,
                           child: FilledButton(

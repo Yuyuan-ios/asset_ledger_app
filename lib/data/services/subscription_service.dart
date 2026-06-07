@@ -111,8 +111,8 @@ class SubscriptionSnapshot {
 class SubscriptionService {
   const SubscriptionService._();
 
-  static const String monthlyProductId = SubscriptionProductIds.monthly;
-  static const String yearlyProductId = SubscriptionProductIds.yearly;
+  static const String monthlyProductId = SubscriptionProductIds.proMonthly;
+  static const String yearlyProductId = SubscriptionProductIds.proYearly;
 
   static final ValueNotifier<SubscriptionSnapshot> notifier =
       ValueNotifier<SubscriptionSnapshot>(SubscriptionSnapshot.initial());
@@ -174,10 +174,9 @@ class SubscriptionService {
         return;
       }
 
-      final response = await _storeGateway.queryProductDetails({
-        monthlyProductId,
-        yearlyProductId,
-      });
+      final response = await _storeGateway.queryProductDetails(
+        SubscriptionProductIds.currentProductIds,
+      );
       if (kDebugMode) {
         debugPrint(
           'IAP products loaded: found=${response.productDetails.map((product) => product.id).join(', ')} '
