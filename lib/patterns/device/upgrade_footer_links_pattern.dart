@@ -28,8 +28,8 @@ class UpgradeFooterLinksPattern extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          GestureDetector(onTap: onTermsTap, child: const Text('条款')),
-          GestureDetector(onTap: onPrivacyTap, child: const Text('隐私')),
+          GestureDetector(onTap: onTermsTap, child: const Text('使用条款')),
+          GestureDetector(onTap: onPrivacyTap, child: const Text('隐私政策')),
           if (onRestoreTap != null)
             GestureDetector(onTap: onRestoreTap, child: const Text('恢复购买'))
           else

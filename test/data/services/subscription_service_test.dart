@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:asset_ledger/core/config/subscription_product_ids.dart';
 import 'package:asset_ledger/data/services/subscription_entitlement_cache.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
 import 'package:asset_ledger/data/services/subscription_store_gateway.dart';
@@ -106,6 +107,45 @@ void main() {
       );
       expect(SubscriptionService.snapshot.errorMessage, isNull);
     });
+
+    test(
+      'current product ids have explicit pro tier and duration metadata',
+      () {
+        expect(
+          SubscriptionProductIds.definitionFor(
+            SubscriptionService.monthlyProductId,
+          ),
+          isA<SubscriptionProductDefinition>()
+              .having(
+                (definition) => definition.tier,
+                'tier',
+                SubscriptionTier.pro,
+              )
+              .having(
+                (definition) => definition.duration,
+                'duration',
+                SubscriptionDuration.monthly,
+              ),
+        );
+        expect(
+          SubscriptionProductIds.definitionFor(
+            SubscriptionService.yearlyProductId,
+          ),
+          isA<SubscriptionProductDefinition>()
+              .having(
+                (definition) => definition.tier,
+                'tier',
+                SubscriptionTier.pro,
+              )
+              .having(
+                (definition) => definition.duration,
+                'duration',
+                SubscriptionDuration.yearly,
+              ),
+        );
+        expect(SubscriptionProductIds.definitionFor('unknown.product'), isNull);
+      },
+    );
 
     test('purchased but verificationFailed does not unlock pro', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(

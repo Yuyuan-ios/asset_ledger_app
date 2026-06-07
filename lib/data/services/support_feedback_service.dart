@@ -23,6 +23,14 @@ class SupportFeedbackService {
     return SupportFeedbackOpenResult.unavailable;
   }
 
+  static Future<bool> openPrivacyPolicy() {
+    return _launchExternalUrl(SupportFeedbackConfig.privacyPolicyUrl);
+  }
+
+  static Future<bool> openTermsOfService() {
+    return _launchExternalUrl(SupportFeedbackConfig.termsOfServiceUrl);
+  }
+
   static Future<bool> _launchExternalUrl(String rawUrl) async {
     final url = rawUrl.trim();
     final uri = Uri.tryParse(url);
