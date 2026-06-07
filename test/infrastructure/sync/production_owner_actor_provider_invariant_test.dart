@@ -50,33 +50,30 @@ void main() {
       );
     });
 
-    test(
-      'ownerAppSyncActor is only *executed* inside sync_actor.dart '
-      '(doc-comments referencing the fallback are allowed)',
-      () {
-        final offenders = <String>[];
-        for (final file in _libDartFiles()) {
-          if (file.endsWith('lib/infrastructure/sync/sync_actor.dart')) {
-            continue;
-          }
-          final source = _read(file);
-          if (_containsOwnerAppSyncActorIdentifier(source)) {
-            offenders.add(file);
-          }
+    test('ownerAppSyncActor is only *executed* inside sync_actor.dart '
+        '(doc-comments referencing the fallback are allowed)', () {
+      final offenders = <String>[];
+      for (final file in _libDartFiles()) {
+        if (file.endsWith('lib/infrastructure/sync/sync_actor.dart')) {
+          continue;
         }
-        expect(
-          offenders,
-          isEmpty,
-          reason:
-              'Only sync_actor.dart may *evaluate* the ownerAppSyncActor '
-              'fallback. Production code must depend on the threaded '
-              'SyncActorProvider so a missing actor surfaces in '
-              'payload.actor.id / updated_by instead of being silently '
-              'masked. (Doc-comment references in production code are '
-              'allowed for explaining the fallback.)',
-        );
-      },
-    );
+        final source = _read(file);
+        if (_containsOwnerAppSyncActorIdentifier(source)) {
+          offenders.add(file);
+        }
+      }
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'Only sync_actor.dart may *evaluate* the ownerAppSyncActor '
+            'fallback. Production code must depend on the threaded '
+            'SyncActorProvider so a missing actor surfaces in '
+            'payload.actor.id / updated_by instead of being silently '
+            'masked. (Doc-comment references in production code are '
+            'allowed for explaining the fallback.)',
+      );
+    });
   });
 
   group('production write paths declare actorProvider', () {
@@ -103,10 +100,7 @@ void main() {
               '$path must accept a SyncActorProvider so the composition root '
               'can thread the persisted owner ActorContext.',
         );
-        expect(
-          source,
-          contains("import '"),
-        );
+        expect(source, contains("import '"));
         expect(
           source.contains('sync_actor.dart'),
           isTrue,
@@ -135,13 +129,29 @@ void main() {
           'lib/infrastructure/local/timing/'
           'local_delete_timing_record_with_impact_use_case.dart',
         );
-        // Save: resolves the actor from the provider field directly.
+        // Save: evaluates the provider once, then shares that actor across the
+        // timing row and any project restore rows in the same transaction group.
         expect(
           save,
-          contains('resolveSyncActor(_actorProvider?.call())'),
+          contains('final actor = _actorProvider?.call();'),
           reason:
-              'Timing save inline payload must resolve the actor from the '
-              'threaded SyncActorProvider, not from a hard-coded null.',
+              'Timing save must evaluate the threaded SyncActorProvider at '
+              'the write boundary, not use a hard-coded null.',
+        );
+        final saveActorPasses = 'actor: actor'.allMatches(save).length;
+        expect(
+          saveActorPasses,
+          greaterThanOrEqualTo(2),
+          reason:
+              'Timing save must pass the same provider-resolved actor into '
+              'the timing and project restore enqueue paths.',
+        );
+        expect(
+          save,
+          contains('resolveSyncActor(actor)'),
+          reason:
+              'Timing save inline payload must wrap the provider-resolved '
+              'actor through resolveSyncActor, preserving the legacy fallback.',
         );
         // Delete: passes the actor through to _enqueueSyncForDeletedRecord and
         // the cascade enqueuers in the same transaction.
@@ -213,8 +223,9 @@ void main() {
           );
         }
         // Each covered slice must receive actorContext: identity.actorContext.
-        final passes =
-            'actorContext: identity.actorContext'.allMatches(source).length;
+        final passes = 'actorContext: identity.actorContext'
+            .allMatches(source)
+            .length;
         expect(
           passes,
           greaterThanOrEqualTo(4),
@@ -239,18 +250,14 @@ bool _containsOwnerAppSyncActorIdentifier(String source) {
   final stripped = StringBuffer();
   var i = 0;
   while (i < source.length) {
-    if (i + 1 < source.length &&
-        source[i] == '/' &&
-        source[i + 1] == '/') {
+    if (i + 1 < source.length && source[i] == '/' && source[i + 1] == '/') {
       // Skip to end of line.
       while (i < source.length && source[i] != '\n') {
         i++;
       }
       continue;
     }
-    if (i + 1 < source.length &&
-        source[i] == '/' &&
-        source[i + 1] == '*') {
+    if (i + 1 < source.length && source[i] == '/' && source[i + 1] == '*') {
       i += 2;
       while (i + 1 < source.length &&
           !(source[i] == '*' && source[i + 1] == '/')) {

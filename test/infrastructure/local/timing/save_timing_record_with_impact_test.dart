@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:asset_ledger/core/operations/operation_access_control.dart';
+import 'package:asset_ledger/core/operations/operation_actor_type.dart';
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group.dart';
@@ -19,6 +21,7 @@ import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import 'package:asset_ledger/infrastructure/local/account/project_settlement_impact_service.dart';
+import 'package:asset_ledger/infrastructure/local/account/project_sync_enqueuer.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/local/timing/local_save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_outbox_entry.dart';
@@ -1255,6 +1258,163 @@ void main() {
       expect(remainingA, hasLength(1));
     });
 
+    test(
+      'timing_save_revocation_project_outbox_test: restored project update '
+      'shares transaction group, sequence and actor with timing save',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
+        final deviceB = await _seedDevice(db, defaultUnitPrice: 100);
+        await _seedProject(
+          db,
+          projectId: 'project:A',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-20T00:00:00.000Z',
+        );
+        await _seedProject(db, projectId: 'project:B');
+        await _seedRate(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:A',
+          projectKey: '甲方||A',
+          rate: 100,
+        );
+        await _seedRate(
+          db,
+          deviceId: deviceB,
+          projectId: 'project:B',
+          projectKey: '甲方||B',
+          rate: 100,
+        );
+        await _insertPayment(
+          db,
+          projectId: 'project:A',
+          amount: 100,
+          amountFen: 10000,
+        );
+        final existingOnA = await _seedTimingRecord(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:A',
+          contact: '甲方',
+          site: 'A',
+          hours: 1,
+          income: 100,
+        );
+        await _seedTimingRecord(
+          db,
+          deviceId: deviceA,
+          projectId: 'project:A',
+          contact: '甲方',
+          site: 'A',
+          hours: 2,
+          income: 200,
+        );
+
+        final actorUseCase = LocalSaveTimingRecordWithImpactUseCase(
+          timingRepository: timingRepository,
+          timingCalculationHistoryRepository: calculationHistoryRepository,
+          mergeRepository: mergeRepository,
+          deviceRepository: deviceRepository,
+          projectRateRepository: projectRateRepository,
+          projectRepository: projectRepository,
+          projectResolver: projectResolver,
+          impactService: impactService,
+          actorProvider: () => ActorContext(
+            actorType: OperationActorType.owner,
+            actorId: 'owner-save-revoke',
+            sessionId: 'session-save-revoke',
+          ),
+          now: () => DateTime.utc(2026, 5, 26, 12),
+        );
+
+        final result = await actorUseCase.execute(
+          editing: existingOnA,
+          record: existingOnA.copyWith(
+            deviceId: deviceB,
+            contact: '甲方',
+            site: 'B',
+            projectId: '',
+            hours: 1,
+            income: 100,
+          ),
+        );
+
+        expect(result.projectChanged, isTrue);
+        expect(result.settlementRevoked, isTrue);
+        expect(result.revokedProjectIds, <String>['project:A']);
+
+        final projectA = (await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:A'],
+        )).single;
+        expect(projectA['status'], ProjectStatus.active.name);
+        expect(projectA['settled_at'], isNull);
+        expect(projectA['settled_snapshot'], isNull);
+
+        final outboxRows = await db.query(
+          'sync_outbox',
+          orderBy: 'local_sequence ASC',
+        );
+        expect(outboxRows, hasLength(2));
+        expect(outboxRows[0]['entity_type'], 'timing_record');
+        expect(outboxRows[0]['entity_id'], result.savedRecord.id.toString());
+        expect(outboxRows[0]['operation'], 'update');
+        expect(outboxRows[1]['entity_type'], ProjectSyncEnqueuer.entityType);
+        expect(outboxRows[1]['entity_id'], 'project:A');
+        expect(outboxRows[1]['operation'], 'update');
+
+        final groupId = outboxRows[0]['transaction_group_id'];
+        expect(groupId, isA<String>());
+        expect(groupId as String, startsWith('txn-'));
+        expect(outboxRows[1]['transaction_group_id'], groupId);
+        expect(
+          outboxRows.map((row) => row['local_sequence']).toList(),
+          <int>[1, 2],
+          reason: 'timing update is the causal save; project restore follows',
+        );
+
+        for (final row in outboxRows) {
+          final payload = (jsonDecode(row['payload_json'] as String) as Map)
+              .cast<String, Object?>();
+          expect(payload['payload_schema_version'], 1);
+          expect(payload['entity_type'], row['entity_type']);
+          expect(payload['entity_id'], row['entity_id']);
+          expect(payload['operation'], row['operation']);
+          final actor = payload['actor'] as Map<String, Object?>;
+          expect(actor['type'], 'owner');
+          expect(actor['id'], 'owner-save-revoke');
+          expect(actor['session_id'], 'session-save-revoke');
+          final recordPayload = payload['record'] as Map<String, Object?>;
+          expect(recordPayload.containsKey('actor'), isFalse);
+          expect(recordPayload.containsKey('payload_schema_version'), isFalse);
+        }
+
+        final projectPayload =
+            (jsonDecode(outboxRows[1]['payload_json'] as String) as Map)
+                .cast<String, Object?>();
+        final projectRecord = projectPayload['record'] as Map<String, Object?>;
+        expect(projectRecord['status'], ProjectStatus.active.name);
+        expect(projectRecord['settled_at'], isNull);
+        expect(projectRecord['settled_snapshot'], isNull);
+
+        final metaRows = await db.query(
+          'entity_sync_meta',
+          orderBy: 'entity_type ASC',
+        );
+        expect(metaRows, hasLength(2));
+        expect(metaRows.map((row) => row['updated_by']).toSet(), {
+          'owner-save-revoke',
+        });
+        final projectMeta = metaRows.singleWhere(
+          (row) => row['entity_type'] == ProjectSyncEnqueuer.entityType,
+        );
+        expect(projectMeta['local_id'], 'project:A');
+        expect(projectMeta['sync_status'], SyncStatus.pendingUpdate.name);
+      },
+    );
+
     test('旧项目改走后，收款 + 核销仍覆盖应收 → 不撤销结清', () async {
       final db = await AppDatabase.database;
       final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
@@ -1334,6 +1494,193 @@ void main() {
         ProjectStatus.settled.name,
         reason: 'A 的应收已被收款覆盖，无需撤销结清',
       );
+    });
+
+    test('timing_save_no_revocation_no_project_outbox_test: covered settlement '
+        'keeps the legacy single timing outbox shape', () async {
+      final db = await AppDatabase.database;
+      final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
+      final deviceB = await _seedDevice(db, defaultUnitPrice: 100);
+      await _seedProject(
+        db,
+        projectId: 'project:A',
+        status: ProjectStatus.settled,
+        settledAt: '2026-05-20T00:00:00.000Z',
+      );
+      await _seedProject(db, projectId: 'project:B');
+      await _seedRate(
+        db,
+        deviceId: deviceA,
+        projectId: 'project:A',
+        projectKey: '甲方||A',
+        rate: 100,
+      );
+      await _seedRate(
+        db,
+        deviceId: deviceB,
+        projectId: 'project:B',
+        projectKey: '甲方||B',
+        rate: 100,
+      );
+      final existingOnA = await _seedTimingRecord(
+        db,
+        deviceId: deviceA,
+        projectId: 'project:A',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      await _seedTimingRecord(
+        db,
+        deviceId: deviceA,
+        projectId: 'project:A',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      await _insertPayment(
+        db,
+        projectId: 'project:A',
+        amount: 200,
+        amountFen: 20000,
+      );
+
+      final result = await useCase.execute(
+        editing: existingOnA,
+        record: existingOnA.copyWith(
+          deviceId: deviceB,
+          contact: '甲方',
+          site: 'B',
+          projectId: '',
+          hours: 1,
+          income: 100,
+        ),
+      );
+
+      expect(result.settlementRevoked, isFalse);
+      expect(result.revokedProjectIds, isEmpty);
+
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['entity_type'], 'timing_record');
+      expect(outboxRows.single['operation'], 'update');
+      expect(outboxRows.single['transaction_group_id'], isNull);
+      expect(outboxRows.single['local_sequence'], isNull);
+
+      final metaRows = await db.query('entity_sync_meta');
+      expect(metaRows, hasLength(1));
+      expect(metaRows.single['entity_type'], 'timing_record');
+      expect(
+        (await db.query(
+          'projects',
+          where: 'id = ?',
+          whereArgs: ['project:A'],
+        )).single['status'],
+        ProjectStatus.settled.name,
+      );
+    });
+
+    test('timing_save_revocation_rollback_test: project outbox failure rolls '
+        'back timing save, project restore, outbox and meta', () async {
+      final db = await AppDatabase.database;
+      final deviceA = await _seedDevice(db, defaultUnitPrice: 100);
+      final deviceB = await _seedDevice(db, defaultUnitPrice: 100);
+      await _seedProject(
+        db,
+        projectId: 'project:A',
+        status: ProjectStatus.settled,
+        settledAt: '2026-05-20T00:00:00.000Z',
+      );
+      await _seedProject(db, projectId: 'project:B');
+      await _seedRate(
+        db,
+        deviceId: deviceA,
+        projectId: 'project:A',
+        projectKey: '甲方||A',
+        rate: 100,
+      );
+      await _seedRate(
+        db,
+        deviceId: deviceB,
+        projectId: 'project:B',
+        projectKey: '甲方||B',
+        rate: 100,
+      );
+      await _insertPayment(
+        db,
+        projectId: 'project:A',
+        amount: 100,
+        amountFen: 10000,
+      );
+      final existingOnA = await _seedTimingRecord(
+        db,
+        deviceId: deviceA,
+        projectId: 'project:A',
+        contact: '甲方',
+        site: 'A',
+        hours: 1,
+        income: 100,
+      );
+      await _seedTimingRecord(
+        db,
+        deviceId: deviceA,
+        projectId: 'project:A',
+        contact: '甲方',
+        site: 'A',
+        hours: 2,
+        income: 200,
+      );
+      final failingProjectOutboxUseCase =
+          LocalSaveTimingRecordWithImpactUseCase(
+            timingRepository: timingRepository,
+            timingCalculationHistoryRepository: calculationHistoryRepository,
+            mergeRepository: mergeRepository,
+            deviceRepository: deviceRepository,
+            projectRateRepository: projectRateRepository,
+            projectRepository: projectRepository,
+            projectResolver: projectResolver,
+            impactService: impactService,
+            projectSyncEnqueuer: const ProjectSyncEnqueuer(
+              syncOutboxRepository: _ThrowingSyncOutboxRepository(),
+            ),
+            now: () => DateTime.utc(2026, 5, 26, 12),
+          );
+
+      await expectLater(
+        failingProjectOutboxUseCase.execute(
+          editing: existingOnA,
+          record: existingOnA.copyWith(
+            deviceId: deviceB,
+            contact: '甲方',
+            site: 'B',
+            projectId: '',
+            hours: 1,
+            income: 100,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      final timingRows = await db.query(
+        'timing_records',
+        where: 'id = ?',
+        whereArgs: [existingOnA.id],
+      );
+      expect(timingRows.single['project_id'], 'project:A');
+      expect(timingRows.single['income'], 100);
+
+      final projectA = (await db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: ['project:A'],
+      )).single;
+      expect(projectA['status'], ProjectStatus.settled.name);
+      expect(projectA['settled_at'], isNotNull);
+
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
     });
 
     test('1 fen 边界：fen 差 1 → 撤销；fen 刚好覆盖 → 不撤销', () async {

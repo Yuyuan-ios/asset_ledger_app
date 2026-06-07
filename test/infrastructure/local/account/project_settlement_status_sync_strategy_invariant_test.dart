@@ -99,8 +99,12 @@ void main() {
 
       _expectAllContains(timingSaveUseCase, const [
         'ProjectSettlementImpactService',
+        'ProjectSyncEnqueuer',
         'applyRevocations(',
         'ProjectSettlementImpactReason.editTiming',
+        'SyncTransactionGroup.create()',
+        '_enqueueRevokedProjectUpdate(',
+        '_projectSyncEnqueuer.enqueueUpdate(',
       ]);
 
       _expectAllContains(timingDeleteUseCase, const [
@@ -220,6 +224,10 @@ void main() {
       expect(_settlementStatusStrategy.mustCoverStatusOnlyRevoke, isTrue);
       expect(
         _settlementStatusStrategy.timingDeleteCascadeRestoreIsCovered,
+        isTrue,
+      );
+      expect(
+        _settlementStatusStrategy.timingSaveRevocationRestoreIsCovered,
         isTrue,
       );
       expect(
@@ -357,6 +365,7 @@ const _settlementStatusStrategy = _SettlementStatusStrategy(
   mustCoverPaymentOnlySettlement: true,
   mustCoverStatusOnlyRevoke: true,
   timingDeleteCascadeRestoreIsCovered: true,
+  timingSaveRevocationRestoreIsCovered: true,
   externalWorkSettlementResetIsCovered: true,
   mustCoverTimingDeleteCascadeRestore: true,
   mustCoverExternalWorkSettlementReset: true,
@@ -565,6 +574,7 @@ class _SettlementStatusStrategy {
     required this.mustCoverPaymentOnlySettlement,
     required this.mustCoverStatusOnlyRevoke,
     required this.timingDeleteCascadeRestoreIsCovered,
+    required this.timingSaveRevocationRestoreIsCovered,
     required this.externalWorkSettlementResetIsCovered,
     required this.mustCoverTimingDeleteCascadeRestore,
     required this.mustCoverExternalWorkSettlementReset,
@@ -580,6 +590,7 @@ class _SettlementStatusStrategy {
   final bool mustCoverPaymentOnlySettlement;
   final bool mustCoverStatusOnlyRevoke;
   final bool timingDeleteCascadeRestoreIsCovered;
+  final bool timingSaveRevocationRestoreIsCovered;
   final bool externalWorkSettlementResetIsCovered;
   final bool mustCoverTimingDeleteCascadeRestore;
   final bool mustCoverExternalWorkSettlementReset;
