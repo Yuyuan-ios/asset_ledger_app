@@ -13,7 +13,7 @@ class AppPrimaryButton extends StatelessWidget {
     required this.onPressed,
     this.height = BottomSheetTokens.actionButtonHeight,
     this.horizontalPadding = AppSpace.xxl,
-    this.backgroundColor = SheetColors.action,
+    this.backgroundColor = AppColors.primaryActionCapsule,
     this.foregroundColor = SheetColors.actionOn,
     this.borderRadius = BottomSheetTokens.actionButtonRadius,
     this.textStyle,
