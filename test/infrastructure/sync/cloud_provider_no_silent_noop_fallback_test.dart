@@ -4,6 +4,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_state_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,10 +41,9 @@ void main() {
     final offenders = <String>[];
     for (final entity in libDir.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final relative = p.relative(entity.path, from: _repoRoot).replaceAll(
-        '\\',
-        '/',
-      );
+      final relative = p
+          .relative(entity.path, from: _repoRoot)
+          .replaceAll('\\', '/');
       if (relative == declaringFile) continue;
       final source = entity.readAsStringSync();
       // Construction site outside the declaring file = silent no-op injection.
@@ -77,48 +77,46 @@ void main() {
     );
   });
 
-  test(
-    'pushPending only "succeeds" by actually reaching the injected client '
-    '(no silent success without a client)',
-    () async {
-      await _withInMemoryDb(() async {
-        // Explicit dry-run opt-in is the only sanctioned no-op path. We wrap it
-        // in a counting spy to prove the push genuinely delegates to the
-        // injected client rather than short-circuiting to a fake success.
-        final dryRunClient = NoOpCloudApiClient(enableDryRun: true);
-        final spy = _CountingCloudApiClient(dryRunClient);
-        const outbox = LocalSyncOutboxRepository();
-        await outbox.enqueue(
-          entityType: 'timing_record',
-          entityId: 'dry-run-1',
-          operation: 'create',
-          payload: const {'amount_fen': 1},
-        );
+  test('pushPending only "succeeds" by actually reaching the injected client '
+      '(no silent success without a client)', () async {
+    await _withInMemoryDb(() async {
+      // Explicit dry-run opt-in is the only sanctioned no-op path. We wrap it
+      // in a counting spy to prove the push genuinely delegates to the
+      // injected client rather than short-circuiting to a fake success.
+      final dryRunClient = NoOpCloudApiClient(enableDryRun: true);
+      final spy = _CountingCloudApiClient(dryRunClient);
+      const outbox = LocalSyncOutboxRepository();
+      await outbox.enqueue(
+        entityType: 'timing_record',
+        entityId: 'dry-run-1',
+        operation: 'create',
+        payload: const {'amount_fen': 1},
+      );
 
-        final manager = SyncManager(
-          outboxRepository: outbox,
-          apiClient: spy,
-          syncStateRepository: const LocalSyncStateRepository(),
-        );
+      final manager = SyncManager(
+        outboxRepository: outbox,
+        apiClient: spy,
+        syncStateRepository: const LocalSyncStateRepository(),
+        liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
+      );
 
-        final result = await manager.pushPending();
-        // The single pending row was sent through the injected client exactly
-        // once. pushPending never reports progress without invoking the client.
-        expect(
-          spy.sendCallCount,
-          1,
-          reason: 'pushPending must delegate each pending row to the client',
-        );
-        expect(
-          result.pushed,
-          spy.sendCallCount,
-          reason:
-              'every counted push corresponds to a real client send; there is '
-              'no path that reports success without reaching the client',
-        );
-      });
-    },
-  );
+      final result = await manager.pushPending();
+      // The single pending row was sent through the injected client exactly
+      // once. pushPending never reports progress without invoking the client.
+      expect(
+        spy.sendCallCount,
+        1,
+        reason: 'pushPending must delegate each pending row to the client',
+      );
+      expect(
+        result.pushed,
+        spy.sendCallCount,
+        reason:
+            'every counted push corresponds to a real client send; there is '
+            'no path that reports success without reaching the client',
+      );
+    });
+  });
 }
 
 class _CountingCloudApiClient implements CloudApiClient {

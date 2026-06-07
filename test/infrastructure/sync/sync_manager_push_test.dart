@@ -5,6 +5,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_state_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,6 +44,7 @@ void main() {
       outboxRepository: LocalSyncOutboxRepository(now: () => fixedNow),
       apiClient: client,
       syncStateRepository: const LocalSyncStateRepository(),
+      liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
       now: () => fixedNow,
     );
   }
@@ -54,12 +56,34 @@ void main() {
       () async {
         final db = await AppDatabase.database;
         // Group A: insert seq 2 BEFORE seq 1 to prove sequence-based ordering.
-        await _insertOutbox(db, mark: 'A2', groupId: 'txn-a', seq: 2, createdAt: '2026-06-01T00:00:01.000Z');
-        await _insertOutbox(db, mark: 'A1', groupId: 'txn-a', seq: 1, createdAt: '2026-06-01T00:00:01.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'A2',
+          groupId: 'txn-a',
+          seq: 2,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
+        await _insertOutbox(
+          db,
+          mark: 'A1',
+          groupId: 'txn-a',
+          seq: 1,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
         // Group B: single row, later min created_at than A.
-        await _insertOutbox(db, mark: 'B1', groupId: 'txn-b', seq: 1, createdAt: '2026-06-01T00:00:02.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'B1',
+          groupId: 'txn-b',
+          seq: 1,
+          createdAt: '2026-06-01T00:00:02.000Z',
+        );
         // Ungrouped row, latest.
-        await _insertOutbox(db, mark: 'U', createdAt: '2026-06-01T00:00:03.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'U',
+          createdAt: '2026-06-01T00:00:03.000Z',
+        );
 
         final client = _ProgrammableClient.alwaysSuccess();
         final result = await managerWith(client).pushPending();
@@ -80,21 +104,28 @@ void main() {
   });
 
   group('sync_manager_push_success_ack_deletes_pending', () {
-    test('a successful push deletes the pending row and is not re-sent', () async {
-      final db = await AppDatabase.database;
-      await _insertOutbox(db, mark: 'X', createdAt: '2026-06-01T00:00:01.000Z');
+    test(
+      'a successful push deletes the pending row and is not re-sent',
+      () async {
+        final db = await AppDatabase.database;
+        await _insertOutbox(
+          db,
+          mark: 'X',
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
 
-      final client = _ProgrammableClient.alwaysSuccess();
-      final result = await managerWith(client).pushPending();
-      expect(result.pushed, 1);
-      expect(await _outboxCount(db), 0);
+        final client = _ProgrammableClient.alwaysSuccess();
+        final result = await managerWith(client).pushPending();
+        expect(result.pushed, 1);
+        expect(await _outboxCount(db), 0);
 
-      // Second push: nothing left.
-      final client2 = _ProgrammableClient.alwaysSuccess();
-      final result2 = await managerWith(client2).pushPending();
-      expect(client2.sentMarks, isEmpty);
-      expect(result2.pushed, 0);
-    });
+        // Second push: nothing left.
+        final client2 = _ProgrammableClient.alwaysSuccess();
+        final result2 = await managerWith(client2).pushPending();
+        expect(client2.sentMarks, isEmpty);
+        expect(result2.pushed, 0);
+      },
+    );
   });
 
   group('sync_manager_push_failure_bumps_retry_backoff', () {
@@ -103,7 +134,11 @@ void main() {
       'next_retry_at = 60s / 5min / 30min, and skips the un-due row',
       () async {
         final db = await AppDatabase.database;
-        await _insertOutbox(db, mark: 'F', createdAt: '2026-06-01T00:00:01.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'F',
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
 
         final client = _ProgrammableClient.alwaysFail();
         final result = await managerWith(client).pushPending();
@@ -123,7 +158,11 @@ void main() {
         // Immediately retry at the same clock: row is not yet due → skipped.
         final client2 = _ProgrammableClient.alwaysFail();
         await managerWith(client2).pushPending();
-        expect(client2.sentMarks, isEmpty, reason: 'un-due row must be skipped');
+        expect(
+          client2.sentMarks,
+          isEmpty,
+          reason: 'un-due row must be skipped',
+        );
         row = await _singleRow(db);
         expect(row['retry_count'], 1, reason: 'skipped row is untouched');
 
@@ -157,11 +196,35 @@ void main() {
       () async {
         final db = await AppDatabase.database;
         // Group G: seq1 success, seq2 fail, seq3 must NOT be sent.
-        await _insertOutbox(db, mark: 'G1', groupId: 'txn-g', seq: 1, createdAt: '2026-06-01T00:00:01.000Z');
-        await _insertOutbox(db, mark: 'G2', groupId: 'txn-g', seq: 2, createdAt: '2026-06-01T00:00:01.000Z');
-        await _insertOutbox(db, mark: 'G3', groupId: 'txn-g', seq: 3, createdAt: '2026-06-01T00:00:01.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'G1',
+          groupId: 'txn-g',
+          seq: 1,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
+        await _insertOutbox(
+          db,
+          mark: 'G2',
+          groupId: 'txn-g',
+          seq: 2,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
+        await _insertOutbox(
+          db,
+          mark: 'G3',
+          groupId: 'txn-g',
+          seq: 3,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
         // Independent group H continues.
-        await _insertOutbox(db, mark: 'H1', groupId: 'txn-h', seq: 1, createdAt: '2026-06-01T00:00:02.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'H1',
+          groupId: 'txn-h',
+          seq: 1,
+          createdAt: '2026-06-01T00:00:02.000Z',
+        );
 
         final client = _ProgrammableClient(failMarks: {'G2'});
         final result = await managerWith(client).pushPending();
@@ -181,7 +244,11 @@ void main() {
         expect(g2['next_retry_at'], isNotNull);
         final g3 = await _rowByMark(db, 'G3');
         expect(g3, isNotNull);
-        expect(g3!['retry_count'], 0, reason: 'skipped row keeps retry_count 0');
+        expect(
+          g3!['retry_count'],
+          0,
+          reason: 'skipped row keeps retry_count 0',
+        );
         expect(g3['next_retry_at'], isNull);
       },
     );
@@ -195,10 +262,26 @@ void main() {
         final db = await AppDatabase.database;
         // Invalid group: duplicate sequence (1,1) — only possible via legacy/bad
         // data inserted directly, since the repository validates on enqueue.
-        await _insertOutbox(db, mark: 'BAD1', groupId: 'txn-bad', seq: 1, createdAt: '2026-06-01T00:00:01.000Z');
-        await _insertOutbox(db, mark: 'BAD2', groupId: 'txn-bad', seq: 1, createdAt: '2026-06-01T00:00:01.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'BAD1',
+          groupId: 'txn-bad',
+          seq: 1,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
+        await _insertOutbox(
+          db,
+          mark: 'BAD2',
+          groupId: 'txn-bad',
+          seq: 1,
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
         // A valid independent ungrouped row.
-        await _insertOutbox(db, mark: 'OK', createdAt: '2026-06-01T00:00:02.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'OK',
+          createdAt: '2026-06-01T00:00:02.000Z',
+        );
 
         final client = _ProgrammableClient.alwaysSuccess();
         final result = await managerWith(client).pushPending();
@@ -240,7 +323,13 @@ void main() {
 
     test('a grouped row missing local_sequence is terminal failed', () async {
       final db = await AppDatabase.database;
-      await _insertOutbox(db, mark: 'NOSEQ', groupId: 'txn-z', seq: null, createdAt: '2026-06-01T00:00:01.000Z');
+      await _insertOutbox(
+        db,
+        mark: 'NOSEQ',
+        groupId: 'txn-z',
+        seq: null,
+        createdAt: '2026-06-01T00:00:01.000Z',
+      );
 
       final client = _ProgrammableClient.alwaysSuccess();
       final result = await managerWith(client).pushPending();
@@ -291,16 +380,61 @@ void main() {
       () async {
         final db = await AppDatabase.database;
         // Seed outbox rows + matching entity_sync_meta in pending states.
-        await _insertOutbox(db, mark: 'C', entityType: 'account_payment', entityId: '1', operation: 'create', createdAt: '2026-06-01T00:00:01.000Z');
-        await _insertMeta(db, entityType: 'account_payment', localId: '1', status: 'pendingUpload');
-        await _insertOutbox(db, mark: 'U', entityType: 'account_payment', entityId: '2', operation: 'update', createdAt: '2026-06-01T00:00:02.000Z');
-        await _insertMeta(db, entityType: 'account_payment', localId: '2', status: 'pendingUpdate');
-        await _insertOutbox(db, mark: 'D', entityType: 'account_payment', entityId: '3', operation: 'delete', createdAt: '2026-06-01T00:00:03.000Z');
-        await _insertMeta(db, entityType: 'account_payment', localId: '3', status: 'pendingDelete');
+        await _insertOutbox(
+          db,
+          mark: 'C',
+          entityType: 'account_payment',
+          entityId: '1',
+          operation: 'create',
+          createdAt: '2026-06-01T00:00:01.000Z',
+        );
+        await _insertMeta(
+          db,
+          entityType: 'account_payment',
+          localId: '1',
+          status: 'pendingUpload',
+        );
+        await _insertOutbox(
+          db,
+          mark: 'U',
+          entityType: 'account_payment',
+          entityId: '2',
+          operation: 'update',
+          createdAt: '2026-06-01T00:00:02.000Z',
+        );
+        await _insertMeta(
+          db,
+          entityType: 'account_payment',
+          localId: '2',
+          status: 'pendingUpdate',
+        );
+        await _insertOutbox(
+          db,
+          mark: 'D',
+          entityType: 'account_payment',
+          entityId: '3',
+          operation: 'delete',
+          createdAt: '2026-06-01T00:00:03.000Z',
+        );
+        await _insertMeta(
+          db,
+          entityType: 'account_payment',
+          localId: '3',
+          status: 'pendingDelete',
+        );
         // A create whose meta row does NOT exist → must not be fabricated.
-        await _insertOutbox(db, mark: 'N', entityType: 'account_payment', entityId: '4', operation: 'create', createdAt: '2026-06-01T00:00:04.000Z');
+        await _insertOutbox(
+          db,
+          mark: 'N',
+          entityType: 'account_payment',
+          entityId: '4',
+          operation: 'create',
+          createdAt: '2026-06-01T00:00:04.000Z',
+        );
 
-        final result = await managerWith(_ProgrammableClient.alwaysSuccess()).pushPending();
+        final result = await managerWith(
+          _ProgrammableClient.alwaysSuccess(),
+        ).pushPending();
         expect(result.pushed, 4);
         expect(await _outboxCount(db), 0, reason: 'all acked/deleted');
 
@@ -407,7 +541,8 @@ class _ProgrammableClient implements CloudApiClient {
       _failAll = false;
   _ProgrammableClient._all(this._failAll) : _failMarks = const {};
 
-  factory _ProgrammableClient.alwaysSuccess() => _ProgrammableClient._all(false);
+  factory _ProgrammableClient.alwaysSuccess() =>
+      _ProgrammableClient._all(false);
   factory _ProgrammableClient.alwaysFail() => _ProgrammableClient._all(true);
 
   final Set<String> _failMarks;
@@ -417,8 +552,7 @@ class _ProgrammableClient implements CloudApiClient {
 
   @override
   Future<ApiResponse> send(ApiRequest request) async {
-    final mark =
-        (jsonDecode(request.bodyJson!) as Map)['mark'] as String;
+    final mark = (jsonDecode(request.bodyJson!) as Map)['mark'] as String;
     sentMarks.add(mark);
     final fail = _failAll || _failMarks.contains(mark);
     if (fail) {

@@ -1,4 +1,5 @@
 import '../cloud/api_client.dart';
+import 'sync_live_readiness_gate.dart';
 import 'sync_outbox_entry.dart';
 import 'sync_repositories.dart';
 import 'sync_state_repository.dart';
@@ -95,17 +96,21 @@ class SyncManager {
     SyncStateRepository syncStateRepository = const LocalSyncStateRepository(),
     EntitySyncMetaAckRepository metaRepository =
         const LocalEntitySyncMetaRepository(),
+    SyncLiveReadinessGate liveReadinessGate =
+        const DefaultSyncLiveReadinessGate(),
     DateTime Function()? now,
   }) : _outboxRepository = outboxRepository,
        _apiClient = apiClient,
        _syncStateRepository = syncStateRepository,
        _metaRepository = metaRepository,
+       _liveReadinessGate = liveReadinessGate,
        _now = now ?? DateTime.now;
 
   final SyncOutboxPushRepository _outboxRepository;
   final CloudApiClient _apiClient;
   final SyncStateRepository _syncStateRepository;
   final EntitySyncMetaAckRepository _metaRepository;
+  final SyncLiveReadinessGate _liveReadinessGate;
   final DateTime Function() _now;
 
   /// 指数退避（秒）：第 1 次失败 60s、第 2 次 5min、第 3 次及以后 30min。
@@ -121,6 +126,17 @@ class SyncManager {
     final gateReason = await _syncStateRepository.readPushGate();
     if (gateReason != null) {
       throw SyncPushBlockedException(gateReason);
+    }
+
+    // R5.27-B live readiness gate: beta builds may preview push decisions, but
+    // live cloud push stays blocked until money-fen primary storage and the real
+    // cloud transport are ready. Check before listPending/folding and before any
+    // send/delete/markFailed/markTerminalFailed/meta-ack side effect.
+    if (mode == SyncPushMode.live) {
+      final readiness = await _liveReadinessGate.check();
+      if (readiness.isNotReady) {
+        throw SyncPushBlockedException(readiness.blockedReason);
+      }
     }
 
     final pending = await _outboxRepository.listPending(limit: limit);
