@@ -19,15 +19,25 @@ class SyncPushBlockedException implements Exception {
   String toString() => 'SyncPushBlockedException(reason: $reason)';
 }
 
+/// R5.27-A push 执行模式：live 保持既有发送/ack 语义；dryRun 只做 preview。
+enum SyncPushMode { live, dryRun }
+
 /// R5.22-B push 结果汇总（取代旧的纯 int 返回，便于调用方区分成功/失败/跳过/非法）。
 class SyncPushResult {
   const SyncPushResult({
+    this.mode = SyncPushMode.live,
     this.pushed = 0,
     this.failed = 0,
     this.skipped = 0,
     this.invalid = 0,
     this.folded = 0,
+    this.plannedPushes = 0,
+    this.plannedFolded = 0,
+    this.plannedOutboxIds = const [],
   });
+
+  /// 本轮 push 的执行模式。默认 live，保持既有调用语义不变。
+  final SyncPushMode mode;
 
   /// 成功发送并 ack（删除）的行数。
   final int pushed;
@@ -38,23 +48,44 @@ class SyncPushResult {
   /// 因同组更早的行失败而本轮未发送的同组后续行数（保持 pending）。
   final int skipped;
 
-  /// 因元数据非法（缺序号 / 序号<=0 / 同组序号重复或不连续）未发送、
-  /// 保守 bump retry 的行数。
+  /// 因元数据非法（缺序号 / 序号<=0 / 同组序号重复或不连续）未发送的行数。
+  /// live 下会 terminal failed；dry-run 下只统计，不写 last_error/status。
   final int invalid;
 
   /// R5.23: 因同一 `(entity_type, entity_id)` 在本次 due-pending 快照中
-  /// 出现了 supersede 关系（create→delete / update→delete）而被本地折叠剔除、
-  /// 未发往 CloudApiClient 的行数。折叠行会被 [SyncOutboxPushRepository.deleteSuperseded]
-  /// 从 sync_outbox 删除，不进入 retry/backoff，也不计入 invalid。
+  /// 出现了 supersede 关系（create→delete / update→delete）而在 live 模式下
+  /// 被本地折叠剔除、未发往 CloudApiClient 的行数。live 折叠行会被
+  /// [SyncOutboxPushRepository.deleteSuperseded] 从 sync_outbox 删除，不进入
+  /// retry/backoff，也不计入 invalid。dry-run 只在 [plannedFolded] 预览。
   final int folded;
+
+  /// dry-run 下按 R5.22/R5.23 规则预估会发送的 outbox 行数。
+  final int plannedPushes;
+
+  /// dry-run 下按 R5.23 folding 规则预估会折叠、但不会删除的 outbox 行数。
+  final int plannedFolded;
+
+  /// dry-run 下按 R5.22 ordering 规则排列的、预计会发送的 outbox id。
+  final List<String> plannedOutboxIds;
 
   /// 本轮实际调用 CloudApiClient.send 的行数。
   int get attempted => pushed + failed;
 
+  /// 是否为 R5.27-A dry-run preview；dry-run 不调用 CloudApiClient、不修改 outbox/meta。
+  bool get isDryRun => mode == SyncPushMode.dryRun;
+
+  /// dry-run 下按 R5.22/R5.23 规则预估会发送的 outbox 行数。
+  int get wouldPush => isDryRun ? plannedPushes : 0;
+
+  /// dry-run 下按 R5.23 folding 规则预估会折叠的 outbox 行数。
+  int get wouldFold => isDryRun ? plannedFolded : 0;
+
   @override
   String toString() =>
-      'SyncPushResult(pushed: $pushed, failed: $failed, '
-      'skipped: $skipped, invalid: $invalid, folded: $folded)';
+      'SyncPushResult(mode: $mode, dryRun: $isDryRun, '
+      'pushed: $pushed, failed: $failed, skipped: $skipped, '
+      'invalid: $invalid, folded: $folded, wouldPush: $wouldPush, '
+      'wouldFold: $wouldFold)';
 }
 
 class SyncManager {
@@ -80,7 +111,10 @@ class SyncManager {
   /// 指数退避（秒）：第 1 次失败 60s、第 2 次 5min、第 3 次及以后 30min。
   static const List<int> _backoffSeconds = [60, 300, 1800];
 
-  Future<SyncPushResult> pushPending({int limit = 50}) async {
+  Future<SyncPushResult> pushPending({
+    int limit = 50,
+    SyncPushMode mode = SyncPushMode.live,
+  }) async {
     // R5.21 push gate：restore 后必须先 reconcile，才允许把本地 outbox 推到云端。
     // 在 listPending 与 CloudApiClient.send 之前短路，避免任何残留 pending 行
     // 在 gate 期间被读出/发送/标记。
@@ -92,10 +126,19 @@ class SyncManager {
     final pending = await _outboxRepository.listPending(limit: limit);
     // R5.23：在 ordering / send 之前，对同一 (entity_type, entity_id) 的 due
     // pending 行做最小折叠：create+delete 整体剔除、update→delete 中的 update
-    // 剔除。折叠后从 outbox 真删除（deleteSuperseded），不进 CloudApiClient、
-    // 不计 invalid。仅对 "ungrouped 行" 或 "整组都属于同一 entity 的同组行"
-    // 生效，以保留 R5.22-A 的 transaction_group local_sequence 1..n 不变量。
+    // 剔除。live 下折叠行从 outbox 真删除（deleteSuperseded）；dry-run 只预览
+    // 同一决策，不写 outbox。不计 invalid。仅对 "ungrouped 行" 或 "整组都属于
+    // 同一 entity 的同组行" 生效，以保留 R5.22-A 的 transaction_group
+    // local_sequence 1..n 不变量。
     final foldDecision = _foldPending(pending);
+    if (mode == SyncPushMode.dryRun) {
+      return _previewDryRunPush(foldDecision);
+    }
+
+    return _pushLive(foldDecision);
+  }
+
+  Future<SyncPushResult> _pushLive(_FoldDecision foldDecision) async {
     for (final id in foldDecision.foldedIds) {
       await _outboxRepository.deleteSuperseded(id);
     }
@@ -158,11 +201,38 @@ class SyncManager {
     }
 
     return SyncPushResult(
+      mode: SyncPushMode.live,
       pushed: pushed,
       failed: failed,
       skipped: skipped,
       invalid: invalid,
       folded: folded,
+    );
+  }
+
+  SyncPushResult _previewDryRunPush(_FoldDecision foldDecision) {
+    final groups = _buildOrderedGroups(foldDecision.remaining);
+    var invalid = 0;
+    final plannedOutboxIds = <String>[];
+
+    for (final group in groups) {
+      final invalidReason = group.invalidReason;
+      if (invalidReason != null) {
+        invalid += group.rows.length;
+        continue;
+      }
+
+      for (final entry in group.rows) {
+        plannedOutboxIds.add(entry.id);
+      }
+    }
+
+    return SyncPushResult(
+      mode: SyncPushMode.dryRun,
+      invalid: invalid,
+      plannedPushes: plannedOutboxIds.length,
+      plannedFolded: foldDecision.foldedIds.length,
+      plannedOutboxIds: List.unmodifiable(plannedOutboxIds),
     );
   }
 
@@ -208,11 +278,12 @@ class SyncManager {
       if (rows.length < 2) return; // single row has nothing to fold against
       // Stable order: by created_at ASC, then id ASC. Mirrors the existing
       // listPending base order + a deterministic tie-break.
-      final sorted = [...rows]..sort((a, b) {
-        final byCreated = a.createdAt.compareTo(b.createdAt);
-        if (byCreated != 0) return byCreated;
-        return a.id.compareTo(b.id);
-      });
+      final sorted = [...rows]
+        ..sort((a, b) {
+          final byCreated = a.createdAt.compareTo(b.createdAt);
+          if (byCreated != 0) return byCreated;
+          return a.id.compareTo(b.id);
+        });
 
       final lastOp = sorted.last.operation;
       if (lastOp != 'delete') return; // R5.23 only folds delete-terminated runs
