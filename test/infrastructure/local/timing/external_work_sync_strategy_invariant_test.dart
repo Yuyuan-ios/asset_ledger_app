@@ -485,6 +485,9 @@ void main() {
         'lib/infrastructure/sync/sync_repositories.dart',
       );
       final syncManager = _read('lib/infrastructure/sync/sync_manager.dart');
+      final liveReadiness = _read(
+        'lib/infrastructure/sync/sync_live_readiness_gate.dart',
+      );
 
       _expectAllContains(syncSchema, const [
         'CREATE TABLE IF NOT EXISTS sync_outbox',
@@ -509,6 +512,21 @@ void main() {
         'Future<void> deleteAcknowledged(String id)',
         'Future<void> markFailed({',
       ]);
+
+      _expectAllContains(liveReadiness, const [
+        'class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate',
+        'completedPrerequisites',
+        'hardBlockers',
+        'money-fen-primary-storage-not-ready',
+        'real-cloud-transport-not-configured',
+        'warnings',
+        'delete-meta-lifecycle-deferred',
+        'terminal-failed-admin-reset-deferred',
+        'persistent-telemetry-deferred',
+        'bool get isReady => hardBlockers.isEmpty',
+        'List<String> get missingPrerequisites => hardBlockers',
+        'String get blockedReason',
+      ]);
       // R5.22-B: SyncManager now orders the pending rows by transaction group
       // and local sequence, acks (deletes) successes, and bumps retry/backoff
       // on failures.
@@ -520,6 +538,10 @@ void main() {
         'enum SyncPushMode { live, dryRun }',
         'Future<SyncPushResult> pushPending({',
         'SyncPushMode mode = SyncPushMode.live',
+        'SyncLiveReadinessGate liveReadinessGate =',
+        'const DefaultSyncLiveReadinessGate()',
+        'final readiness = await _liveReadinessGate.check()',
+        'throw SyncPushBlockedException(readiness.blockedReason)',
         'final pending = await _outboxRepository.listPending(limit: limit)',
         '_foldPending(pending)',
         'if (mode == SyncPushMode.dryRun) {',
@@ -533,6 +555,12 @@ void main() {
         '_outboxRepository.markFailed(',
         '_backoffSeconds = [60, 300, 1800]',
         "path: '/sync/outbox'",
+      ]);
+      _expectInOrder(syncManager, const [
+        'final gateReason = await _syncStateRepository.readPushGate()',
+        'if (mode == SyncPushMode.live) {',
+        'final pending = await _outboxRepository.listPending(limit: limit)',
+        'return _pushLive(foldDecision)',
       ]);
 
       final dryRunPreview = _sliceBetween(
@@ -549,6 +577,8 @@ void main() {
         'plannedOutboxIds: List.unmodifiable(plannedOutboxIds)',
       ]);
       _expectAllNotContains(dryRunPreview, const [
+        '_liveReadinessGate.check()',
+        'blockedReason',
         '_apiClient.send(',
         '_send(',
         'deleteAcknowledged(',

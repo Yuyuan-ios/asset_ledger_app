@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/config/subscription_config.dart';
+import '../../../../data/services/support_feedback_service.dart';
 import '../../../../data/services/subscription_service.dart';
 import '../../../../data/services/subscription_verification_repository_factory.dart';
 
@@ -25,4 +26,10 @@ class SubscriptionController {
   }
 
   Future<void> restorePurchases() => SubscriptionService.restorePurchases();
+
+  Future<bool> openPrivacyPolicy() =>
+      SupportFeedbackService.openPrivacyPolicy();
+
+  Future<bool> openTermsOfService() =>
+      SupportFeedbackService.openTermsOfService();
 }

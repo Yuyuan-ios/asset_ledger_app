@@ -4,6 +4,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_state_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,6 +46,7 @@ void main() {
       outboxRepository: LocalSyncOutboxRepository(now: () => fixedNow),
       apiClient: client,
       syncStateRepository: const LocalSyncStateRepository(),
+      liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
       now: () => fixedNow,
     );
   }

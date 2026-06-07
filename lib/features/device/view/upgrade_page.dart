@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/config/support_feedback_config.dart';
 import '../../../core/foundation/typography.dart';
-import '../../../data/services/support_feedback_service.dart';
 import '../../../patterns/device/upgrade_benefit_item_pattern.dart';
 import '../../../patterns/device/upgrade_footer_links_pattern.dart';
 import '../../../patterns/device/upgrade_header_pattern.dart';
@@ -80,7 +79,7 @@ class _UpgradePageState extends State<UpgradePage> {
   }
 
   Future<void> _openTermsPage() async {
-    final opened = await SupportFeedbackService.openTermsOfService();
+    final opened = await _subscriptionController.openTermsOfService();
     if (opened || !mounted) return;
     Navigator.of(
       context,
@@ -88,7 +87,7 @@ class _UpgradePageState extends State<UpgradePage> {
   }
 
   Future<void> _openPrivacyPage() async {
-    final opened = await SupportFeedbackService.openPrivacyPolicy();
+    final opened = await _subscriptionController.openPrivacyPolicy();
     if (opened || !mounted) return;
     Navigator.of(
       context,
