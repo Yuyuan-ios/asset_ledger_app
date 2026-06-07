@@ -478,61 +478,86 @@ void main() {
       },
     );
 
-    test(
-      'external work reset push is ordered by transaction group and acked '
-      '(R5.22-B)',
-      () {
-        final syncSchema = _read('lib/data/db/schema/sync_schema.dart');
-        final syncRepositories = _read(
-          'lib/infrastructure/sync/sync_repositories.dart',
-        );
-        final syncManager = _read('lib/infrastructure/sync/sync_manager.dart');
+    test('external work reset push is ordered by transaction group and acked '
+        '(R5.22-B)', () {
+      final syncSchema = _read('lib/data/db/schema/sync_schema.dart');
+      final syncRepositories = _read(
+        'lib/infrastructure/sync/sync_repositories.dart',
+      );
+      final syncManager = _read('lib/infrastructure/sync/sync_manager.dart');
 
-        _expectAllContains(syncSchema, const [
-          'CREATE TABLE IF NOT EXISTS sync_outbox',
-          'entity_type TEXT NOT NULL',
-          'entity_id TEXT NOT NULL',
-          'operation TEXT NOT NULL',
-          'payload_json TEXT NOT NULL',
-          'payload_hash TEXT NOT NULL',
-          'created_at TEXT NOT NULL',
-          // R5.22-A: the outbox carries ordering metadata columns (nullable).
-          'transaction_group_id TEXT',
-          'local_sequence INTEGER',
-          // R5.22-B: nullable backoff timestamp for failed push retries.
-          'next_retry_at TEXT',
-        ]);
+      _expectAllContains(syncSchema, const [
+        'CREATE TABLE IF NOT EXISTS sync_outbox',
+        'entity_type TEXT NOT NULL',
+        'entity_id TEXT NOT NULL',
+        'operation TEXT NOT NULL',
+        'payload_json TEXT NOT NULL',
+        'payload_hash TEXT NOT NULL',
+        'created_at TEXT NOT NULL',
+        // R5.22-A: the outbox carries ordering metadata columns (nullable).
+        'transaction_group_id TEXT',
+        'local_sequence INTEGER',
+        // R5.22-B: nullable backoff timestamp for failed push retries.
+        'next_retry_at TEXT',
+      ]);
 
-        _expectAllContains(syncRepositories, const [
-          'Future<List<SyncOutboxEntry>> listPending({int limit = 50})',
-          "orderBy: 'created_at ASC'",
-          // R5.22-B push-side lifecycle.
-          'next_retry_at IS NULL OR next_retry_at <= ?',
-          'Future<void> deleteAcknowledged(String id)',
-          'Future<void> markFailed({',
-        ]);
-        // R5.22-B: SyncManager now orders the pending rows by transaction group
-        // and local sequence, acks (deletes) successes, and bumps retry/backoff
-        // on failures.
-        // R5.23: a folding step runs between listPending and ordering — it
-        // drops same-entity create+delete / update+delete pairs from the
-        // snapshot via deleteSuperseded. The ordering call now takes the
-        // folded-survivor list.
-        _expectAllContains(syncManager, const [
-          'Future<SyncPushResult> pushPending({int limit = 50}) async',
-          'final pending = await _outboxRepository.listPending(limit: limit)',
-          '_foldPending(pending)',
-          'deleteSuperseded(',
-          '_buildOrderedGroups(foldDecision.remaining)',
-          'entry.transactionGroupId',
-          'entry.localSequence',
-          'deleteAcknowledged(entry.id)',
-          '_outboxRepository.markFailed(',
-          '_backoffSeconds = [60, 300, 1800]',
-          "path: '/sync/outbox'",
-        ]);
-      },
-    );
+      _expectAllContains(syncRepositories, const [
+        'Future<List<SyncOutboxEntry>> listPending({int limit = 50})',
+        "orderBy: 'created_at ASC'",
+        // R5.22-B push-side lifecycle.
+        'next_retry_at IS NULL OR next_retry_at <= ?',
+        'Future<void> deleteAcknowledged(String id)',
+        'Future<void> markFailed({',
+      ]);
+      // R5.22-B: SyncManager now orders the pending rows by transaction group
+      // and local sequence, acks (deletes) successes, and bumps retry/backoff
+      // on failures.
+      // R5.23: a folding step runs between listPending and ordering — it
+      // drops same-entity create+delete / update+delete pairs from the
+      // snapshot via deleteSuperseded. The ordering call now takes the
+      // folded-survivor list.
+      _expectAllContains(syncManager, const [
+        'enum SyncPushMode { live, dryRun }',
+        'Future<SyncPushResult> pushPending({',
+        'SyncPushMode mode = SyncPushMode.live',
+        'final pending = await _outboxRepository.listPending(limit: limit)',
+        '_foldPending(pending)',
+        'if (mode == SyncPushMode.dryRun) {',
+        'return _previewDryRunPush(foldDecision)',
+        'return _pushLive(foldDecision)',
+        'deleteSuperseded(',
+        '_buildOrderedGroups(foldDecision.remaining)',
+        'entry.transactionGroupId',
+        'entry.localSequence',
+        'deleteAcknowledged(entry.id)',
+        '_outboxRepository.markFailed(',
+        '_backoffSeconds = [60, 300, 1800]',
+        "path: '/sync/outbox'",
+      ]);
+
+      final dryRunPreview = _sliceBetween(
+        syncManager,
+        'SyncPushResult _previewDryRunPush(_FoldDecision foldDecision)',
+        '  /// R5.23: per-entity folding of due pending rows.',
+      );
+      _expectAllContains(dryRunPreview, const [
+        'final groups = _buildOrderedGroups(foldDecision.remaining)',
+        'mode: SyncPushMode.dryRun',
+        'invalid: invalid',
+        'plannedPushes: plannedOutboxIds.length',
+        'plannedFolded: foldDecision.foldedIds.length',
+        'plannedOutboxIds: List.unmodifiable(plannedOutboxIds)',
+      ]);
+      _expectAllNotContains(dryRunPreview, const [
+        '_apiClient.send(',
+        '_send(',
+        'deleteAcknowledged(',
+        'deleteSuperseded(',
+        'markFailed(',
+        'markTerminalFailed(',
+        'markPushAcknowledged(',
+      ]);
+    });
   });
 }
 
@@ -790,6 +815,16 @@ void _expectAllContains(String source, Iterable<String> snippets) {
       source,
       contains(snippet),
       reason: 'Missing source marker: $snippet',
+    );
+  }
+}
+
+void _expectAllNotContains(String source, Iterable<String> snippets) {
+  for (final snippet in snippets) {
+    expect(
+      source,
+      isNot(contains(snippet)),
+      reason: 'Unexpected source marker: $snippet',
     );
   }
 }
