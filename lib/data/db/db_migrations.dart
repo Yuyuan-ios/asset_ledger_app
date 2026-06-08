@@ -21,6 +21,7 @@ part 'migrations/migration_025.dart';
 part 'migrations/migration_026.dart';
 part 'migrations/migration_027.dart';
 part 'migrations/migration_028.dart';
+part 'migrations/migration_029.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -83,6 +84,10 @@ class DbMigrations {
 
   static Future<void> ensureSyncOutboxNextRetryAt(Database db) {
     return Migration028.ensureSyncOutboxNextRetryAt(db);
+  }
+
+  static Future<void> ensureTimingIncomeFen(Database db) {
+    return Migration029.ensureTimingIncomeFen(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

@@ -15,5 +15,6 @@ class MigrationRunner {
     await Migration026.apply(db, oldVersion, newVersion);
     await Migration027.apply(db, oldVersion, newVersion);
     await Migration028.apply(db, oldVersion, newVersion);
+    await Migration029.apply(db, oldVersion, newVersion);
   }
 }

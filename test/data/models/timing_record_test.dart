@@ -122,6 +122,8 @@ void main() {
         'end_meter': 50.0,
         'hours': 0.0,
         'income': 1200.0,
+        // R5.26-B3：income 的 fen 镜像与 income 双写。
+        'income_fen': 120000,
         'exclude_from_fuel_eff': 1,
         'is_breaking': 0,
       });
