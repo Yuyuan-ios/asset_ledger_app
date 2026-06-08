@@ -77,14 +77,14 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
       .toList();
 
   final groupedSingles = <int, List<TimingRecord>>{};
-  final cutoffSingleSections = <_RecordDisplaySection>[];
+  final rangeSingleSections = <_RecordDisplaySection>[];
   for (final record in singleRecords) {
-    if (_shouldShowAllocationCutoffRange(record)) {
-      cutoffSingleSections.add(
+    if (_shouldShowAllocationEndRange(record)) {
+      rangeSingleSections.add(
         _RecordDisplaySection.singles(
           ymd: record.startDate,
           records: [record],
-          headerOverride: _dateRangeText(record),
+          headerOverride: _allocationDateRangeText(record),
         ),
       );
       continue;
@@ -97,7 +97,7 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
   return <_RecordDisplaySection>[
     for (final entry in groupedSingles.entries)
       _RecordDisplaySection.singles(ymd: entry.key, records: entry.value),
-    ...cutoffSingleSections,
+    ...rangeSingleSections,
     for (final section in aggregateSections)
       _RecordDisplaySection.aggregate(section),
   ]..sort((a, b) {
@@ -107,27 +107,31 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
   });
 }
 
-bool _shouldShowAllocationCutoffRange(TimingRecord record) {
+bool _shouldShowAllocationEndRange(TimingRecord record) {
   if (record.type != TimingType.hours) return false;
-  final cutoff = record.allocationCutoffDate;
-  if (cutoff == null) return false;
-  final endYmd = _tryInclusiveDisplayEndYmd(cutoff);
-  if (endYmd == null) return false;
-  return endYmd >= record.startDate;
+  final exclusiveCutoffYmd = record.allocationCutoffDate;
+  if (exclusiveCutoffYmd == null) return false;
+  final displayEndInclusiveYmd = _tryDisplayEndInclusiveYmd(exclusiveCutoffYmd);
+  if (displayEndInclusiveYmd == null) return false;
+  return displayEndInclusiveYmd >= record.startDate;
 }
 
-String _dateRangeText(TimingRecord record) {
-  if (!_shouldShowAllocationCutoffRange(record)) {
+String _allocationDateRangeText(TimingRecord record) {
+  if (!_shouldShowAllocationEndRange(record)) {
     return FormatUtils.date(record.startDate);
   }
-  final endYmd = _tryInclusiveDisplayEndYmd(record.allocationCutoffDate!);
-  if (endYmd == null) return FormatUtils.date(record.startDate);
-  return '${FormatUtils.date(record.startDate)} - ${_compactRangeEndText(record.startDate, endYmd)}';
+  final displayEndInclusiveYmd = _tryDisplayEndInclusiveYmd(
+    record.allocationCutoffDate!,
+  );
+  if (displayEndInclusiveYmd == null) return FormatUtils.date(record.startDate);
+  return '${FormatUtils.date(record.startDate)} - ${_compactRangeEndText(record.startDate, displayEndInclusiveYmd)}';
 }
 
-int? _tryInclusiveDisplayEndYmd(int exclusiveCutoffYmd) {
+int? _tryDisplayEndInclusiveYmd(int exclusiveCutoffYmd) {
   try {
     final exclusive = FormatUtils.dateFromYmd(exclusiveCutoffYmd);
+    // Recent records show the UI-inclusive end; never display the persisted
+    // exclusive cutoff directly.
     return FormatUtils.ymdFromDate(exclusive.subtract(const Duration(days: 1)));
   } on ArgumentError {
     return null;
@@ -475,7 +479,7 @@ class _DateGroup extends StatelessWidget {
                 device: deviceById[record.deviceId],
                 deviceIndexText: deviceIndexById[record.deviceId] ?? '?',
                 hideAvatar: true,
-                titleOverride: _dateRangeText(record),
+                titleOverride: _allocationDateRangeText(record),
                 subtitleOverride: deviceById[record.deviceId] == null
                     ? deviceIndexById[record.deviceId] ?? '?'
                     : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',

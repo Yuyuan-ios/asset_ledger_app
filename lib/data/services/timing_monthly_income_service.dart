@@ -14,7 +14,8 @@ const double _timingIncomeEpsilon = 0.000001;
 ///
 /// 口径说明：
 /// 1) 本算法是“动态视图”，不是落库后的静态月汇总。
-/// 2) 统计目标月变化时，未闭合区间会延长到新目标月月末，因此历史月份允许重算变化。
+/// 2) 统计目标月变化时，显式工时结束日可能延长图表分摊；未显式设置时，
+///    最后一条同设备工时只分摊到 startDate 所在月。
 /// 3) 仅处理收入分摊，不处理支出逻辑。
 /// 4) 工时收入真源是实时重算值 `hours * currentEffectiveRate`；
 ///    租金收入按 [TimingRecord.income] 计入记录日期所在月。
@@ -35,8 +36,8 @@ class TimingMonthlyIncomeService {
   /// - cutoffDate = min(asOfDate/今天, targetMonth月末)；
   /// - 有下一条：通常结束日 = min(下一条开始日前一天, cutoffDate)；
   ///   若下一条同日开始，当前记录仍按当天计入，避免合法同日记录被跳过；
-  /// - 无下一条且未手动设置分摊截止：结束日 = startDate 所在月月末；
-  /// - 无下一条且手动设置分摊截止：结束日 = 分摊截止日前一天；
+  /// - 手动设置结束日时，内部 exclusive cutoff = UI 结束日 + 1 day；
+  /// - 无手动结束日且无下一条：内部 exclusive cutoff = startDate 下月 1 日；
   /// - 若 startDate > cutoffDate，该记录本次图表统计跳过；
   /// - 未来记录允许存在于列表中，但不进入当前收入图表；
   /// - 按天均摊到自然月。
@@ -126,14 +127,17 @@ class TimingMonthlyIncomeService {
           nextStart: nextStart,
           statisticsExclusiveCutoff: statisticsExclusiveCutoff,
         );
-        final effectiveExclusiveCutoff = _resolveEffectiveExclusiveCutoff(
+        // Stored allocationCutoffDate is an exclusive end kept under the
+        // existing allocation_cutoff_date column name for compatibility.
+        final allocationCutoffExclusiveYmd = current.allocationCutoffDate;
+        final allocationEndExclusive = _resolveAllocationEndExclusive(
           start: start,
           nextStart: nextStart,
           implicitExclusiveCutoff: implicitExclusiveCutoff,
           statisticsExclusiveCutoff: statisticsExclusiveCutoff,
-          allocationCutoffDate: current.allocationCutoffDate,
+          allocationCutoffExclusiveYmd: allocationCutoffExclusiveYmd,
         );
-        final end = effectiveExclusiveCutoff.subtract(const Duration(days: 1));
+        final end = allocationEndExclusive.subtract(const Duration(days: 1));
 
         if (end.isBefore(start)) {
           continue;
@@ -211,46 +215,55 @@ class TimingMonthlyIncomeService {
     return nextStart;
   }
 
-  static DateTime _resolveEffectiveExclusiveCutoff({
+  // Hours allocation priority:
+  // 1. explicit UI inclusive end + 1 day, persisted as exclusive cutoff;
+  // 2. otherwise next same-device startDate;
+  // 3. otherwise first day of next month.
+  // This only affects monthly income chart distribution. Rent, TimingRecord
+  // income, project receivable, accounts, payments, and settlements do not
+  // consume this allocation rule.
+  static DateTime _resolveAllocationEndExclusive({
     required DateTime start,
     required DateTime? nextStart,
     required DateTime implicitExclusiveCutoff,
     required DateTime statisticsExclusiveCutoff,
-    required int? allocationCutoffDate,
+    required int? allocationCutoffExclusiveYmd,
   }) {
-    final explicitCutoff = _validExplicitCutoffForCalculation(
+    final explicitExclusiveCutoff = _validExplicitCutoffForCalculation(
       start: start,
       nextStart: nextStart,
-      allocationCutoffDate: allocationCutoffDate,
+      allocationCutoffExclusiveYmd: allocationCutoffExclusiveYmd,
     );
-    final configuredExclusiveCutoff = switch ((explicitCutoff, nextStart)) {
-      (final DateTime explicit, final DateTime _) => _minDate(
-        explicit,
-        implicitExclusiveCutoff,
-      ),
-      (final DateTime explicit, null) => explicit,
-      (null, _) => implicitExclusiveCutoff,
+    final allocationEndExclusive = switch (explicitExclusiveCutoff) {
+      final DateTime explicit => explicit,
+      null => implicitExclusiveCutoff,
     };
-    return _minDate(configuredExclusiveCutoff, statisticsExclusiveCutoff);
+    return _minDate(allocationEndExclusive, statisticsExclusiveCutoff);
   }
 
   static DateTime? _validExplicitCutoffForCalculation({
     required DateTime start,
     required DateTime? nextStart,
-    required int? allocationCutoffDate,
+    required int? allocationCutoffExclusiveYmd,
   }) {
-    if (allocationCutoffDate == null) {
+    if (allocationCutoffExclusiveYmd == null) {
       return null;
     }
     if (nextStart != null && _isSameDay(start, nextStart)) {
       return null;
     }
 
-    final explicitCutoff = _tryDateFromYmd(allocationCutoffDate);
-    if (explicitCutoff == null || !explicitCutoff.isAfter(start)) {
+    final explicitExclusiveCutoff = _tryDateFromYmd(
+      allocationCutoffExclusiveYmd,
+    );
+    if (explicitExclusiveCutoff == null ||
+        !explicitExclusiveCutoff.isAfter(start)) {
       return null;
     }
-    return explicitCutoff;
+    if (nextStart != null && explicitExclusiveCutoff.isAfter(nextStart)) {
+      return null;
+    }
+    return explicitExclusiveCutoff;
   }
 
   static DateTime? _tryDateFromYmd(int ymd) {

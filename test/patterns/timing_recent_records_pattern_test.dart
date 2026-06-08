@@ -109,48 +109,49 @@ void main() {
     expect(find.text('8.1 h'), findsOneWidget);
   });
 
-  testWidgets('expanded aggregate child displays cutoff date range', (
-    WidgetTester tester,
-  ) async {
-    await _pumpSectionRecentRecords(
-      tester,
-      records: const [
-        TimingRecord(
-          id: 10,
-          deviceId: 1,
-          startDate: 20260501,
-          allocationCutoffDate: 20260509,
-          contact: '李洋',
-          site: '天眉乐',
-          type: TimingType.hours,
-          startMeter: 100,
-          endMeter: 108,
-          hours: 8,
-          income: 1440,
-        ),
-        TimingRecord(
-          id: 11,
-          deviceId: 1,
-          startDate: 20260501,
-          contact: '李洋',
-          site: '天眉乐',
-          type: TimingType.hours,
-          startMeter: 108,
-          endMeter: 116,
-          hours: 8,
-          income: 1440,
-        ),
-      ],
-    );
+  testWidgets(
+    'expanded aggregate child displays inclusive end from exclusive cutoff',
+    (WidgetTester tester) async {
+      await _pumpSectionRecentRecords(
+        tester,
+        records: const [
+          TimingRecord(
+            id: 10,
+            deviceId: 1,
+            startDate: 20260501,
+            allocationCutoffDate: 20260509,
+            contact: '李洋',
+            site: '天眉乐',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 108,
+            hours: 8,
+            income: 1440,
+          ),
+          TimingRecord(
+            id: 11,
+            deviceId: 1,
+            startDate: 20260501,
+            contact: '李洋',
+            site: '天眉乐',
+            type: TimingType.hours,
+            startMeter: 108,
+            endMeter: 116,
+            hours: 8,
+            income: 1440,
+          ),
+        ],
+      );
 
-    expect(find.text('2026.05.01（已聚合）'), findsNothing);
-    expect(find.text('2026.05.01 (已聚合)'), findsOneWidget);
+      expect(find.text('2026.05.01（已聚合）'), findsNothing);
+      expect(find.text('2026.05.01 (已聚合)'), findsOneWidget);
 
-    await tester.tap(find.text('李洋 · 天眉乐'));
-    await tester.pump();
+      await tester.tap(find.text('李洋 · 天眉乐'));
+      await tester.pump();
 
-    expect(find.text('2026.05.01 - 05.08'), findsOneWidget);
-  });
+      expect(find.text('2026.05.01 - 05.08'), findsOneWidget);
+    },
+  );
 
   testWidgets('sliver aggregate row shows three-record count', (
     WidgetTester tester,
@@ -257,30 +258,32 @@ void main() {
     expect(find.text('¥22000'), findsOneWidget);
   });
 
-  testWidgets('single hours record with cutoff displays date range header', (
-    WidgetTester tester,
-  ) async {
-    const record = TimingRecord(
-      id: 4,
-      deviceId: 1,
-      startDate: 20260521,
-      allocationCutoffDate: 20260526,
-      contact: '周亮',
-      site: '成都',
-      type: TimingType.hours,
-      startMeter: 6180.7,
-      endMeter: 6184.7,
-      hours: 4,
-      income: 480,
-    );
+  testWidgets(
+    'single hours record displays inclusive date range from exclusive cutoff',
+    (WidgetTester tester) async {
+      const record = TimingRecord(
+        id: 4,
+        deviceId: 1,
+        startDate: 20260606,
+        allocationCutoffDate: 20260619,
+        contact: '周亮',
+        site: '成都',
+        type: TimingType.hours,
+        startMeter: 6180.7,
+        endMeter: 6184.7,
+        hours: 4,
+        income: 480,
+      );
 
-    await _pumpSectionRecentRecords(tester, records: const [record]);
+      await _pumpSectionRecentRecords(tester, records: const [record]);
 
-    expect(find.text('2026.05.21 - 05.25'), findsOneWidget);
-    expect(find.text('周亮 · 成都'), findsOneWidget);
-  });
+      expect(find.text('2026.06.06 - 06.18'), findsOneWidget);
+      expect(find.text('2026.06.06 - 06.19'), findsNothing);
+      expect(find.text('周亮 · 成都'), findsOneWidget);
+    },
+  );
 
-  testWidgets('same-day cutoff record is split from plain date group', (
+  testWidgets('same-day explicit end record is split from plain date group', (
     WidgetTester tester,
   ) async {
     const records = [
@@ -327,7 +330,7 @@ void main() {
     expect(find.text('2026.05.21 - 05.25'), findsOneWidget);
   });
 
-  testWidgets('rent cutoff is ignored by recent date range display', (
+  testWidgets('rent exclusive cutoff is ignored by recent date range display', (
     WidgetTester tester,
   ) async {
     const record = TimingRecord(
