@@ -103,6 +103,8 @@ class AccountPayment {
   }
 
   static AccountPayment fromMap(Map<String, Object?> m) {
+    // 读优先 fen：amount_fen 为权威口径，缺失时才回退 REAL amount。
+    // amount REAL 是 legacy / 展示兼容列，保留不移除（NOT NULL 重建 = B1，未做）。
     final amountFen = _readFen(m['amount_fen']);
     final mergeBatchTotalAmountFen = _readFen(
       m['merge_batch_total_amount_fen'],

@@ -114,6 +114,8 @@ class ProjectWriteOff {
   }
 
   static ProjectWriteOff fromMap(Map<String, Object?> map) {
+    // 读优先 fen：amount_fen 为权威口径，缺失时才回退 REAL amount。
+    // amount REAL 是 legacy / 展示兼容列，保留不移除（NOT NULL 重建 = B2，未做）。
     final amountFen = _readFen(map['amount_fen']);
     return ProjectWriteOff(
       id: (map['id'] as String?) ?? '',

@@ -204,9 +204,10 @@ class ComputeAccountSummaryUseCase {
         record.effectiveProjectId,
         () => <int, int>{},
       );
+      // R5.26-B4：rent 设备应收读优先 income_fen（缺失回退 round(income*100)）；
+      // 对一致数据与旧 ProjectFinanceCalculator.yuanToFen(record.income) 逐记录等价。
       byDevice[record.deviceId] =
-          (byDevice[record.deviceId] ?? 0) +
-          ProjectFinanceCalculator.yuanToFen(record.income);
+          (byDevice[record.deviceId] ?? 0) + record.incomeFen;
     }
 
     final totalsFen = <int, int>{};

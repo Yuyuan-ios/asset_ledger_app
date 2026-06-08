@@ -151,11 +151,14 @@ class AccountService {
       final ymd = t.startDate;
       if (ymd < mut.minYmd) mut.minYmd = ymd;
 
-      // rent：只累计 income（供你后续显示）
+      // rent：only accumulate income.
       if (t.type == TimingType.rent) {
+        // rentIncomeTotal 是 yuan 展示总额（REAL 兼容口径，保留）。
         mut.rentIncomeTotal += t.income;
-        // fen 权威口径：逐记录 round 后累加，不先 double 求和再转 fen。
-        mut.rentIncomeFen += Money.fromYuan(t.income).fen;
+        // R5.26-B4：fen 权威口径读优先 income_fen（[TimingRecord.incomeFen] =
+        // 存储 income_fen ?? round(income*100)）。对一致数据与旧
+        // `Money.fromYuan(t.income).fen` 逐记录等价；缺 fen 的 legacy 行自动回退。
+        mut.rentIncomeFen += t.incomeFen;
         continue;
       }
 

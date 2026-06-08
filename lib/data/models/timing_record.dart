@@ -51,8 +51,15 @@ class TimingRecord {
   /// 工时（小时）
   final double hours;
 
-  /// 本条记录对应的收入
+  /// 本条记录对应的收入（REAL 兼容/回退口径）。
+  ///
+  /// R5.26-B4：fen 主存为 [incomeFen]（读优先 DB 的 income_fen 列）；income REAL
+  /// 作为兼容列保留、不移除，仅在 income_fen 缺失时回退。
   final double income;
+
+  /// 存储的 income_fen（DB 列原值，nullable）。null 表示 legacy/旧行未落 fen，
+  /// 由 [incomeFen] getter 回退派生。仅 [fromMap] 设置；其余构造默认 null。
+  final int? _incomeFen;
 
   /// ✅ 是否排除在燃油效率统计之外
   /// true  = 包油 / 不计入油耗效率
@@ -77,9 +84,10 @@ class TimingRecord {
     required this.endMeter,
     required this.hours,
     required this.income,
+    int? incomeFen,
     this.excludeFromFuelEfficiency = false,
     this.isBreaking = false,
-  });
+  }) : _incomeFen = incomeFen;
 
   // ---------------------------------------------------------------------------
   // copyWith：用于编辑/更新记录
@@ -158,9 +166,9 @@ class TimingRecord {
   // 字段不存在时，默认 false
   // ---------------------------------------------------------------------------
   static TimingRecord fromMap(Map<String, Object?> m) {
-    // R5.26-B3：income 仍以 REAL income 列为业务口径（读路径本轮不切换）。
-    // income_fen 是其 fen 镜像，由 [incomeFen] getter 派生（== round(income*100)），
-    // 因此缺列 / 值为 NULL 的 legacy map 也能正确还原，无需在此读取 income_fen。
+    // R5.26-B4：读优先 fen —— income_fen 存在时读入存储原值（缺列/NULL 的 legacy
+    // 行回退由 [incomeFen] getter 派生）。income (REAL) 仍读入作兼容/回退口径，
+    // 业务 hours 应收不受影响（仍由 hours×rate 重算）。
     return TimingRecord(
       id: m['id'] as int?,
       deviceId: m['device_id'] as int,
@@ -174,18 +182,20 @@ class TimingRecord {
       endMeter: (m['end_meter'] as num).toDouble(),
       hours: (m['hours'] as num).toDouble(),
       income: (m['income'] as num).toDouble(),
+      incomeFen: (m['income_fen'] as num?)?.toInt(),
       excludeFromFuelEfficiency:
           ((m['exclude_from_fuel_eff'] as int?) ?? 0) == 1,
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
     );
   }
 
-  /// 本条记录收入的整数分镜像（round(income * 100)）。
+  /// 本条记录收入的整数分（fen 主存读优先口径）。
   ///
-  /// R5.26-B3：与 [account_payment] / [project_write_off] 的 fen getter 同风格，
-  /// 派生自 REAL [income]。hours 与 rent 均按 income 镜像；hours 应收仍由
-  /// hours × rate 重算，rent 暂仍按 income 聚合。读路径切换留待 B4。
-  int get incomeFen => _yuanToFen(income);
+  /// R5.26-B4：优先返回存储的 income_fen（DB 列原值），缺失/legacy 时由 REAL
+  /// [income] 派生镜像 round(income*100) 回退。account/项目/年度汇总的 **rent**
+  /// 收入据此 prefer fen（与旧 `Money.fromYuan(income).fen` 对一致数据逐记录等价）。
+  /// **hours 应收不读此值**，仍由 hours×rate 重算；income_fen 对 hours 仅是快照镜像。
+  int get incomeFen => _incomeFen ?? _yuanToFen(income);
 
   static TimingType _parseType(Object? value) {
     if (value is String) {
