@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../components/avatars/linked_external_work_badge.dart';
+import '../../components/buttons/app_brand_outline_action_button.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
 import '../../features/timing/view_models/external_work_records_view_model.dart';
@@ -148,7 +149,7 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               height: 44,
               child: OutlinedButton(
                 onPressed: linkAction,
-                style: vm.isLinked ? null : _externalWorkLinkActionStyle(),
+                style: appBrandOutlineActionButtonStyle(),
                 child: Text(vm.isLinked ? '解除关联' : '关联到本地项目'),
               ),
             ),
@@ -157,34 +158,6 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
       ),
     );
   }
-}
-
-ButtonStyle _externalWorkLinkActionStyle() {
-  return OutlinedButton.styleFrom(
-    foregroundColor: TimingColors.externalWorkLinkAction,
-  ).copyWith(
-    backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-      if (states.contains(WidgetState.disabled)) return null;
-      if (states.contains(WidgetState.pressed)) {
-        return TimingColors.externalWorkLinkActionPressed;
-      }
-      return TimingColors.externalWorkLinkActionBackground;
-    }),
-    side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
-      if (states.contains(WidgetState.disabled)) return null;
-      return const BorderSide(color: TimingColors.externalWorkLinkAction);
-    }),
-    overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
-      if (states.contains(WidgetState.disabled)) return null;
-      if (states.contains(WidgetState.hovered) ||
-          states.contains(WidgetState.focused)) {
-        return TimingColors.externalWorkLinkActionPressed.withValues(
-          alpha: 0.55,
-        );
-      }
-      return null;
-    }),
-  );
 }
 
 const double _externalWorkGroupRadius = 8;

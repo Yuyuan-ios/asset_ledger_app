@@ -173,6 +173,7 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
           ],
         ),
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),

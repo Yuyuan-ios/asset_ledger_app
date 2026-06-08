@@ -111,6 +111,7 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
           ),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => _close(null),
@@ -225,6 +226,7 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
           Text('提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。', style: helperStyle),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => _close(null),
