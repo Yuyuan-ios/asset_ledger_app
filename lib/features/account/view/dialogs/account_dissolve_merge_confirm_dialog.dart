@@ -43,6 +43,7 @@ class _DissolveMergeConfirmDialogState
           const Text('原始计时记录不会删除。\n设备、工时、单价不会改变。'),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: _submitting

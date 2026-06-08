@@ -212,6 +212,7 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
           ),
         ),
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: DeviceEditorActionsPattern.build(
         saving: _saving,
         onCancel: () => _close(null),

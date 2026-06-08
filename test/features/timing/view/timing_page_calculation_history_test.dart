@@ -794,7 +794,7 @@ void main() {
     );
     expect(
       linkButtonStyle.side?.resolve(<WidgetState>{})?.color,
-      TimingColors.externalWorkLinkAction,
+      TimingColors.externalWorkLinkActionBorder,
     );
 
     await tester.tap(find.widgetWithText(OutlinedButton, '关联到本地项目'));
@@ -826,6 +826,27 @@ void main() {
       expect(find.text('外协项目详情'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, '解除关联'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, '关联到本地项目'), findsNothing);
+
+      final unlinkButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '解除关联'),
+      );
+      final unlinkButtonStyle = unlinkButton.style!;
+      expect(
+        unlinkButtonStyle.foregroundColor?.resolve(<WidgetState>{}),
+        TimingColors.externalWorkLinkAction,
+      );
+      expect(
+        unlinkButtonStyle.backgroundColor?.resolve(<WidgetState>{}),
+        TimingColors.externalWorkLinkActionBackground,
+      );
+      expect(
+        unlinkButtonStyle.backgroundColor?.resolve({WidgetState.pressed}),
+        TimingColors.externalWorkLinkActionPressed,
+      );
+      expect(
+        unlinkButtonStyle.side?.resolve(<WidgetState>{})?.color,
+        TimingColors.externalWorkLinkActionBorder,
+      );
 
       await tester.tap(find.widgetWithText(OutlinedButton, '解除关联'));
       await tester.pumpAndSettle();

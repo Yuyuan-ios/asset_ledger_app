@@ -181,6 +181,7 @@ class _AccountPaymentEditorDialogState
           ],
         ),
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => _close(null),
