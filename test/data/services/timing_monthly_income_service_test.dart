@@ -101,11 +101,10 @@ void main() {
           );
 
           // A: Jun 1-Jun 9, 9 days at 100/day = 900.
-          // B: Jun 10-Jul 10, 31 days at 100/day = 3100.
-          // B therefore owns the post-boundary segment; A does not continue
-          // past the implicit nextStartExclusive boundary.
-          expect(monthly[5], closeTo(3000.0, 0.001));
-          expect(monthly[6], closeTo(1000.0, 0.001));
+          // B has no next same-device record, so its open segment defaults to
+          // the first day of the next month instead of spilling into July.
+          expect(monthly[5], closeTo(4000.0, 0.001));
+          expect(monthly[6], closeTo(0.0, 0.001));
           expect(monthly.take(5).every((v) => v == 0.0), isTrue);
           expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
         },
@@ -190,7 +189,7 @@ void main() {
         },
       );
 
-      test('last same-device record is capped by statistics cutoff', () {
+      test('last same-device record defaults to start month only', () {
         final monthly = computeLegacyMonthlyIncome(
           records: [
             legacyHoursRecord(
@@ -205,10 +204,11 @@ void main() {
           asOfDate: DateTime(2026, 7, 10),
         );
 
-        // Last same-device record uses stats cutoff: Jun 1-Jul 10 = 40 days.
-        // 40h * 100 = 4000, split as Jun 30 days and Jul 10 days.
-        expect(monthly[5], closeTo(3000.0, 0.001));
-        expect(monthly[6], closeTo(1000.0, 0.001));
+        // No next same-device record and no explicit cutoff: the full realtime
+        // income is shown only in the start month using an implicit Jul 1
+        // boundary.
+        expect(monthly[5], closeTo(4000.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
         expect(monthly.take(5).every((v) => v == 0.0), isTrue);
         expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
       });
@@ -268,46 +268,50 @@ void main() {
         );
 
         // Device 2 has zero realtime income, but its Jun 10 date must not cap
-        // device 1. Device 1 remains a last same-device record through Jul 10.
-        expect(monthly[5], closeTo(3000.0, 0.001));
-        expect(monthly[6], closeTo(1000.0, 0.001));
+        // device 1. Device 1 remains an open segment, which now defaults to
+        // the first day of the next month and keeps the full income in June.
+        expect(monthly[5], closeTo(4000.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
         expect(monthly.take(5).every((v) => v == 0.0), isTrue);
         expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
       });
     });
 
     group('allocation cutoff monthly allocation', () {
-      test('null cutoff keeps legacy implicit monthly allocation', () {
-        final monthly = computeLegacyMonthlyIncome(
-          records: [
-            legacyHoursRecord(
-              id: 1,
-              deviceId: 1,
-              startDate: 20260601,
-              hours: 9,
-            ),
-            legacyHoursRecord(
-              id: 2,
-              deviceId: 1,
-              startDate: 20260610,
-              startMeter: 9,
-              hours: 31,
-            ),
-          ],
-          devices: [legacyDevice(id: 1)],
-          targetMonth: 7,
-          asOfDate: DateTime(2026, 7, 10),
-        );
+      test(
+        'null cutoff keeps next-start cutoff and open segment in start month',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260601,
+                hours: 9,
+              ),
+              legacyHoursRecord(
+                id: 2,
+                deviceId: 1,
+                startDate: 20260610,
+                startMeter: 9,
+                hours: 31,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 7,
+            asOfDate: DateTime(2026, 7, 10),
+          );
 
-        // A: [Jun 1, Jun 10) = 9 days at 100/day.
-        // B: [Jun 10, Jul 11) = 31 days at 100/day.
-        expect(monthly[5], closeTo(3000.0, 0.001));
-        expect(monthly[6], closeTo(1000.0, 0.001));
-        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
-        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
-      });
+          // A: [Jun 1, Jun 10) by next-start cutoff.
+          // B has no next record, so it defaults to [Jun 10, Jul 1).
+          expect(monthly[5], closeTo(4000.0, 0.001));
+          expect(monthly[6], closeTo(0.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+        },
+      );
 
-      test('cutoff equal to next start preserves legacy allocation', () {
+      test('cutoff equal to next start preserves first segment boundary', () {
         final monthly = computeLegacyMonthlyIncome(
           records: [
             legacyHoursRecord(
@@ -331,9 +335,9 @@ void main() {
         );
 
         // cutoff is right-open: Jun 10 is not allocated to A.
-        // This matches the legacy nextStartExclusive boundary.
-        expect(monthly[5], closeTo(3000.0, 0.001));
-        expect(monthly[6], closeTo(1000.0, 0.001));
+        // B remains an open segment and defaults to [Jun 10, Jul 1).
+        expect(monthly[5], closeTo(4000.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
         expect(monthly.take(5).every((v) => v == 0.0), isTrue);
         expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
       });
@@ -368,51 +372,57 @@ void main() {
         expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
       });
 
-      test('no next record cutoff stops allocation before statistics cutoff', () {
-        final monthly = computeLegacyMonthlyIncome(
-          records: [
-            legacyHoursRecord(
-              id: 1,
-              deviceId: 1,
-              startDate: 20260601,
-              allocationCutoffDate: 20260620,
-              hours: 19,
-            ),
-          ],
-          devices: [legacyDevice(id: 1)],
-          targetMonth: 7,
-          asOfDate: DateTime(2026, 7, 10),
-        );
+      test(
+        'no next record cutoff stops allocation before statistics cutoff',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260601,
+                allocationCutoffDate: 20260620,
+                hours: 19,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 7,
+            asOfDate: DateTime(2026, 7, 10),
+          );
 
-        // A: [Jun 1, Jun 20) = 19 days at 100/day.
-        expect(monthly[5], closeTo(1900.0, 0.001));
-        expect(monthly[6], closeTo(0.0, 0.001));
-        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
-        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
-      });
+          // A: [Jun 1, Jun 20) = 19 days at 100/day.
+          expect(monthly[5], closeTo(1900.0, 0.001));
+          expect(monthly[6], closeTo(0.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+        },
+      );
 
-      test('cutoff after statistics cutoff is capped by statistics boundary', () {
-        final monthly = computeLegacyMonthlyIncome(
-          records: [
-            legacyHoursRecord(
-              id: 1,
-              deviceId: 1,
-              startDate: 20260601,
-              allocationCutoffDate: 20260720,
-              hours: 10,
-            ),
-          ],
-          devices: [legacyDevice(id: 1)],
-          targetMonth: 6,
-          asOfDate: DateTime(2026, 6, 10),
-        );
+      test(
+        'cutoff after statistics cutoff is capped by statistics boundary',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260601,
+                allocationCutoffDate: 20260720,
+                hours: 10,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 6,
+            asOfDate: DateTime(2026, 6, 10),
+          );
 
-        // Statistics cutoff is Jun 10, so the right-open boundary is Jun 11.
-        // The later explicit cutoff must not allocate after Jun 10.
-        expect(monthly[5], closeTo(1000.0, 0.001));
-        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
-        expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
-      });
+          // Statistics cutoff is Jun 10, so the right-open boundary is Jun 11.
+          // The later explicit cutoff must not allocate after Jun 10.
+          expect(monthly[5], closeTo(1000.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+        },
+      );
 
       test('cross-month cutoff splits income before cutoff date', () {
         final monthly = computeLegacyMonthlyIncome(
@@ -492,8 +502,9 @@ void main() {
         );
 
         // Persisted invalid cutoff <= startDate is ignored for chart safety.
-        expect(monthly[5], closeTo(3000.0, 0.001));
-        expect(monthly[6], closeTo(1000.0, 0.001));
+        // The final open segment still defaults to the start month only.
+        expect(monthly[5], closeTo(4000.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
       });
 
       test('same-day next with invalid explicit cutoff keeps legacy day', () {
@@ -554,7 +565,7 @@ void main() {
       });
     });
 
-    test('dynamically amortizes across months by target month end', () {
+    test('keeps open no-next segments in the start month by default', () {
       final monthlyAtFeb =
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
             records: [
@@ -650,8 +661,8 @@ void main() {
           );
 
       expect(monthlyAtMar[0], closeTo(1062.8571, 0.001));
-      expect(monthlyAtMar[1], closeTo(464.4156, 0.001));
-      expect(monthlyAtMar[2], closeTo(422.7273, 0.001));
+      expect(monthlyAtMar[1], closeTo(887.1429, 0.001));
+      expect(monthlyAtMar[2], closeTo(0.0, 0.001));
     });
 
     test('keeps same-device same-day records before segmenting', () {
@@ -913,45 +924,42 @@ void main() {
       },
     );
 
-    test(
-      'extends open segment only to cutoffDate for unfinished device timeline',
-      () {
-        final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
-            TimingRecord(
-              id: 1,
-              deviceId: 1,
-              startDate: 20260315,
-              contact: 'A',
-              site: 'Y',
-              type: TimingType.hours,
-              startMeter: 100,
-              endMeter: 117,
-              hours: 17,
-              income: 0,
-            ),
-          ],
-          devices: const [
-            Device(
-              id: 1,
-              name: 'SANY 1#',
-              brand: 'SANY',
-              defaultUnitPrice: 100,
-              baseMeterHours: 0,
-            ),
-          ],
-          rates: const [],
-          targetYear: 2026,
-          targetMonth: 5,
-          asOfDate: DateTime(2026, 5, 20),
-        );
+    test('keeps unfinished open segment in the start month by default', () {
+      final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
+        records: const [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260315,
+            contact: 'A',
+            site: 'Y',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 117,
+            hours: 17,
+            income: 0,
+          ),
+        ],
+        devices: const [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ],
+        rates: const [],
+        targetYear: 2026,
+        targetMonth: 5,
+        asOfDate: DateTime(2026, 5, 20),
+      );
 
-        expect(monthly[2], closeTo(431.3433, 0.001)); // 3月
-        expect(monthly[3], closeTo(761.1940, 0.001)); // 4月
-        expect(monthly[4], closeTo(507.4627, 0.001)); // 5月(仅到 5/20)
-        expect(monthly[2] + monthly[3] + monthly[4], closeTo(1700.0, 0.001));
-      },
-    );
+      expect(monthly[2], closeTo(1700.0, 0.001)); // 3月
+      expect(monthly[3], closeTo(0.0, 0.001)); // 4月
+      expect(monthly[4], closeTo(0.0, 0.001)); // 5月
+      expect(monthly.reduce((a, b) => a + b), closeTo(1700.0, 0.001));
+    });
 
     test(
       'keeps april income when april records exist under realtime rules',
@@ -1209,9 +1217,9 @@ void main() {
         // r1 1500 in [01-10..02-09] => Jan 22d + Feb 9d
         // r2  600 in [02-10..02-28] => Feb 19d
         // dev2@200:
-        // r3 1000 in [01-20..02-28] => Jan 12d + Feb 28d
-        expect(monthly[0], closeTo(1364.5161, 0.001)); // 1月
-        expect(monthly[1], closeTo(1735.4839, 0.001)); // 2月
+        // r3 1000 has no next same-device record, so it stays in January.
+        expect(monthly[0], closeTo(2064.5161, 0.001)); // 1月
+        expect(monthly[1], closeTo(1035.4839, 0.001)); // 2月
         expect(monthly.sublist(2).every((v) => v == 0.0), isTrue);
       },
     );

@@ -12,6 +12,7 @@ void main() {
     WidgetTester tester, {
     GlobalKey<TimingDetailContentState>? key,
     TimingRecord? editing,
+    List<TimingRecord> records = const [],
     required List<Device> devices,
     List<TimingCalculationHistory> existingCalculationHistories = const [],
     TimingDetailSubmitHandler? onSubmit,
@@ -31,7 +32,7 @@ void main() {
           body: TimingDetailContent(
             key: key,
             editing: editing,
-            records: const [],
+            records: records,
             activeDevices: devices.where((device) => device.isActive).toList(),
             allDevices: devices,
             deviceById: deviceById,
@@ -85,18 +86,23 @@ void main() {
     double startMeter = 10,
     double endMeter = 12,
     double hours = 2,
+    int startDate = 20260315,
+    int? allocationCutoffDate,
+    TimingType type = TimingType.hours,
+    double income = 300,
   }) {
     return TimingRecord(
       id: 7,
       deviceId: 1,
-      startDate: 20260315,
+      startDate: startDate,
+      allocationCutoffDate: allocationCutoffDate,
       contact: '何小波',
       site: 'A工地',
-      type: TimingType.hours,
+      type: type,
       startMeter: startMeter,
       endMeter: endMeter,
       hours: hours,
-      income: 300,
+      income: income,
     );
   }
 
@@ -107,6 +113,16 @@ void main() {
 
   Future<void> closeCalculatorSheet(WidgetTester tester) async {
     await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollCutoffFieldIntoView(WidgetTester tester) async {
+    await tester.dragUntilVisible(
+      find.widgetWithText(TextField, '收入分摊至'),
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -240),
+      maxIteration: 6,
+    );
     await tester.pumpAndSettle();
   }
 
@@ -286,6 +302,177 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(submittedRecord?.startDate, 20260315);
+  });
+
+  testWidgets('hours cutoff picker saves exclusive allocation cutoff', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    expect(find.text('收入分摊至'), findsOneWidget);
+    expect(find.text('只影响收入图表月份分布，不改变项目总应收'), findsOneWidget);
+
+    await scrollCutoffFieldIntoView(tester);
+    await tester.tap(find.widgetWithText(TextField, '收入分摊至'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260318')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026.03.18'), findsOneWidget);
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, 20260319);
+    expect(submittedRecord?.income, 0);
+  });
+
+  testWidgets('editing cutoff displays inclusive date and clear saves null', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(allocationCutoffDate: 20260319),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    expect(find.text('2026.03.18'), findsOneWidget);
+
+    await scrollCutoffFieldIntoView(tester);
+    await tester.tap(find.widgetWithText(TextField, '收入分摊至'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-clear-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026.03.18'), findsNothing);
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, isNull);
+  });
+
+  testWidgets('cutoff picker cancel keeps draft unchanged', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(allocationCutoffDate: 20260319),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await scrollCutoffFieldIntoView(tester);
+    await tester.tap(find.widgetWithText(TextField, '收入分摊至'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, 20260319);
+  });
+
+  testWidgets('cutoff picker max date is before next same-device start', (
+    WidgetTester tester,
+  ) async {
+    await pumpTimingDetail(
+      tester,
+      editing: buildEditableTimingRecord(),
+      records: [
+        buildEditableTimingRecord().copyWith(id: 99, startDate: 20260320),
+      ],
+      devices: [buildDevice(id: 1)],
+    );
+
+    await scrollCutoffFieldIntoView(tester);
+    await tester.tap(find.widgetWithText(TextField, '收入分摊至'));
+    await tester.pumpAndSettle();
+
+    final maxExcludedCell = tester.widget<InkWell>(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260320')),
+    );
+    expect(maxExcludedCell.onTap, isNull);
+  });
+
+  testWidgets('same-day next same-device record disables cutoff input', (
+    WidgetTester tester,
+  ) async {
+    await pumpTimingDetail(
+      tester,
+      editing: buildEditableTimingRecord(),
+      records: [buildEditableTimingRecord().copyWith(id: 99)],
+      devices: [buildDevice(id: 1)],
+    );
+
+    final cutoffField = tester.widget<TextField>(
+      find.widgetWithText(TextField, '收入分摊至'),
+    );
+    expect(cutoffField.enabled, isFalse);
+    expect(find.text('同设备同日已有记录，暂不支持手动分摊'), findsOneWidget);
+  });
+
+  testWidgets('cutoff picker can save 2027-12-31 as 2028-01-01 exclusive', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(startDate: 20271230),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await scrollCutoffFieldIntoView(tester);
+    await tester.tap(find.widgetWithText(TextField, '收入分摊至'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20271231')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, 20280101);
   });
 
   testWidgets('new timing date picker updates draft before creating record', (
@@ -520,6 +707,35 @@ void main() {
       hoursField.keyboardType,
       const TextInputType.numberWithOptions(decimal: true),
     );
+  });
+
+  testWidgets('rent mode hides cutoff entry and submits null cutoff', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(
+        type: TimingType.rent,
+        income: 500,
+        allocationCutoffDate: 20260319,
+      ),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    expect(find.text('收入分摊至'), findsNothing);
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.type, TimingType.rent);
+    expect(submittedRecord?.allocationCutoffDate, isNull);
   });
 }
 

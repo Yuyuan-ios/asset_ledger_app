@@ -15,12 +15,18 @@ class SheetDateField extends StatelessWidget {
     required this.onPickDate,
     this.label,
     this.hint,
+    this.helperText,
+    this.enabled = true,
+    this.tooltip = '选择日期',
   });
 
   final TextEditingController controller;
   final VoidCallback onPickDate;
   final String? label;
   final String? hint;
+  final String? helperText;
+  final bool enabled;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +49,13 @@ class SheetDateField extends StatelessWidget {
     return TextField(
       controller: controller,
       readOnly: true,
-      onTap: onPickDate,
+      enabled: enabled,
+      onTap: enabled ? onPickDate : null,
       style: fieldStyle,
       decoration: InputDecoration(
         labelText: label ?? FormatUtils.ymdInputLabel,
         hintText: hint ?? FormatUtils.ymdInputHint,
+        helperText: helperText,
         hintStyle: hintStyle,
         labelStyle: labelStyle,
         floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -58,8 +66,8 @@ class SheetDateField extends StatelessWidget {
           vertical: SheetTokens.fieldContentVPadding,
         ),
         suffixIcon: IconButton(
-          tooltip: '选择日期',
-          onPressed: onPickDate,
+          tooltip: tooltip,
+          onPressed: enabled ? onPickDate : null,
           padding: const EdgeInsets.all(1),
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
           icon: Image.asset(
