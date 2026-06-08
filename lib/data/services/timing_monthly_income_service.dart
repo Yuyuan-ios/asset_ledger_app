@@ -58,6 +58,10 @@ class TimingMonthlyIncomeService {
     final projectMonthlyIncome = <String, Map<int, double>>{};
     final rateCache = <String, Map<int, double>>{};
 
+    // R5.26-B4：本服务是 yuan 口径的月度收入图表（按天均摊 double 累加），不是
+    // fen 权威应收口径，故 rent 收入继续读 REAL [TimingRecord.income]，避免引入
+    // 分→元的二次 rounding 改变图表输出。fen 权威 rent 应收在
+    // AccountService.calcMoneyFen / 账户汇总中读优先 income_fen。income REAL 保留。
     for (final record in records) {
       if (record.type != TimingType.rent || record.income <= 0) continue;
       final start = FormatUtils.dateFromYmd(record.startDate);
