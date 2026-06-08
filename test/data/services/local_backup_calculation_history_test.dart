@@ -1153,7 +1153,14 @@ Future<void> _seedProjectWriteOff(
 ) async {
   final projectId = writeOff['project_id'] as String;
   await _seedProject(db, projectKey: '甲方||一号工地');
-  await db.insert('project_write_offs', {...writeOff, 'project_id': projectId});
+  // R5.26-B2：project_write_offs.amount_fen 现为 NOT NULL；原始 seed map 未带 fen
+  // 时按 round(amount*100) 兜底（显式 amount_fen 仍以 writeOff 为准）。
+  final amount = (writeOff['amount'] as num).toDouble();
+  await db.insert('project_write_offs', {
+    'amount_fen': (amount * 100).round(),
+    ...writeOff,
+    'project_id': projectId,
+  });
 }
 
 Future<void> _seedMergeGroup(Database db) async {

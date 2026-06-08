@@ -76,19 +76,28 @@ void main() {
     });
   });
 
-  group('REAL compatibility columns retained (not removed, not NOT NULL)', () {
+  group('REAL compatibility columns retained; fen NOT NULL tracks B1/B2', () {
     test('account_payments keeps amount REAL NOT NULL and nullable amount_fen', () {
-      final schema = _read('lib/data/db/schema/account_schema.dart');
-      expect(schema.contains('amount REAL NOT NULL'), isTrue);
-      expect(schema.contains('amount_fen INTEGER'), isTrue);
-      // B0.5 no-NULL invariant 未被放宽：amount_fen 仍是 nullable INTEGER（无 NOT NULL）。
-      expect(schema.contains('amount_fen INTEGER NOT NULL'), isFalse);
+      // 表内逐块断言（避免被同文件 project_write_offs 的 NOT NULL 串误判）。
+      final block = _tableBlock(
+        _read('lib/data/db/schema/account_schema.dart'),
+        'account_payments',
+      );
+      expect(block.contains('amount REAL NOT NULL'), isTrue);
+      expect(block.contains('amount_fen INTEGER'), isTrue);
+      // B1 未做：account_payments.amount_fen 仍是 nullable INTEGER（无 NOT NULL）。
+      expect(block.contains('amount_fen INTEGER NOT NULL'), isFalse);
     });
 
-    test('project_write_offs keeps amount REAL and nullable amount_fen', () {
-      final schema = _read('lib/data/db/schema/account_schema.dart');
-      expect(schema.contains('amount REAL NOT NULL CHECK (amount > 0)'), isTrue);
-      expect(schema.contains('amount_fen INTEGER NOT NULL'), isFalse);
+    test('project_write_offs keeps amount REAL and now NOT NULL amount_fen', () {
+      // R5.26-B2：project_write_offs.amount_fen 已重建为 NOT NULL；amount REAL 与
+      // CHECK(amount>0) 作为兼容列保留。
+      final block = _tableBlock(
+        _read('lib/data/db/schema/account_schema.dart'),
+        'project_write_offs',
+      );
+      expect(block.contains('amount REAL NOT NULL CHECK (amount > 0)'), isTrue);
+      expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
     });
 
     test('timing_records keeps income REAL NOT NULL and nullable income_fen', () {
@@ -101,3 +110,12 @@ void main() {
 }
 
 String _read(String relativePath) => File(relativePath).readAsStringSync();
+
+/// 截取单个 `CREATE TABLE <name> ( ... )` 块，做表内列断言，避免跨表串匹配。
+String _tableBlock(String schema, String tableName) {
+  final start = schema.indexOf('CREATE TABLE $tableName (');
+  expect(start, isNonNegative, reason: 'schema 未找到表 $tableName');
+  final end = schema.indexOf(');', start);
+  expect(end, greaterThan(start), reason: '$tableName 建表块未闭合');
+  return schema.substring(start, end);
+}

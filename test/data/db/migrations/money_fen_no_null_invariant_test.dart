@@ -23,7 +23,8 @@ import '../../../test_setup.dart';
 /// - 场景 B：fen 列已存在但值为 NULL（当前版本库结构漂移）→ onOpen ensure 自愈。
 /// - 回填语义：只填 NULL，不覆盖既有 fen 值（B1/B2 重建表的 COALESCE 依据）。
 ///
-/// 另外用 schema readiness 测试明确：当前两列仍是 nullable —— 本轮**不**改 NOT NULL。
+/// schema readiness 现状（随 B 系列推进）：project_write_offs.amount_fen 已在
+/// R5.26-B2 改为 NOT NULL；account_payments.amount_fen 仍 nullable（B1 未做）。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -173,11 +174,12 @@ void main() {
   // 场景 B：当前版本库结构漂移（fen 列在、值为 NULL）经 onOpen ensure 自愈。
   // ---------------------------------------------------------------------------
   test(
-    'current-version db with NULL amount_fen values is healed to non-null by '
-    'DbSchemaCompat.ensure (onOpen path)',
+    'current-version db with NULL account_payments.amount_fen is healed to '
+    'non-null by DbSchemaCompat.ensure (onOpen path)',
     () async {
-      // 1) 直接建当前版本全量 schema（fen 列已存在），但插入 amount_fen 显式为
-      //    NULL 的行 —— 模拟历史脏数据 / 漂移：列在但值缺。
+      // 注：R5.26-B2 后 project_write_offs.amount_fen 已是 NOT NULL，当前 schema
+      // 不可能再漂移出 NULL；account_payments.amount_fen 仍 nullable（B1 未做），
+      // 故此处只验 account_payments 的 onOpen 自愈。
       final db = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
@@ -194,16 +196,6 @@ void main() {
               'amount': 88.80,
               'amount_fen': null,
             });
-            await db.insert('project_write_offs', {
-              'id': 'wo-drift',
-              'project_id': 'project:drift',
-              'amount': 12.34,
-              'amount_fen': null,
-              'reason': 'rounding',
-              'write_off_date': '2026-06-01',
-              'created_at': '2026-06-01T00:00:00.000Z',
-              'updated_at': '2026-06-01T00:00:00.000Z',
-            });
           },
         ),
       );
@@ -211,21 +203,15 @@ void main() {
         // sanity：列在、值为 NULL。
         expect(await _columnExists(db, 'account_payments', 'amount_fen'), isTrue);
         expect(await _nullFenCount(db, 'account_payments'), 1);
-        expect(await _nullFenCount(db, 'project_write_offs'), 1);
 
-        // 2) 跑生产 onOpen 兜底：DbSchemaCompat.ensure 内部会调 ensureMoneyFenSchema。
+        // 跑生产 onOpen 兜底：DbSchemaCompat.ensure 内部会调 ensureMoneyFenSchema。
         await DbSchemaCompat.ensure(db);
 
-        // 3) NULL 被自愈为 round(amount*100)。
+        // NULL 被自愈为 round(amount*100)。
         expect(await _nullFenCount(db, 'account_payments'), 0);
-        expect(await _nullFenCount(db, 'project_write_offs'), 0);
         expect(
           (await db.query('account_payments')).single['amount_fen'],
           8880,
-        );
-        expect(
-          (await db.query('project_write_offs')).single['amount_fen'],
-          1234,
         );
       } finally {
         await db.close();
@@ -303,8 +289,8 @@ void main() {
   // Schema readiness：当前两列存在，但仍 nullable —— 本轮不改 NOT NULL。
   // ---------------------------------------------------------------------------
   test(
-    'fresh schema at current version: amount_fen columns exist and are still '
-    'NULLABLE (documents R5.26-B1/B2 NOT NULL still pending)',
+    'fresh schema at current version: project_write_offs.amount_fen is NOT NULL '
+    '(B2 done); account_payments.amount_fen still NULLABLE (B1 pending)',
     () async {
       final db = await databaseFactoryFfi.openDatabase(
         dbPath,
@@ -314,9 +300,9 @@ void main() {
         ),
       );
       try {
-        // amount_fen 存在且仍 nullable。
-        // ⚠️ 当 R5.26-B1/B2 把这两列重建成 NOT NULL 时，下面 4 个 isNullable
-        //    断言会失效，正是预期的 canary，需要在那两片里同步更新。
+        // ⚠️ canary：R5.26-B2 已把 project_write_offs.amount_fen 重建为 NOT NULL；
+        //    account_payments.amount_fen 仍 nullable（B1 未做）——B1 落地时翻转下面
+        //    account_payments 的 isNullable 断言。
         expect(
           await _isColumnNullable(db, 'account_payments', 'amount_fen'),
           isTrue,
@@ -324,8 +310,8 @@ void main() {
         );
         expect(
           await _isColumnNullable(db, 'project_write_offs', 'amount_fen'),
-          isTrue,
-          reason: 'B2 pending: project_write_offs.amount_fen 仍为 nullable',
+          isFalse,
+          reason: 'B2 done: project_write_offs.amount_fen 已是 NOT NULL',
         );
 
         // REAL 兼容列仍保留且仍 NOT NULL（本轮不动 REAL 主口径列）。

@@ -35,7 +35,7 @@ class AccountSchema {
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
         amount REAL NOT NULL CHECK (amount > 0),
-        amount_fen INTEGER,
+        amount_fen INTEGER NOT NULL,
         reason TEXT NOT NULL,
         note TEXT,
         write_off_date TEXT NOT NULL,

@@ -85,10 +85,15 @@ class AppDatabase {
   //        镜像 round(income*100)，与 REAL income 双写并回填历史行。读路径本轮
   //        不切换（应收/汇总仍按 income REAL 计算），income_fen 仅作存储/同步地基，
   //        读路径切换留待 B4；不动 income REAL 的 NOT NULL 语义、不重建表。
+  // - v30：project_write_offs.amount_fen 提升为 INTEGER NOT NULL（R5.26-B2）；
+  //        SQLite 不能原地改列约束，故重建表，回填用
+  //        COALESCE(amount_fen, ROUND(amount*100)) 兜底残留 NULL；保留 amount REAL
+  //        兼容列、CHECK(amount>0)、TEXT 主键、projects FK RESTRICT 与两索引。
+  //        不动 account_payments（B1）、不改 model/payload/读路径。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 29;
+  static const int _dbVersion = 30;
 
   static int get schemaVersion => _dbVersion;
 

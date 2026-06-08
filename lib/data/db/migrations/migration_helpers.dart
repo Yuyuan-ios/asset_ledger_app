@@ -24,3 +24,12 @@ Future<bool> _columnExists(Database db, String table, String column) async {
   final columns = await db.rawQuery('PRAGMA table_info($table);');
   return columns.any((row) => row['name'] == column);
 }
+
+/// 列存在且声明为 NOT NULL（PRAGMA table_info.notnull == 1）。列缺失返回 false。
+Future<bool> _columnIsNotNull(Database db, String table, String column) async {
+  final columns = await db.rawQuery('PRAGMA table_info($table);');
+  for (final row in columns) {
+    if (row['name'] == column) return ((row['notnull'] as int?) ?? 0) == 1;
+  }
+  return false;
+}
