@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'keeps chart legend labels while showing net income value as income',
+    'keeps chart legend labels while showing net income value as net intake',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -41,10 +41,10 @@ void main() {
 
       expect(find.text('收入'), findsOneWidget);
       expect(find.text('支出'), findsOneWidget);
-      expect(find.text('收入¥37218'), findsOneWidget);
+      expect(find.text('净入¥37218'), findsOneWidget);
       expect(find.text('支出¥5076'), findsOneWidget);
-      expect(find.text('净收入'), findsNothing);
-      expect(find.text('净收入 ¥37218'), findsNothing);
+      expect(find.text('收入¥37218'), findsNothing);
+      expect(find.text('净收入¥37218'), findsNothing);
       expect(find.text('¥42294'), findsNothing);
     },
   );
