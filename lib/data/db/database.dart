@@ -81,10 +81,14 @@ class AppDatabase {
   //        SyncManager push ordering/replay 留待 R5.22-B；旧行与单条入队保持 NULL。
   // - v28：sync_outbox 新增 nullable next_retry_at（R5.22-B）；push 失败后写入
   //        退避时间点，listPending 跳过未到期行；成功行删除，旧/未失败行保持 NULL。
+  // - v29：timing_records 新增 nullable income_fen（R5.26-B3）；income 的整数分
+  //        镜像 round(income*100)，与 REAL income 双写并回填历史行。读路径本轮
+  //        不切换（应收/汇总仍按 income REAL 计算），income_fen 仅作存储/同步地基，
+  //        读路径切换留待 B4；不动 income REAL 的 NOT NULL 语义、不重建表。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 28;
+  static const int _dbVersion = 29;
 
   static int get schemaVersion => _dbVersion;
 

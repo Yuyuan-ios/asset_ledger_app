@@ -137,6 +137,9 @@ class TimingRecord {
       'end_meter': endMeter,
       'hours': hours,
       'income': income,
+      // R5.26-B3：与 REAL income 双写整数分镜像。读路径本轮不切换，仍以
+      // income (REAL) 为业务口径；income_fen 仅作存储/同步地基，留待 B4。
+      'income_fen': incomeFen,
       // SQLite 不支持 bool，这里统一用 0 / 1
       'exclude_from_fuel_eff': excludeFromFuelEfficiency ? 1 : 0,
       'is_breaking': isBreaking ? 1 : 0,
@@ -155,6 +158,9 @@ class TimingRecord {
   // 字段不存在时，默认 false
   // ---------------------------------------------------------------------------
   static TimingRecord fromMap(Map<String, Object?> m) {
+    // R5.26-B3：income 仍以 REAL income 列为业务口径（读路径本轮不切换）。
+    // income_fen 是其 fen 镜像，由 [incomeFen] getter 派生（== round(income*100)），
+    // 因此缺列 / 值为 NULL 的 legacy map 也能正确还原，无需在此读取 income_fen。
     return TimingRecord(
       id: m['id'] as int?,
       deviceId: m['device_id'] as int,
@@ -173,6 +179,13 @@ class TimingRecord {
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
     );
   }
+
+  /// 本条记录收入的整数分镜像（round(income * 100)）。
+  ///
+  /// R5.26-B3：与 [account_payment] / [project_write_off] 的 fen getter 同风格，
+  /// 派生自 REAL [income]。hours 与 rent 均按 income 镜像；hours 应收仍由
+  /// hours × rate 重算，rent 暂仍按 income 聚合。读路径切换留待 B4。
+  int get incomeFen => _yuanToFen(income);
 
   static TimingType _parseType(Object? value) {
     if (value is String) {
@@ -203,3 +216,5 @@ class TimingRecord {
 }
 
 const _sentinel = Object();
+
+int _yuanToFen(num value) => (value * 100).round();

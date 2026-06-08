@@ -18,6 +18,7 @@ class TimingSchema {
         end_meter REAL NOT NULL,
         hours REAL NOT NULL,
         income REAL NOT NULL,
+        income_fen INTEGER,
         exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0,
         is_breaking INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (project_id)

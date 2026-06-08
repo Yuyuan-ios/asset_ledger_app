@@ -268,6 +268,9 @@ class _BackupRestoreValidator {
             timestamp: BackupRestoreTables.legacyProjectTimestamp,
           ).id;
         }
+        // R5.26-B3：旧备份缺 income_fen 时按 income 回填整数分镜像，避免回灌出
+        // NULL income_fen；已有非 NULL income_fen 不被覆盖。
+        normalized['income_fen'] ??= _fenFromYuan(normalized['income']);
         break;
       case 'account_payments':
         if (allowLegacyProjectIdentity) {
@@ -537,6 +540,9 @@ class _BackupRestoreValidator {
     if (!_isNumber(row['end_meter'])) return 'invalid_timing_records_end_meter';
     if (!_isNumber(row['hours'])) return 'invalid_timing_records_hours';
     if (!_isNumber(row['income'])) return 'invalid_timing_records_income';
+    if (!_isNullableInt(row['income_fen'])) {
+      return 'invalid_timing_records_income_fen';
+    }
     if (!_isNullableInt(row['exclude_from_fuel_eff'])) {
       return 'invalid_timing_records_exclude_from_fuel_eff';
     }
