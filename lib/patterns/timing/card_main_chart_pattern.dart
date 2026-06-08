@@ -185,7 +185,7 @@ class CardMainChart extends StatelessWidget {
                                   _Legend(
                                     label: '收入',
                                     swatchColor: TimingColors.chartIncome,
-                                    valueLabel: '收入',
+                                    valueLabel: '净入',
                                     value: data.netIncomeText,
                                   ),
                                   const SizedBox(
