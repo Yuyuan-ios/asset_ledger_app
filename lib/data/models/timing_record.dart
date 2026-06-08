@@ -145,8 +145,9 @@ class TimingRecord {
       'end_meter': endMeter,
       'hours': hours,
       'income': income,
-      // R5.26-B3：与 REAL income 双写整数分镜像。读路径本轮不切换，仍以
-      // income (REAL) 为业务口径；income_fen 仅作存储/同步地基，留待 B4。
+      // 与 REAL income 双写整数分镜像（[incomeFen] = 存储 income_fen ?? round
+      // (income*100)）。R5.26-B4 起 rent 应收读路径已优先 income_fen（缺失回退
+      // income REAL）；income REAL 作为兼容列保留，不移除。
       'income_fen': incomeFen,
       // SQLite 不支持 bool，这里统一用 0 / 1
       'exclude_from_fuel_eff': excludeFromFuelEfficiency ? 1 : 0,
