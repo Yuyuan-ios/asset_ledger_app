@@ -106,6 +106,9 @@ class DbSchemaCompat {
     await DbMigrations.ensureSyncOutboxTransactionGroup(db);
     await DbMigrations.ensureSyncOutboxNextRetryAt(db);
     await DbMigrations.ensureTimingIncomeFen(db);
+    // R5.26-B2：必须在 ensureMoneyFenSchema（补列 + 回填 amount_fen）之后，确保
+    // 重建为 NOT NULL 前列已存在且 NULL 已被回填（COALESCE 再兜底）。
+    await DbMigrations.ensureProjectWriteOffAmountFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
