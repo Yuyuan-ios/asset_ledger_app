@@ -77,7 +77,18 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
       .toList();
 
   final groupedSingles = <int, List<TimingRecord>>{};
+  final cutoffSingleSections = <_RecordDisplaySection>[];
   for (final record in singleRecords) {
+    if (_shouldShowAllocationCutoffRange(record)) {
+      cutoffSingleSections.add(
+        _RecordDisplaySection.singles(
+          ymd: record.startDate,
+          records: [record],
+          headerOverride: _dateRangeText(record),
+        ),
+      );
+      continue;
+    }
     groupedSingles
         .putIfAbsent(record.startDate, () => <TimingRecord>[])
         .add(record);
@@ -86,6 +97,7 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
   return <_RecordDisplaySection>[
     for (final entry in groupedSingles.entries)
       _RecordDisplaySection.singles(ymd: entry.key, records: entry.value),
+    ...cutoffSingleSections,
     for (final section in aggregateSections)
       _RecordDisplaySection.aggregate(section),
   ]..sort((a, b) {
@@ -93,6 +105,42 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
     if (byDate != 0) return byDate;
     return b.sortId.compareTo(a.sortId);
   });
+}
+
+bool _shouldShowAllocationCutoffRange(TimingRecord record) {
+  if (record.type != TimingType.hours) return false;
+  final cutoff = record.allocationCutoffDate;
+  if (cutoff == null) return false;
+  final endYmd = _tryInclusiveDisplayEndYmd(cutoff);
+  if (endYmd == null) return false;
+  return endYmd >= record.startDate;
+}
+
+String _dateRangeText(TimingRecord record) {
+  if (!_shouldShowAllocationCutoffRange(record)) {
+    return FormatUtils.date(record.startDate);
+  }
+  final endYmd = _tryInclusiveDisplayEndYmd(record.allocationCutoffDate!);
+  if (endYmd == null) return FormatUtils.date(record.startDate);
+  return '${FormatUtils.date(record.startDate)} - ${_compactRangeEndText(record.startDate, endYmd)}';
+}
+
+int? _tryInclusiveDisplayEndYmd(int exclusiveCutoffYmd) {
+  try {
+    final exclusive = FormatUtils.dateFromYmd(exclusiveCutoffYmd);
+    return FormatUtils.ymdFromDate(exclusive.subtract(const Duration(days: 1)));
+  } on ArgumentError {
+    return null;
+  }
+}
+
+String _compactRangeEndText(int startYmd, int endYmd) {
+  final start = FormatUtils.dateFromYmd(startYmd);
+  final end = FormatUtils.dateFromYmd(endYmd);
+  if (start.year != end.year) return FormatUtils.date(endYmd);
+  final month = end.month.toString().padLeft(2, '0');
+  final day = end.day.toString().padLeft(2, '0');
+  return '$month.$day';
 }
 
 List<_AggregateRecordSection> _buildAggregateSections(
@@ -232,6 +280,7 @@ class _SectionRecentRecordsState extends State<SectionRecentRecords> {
         return _DateGroup(
           ymd: section.ymd,
           items: section.records,
+          headerOverride: section.headerOverride,
           deviceById: widget.deviceById,
           deviceIndexById: widget.deviceIndexById,
           onTapRecord: widget.onTapRecord,
@@ -246,18 +295,25 @@ class _RecordDisplaySection {
     required this.ymd,
     required this.records,
     required this.sortId,
+    this.headerOverride,
     this.aggregate,
   });
 
   factory _RecordDisplaySection.singles({
     required int ymd,
     required List<TimingRecord> records,
+    String? headerOverride,
   }) {
     final sortId = records.fold<int>(0, (current, record) {
       final id = record.id ?? 0;
       return id > current ? id : current;
     });
-    return _RecordDisplaySection._(ymd: ymd, records: records, sortId: sortId);
+    return _RecordDisplaySection._(
+      ymd: ymd,
+      records: records,
+      sortId: sortId,
+      headerOverride: headerOverride,
+    );
   }
 
   factory _RecordDisplaySection.aggregate(_AggregateRecordSection aggregate) {
@@ -272,6 +328,7 @@ class _RecordDisplaySection {
   final int ymd;
   final List<TimingRecord> records;
   final int sortId;
+  final String? headerOverride;
   final _AggregateRecordSection? aggregate;
 }
 
@@ -353,6 +410,7 @@ class _AggregateRecordSection {
 class _DateGroup extends StatelessWidget {
   final int ymd;
   final List<TimingRecord> items;
+  final String? headerOverride;
   final _AggregateRecordSection? aggregateSection;
   final bool aggregateExpanded;
   final VoidCallback? onToggleAggregate;
@@ -363,6 +421,7 @@ class _DateGroup extends StatelessWidget {
   const _DateGroup({
     required this.ymd,
     this.items = const [],
+    this.headerOverride,
     this.aggregateSection,
     this.aggregateExpanded = false,
     this.onToggleAggregate,
@@ -384,7 +443,7 @@ class _DateGroup extends StatelessWidget {
           ),
           child: Text(
             aggregate == null
-                ? FormatUtils.date(ymd)
+                ? headerOverride ?? FormatUtils.date(ymd)
                 : '${FormatUtils.date(ymd)} (${aggregateExpanded ? '已展开' : '已聚合'})',
             style: textTheme.bodySmall?.copyWith(
               fontSize: TimingTokens.dateHeaderFontSize,
@@ -416,7 +475,7 @@ class _DateGroup extends StatelessWidget {
                 device: deviceById[record.deviceId],
                 deviceIndexText: deviceIndexById[record.deviceId] ?? '?',
                 hideAvatar: true,
-                titleOverride: FormatUtils.date(record.startDate),
+                titleOverride: _dateRangeText(record),
                 subtitleOverride: deviceById[record.deviceId] == null
                     ? deviceIndexById[record.deviceId] ?? '?'
                     : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',

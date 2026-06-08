@@ -320,6 +320,60 @@ void main() {
     expect(probe.result, isNull);
   });
 
+  testWidgets('typed result distinguishes clear from cancel', (tester) async {
+    final probe = await _openPickerResult(
+      tester,
+      DateTime(2026, 3, 15),
+      allowClear: true,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-clear-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(probe.completed, isTrue);
+    expect(probe.result?.isCleared, isTrue);
+    expect(probe.result?.isCancelled, isFalse);
+  });
+
+  testWidgets('min and max dates disable out-of-range days', (tester) async {
+    final probe = await _openPickerResult(
+      tester,
+      DateTime(2026, 3, 9),
+      minDate: DateTime(2026, 3, 10),
+      maxDate: DateTime(2026, 3, 20),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260309')),
+    );
+    await tester.pumpAndSettle();
+    expect(_finishButton(tester).onPressed, isNull);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260320')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(probe.result?.date, DateTime(2026, 3, 20));
+  });
+
+  testWidgets('custom selected label is rendered on selected date', (
+    tester,
+  ) async {
+    await _openPickerResult(tester, DateTime(2026, 3, 15), selectedLabel: '分摊');
+
+    expect(
+      find.byKey(const ValueKey('jzt-date-picker-day-bottom-label-20260315')),
+      findsOneWidget,
+    );
+    expect(find.text('分摊'), findsOneWidget);
+    expect(find.text('开始'), findsNothing);
+  });
+
   testWidgets('does not silently clamp an initial date before the range', (
     tester,
   ) async {
@@ -387,6 +441,47 @@ Future<_PickerProbe> _openPicker(
                   probe.result = await showJztDatePickerSheet(
                     context: context,
                     initialDate: initialDate,
+                  );
+                  probe.completed = true;
+                },
+                child: const Text('打开'),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+  await tester.tap(find.byKey(const ValueKey('open-picker')));
+  await tester.pumpAndSettle();
+  return probe;
+}
+
+Future<_PickerResultProbe> _openPickerResult(
+  WidgetTester tester,
+  DateTime initialDate, {
+  DateTime? minDate,
+  DateTime? maxDate,
+  bool allowClear = false,
+  String selectedLabel = '开始',
+}) async {
+  final probe = _PickerResultProbe();
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) {
+          return Scaffold(
+            body: Center(
+              child: TextButton(
+                key: const ValueKey('open-picker'),
+                onPressed: () async {
+                  probe.result = await showJztDatePickerSheetResult(
+                    context: context,
+                    initialDate: initialDate,
+                    minDate: minDate,
+                    maxDate: maxDate,
+                    allowClear: allowClear,
+                    selectedLabel: selectedLabel,
                   );
                   probe.completed = true;
                 },
@@ -489,5 +584,10 @@ ElevatedButton _finishButton(WidgetTester tester) {
 
 class _PickerProbe {
   DateTime? result;
+  bool completed = false;
+}
+
+class _PickerResultProbe {
+  DatePickerResult? result;
   bool completed = false;
 }

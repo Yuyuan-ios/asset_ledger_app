@@ -35,7 +35,8 @@ class TimingMonthlyIncomeService {
   /// - cutoffDate = min(asOfDate/今天, targetMonth月末)；
   /// - 有下一条：通常结束日 = min(下一条开始日前一天, cutoffDate)；
   ///   若下一条同日开始，当前记录仍按当天计入，避免合法同日记录被跳过；
-  /// - 无下一条：结束日 = cutoffDate；
+  /// - 无下一条且未手动设置分摊截止：结束日 = startDate 所在月月末；
+  /// - 无下一条且手动设置分摊截止：结束日 = 分摊截止日前一天；
   /// - 若 startDate > cutoffDate，该记录本次图表统计跳过；
   /// - 未来记录允许存在于列表中，但不进入当前收入图表；
   /// - 按天均摊到自然月。
@@ -202,7 +203,7 @@ class TimingMonthlyIncomeService {
     required DateTime statisticsExclusiveCutoff,
   }) {
     if (nextStart == null) {
-      return statisticsExclusiveCutoff;
+      return _firstDayOfNextMonth(start);
     }
     if (_isSameDay(start, nextStart)) {
       return start.add(const Duration(days: 1));
@@ -222,13 +223,15 @@ class TimingMonthlyIncomeService {
       nextStart: nextStart,
       allocationCutoffDate: allocationCutoffDate,
     );
-    return _minDate(
-      _minDate(
-        explicitCutoff ?? implicitExclusiveCutoff,
+    final configuredExclusiveCutoff = switch ((explicitCutoff, nextStart)) {
+      (final DateTime explicit, final DateTime _) => _minDate(
+        explicit,
         implicitExclusiveCutoff,
       ),
-      statisticsExclusiveCutoff,
-    );
+      (final DateTime explicit, null) => explicit,
+      (null, _) => implicitExclusiveCutoff,
+    };
+    return _minDate(configuredExclusiveCutoff, statisticsExclusiveCutoff);
   }
 
   static DateTime? _validExplicitCutoffForCalculation({
@@ -260,6 +263,10 @@ class TimingMonthlyIncomeService {
 
   static DateTime _minDate(DateTime a, DateTime b) {
     return a.isBefore(b) ? a : b;
+  }
+
+  static DateTime _firstDayOfNextMonth(DateTime date) {
+    return DateTime(date.year, date.month + 1, 1);
   }
 
   static void _distributeToMonths({
