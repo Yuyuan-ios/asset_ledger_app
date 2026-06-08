@@ -776,6 +776,27 @@ void main() {
     await tester.tap(find.text('王师傅分享包 · 东区工地'));
     await tester.pumpAndSettle();
 
+    final linkButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '关联到本地项目'),
+    );
+    final linkButtonStyle = linkButton.style!;
+    expect(
+      linkButtonStyle.foregroundColor?.resolve(<WidgetState>{}),
+      TimingColors.externalWorkLinkAction,
+    );
+    expect(
+      linkButtonStyle.backgroundColor?.resolve(<WidgetState>{}),
+      TimingColors.externalWorkLinkActionBackground,
+    );
+    expect(
+      linkButtonStyle.backgroundColor?.resolve({WidgetState.pressed}),
+      TimingColors.externalWorkLinkActionPressed,
+    );
+    expect(
+      linkButtonStyle.side?.resolve(<WidgetState>{})?.color,
+      TimingColors.externalWorkLinkAction,
+    );
+
     await tester.tap(find.widgetWithText(OutlinedButton, '关联到本地项目'));
     await tester.pumpAndSettle();
 

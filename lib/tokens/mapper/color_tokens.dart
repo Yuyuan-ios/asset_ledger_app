@@ -23,6 +23,13 @@ class TimingColors {
   static const Color textTertiary = Color(0xFFB0B0B0); // 三级文字/弱提示
   static const Color avatar = Color(0xFFD0D0D0); // 默认头像底色
   static const Color arrow = Color(0xFF333333); // 导航箭头/强调图标色
+  static const Color externalWorkLinkAction = Color(
+    0xFFEE8736,
+  ); // 外协详情关联按钮文字/边框
+  static const Color externalWorkLinkActionBackground = Color(
+    0xFFFFF7F0,
+  ); // 外协详情关联按钮浅橙背景
+  static const Color externalWorkLinkActionPressed = Color(0xFFFCE8D6); // 按下态
 }
 
 /// Sheet 主题色
