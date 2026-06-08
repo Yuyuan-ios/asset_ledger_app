@@ -89,7 +89,7 @@ List<Widget> _buildTimingRecordRows({
             device: deviceById[record.deviceId],
             deviceIndexText: deviceIndexById[record.deviceId] ?? '?',
             hideAvatar: true,
-            titleOverride: _dateRangeText(record),
+            titleOverride: _allocationDateRangeText(record),
             subtitleOverride: deviceById[record.deviceId] == null
                 ? deviceIndexById[record.deviceId] ?? '?'
                 : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',

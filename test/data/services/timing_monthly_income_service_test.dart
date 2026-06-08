@@ -25,7 +25,7 @@ void main() {
       required int deviceId,
       required int startDate,
       required double hours,
-      int? allocationCutoffDate,
+      int? allocationCutoffExclusiveYmd,
       String projectId = '',
       double startMeter = 0,
       String contact = '甲方',
@@ -36,7 +36,7 @@ void main() {
         projectId: projectId,
         deviceId: deviceId,
         startDate: startDate,
-        allocationCutoffDate: allocationCutoffDate,
+        allocationCutoffDate: allocationCutoffExclusiveYmd,
         contact: contact,
         site: site,
         type: TimingType.hours,
@@ -277,9 +277,9 @@ void main() {
       });
     });
 
-    group('allocation cutoff monthly allocation', () {
+    group('hours allocation exclusive cutoff priority', () {
       test(
-        'null cutoff keeps next-start cutoff and open segment in start month',
+        'priority 2 uses next same-device start when explicit cutoff is null',
         () {
           final monthly = computeLegacyMonthlyIncome(
             records: [
@@ -311,6 +311,32 @@ void main() {
         },
       );
 
+      test(
+        'priority 3 defaults no-next null cutoff to first day of next month',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260610,
+                hours: 21,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 7,
+            asOfDate: DateTime(2026, 7, 10),
+          );
+
+          // No explicit exclusive cutoff and no next same-device record:
+          // the chart-only allocation stops at [Jun 10, Jul 1).
+          expect(monthly[5], closeTo(2100.0, 0.001));
+          expect(monthly[6], closeTo(0.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+        },
+      );
+
       test('cutoff equal to next start preserves first segment boundary', () {
         final monthly = computeLegacyMonthlyIncome(
           records: [
@@ -318,7 +344,7 @@ void main() {
               id: 1,
               deviceId: 1,
               startDate: 20260601,
-              allocationCutoffDate: 20260610,
+              allocationCutoffExclusiveYmd: 20260610,
               hours: 9,
             ),
             legacyHoursRecord(
@@ -334,7 +360,7 @@ void main() {
           asOfDate: DateTime(2026, 7, 10),
         );
 
-        // cutoff is right-open: Jun 10 is not allocated to A.
+        // The persisted cutoff is exclusive: Jun 10 is not allocated to A.
         // B remains an open segment and defaults to [Jun 10, Jul 1).
         expect(monthly[5], closeTo(4000.0, 0.001));
         expect(monthly[6], closeTo(0.0, 0.001));
@@ -342,14 +368,14 @@ void main() {
         expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
       });
 
-      test('cutoff before next start creates an unallocated gap', () {
+      test('priority 1 explicit exclusive cutoff wins before next start', () {
         final monthly = computeLegacyMonthlyIncome(
           records: [
             legacyHoursRecord(
               id: 1,
               deviceId: 1,
               startDate: 20260601,
-              allocationCutoffDate: 20260605,
+              allocationCutoffExclusiveYmd: 20260605,
               hours: 4,
             ),
             legacyHoursRecord(
@@ -365,6 +391,8 @@ void main() {
           asOfDate: DateTime(2026, 6, 10),
         );
 
+        // The explicit UI end would be Jun 4, persisted as exclusive Jun 5.
+        // It has priority over the later next same-device start on Jun 10.
         // A: [Jun 1, Jun 5) = 4 days at 100/day = 400.
         // Jun 5-Jun 9 is a gap. B starts on Jun 10 = 100.
         expect(monthly[5], closeTo(500.0, 0.001));
@@ -373,7 +401,7 @@ void main() {
       });
 
       test(
-        'no next record cutoff stops allocation before statistics cutoff',
+        'explicit no-next exclusive cutoff stops before statistics cutoff',
         () {
           final monthly = computeLegacyMonthlyIncome(
             records: [
@@ -381,7 +409,7 @@ void main() {
                 id: 1,
                 deviceId: 1,
                 startDate: 20260601,
-                allocationCutoffDate: 20260620,
+                allocationCutoffExclusiveYmd: 20260620,
                 hours: 19,
               ),
             ],
@@ -398,57 +426,57 @@ void main() {
         },
       );
 
+      test('explicit exclusive cutoff after statistics cutoff is capped', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              allocationCutoffExclusiveYmd: 20260720,
+              hours: 10,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 6,
+          asOfDate: DateTime(2026, 6, 10),
+        );
+
+        // Statistics cutoff is Jun 10, so the exclusive boundary is Jun 11.
+        // The later explicit cutoff must not allocate after Jun 10.
+        expect(monthly[5], closeTo(1000.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+      });
+
       test(
-        'cutoff after statistics cutoff is capped by statistics boundary',
+        'cross-month explicit exclusive cutoff splits income before cutoff',
         () {
           final monthly = computeLegacyMonthlyIncome(
             records: [
               legacyHoursRecord(
                 id: 1,
                 deviceId: 1,
-                startDate: 20260601,
-                allocationCutoffDate: 20260720,
+                startDate: 20260625,
+                allocationCutoffExclusiveYmd: 20260705,
                 hours: 10,
               ),
             ],
             devices: [legacyDevice(id: 1)],
-            targetMonth: 6,
-            asOfDate: DateTime(2026, 6, 10),
+            targetMonth: 7,
+            asOfDate: DateTime(2026, 7, 5),
           );
 
-          // Statistics cutoff is Jun 10, so the right-open boundary is Jun 11.
-          // The later explicit cutoff must not allocate after Jun 10.
-          expect(monthly[5], closeTo(1000.0, 0.001));
+          // A: [Jun 25, Jul 5) = 10 days at 100/day.
+          // Jun has 6 days, Jul has 4 days; Jul 5 is excluded.
+          expect(monthly[5], closeTo(600.0, 0.001));
+          expect(monthly[6], closeTo(400.0, 0.001));
           expect(monthly.take(5).every((v) => v == 0.0), isTrue);
-          expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
         },
       );
 
-      test('cross-month cutoff splits income before cutoff date', () {
-        final monthly = computeLegacyMonthlyIncome(
-          records: [
-            legacyHoursRecord(
-              id: 1,
-              deviceId: 1,
-              startDate: 20260625,
-              allocationCutoffDate: 20260705,
-              hours: 10,
-            ),
-          ],
-          devices: [legacyDevice(id: 1)],
-          targetMonth: 7,
-          asOfDate: DateTime(2026, 7, 5),
-        );
-
-        // A: [Jun 25, Jul 5) = 10 days at 100/day.
-        // Jun has 6 days, Jul has 4 days; Jul 5 is excluded.
-        expect(monthly[5], closeTo(600.0, 0.001));
-        expect(monthly[6], closeTo(400.0, 0.001));
-        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
-        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
-      });
-
-      test('rent allocation cutoff is ignored', () {
+      test('rent allocation cutoff is ignored by hours priority rule', () {
         final monthly = computeLegacyMonthlyIncome(
           records: const [
             TimingRecord(
@@ -485,7 +513,7 @@ void main() {
               id: 1,
               deviceId: 1,
               startDate: 20260601,
-              allocationCutoffDate: 20260601,
+              allocationCutoffExclusiveYmd: 20260601,
               hours: 9,
             ),
             legacyHoursRecord(
@@ -514,7 +542,7 @@ void main() {
               id: 1,
               deviceId: 1,
               startDate: 20260601,
-              allocationCutoffDate: 20260602,
+              allocationCutoffExclusiveYmd: 20260602,
               hours: 2,
             ),
             legacyHoursRecord(
@@ -546,7 +574,7 @@ void main() {
               projectId: projectId,
               deviceId: 1,
               startDate: 20260625,
-              allocationCutoffDate: 20260705,
+              allocationCutoffExclusiveYmd: 20260705,
               hours: 10,
             ),
           ],

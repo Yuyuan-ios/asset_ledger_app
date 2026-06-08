@@ -114,14 +114,14 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   final _endMeterCtrl = TextEditingController(text: '0.0');
   final _hoursCtrl = TextEditingController(text: '0.0');
   final _incomeCtrl = TextEditingController(text: '0.0');
-  final _allocationCutoffCtrl = TextEditingController();
+  final _allocationEndInclusiveCtrl = TextEditingController();
 
   final _contactFocus = FocusNode();
   final _siteFocus = FocusNode();
 
   int? _selectedDeviceId;
   late DateTime _selectedDate;
-  DateTime? _allocationCutoffDisplayDate;
+  DateTime? _allocationEndInclusiveDate;
   WorkMode _mode = WorkMode.hours;
   AttachmentMode _attachmentMode = AttachmentMode.digging;
   bool _excludeFromFuelEfficiency = false;
@@ -164,8 +164,10 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _siteCtrl.text = editing.site;
     _mode = editing.type == TimingType.hours ? WorkMode.hours : WorkMode.rent;
     if (_mode == WorkMode.hours) {
-      _setAllocationCutoffDisplayDate(
-        _displayCutoffDateFromExclusiveYmd(editing.allocationCutoffDate),
+      _setAllocationEndInclusiveDate(
+        _allocationEndInclusiveDateFromExclusiveYmd(
+          editing.allocationCutoffDate,
+        ),
       );
     }
     _attachmentMode = editing.isBreaking
@@ -216,7 +218,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _endMeterCtrl.dispose();
     _hoursCtrl.dispose();
     _incomeCtrl.dispose();
-    _allocationCutoffCtrl.dispose();
+    _allocationEndInclusiveCtrl.dispose();
     _contactFocus.dispose();
     _siteFocus.dispose();
     _bottomTipTimer?.cancel();
@@ -330,13 +332,13 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     if (picked == null || !mounted) return;
     setState(() {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
-      _normalizeAllocationCutoffForCurrentBounds();
+      _normalizeAllocationEndInclusiveForCurrentBounds();
       _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
     });
   }
 
-  Future<void> _pickAllocationCutoffDate() async {
-    final disabledReason = _allocationCutoffDisabledReason();
+  Future<void> _pickAllocationEndInclusiveDate() async {
+    final disabledReason = _allocationEndInclusiveDisabledReason();
     if (disabledReason != null) {
       _toastInSheet(disabledReason);
       return;
@@ -345,9 +347,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     FocusManager.instance.primaryFocus?.unfocus();
     final result = await showSheetDatePickerDialogResult(
       context: context,
-      initialDate: _allocationCutoffDisplayDate ?? _selectedDate,
+      initialDate: _allocationEndInclusiveDate ?? _selectedDate,
       minDate: _selectedDate,
-      maxDate: _allocationCutoffMaxDisplayDate(),
+      maxDate: _allocationEndInclusiveMaxDate(),
       allowClear: true,
       selectedLabel: '分摊',
       clearText: '清空',
@@ -356,12 +358,12 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     if (!mounted || result.isCancelled) return;
     setState(() {
       if (result.isCleared) {
-        _setAllocationCutoffDisplayDate(null);
+        _setAllocationEndInclusiveDate(null);
         return;
       }
       final picked = result.date;
       if (picked == null) return;
-      _setAllocationCutoffDisplayDate(
+      _setAllocationEndInclusiveDate(
         DateTime(picked.year, picked.month, picked.day),
       );
     });
@@ -391,7 +393,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _hoursCtrl.text = '0.0';
 
     setState(() {
-      _normalizeAllocationCutoffForCurrentBounds();
+      _normalizeAllocationEndInclusiveForCurrentBounds();
     });
 
     if (!_supportsBreakingMode && _attachmentMode != AttachmentMode.digging) {
@@ -471,16 +473,18 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final type = isRent ? TimingType.rent : TimingType.hours;
     final excludeFuel = !isRent && _excludeFromFuelEfficiency;
-    final allocationCutoffDate = isRent
+    // UI end is inclusive. Stored allocationCutoffDate keeps the existing
+    // exclusive-end column/API name for compatibility.
+    final allocationEndExclusiveYmd = isRent
         ? null
-        : _exclusiveAllocationCutoffYmd();
+        : _allocationEndExclusiveYmd();
 
     final record = TimingRecord(
       id: widget.editing?.id,
       projectId: widget.editing?.projectId ?? '',
       deviceId: deviceId,
       startDate: ymd,
-      allocationCutoffDate: allocationCutoffDate,
+      allocationCutoffDate: allocationEndExclusiveYmd,
       contact: contact,
       site: site,
       type: type,
@@ -512,15 +516,15 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     });
   }
 
-  void _setAllocationCutoffDisplayDate(DateTime? date) {
+  void _setAllocationEndInclusiveDate(DateTime? date) {
     final normalized = date == null ? null : _dateOnly(date);
-    _allocationCutoffDisplayDate = normalized;
-    _allocationCutoffCtrl.text = normalized == null
+    _allocationEndInclusiveDate = normalized;
+    _allocationEndInclusiveCtrl.text = normalized == null
         ? ''
         : FormatUtils.date(FormatUtils.ymdFromDate(normalized));
   }
 
-  DateTime? _displayCutoffDateFromExclusiveYmd(int? exclusiveYmd) {
+  DateTime? _allocationEndInclusiveDateFromExclusiveYmd(int? exclusiveYmd) {
     if (exclusiveYmd == null) return null;
     try {
       final exclusive = FormatUtils.dateFromYmd(exclusiveYmd);
@@ -530,42 +534,42 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     }
   }
 
-  int? _exclusiveAllocationCutoffYmd() {
-    final displayDate = _allocationCutoffDisplayDate;
-    if (displayDate == null) return null;
-    final exclusive = displayDate.add(const Duration(days: 1));
-    return FormatUtils.ymdFromDate(exclusive);
+  int? _allocationEndExclusiveYmd() {
+    final inclusiveEnd = _allocationEndInclusiveDate;
+    if (inclusiveEnd == null) return null;
+    final exclusiveEnd = inclusiveEnd.add(const Duration(days: 1));
+    return FormatUtils.ymdFromDate(exclusiveEnd);
   }
 
-  String? _allocationCutoffDisabledReason() {
+  String? _allocationEndInclusiveDisabledReason() {
     if (_mode != WorkMode.hours) return null;
     if (_selectedDeviceId == null) return '请先选择设备';
-    if (_hasSameDayCutoffPeer()) {
+    if (_hasSameDayAllocationPeer()) {
       return '同设备同日已有记录，暂不支持手动分摊';
     }
-    final maxDate = _allocationCutoffMaxDisplayDate();
+    final maxDate = _allocationEndInclusiveMaxDate();
     if (maxDate != null && maxDate.isBefore(_selectedDate)) {
       return '当前日期无可选分摊截止日';
     }
     return null;
   }
 
-  String _allocationCutoffHelperText() {
-    return _allocationCutoffDisabledReason() ?? '只影响收入图表月份分布，不改变项目总应收';
+  String _allocationEndInclusiveHelperText() {
+    return _allocationEndInclusiveDisabledReason() ?? '只影响收入图表月份分布，不改变项目总应收';
   }
 
-  bool get _allocationCutoffPickerEnabled {
-    return !_submitting && _allocationCutoffDisabledReason() == null;
+  bool get _allocationEndInclusivePickerEnabled {
+    return !_submitting && _allocationEndInclusiveDisabledReason() == null;
   }
 
-  DateTime? _allocationCutoffMaxDisplayDate() {
+  DateTime? _allocationEndInclusiveMaxDate() {
     final nextStartYmd = _nextSameDeviceStartDate();
     if (nextStartYmd == null) return jztDatePickerLastDate;
     final nextStart = FormatUtils.dateFromYmd(nextStartYmd);
     return _dateOnly(nextStart.subtract(const Duration(days: 1)));
   }
 
-  bool _hasSameDayCutoffPeer() {
+  bool _hasSameDayAllocationPeer() {
     final deviceId = _selectedDeviceId;
     if (deviceId == null) return false;
     final startYmd = FormatUtils.ymdFromDate(_selectedDate);
@@ -599,14 +603,14 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     return peers;
   }
 
-  void _normalizeAllocationCutoffForCurrentBounds() {
-    final current = _allocationCutoffDisplayDate;
+  void _normalizeAllocationEndInclusiveForCurrentBounds() {
+    final current = _allocationEndInclusiveDate;
     if (current == null) return;
-    final maxDate = _allocationCutoffMaxDisplayDate();
-    if (_allocationCutoffDisabledReason() != null ||
+    final maxDate = _allocationEndInclusiveMaxDate();
+    if (_allocationEndInclusiveDisabledReason() != null ||
         current.isBefore(_selectedDate) ||
         (maxDate != null && current.isAfter(maxDate))) {
-      _setAllocationCutoffDisplayDate(null);
+      _setAllocationEndInclusiveDate(null);
     }
   }
 
@@ -752,13 +756,13 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                       ),
                       const SizedBox(height: TimingTokens.contentGap),
                       SheetDateField(
-                        controller: _allocationCutoffCtrl,
-                        label: '收入分摊至',
+                        controller: _allocationEndInclusiveCtrl,
+                        label: '结束日',
                         hint: '未设置',
-                        helperText: _allocationCutoffHelperText(),
-                        tooltip: '选择收入分摊截止日',
-                        enabled: _allocationCutoffPickerEnabled,
-                        onPickDate: _pickAllocationCutoffDate,
+                        helperText: _allocationEndInclusiveHelperText(),
+                        tooltip: '选择收入分摊结束日',
+                        enabled: _allocationEndInclusivePickerEnabled,
+                        onPickDate: _pickAllocationEndInclusiveDate,
                       ),
                     ] else ...[
                       _field(
