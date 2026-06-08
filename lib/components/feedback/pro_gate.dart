@@ -23,6 +23,7 @@ Future<bool> requireProFeature(
     builder: (dialogContext) => AlertDialog(
       title: Text(title),
       content: Text(message),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),

@@ -145,6 +145,7 @@ class AppConfirmDialog extends StatelessWidget {
             style: contentStyle,
             child: contentWidget ?? Text(content ?? ''),
           ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),

@@ -514,6 +514,7 @@ class _DevicePageState extends State<DevicePage> {
                   ],
                 ),
               ),
+              actionsAlignment: MainAxisAlignment.spaceBetween,
               actions: [
                 TextButton(
                   onPressed: isRestoring
@@ -581,6 +582,7 @@ class _DevicePageState extends State<DevicePage> {
               content: const Text(
                 '恢复后，当前本机的设备、计时、油费、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。',
               ),
+              actionsAlignment: MainAxisAlignment.spaceBetween,
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),

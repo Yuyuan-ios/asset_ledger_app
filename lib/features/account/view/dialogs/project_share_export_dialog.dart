@@ -81,8 +81,8 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
             autofocus: true,
             maxLength: _shareNameMaxLength,
             decoration: InputDecoration(
-              labelText: '分享人姓名或包名',
-              hintText: '例如：老王外协记录',
+              labelText: '分享人姓名（自己）',
+              hintText: '例如：老王、张三等',
               errorText: _error,
             ),
             onChanged: (_) {
@@ -97,6 +97,7 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
           ),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../components/avatars/linked_external_work_badge.dart';
+import '../../components/buttons/app_brand_outline_action_button.dart';
 import '../../components/layout/name_site_inline_text.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
@@ -18,15 +19,16 @@ import '../../tokens/mapper/color_tokens.dart';
 part '../../features/account/presentation/widgets/project_account_detail/project_account_detail_sections.dart';
 part '../../features/account/presentation/widgets/project_account_detail/project_account_detail_payment_sections.dart';
 
-const _addPaymentPillBackground = Color(0xFFEAF7F5);
-const _addPaymentPillBorder = Color(0xFF8AD5CC);
-const _addPaymentPillText = Color(0xFF147C73);
+const _addPaymentPillBackground = AccountTokens.projectCardProgressFill;
+const _addPaymentPillBorder = AppColors.textPrimary;
+const _addPaymentPillText = SheetColors.actionOn;
 const _projectActionPillBackground = Color(0xFFF5F2EE);
 const _projectActionPillBorder = Color(0xFFD8C8B8);
 const _projectActionPillText = Color(0xFF7A5A3A);
 const _moneyEpsilon = 0.000001;
 const _localDeviceLabel = '本地设备';
 const _externalDeviceLabel = '外协设备';
+const _batchEditActionText = '批量修改';
 
 class ProjectAccountDetailRateRow {
   final String projectKey;
@@ -140,7 +142,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.detailRows,
     this.externalWorkRows = const [],
     this.showBatchAction = true,
-    this.batchActionText = '批量修改',
+    this.batchActionText = _batchEditActionText,
     this.showPaymentActions = true,
     this.showRawPaymentActions = true,
     this.showAddPayment = true,

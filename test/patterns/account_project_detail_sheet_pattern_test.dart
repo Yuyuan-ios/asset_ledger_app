@@ -11,6 +11,8 @@ import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/patterns/account/account_project_detail_sheet_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/account_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -263,7 +265,17 @@ void main() {
       expect(find.text('2026.05.01'), findsOneWidget);
       expect(find.text('备注：现金'), findsOneWidget);
       expect(find.text('+ 新增收款'), findsOneWidget);
-      expect(_containerWithColor(const Color(0xFFEAF7F5)), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('+ 新增收款')).style?.color,
+        SheetColors.actionOn,
+      );
+      expect(
+        _containerWithDecoration(
+          color: AccountTokens.projectCardProgressFill,
+          borderColor: AppColors.textPrimary,
+        ),
+        findsOneWidget,
+      );
       expect(find.text('批量修改'), findsNothing);
       expect(find.text('解除合并'), findsOneWidget);
       expect(_containerWithColor(const Color(0xFFF5F2EE)), findsOneWidget);
@@ -391,6 +403,26 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
     expect(find.byIcon(Icons.location_on_outlined), findsNothing);
     expect(find.text('批量修改'), findsOneWidget);
+    final batchButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '批量修改'),
+    );
+    final batchButtonStyle = batchButton.style!;
+    expect(
+      batchButtonStyle.foregroundColor?.resolve(<WidgetState>{}),
+      AppColors.brandOutlineAction,
+    );
+    expect(
+      batchButtonStyle.backgroundColor?.resolve(<WidgetState>{}),
+      AppColors.brandOutlineActionBackground,
+    );
+    expect(
+      batchButtonStyle.backgroundColor?.resolve({WidgetState.pressed}),
+      AppColors.brandOutlineActionPressed,
+    );
+    expect(
+      batchButtonStyle.side?.resolve(<WidgetState>{})?.color,
+      AppColors.brandOutlineActionBorder,
+    );
     expect(find.text('+ 新增收款'), findsOneWidget);
     expect(find.text('结清'), findsOneWidget);
     expect(
@@ -997,56 +1029,55 @@ void main() {
     },
   );
 
-  testWidgets(
-    'project without linked external work hides 外协设备 section',
-    (tester) async {
-      final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
-      await tester.pumpWidget(
-        buildSheet(
-          projectKey: normalKey,
-          computed: AccountComputed(
-            projects: [
-              AccountProjectVM(
-                projectKey: normalKey,
-                displayName: '李杰 · 尚义',
-                minYmd: 20260501,
-                deviceIds: const [1],
-                hoursByDevice: const {1: 64.9},
-                rentIncomeTotal: 0,
-                minRate: 100,
-                isMultiDevice: false,
-                isMultiMode: false,
-                receivable: 6490,
-                received: 0,
-                remaining: 6490,
-                ratio: 0,
-                payments: const [],
-              ),
-            ],
-            totalReceivable: 6490,
-            totalReceived: 0,
-            totalRemaining: 6490,
-            totalRatio: 0,
-            deviceReceivables: const [],
-          ),
-          onEditDeviceRate: (_, _, _, _, _) async {},
-          // 提供一条已关联到别的项目的外协记录，确认它不会被错误地展示。
-          externalWorkItems: [
-            _externalItem(
-              recordId: 'r-other',
-              batchId: 'batch-other',
-              linkedProjectId: 'project:other',
-              site: '其他工地',
-              sourceDisplayName: '王五',
+  testWidgets('project without linked external work hides 外协设备 section', (
+    tester,
+  ) async {
+    final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
+    await tester.pumpWidget(
+      buildSheet(
+        projectKey: normalKey,
+        computed: AccountComputed(
+          projects: [
+            AccountProjectVM(
+              projectKey: normalKey,
+              displayName: '李杰 · 尚义',
+              minYmd: 20260501,
+              deviceIds: const [1],
+              hoursByDevice: const {1: 64.9},
+              rentIncomeTotal: 0,
+              minRate: 100,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 6490,
+              received: 0,
+              remaining: 6490,
+              ratio: 0,
+              payments: const [],
             ),
           ],
+          totalReceivable: 6490,
+          totalReceived: 0,
+          totalRemaining: 6490,
+          totalRatio: 0,
+          deviceReceivables: const [],
         ),
-      );
+        onEditDeviceRate: (_, _, _, _, _) async {},
+        // 提供一条已关联到别的项目的外协记录，确认它不会被错误地展示。
+        externalWorkItems: [
+          _externalItem(
+            recordId: 'r-other',
+            batchId: 'batch-other',
+            linkedProjectId: 'project:other',
+            site: '其他工地',
+            sourceDisplayName: '王五',
+          ),
+        ],
+      ),
+    );
 
-      expect(find.text('本地设备'), findsOneWidget);
-      expect(find.text('外协设备'), findsNothing);
-    },
-  );
+    expect(find.text('本地设备'), findsOneWidget);
+    expect(find.text('外协设备'), findsNothing);
+  });
 
   testWidgets(
     'merged project ignores external work linked to synthetic merge id',
@@ -1144,73 +1175,72 @@ void main() {
     },
   );
 
-  testWidgets(
-    'archived external work batch is hidden from project detail',
-    (tester) async {
-      const linkedProjectId = 'project:linked-normal';
-      final normalKey = ProjectKey.buildKey(contact: '李洋', site: '天眉乐');
+  testWidgets('archived external work batch is hidden from project detail', (
+    tester,
+  ) async {
+    const linkedProjectId = 'project:linked-normal';
+    final normalKey = ProjectKey.buildKey(contact: '李洋', site: '天眉乐');
 
-      await tester.pumpWidget(
-        buildSheet(
-          projectId: linkedProjectId,
-          projectKey: normalKey,
-          computed: AccountComputed(
-            projects: [
-              AccountProjectVM(
-                projectId: linkedProjectId,
-                projectKey: normalKey,
-                displayName: '李洋 · 天眉乐',
-                hasLinkedExternalWork: true,
-                minYmd: 20260501,
-                deviceIds: const [1],
-                hoursByDevice: const {1: 8.1},
-                rentIncomeTotal: 0,
-                minRate: 180,
-                isMultiDevice: false,
-                isMultiMode: false,
-                receivable: 2718,
-                received: 0,
-                remaining: 2718,
-                ratio: 0,
-                payments: const [],
-              ),
-            ],
-            totalReceivable: 2718,
-            totalReceived: 0,
-            totalRemaining: 2718,
-            totalRatio: 0,
-            deviceReceivables: const [],
-          ),
-          onEditDeviceRate: (_, _, _, _, _) async {},
-          externalWorkItems: [
-            _externalItem(
-              recordId: 'r-archived',
-              batchId: 'batch-archived',
-              linkedProjectId: linkedProjectId,
-              site: '天眉乐',
-              sourceDisplayName: '余远',
-              brand: 'Hitachi',
-              batchStatus: ExternalImportBatchStatus.archived,
-            ),
-            _externalItem(
-              recordId: 'r-active',
-              batchId: 'batch-active',
-              linkedProjectId: linkedProjectId,
-              site: '天眉乐',
-              sourceDisplayName: '余远',
-              brand: 'Sany',
+    await tester.pumpWidget(
+      buildSheet(
+        projectId: linkedProjectId,
+        projectKey: normalKey,
+        computed: AccountComputed(
+          projects: [
+            AccountProjectVM(
+              projectId: linkedProjectId,
+              projectKey: normalKey,
+              displayName: '李洋 · 天眉乐',
+              hasLinkedExternalWork: true,
+              minYmd: 20260501,
+              deviceIds: const [1],
+              hoursByDevice: const {1: 8.1},
+              rentIncomeTotal: 0,
+              minRate: 180,
+              isMultiDevice: false,
+              isMultiMode: false,
+              receivable: 2718,
+              received: 0,
+              remaining: 2718,
+              ratio: 0,
+              payments: const [],
             ),
           ],
+          totalReceivable: 2718,
+          totalReceived: 0,
+          totalRemaining: 2718,
+          totalRatio: 0,
+          deviceReceivables: const [],
         ),
-      );
+        onEditDeviceRate: (_, _, _, _, _) async {},
+        externalWorkItems: [
+          _externalItem(
+            recordId: 'r-archived',
+            batchId: 'batch-archived',
+            linkedProjectId: linkedProjectId,
+            site: '天眉乐',
+            sourceDisplayName: '余远',
+            brand: 'Hitachi',
+            batchStatus: ExternalImportBatchStatus.archived,
+          ),
+          _externalItem(
+            recordId: 'r-active',
+            batchId: 'batch-active',
+            linkedProjectId: linkedProjectId,
+            site: '天眉乐',
+            sourceDisplayName: '余远',
+            brand: 'Sany',
+          ),
+        ],
+      ),
+    );
 
-      expect(tester.takeException(), isNull);
-      // 只保留 active batch；archived batch 不出现在外协设备明细中。
-      expect(find.text('外协设备'), findsOneWidget);
-      expect(find.text('Sany·1条记录'), findsOneWidget);
-      expect(find.text('Hitachi·1条记录'), findsNothing);
-    },
-  );
+    expect(tester.takeException(), isNull);
+    // 只保留 active batch；archived batch 不出现在外协设备明细中。
+    expect(find.text('外协设备'), findsOneWidget);
+    expect(find.text('Sany·1条记录'), findsOneWidget);
+    expect(find.text('Hitachi·1条记录'), findsNothing);
+  });
 }
 
 TimingExternalWorkRecordItem _externalItem({
@@ -1266,5 +1296,22 @@ Finder _containerWithColor(Color color) {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration && decoration.color == color;
+  });
+}
+
+Finder _containerWithDecoration({
+  required Color color,
+  required Color borderColor,
+}) {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    final border = decoration is BoxDecoration ? decoration.border : null;
+    return decoration is BoxDecoration &&
+        decoration.color == color &&
+        border is Border &&
+        border.top.color == borderColor &&
+        border.right.color == borderColor &&
+        border.bottom.color == borderColor &&
+        border.left.color == borderColor;
   });
 }
