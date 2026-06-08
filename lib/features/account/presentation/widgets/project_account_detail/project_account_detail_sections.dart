@@ -241,10 +241,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           const Divider(height: 1, color: TimingColors.cardBorder),
           const SizedBox(height: 6),
         ],
-        _buildExternalWorkHeader(
-          row: row,
-          siteStyle: siteStyle,
-        ),
+        _buildExternalWorkHeader(row: row, siteStyle: siteStyle),
         const SizedBox(height: AppSpace.xs),
         Row(
           children: [
@@ -341,6 +338,31 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   }
 
   Widget _buildProjectActionPill({required TextStyle actionStyle}) {
+    if (batchActionText == _batchEditActionText) {
+      final batchPillStyle = actionStyle.copyWith(
+        color: AppColors.brandOutlineAction,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      );
+
+      return OutlinedButton(
+        onPressed: onBatchEditRate,
+        style: appBrandOutlineActionButtonStyle(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: batchPillStyle,
+        ),
+        child: Text(
+          batchActionText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: batchPillStyle,
+        ),
+      );
+    }
+
     final pillStyle = actionStyle.copyWith(
       color: _projectActionPillText,
       fontSize: 14,
