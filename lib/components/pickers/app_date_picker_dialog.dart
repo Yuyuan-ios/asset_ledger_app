@@ -20,11 +20,12 @@ const _datePickerRangeFill = Color(0xFFEDEBE8);
 const _calendarGridHorizontalPadding = AppSpace.lg + AppSpace.md;
 const _monthSectionGap = 0.0;
 const _monthListTopPadding = AppSpace.md;
+const _monthHeaderLift = 8.0;
 const _monthTitleHeight = 24.0;
 const _monthTitleToDividerGap = 8.0;
 const _monthDividerHeight = 1.0;
 const _monthAccentLineWidth = 108.0;
-const _dividerToGridGap = 8.0;
+const _dividerToGridGap = 0.0;
 const _dateCellHeight = 56.0;
 const _dateCellSurfaceWidth = 44.0;
 const _dateCellSurfaceHeight = 52.0;
@@ -557,22 +558,29 @@ class JztMonthDateGrid extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: _monthTitleHeight,
-            child: Row(
+          Transform.translate(
+            offset: const Offset(0, -_monthHeaderLift),
+            child: Column(
               children: [
-                Text('${month.year}年${month.month}月', style: titleStyle),
-                const Spacer(),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 15,
-                  color: _datePickerWarmAccent.withValues(alpha: 0.62),
+                SizedBox(
+                  height: _monthTitleHeight,
+                  child: Row(
+                    children: [
+                      Text('${month.year}年${month.month}月', style: titleStyle),
+                      const Spacer(),
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 15,
+                        color: _datePickerWarmAccent.withValues(alpha: 0.62),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: _monthTitleToDividerGap),
+                const _JztMonthDivider(),
               ],
             ),
           ),
-          const SizedBox(height: _monthTitleToDividerGap),
-          const _JztMonthDivider(),
           const SizedBox(height: _dividerToGridGap),
           GridView.builder(
             shrinkWrap: true,

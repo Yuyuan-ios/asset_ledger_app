@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/utils/form_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../device/domain/services/device_label.dart';
 import '../../device/domain/services/device_lookup.dart';
@@ -485,17 +486,27 @@ class _TimingPageState extends State<TimingPage> {
                 record: record,
                 calculationHistories: calculationHistories,
               );
-            } catch (_) {
+            } catch (error) {
               if (!mounted) return;
-              final feedback = storeActionFeedback(timingStore, action: '保存');
-              _toast(feedback.isSuccess ? '保存失败，请重试' : feedback.message);
+              final message = _saveFailureMessage(error, timingStore);
+              final form = formKey.currentState;
+              if (form != null && form.mounted) {
+                form.showSubmitFailure(message);
+              } else {
+                _toast(message);
+              }
               return;
             }
             if (!mounted) return;
 
             final feedback = storeActionFeedback(timingStore, action: '保存');
             if (!feedback.isSuccess) {
-              _toast(feedback.message);
+              final form = formKey.currentState;
+              if (form != null && form.mounted) {
+                form.showSubmitFailure(feedback.message);
+              } else {
+                _toast(feedback.message);
+              }
               return;
             }
             // 事务化路径已完成所有级联：UI 不再依赖 pending retry。
@@ -509,6 +520,28 @@ class _TimingPageState extends State<TimingPage> {
         );
       },
     );
+  }
+
+  String _saveFailureMessage(Object error, TimingStore timingStore) {
+    if (error is SaveTimingRecordOperationException) {
+      return formValidationMessage(_friendlySaveFailureReason(error.message));
+    }
+    final feedback = storeActionFeedback(timingStore, action: '保存');
+    return feedback.isSuccess ? '保存失败，请重试' : feedback.message;
+  }
+
+  String _friendlySaveFailureReason(String message) {
+    final trimmed = message.trim();
+    if (trimmed == '分摊截止日期不能晚于下一条同设备记录的计时日期') {
+      return '结束日需早于下一条同设备记录日期';
+    }
+    if (trimmed == '分摊截止日期必须晚于计时日期') {
+      return '结束日不能早于开始日';
+    }
+    if (trimmed == '同设备同日存在后续记录时，第一版暂不支持显式分摊截止日期') {
+      return '同设备同日有后续记录，暂不支持结束日';
+    }
+    return trimmed;
   }
 
   void _deleteEditingRecord(BuildContext sheetContext, TimingRecord editing) {
