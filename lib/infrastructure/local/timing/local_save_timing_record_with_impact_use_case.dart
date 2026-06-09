@@ -339,6 +339,10 @@ class LocalSaveTimingRecordWithImpactUseCase
         isEditing &&
         savedRecord.allocationCutoffDate == null &&
         existingRecord?.allocationCutoffDate != null;
+    final shouldIncludeNullDisplayEndDate =
+        isEditing &&
+        savedRecord.displayEndDate == null &&
+        existingRecord?.displayEndDate != null;
     // R5.25-Hardening: production composition root threads a SyncActorProvider
     // backed by AppIdentityService so payload.actor.id and
     // entity_sync_meta.updated_by carry the persisted owner id; tests/legacy
@@ -359,6 +363,7 @@ class LocalSaveTimingRecordWithImpactUseCase
         'record': savedRecord.toMap(
           includeNullAllocationCutoffDate:
               shouldIncludeNullAllocationCutoffDate,
+          includeNullDisplayEndDate: shouldIncludeNullDisplayEndDate,
         ),
       },
       transactionGroupId: group?.id,

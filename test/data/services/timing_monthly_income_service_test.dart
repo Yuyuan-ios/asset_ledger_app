@@ -506,6 +506,34 @@ void main() {
         expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
       });
 
+      test('rent display end date does not affect monthly income', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: const [
+            TimingRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260601,
+              displayEndDate: 20260731,
+              contact: '甲方',
+              site: '台班',
+              type: TimingType.rent,
+              startMeter: 0,
+              endMeter: 0,
+              hours: 0,
+              income: 1000,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 31),
+        );
+
+        expect(monthly[5], closeTo(1000.0, 0.001));
+        expect(monthly[6], closeTo(0.0, 0.001));
+        expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+        expect(monthly.skip(7).every((v) => v == 0.0), isTrue);
+      });
+
       test('invalid cutoff on start date falls back to legacy allocation', () {
         final monthly = computeLegacyMonthlyIncome(
           records: [
