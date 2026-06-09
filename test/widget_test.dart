@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asset_ledger/app/app.dart';
 import 'package:asset_ledger/app/inbound_share_file_gate.dart';
+import 'package:asset_ledger/app/phone_login_gate.dart';
 import 'package:asset_ledger/app/router.dart';
 
 void main() {
@@ -22,8 +23,11 @@ void main() {
 
     expect(app.title, 'Fleet Ledger');
     expect(app.debugShowCheckedModeBanner, isFalse);
-    final gate = app.home;
-    expect(gate, isA<InboundShareFileGate>());
-    expect((gate as InboundShareFileGate).child, isA<AppRouterEntry>());
+    final loginGate = app.home;
+    expect(loginGate, isA<PhoneLoginGate>());
+
+    final shareGate = (loginGate as PhoneLoginGate).child;
+    expect(shareGate, isA<InboundShareFileGate>());
+    expect((shareGate as InboundShareFileGate).child, isA<AppRouterEntry>());
   });
 }
