@@ -118,16 +118,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> scrollAllocationEndFieldIntoView(WidgetTester tester) async {
-    await tester.dragUntilVisible(
-      find.widgetWithText(TextField, '结束日'),
-      find.byType(SingleChildScrollView).first,
-      const Offset(0, -240),
-      maxIteration: 6,
-    );
-    await tester.pumpAndSettle();
-  }
-
   String collectUiCopy(WidgetTester tester) {
     final parts = <String>[];
     for (final widget in tester.allWidgets) {
@@ -325,46 +315,8 @@ void main() {
     expect(submittedRecord?.startDate, 20260315);
   });
 
-  testWidgets('hours UI end inclusive saves internal exclusive cutoff', (
-    WidgetTester tester,
-  ) async {
-    final key = GlobalKey<TimingDetailContentState>();
-    TimingRecord? submittedRecord;
-
-    await pumpTimingDetail(
-      tester,
-      key: key,
-      editing: buildEditableTimingRecord(),
-      devices: [buildDevice(id: 1)],
-      onSubmit: (record, _) async {
-        submittedRecord = record;
-      },
-    );
-
-    expect(find.text('结束日'), findsOneWidget);
-    expect(find.text('只影响收入图表月份分布，不改变项目总应收'), findsOneWidget);
-
-    await scrollAllocationEndFieldIntoView(tester);
-    await tester.tap(find.widgetWithText(TextField, '结束日'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('jzt-date-picker-day-20260318')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('2026.03.18'), findsOneWidget);
-
-    await key.currentState!.submit();
-    await tester.pumpAndSettle();
-
-    expect(submittedRecord?.allocationCutoffDate, 20260319);
-    expect(submittedRecord?.income, 0);
-  });
-
   testWidgets(
-    'editing exclusive cutoff displays inclusive UI end and clear saves null',
+    'hours editor hides end date entry and preserves existing cutoff',
     (WidgetTester tester) async {
       final key = GlobalKey<TimingDetailContentState>();
       TimingRecord? submittedRecord;
@@ -381,26 +333,20 @@ void main() {
         },
       );
 
-      expect(find.text('2026.03.18'), findsOneWidget);
-
-      await scrollAllocationEndFieldIntoView(tester);
-      await tester.tap(find.widgetWithText(TextField, '结束日'));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('jzt-date-picker-clear-button')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('2026.03.18'), findsNothing);
+      final uiCopy = collectUiCopy(tester);
+      expect(uiCopy, isNot(contains('结束日')));
+      expect(uiCopy, isNot(contains('只影响收入图表月份分布，不改变项目总应收')));
 
       await key.currentState!.submit();
       await tester.pumpAndSettle();
 
-      expect(submittedRecord?.allocationCutoffDate, isNull);
+      expect(submittedRecord?.allocationCutoffDate, 20260319);
+      expect(submittedRecord?.displayEndDate, isNull);
+      expect(submittedRecord?.income, 0);
     },
   );
 
-  testWidgets('allocation end picker cancel keeps exclusive draft unchanged', (
+  testWidgets('new hours record submits null cutoff without end date entry', (
     WidgetTester tester,
   ) async {
     final key = GlobalKey<TimingDetailContentState>();
@@ -409,117 +355,21 @@ void main() {
     await pumpTimingDetail(
       tester,
       key: key,
-      editing: buildEditableTimingRecord(
-        allocationCutoffExclusiveYmd: 20260319,
-      ),
       devices: [buildDevice(id: 1)],
       onSubmit: (record, _) async {
         submittedRecord = record;
       },
     );
 
-    await scrollAllocationEndFieldIntoView(tester);
-    await tester.tap(find.widgetWithText(TextField, '结束日'));
-    await tester.pumpAndSettle();
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '联系人'), '新甲方');
+    await tester.enterText(find.widgetWithText(TextField, '使用地址/工地'), '新工地');
 
     await key.currentState!.submit();
     await tester.pumpAndSettle();
 
-    expect(submittedRecord?.allocationCutoffDate, 20260319);
-  });
-
-  testWidgets('allocation end max UI date is before next same-device start', (
-    WidgetTester tester,
-  ) async {
-    await pumpTimingDetail(
-      tester,
-      editing: buildEditableTimingRecord(),
-      records: [
-        buildEditableTimingRecord().copyWith(id: 99, startDate: 20260320),
-      ],
-      devices: [buildDevice(id: 1)],
-    );
-
-    await scrollAllocationEndFieldIntoView(tester);
-    await tester.tap(find.widgetWithText(TextField, '结束日'));
-    await tester.pumpAndSettle();
-
-    final maxExcludedCell = tester.widget<InkWell>(
-      find.byKey(const ValueKey('jzt-date-picker-day-20260320')),
-    );
-    expect(maxExcludedCell.onTap, isNull);
-  });
-
-  testWidgets(
-    'same-day next same-device record disables allocation end input',
-    (WidgetTester tester) async {
-      await pumpTimingDetail(
-        tester,
-        editing: buildEditableTimingRecord(),
-        records: [buildEditableTimingRecord().copyWith(id: 99)],
-        devices: [buildDevice(id: 1)],
-      );
-
-      final allocationEndField = tester.widget<TextField>(
-        find.widgetWithText(TextField, '结束日'),
-      );
-      expect(allocationEndField.enabled, isFalse);
-      expect(find.text('同设备同日已有记录，暂不支持手动分摊'), findsOneWidget);
-    },
-  );
-
-  testWidgets('UI end 2027-12-31 saves internal exclusive 2028-01-01', (
-    WidgetTester tester,
-  ) async {
-    final key = GlobalKey<TimingDetailContentState>();
-    TimingRecord? submittedRecord;
-
-    await pumpTimingDetail(
-      tester,
-      key: key,
-      editing: buildEditableTimingRecord(startDate: 20271230),
-      devices: [buildDevice(id: 1)],
-      onSubmit: (record, _) async {
-        submittedRecord = record;
-      },
-    );
-
-    await scrollAllocationEndFieldIntoView(tester);
-    await tester.tap(find.widgetWithText(TextField, '结束日'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('jzt-date-picker-day-20271231')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
-    await tester.pumpAndSettle();
-
-    await key.currentState!.submit();
-    await tester.pumpAndSettle();
-
-    expect(submittedRecord?.allocationCutoffDate, 20280101);
-  });
-
-  testWidgets('allocation end UI hides internal terminology', (
-    WidgetTester tester,
-  ) async {
-    await pumpTimingDetail(
-      tester,
-      editing: buildEditableTimingRecord(),
-      devices: [buildDevice(id: 1)],
-    );
-
-    await scrollAllocationEndFieldIntoView(tester);
-
-    final uiCopy = collectUiCopy(tester);
-    expect(uiCopy, contains('结束日'));
-    expect(uiCopy, contains('只影响收入图表月份分布，不改变项目总应收'));
-    expect(uiCopy, isNot(contains('exclusive')));
-    expect(uiCopy, isNot(contains('右开')));
-    expect(uiCopy, isNot(contains('allocation')));
-    expect(uiCopy, isNot(contains('结束日期')));
+    expect(submittedRecord?.type, TimingType.hours);
+    expect(submittedRecord?.allocationCutoffDate, isNull);
+    expect(submittedRecord?.displayEndDate, isNull);
   });
 
   testWidgets('new timing date picker updates draft before creating record', (
@@ -756,7 +606,7 @@ void main() {
     );
   });
 
-  testWidgets('rent mode shows display end entry and submits null cutoff', (
+  testWidgets('rent editor hides end date entry and preserves display end', (
     WidgetTester tester,
   ) async {
     final key = GlobalKey<TimingDetailContentState>();
@@ -769,36 +619,6 @@ void main() {
         type: TimingType.rent,
         income: 500,
         allocationCutoffExclusiveYmd: 20260319,
-      ),
-      devices: [buildDevice(id: 1)],
-      onSubmit: (record, _) async {
-        submittedRecord = record;
-      },
-    );
-
-    expect(find.text('结束日'), findsOneWidget);
-    expect(find.text('仅用于记录展示，不影响收入和结清。'), findsOneWidget);
-
-    await key.currentState!.submit();
-    await tester.pumpAndSettle();
-
-    expect(submittedRecord?.type, TimingType.rent);
-    expect(submittedRecord?.allocationCutoffDate, isNull);
-    expect(submittedRecord?.displayEndDate, isNull);
-  });
-
-  testWidgets('editing rent display end backfills and clear saves null', (
-    WidgetTester tester,
-  ) async {
-    final key = GlobalKey<TimingDetailContentState>();
-    TimingRecord? submittedRecord;
-
-    await pumpTimingDetail(
-      tester,
-      key: key,
-      editing: buildEditableTimingRecord(
-        type: TimingType.rent,
-        income: 500,
         displayEndDate: 20260318,
       ),
       devices: [buildDevice(id: 1)],
@@ -807,98 +627,46 @@ void main() {
       },
     );
 
-    expect(find.text('2026.03.18'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(TextField, '结束日'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('jzt-date-picker-clear-button')),
-    );
-    await tester.pumpAndSettle();
+    final uiCopy = collectUiCopy(tester);
+    expect(uiCopy, isNot(contains('结束日')));
+    expect(uiCopy, isNot(contains('仅用于记录展示，不影响收入和结清。')));
 
     await key.currentState!.submit();
     await tester.pumpAndSettle();
 
     expect(submittedRecord?.type, TimingType.rent);
-    expect(submittedRecord?.displayEndDate, isNull);
     expect(submittedRecord?.allocationCutoffDate, isNull);
-  });
-
-  testWidgets('rent display end picker cancel keeps draft unchanged', (
-    WidgetTester tester,
-  ) async {
-    final key = GlobalKey<TimingDetailContentState>();
-    TimingRecord? submittedRecord;
-
-    await pumpTimingDetail(
-      tester,
-      key: key,
-      editing: buildEditableTimingRecord(
-        type: TimingType.rent,
-        income: 500,
-        displayEndDate: 20260318,
-      ),
-      devices: [buildDevice(id: 1)],
-      onSubmit: (record, _) async {
-        submittedRecord = record;
-      },
-    );
-
-    await tester.tap(find.widgetWithText(TextField, '结束日'));
-    await tester.pumpAndSettle();
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-
-    await key.currentState!.submit();
-    await tester.pumpAndSettle();
-
     expect(submittedRecord?.displayEndDate, 20260318);
-    expect(submittedRecord?.allocationCutoffDate, isNull);
   });
 
-  testWidgets(
-    'rent display end allows same-day end and hides allocation jargon',
-    (WidgetTester tester) async {
-      final key = GlobalKey<TimingDetailContentState>();
-      TimingRecord? submittedRecord;
+  testWidgets('new rent record submits null display end without entry', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
 
-      await pumpTimingDetail(
-        tester,
-        key: key,
-        editing: buildEditableTimingRecord(type: TimingType.rent, income: 500),
-        devices: [buildDevice(id: 1)],
-        onSubmit: (record, _) async {
-          submittedRecord = record;
-        },
-      );
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
 
-      final uiCopy = collectUiCopy(tester);
-      expect(uiCopy, contains('仅用于记录展示，不影响收入和结清。'));
-      expect(uiCopy, isNot(contains('分摊')));
-      expect(uiCopy, isNot(contains('exclusive')));
-      expect(uiCopy, isNot(contains('右开')));
-      expect(uiCopy, isNot(contains('allocation')));
+    await tester.tap(find.text('租金(台班)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '联系人'), '新甲方');
+    await tester.enterText(find.widgetWithText(TextField, '使用地址/工地'), '新工地');
+    await tester.enterText(find.widgetWithText(TextField, '金额（元）'), '500');
 
-      await tester.tap(find.widgetWithText(TextField, '结束日'));
-      await tester.pumpAndSettle();
-      final sameDayCell = tester.widget<InkWell>(
-        find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
-      );
-      expect(sameDayCell.onTap, isNotNull);
-      await tester.tap(
-        find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
-      await tester.pumpAndSettle();
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
 
-      await key.currentState!.submit();
-      await tester.pumpAndSettle();
-
-      expect(submittedRecord?.displayEndDate, 20260315);
-      expect(submittedRecord?.allocationCutoffDate, isNull);
-    },
-  );
+    expect(submittedRecord?.type, TimingType.rent);
+    expect(submittedRecord?.displayEndDate, isNull);
+    expect(submittedRecord?.allocationCutoffDate, isNull);
+  });
 
   testWidgets(
     'switching mode does not cross-write display and allocation ends',
@@ -928,6 +696,36 @@ void main() {
       expect(submitted.single.displayEndDate, isNull);
     },
   );
+
+  testWidgets('switching rent to hours does not reuse display end as cutoff', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: buildEditableTimingRecord(
+        type: TimingType.rent,
+        income: 500,
+        displayEndDate: 20260318,
+      ),
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.text('工时'));
+    await tester.pumpAndSettle();
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.type, TimingType.hours);
+    expect(submittedRecord?.allocationCutoffDate, isNull);
+    expect(submittedRecord?.displayEndDate, isNull);
+  });
 }
 
 DateTime visibleInitialPickerMonth(DateTime initialDate) {
