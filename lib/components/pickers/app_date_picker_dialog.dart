@@ -18,7 +18,7 @@ const _datePickerWarmDivider = Color(0xFFE3DCCF);
 const _datePickerWarmAccent = Color(0xFFB9854D);
 const _datePickerRangeFill = Color(0xFFEDEBE8);
 const _calendarGridHorizontalPadding = AppSpace.lg + AppSpace.md;
-const _monthSectionGap = 6.0;
+const _monthSectionGap = 0.0;
 const _monthListTopPadding = AppSpace.md;
 const _monthTitleHeight = 24.0;
 const _monthTitleToDividerGap = 8.0;
@@ -459,7 +459,7 @@ class _JztRangePromptRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey('jzt-date-picker-range-prompt'),
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.center,
       padding: const EdgeInsets.fromLTRB(
         _calendarGridHorizontalPadding,
         AppSpace.xs,
@@ -468,9 +468,10 @@ class _JztRangePromptRow extends StatelessWidget {
       ),
       child: Text(
         text,
+        textAlign: TextAlign.center,
         style: AppTypography.actionText(
           context,
-          fontSize: BottomSheetTokens.actionTextSize,
+          fontSize: BottomSheetTokens.dateRangePromptTextSize,
           fontWeight: FontWeight.w600,
         )?.copyWith(color: AppColors.textPrimary),
       ),

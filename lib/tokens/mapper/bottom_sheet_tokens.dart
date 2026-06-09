@@ -34,6 +34,7 @@ class BottomSheetTokens {
   static const double actionButtonHeight = 39;
   static const double actionButtonRadius = 20;
   static const double actionTextSize = 16;
+  static const double dateRangePromptTextSize = 20;
 
   // ===== 键盘联动 =====
   static const double keyboardTopOverlap = 20;
