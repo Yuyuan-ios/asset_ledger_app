@@ -336,6 +336,7 @@ void main() {
       final uiCopy = collectUiCopy(tester);
       expect(uiCopy, isNot(contains('结束日')));
       expect(uiCopy, isNot(contains('只影响收入图表月份分布，不改变项目总应收')));
+      expect(find.text('2026.03.15 - 03.18'), findsOneWidget);
 
       await key.currentState!.submit();
       await tester.pumpAndSettle();
@@ -369,6 +370,66 @@ void main() {
 
     expect(submittedRecord?.type, TimingType.hours);
     expect(submittedRecord?.allocationCutoffDate, isNull);
+    expect(submittedRecord?.displayEndDate, isNull);
+  });
+
+  testWidgets('new hours range saves exclusive allocation cutoff', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.byTooltip('选择日期'));
+    await tester.pumpAndSettle();
+    final defaultPickerMonth = visibleInitialPickerMonth(DateTime.now());
+    final startDate = DateTime(
+      defaultPickerMonth.year,
+      defaultPickerMonth.month,
+      2,
+    );
+    final endDate = DateTime(
+      defaultPickerMonth.year,
+      defaultPickerMonth.month,
+      4,
+    );
+    await tester.tap(
+      find.byKey(ValueKey('jzt-date-picker-day-${ymdFromDate(startDate)}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('jzt-date-picker-day-${ymdFromDate(endDate)}')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(3天)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成(3天)'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        '${formatDateForInput(startDate)} - ${compactDateForInput(endDate)}',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.widgetWithText(TextField, '联系人'), '新甲方');
+    await tester.enterText(find.widgetWithText(TextField, '使用地址/工地'), '新工地');
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.type, TimingType.hours);
+    expect(
+      submittedRecord?.allocationCutoffDate,
+      ymdFromDate(endDate.add(const Duration(days: 1))),
+    );
     expect(submittedRecord?.displayEndDate, isNull);
   });
 
@@ -630,6 +691,7 @@ void main() {
     final uiCopy = collectUiCopy(tester);
     expect(uiCopy, isNot(contains('结束日')));
     expect(uiCopy, isNot(contains('仅用于记录展示，不影响收入和结清。')));
+    expect(find.text('2026.03.15 - 03.18'), findsOneWidget);
 
     await key.currentState!.submit();
     await tester.pumpAndSettle();
@@ -668,6 +730,58 @@ void main() {
     expect(submittedRecord?.allocationCutoffDate, isNull);
   });
 
+  testWidgets('new rent range saves display end directly', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.text('租金(台班)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('选择日期'));
+    await tester.pumpAndSettle();
+    final defaultPickerMonth = visibleInitialPickerMonth(DateTime.now());
+    final startDate = DateTime(
+      defaultPickerMonth.year,
+      defaultPickerMonth.month,
+      2,
+    );
+    final endDate = DateTime(
+      defaultPickerMonth.year,
+      defaultPickerMonth.month,
+      4,
+    );
+    await tester.tap(
+      find.byKey(ValueKey('jzt-date-picker-day-${ymdFromDate(startDate)}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('jzt-date-picker-day-${ymdFromDate(endDate)}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成(3天)'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField, '联系人'), '新甲方');
+    await tester.enterText(find.widgetWithText(TextField, '使用地址/工地'), '新工地');
+    await tester.enterText(find.widgetWithText(TextField, '金额（元）'), '500');
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.type, TimingType.rent);
+    expect(submittedRecord?.displayEndDate, ymdFromDate(endDate));
+    expect(submittedRecord?.allocationCutoffDate, isNull);
+  });
+
   testWidgets(
     'switching mode does not cross-write display and allocation ends',
     (WidgetTester tester) async {
@@ -693,7 +807,7 @@ void main() {
 
       expect(submitted.single.type, TimingType.rent);
       expect(submitted.single.allocationCutoffDate, isNull);
-      expect(submitted.single.displayEndDate, isNull);
+      expect(submitted.single.displayEndDate, 20260318);
     },
   );
 
@@ -723,7 +837,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(submittedRecord?.type, TimingType.hours);
-    expect(submittedRecord?.allocationCutoffDate, isNull);
+    expect(submittedRecord?.allocationCutoffDate, 20260319);
     expect(submittedRecord?.displayEndDate, isNull);
   });
 }
@@ -741,4 +855,16 @@ DateTime visibleInitialPickerMonth(DateTime initialDate) {
 
 int ymdFromDate(DateTime date) {
   return date.year * 10000 + date.month * 100 + date.day;
+}
+
+String formatDateForInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}.$month.$day';
+}
+
+String compactDateForInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$month.$day';
 }

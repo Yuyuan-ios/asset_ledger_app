@@ -110,16 +110,16 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
 bool _shouldShowRecordDateRange(TimingRecord record) {
   final displayEndInclusiveYmd = _recordDisplayEndInclusiveYmd(record);
   if (displayEndInclusiveYmd == null) return false;
-  return displayEndInclusiveYmd >= record.startDate;
+  return displayEndInclusiveYmd > record.startDate;
 }
 
 String _recordDateRangeText(TimingRecord record) {
   final displayEndInclusiveYmd = _recordDisplayEndInclusiveYmd(record);
   if (displayEndInclusiveYmd == null ||
-      displayEndInclusiveYmd < record.startDate) {
+      displayEndInclusiveYmd <= record.startDate) {
     return FormatUtils.date(record.startDate);
   }
-  return '${FormatUtils.date(record.startDate)} - ${_compactRangeEndText(record.startDate, displayEndInclusiveYmd)}';
+  return FormatUtils.compactDateRange(record.startDate, displayEndInclusiveYmd);
 }
 
 int? _recordDisplayEndInclusiveYmd(TimingRecord record) {
@@ -151,15 +151,6 @@ int? _tryAllocationDisplayEndInclusiveYmd(int exclusiveCutoffYmd) {
   } on ArgumentError {
     return null;
   }
-}
-
-String _compactRangeEndText(int startYmd, int endYmd) {
-  final start = FormatUtils.dateFromYmd(startYmd);
-  final end = FormatUtils.dateFromYmd(endYmd);
-  if (start.year != end.year) return FormatUtils.date(endYmd);
-  final month = end.month.toString().padLeft(2, '0');
-  final day = end.day.toString().padLeft(2, '0');
-  return '$month.$day';
 }
 
 List<_AggregateRecordSection> _buildAggregateSections(
