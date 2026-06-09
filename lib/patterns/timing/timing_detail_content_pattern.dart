@@ -35,6 +35,7 @@ enum AttachmentMode { digging, breaking }
 const _workHourCalculatorIconAsset =
     'assets/icons/timing/work_hour_calculator_icon.png';
 const _timingFieldIconSize = 30.0;
+const _submitFailureTipDuration = Duration(seconds: 4);
 
 typedef TimingIncomeResolver =
     FutureOr<double> Function({
@@ -224,12 +225,22 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   double _d(String s) => double.tryParse(s.trim()) ?? 0.0;
 
-  void _toastInSheet(String msg) {
+  void showSubmitFailure(String msg) {
+    _toastInSheet(
+      formValidationMessage(msg),
+      duration: _submitFailureTipDuration,
+    );
+  }
+
+  void _toastInSheet(
+    String msg, {
+    Duration duration = DurationTokens.snackBar,
+  }) {
     _bottomTipTimer?.cancel();
     if (mounted) {
       setState(() => _bottomTip = msg);
     }
-    _bottomTipTimer = Timer(DurationTokens.snackBar, () {
+    _bottomTipTimer = Timer(duration, () {
       if (!mounted) return;
       setState(() => _bottomTip = null);
     });
