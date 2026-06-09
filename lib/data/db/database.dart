@@ -90,10 +90,18 @@ class AppDatabase {
   //        COALESCE(amount_fen, ROUND(amount*100)) 兜底残留 NULL；保留 amount REAL
   //        兼容列、CHECK(amount>0)、TEXT 主键、projects FK RESTRICT 与两索引。
   //        不动 account_payments（B1）、不改 model/payload/读路径。
+  // - v31：account_payments.amount_fen 提升为 INTEGER NOT NULL（R5.26-B1）；
+  //        SQLite 不能原地改列约束，故重建表（14 列全集），回填用
+  //        COALESCE(amount_fen, ROUND(amount*100)) 兜底残留 NULL；保留 amount REAL
+  //        兼容列、id INTEGER PRIMARY KEY AUTOINCREMENT、projects FK RESTRICT 与
+  //        idx_account_payments_project_ymd 索引。sqlite_sequence 写回
+  //        max(old_seq, current_max_id)（保留历史高水位、不让 AUTOINCREMENT 倒退）。
+  //        merge_batch_total_amount_fen 保持 nullable（不翻 NOT NULL）。
+  //        不动 project_write_offs / timing_records、不改 model/payload/读路径。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 30;
+  static const int _dbVersion = 31;
 
   static int get schemaVersion => _dbVersion;
 

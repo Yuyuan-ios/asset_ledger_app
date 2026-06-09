@@ -11,7 +11,7 @@ class AccountSchema {
         project_key TEXT NOT NULL,
         ymd INTEGER NOT NULL,
         amount REAL NOT NULL,
-        amount_fen INTEGER,
+        amount_fen INTEGER NOT NULL,
         note TEXT,
         source_type TEXT NOT NULL DEFAULT 'manual',
         merge_group_id INTEGER,

@@ -1141,7 +1141,11 @@ Future<void> _seedAccountPayment(
 ) async {
   final projectKey = payment['project_key'] as String;
   await _seedProject(db, projectKey: projectKey);
+  // R5.26-B1：account_payments.amount_fen 现为 NOT NULL；原始 payment map 未带 fen
+  // 时按 round(amount*100) 兜底（显式传入的 amount_fen 仍以 payment 为准）。
+  final amount = (payment['amount'] as num).toDouble();
   await db.insert('account_payments', {
+    'amount_fen': (amount * 100).round(),
     ...payment,
     'project_id': payment['project_id'] ?? _projectIdForKey(projectKey),
   });

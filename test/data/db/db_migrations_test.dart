@@ -337,6 +337,8 @@ void main() {
           'project_key': '甲方||一号工地',
           'ymd': 20260517,
           'amount': 100.0,
+          // R5.26-B1：amount_fen 现为 NOT NULL；带合法 fen 确保唯一违例来自 FK。
+          'amount_fen': 10000,
         }),
         throwsA(isA<DatabaseException>()),
       );
@@ -346,6 +348,8 @@ void main() {
         'project_key': '甲方||一号工地',
         'ymd': 20260517,
         'amount': 100.0,
+        // R5.26-B1：account_payments.amount_fen 现为 NOT NULL。
+        'amount_fen': 10000,
       });
 
       await expectLater(
