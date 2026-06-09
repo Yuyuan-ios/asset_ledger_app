@@ -109,6 +109,9 @@ class DbSchemaCompat {
     // R5.26-B2：必须在 ensureMoneyFenSchema（补列 + 回填 amount_fen）之后，确保
     // 重建为 NOT NULL 前列已存在且 NULL 已被回填（COALESCE 再兜底）。
     await DbMigrations.ensureProjectWriteOffAmountFenNotNull(db);
+    // R5.26-B1：同样必须在 ensureMoneyFenSchema 之后（account_payments.amount_fen /
+    // merge_batch_total_amount_fen 已补列且 NULL 已回填），再重建为 NOT NULL。
+    await DbMigrations.ensureAccountPaymentAmountFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

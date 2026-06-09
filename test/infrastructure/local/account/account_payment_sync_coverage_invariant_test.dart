@@ -332,6 +332,9 @@ const Map<String, String> _registeredAccountPaymentWriteFiles = {
   // Schema/migration account_payments writes are historical data movement and
   // intentionally outside row-level sync coverage.
   'lib/data/db/migrations/migration_018.dart': 'migration exemption',
+  // R5.26-B1：account_payments.amount_fen 重建为 NOT NULL 的表重建迁移（14 列
+  // INSERT…SELECT），属历史数据搬运，沿用 migration_018 的迁移豁免口径。
+  'lib/data/db/migrations/migration_031.dart': 'migration exemption',
   'lib/data/db/migrations/project_foreign_key_migration.dart':
       'migration exemption',
   'lib/data/db/migrations/project_identity_migration.dart':
@@ -342,6 +345,7 @@ const Set<String> _deferredRestoreAndMigrationExemptions = {
   'lib/data/services/backup/backup_tables.dart',
   'lib/data/services/backup/local_restore_service.dart',
   'lib/data/db/migrations/migration_018.dart',
+  'lib/data/db/migrations/migration_031.dart',
   'lib/data/db/migrations/project_foreign_key_migration.dart',
   'lib/data/db/migrations/project_identity_migration.dart',
 };

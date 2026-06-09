@@ -77,16 +77,20 @@ void main() {
   });
 
   group('REAL compatibility columns retained; fen NOT NULL tracks B1/B2', () {
-    test('account_payments keeps amount REAL NOT NULL and nullable amount_fen', () {
+    test('account_payments keeps amount REAL NOT NULL and now NOT NULL amount_fen', () {
       // 表内逐块断言（避免被同文件 project_write_offs 的 NOT NULL 串误判）。
       final block = _tableBlock(
         _read('lib/data/db/schema/account_schema.dart'),
         'account_payments',
       );
       expect(block.contains('amount REAL NOT NULL'), isTrue);
-      expect(block.contains('amount_fen INTEGER'), isTrue);
-      // B1 未做：account_payments.amount_fen 仍是 nullable INTEGER（无 NOT NULL）。
-      expect(block.contains('amount_fen INTEGER NOT NULL'), isFalse);
+      // R5.26-B1：account_payments.amount_fen 已重建为 NOT NULL。
+      expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
+      // 坑C：merge_batch_total_amount_fen 仍 nullable（绝不翻 NOT NULL）。
+      expect(
+        block.contains('merge_batch_total_amount_fen INTEGER NOT NULL'),
+        isFalse,
+      );
     });
 
     test('project_write_offs keeps amount REAL and now NOT NULL amount_fen', () {

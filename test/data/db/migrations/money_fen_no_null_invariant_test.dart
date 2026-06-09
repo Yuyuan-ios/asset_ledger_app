@@ -20,11 +20,13 @@ import '../../../test_setup.dart';
 ///
 /// 覆盖三类 legacy 场景：
 /// - 场景 A：fen 列缺失（pre-v18 历史库）→ 升级链补列 + 回填。
-/// - 场景 B：fen 列已存在但值为 NULL（当前版本库结构漂移）→ onOpen ensure 自愈。
+/// - 场景 B：fen 列已存在但值为 NULL（结构漂移）→ ensure 自愈。
 /// - 回填语义：只填 NULL，不覆盖既有 fen 值（B1/B2 重建表的 COALESCE 依据）。
 ///
-/// schema readiness 现状（随 B 系列推进）：project_write_offs.amount_fen 已在
-/// R5.26-B2 改为 NOT NULL；account_payments.amount_fen 仍 nullable（B1 未做）。
+/// schema readiness 现状（随 B 系列推进）：project_write_offs.amount_fen（R5.26-B2）
+/// 与 account_payments.amount_fen（R5.26-B1）均已重建为 NOT NULL。当前 schema 已不
+/// 允许这两列插入 NULL，故场景 B / no-clobber 改用 legacy-nullable 桩（DROP+CREATE
+/// 为 nullable amount_fen 形态）复刻漂移前提，再调 ensure 验证自愈与不覆盖语义。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -171,15 +173,17 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
-  // 场景 B：当前版本库结构漂移（fen 列在、值为 NULL）经 onOpen ensure 自愈。
+  // 场景 B：结构漂移（fen 列在、值为 NULL）经 onOpen ensure 自愈。
+  //
+  // R5.26-B1/B2 后两列均 NOT NULL，当前 schema 已无法插入 amount_fen=NULL，故用
+  // legacy-nullable 桩（DROP+CREATE account_payments 为 nullable amount_fen 形态）
+  // 复刻漂移前提，再调 ensureMoneyFenSchema + ensureAccountPaymentAmountFenNotNull
+  // 验证自愈为 NOT NULL / 无 NULL / COALESCE 正确。
   // ---------------------------------------------------------------------------
   test(
-    'current-version db with NULL account_payments.amount_fen is healed to '
-    'non-null by DbSchemaCompat.ensure (onOpen path)',
+    'drifted nullable account_payments.amount_fen (with NULL) is healed to '
+    'NOT NULL by ensure (onOpen-equivalent path)',
     () async {
-      // 注：R5.26-B2 后 project_write_offs.amount_fen 已是 NOT NULL，当前 schema
-      // 不可能再漂移出 NULL；account_payments.amount_fen 仍 nullable（B1 未做），
-      // 故此处只验 account_payments 的 onOpen 自愈。
       final db = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
@@ -187,6 +191,7 @@ void main() {
           onConfigure: _enableForeignKeys,
           onCreate: (db, _) async {
             await DbSchema.create(db);
+            await _recreateAccountPaymentsNullable(db);
             await _insertProject(db, id: 'project:drift');
             await db.insert('account_payments', {
               'id': 1,
@@ -200,14 +205,23 @@ void main() {
         ),
       );
       try {
-        // sanity：列在、值为 NULL。
+        // sanity：列在、nullable、值为 NULL。
         expect(await _columnExists(db, 'account_payments', 'amount_fen'), isTrue);
+        expect(
+          await _isColumnNullable(db, 'account_payments', 'amount_fen'),
+          isTrue,
+        );
         expect(await _nullFenCount(db, 'account_payments'), 1);
 
-        // 跑生产 onOpen 兜底：DbSchemaCompat.ensure 内部会调 ensureMoneyFenSchema。
-        await DbSchemaCompat.ensure(db);
+        // 兜底回填（ensureMoneyFenSchema）+ 重建为 NOT NULL（B1）。
+        await DbMigrations.ensureMoneyFenSchema(db);
+        await DbMigrations.ensureAccountPaymentAmountFenNotNull(db);
 
-        // NULL 被自愈为 round(amount*100)。
+        // 列翻为 NOT NULL，NULL 被自愈为 round(amount*100)。
+        expect(
+          await _isColumnNullable(db, 'account_payments', 'amount_fen'),
+          isFalse,
+        );
         expect(await _nullFenCount(db, 'account_payments'), 0);
         expect(
           (await db.query('account_payments')).single['amount_fen'],
@@ -226,6 +240,9 @@ void main() {
     'money fen backfill fills only NULL rows and never clobbers an existing '
     'fen value, and is idempotent',
     () async {
+      // B1 后当前 schema 不允许插 amount_fen=NULL，故用 legacy-nullable 桩复刻
+      // 「一行 NULL、一行明确非 round(amount*100) 值」，验证 ensureMoneyFenSchema 的
+      // no-clobber 语义（只填 NULL、不覆盖既有 fen）。
       final db = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
@@ -233,6 +250,7 @@ void main() {
           onConfigure: _enableForeignKeys,
           onCreate: (db, _) async {
             await DbSchema.create(db);
+            await _recreateAccountPaymentsNullable(db);
             await _insertProject(db, id: 'project:keep');
             // 一行 fen=NULL（待回填）。
             await db.insert('account_payments', {
@@ -286,11 +304,11 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
-  // Schema readiness：当前两列存在，但仍 nullable —— 本轮不改 NOT NULL。
+  // Schema readiness：两列均已 NOT NULL（B1 + B2 done）。
   // ---------------------------------------------------------------------------
   test(
-    'fresh schema at current version: project_write_offs.amount_fen is NOT NULL '
-    '(B2 done); account_payments.amount_fen still NULLABLE (B1 pending)',
+    'fresh schema at current version: both account_payments.amount_fen and '
+    'project_write_offs.amount_fen are NOT NULL (B1 + B2 done)',
     () async {
       final db = await databaseFactoryFfi.openDatabase(
         dbPath,
@@ -300,13 +318,12 @@ void main() {
         ),
       );
       try {
-        // ⚠️ canary：R5.26-B2 已把 project_write_offs.amount_fen 重建为 NOT NULL；
-        //    account_payments.amount_fen 仍 nullable（B1 未做）——B1 落地时翻转下面
-        //    account_payments 的 isNullable 断言。
+        // ⚠️ canary：R5.26-B1 已把 account_payments.amount_fen 重建为 NOT NULL；
+        //    R5.26-B2 已把 project_write_offs.amount_fen 重建为 NOT NULL。
         expect(
           await _isColumnNullable(db, 'account_payments', 'amount_fen'),
-          isTrue,
-          reason: 'B1 pending: account_payments.amount_fen 仍为 nullable',
+          isFalse,
+          reason: 'B1 done: account_payments.amount_fen 已是 NOT NULL',
         );
         expect(
           await _isColumnNullable(db, 'project_write_offs', 'amount_fen'),
@@ -426,6 +443,37 @@ Future<void> _recreateMoneyTablesWithoutFen(DatabaseExecutor db) async {
   await db.execute('''
     CREATE INDEX idx_project_write_offs_write_off_date
     ON project_write_offs(write_off_date);
+  ''');
+}
+
+/// 把 account_payments 退回 nullable amount_fen 形态（当前 14 列集，仅 amount_fen
+/// 可空），用于复刻 B1 落地后「结构漂移出 NULL」的前提。
+Future<void> _recreateAccountPaymentsNullable(DatabaseExecutor db) async {
+  await db.execute('DROP INDEX IF EXISTS idx_account_payments_project_ymd;');
+  await db.execute('DROP TABLE IF EXISTS account_payments;');
+  await db.execute('''
+    CREATE TABLE account_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      project_key TEXT NOT NULL,
+      ymd INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      amount_fen INTEGER,
+      note TEXT,
+      source_type TEXT NOT NULL DEFAULT 'manual',
+      merge_group_id INTEGER,
+      merge_batch_id TEXT,
+      merge_batch_total_amount REAL,
+      merge_batch_total_amount_fen INTEGER,
+      merge_batch_note TEXT,
+      created_at TEXT,
+      FOREIGN KEY (project_id)
+        REFERENCES projects(id) ON DELETE RESTRICT
+    );
+  ''');
+  await db.execute('''
+    CREATE INDEX idx_account_payments_project_ymd
+    ON account_payments(project_id, ymd);
   ''');
 }
 
