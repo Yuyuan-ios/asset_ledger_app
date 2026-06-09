@@ -95,17 +95,92 @@ void main() {
       expect((await repository.listAll()).single.allocationCutoffDate, isNull);
     });
   });
+
+  group('SqfliteTimingRepository display end persistence', () {
+    test('insert rent display end persists and reads back', () async {
+      final db = await AppDatabase.database;
+      final repository = SqfliteTimingRepository();
+      final projectId = await _seedProject(db);
+
+      final id = await repository.insert(
+        _record(
+          projectId: projectId,
+          type: TimingType.rent,
+          displayEndDate: 20260630,
+        ),
+      );
+
+      final row = (await db.query(
+        'timing_records',
+        where: 'id = ?',
+        whereArgs: [id],
+      )).single;
+      expect(row['display_end_date'], 20260630);
+
+      final records = await repository.listAll();
+      expect(records.single.displayEndDate, 20260630);
+      expect(records.single.allocationCutoffDate, isNull);
+    });
+
+    test('update can clear display end to null', () async {
+      final db = await AppDatabase.database;
+      final repository = SqfliteTimingRepository();
+      final projectId = await _seedProject(db);
+
+      final id = await repository.insert(
+        _record(
+          projectId: projectId,
+          type: TimingType.rent,
+          displayEndDate: 20260630,
+        ),
+      );
+      final existing = (await repository.listAll()).single;
+
+      await repository.update(existing.copyWith(displayEndDate: null));
+
+      final row = (await db.query(
+        'timing_records',
+        where: 'id = ?',
+        whereArgs: [id],
+      )).single;
+      expect(row['display_end_date'], isNull);
+      expect((await repository.listAll()).single.displayEndDate, isNull);
+    });
+
+    test(
+      'insert hours keeps display end null and preserves allocation cutoff',
+      () async {
+        final repository = SqfliteTimingRepository();
+        final projectId = await _seedProject(await AppDatabase.database);
+
+        await repository.insert(
+          _record(projectId: projectId, allocationCutoffDate: 20260610),
+        );
+
+        final record = (await repository.listAll()).single;
+        expect(record.type, TimingType.hours);
+        expect(record.displayEndDate, isNull);
+        expect(record.allocationCutoffDate, 20260610);
+      },
+    );
+  });
 }
 
-TimingRecord _record({required String projectId, int? allocationCutoffDate}) {
+TimingRecord _record({
+  required String projectId,
+  int? allocationCutoffDate,
+  int? displayEndDate,
+  TimingType type = TimingType.hours,
+}) {
   return TimingRecord(
     projectId: projectId,
     deviceId: 1,
     startDate: 20260601,
     allocationCutoffDate: allocationCutoffDate,
+    displayEndDate: displayEndDate,
     contact: '甲方',
     site: '一号工地',
-    type: TimingType.hours,
+    type: type,
     startMeter: 0,
     endMeter: 8,
     hours: 8,

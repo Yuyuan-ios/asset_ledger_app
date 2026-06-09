@@ -115,6 +115,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   final _hoursCtrl = TextEditingController(text: '0.0');
   final _incomeCtrl = TextEditingController(text: '0.0');
   final _allocationEndInclusiveCtrl = TextEditingController();
+  final _displayEndDateCtrl = TextEditingController();
 
   final _contactFocus = FocusNode();
   final _siteFocus = FocusNode();
@@ -122,6 +123,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   int? _selectedDeviceId;
   late DateTime _selectedDate;
   DateTime? _allocationEndInclusiveDate;
+  DateTime? _displayEndDate;
   WorkMode _mode = WorkMode.hours;
   AttachmentMode _attachmentMode = AttachmentMode.digging;
   bool _excludeFromFuelEfficiency = false;
@@ -169,6 +171,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
           editing.allocationCutoffDate,
         ),
       );
+    } else {
+      _setDisplayEndDate(_displayEndDateFromYmd(editing.displayEndDate));
     }
     _attachmentMode = editing.isBreaking
         ? AttachmentMode.breaking
@@ -219,6 +223,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _hoursCtrl.dispose();
     _incomeCtrl.dispose();
     _allocationEndInclusiveCtrl.dispose();
+    _displayEndDateCtrl.dispose();
     _contactFocus.dispose();
     _siteFocus.dispose();
     _bottomTipTimer?.cancel();
@@ -333,6 +338,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     setState(() {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
       _normalizeAllocationEndInclusiveForCurrentBounds();
+      _normalizeDisplayEndDateForCurrentStart();
       _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
     });
   }
@@ -366,6 +372,29 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       _setAllocationEndInclusiveDate(
         DateTime(picked.year, picked.month, picked.day),
       );
+    });
+  }
+
+  Future<void> _pickDisplayEndDate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final result = await showSheetDatePickerDialogResult(
+      context: context,
+      initialDate: _displayEndDate ?? _selectedDate,
+      minDate: _selectedDate,
+      allowClear: true,
+      selectedLabel: '结束',
+      clearText: '清空',
+      disabledDate: (date) => _isDateBefore(date, _selectedDate),
+    );
+    if (!mounted || result.isCancelled) return;
+    setState(() {
+      if (result.isCleared) {
+        _setDisplayEndDate(null);
+        return;
+      }
+      final picked = result.date;
+      if (picked == null) return;
+      _setDisplayEndDate(DateTime(picked.year, picked.month, picked.day));
     });
   }
 
@@ -478,6 +507,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     final allocationEndExclusiveYmd = isRent
         ? null
         : _allocationEndExclusiveYmd();
+    final displayEndDateYmd = isRent ? _displayEndDateYmd() : null;
 
     final record = TimingRecord(
       id: widget.editing?.id,
@@ -485,6 +515,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       deviceId: deviceId,
       startDate: ymd,
       allocationCutoffDate: allocationEndExclusiveYmd,
+      displayEndDate: displayEndDateYmd,
       contact: contact,
       site: site,
       type: type,
@@ -524,6 +555,14 @@ class TimingDetailContentState extends State<TimingDetailContent> {
         : FormatUtils.date(FormatUtils.ymdFromDate(normalized));
   }
 
+  void _setDisplayEndDate(DateTime? date) {
+    final normalized = date == null ? null : _dateOnly(date);
+    _displayEndDate = normalized;
+    _displayEndDateCtrl.text = normalized == null
+        ? ''
+        : FormatUtils.date(FormatUtils.ymdFromDate(normalized));
+  }
+
   DateTime? _allocationEndInclusiveDateFromExclusiveYmd(int? exclusiveYmd) {
     if (exclusiveYmd == null) return null;
     try {
@@ -539,6 +578,21 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     if (inclusiveEnd == null) return null;
     final exclusiveEnd = inclusiveEnd.add(const Duration(days: 1));
     return FormatUtils.ymdFromDate(exclusiveEnd);
+  }
+
+  DateTime? _displayEndDateFromYmd(int? ymd) {
+    if (ymd == null) return null;
+    try {
+      return _dateOnly(FormatUtils.dateFromYmd(ymd));
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  int? _displayEndDateYmd() {
+    final displayEnd = _displayEndDate;
+    if (displayEnd == null) return null;
+    return FormatUtils.ymdFromDate(displayEnd);
   }
 
   String? _allocationEndInclusiveDisabledReason() {
@@ -611,6 +665,14 @@ class TimingDetailContentState extends State<TimingDetailContent> {
         current.isBefore(_selectedDate) ||
         (maxDate != null && current.isAfter(maxDate))) {
       _setAllocationEndInclusiveDate(null);
+    }
+  }
+
+  void _normalizeDisplayEndDateForCurrentStart() {
+    final current = _displayEndDate;
+    if (current == null) return;
+    if (current.isBefore(_selectedDate)) {
+      _setDisplayEndDate(null);
     }
   }
 
@@ -765,6 +827,16 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                         onPickDate: _pickAllocationEndInclusiveDate,
                       ),
                     ] else ...[
+                      SheetDateField(
+                        controller: _displayEndDateCtrl,
+                        label: '结束日',
+                        hint: '未设置',
+                        helperText: '仅用于记录展示，不影响收入和结清。',
+                        tooltip: '选择记录展示结束日',
+                        enabled: !_submitting,
+                        onPickDate: _pickDisplayEndDate,
+                      ),
+                      const SizedBox(height: TimingTokens.contentGap),
                       _field(
                         controller: _hoursCtrl,
                         hint: '0.0（可空）',
