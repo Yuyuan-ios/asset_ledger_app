@@ -433,6 +433,153 @@ void main() {
     expect(submittedRecord?.displayEndDate, isNull);
   });
 
+  testWidgets('hours range allows end date on next same-device start date', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+    final editing = buildEditableTimingRecord(startDate: 20260315);
+    final nextRecord = buildEditableTimingRecord(startDate: 20260320).copyWith(
+      id: 8,
+      startMeter: 12,
+      endMeter: 14,
+      contact: '何小波',
+      site: 'B工地',
+    );
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: editing,
+      records: [editing, nextRecord],
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.text('2026.03.15'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260321')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(7天)'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260320')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(6天)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成(6天)'));
+    await tester.pumpAndSettle();
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, 20260321);
+    expect(submittedRecord?.displayEndDate, isNull);
+  });
+
+  testWidgets('hours range allows same-day handoff end date', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+    final editing = buildEditableTimingRecord(startDate: 20260315);
+    final sameDayNext = buildEditableTimingRecord(startDate: 20260315).copyWith(
+      id: 8,
+      startMeter: 12,
+      endMeter: 14,
+      contact: '何小波',
+      site: 'B工地',
+    );
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: editing,
+      records: [editing, sameDayNext],
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.text('2026.03.15'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, 20260316);
+    expect(submittedRecord?.displayEndDate, isNull);
+  });
+
+  testWidgets('rent range is not limited by next same-device start date', (
+    WidgetTester tester,
+  ) async {
+    final key = GlobalKey<TimingDetailContentState>();
+    TimingRecord? submittedRecord;
+    final editing = buildEditableTimingRecord(
+      startDate: 20260315,
+      type: TimingType.rent,
+      income: 300,
+    );
+    final nextRecord = buildEditableTimingRecord(startDate: 20260320).copyWith(
+      id: 8,
+      startMeter: 12,
+      endMeter: 14,
+      contact: '何小波',
+      site: 'B工地',
+    );
+
+    await pumpTimingDetail(
+      tester,
+      key: key,
+      editing: editing,
+      records: [editing, nextRecord],
+      devices: [buildDevice(id: 1)],
+      onSubmit: (record, _) async {
+        submittedRecord = record;
+      },
+    );
+
+    await tester.tap(find.text('2026.03.15'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260325')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(11天)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成(11天)'));
+    await tester.pumpAndSettle();
+
+    await key.currentState!.submit();
+    await tester.pumpAndSettle();
+
+    expect(submittedRecord?.allocationCutoffDate, isNull);
+    expect(submittedRecord?.displayEndDate, 20260325);
+  });
+
   testWidgets('new timing date picker updates draft before creating record', (
     WidgetTester tester,
   ) async {

@@ -306,6 +306,45 @@ void main() {
     expect(find.text('2026.06.09 - 06.09'), findsNothing);
   });
 
+  testWidgets('hours handoff range can end on next record start date', (
+    WidgetTester tester,
+  ) async {
+    const records = [
+      TimingRecord(
+        id: 14,
+        deviceId: 1,
+        startDate: 20260312,
+        allocationCutoffDate: 20260324,
+        contact: '李杰',
+        site: '尚义',
+        type: TimingType.hours,
+        startMeter: 5817.1,
+        endMeter: 5881.7,
+        hours: 64.6,
+        income: 6460,
+      ),
+      TimingRecord(
+        id: 15,
+        deviceId: 1,
+        startDate: 20260323,
+        contact: '李杰',
+        site: '鲜滩',
+        type: TimingType.hours,
+        startMeter: 5882.3,
+        endMeter: 6121.8,
+        hours: 238.8,
+        income: 23880,
+      ),
+    ];
+
+    await _pumpSectionRecentRecords(tester, records: records);
+
+    expect(find.text('2026.03.12 - 03.23'), findsOneWidget);
+    expect(find.text('2026.03.23'), findsOneWidget);
+    expect(find.text('李杰 · 尚义'), findsOneWidget);
+    expect(find.text('李杰 · 鲜滩'), findsOneWidget);
+  });
+
   testWidgets('same-day explicit end record is split from plain date group', (
     WidgetTester tester,
   ) async {

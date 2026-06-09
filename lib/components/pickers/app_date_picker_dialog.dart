@@ -37,6 +37,7 @@ const _bottomActionVerticalPadding = AppSpace.sm + AppSpace.lg;
 const _monthListBottomExtraPadding = AppSpace.xl;
 
 typedef DatePickerDisabledDatePredicate = bool Function(DateTime date);
+typedef DateRangeEndMaxDateResolver = DateTime? Function(DateTime startDate);
 
 enum DatePickerResultType { selected, cleared, cancelled }
 
@@ -194,6 +195,7 @@ Future<DateRangePickerResult> showSheetDateRangePickerDialogResult({
   DateTime? minDate,
   DateTime? maxDate,
   DatePickerDisabledDatePredicate? disabledDate,
+  DateRangeEndMaxDateResolver? rangeEndMaxDate,
 }) {
   return showJztDateRangePickerSheetResult(
     context: context,
@@ -202,6 +204,7 @@ Future<DateRangePickerResult> showSheetDateRangePickerDialogResult({
     minDate: minDate,
     maxDate: maxDate,
     disabledDate: disabledDate,
+    rangeEndMaxDate: rangeEndMaxDate,
   );
 }
 
@@ -212,6 +215,7 @@ Future<DateRangePickerResult> showJztDateRangePickerSheetResult({
   DateTime? minDate,
   DateTime? maxDate,
   DatePickerDisabledDatePredicate? disabledDate,
+  DateRangeEndMaxDateResolver? rangeEndMaxDate,
 }) async {
   final result = await showAppBottomSheet<DateRangePickerResult>(
     context: context,
@@ -229,6 +233,7 @@ Future<DateRangePickerResult> showJztDateRangePickerSheetResult({
           maxDate: maxDate,
           rangeMode: true,
           disabledDate: disabledDate,
+          rangeEndMaxDate: rangeEndMaxDate,
         ),
       );
     },
@@ -249,6 +254,7 @@ class JztDatePickerBottomSheet extends StatefulWidget {
     this.clearText = '清空',
     this.confirmText = '完成',
     this.disabledDate,
+    this.rangeEndMaxDate,
   });
 
   final DateTime initialDate;
@@ -261,6 +267,7 @@ class JztDatePickerBottomSheet extends StatefulWidget {
   final String clearText;
   final String confirmText;
   final DatePickerDisabledDatePredicate? disabledDate;
+  final DateRangeEndMaxDateResolver? rangeEndMaxDate;
 
   @override
   State<JztDatePickerBottomSheet> createState() =>
@@ -380,7 +387,12 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
     if (_rangeStep != _DateRangeSelectionStep.end || startDate == null) {
       return true;
     }
-    return !day.isBefore(startDate);
+    if (day.isBefore(startDate)) return false;
+    final endMaxDate = widget.rangeEndMaxDate?.call(startDate);
+    if (endMaxDate != null && day.isAfter(_dateOnly(endMaxDate))) {
+      return false;
+    }
+    return true;
   }
 
   DateTime? _normalizedEndDate() {

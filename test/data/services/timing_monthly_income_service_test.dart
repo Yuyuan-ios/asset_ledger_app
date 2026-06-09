@@ -563,14 +563,78 @@ void main() {
         expect(monthly[6], closeTo(0.0, 0.001));
       });
 
-      test('same-day next with invalid explicit cutoff keeps legacy day', () {
+      test('explicit end date equal to next start includes handoff day', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            legacyHoursRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260625,
+              allocationCutoffExclusiveYmd: 20260702,
+              hours: 10,
+            ),
+            legacyHoursRecord(
+              id: 2,
+              deviceId: 1,
+              startDate: 20260701,
+              startMeter: 10,
+              hours: 0,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 7,
+          asOfDate: DateTime(2026, 7, 10),
+        );
+
+        // UI end date Jul 1 persists as exclusive Jul 2. The first record
+        // spans Jun 25-Jul 1, so total income is unchanged while one day moves
+        // into July for same-day handoff display semantics.
+        expect(monthly[5], closeTo(857.1429, 0.001));
+        expect(monthly[6], closeTo(142.8571, 0.001));
+        expect(monthly[5] + monthly[6], closeTo(1000.0, 0.001));
+      });
+
+      test(
+        'same-day next with explicit same-day end keeps one-day allocation',
+        () {
+          final monthly = computeLegacyMonthlyIncome(
+            records: [
+              legacyHoursRecord(
+                id: 1,
+                deviceId: 1,
+                startDate: 20260601,
+                allocationCutoffExclusiveYmd: 20260602,
+                hours: 2,
+              ),
+              legacyHoursRecord(
+                id: 2,
+                deviceId: 1,
+                startDate: 20260601,
+                startMeter: 2,
+                hours: 3,
+              ),
+            ],
+            devices: [legacyDevice(id: 1)],
+            targetMonth: 6,
+            asOfDate: DateTime(2026, 6, 1),
+          );
+
+          // Same-day next records preserve the legacy one-day behavior even if a
+          // persisted non-null cutoff somehow bypassed the save-layer validator.
+          expect(monthly[5], closeTo(500.0, 0.001));
+          expect(monthly.take(5).every((v) => v == 0.0), isTrue);
+          expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
+        },
+      );
+
+      test('same-day next with too-late explicit cutoff keeps legacy day', () {
         final monthly = computeLegacyMonthlyIncome(
           records: [
             legacyHoursRecord(
               id: 1,
               deviceId: 1,
               startDate: 20260601,
-              allocationCutoffExclusiveYmd: 20260602,
+              allocationCutoffExclusiveYmd: 20260603,
               hours: 2,
             ),
             legacyHoursRecord(
@@ -586,8 +650,6 @@ void main() {
           asOfDate: DateTime(2026, 6, 1),
         );
 
-        // Same-day next records preserve the legacy one-day behavior even if a
-        // persisted non-null cutoff somehow bypassed the save-layer validator.
         expect(monthly[5], closeTo(500.0, 0.001));
         expect(monthly.take(5).every((v) => v == 0.0), isTrue);
         expect(monthly.skip(6).every((v) => v == 0.0), isTrue);
