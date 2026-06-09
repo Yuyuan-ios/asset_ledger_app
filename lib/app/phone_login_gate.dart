@@ -589,9 +589,9 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                     left: 92,
                     top: 269,
                     width: 520,
-                    height: 36,
+                    height: 72,
                     child: Text(
-                      '登录后可用于云端备份和同步管理您的账本数据。',
+                      '登录后可用于云端备份和同步管理\n您的账本数据。',
                       textAlign: TextAlign.center,
                       strutStyle: _loginStrut(28, 36, scale),
                       style: _loginTextStyle(
@@ -606,7 +606,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                     scale: scale,
                     originX: originX,
                     left: 296,
-                    top: 340,
+                    top: 376,
                     width: 111,
                     height: 110,
                     child: CustomPaint(painter: _LoginClockMoneyPainter()),
@@ -615,7 +615,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                     scale: scale,
                     originX: originX,
                     left: 64,
-                    top: 474,
+                    top: 510,
                     width: 576,
                     height: 469,
                     child: _LoginFormPanel(
@@ -830,7 +830,7 @@ class _AgreementRow extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: CustomPaint(
-                  painter: const _AgreementCheckPainter(accepted: true),
+                  painter: _AgreementCheckPainter(accepted: accepted),
                 ),
               ),
               Positioned.fill(
@@ -1250,6 +1250,36 @@ class _LoginBackgroundGeometryPainter extends CustomPainter {
       }
       canvas.drawPath(path, paint);
     }
+
+    void horizontalLine(double y, double left, double right, double alpha) {
+      final start = Offset(originX + left * scale, y * scale);
+      final end = Offset(originX + right * scale, y * scale);
+      final linePaint = Paint()
+        ..shader =
+            LinearGradient(
+              colors: [
+                _loginGeometryColor.withValues(alpha: 0),
+                _loginGeometryColor.withValues(alpha: alpha),
+                _loginGeometryColor.withValues(alpha: alpha * 0.55),
+                _loginGeometryColor.withValues(alpha: 0),
+              ],
+              stops: const [0, 0.2, 0.72, 1],
+            ).createShader(
+              Rect.fromLTRB(start.dx, start.dy, end.dx, end.dy + scale),
+            )
+        ..strokeWidth = math.max(0.85, scale * 1.25)
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(start, end, linePaint);
+    }
+
+    horizontalLine(585, 620, 790, 0.42);
+    horizontalLine(672, 620, 790, 0.39);
+    horizontalLine(758, 620, 790, 0.36);
+    horizontalLine(990, 176, 808, 0.37);
+    horizontalLine(1086, 196, 828, 0.35);
+    horizontalLine(1182, 168, 816, 0.32);
+    horizontalLine(1278, 224, 828, 0.29);
+    horizontalLine(1374, 300, 824, 0.25);
 
     line([const Offset(610, 560), const Offset(760, 456)]);
     line([const Offset(610, 645), const Offset(760, 542)]);
