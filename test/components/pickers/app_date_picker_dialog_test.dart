@@ -528,6 +528,43 @@ void main() {
     expect(probe.result?.endDate, DateTime(2026, 3, 15));
   });
 
+  testWidgets('range mode applies max date only while choosing end', (
+    tester,
+  ) async {
+    final probe = await _openRangePickerResult(
+      tester,
+      DateTime(2026, 3, 15),
+      rangeEndMaxDate: (startDate) {
+        if (startDate.day == 25) return DateTime(2026, 3, 27);
+        return DateTime(2026, 3, 20);
+      },
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260325')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('指定日期：请选择结束日（可不选）'), findsOneWidget);
+    expect(_surfaceColor(tester, 20260325), SheetColors.action);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260328')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(4天)'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260327')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(3天)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成(3天)'));
+    await tester.pumpAndSettle();
+
+    expect(probe.result?.startDate, DateTime(2026, 3, 25));
+    expect(probe.result?.endDate, DateTime(2026, 3, 27));
+  });
+
   testWidgets('range mode cancel returns cancelled without selection', (
     tester,
   ) async {
@@ -626,6 +663,7 @@ Future<_RangePickerResultProbe> _openRangePickerResult(
   WidgetTester tester,
   DateTime initialStartDate, {
   DateTime? initialEndDate,
+  DateRangeEndMaxDateResolver? rangeEndMaxDate,
 }) async {
   final probe = _RangePickerResultProbe();
   await tester.pumpWidget(
@@ -641,6 +679,7 @@ Future<_RangePickerResultProbe> _openRangePickerResult(
                     context: context,
                     initialStartDate: initialStartDate,
                     initialEndDate: initialEndDate,
+                    rangeEndMaxDate: rangeEndMaxDate,
                   );
                 },
                 child: const Text('打开'),

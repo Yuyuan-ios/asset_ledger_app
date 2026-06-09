@@ -336,6 +336,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       context: context,
       initialStartDate: _selectedDate,
       initialEndDate: _selectedEndDate,
+      rangeEndMaxDate: _mode == WorkMode.hours
+          ? _nextSameDeviceStartDateFor
+          : null,
     );
     if (result.isCancelled || !mounted) return;
     final pickedStart = result.startDate;
@@ -502,6 +505,32 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     final endDate = _selectedEndDate;
     if (endDate == null || endDate.isBefore(_selectedDate)) return null;
     return FormatUtils.ymdFromDate(endDate);
+  }
+
+  DateTime? _nextSameDeviceStartDateFor(DateTime startDate) {
+    final deviceId = _selectedDeviceId;
+    if (deviceId == null) return null;
+    final startYmd = FormatUtils.ymdFromDate(startDate);
+    final editingId = widget.editing?.id;
+    final candidates =
+        widget.records
+            .where((record) {
+              if (record.deviceId != deviceId) return false;
+              if (editingId != null && record.id == editingId) return false;
+              return record.startDate >= startYmd;
+            })
+            .toList(growable: false)
+          ..sort(_compareRecordByDateMeterId);
+    if (candidates.isEmpty) return null;
+    return FormatUtils.dateFromYmd(candidates.first.startDate);
+  }
+
+  int _compareRecordByDateMeterId(TimingRecord a, TimingRecord b) {
+    final byDate = a.startDate.compareTo(b.startDate);
+    if (byDate != 0) return byDate;
+    final byMeter = a.startMeter.compareTo(b.startMeter);
+    if (byMeter != 0) return byMeter;
+    return (a.id ?? 1 << 30).compareTo(b.id ?? 1 << 30);
   }
 
   DateTime? _allocationEndInclusiveDateFromExclusiveYmd(int? exclusiveYmd) {

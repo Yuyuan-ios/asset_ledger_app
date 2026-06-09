@@ -1031,7 +1031,7 @@ void main() {
       saveFailure: const SaveTimingRecordAllocationCutoffValidationException(
         code: SaveTimingRecordAllocationCutoffValidationException
             .cutoffAfterNextSameDeviceStartDate,
-        message: '分摊截止日期不能晚于下一条同设备记录的计时日期',
+        message: '结束日不能晚于下一条同设备记录日期',
       ),
     );
 
@@ -1040,13 +1040,13 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
 
-    expect(find.text('保存失败：结束日需早于下一条同设备记录日期'), findsOneWidget);
+    expect(find.text('保存失败：结束日不能晚于下一条同设备记录日期'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
     expect(find.text('编辑计时'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.text('保存失败：结束日需早于下一条同设备记录日期'), findsOneWidget);
+    expect(find.text('保存失败：结束日不能晚于下一条同设备记录日期'), findsOneWidget);
   });
 
   // 阶段 C Step 1 删除：原"shows dissolve retry when project identity

@@ -352,7 +352,7 @@ void main() {
 
   group('allocation cutoff validation preview', () {
     test(
-      'rejects allocation cutoff after next same-device start date without writes',
+      'rejects allocation cutoff after next same-device handoff date without writes',
       () async {
         final db = await AppDatabase.database;
         final deviceId = await _seedDevice(db);
@@ -395,7 +395,7 @@ void main() {
             SaveTimingRecordOperationAnalyzeInput(
               operationId: 'op-cutoff-after-next',
               editingRecordId: oldRecord.id,
-              draftRecord: oldRecord.copyWith(allocationCutoffDate: 20260611),
+              draftRecord: oldRecord.copyWith(allocationCutoffDate: 20260612),
             ),
           ),
           throwsA(
@@ -415,57 +415,44 @@ void main() {
       },
     );
 
-    test(
-      'allows allocation cutoff equal to next same-device start date',
-      () async {
-        final db = await AppDatabase.database;
-        final deviceId = await _seedDevice(db);
-        await _seedProject(
-          db,
-          projectId: 'project:a',
-          contact: '甲方',
-          site: 'A',
-        );
-        await _seedProject(
-          db,
-          projectId: 'project:b',
-          contact: '甲方',
-          site: 'B',
-        );
-        final oldRecord = await _seedTimingRecord(
-          db,
-          deviceId: deviceId,
-          projectId: 'project:a',
-          contact: '甲方',
-          site: 'A',
-          startDate: 20260601,
-          hours: 1,
-          income: 100,
-        );
-        await _seedTimingRecord(
-          db,
-          deviceId: deviceId,
-          projectId: 'project:b',
-          contact: '甲方',
-          site: 'B',
-          startDate: 20260610,
-          hours: 1,
-          income: 100,
-        );
+    test('allows UI end date equal to next same-device start date', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:a', contact: '甲方', site: 'A');
+      await _seedProject(db, projectId: 'project:b', contact: '甲方', site: 'B');
+      final oldRecord = await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:a',
+        contact: '甲方',
+        site: 'A',
+        startDate: 20260601,
+        hours: 1,
+        income: 100,
+      );
+      await _seedTimingRecord(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:b',
+        contact: '甲方',
+        site: 'B',
+        startDate: 20260610,
+        hours: 1,
+        income: 100,
+      );
 
-        final result = await analyzer.analyze(
-          SaveTimingRecordOperationAnalyzeInput(
-            operationId: 'op-cutoff-equals-next',
-            editingRecordId: oldRecord.id,
-            draftRecord: oldRecord.copyWith(allocationCutoffDate: 20260610),
-          ),
-        );
+      final result = await analyzer.analyze(
+        SaveTimingRecordOperationAnalyzeInput(
+          operationId: 'op-cutoff-equals-next',
+          editingRecordId: oldRecord.id,
+          draftRecord: oldRecord.copyWith(allocationCutoffDate: 20260611),
+        ),
+      );
 
-        expect(result.preview.operationId, 'op-cutoff-equals-next');
-        expect(result.preview.riskLevel, OperationRiskLevel.medium);
-        expect(await db.query('timing_records'), hasLength(2));
-      },
-    );
+      expect(result.preview.operationId, 'op-cutoff-equals-next');
+      expect(result.preview.riskLevel, OperationRiskLevel.medium);
+      expect(await db.query('timing_records'), hasLength(2));
+    });
   });
 
   group('validateFreshness', () {

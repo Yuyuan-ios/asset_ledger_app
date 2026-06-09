@@ -249,9 +249,6 @@ class TimingMonthlyIncomeService {
     if (allocationCutoffExclusiveYmd == null) {
       return null;
     }
-    if (nextStart != null && _isSameDay(start, nextStart)) {
-      return null;
-    }
 
     final explicitExclusiveCutoff = _tryDateFromYmd(
       allocationCutoffExclusiveYmd,
@@ -260,7 +257,10 @@ class TimingMonthlyIncomeService {
         !explicitExclusiveCutoff.isAfter(start)) {
       return null;
     }
-    if (nextStart != null && explicitExclusiveCutoff.isAfter(nextStart)) {
+    if (nextStart != null &&
+        explicitExclusiveCutoff.isAfter(
+          nextStart.add(const Duration(days: 1)),
+        )) {
       return null;
     }
     return explicitExclusiveCutoff;
