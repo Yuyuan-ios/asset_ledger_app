@@ -29,6 +29,7 @@ List<Widget> buildTimingRecentRecordSlivers({
           height: _dateHeaderExtent,
           child: _SliverDateGroupHeader(
             ymd: section.ymd,
+            headerOverride: section.headerOverride,
             aggregateSection: section.aggregate,
             aggregateExpanded:
                 section.aggregate != null &&
@@ -88,7 +89,7 @@ List<Widget> _buildTimingRecordRows({
             device: deviceById[record.deviceId],
             deviceIndexText: deviceIndexById[record.deviceId] ?? '?',
             hideAvatar: true,
-            titleOverride: FormatUtils.date(record.startDate),
+            titleOverride: _allocationDateRangeText(record),
             subtitleOverride: deviceById[record.deviceId] == null
                 ? deviceIndexById[record.deviceId] ?? '?'
                 : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',
@@ -164,11 +165,13 @@ class _RecordInnerDivider extends StatelessWidget {
 class _SliverDateGroupHeader extends StatelessWidget {
   const _SliverDateGroupHeader({
     required this.ymd,
+    this.headerOverride,
     this.aggregateSection,
     this.aggregateExpanded = false,
   });
 
   final int ymd;
+  final String? headerOverride;
   final _AggregateRecordSection? aggregateSection;
   final bool aggregateExpanded;
 
@@ -188,7 +191,7 @@ class _SliverDateGroupHeader extends StatelessWidget {
             ),
             child: Text(
               aggregate == null
-                  ? FormatUtils.date(ymd)
+                  ? headerOverride ?? FormatUtils.date(ymd)
                   : '${FormatUtils.date(ymd)} (${aggregateExpanded ? '已展开' : '已聚合'})',
               style: textTheme.bodySmall?.copyWith(
                 fontSize: TimingTokens.dateHeaderFontSize,

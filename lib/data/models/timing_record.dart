@@ -24,10 +24,11 @@ class TimingRecord {
   /// 开始日期（YYYYMMDD）
   final int startDate;
 
-  /// 隐式分摊右开边界（YYYYMMDD）。
+  /// 工时收入图表分摊的内部 exclusive end（YYYYMMDD）。
   ///
-  /// null 表示继续使用当前 legacy 隐式下一条同设备记录规则；该字段只表达
-  /// 分摊截止边界，不改变当前单日记录语义。
+  /// UI 结束日为 inclusive；保存时会写入 UI 结束日 + 1 day。字段名和
+  /// SQLite 列 allocation_cutoff_date 为兼容保留，不重命名。null 表示继续
+  /// 使用当前隐式下一条同设备记录/下月 1 日规则；该字段只影响收入图表月份分布。
   final int? allocationCutoffDate;
 
   /// 稳定项目身份。旧数据为空时由 contact/site 兼容生成。
