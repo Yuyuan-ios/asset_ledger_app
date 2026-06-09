@@ -430,6 +430,12 @@ void main() {
 
     expect(find.text('指定日期：请选择开始日'), findsOneWidget);
     expect(find.text('指定日期：请选择结束日（可不选）'), findsNothing);
+    final prompt = tester.widget<Container>(
+      find.byKey(const ValueKey('jzt-date-picker-range-prompt')),
+    );
+    expect(prompt.alignment, Alignment.center);
+    final promptText = tester.widget<Text>(find.text('指定日期：请选择开始日'));
+    expect(promptText.textAlign, TextAlign.center);
     expect(
       find.byKey(const ValueKey('jzt-date-picker-clear-button')),
       findsNothing,
