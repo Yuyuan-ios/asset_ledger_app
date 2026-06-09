@@ -1,19 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../components/buttons/app_primary_button.dart';
-import '../core/foundation/typography.dart';
 import '../features/device/view/privacy_page.dart';
 import '../features/device/view/terms_page.dart';
-import '../patterns/layout/phone_page_layout.dart';
-import '../tokens/mapper/core_tokens.dart';
 
 typedef LegalPageBuilder = Widget Function();
+
+const double _loginBaseWidth = 704;
+const double _loginBaseHeight = 1526;
+const Color _loginBackground = Color(0xFFF5F1E8);
+const Color _loginTextPrimary = Color(0xFF211F1B);
+const Color _loginTextSecondary = Color(0xFF3F3B34);
+const Color _loginBodyText = Color(0xFF4B463E);
+const Color _loginMutedText = Color(0xFF8B877F);
+const Color _loginFieldText = Color(0xFF24211D);
+const Color _loginCodeText = Color(0xFF4F4A42);
+const Color _loginAccent = Color(0xFFC95D21);
+const Color _loginOutline = Color(0xFFA64B2C);
+const Color _loginIconColor = Color(0xFFD9D5CD);
+const Color _loginGeometryColor = Color(0xFFD9D4CA);
 
 class PhoneLoginSession {
   const PhoneLoginSession({
@@ -333,7 +345,7 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
     final session = _session;
     if (session == null) {
       return const Scaffold(
-        backgroundColor: AppColors.scaffoldBg,
+        backgroundColor: _loginBackground,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -525,34 +537,89 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = PhonePageLayout.resolveHorizontalPadding(
-              constraints.maxWidth,
-              basePadding: 18,
-              maxWideGain: 18,
-            );
-            final maxWidth = PhonePageLayout.resolveMaxContentWidth(
-              constraints.maxWidth - horizontalPadding * 2,
-              baseWidth: PhonePageLayout.designWidth,
-            );
+      backgroundColor: _loginBackground,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final widthScale = constraints.maxWidth / _loginBaseWidth;
+          final viewportRatio = constraints.maxHeight / constraints.maxWidth;
+          final baseRatio = _loginBaseHeight / _loginBaseWidth;
+          final scale = viewportRatio < baseRatio * 0.75
+              ? constraints.maxHeight / _loginBaseHeight
+              : widthScale;
+          final originX = (constraints.maxWidth - _loginBaseWidth * scale) / 2;
+          final pageHeight = math.max(
+            constraints.maxHeight,
+            _loginBaseHeight * scale,
+          );
 
-            return Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    28,
-                    horizontalPadding,
-                    32,
+          return SingleChildScrollView(
+            child: SizedBox(
+              width: constraints.maxWidth,
+              height: pageHeight,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _LoginBackgroundGeometryPainter(scale, originX),
+                    ),
                   ),
-                  children: [
-                    _LoginHeader(),
-                    const SizedBox(height: 28),
-                    _LoginFormPanel(
+                  _ScaledPositioned(
+                    scale: scale,
+                    originX: originX,
+                    left: 221,
+                    top: 192,
+                    width: 261,
+                    height: 58,
+                    child: Text(
+                      '手机号登录',
+                      textAlign: TextAlign.center,
+                      strutStyle: _loginStrut(48, 58, scale),
+                      style: _loginTextStyle(
+                        fontSize: 48,
+                        lineHeight: 58,
+                        fontWeight: FontWeight.w600,
+                        color: _loginTextPrimary,
+                        scale: scale,
+                      ),
+                    ),
+                  ),
+                  _ScaledPositioned(
+                    scale: scale,
+                    originX: originX,
+                    left: 92,
+                    top: 269,
+                    width: 520,
+                    height: 36,
+                    child: Text(
+                      '登录后可用于云端备份和同步管理您的账本数据。',
+                      textAlign: TextAlign.center,
+                      strutStyle: _loginStrut(28, 36, scale),
+                      style: _loginTextStyle(
+                        fontSize: 28,
+                        lineHeight: 36,
+                        color: _loginTextSecondary,
+                        scale: scale,
+                      ),
+                    ),
+                  ),
+                  _ScaledPositioned(
+                    scale: scale,
+                    originX: originX,
+                    left: 296,
+                    top: 340,
+                    width: 111,
+                    height: 110,
+                    child: CustomPaint(painter: _LoginClockMoneyPainter()),
+                  ),
+                  _ScaledPositioned(
+                    scale: scale,
+                    originX: originX,
+                    left: 64,
+                    top: 474,
+                    width: 576,
+                    height: 469,
+                    child: _LoginFormPanel(
+                      scale: scale,
                       phoneController: _phoneController,
                       codeController: _codeController,
                       busy: _busy,
@@ -572,59 +639,20 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                       onOpenPrivacyPolicy: widget.onOpenPrivacyPolicy,
                       onOpenTerms: widget.onOpenTerms,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
-    );
-  }
-}
-
-class _LoginHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primaryActionCapsule,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.phone_iphone, color: Colors.white, size: 24),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          '手机号登录',
-          style: AppTypography.pageTitle(
-            context,
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '登录后用于识别本机账本。继续前请阅读并同意隐私政策和使用条款。',
-          style: AppTypography.bodySecondary(
-            context,
-            fontSize: 15,
-            height: 1.45,
-            color: SheetColors.hint,
-          ),
-        ),
-      ],
     );
   }
 }
 
 class _LoginFormPanel extends StatelessWidget {
   const _LoginFormPanel({
+    required this.scale,
     required this.phoneController,
     required this.codeController,
     required this.busy,
@@ -640,6 +668,7 @@ class _LoginFormPanel extends StatelessWidget {
     this.statusText,
   });
 
+  final double scale;
   final TextEditingController phoneController;
   final TextEditingController codeController;
   final bool busy;
@@ -656,155 +685,120 @@ class _LoginFormPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+    final radius = BorderRadius.circular(26 * scale);
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.28)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _LoginTextField(
-            controller: phoneController,
-            label: '手机号',
-            hintText: '请输入 11 位手机号',
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(11),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _LoginTextField(
-                  controller: codeController,
-                  label: '验证码',
-                  hintText: '6 位验证码',
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 54,
-                child: OutlinedButton(
-                  onPressed: canRequestCode ? onRequestCode : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primaryActionCapsule,
-                    side: const BorderSide(
-                      color: AppColors.primaryActionCapsule,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(busy ? '处理中' : '获取验证码'),
-                ),
-              ),
-            ],
-          ),
-          if (statusText != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              statusText!,
-              style: AppTypography.caption(
-                context,
-                height: 1.35,
-                color: SheetColors.hint,
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          _AgreementRow(
-            accepted: agreementAccepted,
-            onChanged: onAgreementChanged,
-            onOpenPrivacyPolicy: onOpenPrivacyPolicy,
-            onOpenTerms: onOpenTerms,
-          ),
-          if (errorText != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              errorText!,
-              style: AppTypography.caption(
-                context,
-                color: Colors.red.shade700,
-                height: 1.35,
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          AppPrimaryButton(
-            label: busy ? '登录中' : '登录',
-            onPressed: canLogin ? onLogin : null,
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF503C23).withValues(alpha: 0.10),
+            blurRadius: 45 * scale,
+            offset: Offset(0, 20 * scale),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LoginTextField extends StatelessWidget {
-  const _LoginTextField({
-    required this.controller,
-    required this.label,
-    required this.hintText,
-    required this.keyboardType,
-    required this.inputFormatters,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hintText;
-  final TextInputType keyboardType;
-  final List<TextInputFormatter> inputFormatters;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      style: AppTypography.body(context, color: SheetColors.textPrimary),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        filled: true,
-        fillColor: SheetColors.fieldBackground,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 15,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.62),
+              borderRadius: radius,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.85),
+                width: scale,
+              ),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 35 * scale,
+                  top: 36 * scale,
+                  width: 506 * scale,
+                  height: 87 * scale,
+                  child: _PhoneNumberField(
+                    scale: scale,
+                    controller: phoneController,
+                  ),
+                ),
+                Positioned(
+                  left: 36 * scale,
+                  top: 147 * scale,
+                  width: 274 * scale,
+                  height: 87 * scale,
+                  child: _CodeTextField(
+                    scale: scale,
+                    controller: codeController,
+                  ),
+                ),
+                Positioned(
+                  left: 330 * scale,
+                  top: 147 * scale,
+                  width: 212 * scale,
+                  height: 87 * scale,
+                  child: _RequestCodeButton(
+                    scale: scale,
+                    busy: busy,
+                    canRequestCode: canRequestCode,
+                    onRequestCode: onRequestCode,
+                  ),
+                ),
+                if (statusText != null || errorText != null)
+                  Positioned(
+                    left: 35 * scale,
+                    top: 238 * scale,
+                    width: 506 * scale,
+                    child: _LoginFeedbackText(
+                      scale: scale,
+                      statusText: statusText,
+                      errorText: errorText,
+                    ),
+                  ),
+                Positioned(
+                  left: 41 * scale,
+                  top: 271 * scale,
+                  width: 470 * scale,
+                  height: 70 * scale,
+                  child: _AgreementRow(
+                    scale: scale,
+                    accepted: agreementAccepted,
+                    onChanged: onAgreementChanged,
+                    onOpenPrivacyPolicy: onOpenPrivacyPolicy,
+                    onOpenTerms: onOpenTerms,
+                  ),
+                ),
+                Positioned(
+                  left: 34 * scale,
+                  top: 360 * scale,
+                  width: 508 * scale,
+                  height: 71 * scale,
+                  child: _LoginButton(
+                    scale: scale,
+                    busy: busy,
+                    canLogin: canLogin,
+                    onLogin: onLogin,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        border: _fieldBorder(),
-        enabledBorder: _fieldBorder(),
-        focusedBorder: _fieldBorder(color: AppColors.primaryActionCapsule),
       ),
-    );
-  }
-
-  OutlineInputBorder _fieldBorder({Color color = SheetColors.fieldBorder}) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: color),
     );
   }
 }
 
 class _AgreementRow extends StatelessWidget {
   const _AgreementRow({
+    required this.scale,
     required this.accepted,
     required this.onChanged,
     required this.onOpenPrivacyPolicy,
     required this.onOpenTerms,
   });
 
+  final double scale;
   final bool accepted;
   final ValueChanged<bool> onChanged;
   final VoidCallback onOpenPrivacyPolicy;
@@ -812,49 +806,658 @@ class _AgreementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalStyle = AppTypography.caption(
-      context,
-      height: 1.35,
-      color: SheetColors.textPrimary,
+    final normalStyle = _loginTextStyle(
+      fontSize: 23,
+      lineHeight: 32,
+      color: _loginBodyText,
+      scale: scale,
     );
-    final linkStyle = AppTypography.caption(
-      context,
-      height: 1.35,
-      fontWeight: FontWeight.w700,
-      color: AppColors.primaryActionCapsule,
+    final linkStyle = _loginTextStyle(
+      fontSize: 23,
+      lineHeight: 32,
+      color: _loginOutline,
+      scale: scale,
     );
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        SizedBox(
-          width: 28,
-          height: 28,
-          child: Checkbox(
-            value: accepted,
-            activeColor: AppColors.primaryActionCapsule,
-            onChanged: (value) => onChanged(value ?? false),
+        Positioned(
+          left: 0,
+          top: 6 * scale,
+          width: 38 * scale,
+          height: 37 * scale,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: const _AgreementCheckPainter(accepted: true),
+                ),
+              ),
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.001,
+                  child: Checkbox(
+                    value: accepted,
+                    onChanged: (value) => onChanged(value ?? false),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
+        Positioned(
+          left: 60 * scale,
+          top: 0,
+          height: 32 * scale,
+          child: Row(
             children: [
-              Text('我已阅读并同意', style: normalStyle),
+              Text(
+                '我已阅读并同意',
+                strutStyle: _loginStrut(23, 32, scale),
+                style: normalStyle,
+              ),
               InkWell(
                 onTap: onOpenPrivacyPolicy,
-                child: Text('《隐私政策》', style: linkStyle),
+                child: Text(
+                  '《隐私政策》',
+                  strutStyle: _loginStrut(23, 32, scale),
+                  style: linkStyle,
+                ),
               ),
-              Text('和', style: normalStyle),
+              Text(
+                '和',
+                strutStyle: _loginStrut(23, 32, scale),
+                style: normalStyle,
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 70 * scale,
+          top: 30 * scale,
+          height: 32 * scale,
+          child: Row(
+            children: [
               InkWell(
                 onTap: onOpenTerms,
-                child: Text('《使用条款》', style: linkStyle),
+                child: Text(
+                  '《使用条款》',
+                  strutStyle: _loginStrut(23, 32, scale),
+                  style: linkStyle,
+                ),
               ),
             ],
           ),
         ),
       ],
     );
+  }
+}
+
+class _PhoneNumberField extends StatelessWidget {
+  const _PhoneNumberField({required this.scale, required this.controller});
+
+  final double scale;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LoginFieldShell(
+      scale: scale,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 22 * scale,
+            top: 29 * scale,
+            width: 39 * scale,
+            height: 29 * scale,
+            child: CustomPaint(painter: _ChinaFlagPainter()),
+          ),
+          Positioned(
+            left: 71 * scale,
+            top: 25 * scale,
+            height: 36 * scale,
+            child: Text(
+              '+86',
+              strutStyle: _loginStrut(28, 36, scale),
+              style: _loginTextStyle(
+                fontSize: 28,
+                lineHeight: 36,
+                fontWeight: FontWeight.w600,
+                color: _loginFieldText,
+                scale: scale,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 146 * scale,
+            top: 25 * scale,
+            width: 2 * scale,
+            height: 42 * scale,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1CDC5).withValues(alpha: 0.9),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 171 * scale,
+            top: 24 * scale,
+            width: 300 * scale,
+            height: 42 * scale,
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
+              cursorColor: _loginOutline,
+              style: _loginTextStyle(
+                fontSize: 30,
+                lineHeight: 40,
+                color: _loginFieldText,
+                scale: scale,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isCollapsed: true,
+                hintText: '手机号',
+                hintStyle: _loginTextStyle(
+                  fontSize: 30,
+                  lineHeight: 40,
+                  color: _loginMutedText,
+                  scale: scale,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CodeTextField extends StatelessWidget {
+  const _CodeTextField({required this.scale, required this.controller});
+
+  final double scale;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LoginFieldShell(
+      scale: scale,
+      child: Padding(
+        padding: EdgeInsets.only(left: 32 * scale, top: 26 * scale),
+        child: SizedBox(
+          height: 40 * scale,
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
+            cursorColor: _loginOutline,
+            style: _loginTextStyle(
+              fontSize: 29,
+              lineHeight: 38,
+              color: _loginCodeText,
+              scale: scale,
+            ),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              isCollapsed: true,
+              hintText: '验证码',
+              hintStyle: _loginTextStyle(
+                fontSize: 29,
+                lineHeight: 38,
+                color: _loginCodeText,
+                scale: scale,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginFieldShell extends StatelessWidget {
+  const _LoginFieldShell({required this.scale, required this.child});
+
+  final double scale;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E1DD).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(12 * scale),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.75),
+          width: scale,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _RequestCodeButton extends StatelessWidget {
+  const _RequestCodeButton({
+    required this.scale,
+    required this.busy,
+    required this.canRequestCode,
+    required this.onRequestCode,
+  });
+
+  final double scale;
+  final bool busy;
+  final bool canRequestCode;
+  final VoidCallback onRequestCode;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: canRequestCode ? onRequestCode : null,
+      style: ButtonStyle(
+        padding: WidgetStateProperty.all(EdgeInsets.zero),
+        foregroundColor: WidgetStateProperty.all(_loginOutline),
+        overlayColor: WidgetStateProperty.all(
+          _loginOutline.withValues(alpha: 0.08),
+        ),
+        side: WidgetStateProperty.all(
+          BorderSide(color: _loginOutline, width: 2 * scale),
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12 * scale),
+          ),
+        ),
+        backgroundColor: WidgetStateProperty.all(
+          Colors.white.withValues(alpha: 0.12),
+        ),
+        textStyle: WidgetStateProperty.all(
+          _loginTextStyle(
+            fontSize: 29,
+            lineHeight: 38,
+            fontWeight: FontWeight.w600,
+            color: _loginOutline,
+            scale: scale,
+          ),
+        ),
+      ),
+      child: Text(busy ? '处理中' : '获取验证码'),
+    );
+  }
+}
+
+class _LoginButton extends StatelessWidget {
+  const _LoginButton({
+    required this.scale,
+    required this.busy,
+    required this.canLogin,
+    required this.onLogin,
+  });
+
+  final double scale;
+  final bool busy;
+  final bool canLogin;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: canLogin ? onLogin : null,
+      style: ButtonStyle(
+        elevation: WidgetStateProperty.all(0),
+        shadowColor: WidgetStateProperty.all(Colors.transparent),
+        padding: WidgetStateProperty.all(EdgeInsets.zero),
+        backgroundColor: WidgetStateProperty.all(_loginAccent),
+        foregroundColor: WidgetStateProperty.all(Colors.white),
+        overlayColor: WidgetStateProperty.all(
+          Colors.white.withValues(alpha: 0.10),
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12 * scale),
+          ),
+        ),
+        textStyle: WidgetStateProperty.all(
+          _loginTextStyle(
+            fontSize: 29,
+            lineHeight: 38,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            scale: scale,
+          ),
+        ),
+      ),
+      child: Text(busy ? '登录中' : '登录'),
+    );
+  }
+}
+
+class _LoginFeedbackText extends StatelessWidget {
+  const _LoginFeedbackText({
+    required this.scale,
+    required this.statusText,
+    required this.errorText,
+  });
+
+  final double scale;
+  final String? statusText;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = errorText ?? statusText;
+    if (text == null) return const SizedBox.shrink();
+    return Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: _loginTextStyle(
+        fontSize: 18,
+        lineHeight: 24,
+        color: errorText == null ? _loginBodyText : Colors.red.shade700,
+        scale: scale,
+      ),
+    );
+  }
+}
+
+class _ScaledPositioned extends StatelessWidget {
+  const _ScaledPositioned({
+    required this.scale,
+    required this.originX,
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+    required this.child,
+  });
+
+  final double scale;
+  final double originX;
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: originX + left * scale,
+      top: top * scale,
+      width: width * scale,
+      height: height * scale,
+      child: child,
+    );
+  }
+}
+
+TextStyle _loginTextStyle({
+  required double fontSize,
+  required double lineHeight,
+  required Color color,
+  required double scale,
+  FontWeight fontWeight = FontWeight.w400,
+}) {
+  return TextStyle(
+    fontFamily: 'PingFang SC',
+    fontSize: fontSize * scale,
+    height: lineHeight / fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    letterSpacing: 0,
+  );
+}
+
+StrutStyle _loginStrut(double fontSize, double lineHeight, double scale) {
+  return StrutStyle(
+    fontFamily: 'PingFang SC',
+    fontSize: fontSize * scale,
+    height: lineHeight / fontSize,
+    forceStrutHeight: true,
+  );
+}
+
+class _LoginBackgroundGeometryPainter extends CustomPainter {
+  const _LoginBackgroundGeometryPainter(this.scale, this.originX);
+
+  final double scale;
+  final double originX;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _loginGeometryColor.withValues(alpha: 0.35)
+      ..strokeWidth = scale
+      ..style = PaintingStyle.stroke;
+
+    void line(List<Offset> points) {
+      final path = Path()
+        ..moveTo(originX + points.first.dx * scale, points.first.dy * scale);
+      for (final point in points.skip(1)) {
+        path.lineTo(originX + point.dx * scale, point.dy * scale);
+      }
+      canvas.drawPath(path, paint);
+    }
+
+    line([const Offset(610, 560), const Offset(760, 456)]);
+    line([const Offset(610, 645), const Offset(760, 542)]);
+    line([const Offset(596, 744), const Offset(760, 634)]);
+    line([
+      const Offset(630, 565),
+      const Offset(630, 927),
+      const Offset(760, 1015),
+    ]);
+    line([
+      const Offset(187, 934),
+      const Offset(403, 788),
+      const Offset(738, 1014),
+      const Offset(522, 1160),
+      const Offset(187, 934),
+    ]);
+    line([
+      const Offset(244, 1017),
+      const Offset(540, 817),
+      const Offset(823, 1008),
+    ]);
+    line([
+      const Offset(181, 1221),
+      const Offset(475, 1022),
+      const Offset(731, 1195),
+      const Offset(300, 1486),
+    ]);
+    line([
+      const Offset(302, 1323),
+      const Offset(598, 1123),
+      const Offset(826, 1277),
+    ]);
+    line([
+      const Offset(408, 950),
+      const Offset(726, 736),
+      const Offset(948, 886),
+    ]);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LoginBackgroundGeometryPainter oldDelegate) {
+    return oldDelegate.scale != scale || oldDelegate.originX != originX;
+  }
+}
+
+class _LoginClockMoneyPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 111;
+    final sy = size.height / 110;
+    canvas.save();
+    canvas.scale(sx, sy);
+
+    final paint = Paint()
+      ..color = _loginIconColor.withValues(alpha: 0.9)
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final center = const Offset(56, 55);
+    final rect = Rect.fromCircle(center: center, radius: 50);
+    canvas.drawArc(rect, -math.pi * 1.22, math.pi * 1.86, false, paint);
+    canvas.drawLine(const Offset(56, 17), const Offset(56, 55), paint);
+    canvas.drawLine(const Offset(56, 55), const Offset(78, 70), paint);
+    canvas.drawLine(const Offset(20, 55), const Offset(28, 55), paint);
+    canvas.drawLine(const Offset(87, 55), const Offset(95, 55), paint);
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: r'$',
+        style: TextStyle(
+          fontFamily: 'PingFang SC',
+          fontSize: 42,
+          height: 1,
+          color: _loginIconColor.withValues(alpha: 0.9),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, const Offset(38, 68));
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ChinaFlagPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    final rect = Offset.zero & size;
+    paint.color = const Color(0xFFDE2910);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(size.height * 0.04)),
+      paint,
+    );
+
+    paint.color = const Color(0xFFFFDE00);
+    _drawStar(
+      canvas,
+      paint,
+      Offset(size.width * 0.24, size.height * 0.32),
+      size.height * 0.13,
+      -math.pi / 2,
+    );
+    _drawStar(
+      canvas,
+      paint,
+      Offset(size.width * 0.42, size.height * 0.18),
+      size.height * 0.045,
+      -math.pi / 2,
+    );
+    _drawStar(
+      canvas,
+      paint,
+      Offset(size.width * 0.48, size.height * 0.32),
+      size.height * 0.045,
+      -math.pi / 2,
+    );
+    _drawStar(
+      canvas,
+      paint,
+      Offset(size.width * 0.48, size.height * 0.48),
+      size.height * 0.045,
+      -math.pi / 2,
+    );
+    _drawStar(
+      canvas,
+      paint,
+      Offset(size.width * 0.42, size.height * 0.62),
+      size.height * 0.045,
+      -math.pi / 2,
+    );
+  }
+
+  void _drawStar(
+    Canvas canvas,
+    Paint paint,
+    Offset center,
+    double radius,
+    double rotation,
+  ) {
+    final path = Path();
+    for (var i = 0; i < 10; i += 1) {
+      final currentRadius = i.isEven ? radius : radius * 0.42;
+      final angle = rotation + i * math.pi / 5;
+      final point = Offset(
+        center.dx + math.cos(angle) * currentRadius,
+        center.dy + math.sin(angle) * currentRadius,
+      );
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _AgreementCheckPainter extends CustomPainter {
+  const _AgreementCheckPainter({required this.accepted});
+
+  final bool accepted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    final radius = math.min(size.width, size.height) / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    if (accepted) {
+      paint.color = const Color(0xFFC85D20);
+      canvas.drawCircle(center, radius, paint);
+      final checkPaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 3 * (size.width / 38)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      final path = Path()
+        ..moveTo(size.width * 0.28, size.height * 0.52)
+        ..lineTo(size.width * 0.44, size.height * 0.68)
+        ..lineTo(size.width * 0.74, size.height * 0.34);
+      canvas.drawPath(path, checkPaint);
+    } else {
+      paint.color = Colors.white.withValues(alpha: 0.45);
+      canvas.drawCircle(center, radius, paint);
+      final borderPaint = Paint()
+        ..color = const Color(0xFFC85D20).withValues(alpha: 0.55)
+        ..strokeWidth = 2 * (size.width / 38)
+        ..style = PaintingStyle.stroke;
+      canvas.drawCircle(
+        center,
+        radius - borderPaint.strokeWidth / 2,
+        borderPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AgreementCheckPainter oldDelegate) {
+    return oldDelegate.accepted != accepted;
   }
 }
