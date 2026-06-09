@@ -7,8 +7,6 @@ class SaveTimingRecordAllocationCutoffValidationException implements Exception {
   });
 
   static const cutoffNotAfterStartDate = 'cutoff_not_after_start_date';
-  static const cutoffSameDayNextRecordNotSupported =
-      'cutoff_same_day_next_record_not_supported';
   static const cutoffAfterNextSameDeviceStartDate =
       'cutoff_after_next_same_device_start_date';
 
@@ -52,29 +50,12 @@ class SaveTimingRecordAllocationCutoffValidator {
             .toList(growable: false)
           ..sort(_compareByDateThenMeterThenId);
 
-    final hasSameDayPeer = peers.any(
-      (candidate) => candidate.startDate == record.startDate,
-    );
-    if (hasSameDayPeer) {
+    final nextStartDate = peers.isEmpty ? null : peers.first.startDate;
+    if (nextStartDate != null && cutoff > _nextDayYmd(nextStartDate)) {
       throw const SaveTimingRecordAllocationCutoffValidationException(
         code: SaveTimingRecordAllocationCutoffValidationException
-            .cutoffSameDayNextRecordNotSupported,
-        message: '同设备同日存在后续记录时，第一版暂不支持显式分摊截止日期',
-      );
-    }
-
-    int? nextStartDate;
-    for (final candidate in peers) {
-      if (candidate.startDate > record.startDate) {
-        nextStartDate = candidate.startDate;
-        break;
-      }
-    }
-    if (nextStartDate != null && cutoff > nextStartDate) {
-      throw SaveTimingRecordAllocationCutoffValidationException(
-        code: SaveTimingRecordAllocationCutoffValidationException
             .cutoffAfterNextSameDeviceStartDate,
-        message: '分摊截止日期不能晚于下一条同设备记录的计时日期',
+        message: '结束日不能晚于下一条同设备记录日期',
       );
     }
   }
@@ -87,5 +68,13 @@ class SaveTimingRecordAllocationCutoffValidator {
     if (byMeter != 0) return byMeter;
 
     return (a.id ?? 1 << 30).compareTo(b.id ?? 1 << 30);
+  }
+
+  static int _nextDayYmd(int ymd) {
+    final year = ymd ~/ 10000;
+    final month = (ymd % 10000) ~/ 100;
+    final day = ymd % 100;
+    final next = DateTime(year, month, day + 1);
+    return next.year * 10000 + next.month * 100 + next.day;
   }
 }

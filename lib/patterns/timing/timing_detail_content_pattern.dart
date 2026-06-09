@@ -35,6 +35,7 @@ enum AttachmentMode { digging, breaking }
 const _workHourCalculatorIconAsset =
     'assets/icons/timing/work_hour_calculator_icon.png';
 const _timingFieldIconSize = 30.0;
+const _submitFailureTipDuration = Duration(seconds: 4);
 
 typedef TimingIncomeResolver =
     FutureOr<double> Function({
@@ -114,14 +115,13 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   final _endMeterCtrl = TextEditingController(text: '0.0');
   final _hoursCtrl = TextEditingController(text: '0.0');
   final _incomeCtrl = TextEditingController(text: '0.0');
-  final _allocationEndInclusiveCtrl = TextEditingController();
 
   final _contactFocus = FocusNode();
   final _siteFocus = FocusNode();
 
   int? _selectedDeviceId;
   late DateTime _selectedDate;
-  DateTime? _allocationEndInclusiveDate;
+  DateTime? _selectedEndDate;
   WorkMode _mode = WorkMode.hours;
   AttachmentMode _attachmentMode = AttachmentMode.digging;
   bool _excludeFromFuelEfficiency = false;
@@ -151,7 +151,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final editing = widget.editing;
     _selectedDate = DateTime.now();
-    _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
+    _syncDateText();
     if (editing == null) {
       _applyDefaultDeviceForCreate();
       return;
@@ -159,17 +159,15 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     _selectedDeviceId = editing.deviceId;
     _selectedDate = FormatUtils.dateFromYmd(editing.startDate);
-    _dateCtrl.text = FormatUtils.date(editing.startDate);
     _contactCtrl.text = editing.contact;
     _siteCtrl.text = editing.site;
     _mode = editing.type == TimingType.hours ? WorkMode.hours : WorkMode.rent;
-    if (_mode == WorkMode.hours) {
-      _setAllocationEndInclusiveDate(
-        _allocationEndInclusiveDateFromExclusiveYmd(
-          editing.allocationCutoffDate,
-        ),
-      );
-    }
+    _selectedEndDate = _mode == WorkMode.hours
+        ? _allocationEndInclusiveDateFromExclusiveYmd(
+            editing.allocationCutoffDate,
+          )
+        : _displayEndDateFromYmd(editing.displayEndDate);
+    _syncDateText();
     _attachmentMode = editing.isBreaking
         ? AttachmentMode.breaking
         : AttachmentMode.digging;
@@ -218,7 +216,6 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _endMeterCtrl.dispose();
     _hoursCtrl.dispose();
     _incomeCtrl.dispose();
-    _allocationEndInclusiveCtrl.dispose();
     _contactFocus.dispose();
     _siteFocus.dispose();
     _bottomTipTimer?.cancel();
@@ -228,12 +225,22 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   double _d(String s) => double.tryParse(s.trim()) ?? 0.0;
 
-  void _toastInSheet(String msg) {
+  void showSubmitFailure(String msg) {
+    _toastInSheet(
+      formValidationMessage(msg),
+      duration: _submitFailureTipDuration,
+    );
+  }
+
+  void _toastInSheet(
+    String msg, {
+    Duration duration = DurationTokens.snackBar,
+  }) {
     _bottomTipTimer?.cancel();
     if (mounted) {
       setState(() => _bottomTip = msg);
     }
-    _bottomTipTimer = Timer(DurationTokens.snackBar, () {
+    _bottomTipTimer = Timer(duration, () {
       if (!mounted) return;
       setState(() => _bottomTip = null);
     });
@@ -325,47 +332,22 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   Future<void> _pickDate() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final picked = await showSheetDatePickerDialog(
+    final result = await showSheetDateRangePickerDialogResult(
       context: context,
-      initialDate: _selectedDate,
+      initialStartDate: _selectedDate,
+      initialEndDate: _selectedEndDate,
+      rangeEndMaxDate: _mode == WorkMode.hours
+          ? _nextSameDeviceStartDateFor
+          : null,
     );
-    if (picked == null || !mounted) return;
+    if (result.isCancelled || !mounted) return;
+    final pickedStart = result.startDate;
+    if (pickedStart == null) return;
+    final pickedEnd = result.endDate;
     setState(() {
-      _selectedDate = DateTime(picked.year, picked.month, picked.day);
-      _normalizeAllocationEndInclusiveForCurrentBounds();
-      _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
-    });
-  }
-
-  Future<void> _pickAllocationEndInclusiveDate() async {
-    final disabledReason = _allocationEndInclusiveDisabledReason();
-    if (disabledReason != null) {
-      _toastInSheet(disabledReason);
-      return;
-    }
-
-    FocusManager.instance.primaryFocus?.unfocus();
-    final result = await showSheetDatePickerDialogResult(
-      context: context,
-      initialDate: _allocationEndInclusiveDate ?? _selectedDate,
-      minDate: _selectedDate,
-      maxDate: _allocationEndInclusiveMaxDate(),
-      allowClear: true,
-      selectedLabel: '分摊',
-      clearText: '清空',
-      disabledDate: (date) => _isDateBefore(date, _selectedDate),
-    );
-    if (!mounted || result.isCancelled) return;
-    setState(() {
-      if (result.isCleared) {
-        _setAllocationEndInclusiveDate(null);
-        return;
-      }
-      final picked = result.date;
-      if (picked == null) return;
-      _setAllocationEndInclusiveDate(
-        DateTime(picked.year, picked.month, picked.day),
-      );
+      _selectedDate = _dateOnly(pickedStart);
+      _selectedEndDate = pickedEnd == null ? null : _dateOnly(pickedEnd);
+      _syncDateText();
     });
   }
 
@@ -391,10 +373,6 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _setStart(currentMeter);
     _setEnd(currentMeter);
     _hoursCtrl.text = '0.0';
-
-    setState(() {
-      _normalizeAllocationEndInclusiveForCurrentBounds();
-    });
 
     if (!_supportsBreakingMode && _attachmentMode != AttachmentMode.digging) {
       setState(() => _attachmentMode = AttachmentMode.digging);
@@ -473,11 +451,10 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final type = isRent ? TimingType.rent : TimingType.hours;
     final excludeFuel = !isRent && _excludeFromFuelEfficiency;
-    // UI end is inclusive. Stored allocationCutoffDate keeps the existing
-    // exclusive-end column/API name for compatibility.
     final allocationEndExclusiveYmd = isRent
         ? null
         : _allocationEndExclusiveYmd();
+    final displayEndDateYmd = isRent ? _displayEndDateYmd() : null;
 
     final record = TimingRecord(
       id: widget.editing?.id,
@@ -485,6 +462,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
       deviceId: deviceId,
       startDate: ymd,
       allocationCutoffDate: allocationEndExclusiveYmd,
+      displayEndDate: displayEndDateYmd,
       contact: contact,
       site: site,
       type: type,
@@ -505,6 +483,81 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     }
   }
 
+  void _syncDateText() {
+    final startYmd = FormatUtils.ymdFromDate(_selectedDate);
+    _dateCtrl.text = FormatUtils.compactDateRange(startYmd, _selectedEndYmd());
+  }
+
+  int? _selectedEndYmd() {
+    final endDate = _selectedEndDate;
+    if (endDate == null || endDate.isBefore(_selectedDate)) return null;
+    return FormatUtils.ymdFromDate(endDate);
+  }
+
+  int? _allocationEndExclusiveYmd() {
+    final endDate = _selectedEndDate;
+    if (endDate == null || endDate.isBefore(_selectedDate)) return null;
+    final exclusiveEnd = endDate.add(const Duration(days: 1));
+    return FormatUtils.ymdFromDate(exclusiveEnd);
+  }
+
+  int? _displayEndDateYmd() {
+    final endDate = _selectedEndDate;
+    if (endDate == null || endDate.isBefore(_selectedDate)) return null;
+    return FormatUtils.ymdFromDate(endDate);
+  }
+
+  DateTime? _nextSameDeviceStartDateFor(DateTime startDate) {
+    final deviceId = _selectedDeviceId;
+    if (deviceId == null) return null;
+    final startYmd = FormatUtils.ymdFromDate(startDate);
+    final editingId = widget.editing?.id;
+    final candidates =
+        widget.records
+            .where((record) {
+              if (record.deviceId != deviceId) return false;
+              if (editingId != null && record.id == editingId) return false;
+              return record.startDate >= startYmd;
+            })
+            .toList(growable: false)
+          ..sort(_compareRecordByDateMeterId);
+    if (candidates.isEmpty) return null;
+    return FormatUtils.dateFromYmd(candidates.first.startDate);
+  }
+
+  int _compareRecordByDateMeterId(TimingRecord a, TimingRecord b) {
+    final byDate = a.startDate.compareTo(b.startDate);
+    if (byDate != 0) return byDate;
+    final byMeter = a.startMeter.compareTo(b.startMeter);
+    if (byMeter != 0) return byMeter;
+    return (a.id ?? 1 << 30).compareTo(b.id ?? 1 << 30);
+  }
+
+  DateTime? _allocationEndInclusiveDateFromExclusiveYmd(int? exclusiveYmd) {
+    if (exclusiveYmd == null) return null;
+    try {
+      final exclusive = FormatUtils.dateFromYmd(exclusiveYmd);
+      final inclusive = _dateOnly(exclusive.subtract(const Duration(days: 1)));
+      return inclusive.isBefore(_selectedDate) ? null : inclusive;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  DateTime? _displayEndDateFromYmd(int? ymd) {
+    if (ymd == null) return null;
+    try {
+      final displayEnd = _dateOnly(FormatUtils.dateFromYmd(ymd));
+      return displayEnd.isBefore(_selectedDate) ? null : displayEnd;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
   void _selectModeIndex(int index) {
     setState(() {
       _mode = index == 0 ? WorkMode.hours : WorkMode.rent;
@@ -514,112 +567,6 @@ class TimingDetailContentState extends State<TimingDetailContent> {
         _attachmentMode = AttachmentMode.digging;
       }
     });
-  }
-
-  void _setAllocationEndInclusiveDate(DateTime? date) {
-    final normalized = date == null ? null : _dateOnly(date);
-    _allocationEndInclusiveDate = normalized;
-    _allocationEndInclusiveCtrl.text = normalized == null
-        ? ''
-        : FormatUtils.date(FormatUtils.ymdFromDate(normalized));
-  }
-
-  DateTime? _allocationEndInclusiveDateFromExclusiveYmd(int? exclusiveYmd) {
-    if (exclusiveYmd == null) return null;
-    try {
-      final exclusive = FormatUtils.dateFromYmd(exclusiveYmd);
-      return _dateOnly(exclusive.subtract(const Duration(days: 1)));
-    } on ArgumentError {
-      return null;
-    }
-  }
-
-  int? _allocationEndExclusiveYmd() {
-    final inclusiveEnd = _allocationEndInclusiveDate;
-    if (inclusiveEnd == null) return null;
-    final exclusiveEnd = inclusiveEnd.add(const Duration(days: 1));
-    return FormatUtils.ymdFromDate(exclusiveEnd);
-  }
-
-  String? _allocationEndInclusiveDisabledReason() {
-    if (_mode != WorkMode.hours) return null;
-    if (_selectedDeviceId == null) return '请先选择设备';
-    if (_hasSameDayAllocationPeer()) {
-      return '同设备同日已有记录，暂不支持手动分摊';
-    }
-    final maxDate = _allocationEndInclusiveMaxDate();
-    if (maxDate != null && maxDate.isBefore(_selectedDate)) {
-      return '当前日期无可选分摊截止日';
-    }
-    return null;
-  }
-
-  String _allocationEndInclusiveHelperText() {
-    return _allocationEndInclusiveDisabledReason() ?? '只影响收入图表月份分布，不改变项目总应收';
-  }
-
-  bool get _allocationEndInclusivePickerEnabled {
-    return !_submitting && _allocationEndInclusiveDisabledReason() == null;
-  }
-
-  DateTime? _allocationEndInclusiveMaxDate() {
-    final nextStartYmd = _nextSameDeviceStartDate();
-    if (nextStartYmd == null) return jztDatePickerLastDate;
-    final nextStart = FormatUtils.dateFromYmd(nextStartYmd);
-    return _dateOnly(nextStart.subtract(const Duration(days: 1)));
-  }
-
-  bool _hasSameDayAllocationPeer() {
-    final deviceId = _selectedDeviceId;
-    if (deviceId == null) return false;
-    final startYmd = FormatUtils.ymdFromDate(_selectedDate);
-    return _sameDevicePeers().any((record) => record.startDate == startYmd);
-  }
-
-  int? _nextSameDeviceStartDate() {
-    final startYmd = FormatUtils.ymdFromDate(_selectedDate);
-    for (final record in _sameDevicePeers()) {
-      if (record.startDate > startYmd) return record.startDate;
-    }
-    return null;
-  }
-
-  List<TimingRecord> _sameDevicePeers() {
-    final deviceId = _selectedDeviceId;
-    if (deviceId == null) return const <TimingRecord>[];
-    final editingId = widget.editing?.id;
-    final peers = widget.records.where((record) {
-      if (record.deviceId != deviceId) return false;
-      if (editingId != null && record.id == editingId) return false;
-      return record.startDate >= FormatUtils.ymdFromDate(_selectedDate);
-    }).toList();
-    peers.sort((a, b) {
-      final byDate = a.startDate.compareTo(b.startDate);
-      if (byDate != 0) return byDate;
-      final byMeter = a.startMeter.compareTo(b.startMeter);
-      if (byMeter != 0) return byMeter;
-      return (a.id ?? 1 << 30).compareTo(b.id ?? 1 << 30);
-    });
-    return peers;
-  }
-
-  void _normalizeAllocationEndInclusiveForCurrentBounds() {
-    final current = _allocationEndInclusiveDate;
-    if (current == null) return;
-    final maxDate = _allocationEndInclusiveMaxDate();
-    if (_allocationEndInclusiveDisabledReason() != null ||
-        current.isBefore(_selectedDate) ||
-        (maxDate != null && current.isAfter(maxDate))) {
-      _setAllocationEndInclusiveDate(null);
-    }
-  }
-
-  bool _isDateBefore(DateTime a, DateTime b) {
-    return _dateOnly(a).isBefore(_dateOnly(b));
-  }
-
-  DateTime _dateOnly(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
   }
 
   void _selectAttachmentIndex(int index) {
@@ -753,16 +700,6 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                         value: _excludeFromFuelEfficiency,
                         onChanged: (v) =>
                             setState(() => _excludeFromFuelEfficiency = v),
-                      ),
-                      const SizedBox(height: TimingTokens.contentGap),
-                      SheetDateField(
-                        controller: _allocationEndInclusiveCtrl,
-                        label: '结束日',
-                        hint: '未设置',
-                        helperText: _allocationEndInclusiveHelperText(),
-                        tooltip: '选择收入分摊结束日',
-                        enabled: _allocationEndInclusivePickerEnabled,
-                        onPickDate: _pickAllocationEndInclusiveDate,
                       ),
                     ] else ...[
                       _field(

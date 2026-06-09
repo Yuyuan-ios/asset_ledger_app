@@ -69,6 +69,74 @@ void main() {
     );
 
     test(
+      'rent displayEndDate does not affect account receivable or incomeFen',
+      () {
+        const baseRecord = TimingRecord(
+          id: 4,
+          deviceId: 2,
+          startDate: 20260301,
+          contact: 'Alice',
+          site: 'Yard A',
+          type: TimingType.rent,
+          startMeter: 14,
+          endMeter: 14,
+          hours: 0,
+          income: 800.25,
+        );
+        final displayRecord = baseRecord.copyWith(displayEndDate: 20260430);
+        const devices = [
+          Device(
+            id: 2,
+            name: 'SANY 2#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ];
+
+        final baseProject = AccountService.buildProjects(
+          timingRecords: [baseRecord],
+        ).values.single;
+        final displayProject = AccountService.buildProjects(
+          timingRecords: [displayRecord],
+        ).values.single;
+        final baseMoney = AccountService.calcMoney(
+          agg: baseProject,
+          devices: devices,
+          rates: const [],
+          payments: const [],
+        );
+        final displayMoney = AccountService.calcMoney(
+          agg: displayProject,
+          devices: devices,
+          rates: const [],
+          payments: const [],
+        );
+        final baseMoneyFen = AccountService.calcMoneyFen(
+          agg: baseProject,
+          devices: devices,
+          rates: const [],
+          payments: const [],
+        );
+        final displayMoneyFen = AccountService.calcMoneyFen(
+          agg: displayProject,
+          devices: devices,
+          rates: const [],
+          payments: const [],
+        );
+
+        expect(displayRecord.incomeFen, baseRecord.incomeFen);
+        expect(displayProject.rentIncomeTotal, baseProject.rentIncomeTotal);
+        expect(displayProject.rentIncomeFen, baseProject.rentIncomeFen);
+        expect(displayMoney.receivable, baseMoney.receivable);
+        expect(displayMoney.remaining, baseMoney.remaining);
+        expect(displayMoneyFen.receivableFen, baseMoneyFen.receivableFen);
+        expect(displayMoneyFen.receivedFen, baseMoneyFen.receivedFen);
+        expect(displayMoneyFen.writeOffFen, baseMoneyFen.writeOffFen);
+      },
+    );
+
+    test(
       'aggregates multi-device multi-mode hours with interleaved dates and correct minYmd',
       () {
         final projects = AccountService.buildProjects(

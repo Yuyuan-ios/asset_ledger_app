@@ -94,6 +94,30 @@ void main() {
       expect(updated.income, 500);
     });
 
+    test('copyWith can set and clear displayEndDate independently', () {
+      const record = TimingRecord(
+        id: 1,
+        deviceId: 2,
+        startDate: 20260601,
+        allocationCutoffDate: 20260610,
+        contact: 'Alice',
+        site: 'Yard A',
+        type: TimingType.rent,
+        startMeter: 100,
+        endMeter: 105,
+        hours: 5,
+        income: 500,
+      );
+
+      final withDisplayEnd = record.copyWith(displayEndDate: 20260630);
+      final cleared = withDisplayEnd.copyWith(displayEndDate: null);
+
+      expect(withDisplayEnd.displayEndDate, 20260630);
+      expect(withDisplayEnd.allocationCutoffDate, 20260610);
+      expect(cleared.displayEndDate, isNull);
+      expect(cleared.allocationCutoffDate, 20260610);
+    });
+
     test('toMap and fromMap encode enum names and bool flags for storage', () {
       const record = TimingRecord(
         id: 2,
@@ -144,6 +168,7 @@ void main() {
       expect(rebuilt.id, 4);
       expect(rebuilt.deviceId, 7);
       expect(rebuilt.allocationCutoffDate, isNull);
+      expect(rebuilt.displayEndDate, isNull);
       expect(rebuilt.contact, '');
       expect(rebuilt.site, '');
       expect(
@@ -157,6 +182,30 @@ void main() {
       expect(rebuilt.income, 300);
       expect(rebuilt.excludeFromFuelEfficiency, isFalse);
       expect(rebuilt.toString(), contains('excludeFuel:false'));
+    });
+
+    test('toMap writes non-null display end and fromMap restores it', () {
+      const record = TimingRecord(
+        id: 9,
+        deviceId: 3,
+        startDate: 20260601,
+        allocationCutoffDate: 20260610,
+        displayEndDate: 20260630,
+        contact: 'Bob',
+        site: 'Yard B',
+        type: TimingType.rent,
+        startMeter: 10,
+        endMeter: 15,
+        hours: 5,
+        income: 500,
+      );
+
+      final map = record.toMap();
+      final rebuilt = TimingRecord.fromMap(map);
+
+      expect(map['display_end_date'], 20260630);
+      expect(rebuilt.displayEndDate, 20260630);
+      expect(rebuilt.allocationCutoffDate, 20260610);
     });
 
     test('toMap writes non-null allocation cutoff and fromMap restores it', () {
@@ -211,6 +260,33 @@ void main() {
         );
       },
     );
+
+    test('toMap can explicitly include null display end for sync payload', () {
+      const record = TimingRecord(
+        id: 9,
+        deviceId: 3,
+        startDate: 20260601,
+        contact: 'Bob',
+        site: 'Yard B',
+        type: TimingType.rent,
+        startMeter: 10,
+        endMeter: 15,
+        hours: 5,
+        income: 500,
+      );
+
+      expect(record.toMap().containsKey('display_end_date'), isFalse);
+      expect(
+        record.toMap(includeNullDisplayEndDate: true)['display_end_date'],
+        isNull,
+      );
+      expect(
+        record
+            .toMap(includeNullAllocationCutoffDate: true)
+            .containsKey('display_end_date'),
+        isFalse,
+      );
+    });
 
     test('fromMap falls back to hours for unknown timing type', () {
       final rebuilt = TimingRecord.fromMap({

@@ -543,6 +543,9 @@ class _BackupRestoreValidator {
     if (!_isNullableInt(row['income_fen'])) {
       return 'invalid_timing_records_income_fen';
     }
+    if (!_isNullableInt(row['display_end_date'])) {
+      return 'invalid_timing_records_display_end_date';
+    }
     if (!_isNullableInt(row['exclude_from_fuel_eff'])) {
       return 'invalid_timing_records_exclude_from_fuel_eff';
     }

@@ -31,6 +31,12 @@ class TimingRecord {
   /// 使用当前隐式下一条同设备记录/下月 1 日规则；该字段只影响收入图表月份分布。
   final int? allocationCutoffDate;
 
+  /// UI inclusive end date（YYYYMMDD）。
+  ///
+  /// 仅用于 rent/台班记录展示与编辑回填，不参与收入、月度图表、账户或结清计算。
+  /// 不同于 [allocationCutoffDate]：后者是 hours 收入分摊的内部 exclusive end。
+  final int? displayEndDate;
+
   /// 稳定项目身份。旧数据为空时由 contact/site 兼容生成。
   final String projectId;
 
@@ -77,6 +83,7 @@ class TimingRecord {
     required this.deviceId,
     required this.startDate,
     this.allocationCutoffDate,
+    this.displayEndDate,
     this.projectId = '',
     required this.contact,
     required this.site,
@@ -98,6 +105,7 @@ class TimingRecord {
     int? deviceId,
     int? startDate,
     Object? allocationCutoffDate = _sentinel,
+    Object? displayEndDate = _sentinel,
     String? projectId,
     String? contact,
     String? site,
@@ -116,6 +124,9 @@ class TimingRecord {
       allocationCutoffDate: identical(allocationCutoffDate, _sentinel)
           ? this.allocationCutoffDate
           : allocationCutoffDate as int?,
+      displayEndDate: identical(displayEndDate, _sentinel)
+          ? this.displayEndDate
+          : displayEndDate as int?,
       projectId: projectId ?? this.projectId,
       contact: contact ?? this.contact,
       site: site ?? this.site,
@@ -133,7 +144,10 @@ class TimingRecord {
   // ---------------------------------------------------------------------------
   // SQLite → Map
   // ---------------------------------------------------------------------------
-  Map<String, Object?> toMap({bool includeNullAllocationCutoffDate = false}) {
+  Map<String, Object?> toMap({
+    bool includeNullAllocationCutoffDate = false,
+    bool includeNullDisplayEndDate = false,
+  }) {
     final map = <String, Object?>{
       'id': id,
       'project_id': effectiveProjectId,
@@ -160,6 +174,12 @@ class TimingRecord {
     } else if (includeNullAllocationCutoffDate) {
       map['allocation_cutoff_date'] = null;
     }
+    final displayEnd = displayEndDate;
+    if (displayEnd != null) {
+      map['display_end_date'] = displayEnd;
+    } else if (includeNullDisplayEndDate) {
+      map['display_end_date'] = null;
+    }
     return map;
   }
 
@@ -176,6 +196,7 @@ class TimingRecord {
       deviceId: m['device_id'] as int,
       startDate: m['start_date'] as int,
       allocationCutoffDate: (m['allocation_cutoff_date'] as num?)?.toInt(),
+      displayEndDate: (m['display_end_date'] as num?)?.toInt(),
       projectId: (m['project_id'] as String?) ?? '',
       contact: (m['contact'] as String?) ?? '',
       site: (m['site'] as String?) ?? '',
@@ -223,6 +244,7 @@ class TimingRecord {
   String toString() =>
       'TimingRecord(id:$id deviceId:$deviceId date:$startDate '
       'allocationCutoffDate:$allocationCutoffDate '
+      'displayEndDate:$displayEndDate '
       'hours:$hours excludeFuel:$excludeFromFuelEfficiency '
       'isBreaking:$isBreaking)';
 }

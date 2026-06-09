@@ -422,6 +422,167 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('range mode opens with start prompt and no clear button', (
+    tester,
+  ) async {
+    await _openRangePickerResult(tester, DateTime(2026, 3, 15));
+
+    expect(find.text('指定日期：请选择开始日'), findsOneWidget);
+    expect(find.text('指定日期：请选择结束日（可不选）'), findsNothing);
+    final prompt = tester.widget<Container>(
+      find.byKey(const ValueKey('jzt-date-picker-range-prompt')),
+    );
+    expect(prompt.alignment, Alignment.center);
+    final promptText = tester.widget<Text>(find.text('指定日期：请选择开始日'));
+    expect(promptText.textAlign, TextAlign.center);
+    expect(
+      find.byKey(const ValueKey('jzt-date-picker-clear-button')),
+      findsNothing,
+    );
+    expect(_surfaceColor(tester, 20260315), SheetColors.action);
+    expect(
+      find.byKey(const ValueKey('jzt-date-picker-day-bottom-label-20260315')),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(ElevatedButton, '完成'), findsOneWidget);
+  });
+
+  testWidgets('range mode opens existing range ready to edit end date', (
+    tester,
+  ) async {
+    await _openRangePickerResult(
+      tester,
+      DateTime(2026, 3, 15),
+      initialEndDate: DateTime(2026, 3, 18),
+    );
+
+    expect(find.text('指定日期：请选择结束日（可不选）'), findsOneWidget);
+    expect(_surfaceColor(tester, 20260315), SheetColors.action);
+    expect(_surfaceColor(tester, 20260318), SheetColors.action);
+    expect(_surfaceColor(tester, 20260316), const Color(0xFFEDEBE8));
+    expect(
+      find.byKey(const ValueKey('jzt-date-picker-day-bottom-label-20260315')),
+      findsOneWidget,
+    );
+    expect(find.text('截止'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, '完成(4天)'), findsOneWidget);
+  });
+
+  testWidgets('range mode start selection clears old end and returns draft', (
+    tester,
+  ) async {
+    final probe = await _openRangePickerResult(tester, DateTime(2026, 3, 15));
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260318')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('指定日期：请选择开始日'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260320')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('指定日期：请选择结束日（可不选）'), findsOneWidget);
+    expect(_surfaceColor(tester, 20260318), isNot(SheetColors.action));
+    expect(find.widgetWithText(ElevatedButton, '完成'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(probe.result?.startDate, DateTime(2026, 3, 20));
+    expect(probe.result?.endDate, isNull);
+  });
+
+  testWidgets('range mode disables dates before start while choosing end', (
+    tester,
+  ) async {
+    final probe = await _openRangePickerResult(tester, DateTime(2026, 3, 15));
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+
+    final previousDayCell = tester.widget<InkWell>(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260314')),
+    );
+    expect(previousDayCell.onTap, isNull);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成'));
+    await tester.pumpAndSettle();
+
+    expect(probe.result?.startDate, DateTime(2026, 3, 15));
+    expect(probe.result?.endDate, DateTime(2026, 3, 15));
+  });
+
+  testWidgets('range mode applies max date only while choosing end', (
+    tester,
+  ) async {
+    final probe = await _openRangePickerResult(
+      tester,
+      DateTime(2026, 3, 15),
+      rangeEndMaxDate: (startDate) {
+        if (startDate.day == 25) return DateTime(2026, 3, 27);
+        return DateTime(2026, 3, 20);
+      },
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260325')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('指定日期：请选择结束日（可不选）'), findsOneWidget);
+    expect(_surfaceColor(tester, 20260325), SheetColors.action);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260328')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(4天)'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260327')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ElevatedButton, '完成(3天)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, '完成(3天)'));
+    await tester.pumpAndSettle();
+
+    expect(probe.result?.startDate, DateTime(2026, 3, 25));
+    expect(probe.result?.endDate, DateTime(2026, 3, 27));
+  });
+
+  testWidgets('range mode cancel returns cancelled without selection', (
+    tester,
+  ) async {
+    final probe = await _openRangePickerResult(tester, DateTime(2026, 3, 15));
+
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260315')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('jzt-date-picker-day-20260318')),
+    );
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(probe.result?.isCancelled, isTrue);
+  });
 }
 
 Future<_PickerProbe> _openPicker(
@@ -484,6 +645,42 @@ Future<_PickerResultProbe> _openPickerResult(
                     selectedLabel: selectedLabel,
                   );
                   probe.completed = true;
+                },
+                child: const Text('打开'),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+  await tester.tap(find.byKey(const ValueKey('open-picker')));
+  await tester.pumpAndSettle();
+  return probe;
+}
+
+Future<_RangePickerResultProbe> _openRangePickerResult(
+  WidgetTester tester,
+  DateTime initialStartDate, {
+  DateTime? initialEndDate,
+  DateRangeEndMaxDateResolver? rangeEndMaxDate,
+}) async {
+  final probe = _RangePickerResultProbe();
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) {
+          return Scaffold(
+            body: Center(
+              child: TextButton(
+                key: const ValueKey('open-picker'),
+                onPressed: () async {
+                  probe.result = await showJztDateRangePickerSheetResult(
+                    context: context,
+                    initialStartDate: initialStartDate,
+                    initialEndDate: initialEndDate,
+                    rangeEndMaxDate: rangeEndMaxDate,
+                  );
                 },
                 child: const Text('打开'),
               ),
@@ -590,4 +787,8 @@ class _PickerProbe {
 class _PickerResultProbe {
   DatePickerResult? result;
   bool completed = false;
+}
+
+class _RangePickerResultProbe {
+  DateRangePickerResult? result;
 }

@@ -79,12 +79,12 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
   final groupedSingles = <int, List<TimingRecord>>{};
   final rangeSingleSections = <_RecordDisplaySection>[];
   for (final record in singleRecords) {
-    if (_shouldShowAllocationEndRange(record)) {
+    if (_shouldShowRecordDateRange(record)) {
       rangeSingleSections.add(
         _RecordDisplaySection.singles(
           ymd: record.startDate,
           records: [record],
-          headerOverride: _allocationDateRangeText(record),
+          headerOverride: _recordDateRangeText(record),
         ),
       );
       continue;
@@ -107,27 +107,42 @@ List<_RecordDisplaySection> _buildRecordDisplaySections(
   });
 }
 
-bool _shouldShowAllocationEndRange(TimingRecord record) {
-  if (record.type != TimingType.hours) return false;
-  final exclusiveCutoffYmd = record.allocationCutoffDate;
-  if (exclusiveCutoffYmd == null) return false;
-  final displayEndInclusiveYmd = _tryDisplayEndInclusiveYmd(exclusiveCutoffYmd);
+bool _shouldShowRecordDateRange(TimingRecord record) {
+  final displayEndInclusiveYmd = _recordDisplayEndInclusiveYmd(record);
   if (displayEndInclusiveYmd == null) return false;
-  return displayEndInclusiveYmd >= record.startDate;
+  return displayEndInclusiveYmd > record.startDate;
 }
 
-String _allocationDateRangeText(TimingRecord record) {
-  if (!_shouldShowAllocationEndRange(record)) {
+String _recordDateRangeText(TimingRecord record) {
+  final displayEndInclusiveYmd = _recordDisplayEndInclusiveYmd(record);
+  if (displayEndInclusiveYmd == null ||
+      displayEndInclusiveYmd <= record.startDate) {
     return FormatUtils.date(record.startDate);
   }
-  final displayEndInclusiveYmd = _tryDisplayEndInclusiveYmd(
-    record.allocationCutoffDate!,
-  );
-  if (displayEndInclusiveYmd == null) return FormatUtils.date(record.startDate);
-  return '${FormatUtils.date(record.startDate)} - ${_compactRangeEndText(record.startDate, displayEndInclusiveYmd)}';
+  return FormatUtils.compactDateRange(record.startDate, displayEndInclusiveYmd);
 }
 
-int? _tryDisplayEndInclusiveYmd(int exclusiveCutoffYmd) {
+int? _recordDisplayEndInclusiveYmd(TimingRecord record) {
+  if (record.type == TimingType.rent) {
+    return _tryDirectDisplayEndInclusiveYmd(record.displayEndDate);
+  }
+  if (record.type != TimingType.hours) return null;
+  final exclusiveCutoffYmd = record.allocationCutoffDate;
+  if (exclusiveCutoffYmd == null) return null;
+  return _tryAllocationDisplayEndInclusiveYmd(exclusiveCutoffYmd);
+}
+
+int? _tryDirectDisplayEndInclusiveYmd(int? displayEndYmd) {
+  if (displayEndYmd == null) return null;
+  try {
+    FormatUtils.dateFromYmd(displayEndYmd);
+    return displayEndYmd;
+  } on ArgumentError {
+    return null;
+  }
+}
+
+int? _tryAllocationDisplayEndInclusiveYmd(int exclusiveCutoffYmd) {
   try {
     final exclusive = FormatUtils.dateFromYmd(exclusiveCutoffYmd);
     // Recent records show the UI-inclusive end; never display the persisted
@@ -136,15 +151,6 @@ int? _tryDisplayEndInclusiveYmd(int exclusiveCutoffYmd) {
   } on ArgumentError {
     return null;
   }
-}
-
-String _compactRangeEndText(int startYmd, int endYmd) {
-  final start = FormatUtils.dateFromYmd(startYmd);
-  final end = FormatUtils.dateFromYmd(endYmd);
-  if (start.year != end.year) return FormatUtils.date(endYmd);
-  final month = end.month.toString().padLeft(2, '0');
-  final day = end.day.toString().padLeft(2, '0');
-  return '$month.$day';
 }
 
 List<_AggregateRecordSection> _buildAggregateSections(
@@ -479,7 +485,7 @@ class _DateGroup extends StatelessWidget {
                 device: deviceById[record.deviceId],
                 deviceIndexText: deviceIndexById[record.deviceId] ?? '?',
                 hideAvatar: true,
-                titleOverride: _allocationDateRangeText(record),
+                titleOverride: _recordDateRangeText(record),
                 subtitleOverride: deviceById[record.deviceId] == null
                     ? deviceIndexById[record.deviceId] ?? '?'
                     : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',

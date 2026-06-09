@@ -61,6 +61,7 @@ void main() {
         'device_id',
         'start_date',
         'allocation_cutoff_date',
+        'display_end_date',
         'contact',
         'site',
         'type',

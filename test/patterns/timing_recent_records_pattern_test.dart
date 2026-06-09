@@ -283,6 +283,68 @@ void main() {
     },
   );
 
+  testWidgets('hours same-day range displays a single date', (
+    WidgetTester tester,
+  ) async {
+    const record = TimingRecord(
+      id: 14,
+      deviceId: 1,
+      startDate: 20260609,
+      allocationCutoffDate: 20260610,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.hours,
+      startMeter: 6180.7,
+      endMeter: 6184.7,
+      hours: 4,
+      income: 480,
+    );
+
+    await _pumpSectionRecentRecords(tester, records: const [record]);
+
+    expect(find.text('2026.06.09'), findsOneWidget);
+    expect(find.text('2026.06.09 - 06.09'), findsNothing);
+  });
+
+  testWidgets('hours handoff range can end on next record start date', (
+    WidgetTester tester,
+  ) async {
+    const records = [
+      TimingRecord(
+        id: 14,
+        deviceId: 1,
+        startDate: 20260312,
+        allocationCutoffDate: 20260324,
+        contact: '李杰',
+        site: '尚义',
+        type: TimingType.hours,
+        startMeter: 5817.1,
+        endMeter: 5881.7,
+        hours: 64.6,
+        income: 6460,
+      ),
+      TimingRecord(
+        id: 15,
+        deviceId: 1,
+        startDate: 20260323,
+        contact: '李杰',
+        site: '鲜滩',
+        type: TimingType.hours,
+        startMeter: 5882.3,
+        endMeter: 6121.8,
+        hours: 238.8,
+        income: 23880,
+      ),
+    ];
+
+    await _pumpSectionRecentRecords(tester, records: records);
+
+    expect(find.text('2026.03.12 - 03.23'), findsOneWidget);
+    expect(find.text('2026.03.23'), findsOneWidget);
+    expect(find.text('李杰 · 尚义'), findsOneWidget);
+    expect(find.text('李杰 · 鲜滩'), findsOneWidget);
+  });
+
   testWidgets('same-day explicit end record is split from plain date group', (
     WidgetTester tester,
   ) async {
@@ -351,6 +413,144 @@ void main() {
 
     expect(find.text('2026.05.16'), findsOneWidget);
     expect(find.text('2026.05.16 - 05.19'), findsNothing);
+  });
+
+  testWidgets(
+    'rent display end shows direct inclusive range without minus one',
+    (WidgetTester tester) async {
+      const record = TimingRecord(
+        id: 7,
+        deviceId: 1,
+        startDate: 20260516,
+        displayEndDate: 20260520,
+        allocationCutoffDate: 20260521,
+        contact: '周亮',
+        site: '成都',
+        type: TimingType.rent,
+        startMeter: 6180.7,
+        endMeter: 6180.7,
+        hours: 0,
+        income: 22000,
+      );
+
+      await _pumpSectionRecentRecords(tester, records: const [record]);
+
+      expect(find.text('2026.05.16 - 05.20'), findsOneWidget);
+      expect(find.text('2026.05.16 - 05.19'), findsNothing);
+    },
+  );
+
+  testWidgets('rent same-day display end displays a single date', (
+    WidgetTester tester,
+  ) async {
+    const record = TimingRecord(
+      id: 15,
+      deviceId: 1,
+      startDate: 20260609,
+      displayEndDate: 20260609,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.rent,
+      startMeter: 6180.7,
+      endMeter: 6180.7,
+      hours: 0,
+      income: 22000,
+    );
+
+    await _pumpSectionRecentRecords(tester, records: const [record]);
+
+    expect(find.text('2026.06.09'), findsOneWidget);
+    expect(find.text('2026.06.09 - 06.09'), findsNothing);
+  });
+
+  testWidgets('same-day rent display range record is split from plain group', (
+    WidgetTester tester,
+  ) async {
+    const records = [
+      TimingRecord(
+        id: 8,
+        deviceId: 1,
+        startDate: 20260521,
+        displayEndDate: 20260525,
+        contact: '周亮',
+        site: '成都',
+        type: TimingType.rent,
+        startMeter: 6180.7,
+        endMeter: 6180.7,
+        hours: 0,
+        income: 22000,
+      ),
+      TimingRecord(
+        id: 9,
+        deviceId: 2,
+        startDate: 20260521,
+        contact: '王强',
+        site: '成都',
+        type: TimingType.rent,
+        startMeter: 10,
+        endMeter: 10,
+        hours: 0,
+        income: 18000,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SectionRecentRecords(
+            records: records,
+            deviceById: const {1: _device, 2: _secondDevice},
+            deviceIndexById: const {1: '1#', 2: '2#'},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('2026.05.21'), findsOneWidget);
+    expect(find.text('2026.05.21 - 05.25'), findsOneWidget);
+  });
+
+  testWidgets('expanded rent aggregate child displays display end range', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSectionRecentRecords(
+      tester,
+      records: const [
+        TimingRecord(
+          id: 10,
+          deviceId: 1,
+          startDate: 20260501,
+          displayEndDate: 20260505,
+          contact: '李洋',
+          site: '天眉乐',
+          type: TimingType.rent,
+          startMeter: 100,
+          endMeter: 100,
+          hours: 0,
+          income: 2000,
+        ),
+        TimingRecord(
+          id: 11,
+          deviceId: 1,
+          startDate: 20260502,
+          displayEndDate: 20260506,
+          contact: '李洋',
+          site: '天眉乐',
+          type: TimingType.rent,
+          startMeter: 100,
+          endMeter: 100,
+          hours: 0,
+          income: 2000,
+        ),
+      ],
+    );
+
+    expect(find.text('2026.05.01 (已聚合)'), findsOneWidget);
+    await tester.tap(find.text('李洋 · 天眉乐'));
+    await tester.pump();
+
+    expect(find.text('2026.05.01 - 05.05'), findsOneWidget);
+    expect(find.text('2026.05.02 - 05.06'), findsOneWidget);
   });
 
   testWidgets('shows rent recent record hours when actual hours exist', (
