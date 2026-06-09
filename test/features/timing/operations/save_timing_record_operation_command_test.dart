@@ -467,13 +467,13 @@ void main() {
             throw const SaveTimingRecordAllocationCutoffValidationException(
               code: SaveTimingRecordAllocationCutoffValidationException
                   .cutoffAfterNextSameDeviceStartDate,
-              message: '分摊截止日期不能晚于下一条同设备记录的计时日期',
+              message: '结束日不能晚于下一条同设备记录日期',
             );
           },
         );
 
         expect(result.success, isFalse);
-        expect(result.userMessage, '分摊截止日期不能晚于下一条同设备记录的计时日期');
+        expect(result.userMessage, '结束日不能晚于下一条同设备记录日期');
         expect(
           result.error,
           SaveTimingRecordAllocationCutoffValidationException

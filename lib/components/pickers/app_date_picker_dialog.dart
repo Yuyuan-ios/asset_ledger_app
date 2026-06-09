@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/buttons/app_primary_button.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
@@ -15,14 +16,16 @@ const _monthCount = 24;
 const _weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
 const _datePickerWarmDivider = Color(0xFFE3DCCF);
 const _datePickerWarmAccent = Color(0xFFB9854D);
+const _datePickerRangeFill = Color(0xFFEDEBE8);
 const _calendarGridHorizontalPadding = AppSpace.lg + AppSpace.md;
-const _monthSectionGap = 6.0;
+const _monthSectionGap = 0.0;
 const _monthListTopPadding = AppSpace.md;
+const _monthHeaderLift = 8.0;
 const _monthTitleHeight = 24.0;
 const _monthTitleToDividerGap = 8.0;
 const _monthDividerHeight = 1.0;
 const _monthAccentLineWidth = 108.0;
-const _dividerToGridGap = 8.0;
+const _dividerToGridGap = 0.0;
 const _dateCellHeight = 56.0;
 const _dateCellSurfaceWidth = 44.0;
 const _dateCellSurfaceHeight = 52.0;
@@ -34,6 +37,7 @@ const _bottomActionVerticalPadding = AppSpace.sm + AppSpace.lg;
 const _monthListBottomExtraPadding = AppSpace.xl;
 
 typedef DatePickerDisabledDatePredicate = bool Function(DateTime date);
+typedef DateRangeEndMaxDateResolver = DateTime? Function(DateTime startDate);
 
 enum DatePickerResultType { selected, cleared, cancelled }
 
@@ -54,6 +58,25 @@ class DatePickerResult {
   bool get isSelected => type == DatePickerResultType.selected;
   bool get isCleared => type == DatePickerResultType.cleared;
   bool get isCancelled => type == DatePickerResultType.cancelled;
+}
+
+enum DateRangePickerResultType { selected, cancelled }
+
+class DateRangePickerResult {
+  const DateRangePickerResult._(this.type, this.startDate, this.endDate);
+
+  const DateRangePickerResult.selected(DateTime startDate, DateTime? endDate)
+    : this._(DateRangePickerResultType.selected, startDate, endDate);
+
+  const DateRangePickerResult.cancelled()
+    : this._(DateRangePickerResultType.cancelled, null, null);
+
+  final DateRangePickerResultType type;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  bool get isSelected => type == DateRangePickerResultType.selected;
+  bool get isCancelled => type == DateRangePickerResultType.cancelled;
 }
 
 Future<DateTime?> showSheetDatePickerDialog({
@@ -165,32 +188,93 @@ Future<DatePickerResult> showJztDatePickerSheetResult({
   return result ?? const DatePickerResult.cancelled();
 }
 
+Future<DateRangePickerResult> showSheetDateRangePickerDialogResult({
+  required BuildContext context,
+  required DateTime initialStartDate,
+  DateTime? initialEndDate,
+  DateTime? minDate,
+  DateTime? maxDate,
+  DatePickerDisabledDatePredicate? disabledDate,
+  DateRangeEndMaxDateResolver? rangeEndMaxDate,
+}) {
+  return showJztDateRangePickerSheetResult(
+    context: context,
+    initialStartDate: initialStartDate,
+    initialEndDate: initialEndDate,
+    minDate: minDate,
+    maxDate: maxDate,
+    disabledDate: disabledDate,
+    rangeEndMaxDate: rangeEndMaxDate,
+  );
+}
+
+Future<DateRangePickerResult> showJztDateRangePickerSheetResult({
+  required BuildContext context,
+  required DateTime initialStartDate,
+  DateTime? initialEndDate,
+  DateTime? minDate,
+  DateTime? maxDate,
+  DatePickerDisabledDatePredicate? disabledDate,
+  DateRangeEndMaxDateResolver? rangeEndMaxDate,
+}) async {
+  final result = await showAppBottomSheet<DateRangePickerResult>(
+    context: context,
+    useSafeArea: false,
+    builder: (_) {
+      return AppBottomSheetShell(
+        title: null,
+        scrollable: false,
+        footerEnabled: false,
+        contentPadding: EdgeInsets.zero,
+        child: JztDatePickerBottomSheet(
+          initialDate: initialStartDate,
+          initialEndDate: initialEndDate,
+          minDate: minDate,
+          maxDate: maxDate,
+          rangeMode: true,
+          disabledDate: disabledDate,
+          rangeEndMaxDate: rangeEndMaxDate,
+        ),
+      );
+    },
+  );
+  return result ?? const DateRangePickerResult.cancelled();
+}
+
 class JztDatePickerBottomSheet extends StatefulWidget {
   const JztDatePickerBottomSheet({
     super.key,
     required this.initialDate,
+    this.initialEndDate,
     this.minDate,
     this.maxDate,
+    this.rangeMode = false,
     this.allowClear = false,
     this.selectedLabel = '开始',
     this.clearText = '清空',
     this.confirmText = '完成',
     this.disabledDate,
+    this.rangeEndMaxDate,
   });
 
   final DateTime initialDate;
+  final DateTime? initialEndDate;
   final DateTime? minDate;
   final DateTime? maxDate;
+  final bool rangeMode;
   final bool allowClear;
   final String selectedLabel;
   final String clearText;
   final String confirmText;
   final DatePickerDisabledDatePredicate? disabledDate;
+  final DateRangeEndMaxDateResolver? rangeEndMaxDate;
 
   @override
   State<JztDatePickerBottomSheet> createState() =>
       _JztDatePickerBottomSheetState();
 }
+
+enum _DateRangeSelectionStep { start, end }
 
 class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
   late final List<DateTime> _months;
@@ -198,6 +282,8 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
   late final DateTime _firstDate;
   late final DateTime _lastDate;
   DateTime? _selectedDate;
+  DateTime? _selectedEndDate;
+  _DateRangeSelectionStep _rangeStep = _DateRangeSelectionStep.start;
 
   @override
   void initState() {
@@ -207,6 +293,16 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
     _months = _buildMonths(firstDate: _firstDate, lastDate: _lastDate);
     final initialDate = _dateOnly(widget.initialDate);
     _selectedDate = _isInRange(initialDate) ? initialDate : null;
+    if (widget.rangeMode) {
+      final initialEndDate = widget.initialEndDate;
+      if (_selectedDate != null && initialEndDate != null) {
+        final endDate = _dateOnly(initialEndDate);
+        if (_isInRange(endDate) && !endDate.isBefore(_selectedDate!)) {
+          _selectedEndDate = endDate;
+          _rangeStep = _DateRangeSelectionStep.end;
+        }
+      }
+    }
     _scrollController = ScrollController(
       initialScrollOffset: _initialScrollOffset(_months, initialDate),
     );
@@ -219,14 +315,49 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
   }
 
   void _selectDate(DateTime date) {
-    if (!_isInRange(date)) return;
-    if (_isDisabled(date)) return;
-    setState(() => _selectedDate = _dateOnly(date));
+    final day = _dateOnly(date);
+    if (!_isDateEnabled(day)) return;
+    if (!widget.rangeMode) {
+      setState(() => _selectedDate = day);
+      return;
+    }
+
+    setState(() {
+      final startDate = _selectedDate;
+      if (_rangeStep == _DateRangeSelectionStep.start || startDate == null) {
+        _selectedDate = day;
+        _selectedEndDate = null;
+        _rangeStep = _DateRangeSelectionStep.end;
+        return;
+      }
+
+      if (day.isBefore(startDate)) return;
+      if (_selectedEndDate != null && DateUtils.isSameDay(day, startDate)) {
+        _selectedEndDate = null;
+        _rangeStep = _DateRangeSelectionStep.end;
+        return;
+      }
+
+      _selectedEndDate = day;
+      _rangeStep = _DateRangeSelectionStep.start;
+    });
   }
 
   void _finish() {
     final selected = _selectedDate;
     if (selected == null) return;
+    if (widget.rangeMode) {
+      final endDate = _normalizedEndDate();
+      Navigator.of(context).pop(
+        DateRangePickerResult.selected(
+          DateTime(selected.year, selected.month, selected.day),
+          endDate == null
+              ? null
+              : DateTime(endDate.year, endDate.month, endDate.day),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       DatePickerResult.selected(
         DateTime(selected.year, selected.month, selected.day),
@@ -248,10 +379,51 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
     return predicate != null && predicate(_dateOnly(date));
   }
 
+  bool _isDateEnabled(DateTime date) {
+    final day = _dateOnly(date);
+    if (!_isInRange(day) || _isDisabled(day)) return false;
+    if (!widget.rangeMode) return true;
+    final startDate = _selectedDate;
+    if (_rangeStep != _DateRangeSelectionStep.end || startDate == null) {
+      return true;
+    }
+    if (day.isBefore(startDate)) return false;
+    final endMaxDate = widget.rangeEndMaxDate?.call(startDate);
+    if (endMaxDate != null && day.isAfter(_dateOnly(endMaxDate))) {
+      return false;
+    }
+    return true;
+  }
+
+  DateTime? _normalizedEndDate() {
+    final startDate = _selectedDate;
+    final endDate = _selectedEndDate;
+    if (startDate == null || endDate == null) return null;
+    if (endDate.isBefore(startDate)) return null;
+    return endDate;
+  }
+
+  String _rangePromptText() {
+    return _rangeStep == _DateRangeSelectionStep.start
+        ? '指定日期：请选择开始日'
+        : '指定日期：请选择结束日（可不选）';
+  }
+
+  String _confirmText() {
+    if (!widget.rangeMode) return widget.confirmText;
+    final startDate = _selectedDate;
+    final endDate = _normalizedEndDate();
+    if (startDate == null || endDate == null) return widget.confirmText;
+    if (!endDate.isAfter(startDate)) return widget.confirmText;
+    final days = endDate.difference(startDate).inDays + 1;
+    return '${widget.confirmText}($days天)';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (widget.rangeMode) _JztRangePromptRow(text: _rangePromptText()),
         const _JztWeekdayRow(),
         Expanded(
           child: ListView.builder(
@@ -270,8 +442,10 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
               return JztMonthDateGrid(
                 month: month,
                 selectedDate: _selectedDate,
+                selectedEndDate: _normalizedEndDate(),
+                rangeMode: widget.rangeMode,
                 onDateSelected: _selectDate,
-                isDateEnabled: (date) => _isInRange(date) && !_isDisabled(date),
+                isDateEnabled: _isDateEnabled,
                 selectedLabel: widget.selectedLabel,
               );
             },
@@ -279,12 +453,41 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
         ),
         _JztBottomActionBar(
           onPressed: _selectedDate == null ? null : _finish,
-          allowClear: widget.allowClear,
+          allowClear: !widget.rangeMode && widget.allowClear,
           clearText: widget.clearText,
-          confirmText: widget.confirmText,
+          confirmText: _confirmText(),
           onClear: _clear,
         ),
       ],
+    );
+  }
+}
+
+class _JztRangePromptRow extends StatelessWidget {
+  const _JztRangePromptRow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('jzt-date-picker-range-prompt'),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.fromLTRB(
+        _calendarGridHorizontalPadding,
+        AppSpace.xs,
+        _calendarGridHorizontalPadding,
+        AppSpace.xs,
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: AppTypography.actionText(
+          context,
+          fontSize: BottomSheetTokens.dateRangePromptTextSize,
+          fontWeight: FontWeight.w600,
+        )?.copyWith(color: AppColors.textPrimary),
+      ),
     );
   }
 }
@@ -335,6 +538,8 @@ class JztMonthDateGrid extends StatelessWidget {
     super.key,
     required this.month,
     required this.selectedDate,
+    this.selectedEndDate,
+    this.rangeMode = false,
     required this.onDateSelected,
     required this.isDateEnabled,
     required this.selectedLabel,
@@ -342,6 +547,8 @@ class JztMonthDateGrid extends StatelessWidget {
 
   final DateTime month;
   final DateTime? selectedDate;
+  final DateTime? selectedEndDate;
+  final bool rangeMode;
   final ValueChanged<DateTime> onDateSelected;
   final bool Function(DateTime date) isDateEnabled;
   final String selectedLabel;
@@ -363,22 +570,29 @@ class JztMonthDateGrid extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: _monthTitleHeight,
-            child: Row(
+          Transform.translate(
+            offset: const Offset(0, -_monthHeaderLift),
+            child: Column(
               children: [
-                Text('${month.year}年${month.month}月', style: titleStyle),
-                const Spacer(),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 15,
-                  color: _datePickerWarmAccent.withValues(alpha: 0.62),
+                SizedBox(
+                  height: _monthTitleHeight,
+                  child: Row(
+                    children: [
+                      Text('${month.year}年${month.month}月', style: titleStyle),
+                      const Spacer(),
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 15,
+                        color: _datePickerWarmAccent.withValues(alpha: 0.62),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: _monthTitleToDividerGap),
+                const _JztMonthDivider(),
               ],
             ),
           ),
-          const SizedBox(height: _monthTitleToDividerGap),
-          const _JztMonthDivider(),
           const SizedBox(height: _dividerToGridGap),
           GridView.builder(
             shrinkWrap: true,
@@ -394,14 +608,18 @@ class JztMonthDateGrid extends StatelessWidget {
                 return const SizedBox.shrink();
               }
               final date = DateTime(month.year, month.month, day);
+              final rangeRole = _dateRangeRole(date);
               return JztDateCell(
                 date: date,
                 selected:
-                    selectedDate != null &&
-                    DateUtils.isSameDay(date, selectedDate),
+                    rangeRole == _DateCellRangeRole.start ||
+                    rangeRole == _DateCellRangeRole.end,
+                inRange: rangeRole == _DateCellRangeRole.middle,
                 today: DateUtils.isSameDay(date, DateTime.now()),
                 enabled: isDateEnabled(date),
-                selectedLabel: selectedLabel,
+                selectedLabel: rangeRole == _DateCellRangeRole.end
+                    ? '截止'
+                    : selectedLabel,
                 onTap: () => onDateSelected(date),
               );
             },
@@ -410,7 +628,31 @@ class JztMonthDateGrid extends StatelessWidget {
       ),
     );
   }
+
+  _DateCellRangeRole _dateRangeRole(DateTime date) {
+    final startDate = selectedDate;
+    if (startDate == null) return _DateCellRangeRole.none;
+    if (!rangeMode) {
+      return DateUtils.isSameDay(date, startDate)
+          ? _DateCellRangeRole.start
+          : _DateCellRangeRole.none;
+    }
+    final endDate = selectedEndDate;
+    if (DateUtils.isSameDay(date, startDate)) {
+      return _DateCellRangeRole.start;
+    }
+    if (endDate == null || !endDate.isAfter(startDate)) {
+      return _DateCellRangeRole.none;
+    }
+    if (DateUtils.isSameDay(date, endDate)) return _DateCellRangeRole.end;
+    if (date.isAfter(startDate) && date.isBefore(endDate)) {
+      return _DateCellRangeRole.middle;
+    }
+    return _DateCellRangeRole.none;
+  }
 }
+
+enum _DateCellRangeRole { none, start, middle, end }
 
 class _JztMonthDivider extends StatelessWidget {
   const _JztMonthDivider();
@@ -444,6 +686,7 @@ class JztDateCell extends StatelessWidget {
     super.key,
     required this.date,
     required this.selected,
+    this.inRange = false,
     required this.today,
     required this.enabled,
     required this.selectedLabel,
@@ -452,6 +695,7 @@ class JztDateCell extends StatelessWidget {
 
   final DateTime date;
   final bool selected;
+  final bool inRange;
   final bool today;
   final bool enabled;
   final String selectedLabel;
@@ -485,7 +729,11 @@ class JztDateCell extends StatelessWidget {
           height: _dateCellSurfaceHeight,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? SheetColors.action : Colors.transparent,
+            color: selected
+                ? SheetColors.action
+                : inRange
+                ? _datePickerRangeFill
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             boxShadow: selected
                 ? [

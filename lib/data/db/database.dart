@@ -98,10 +98,13 @@ class AppDatabase {
   //        max(old_seq, current_max_id)（保留历史高水位、不让 AUTOINCREMENT 倒退）。
   //        merge_batch_total_amount_fen 保持 nullable（不翻 NOT NULL）。
   //        不动 project_write_offs / timing_records、不改 model/payload/读路径。
+  // - v32：timing_records 新增 nullable display_end_date；
+  //        rent/台班 UI inclusive 展示结束日，仅用于记录展示与编辑回填。
+  //        additive ADD COLUMN，不回填、不重建表、不参与收入/账户/结清计算。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 31;
+  static const int _dbVersion = 32;
 
   static int get schemaVersion => _dbVersion;
 

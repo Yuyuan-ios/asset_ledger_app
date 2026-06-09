@@ -36,6 +36,7 @@ import 'package:asset_ledger/features/timing/operations/save_timing_record_opera
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
+import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
@@ -1021,6 +1022,33 @@ void main() {
     expect(mergeRepository.members.every((member) => member.isActive), isFalse);
   });
 
+  testWidgets('shows save validation failure inside timing editor sheet', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      historyRepository: _FakeCalculationHistoryRepository(),
+      saveFailure: const SaveTimingRecordAllocationCutoffValidationException(
+        code: SaveTimingRecordAllocationCutoffValidationException
+            .cutoffAfterNextSameDeviceStartDate,
+        message: '结束日不能晚于下一条同设备记录日期',
+      ),
+    );
+
+    await tester.tap(find.text('甲方 · 一号工地'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pump();
+
+    expect(find.text('保存失败：结束日不能晚于下一条同设备记录日期'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('编辑计时'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(find.text('保存失败：结束日不能晚于下一条同设备记录日期'), findsOneWidget);
+  });
+
   // 阶段 C Step 1 删除：原"shows dissolve retry when project identity
   // changes and dissolve fails"测试覆盖的是 UI pending retry 对话框。
   // C1 起，保存路径完全事务化：合并解除失败 → 整个保存抛错 → 用户看到通用
@@ -1075,6 +1103,7 @@ Future<void> _pumpTimingPage(
   required TimingCalculationHistoryRepository historyRepository,
   _FakeAccountProjectMergeRepository? mergeRepository,
   DeleteTimingRecordWithImpactUseCase? deleteUseCase,
+  Object? saveFailure,
   List<ExternalImportBatch> externalBatches = const [],
   List<ExternalWorkRecord> externalRecords = const [],
 }) async {
@@ -1162,6 +1191,7 @@ Future<void> _pumpTimingPage(
               timingRepository: resolvedTimingRepository,
               projectResolver: projectResolver,
               mergeService: mergeService,
+              saveFailure: saveFailure,
             ),
           ),
           Provider<SaveTimingRecordOperationCommand>.value(
@@ -1515,13 +1545,16 @@ class _FakeSaveTimingRecordWithImpactUseCase
     required _FakeTimingRepository timingRepository,
     required ProjectResolver projectResolver,
     required AccountProjectMergeService mergeService,
+    Object? saveFailure,
   }) : _timingRepository = timingRepository,
        _projectResolver = projectResolver,
-       _mergeService = mergeService;
+       _mergeService = mergeService,
+       _saveFailure = saveFailure;
 
   final _FakeTimingRepository _timingRepository;
   final ProjectResolver _projectResolver;
   final AccountProjectMergeService _mergeService;
+  final Object? _saveFailure;
 
   @override
   Future<SaveTimingRecordPreparation> prepareForSave({
@@ -1543,6 +1576,10 @@ class _FakeSaveTimingRecordWithImpactUseCase
     required SaveTimingRecordPreparation preparation,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) {
+    final saveFailure = _saveFailure;
+    if (saveFailure != null) {
+      throw saveFailure;
+    }
     return execute(
       editing: editing,
       record: preparation.recordToSave,
