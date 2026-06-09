@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'inbound_share_file_gate.dart';
+import 'phone_login_gate.dart';
 import 'router.dart';
 import '../core/theme/app_theme.dart';
 
@@ -19,7 +20,9 @@ class AssetLedgerApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       theme: AppTheme.light(),
-      home: const InboundShareFileGate(child: AppRouterEntry()),
+      home: const PhoneLoginGate(
+        child: InboundShareFileGate(child: AppRouterEntry()),
+      ),
     );
   }
 }
