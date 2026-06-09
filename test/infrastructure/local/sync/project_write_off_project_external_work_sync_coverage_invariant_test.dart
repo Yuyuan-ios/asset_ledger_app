@@ -471,6 +471,8 @@ const Map<String, String> _registeredProjectWriteOffWriteFiles = {
       'covered ExternalWork settlement reset ProjectWriteOff delete path',
   'lib/data/db/migrations/migration_018.dart':
       'migration amount_fen backfill exemption',
+  'lib/data/db/migrations/migration_030.dart':
+      'migration table rebuild exemption',
 };
 
 const Map<String, String> _registeredProjectStatusWriteFiles = {
