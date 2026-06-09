@@ -120,6 +120,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   int? _selectedDeviceId;
   late DateTime _selectedDate;
+  DateTime? _selectedEndDate;
   WorkMode _mode = WorkMode.hours;
   AttachmentMode _attachmentMode = AttachmentMode.digging;
   bool _excludeFromFuelEfficiency = false;
@@ -149,7 +150,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final editing = widget.editing;
     _selectedDate = DateTime.now();
-    _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
+    _syncDateText();
     if (editing == null) {
       _applyDefaultDeviceForCreate();
       return;
@@ -157,10 +158,15 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     _selectedDeviceId = editing.deviceId;
     _selectedDate = FormatUtils.dateFromYmd(editing.startDate);
-    _dateCtrl.text = FormatUtils.date(editing.startDate);
     _contactCtrl.text = editing.contact;
     _siteCtrl.text = editing.site;
     _mode = editing.type == TimingType.hours ? WorkMode.hours : WorkMode.rent;
+    _selectedEndDate = _mode == WorkMode.hours
+        ? _allocationEndInclusiveDateFromExclusiveYmd(
+            editing.allocationCutoffDate,
+          )
+        : _displayEndDateFromYmd(editing.displayEndDate);
+    _syncDateText();
     _attachmentMode = editing.isBreaking
         ? AttachmentMode.breaking
         : AttachmentMode.digging;
@@ -315,14 +321,19 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   Future<void> _pickDate() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final picked = await showSheetDatePickerDialog(
+    final result = await showSheetDateRangePickerDialogResult(
       context: context,
-      initialDate: _selectedDate,
+      initialStartDate: _selectedDate,
+      initialEndDate: _selectedEndDate,
     );
-    if (picked == null || !mounted) return;
+    if (result.isCancelled || !mounted) return;
+    final pickedStart = result.startDate;
+    if (pickedStart == null) return;
+    final pickedEnd = result.endDate;
     setState(() {
-      _selectedDate = DateTime(picked.year, picked.month, picked.day);
-      _dateCtrl.text = FormatUtils.date(FormatUtils.ymdFromDate(_selectedDate));
+      _selectedDate = _dateOnly(pickedStart);
+      _selectedEndDate = pickedEnd == null ? null : _dateOnly(pickedEnd);
+      _syncDateText();
     });
   }
 
@@ -426,14 +437,10 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
     final type = isRent ? TimingType.rent : TimingType.hours;
     final excludeFuel = !isRent && _excludeFromFuelEfficiency;
-    final editing = widget.editing;
-    final allocationEndExclusiveYmd =
-        !isRent && editing?.type == TimingType.hours
-        ? editing?.allocationCutoffDate
-        : null;
-    final displayEndDateYmd = isRent && editing?.type == TimingType.rent
-        ? editing?.displayEndDate
-        : null;
+    final allocationEndExclusiveYmd = isRent
+        ? null
+        : _allocationEndExclusiveYmd();
+    final displayEndDateYmd = isRent ? _displayEndDateYmd() : null;
 
     final record = TimingRecord(
       id: widget.editing?.id,
@@ -460,6 +467,55 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _syncDateText() {
+    final startYmd = FormatUtils.ymdFromDate(_selectedDate);
+    _dateCtrl.text = FormatUtils.compactDateRange(startYmd, _selectedEndYmd());
+  }
+
+  int? _selectedEndYmd() {
+    final endDate = _selectedEndDate;
+    if (endDate == null || endDate.isBefore(_selectedDate)) return null;
+    return FormatUtils.ymdFromDate(endDate);
+  }
+
+  int? _allocationEndExclusiveYmd() {
+    final endDate = _selectedEndDate;
+    if (endDate == null || endDate.isBefore(_selectedDate)) return null;
+    final exclusiveEnd = endDate.add(const Duration(days: 1));
+    return FormatUtils.ymdFromDate(exclusiveEnd);
+  }
+
+  int? _displayEndDateYmd() {
+    final endDate = _selectedEndDate;
+    if (endDate == null || endDate.isBefore(_selectedDate)) return null;
+    return FormatUtils.ymdFromDate(endDate);
+  }
+
+  DateTime? _allocationEndInclusiveDateFromExclusiveYmd(int? exclusiveYmd) {
+    if (exclusiveYmd == null) return null;
+    try {
+      final exclusive = FormatUtils.dateFromYmd(exclusiveYmd);
+      final inclusive = _dateOnly(exclusive.subtract(const Duration(days: 1)));
+      return inclusive.isBefore(_selectedDate) ? null : inclusive;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  DateTime? _displayEndDateFromYmd(int? ymd) {
+    if (ymd == null) return null;
+    try {
+      final displayEnd = _dateOnly(FormatUtils.dateFromYmd(ymd));
+      return displayEnd.isBefore(_selectedDate) ? null : displayEnd;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
   }
 
   void _selectModeIndex(int index) {

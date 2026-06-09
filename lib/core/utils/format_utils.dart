@@ -86,6 +86,20 @@ class FormatUtils {
     }
   }
 
+  static String compactDateRange(int startYmd, int? endYmd) {
+    if (endYmd == null || endYmd <= startYmd) return date(startYmd);
+    return '${date(startYmd)} - ${compactRangeEnd(startYmd, endYmd)}';
+  }
+
+  static String compactRangeEnd(int startYmd, int endYmd) {
+    final start = dateFromYmd(startYmd);
+    final end = dateFromYmd(endYmd);
+    if (start.year != end.year) return date(endYmd);
+    final month = end.month.toString().padLeft(2, '0');
+    final day = end.day.toString().padLeft(2, '0');
+    return '$month.$day';
+  }
+
   // -------------------------------------------------------------------
   // 5. 解析日期：支持 YYYYMMDD / YYYY-MM-DD / YYYY.MM.DD
   // - 返回 int (20250101)

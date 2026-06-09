@@ -283,6 +283,29 @@ void main() {
     },
   );
 
+  testWidgets('hours same-day range displays a single date', (
+    WidgetTester tester,
+  ) async {
+    const record = TimingRecord(
+      id: 14,
+      deviceId: 1,
+      startDate: 20260609,
+      allocationCutoffDate: 20260610,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.hours,
+      startMeter: 6180.7,
+      endMeter: 6184.7,
+      hours: 4,
+      income: 480,
+    );
+
+    await _pumpSectionRecentRecords(tester, records: const [record]);
+
+    expect(find.text('2026.06.09'), findsOneWidget);
+    expect(find.text('2026.06.09 - 06.09'), findsNothing);
+  });
+
   testWidgets('same-day explicit end record is split from plain date group', (
     WidgetTester tester,
   ) async {
@@ -377,6 +400,29 @@ void main() {
       expect(find.text('2026.05.16 - 05.19'), findsNothing);
     },
   );
+
+  testWidgets('rent same-day display end displays a single date', (
+    WidgetTester tester,
+  ) async {
+    const record = TimingRecord(
+      id: 15,
+      deviceId: 1,
+      startDate: 20260609,
+      displayEndDate: 20260609,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.rent,
+      startMeter: 6180.7,
+      endMeter: 6180.7,
+      hours: 0,
+      income: 22000,
+    );
+
+    await _pumpSectionRecentRecords(tester, records: const [record]);
+
+    expect(find.text('2026.06.09'), findsOneWidget);
+    expect(find.text('2026.06.09 - 06.09'), findsNothing);
+  });
 
   testWidgets('same-day rent display range record is split from plain group', (
     WidgetTester tester,
