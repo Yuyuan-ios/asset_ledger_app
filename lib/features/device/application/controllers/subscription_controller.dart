@@ -15,9 +15,19 @@ class SubscriptionController {
 
   bool get canUseCustomAvatar => SubscriptionService.canUseCustomAvatar;
 
-  bool get canUsePurchaseFlow =>
-      SubscriptionConfig.fromEnvironment.isConfigured ||
-      kUseLocalIapVerification;
+  bool get canUsePurchaseFlow => isPurchaseFlowAvailable(
+    config: SubscriptionConfig.fromEnvironment,
+    useLocalIapVerification: kUseLocalIapVerification,
+  );
+
+  /// Returns whether the current build has a configured IAP verification path.
+  @visibleForTesting
+  static bool isPurchaseFlowAvailable({
+    required SubscriptionConfig config,
+    required bool useLocalIapVerification,
+  }) {
+    return config.isConfigured || useLocalIapVerification;
+  }
 
   Future<void> init() => SubscriptionService.init();
 

@@ -1,123 +1,244 @@
-# IAP 订阅服务端校验接口契约（Apple）
+# IAP Verification Backend Contract
 
-本文件描述 App 端 `HttpAppleSubscriptionVerificationRepository`
-（`lib/data/services/http_apple_subscription_verification_repository.dart`）
-所依赖的两个后端接口。后端按此实现并部署后，用
-`dart_defines/production.json` 出包（路径 A）。
+This document is the Flutter app contract for Apple subscription verification.
+The Flutter repository does not contain backend code.
 
-- **Base URL**：来自 `APPLE_IAP_VERIFICATION_BASE_URL`（dart-define）。
-- 当前期望域名：`https://api.yuyuan.net.cn/fleet-ledger`（请与实际后端核对）。
-- 完整地址 = `base` + 下列 path（path 可由 `APPLE_IAP_VERIFY_PURCHASE_PATH` /
-  `APPLE_IAP_CURRENT_ENTITLEMENT_PATH` 覆盖，默认如下）。
-- 请求/响应均为 `application/json; charset=utf-8`，客户端超时默认 10s
-  （`APPLE_IAP_REQUEST_TIMEOUT_SECONDS`）。
-- 必须 **公网 HTTPS 可达**，且 **同时支持 Apple sandbox 与 production**
-  （App 审核走 sandbox）。
+## Build-Time Modes
 
----
+- `USE_LOCAL_IAP_VERIFICATION=true` enables local subscription verification for
+  App Review or sandbox smoke tests only. It is defined only in
+  `dart_defines/app_store_review.json`.
+- `APPLE_IAP_VERIFICATION_BASE_URL` enables HTTP server verification. Production
+  App Store builds should use `dart_defines/production.json` after the backend
+  passes sandbox verification.
+- Optional path and timeout defines:
+  - `APPLE_IAP_VERIFY_PURCHASE_PATH`, default `/iap/apple/verify-purchase`
+  - `APPLE_IAP_CURRENT_ENTITLEMENT_PATH`, default `/iap/apple/current-entitlement`
+  - `APPLE_IAP_REQUEST_TIMEOUT_SECONDS`, default `10`
+- A build with neither verification define keeps the purchase flow disabled and
+  uses `PendingServerSubscriptionVerificationRepository`.
 
-## 1) 校验购买：`POST {base}/iap/apple/verify-purchase`
+The current expected production base URL is
+`https://api.yuyuan.net.cn/fleet-ledger`. Confirm this against the deployed
+backend before using `dart_defines/production.json` for submission.
 
-购买/恢复成功后，App 用每笔交易调用一次。
+## Products And Entitlements
 
-### 请求体（字段来自 `AppleVerifyPurchaseRequest.toJson`）
+The app uses a tier-based yearly subscription model:
+
+| Tier | Product ID | Period | China target price | Entitlement |
+| --- | --- | --- | --- | --- |
+| Pro | `com.yuyuan.assetledger.pro.yearly` | 1 year | CNY 6 / year | `pro` |
+| Max | `com.yuyuan.assetledger.max.yearly` | 1 year | CNY 24 / year | `max` |
+
+The purchase UI must display the localized StoreKit price returned by App Store
+or StoreKit testing. The CNY prices above are App Store Connect configuration
+targets, not hardcoded client display prices.
+
+Max is a higher entitlement tier and includes Pro capability. If Max-specific
+features are not implemented yet, the app must not claim specific unavailable
+Max features. It may expose the tier and reserve it for later advanced
+capabilities.
+
+Backend product allowlists for new production verification should contain only:
+
+- `com.yuyuan.assetledger.pro.yearly`
+- `com.yuyuan.assetledger.max.yearly`
+
+## Stable Identity
+
+The app generates a UUID v4 `appAccountToken` and stores it in
+`SharedPreferences` under `subscription.appAccountToken`.
+
+The same value is used in three places:
+
+- `PurchaseParam.applicationUserName` when starting a purchase.
+- `restorePurchases(applicationUserName: appAccountToken)` when restoring.
+- Backend verification requests, as documented below.
+
+This token is an app-install stable identifier. It is not a fabricated
+entitlement and does not unlock Pro or Max locally. The backend must still
+verify Apple transaction data before returning an active entitlement.
+
+## Endpoint Requirements
+
+All endpoint paths are relative to `APPLE_IAP_VERIFICATION_BASE_URL`. Requests
+and responses are JSON. The backend must be reachable over public HTTPS and must
+support both Apple Sandbox and Production environments because App Review uses
+sandbox transactions.
+
+### POST `/iap/apple/verify-purchase`
+
+Purchase and restore flows call this endpoint once per StoreKit transaction.
+
+Request body:
 
 ```json
 {
   "platform": "ios",
-  "productId": "com.yuyuan.assetledger.pro.monthly",
-  "purchaseId": "2000000xxxxxxx",
-  "transactionDate": "1717900380000",
-  "serverVerificationData": "<StoreKit2 JWS 或 base64 receipt>",
-  "localVerificationData": "<本地校验数据>",
+  "productId": "com.yuyuan.assetledger.pro.yearly",
+  "purchaseId": "Apple transaction id when exposed by Flutter",
+  "transactionDate": "1700000000000",
+  "serverVerificationData": "App Store receipt/JWS payload from Flutter",
+  "localVerificationData": "Local verification payload from Flutter",
   "source": "app_store",
   "status": "purchased",
+  "appAccountToken": "00000000-0000-4000-8000-000000000000",
   "bundleId": "com.yuyuan.assetledger"
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `platform` | string | 固定 `"ios"` |
-| `productId` | string | `com.yuyuan.assetledger.pro.monthly` 或 `...pro.yearly` |
-| `purchaseId` | string \| null | StoreKit 的 `purchaseID`，可能为 null |
-| `transactionDate` | string \| null | 客户端给的交易时间戳（字符串），可能为 null；**勿作权威**，以 Apple 校验结果为准 |
-| `serverVerificationData` | string | **校验主依据**。iOS 上通常是 StoreKit2 的 JWS 签名交易；用它做验签 / 调 App Store Server API |
-| `localVerificationData` | string | 本地校验数据，一般忽略 |
-| `source` | string | `purchase.verificationData.source`（如 `app_store`） |
-| `status` | string | `purchased` / `restored` 等（`PurchaseStatus.name`） |
-| `bundleId` | string | 仅在非空时出现；建议后端校验是否等于自己的 `com.yuyuan.assetledger` |
+Required fields from the app:
 
-### 后端处理建议
-1. 用 `serverVerificationData`（JWS）验签（Apple 根证书）或调 **App Store Server API**
-   （`Get Transaction Info` / `Get All Subscription Statuses`），拿到 `originalTransactionId`、
-   `productId`、`expiresDate`、`environment`(Sandbox/Production)、是否在宽限期/账单重试/已退款。
-2. 接受 **Sandbox**（审核期）与 **Production** 两种 environment。
-3. 建议把 `originalTransactionId` 与用户/设备绑定持久化，供接口 2 使用。
+- `platform`
+- `productId`
+- `serverVerificationData`
+- `localVerificationData`
+- `source`
+- `status`
+- `appAccountToken`
 
-### 响应（HTTP 2xx + JSON，见 `AppleEntitlementResponse.fromJson`）
+Optional fields:
+
+- `purchaseId`
+- `transactionDate`
+- `bundleId`
+
+Backend handling notes:
+
+1. Validate `bundleId`, `productId`, `source`, and `appAccountToken`.
+2. Verify `serverVerificationData` with App Store Server API or JWS
+   verification. Do not trust `transactionDate` as authoritative.
+3. Accept both Sandbox and Production Apple environments.
+4. Persist the verified entitlement keyed by `appAccountToken`.
+
+### GET `/iap/apple/current-entitlement`
+
+The app calls this on startup and when entering subscription surfaces.
+
+Query parameters:
+
+- `appAccountToken`: the stable token previously sent with purchase and restore
+  requests.
+
+Example:
+
+```text
+GET /iap/apple/current-entitlement?appAccountToken=00000000-0000-4000-8000-000000000000
+```
+
+## Response
+
+Both endpoints return the same shape:
 
 ```json
 {
-  "outcome": "verifiedActiveMonthly",
-  "productId": "com.yuyuan.assetledger.pro.monthly",
-  "expiryDate": "2026-07-09T10:13:00Z"
+  "outcome": "verifiedActivePro",
+  "entitlementTier": "pro",
+  "productId": "com.yuyuan.assetledger.pro.yearly",
+  "appAccountToken": "00000000-0000-4000-8000-000000000000",
+  "originalTransactionId": "2000000000000000",
+  "expiresAt": "2026-05-21T00:00:00.000Z",
+  "environment": "Sandbox"
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `outcome` | string（必填） | 见下表；缺失/空 → 客户端按 `verificationFailed` |
-| `productId` | string（可选） | 缺省时客户端回退用请求里的 productId |
-| `expiryDate` | string（可选） | ISO-8601，须能被 `DateTime.parse` 解析；**存在但无法解析 → 客户端按 `verificationFailed`** |
+`outcome` must be one of:
 
-#### `outcome` 取值（仅这些被识别，其它一律按 `verificationFailed`）
-| 值 | 含义 | 是否解锁 Pro |
-|---|---|---|
-| `verifiedActiveMonthly` | 月订阅有效 | ✅ |
-| `verifiedActiveYearly` | 年订阅有效 | ✅ |
-| `verifiedGracePeriod` | 宽限期（仍可用） | ✅ |
-| `verifiedBillingRetry` | 账单重试期 | ❌（已校验但不解锁） |
-| `verifiedInactive`（或 `inactive`） | 无有效订阅 | ❌ |
-| `verifiedExpired`（或 `expired`） | 已过期 | ❌ |
-| `verifiedRevoked`（或 `revoked`） | 已撤销/退款 | ❌ |
-| `verificationUnavailable` | 服务端暂不可用（见下方语义） | ❌ |
-| `verificationFailed` | 校验失败 | ❌ |
+Unlocking outcomes:
 
-> 解锁 Pro 的充要条件（`SubscriptionSnapshot.allowsProFeatures`）：`outcome` ∈
-> {`verifiedActiveMonthly`,`verifiedActiveYearly`,`verifiedGracePeriod`}。
+- `verifiedActivePro`
+- `verifiedActiveMax`
+- `verifiedGracePeriodPro`
+- `verifiedGracePeriodMax`
 
-### 状态码与交易完成（重要）
-- **非 2xx** → 客户端按 `verificationUnavailable`。
-- `verificationUnavailable` 时客户端 **不会** completePurchase（`_shouldCompletePurchase`），
-  交易保持 pending，StoreKit 后续会重发——**所以后端临时故障不会丢交易**。
-- 其它 outcome（含 `verificationFailed`）→ 客户端会 completePurchase。
-- 即：**真失败返回 `verificationFailed`（让交易关闭）；后端自身故障返回非 2xx 或
-  `verificationUnavailable`（让交易稍后重试）**，不要混用。
+Non-unlocking outcomes:
 
----
+- `billingRetry`
+- `expired`
+- `revoked`
+- `verificationFailed`
+- `verificationUnavailable`
+- `noActiveEntitlement`
 
-## 2) 同步当前权益：`{base}/iap/apple/current-entitlement`
+`entitlementTier` must be one of:
 
-App 启动 / 进订阅页时调用，用于刷新权益。
+- `pro`
+- `max`
+- `none`
 
-- **方法：`GET`**，无请求体。
-- 响应格式与接口 1 **完全相同**（同一个 `AppleEntitlementResponse`）。
-- 错误处理同上：非 2xx → `verificationUnavailable`，客户端回退本地缓存。
+`expiresAt` is optional. When present, it must be ISO-8601 parseable by
+`DateTime.parse`; otherwise the client treats the response as
+`verificationFailed`.
 
-### ⚠️ 已知限制（需注意）
-当前客户端 `getJson` **不发送任何身份/凭证**（无 Authorization、无 receipt、无 user id）。
-因此后端无法仅凭此请求识别"是谁的权益"。可选处理：
-1. 暂时让该接口返回 `{"outcome":"verifiedInactive"}`（与本地 stopgap 行为一致），
-   权益主要靠接口 1（verify-purchase）+ 客户端缓存维持；或
-2. 后续做一次 **客户端改造**（本契约外）：让 GET 带上用户标识或
-   `originalTransactionId`，后端据此查 App Store Server API 返回最新状态。
+## Client Semantics
 
----
+- `verifiedActivePro` and `verifiedGracePeriodPro` unlock Pro.
+- `verifiedActiveMax` and `verifiedGracePeriodMax` unlock Max and include Pro
+  capability.
+- `billingRetry`, `expired`, `revoked`, `verificationFailed`, and
+  `noActiveEntitlement` do not unlock Pro or Max.
+- Non-2xx responses and `verificationUnavailable` do not complete the StoreKit
+  transaction. StoreKit can redeliver the purchase after backend recovery.
+- `verificationFailed` completes the transaction and does not unlock anything.
+- Current-entitlement sync falls back to the local entitlement cache when the
+  backend is unavailable.
 
-## 3) 联调清单（提交前在沙盒验证）
-- [ ] 用沙盒账号购买月/年订阅 → 接口 1 返回 `verifiedActiveMonthly/Yearly` + 正确 `expiryDate` → App 解锁 Pro。
-- [ ] 后端宕机模拟 → 客户端不丢交易（pending，稍后重试）。
-- [ ] 退款/撤销 → 接口返回 `verifiedRevoked` → App 收回 Pro。
-- [ ] iPhone + iPad 各验一遍（Apple 用 iPhone 17 Pro Max + iPad Air M3）。
-- [ ] base URL 与 `dart_defines/production.json` 一致。
+## Backend Implementation Checklist
+
+The backend must implement this outside the Flutter repository:
+
+1. Accept `POST /iap/apple/verify-purchase`.
+2. Validate required fields and reject unknown products.
+3. Verify Apple transaction payloads against App Store Server API or JWS
+   verification.
+4. Support both Sandbox and Production Apple environments.
+5. Persist `entitlementTier`, `originalTransactionId`, latest transaction ID,
+   `productId`, environment, expiration/revocation state, latest outcome, and
+   update timestamp keyed by `appAccountToken`.
+6. Accept `GET /iap/apple/current-entitlement?appAccountToken=...`.
+7. Return only the response fields and `outcome` values listed above.
+8. Return `verificationUnavailable` or a non-2xx response for temporary backend
+   outages so the app does not close the transaction.
+9. Return `verificationFailed` only for definitive invalid purchases.
+10. Add backend unit tests for Pro active, Max active, Pro/Max grace period,
+    billing retry, expired, revoked, invalid purchase, missing token, unknown
+    token, and Apple outage cases.
+
+Pseudo handler shape:
+
+```text
+POST /iap/apple/verify-purchase
+  parse request
+  reject missing appAccountToken/productId/serverVerificationData
+  verify productId is in the Pro/Max yearly allowlist
+  verify Apple payload against Sandbox or Production
+  map Apple subscription state and productId to outcome + entitlementTier
+  persist entitlement by appAccountToken
+  return { outcome, entitlementTier, productId, appAccountToken,
+           originalTransactionId, expiresAt, environment }
+
+GET /iap/apple/current-entitlement
+  read appAccountToken query
+  reject missing appAccountToken without returning any entitlement
+  load latest entitlement for token
+  refresh with App Store Server API if needed
+  return { outcome, entitlementTier, productId, appAccountToken,
+           originalTransactionId, expiresAt, environment }
+```
+
+## Sandbox Integration Checklist
+
+1. Configure App Store Connect with Pro yearly and Max yearly in the same
+   subscription group, with Max at the higher subscription level.
+2. Build the app with `dart_defines/production.json` pointed at the
+   sandbox-ready backend.
+3. Start a Pro and Max sandbox purchase.
+4. Confirm the backend receives the same `appAccountToken` in purchase and
+   current-entitlement requests.
+5. Confirm active Pro purchases unlock Pro.
+6. Confirm active Max purchases unlock Max and include Pro capability.
+7. Simulate backend outage and confirm the client leaves the StoreKit
+   transaction unfinished.
+8. Simulate definitive invalid verification and confirm the client completes
+   the transaction without unlocking Pro or Max.

@@ -11,17 +11,19 @@ class LocalTestSubscriptionVerificationRepository
   Future<VerifiedEntitlement> verifyPurchase(PurchaseDetails purchase) async {
     final now = DateTime.now();
 
-    if (purchase.productID == SubscriptionProductIds.proMonthly) {
+    if (purchase.productID == SubscriptionProductIds.proYearly) {
       return VerifiedEntitlement(
-        outcome: SubscriptionVerificationOutcome.verifiedActiveMonthly,
+        outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+        entitlementTier: SubscriptionEntitlementTier.pro,
         productId: purchase.productID,
-        expiryDate: now.add(const Duration(days: 30)),
+        expiryDate: now.add(const Duration(days: 365)),
       );
     }
 
-    if (purchase.productID == SubscriptionProductIds.proYearly) {
+    if (purchase.productID == SubscriptionProductIds.maxYearly) {
       return VerifiedEntitlement(
-        outcome: SubscriptionVerificationOutcome.verifiedActiveYearly,
+        outcome: SubscriptionVerificationOutcome.verifiedActiveMax,
+        entitlementTier: SubscriptionEntitlementTier.max,
         productId: purchase.productID,
         expiryDate: now.add(const Duration(days: 365)),
       );
@@ -37,7 +39,7 @@ class LocalTestSubscriptionVerificationRepository
   @override
   Future<VerifiedEntitlement> fetchCurrentEntitlement() async {
     return VerifiedEntitlement(
-      outcome: SubscriptionVerificationOutcome.verifiedInactive,
+      outcome: SubscriptionVerificationOutcome.noActiveEntitlement,
     );
   }
 }

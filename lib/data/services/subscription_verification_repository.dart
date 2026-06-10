@@ -1,27 +1,40 @@
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 enum SubscriptionVerificationOutcome {
-  verifiedActiveMonthly,
-  verifiedActiveYearly,
-  verifiedGracePeriod,
-  verifiedBillingRetry,
-  verifiedInactive,
-  verifiedExpired,
-  verifiedRevoked,
+  verifiedActivePro,
+  verifiedActiveMax,
+  verifiedGracePeriodPro,
+  verifiedGracePeriodMax,
+  billingRetry,
+  expired,
+  revoked,
   verificationFailed,
   verificationUnavailable,
+  noActiveEntitlement,
+}
+
+enum SubscriptionEntitlementTier {
+  none,
+  pro,
+  max;
+
+  bool get includesPro => this == pro || this == max;
+  bool get includesMax => this == max;
 }
 
 class VerifiedEntitlement {
   VerifiedEntitlement({
     required this.outcome,
+    SubscriptionEntitlementTier? entitlementTier,
     this.productId,
     this.expiryDate,
     DateTime? lastSyncedAt,
     this.reason,
-  }) : lastSyncedAt = lastSyncedAt ?? DateTime.now();
+  }) : entitlementTier = entitlementTier ?? _tierFromOutcome(outcome),
+       lastSyncedAt = lastSyncedAt ?? DateTime.now();
 
   final SubscriptionVerificationOutcome outcome;
+  final SubscriptionEntitlementTier entitlementTier;
   final String? productId;
   final DateTime? expiryDate;
   final DateTime lastSyncedAt;
@@ -32,6 +45,20 @@ class VerifiedEntitlement {
       SubscriptionVerificationOutcome.verificationFailed => false,
       SubscriptionVerificationOutcome.verificationUnavailable => false,
       _ => true,
+    };
+  }
+
+  static SubscriptionEntitlementTier _tierFromOutcome(
+    SubscriptionVerificationOutcome outcome,
+  ) {
+    return switch (outcome) {
+      SubscriptionVerificationOutcome.verifiedActivePro ||
+      SubscriptionVerificationOutcome.verifiedGracePeriodPro =>
+        SubscriptionEntitlementTier.pro,
+      SubscriptionVerificationOutcome.verifiedActiveMax ||
+      SubscriptionVerificationOutcome.verifiedGracePeriodMax =>
+        SubscriptionEntitlementTier.max,
+      _ => SubscriptionEntitlementTier.none,
     };
   }
 }

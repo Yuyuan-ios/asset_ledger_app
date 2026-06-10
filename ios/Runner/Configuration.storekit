@@ -32,21 +32,21 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "1.00",
+          "displayPrice" : "6.00",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "asset_ledger_pro_monthly",
+          "internalID" : "asset_ledger_pro_yearly",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Monthly Pro subscription",
-              "displayName" : "Monthly Pro",
+              "description" : "Yearly Pro subscription",
+              "displayName" : "Pro",
               "locale" : "zh-Hans"
             }
           ],
-          "productID" : "com.yuyuan.assetledger.pro.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Monthly Pro",
+          "productID" : "com.yuyuan.assetledger.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Yearly",
           "subscriptionGroupID" : "asset_ledger_pro",
           "type" : "RecurringSubscription"
         },
@@ -57,25 +57,21 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "6.00",
+          "displayPrice" : "24.00",
           "familyShareable" : false,
           "groupNumber" : 2,
-          "internalID" : "asset_ledger_pro_yearly",
-          "introductoryOffer" : {
-            "internalID" : "asset_ledger_pro_yearly_trial",
-            "paymentMode" : "freeTrial",
-            "subscriptionPeriod" : "P7D"
-          },
+          "internalID" : "asset_ledger_max_yearly",
+          "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Annual Pro subscription",
-              "displayName" : "Annual Pro",
+              "description" : "Yearly Max subscription",
+              "displayName" : "Max",
               "locale" : "zh-Hans"
             }
           ],
-          "productID" : "com.yuyuan.assetledger.pro.yearly",
+          "productID" : "com.yuyuan.assetledger.max.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Annual Pro",
+          "referenceName" : "Max Yearly",
           "subscriptionGroupID" : "asset_ledger_pro",
           "type" : "RecurringSubscription"
         }
