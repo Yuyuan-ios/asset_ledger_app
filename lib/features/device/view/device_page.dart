@@ -5,8 +5,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/phone_login_gate.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../application/controllers/local_backup_controller.dart';
+import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/device.dart';
 import '../domain/entities/local_backup_entities.dart';
 import '../../../features/account/state/account_payment_store.dart';
@@ -23,6 +25,7 @@ import '../../../tokens/mapper/core_tokens.dart';
 import 'device_page_actions.dart';
 import 'device_page_sections.dart';
 import 'device_account_center_page.dart';
+import 'device_account_status.dart';
 import 'device_backup_widgets.dart';
 
 // =====================================================================
@@ -43,10 +46,42 @@ enum _ManualBackupAction { backupOnly, backupAndShare }
 // =====================================================================
 
 class _DevicePageState extends State<DevicePage> {
+  static const _phoneLoginStore = SharedPreferencesPhoneLoginStore();
+  static const _subscriptionController = SubscriptionController();
+
   bool _isExportingBackup = false;
+  PhoneLoginSession _loginSession = const PhoneLoginSession.unauthenticated();
 
   LocalBackupController get _localBackupController =>
       context.read<LocalBackupController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _subscriptionController.notifier.addListener(_handleSubscriptionChanged);
+    Future.microtask(() async {
+      await _loadLoginSession();
+      await _subscriptionController.init();
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscriptionController.notifier.removeListener(_handleSubscriptionChanged);
+    super.dispose();
+  }
+
+  void _handleSubscriptionChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<PhoneLoginSession> _loadLoginSession() async {
+    final session = await _phoneLoginStore.read();
+    if (!mounted) return session;
+    setState(() => _loginSession = session);
+    return session;
+  }
 
   // -------------------------------------------------------------------
   // 3.1 通用：提示消息（SnackBar）
@@ -139,6 +174,51 @@ class _DevicePageState extends State<DevicePage> {
     setState(() {});
   }
 
+  Future<void> _restorePurchases() async {
+    await _subscriptionController.restorePurchases();
+  }
+
+  Future<PhoneLoginSession> _openPhoneLogin() async {
+    final initialSession = _loginSession;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    await navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => PhoneLoginPage(
+          verificationService: const HttpPhoneVerificationService(),
+          initialAgreementAccepted: initialSession.privacyAccepted,
+          onLoggedIn:
+              ({
+                required String phoneNumber,
+                required String authToken,
+                required int? tokenExpiresAt,
+              }) async {
+                await _phoneLoginStore.save(
+                  PhoneLoginSession(
+                    loggedIn: true,
+                    privacyAccepted: true,
+                    phoneNumber: phoneNumber,
+                    authToken: authToken,
+                    tokenExpiresAt: tokenExpiresAt,
+                  ),
+                );
+                if (navigator.mounted) navigator.pop();
+              },
+          onLoginSkipped: () async {
+            await _phoneLoginStore.save(
+              PhoneLoginSession.skipped(
+                privacyAccepted: initialSession.privacyAccepted,
+              ),
+            );
+            if (navigator.mounted) navigator.pop();
+          },
+          onOpenPrivacyPolicy: () => DevicePageActions.openPrivacyPage(context),
+          onOpenTerms: () => DevicePageActions.openTermsPage(context),
+        ),
+      ),
+    );
+    return _loadLoginSession();
+  }
+
   Future<void> _openAccountCenter() async {
     await Navigator.of(context).push<void>(
       PageRouteBuilder<void>(
@@ -149,7 +229,11 @@ class _DevicePageState extends State<DevicePage> {
           milliseconds: DeviceTokens.avatarPickerReverseDurationMs,
         ),
         pageBuilder: (context, animation, secondaryAnimation) => AccountCenterPage(
+          loginSession: _loginSession,
+          subscriptionListenable: _subscriptionController.notifier,
+          onOpenPhoneLogin: _openPhoneLogin,
           onOpenUpgradePage: _openUpgradePage,
+          onRestorePurchases: _restorePurchases,
           onOpenLocalBackup: _openLocalBackup,
           onOpenLocalRestore: _openLocalRestorePreview,
           onOpenSyncInfo: _openSyncInfoPlaceholder,
@@ -171,6 +255,8 @@ class _DevicePageState extends State<DevicePage> {
         },
       ),
     );
+    if (!mounted) return;
+    await _loadLoginSession();
   }
 
   Future<void> _openLocalBackup() async {
@@ -688,6 +774,10 @@ class _DevicePageState extends State<DevicePage> {
                     handlers: DevicePageSectionHandlers(
                       onOpenUpgradePage: _openUpgradePage,
                       onOpenAccountCenter: _openAccountCenter,
+                      accountCenterSubtitle: deviceAccountCenterSubtitle(
+                        session: _loginSession,
+                        subscription: _subscriptionController.snapshot,
+                      ),
                       onOpenAddDeviceFlow: _openAddDeviceFlow,
                       onOpenRateApp: _openRateApp,
                       onOpenTermsPage: _openTermsPage,
