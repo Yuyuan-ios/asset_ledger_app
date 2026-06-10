@@ -96,6 +96,47 @@ void main() {
     },
   );
 
+  testWidgets('account center keeps login entry for skipped session', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+
+    var loginOpened = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccountCenterPage(
+          loginSession: const PhoneLoginSession.skipped(),
+          subscriptionListenable: subscription,
+          onOpenPhoneLogin: () async {
+            loginOpened = true;
+            return const PhoneLoginSession.skipped();
+          },
+          onOpenUpgradePage: () {},
+          onRestorePurchases: () async {},
+          onOpenLocalBackup: () {},
+          onOpenLocalRestore: () {},
+          onOpenSyncInfo: () {},
+          onOpenLoginSyncInfo: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('未登录'), findsOneWidget);
+    expect(find.text('手机号登录'), findsOneWidget);
+
+    await tester.tap(find.text('手机号登录'));
+    await tester.pump();
+
+    expect(loginOpened, isTrue);
+  });
+
   testWidgets('account center masks authenticated phone number', (
     WidgetTester tester,
   ) async {
