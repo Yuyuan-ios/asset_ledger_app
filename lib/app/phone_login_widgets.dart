@@ -27,6 +27,7 @@ class _LoginFormPanel extends StatelessWidget {
     required this.onAgreementChanged,
     required this.onRequestCode,
     required this.onLogin,
+    required this.onLoginSkipped,
     required this.onOpenPrivacyPolicy,
     required this.onOpenTerms,
     this.errorText,
@@ -45,6 +46,7 @@ class _LoginFormPanel extends StatelessWidget {
   final ValueChanged<bool> onAgreementChanged;
   final VoidCallback onRequestCode;
   final VoidCallback onLogin;
+  final VoidCallback onLoginSkipped;
   final VoidCallback onOpenPrivacyPolicy;
   final VoidCallback onOpenTerms;
 
@@ -143,6 +145,16 @@ class _LoginFormPanel extends StatelessWidget {
                     busy: busy,
                     canLogin: canLogin,
                     onLogin: onLogin,
+                  ),
+                ),
+                Positioned(
+                  left: 34 * scale,
+                  top: 439 * scale,
+                  width: 508 * scale,
+                  height: 28 * scale,
+                  child: _LoginLaterButton(
+                    scale: scale,
+                    onLoginSkipped: onLoginSkipped,
                   ),
                 ),
               ],
@@ -520,6 +532,33 @@ class _LoginButton extends StatelessWidget {
         ),
       ),
       child: Text(busy ? '登录中' : '登录'),
+    );
+  }
+}
+
+class _LoginLaterButton extends StatelessWidget {
+  const _LoginLaterButton({required this.scale, required this.onLoginSkipped});
+
+  final double scale;
+  final VoidCallback onLoginSkipped;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onLoginSkipped,
+      style: TextButton.styleFrom(
+        minimumSize: Size.zero,
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: _loginMutedText,
+        textStyle: _loginTextStyle(
+          fontSize: 22,
+          lineHeight: 28,
+          color: _loginMutedText,
+          scale: scale,
+        ),
+      ),
+      child: const Text('稍后登录'),
     );
   }
 }
