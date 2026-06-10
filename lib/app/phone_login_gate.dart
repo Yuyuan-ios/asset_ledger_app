@@ -145,6 +145,7 @@ class PhoneLoginPage extends StatefulWidget {
 class _PhoneLoginPageState extends State<PhoneLoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final FocusNode _codeFocusNode = FocusNode();
 
   bool _agreementAccepted = false;
   bool _codeRequested = false;
@@ -188,6 +189,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   @override
   void dispose() {
     _cancelCodeCooldownTimerOnly();
+    _codeFocusNode.dispose();
     _phoneController
       ..removeListener(_handleInputChanged)
       ..dispose();
@@ -248,6 +250,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _statusText = result.message;
     });
     _startCodeCooldown();
+    _codeFocusNode.requestFocus();
   }
 
   void _startCodeCooldown() {
@@ -324,6 +327,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       return;
     }
     _cancelCodeCooldown();
+    TextInput.finishAutofillContext();
     await widget.onLoggedIn(
       phoneNumber: phoneNumber,
       authToken: token,
@@ -424,6 +428,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                       scale: scale,
                       phoneController: _phoneController,
                       codeController: _codeController,
+                      codeFocusNode: _codeFocusNode,
                       busy: _busy,
                       agreementAccepted: _agreementAccepted,
                       canRequestCode: _canRequestCode,
