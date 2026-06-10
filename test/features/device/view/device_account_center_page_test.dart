@@ -1,5 +1,6 @@
 import 'package:asset_ledger/app/phone_login_store.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
+import 'package:asset_ledger/data/services/subscription_verification_repository.dart';
 import 'package:asset_ledger/features/device/domain/entities/device.dart';
 import 'package:asset_ledger/features/device/view/device_account_center_page.dart';
 import 'package:asset_ledger/features/device/view/device_page_sections.dart';
@@ -142,8 +143,9 @@ void main() {
   ) async {
     final subscription = ValueNotifier<SubscriptionSnapshot>(
       SubscriptionSnapshot(
-        status: SubscriptionStatus.activeYearly,
+        status: SubscriptionStatus.activePro,
         products: const <SubscriptionProductKind, ProductDetails>{},
+        entitlementTier: SubscriptionEntitlementTier.pro,
         isEntitlementVerified: true,
         expiryDate: DateTime(2027),
       ),
