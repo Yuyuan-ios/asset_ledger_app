@@ -5,12 +5,14 @@ import 'subscription_verification_repository.dart';
 class SubscriptionEntitlementCacheEntry {
   const SubscriptionEntitlementCacheEntry({
     required this.outcome,
+    required this.entitlementTier,
     this.productId,
     this.expiryDate,
     required this.lastSyncedAt,
   });
 
   final SubscriptionVerificationOutcome outcome;
+  final SubscriptionEntitlementTier entitlementTier;
   final String? productId;
   final DateTime? expiryDate;
   final DateTime lastSyncedAt;
@@ -20,6 +22,7 @@ class SubscriptionEntitlementCacheEntry {
   ) {
     return SubscriptionEntitlementCacheEntry(
       outcome: entitlement.outcome,
+      entitlementTier: entitlement.entitlementTier,
       productId: entitlement.productId,
       expiryDate: entitlement.expiryDate,
       lastSyncedAt: entitlement.lastSyncedAt,
@@ -38,6 +41,7 @@ abstract class SubscriptionEntitlementCache {
 class SharedPreferencesSubscriptionEntitlementCache
     implements SubscriptionEntitlementCache {
   static const _statusKey = 'subscription.lastVerifiedStatus';
+  static const _entitlementTierKey = 'subscription.entitlementTier';
   static const _productIdKey = 'subscription.productId';
   static const _expiryDateKey = 'subscription.expiryDate';
   static const _lastSyncedAtKey = 'subscription.lastSyncedAt';
@@ -52,12 +56,16 @@ class SharedPreferencesSubscriptionEntitlementCache
     if (outcomeName == null || lastSyncedAtRaw == null) return null;
 
     final outcome = _outcomeFromName(outcomeName);
+    final entitlementTier = _tierFromName(prefs.getString(_entitlementTierKey));
     final lastSyncedAt = DateTime.tryParse(lastSyncedAtRaw);
     if (outcome == null || lastSyncedAt == null) return null;
 
     final expiryDateRaw = prefs.getString(_expiryDateKey);
     return SubscriptionEntitlementCacheEntry(
       outcome: outcome,
+      entitlementTier:
+          entitlementTier ??
+          VerifiedEntitlement(outcome: outcome).entitlementTier,
       productId: prefs.getString(_productIdKey),
       expiryDate: expiryDateRaw == null
           ? null
@@ -70,6 +78,7 @@ class SharedPreferencesSubscriptionEntitlementCache
   Future<void> write(SubscriptionEntitlementCacheEntry entry) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_statusKey, entry.outcome.name);
+    await prefs.setString(_entitlementTierKey, entry.entitlementTier.name);
     await prefs.setString(
       _lastSyncedAtKey,
       entry.lastSyncedAt.toIso8601String(),
@@ -94,6 +103,7 @@ class SharedPreferencesSubscriptionEntitlementCache
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_statusKey);
+    await prefs.remove(_entitlementTierKey);
     await prefs.remove(_productIdKey);
     await prefs.remove(_expiryDateKey);
     await prefs.remove(_lastSyncedAtKey);
@@ -102,6 +112,14 @@ class SharedPreferencesSubscriptionEntitlementCache
   SubscriptionVerificationOutcome? _outcomeFromName(String name) {
     for (final outcome in SubscriptionVerificationOutcome.values) {
       if (outcome.name == name) return outcome;
+    }
+    return null;
+  }
+
+  SubscriptionEntitlementTier? _tierFromName(String? name) {
+    if (name == null) return null;
+    for (final tier in SubscriptionEntitlementTier.values) {
+      if (tier.name == name) return tier;
     }
     return null;
   }

@@ -33,15 +33,23 @@ void main() {
 
   group('SubscriptionService', () {
     test('status model controls capability flags', () {
-      SubscriptionService.setStatusForTest(SubscriptionStatus.activeMonthly);
+      SubscriptionService.setStatusForTest(SubscriptionStatus.activePro);
 
       expect(SubscriptionService.canUseCustomAvatar, isTrue);
       expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isFalse);
+
+      SubscriptionService.setStatusForTest(SubscriptionStatus.activeMax);
+
+      expect(SubscriptionService.canUseCustomAvatar, isTrue);
+      expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isTrue);
 
       SubscriptionService.setStatusForTest(SubscriptionStatus.free);
 
       expect(SubscriptionService.canUseCustomAvatar, isFalse);
       expect(SubscriptionService.allowsProFeatures, isFalse);
+      expect(SubscriptionService.allowsMaxFeatures, isFalse);
     });
 
     test('pending and revoked states do not unlock pro capabilities', () {
@@ -60,8 +68,8 @@ void main() {
         storeGateway.productDetailsResponse = ProductDetailsResponse(
           productDetails: const [],
           notFoundIDs: const [
-            SubscriptionService.monthlyProductId,
-            SubscriptionService.yearlyProductId,
+            SubscriptionService.proYearlyProductId,
+            SubscriptionService.maxYearlyProductId,
           ],
         );
 
@@ -83,12 +91,12 @@ void main() {
       storeGateway.productDetailsResponse = ProductDetailsResponse(
         productDetails: [
           productDetails(
-            id: SubscriptionService.monthlyProductId,
-            price: '¥1.00',
+            id: SubscriptionService.proYearlyProductId,
+            price: '¥6.00',
           ),
           productDetails(
-            id: SubscriptionService.yearlyProductId,
-            price: '¥6.00',
+            id: SubscriptionService.maxYearlyProductId,
+            price: '¥24.00',
           ),
         ],
         notFoundIDs: const [],
@@ -98,15 +106,15 @@ void main() {
 
       expect(
         SubscriptionService.snapshot
-            .productFor(SubscriptionProductKind.monthly)
+            .productFor(SubscriptionProductKind.pro)
             ?.price,
-        '¥1.00',
+        '¥6.00',
       );
       expect(
         SubscriptionService.snapshot
-            .productFor(SubscriptionProductKind.yearly)
+            .productFor(SubscriptionProductKind.max)
             ?.price,
-        '¥6.00',
+        '¥24.00',
       );
       expect(SubscriptionService.snapshot.errorMessage, isNull);
     });
@@ -115,7 +123,7 @@ void main() {
       storeGateway.productDetailsResponse = ProductDetailsResponse(
         productDetails: [
           productDetails(
-            id: SubscriptionService.yearlyProductId,
+            id: SubscriptionService.proYearlyProductId,
             price: '¥6.00',
           ),
         ],
@@ -123,9 +131,7 @@ void main() {
       );
 
       await SubscriptionService.loadProducts();
-      await SubscriptionService.buySelectedProduct(
-        SubscriptionProductKind.yearly,
-      );
+      await SubscriptionService.buySelectedProduct(SubscriptionProductKind.pro);
       await SubscriptionService.restorePurchases();
 
       expect(
@@ -141,13 +147,13 @@ void main() {
     test('purchased but verificationFailed does not unlock pro', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(
         outcome: SubscriptionVerificationOutcome.verificationFailed,
-        productId: SubscriptionService.monthlyProductId,
+        productId: SubscriptionService.proYearlyProductId,
         reason: 'invalid receipt',
       );
 
       await SubscriptionService.handlePurchaseUpdates([
         purchaseDetails(
-          productId: SubscriptionService.monthlyProductId,
+          productId: SubscriptionService.proYearlyProductId,
           status: PurchaseStatus.purchased,
           pendingCompletePurchase: true,
         ),
@@ -164,13 +170,13 @@ void main() {
       () async {
         verificationRepository.purchaseResult = VerifiedEntitlement(
           outcome: SubscriptionVerificationOutcome.verificationUnavailable,
-          productId: SubscriptionService.yearlyProductId,
+          productId: SubscriptionService.maxYearlyProductId,
           reason: 'server unavailable',
         );
 
         await SubscriptionService.handlePurchaseUpdates([
           purchaseDetails(
-            productId: SubscriptionService.yearlyProductId,
+            productId: SubscriptionService.maxYearlyProductId,
             status: PurchaseStatus.restored,
             pendingCompletePurchase: true,
           ),
@@ -183,42 +189,74 @@ void main() {
       },
     );
 
-    test('verifiedActiveMonthly allows custom avatar', () async {
+    test('verifiedActivePro allows custom avatar', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(
-        outcome: SubscriptionVerificationOutcome.verifiedActiveMonthly,
-        productId: SubscriptionService.monthlyProductId,
+        outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+        entitlementTier: SubscriptionEntitlementTier.pro,
+        productId: SubscriptionService.proYearlyProductId,
       );
 
       await SubscriptionService.handlePurchaseUpdates([
         purchaseDetails(
-          productId: SubscriptionService.monthlyProductId,
+          productId: SubscriptionService.proYearlyProductId,
           status: PurchaseStatus.purchased,
           pendingCompletePurchase: true,
         ),
       ]);
 
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activePro);
       expect(
-        SubscriptionService.snapshot.status,
-        SubscriptionStatus.activeMonthly,
+        SubscriptionService.snapshot.entitlementTier,
+        SubscriptionEntitlementTier.pro,
       );
       expect(SubscriptionService.snapshot.isEntitlementVerified, isTrue);
       expect(SubscriptionService.canUseCustomAvatar, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isFalse);
       expect(
         entitlementCache.entry?.outcome,
-        SubscriptionVerificationOutcome.verifiedActiveMonthly,
+        SubscriptionVerificationOutcome.verifiedActivePro,
+      );
+      expect(
+        entitlementCache.entry?.entitlementTier,
+        SubscriptionEntitlementTier.pro,
       );
       expect(storeGateway.completedPurchases, hasLength(1));
     });
 
-    test('verifiedExpired forbids custom avatar', () async {
+    test('verifiedActiveMax unlocks max and includes pro', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(
-        outcome: SubscriptionVerificationOutcome.verifiedExpired,
-        productId: SubscriptionService.monthlyProductId,
+        outcome: SubscriptionVerificationOutcome.verifiedActiveMax,
+        entitlementTier: SubscriptionEntitlementTier.max,
+        productId: SubscriptionService.maxYearlyProductId,
       );
 
       await SubscriptionService.handlePurchaseUpdates([
         purchaseDetails(
-          productId: SubscriptionService.monthlyProductId,
+          productId: SubscriptionService.maxYearlyProductId,
+          status: PurchaseStatus.purchased,
+          pendingCompletePurchase: true,
+        ),
+      ]);
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activeMax);
+      expect(
+        SubscriptionService.snapshot.entitlementTier,
+        SubscriptionEntitlementTier.max,
+      );
+      expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isTrue);
+      expect(storeGateway.completedPurchases, hasLength(1));
+    });
+
+    test('expired forbids custom avatar', () async {
+      verificationRepository.purchaseResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.expired,
+        productId: SubscriptionService.proYearlyProductId,
+      );
+
+      await SubscriptionService.handlePurchaseUpdates([
+        purchaseDetails(
+          productId: SubscriptionService.proYearlyProductId,
           status: PurchaseStatus.purchased,
         ),
       ]);
@@ -230,14 +268,15 @@ void main() {
 
     test('startup sync revokes cached active when verified expired', () async {
       entitlementCache.entry = SubscriptionEntitlementCacheEntry(
-        outcome: SubscriptionVerificationOutcome.verifiedActiveMonthly,
-        productId: SubscriptionService.monthlyProductId,
+        outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+        entitlementTier: SubscriptionEntitlementTier.pro,
+        productId: SubscriptionService.proYearlyProductId,
         expiryDate: DateTime(2099),
         lastSyncedAt: DateTime(2026),
       );
       verificationRepository.currentResult = VerifiedEntitlement(
-        outcome: SubscriptionVerificationOutcome.verifiedExpired,
-        productId: SubscriptionService.monthlyProductId,
+        outcome: SubscriptionVerificationOutcome.expired,
+        productId: SubscriptionService.proYearlyProductId,
         expiryDate: DateTime(2025),
       );
 
@@ -248,28 +287,55 @@ void main() {
       expect(SubscriptionService.canUseCustomAvatar, isFalse);
       expect(
         entitlementCache.entry?.outcome,
-        SubscriptionVerificationOutcome.verifiedExpired,
+        SubscriptionVerificationOutcome.expired,
       );
+    });
+
+    test('current entitlement restores pro entitlement', () async {
+      verificationRepository.currentResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+        entitlementTier: SubscriptionEntitlementTier.pro,
+        productId: SubscriptionService.proYearlyProductId,
+      );
+
+      await SubscriptionService.syncSubscriptionStatus();
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activePro);
+      expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isFalse);
+    });
+
+    test('current entitlement restores max entitlement', () async {
+      verificationRepository.currentResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedActiveMax,
+        entitlementTier: SubscriptionEntitlementTier.max,
+        productId: SubscriptionService.maxYearlyProductId,
+      );
+
+      await SubscriptionService.syncSubscriptionStatus();
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activeMax);
+      expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isTrue);
     });
 
     test('restored and verified purchase enables entitlement', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(
-        outcome: SubscriptionVerificationOutcome.verifiedActiveYearly,
-        productId: SubscriptionService.yearlyProductId,
+        outcome: SubscriptionVerificationOutcome.verifiedActiveMax,
+        entitlementTier: SubscriptionEntitlementTier.max,
+        productId: SubscriptionService.maxYearlyProductId,
       );
 
       await SubscriptionService.handlePurchaseUpdates([
         purchaseDetails(
-          productId: SubscriptionService.yearlyProductId,
+          productId: SubscriptionService.maxYearlyProductId,
           status: PurchaseStatus.restored,
         ),
       ]);
 
-      expect(
-        SubscriptionService.snapshot.status,
-        SubscriptionStatus.activeYearly,
-      );
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activeMax);
       expect(SubscriptionService.canUseCustomAvatar, isTrue);
+      expect(SubscriptionService.allowsMaxFeatures, isTrue);
     });
   });
 }

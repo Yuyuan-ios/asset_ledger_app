@@ -25,7 +25,7 @@ void main() {
       );
 
       final purchaseResult = await repository.verifyPurchase(
-        purchaseDetails(productId: SubscriptionService.monthlyProductId),
+        purchaseDetails(productId: SubscriptionService.proYearlyProductId),
       );
       final currentResult = await repository.fetchCurrentEntitlement();
 
@@ -49,21 +49,24 @@ void main() {
 
         expect(
           result.outcome,
-          SubscriptionVerificationOutcome.verificationUnavailable,
+          kUseLocalIapVerification
+              ? SubscriptionVerificationOutcome.noActiveEntitlement
+              : SubscriptionVerificationOutcome.verificationUnavailable,
         );
-        expect(result.isVerified, isFalse);
+        expect(result.isVerified, kUseLocalIapVerification ? isTrue : isFalse);
       },
     );
 
-    test('verify-purchase maps active monthly response', () async {
+    test('verify-purchase maps active pro response', () async {
       final expiryDate = DateTime.utc(2026, 5, 21);
       final client = FakeVerificationHttpClient(
         postResponse: SubscriptionHttpResponse(
           statusCode: 200,
           body: jsonEncode({
-            'outcome': 'verifiedActiveMonthly',
-            'productId': SubscriptionService.monthlyProductId,
-            'expiryDate': expiryDate.toIso8601String(),
+            'outcome': 'verifiedActivePro',
+            'entitlementTier': 'pro',
+            'productId': SubscriptionService.proYearlyProductId,
+            'expiresAt': expiryDate.toIso8601String(),
           }),
         ),
       );
@@ -77,14 +80,12 @@ void main() {
       );
 
       final result = await repository.verifyPurchase(
-        purchaseDetails(productId: SubscriptionService.monthlyProductId),
+        purchaseDetails(productId: SubscriptionService.proYearlyProductId),
       );
 
-      expect(
-        result.outcome,
-        SubscriptionVerificationOutcome.verifiedActiveMonthly,
-      );
-      expect(result.productId, SubscriptionService.monthlyProductId);
+      expect(result.outcome, SubscriptionVerificationOutcome.verifiedActivePro);
+      expect(result.entitlementTier, SubscriptionEntitlementTier.pro);
+      expect(result.productId, SubscriptionService.proYearlyProductId);
       expect(result.expiryDate, expiryDate);
       expect(client.lastPostUri?.path, '/iap/apple/verify-purchase');
       expect(client.lastPostBody?['platform'], 'ios');
@@ -95,8 +96,36 @@ void main() {
       );
       expect(
         client.lastPostBody?['serverVerificationData'],
-        'server-${SubscriptionService.monthlyProductId}',
+        'server-${SubscriptionService.proYearlyProductId}',
       );
+    });
+
+    test('verify-purchase maps active max response', () async {
+      final client = FakeVerificationHttpClient(
+        postResponse: SubscriptionHttpResponse(
+          statusCode: 200,
+          body: jsonEncode({
+            'outcome': 'verifiedActiveMax',
+            'entitlementTier': 'max',
+            'productId': SubscriptionService.maxYearlyProductId,
+          }),
+        ),
+      );
+      final repository = HttpAppleSubscriptionVerificationRepository(
+        config: configured,
+        httpClient: client,
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000456',
+        ),
+      );
+
+      final result = await repository.verifyPurchase(
+        purchaseDetails(productId: SubscriptionService.maxYearlyProductId),
+      );
+
+      expect(result.outcome, SubscriptionVerificationOutcome.verifiedActiveMax);
+      expect(result.entitlementTier, SubscriptionEntitlementTier.max);
+      expect(result.productId, SubscriptionService.maxYearlyProductId);
     });
 
     test('current-entitlement sends the stable appAccountToken', () async {
@@ -139,7 +168,7 @@ void main() {
       );
 
       final result = await repository.verifyPurchase(
-        purchaseDetails(productId: SubscriptionService.yearlyProductId),
+        purchaseDetails(productId: SubscriptionService.proYearlyProductId),
       );
 
       expect(
@@ -158,7 +187,7 @@ void main() {
             getResponse: const SubscriptionHttpResponse(
               statusCode: 200,
               body:
-                  '{"outcome":"revoked","productId":"com.yuyuan.assetledger.pro.monthly"}',
+                  '{"outcome":"revoked","entitlementTier":"none","productId":"com.yuyuan.assetledger.pro.yearly"}',
             ),
           ),
           identityStore: MemoryIdentityStore(
@@ -167,10 +196,7 @@ void main() {
         );
 
         final revoked = await repository.fetchCurrentEntitlement();
-        expect(
-          revoked.outcome,
-          SubscriptionVerificationOutcome.verifiedRevoked,
-        );
+        expect(revoked.outcome, SubscriptionVerificationOutcome.revoked);
         expect(
           SubscriptionService.mapVerifiedEntitlementToStatus(revoked.outcome),
           SubscriptionStatus.revoked,
@@ -180,25 +206,22 @@ void main() {
         final expired = AppleEntitlementResponse.fromJson({
           'outcome': 'expired',
         }).toVerifiedEntitlement();
-        expect(
-          expired.outcome,
-          SubscriptionVerificationOutcome.verifiedExpired,
-        );
+        expect(expired.outcome, SubscriptionVerificationOutcome.expired);
         expect(
           SubscriptionService.mapVerifiedEntitlementToStatus(expired.outcome),
           SubscriptionStatus.expired,
         );
 
         final inactive = AppleEntitlementResponse.fromJson({
-          'outcome': 'inactive',
+          'outcome': 'noActiveEntitlement',
         }).toVerifiedEntitlement();
         expect(
           inactive.outcome,
-          SubscriptionVerificationOutcome.verifiedInactive,
+          SubscriptionVerificationOutcome.noActiveEntitlement,
         );
         expect(
           SubscriptionService.mapVerifiedEntitlementToStatus(inactive.outcome),
-          SubscriptionStatus.free,
+          SubscriptionStatus.noActiveEntitlement,
         );
       },
     );
@@ -240,7 +263,7 @@ void main() {
 
       final serverError = await serverErrorRepository.fetchCurrentEntitlement();
       final timeout = await timeoutRepository.verifyPurchase(
-        purchaseDetails(productId: SubscriptionService.monthlyProductId),
+        purchaseDetails(productId: SubscriptionService.proYearlyProductId),
       );
       final invalidJson = await invalidJsonRepository.fetchCurrentEntitlement();
 

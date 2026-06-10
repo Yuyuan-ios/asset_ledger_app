@@ -49,12 +49,12 @@ void main() {
         ..productDetailsResponse = ProductDetailsResponse(
           productDetails: [
             productDetails(
-              id: SubscriptionService.monthlyProductId,
-              price: r'$0.99',
+              id: SubscriptionService.proYearlyProductId,
+              price: r'¥6.00',
             ),
             productDetails(
-              id: SubscriptionService.yearlyProductId,
-              price: r'$5.99',
+              id: SubscriptionService.maxYearlyProductId,
+              price: r'¥24.00',
             ),
           ],
           notFoundIDs: const [],
@@ -74,6 +74,12 @@ void main() {
       expect(const SubscriptionController().canUsePurchaseFlow, isTrue);
       expect(find.text('暂不可购买'), findsNothing);
       expect(find.text('订阅购买服务暂不可用，请稍后重试'), findsNothing);
+      expect(find.text('年套餐'), findsNothing);
+      expect(find.text('月套餐'), findsNothing);
+      expect(find.text('Pro'), findsOneWidget);
+      expect(find.text('Max'), findsOneWidget);
+      expect(find.textContaining(r'¥6.00'), findsOneWidget);
+      expect(find.textContaining(r'¥24.00'), findsOneWidget);
       final continueButtonText = find.text('继续', skipOffstage: false);
       expect(continueButtonText, findsOneWidget);
 
@@ -85,7 +91,7 @@ void main() {
       expect(storeGateway.lastPurchaseParam, isNotNull);
       expect(
         storeGateway.lastPurchaseParam?.productDetails.id,
-        SubscriptionService.yearlyProductId,
+        SubscriptionService.proYearlyProductId,
       );
     },
     skip:
