@@ -9,10 +9,12 @@ import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
-final DateTime jztDatePickerFirstDate = DateTime(2026, 1, 1);
-final DateTime jztDatePickerLastDate = DateTime(2027, 12, 31);
+// 默认日期窗口：相对“今年”的滚动 3 年窗（去年 1 月 1 日 ～ 明年 12 月 31 日）。
+// 改为相对当前年后，跨年不再失效，并可回填/编辑去年的旧记录。窗口共 36 个自然月。
+final DateTime jztDatePickerFirstDate = DateTime(DateTime.now().year - 1, 1, 1);
+final DateTime jztDatePickerLastDate = DateTime(DateTime.now().year + 1, 12, 31);
 
-const _monthCount = 24;
+const _monthCount = 36;
 const _weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
 const _datePickerWarmDivider = Color(0xFFE3DCCF);
 const _datePickerWarmAccent = Color(0xFFB9854D);
@@ -284,6 +286,11 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
   DateTime? _selectedDate;
   DateTime? _selectedEndDate;
   _DateRangeSelectionStep _rangeStep = _DateRangeSelectionStep.start;
+  // rangeEndMaxDate(start) 在选「结束日」时对每个日期格都会被询问，但在 picker 生命
+  // 周期内它是 startDate 的纯函数（父层 records/device 在打开时已固定）。按 startDate
+  // 记忆化，避免每格重复 O(n log n) 扫描。
+  DateTime? _memoEndMaxStart;
+  DateTime? _memoEndMaxValue;
 
   @override
   void initState() {
@@ -388,11 +395,21 @@ class _JztDatePickerBottomSheetState extends State<JztDatePickerBottomSheet> {
       return true;
     }
     if (day.isBefore(startDate)) return false;
-    final endMaxDate = widget.rangeEndMaxDate?.call(startDate);
+    final endMaxDate = _rangeEndMaxDateFor(startDate);
     if (endMaxDate != null && day.isAfter(_dateOnly(endMaxDate))) {
       return false;
     }
     return true;
+  }
+
+  DateTime? _rangeEndMaxDateFor(DateTime startDate) {
+    final resolver = widget.rangeEndMaxDate;
+    if (resolver == null) return null;
+    if (_memoEndMaxStart == startDate) return _memoEndMaxValue;
+    final value = resolver(startDate);
+    _memoEndMaxStart = startDate;
+    _memoEndMaxValue = value;
+    return value;
   }
 
   DateTime? _normalizedEndDate() {
