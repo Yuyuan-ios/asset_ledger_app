@@ -26,6 +26,7 @@ const Color _loginAccent = Color(0xFFC95D21);
 const Color _loginOutline = Color(0xFFA64B2C);
 const Color _loginIconColor = Color(0xFFD9D5CD);
 const Color _loginGeometryColor = Color(0xFFD9D4CA);
+const Color _loginDisabledControl = Color(0xFFE2E1DD);
 
 class PhoneLoginSession {
   const PhoneLoginSession({
@@ -1070,21 +1071,37 @@ class _RequestCodeButton extends StatelessWidget {
       onPressed: canRequestCode ? onRequestCode : null,
       style: ButtonStyle(
         padding: WidgetStateProperty.all(EdgeInsets.zero),
-        foregroundColor: WidgetStateProperty.all(_loginOutline),
-        overlayColor: WidgetStateProperty.all(
-          _loginOutline.withValues(alpha: 0.08),
-        ),
-        side: WidgetStateProperty.all(
-          BorderSide(color: _loginOutline, width: 2 * scale),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return _loginMutedText;
+          }
+          return _loginOutline;
+        }),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return Colors.transparent;
+          }
+          return _loginOutline.withValues(alpha: 0.08);
+        }),
+        side: WidgetStateProperty.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.disabled)
+                ? _loginIconColor
+                : _loginOutline,
+            width: 2 * scale,
+          ),
         ),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12 * scale),
           ),
         ),
-        backgroundColor: WidgetStateProperty.all(
-          Colors.white.withValues(alpha: 0.12),
-        ),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return _loginDisabledControl.withValues(alpha: 0.44);
+          }
+          return Colors.white.withValues(alpha: 0.12);
+        }),
         textStyle: WidgetStateProperty.all(
           _loginTextStyle(
             fontSize: 29,
