@@ -23,6 +23,17 @@ void main() {
     expect(find.text('手机号登录'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    final disabledRequestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '获取验证码'),
+    );
+    expect(disabledRequestButton.onPressed, isNull);
+    expect(
+      disabledRequestButton.style?.foregroundColor?.resolve({
+        WidgetState.disabled,
+      }),
+      isNot(disabledRequestButton.style?.foregroundColor?.resolve({})),
+    );
+
     await tester.tap(find.text('获取验证码'));
     await tester.pump();
 
@@ -30,6 +41,11 @@ void main() {
 
     await tester.tap(find.byType(Checkbox));
     await tester.pump();
+    final enabledRequestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '获取验证码'),
+    );
+    expect(enabledRequestButton.onPressed, isNotNull);
+
     await tester.tap(find.text('获取验证码'));
     await tester.pump();
 
