@@ -126,7 +126,7 @@ void main() {
     );
 
     test('writes a trimmed avatar path when the plan is pro', () {
-      SubscriptionService.setStatusForTest(SubscriptionStatus.activeMonthly);
+      SubscriptionService.setStatusForTest(SubscriptionStatus.activePro);
 
       final updated = DeviceService.applyCustomAvatar(
         device: device,

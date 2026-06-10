@@ -190,6 +190,7 @@ class AppleVerifyPurchaseRequest {
 class AppleEntitlementResponse {
   const AppleEntitlementResponse({
     required this.outcome,
+    required this.entitlementTier,
     this.productId,
     this.expiryDate,
   });
@@ -199,30 +200,37 @@ class AppleEntitlementResponse {
     if (outcome is! String || outcome.isEmpty) {
       return const AppleEntitlementResponse(
         outcome: SubscriptionVerificationOutcome.verificationFailed,
+        entitlementTier: SubscriptionEntitlementTier.none,
       );
     }
 
     final productId = json['productId'];
-    final expiryDateValue = json['expiryDate'];
+    final expiryDateValue = json['expiresAt'] ?? json['expiryDate'];
     DateTime? expiryDate;
     if (expiryDateValue is String && expiryDateValue.isNotEmpty) {
       expiryDate = DateTime.tryParse(expiryDateValue);
       if (expiryDate == null) {
         return AppleEntitlementResponse(
           outcome: SubscriptionVerificationOutcome.verificationFailed,
+          entitlementTier: SubscriptionEntitlementTier.none,
           productId: productId is String ? productId : null,
         );
       }
     }
 
+    final mappedOutcome = _outcomeFromWireValue(outcome);
     return AppleEntitlementResponse(
-      outcome: _outcomeFromWireValue(outcome),
+      outcome: mappedOutcome,
+      entitlementTier:
+          _tierFromWireValue(json['entitlementTier']) ??
+          _tierFromOutcome(mappedOutcome),
       productId: productId is String ? productId : null,
       expiryDate: expiryDate,
     );
   }
 
   final SubscriptionVerificationOutcome outcome;
+  final SubscriptionEntitlementTier entitlementTier;
   final String? productId;
   final DateTime? expiryDate;
 
@@ -232,6 +240,7 @@ class AppleEntitlementResponse {
         outcome == SubscriptionVerificationOutcome.verificationUnavailable;
     return VerifiedEntitlement(
       outcome: outcome,
+      entitlementTier: entitlementTier,
       productId: productId ?? fallbackProductId,
       expiryDate: expiryDate,
       reason: failed ? '订阅服务端未返回有效授权' : null,
@@ -240,26 +249,46 @@ class AppleEntitlementResponse {
 
   static SubscriptionVerificationOutcome _outcomeFromWireValue(String value) {
     return switch (value) {
+      'verifiedActivePro' => SubscriptionVerificationOutcome.verifiedActivePro,
+      'verifiedActiveMax' => SubscriptionVerificationOutcome.verifiedActiveMax,
+      'verifiedGracePeriodPro' =>
+        SubscriptionVerificationOutcome.verifiedGracePeriodPro,
+      'verifiedGracePeriodMax' =>
+        SubscriptionVerificationOutcome.verifiedGracePeriodMax,
       'verifiedActiveMonthly' =>
-        SubscriptionVerificationOutcome.verifiedActiveMonthly,
+        SubscriptionVerificationOutcome.verifiedActivePro,
       'verifiedActiveYearly' =>
-        SubscriptionVerificationOutcome.verifiedActiveYearly,
+        SubscriptionVerificationOutcome.verifiedActivePro,
       'verifiedGracePeriod' =>
-        SubscriptionVerificationOutcome.verifiedGracePeriod,
-      'verifiedBillingRetry' =>
-        SubscriptionVerificationOutcome.verifiedBillingRetry,
-      'verifiedExpired' ||
-      'expired' => SubscriptionVerificationOutcome.verifiedExpired,
-      'verifiedRevoked' ||
-      'revoked' => SubscriptionVerificationOutcome.verifiedRevoked,
-      'verifiedInactive' ||
-      'inactive' => SubscriptionVerificationOutcome.verifiedInactive,
+        SubscriptionVerificationOutcome.verifiedGracePeriodPro,
+      'verifiedBillingRetry' => SubscriptionVerificationOutcome.billingRetry,
+      'billingRetry' => SubscriptionVerificationOutcome.billingRetry,
+      'verifiedExpired' || 'expired' => SubscriptionVerificationOutcome.expired,
+      'verifiedRevoked' || 'revoked' => SubscriptionVerificationOutcome.revoked,
+      'verifiedInactive' || 'inactive' || 'noActiveEntitlement' =>
+        SubscriptionVerificationOutcome.noActiveEntitlement,
       'verificationUnavailable' =>
         SubscriptionVerificationOutcome.verificationUnavailable,
       'verificationFailed' =>
         SubscriptionVerificationOutcome.verificationFailed,
       _ => SubscriptionVerificationOutcome.verificationFailed,
     };
+  }
+
+  static SubscriptionEntitlementTier? _tierFromWireValue(Object? value) {
+    if (value is! String) return null;
+    return switch (value) {
+      'pro' => SubscriptionEntitlementTier.pro,
+      'max' => SubscriptionEntitlementTier.max,
+      'none' => SubscriptionEntitlementTier.none,
+      _ => null,
+    };
+  }
+
+  static SubscriptionEntitlementTier _tierFromOutcome(
+    SubscriptionVerificationOutcome outcome,
+  ) {
+    return VerifiedEntitlement(outcome: outcome).entitlementTier;
   }
 }
 

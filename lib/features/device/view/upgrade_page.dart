@@ -11,13 +11,13 @@ import '../domain/entities/subscription.dart';
 import 'privacy_page.dart';
 import 'terms_page.dart';
 
-enum _UpgradePlan { annual, monthly }
+enum _UpgradePlan { pro, max }
 
 extension on _UpgradePlan {
   SubscriptionProductKind get productKind {
     return switch (this) {
-      _UpgradePlan.annual => SubscriptionProductKind.yearly,
-      _UpgradePlan.monthly => SubscriptionProductKind.monthly,
+      _UpgradePlan.pro => SubscriptionProductKind.pro,
+      _UpgradePlan.max => SubscriptionProductKind.max,
     };
   }
 }
@@ -32,7 +32,7 @@ class UpgradePage extends StatefulWidget {
 class _UpgradePageState extends State<UpgradePage> {
   static const _subscriptionController = SubscriptionController();
 
-  _UpgradePlan _selectedPlan = _UpgradePlan.annual;
+  _UpgradePlan _selectedPlan = _UpgradePlan.pro;
 
   @override
   void initState() {
@@ -85,7 +85,9 @@ class _UpgradePageState extends State<UpgradePage> {
     } else if (snapshot.status == SubscriptionStatus.pending) {
       message = '正在等待 App Store 交易结果...';
     } else if (snapshot.allowsProFeatures) {
-      message = '订阅已生效，Pro 功能已解锁';
+      message = snapshot.allowsMaxFeatures
+          ? '订阅已生效，Max 权益已解锁'
+          : '订阅已生效，Pro 权益已解锁';
     }
 
     if (message == null || message.isEmpty) {
@@ -118,35 +120,40 @@ class _UpgradePageState extends State<UpgradePage> {
         // with local entitlement verification. Production builds must keep
         // server-side verification enabled.
         final canUsePurchaseFlow = subscriptionVerificationConfigured;
-        final yearlyPrice = _planPrice(
+        final proPrice = _planPrice(
           snapshot: snapshot,
-          kind: SubscriptionProductKind.yearly,
-          fallback: '6元/年',
+          kind: SubscriptionProductKind.pro,
+          fallback: '以 App Store 显示为准',
         );
-        final monthlyPrice = _planPrice(
+        final maxPrice = _planPrice(
           snapshot: snapshot,
-          kind: SubscriptionProductKind.monthly,
-          fallback: '1元/月',
+          kind: SubscriptionProductKind.max,
+          fallback: '以 App Store 显示为准',
         );
         final purchasing =
             snapshot.isPurchasing ||
             snapshot.status == SubscriptionStatus.pending;
+        final entitlementCoversSelectedPlan = _selectedPlan == _UpgradePlan.max
+            ? snapshot.allowsMaxFeatures
+            : snapshot.allowsProFeatures;
         final canBuy =
             canUsePurchaseFlow &&
             selectedProduct != null &&
             !snapshot.isLoadingProducts &&
             !snapshot.isBusy &&
-            !snapshot.allowsProFeatures;
+            !entitlementCoversSelectedPlan;
         final buttonText = snapshot.isLoadingProducts
             ? '加载中...'
             : !canUsePurchaseFlow
             ? '暂未开放'
             : purchasing
             ? '处理中...'
-            : snapshot.allowsProFeatures
+            : entitlementCoversSelectedPlan
             ? '已订阅'
             : selectedProduct == null
             ? '暂不可购买'
+            : _selectedPlan == _UpgradePlan.max && snapshot.allowsProFeatures
+            ? '升级到 Max'
             : '继续';
 
         return Scaffold(
@@ -183,29 +190,29 @@ class _UpgradePageState extends State<UpgradePage> {
                           height: DeviceTokens.upgradeHeroToBenefitsGap,
                         ),
                         const UpgradeBenefitItem(text: '多留一份清楚的电子账'),
-                        const UpgradeBenefitItem(text: '云备份、协作记录、高级统计将优先开放'),
+                        const UpgradeBenefitItem(text: 'Pro 与 Max 均为年度自动续期订阅'),
                         UpgradePlanCard(
-                          title: '年套餐',
-                          subtitle1: '$yearlyPrice · 年度订阅',
-                          subtitle2: '如果对您有帮助，请开发者喝瓶红牛持续开发',
-                          badge: '省50%',
-                          emphasized: _selectedPlan == _UpgradePlan.annual,
+                          title: 'Pro',
+                          subtitle1: '$proPrice · 年度自动续期',
+                          subtitle2: '解锁基础 Pro 功能，订阅有效期内可用。',
+                          emphasized: _selectedPlan == _UpgradePlan.pro,
                           onTap: snapshot.isBusy
                               ? null
                               : () => setState(
-                                  () => _selectedPlan = _UpgradePlan.annual,
+                                  () => _selectedPlan = _UpgradePlan.pro,
                                 ),
                         ),
                         const SizedBox(height: DeviceTokens.upgradePlanGap),
                         UpgradePlanCard(
-                          title: '月套餐',
-                          subtitle1: '$monthlyPrice · 按月订阅',
-                          subtitle2: '按月支持维护，体验当前 Pro 权益。',
-                          emphasized: _selectedPlan == _UpgradePlan.monthly,
+                          title: 'Max',
+                          subtitle1: '$maxPrice · 年度自动续期',
+                          subtitle2: '更高等级权益，包含 Pro 能力，并为后续高级能力预留。',
+                          badge: '包含 Pro',
+                          emphasized: _selectedPlan == _UpgradePlan.max,
                           onTap: snapshot.isBusy
                               ? null
                               : () => setState(
-                                  () => _selectedPlan = _UpgradePlan.monthly,
+                                  () => _selectedPlan = _UpgradePlan.max,
                                 ),
                         ),
                         _buildStatusMessage(context, snapshot),
