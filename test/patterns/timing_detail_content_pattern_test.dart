@@ -2,6 +2,7 @@ import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import 'package:asset_ledger/components/pickers/app_date_picker_dialog.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_detail_content_pattern.dart';
 import 'package:flutter/material.dart';
@@ -989,13 +990,15 @@ void main() {
   });
 }
 
+// 跟随选择器的真实滚动窗口（jztDatePickerFirstDate/LastDate），不再硬编码
+// 2026-2027；以 DateTime.now() 调用时今天恒在窗口内，返回今天所在月。
 DateTime visibleInitialPickerMonth(DateTime initialDate) {
   final day = DateTime(initialDate.year, initialDate.month, initialDate.day);
-  if (day.isBefore(DateTime(2026, 1, 1))) {
-    return DateTime(2026, 1);
+  if (day.isBefore(jztDatePickerFirstDate)) {
+    return DateTime(jztDatePickerFirstDate.year, jztDatePickerFirstDate.month);
   }
-  if (day.isAfter(DateTime(2027, 12, 31))) {
-    return DateTime(2027, 12);
+  if (day.isAfter(jztDatePickerLastDate)) {
+    return DateTime(jztDatePickerLastDate.year, jztDatePickerLastDate.month);
   }
   return DateTime(day.year, day.month);
 }
