@@ -1,6 +1,7 @@
 import 'package:asset_ledger/app/phone_login_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('phone login requires agreement and persists session', (
@@ -21,6 +22,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('手机号登录'), findsOneWidget);
+    expect(find.text('稍后登录'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).at(0), '13800138000');
     final disabledRequestButton = tester.widget<OutlinedButton>(
@@ -66,6 +68,68 @@ void main() {
     expect(store.savedSession?.authToken, 'test-auth-token');
     expect(store.savedSession?.tokenExpiresAt, 2000000000);
   });
+
+  testWidgets('login page can be skipped without authenticating', (
+    WidgetTester tester,
+  ) async {
+    final store = _MemoryPhoneLoginStore();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(store: store, child: const Text('home')),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('稍后登录'), findsOneWidget);
+
+    await tester.tap(find.text('稍后登录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('home'), findsOneWidget);
+    expect(store.savedSession?.authState, PhoneLoginAuthState.skipped);
+    expect(store.savedSession?.loggedIn, isFalse);
+    expect(store.savedSession?.loginSkipped, isTrue);
+    expect(store.savedSession?.phoneNumber, isNull);
+    expect(store.savedSession?.authToken, isNull);
+  });
+
+  testWidgets('skipped session bypasses gate but is not authenticated', (
+    WidgetTester tester,
+  ) async {
+    final skippedSession = const PhoneLoginSession.skipped();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(initial: skippedSession),
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('home'), findsOneWidget);
+    expect(find.text('手机号登录'), findsNothing);
+    expect(skippedSession.authState, PhoneLoginAuthState.skipped);
+    expect(skippedSession.isAuthenticated, isFalse);
+  });
+
+  test(
+    'shared preferences store persists skipped separately from login',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      const store = SharedPreferencesPhoneLoginStore();
+
+      await store.save(const PhoneLoginSession.skipped());
+      final skipped = await store.read();
+
+      expect(skipped.authState, PhoneLoginAuthState.skipped);
+      expect(skipped.isAuthenticated, isFalse);
+      expect(skipped.phoneNumber, isNull);
+      expect(skipped.authToken, isNull);
+    },
+  );
 
   testWidgets('skips login page when session is already valid', (
     WidgetTester tester,

@@ -1,25 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
+import '../../../app/phone_login_store.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../domain/entities/subscription.dart';
+import 'device_account_status.dart';
 
-class AccountCenterPage extends StatelessWidget {
+class AccountCenterPage extends StatefulWidget {
   const AccountCenterPage({
     super.key,
+    required this.loginSession,
+    required this.subscriptionListenable,
+    required this.onOpenPhoneLogin,
     required this.onOpenUpgradePage,
+    required this.onRestorePurchases,
     required this.onOpenLocalBackup,
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
     required this.onOpenLoginSyncInfo,
   });
 
+  final PhoneLoginSession loginSession;
+  final ValueListenable<SubscriptionSnapshot> subscriptionListenable;
+  final Future<PhoneLoginSession> Function() onOpenPhoneLogin;
   final VoidCallback onOpenUpgradePage;
+  final Future<void> Function() onRestorePurchases;
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenLoginSyncInfo;
+
+  @override
+  State<AccountCenterPage> createState() => _AccountCenterPageState();
+}
+
+class _AccountCenterPageState extends State<AccountCenterPage> {
+  late PhoneLoginSession _loginSession;
+
+  @override
+  void initState() {
+    super.initState();
+    _loginSession = widget.loginSession;
+  }
+
+  Future<void> _openPhoneLogin() async {
+    final session = await widget.onOpenPhoneLogin();
+    if (!mounted) return;
+    setState(() => _loginSession = session);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,12 +87,21 @@ class AccountCenterPage extends StatelessWidget {
                 DeviceTokens.pageBottomPadding,
               ),
               children: [
-                _AccountCenterContent(
-                  onOpenUpgradePage: onOpenUpgradePage,
-                  onOpenLocalBackup: onOpenLocalBackup,
-                  onOpenLocalRestore: onOpenLocalRestore,
-                  onOpenSyncInfo: onOpenSyncInfo,
-                  onOpenLoginSyncInfo: onOpenLoginSyncInfo,
+                ValueListenableBuilder<SubscriptionSnapshot>(
+                  valueListenable: widget.subscriptionListenable,
+                  builder: (context, subscription, _) {
+                    return _AccountCenterContent(
+                      loginSession: _loginSession,
+                      subscription: subscription,
+                      onOpenPhoneLogin: _openPhoneLogin,
+                      onOpenUpgradePage: widget.onOpenUpgradePage,
+                      onRestorePurchases: widget.onRestorePurchases,
+                      onOpenLocalBackup: widget.onOpenLocalBackup,
+                      onOpenLocalRestore: widget.onOpenLocalRestore,
+                      onOpenSyncInfo: widget.onOpenSyncInfo,
+                      onOpenLoginSyncInfo: widget.onOpenLoginSyncInfo,
+                    );
+                  },
                 ),
               ],
             );
@@ -74,14 +114,22 @@ class AccountCenterPage extends StatelessWidget {
 
 class _AccountCenterContent extends StatelessWidget {
   const _AccountCenterContent({
+    required this.loginSession,
+    required this.subscription,
+    required this.onOpenPhoneLogin,
     required this.onOpenUpgradePage,
+    required this.onRestorePurchases,
     required this.onOpenLocalBackup,
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
     required this.onOpenLoginSyncInfo,
   });
 
+  final PhoneLoginSession loginSession;
+  final SubscriptionSnapshot subscription;
+  final VoidCallback onOpenPhoneLogin;
   final VoidCallback onOpenUpgradePage;
+  final Future<void> Function() onRestorePurchases;
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
@@ -93,13 +141,46 @@ class _AccountCenterContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DeviceSectionGroup(
-          title: '个人资料',
+          title: '账号状态',
+          children: [
+            DeviceActionCard(
+              title: accountCenterAuthTitle(loginSession),
+              subtitle: accountCenterAuthSubtitle(
+                session: loginSession,
+                subscription: subscription,
+              ),
+              leading: const _AccountCenterIcon(Icons.account_circle_outlined),
+              trailingIcon: loginSession.isAuthenticated
+                  ? null
+                  : Icons.chevron_right,
+              onTap: loginSession.isAuthenticated ? () {} : onOpenPhoneLogin,
+            ),
+            if (!loginSession.isAuthenticated)
+              DeviceActionCard(
+                title: '手机号登录',
+                subtitle: '登录后可使用云端备份与购买权益同步',
+                leading: const _AccountCenterIcon(Icons.phone_iphone),
+                trailingIcon: Icons.chevron_right,
+                onTap: onOpenPhoneLogin,
+              ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        DeviceSectionGroup(
+          title: '购买权益',
           children: [
             DeviceActionCard(
               title: '升级 Pro，支持持续维护',
+              subtitle: purchaseEntitlementSubtitle(subscription),
               leading: const _UpgradeLeadingIcon(),
               trailingIcon: Icons.chevron_right,
               onTap: onOpenUpgradePage,
+            ),
+            DeviceActionCard(
+              title: '恢复购买',
+              subtitle: '从 App Store 恢复已购买权益',
+              leading: const _AccountCenterIcon(Icons.restore_page_outlined),
+              onTap: onRestorePurchases,
             ),
           ],
         ),

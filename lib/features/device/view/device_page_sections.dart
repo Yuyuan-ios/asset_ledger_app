@@ -13,6 +13,7 @@ class DevicePageSectionHandlers {
   const DevicePageSectionHandlers({
     required this.onOpenUpgradePage,
     required this.onOpenAccountCenter,
+    required this.accountCenterSubtitle,
     required this.onOpenAddDeviceFlow,
     required this.onOpenRateApp,
     required this.onOpenTermsPage,
@@ -24,6 +25,7 @@ class DevicePageSectionHandlers {
 
   final VoidCallback onOpenUpgradePage;
   final VoidCallback onOpenAccountCenter;
+  final String accountCenterSubtitle;
   final VoidCallback onOpenAddDeviceFlow;
   final VoidCallback onOpenRateApp;
   final VoidCallback onOpenTermsPage;
@@ -95,7 +97,7 @@ Widget _buildAccountSyncSection(DevicePageSectionHandlers handlers) {
     children: [
       DeviceActionCard(
         title: '账户中心',
-        subtitle: '登录、备份、恢复与云同步设置',
+        subtitle: handlers.accountCenterSubtitle,
         onTap: handlers.onOpenAccountCenter,
         trailingIcon: Icons.chevron_right,
       ),
