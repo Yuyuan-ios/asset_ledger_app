@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
@@ -16,6 +17,8 @@ part 'phone_login_widgets.dart';
 part 'phone_login_painters.dart';
 
 typedef LegalPageBuilder = Widget Function();
+
+const int _codeRequestCooldownSeconds = 60;
 
 class PhoneLoginGate extends StatefulWidget {
   const PhoneLoginGate({
@@ -142,10 +145,13 @@ class PhoneLoginPage extends StatefulWidget {
 class _PhoneLoginPageState extends State<PhoneLoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final FocusNode _codeFocusNode = FocusNode();
 
   bool _agreementAccepted = false;
   bool _codeRequested = false;
   bool _busy = false;
+  Timer? _codeCooldownTimer;
+  int _codeCooldownRemainingSeconds = 0;
   String? _errorText;
   String? _statusText;
   String? _requestedPhoneNumber;
@@ -156,14 +162,21 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   bool get _codeValid =>
       RegExp(r'^\d{6}$').hasMatch(_codeController.text.trim());
 
-  bool get _canRequestCode => _phoneValid && _agreementAccepted && !_busy;
+  bool get _isCodeCoolingDown => _codeCooldownRemainingSeconds > 0;
+
+  bool get _canRequestCode =>
+      _phoneValid && _agreementAccepted && !_busy && !_isCodeCoolingDown;
 
   bool get _canLogin =>
-      _canRequestCode &&
+      _phoneValid &&
+      _agreementAccepted &&
       _codeRequested &&
       _requestedPhoneNumber == _phoneController.text.trim() &&
       _codeValid &&
       !_busy;
+
+  String get _requestCodeLabel =>
+      _isCodeCoolingDown ? '重新获取(${_codeCooldownRemainingSeconds}s)' : '获取验证码';
 
   @override
   void initState() {
@@ -175,6 +188,8 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
 
   @override
   void dispose() {
+    _cancelCodeCooldownTimerOnly();
+    _codeFocusNode.dispose();
     _phoneController
       ..removeListener(_handleInputChanged)
       ..dispose();
@@ -192,6 +207,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
         _codeRequested = false;
         _requestedPhoneNumber = null;
         _statusText = null;
+        _cancelCodeCooldownTimerOnly();
       }
     });
   }
@@ -233,6 +249,41 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _requestedPhoneNumber = _phoneController.text.trim();
       _statusText = result.message;
     });
+    _startCodeCooldown();
+    _codeFocusNode.requestFocus();
+  }
+
+  void _startCodeCooldown() {
+    _cancelCodeCooldownTimerOnly();
+    if (!mounted) return;
+    setState(() => _codeCooldownRemainingSeconds = _codeRequestCooldownSeconds);
+    _codeCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_codeCooldownRemainingSeconds <= 1) {
+        timer.cancel();
+        _codeCooldownTimer = null;
+        setState(() => _codeCooldownRemainingSeconds = 0);
+        return;
+      }
+      setState(() => _codeCooldownRemainingSeconds -= 1);
+    });
+  }
+
+  void _cancelCodeCooldownTimerOnly() {
+    _codeCooldownTimer?.cancel();
+    _codeCooldownTimer = null;
+    _codeCooldownRemainingSeconds = 0;
+  }
+
+  void _cancelCodeCooldown() {
+    final hadCooldown =
+        _codeCooldownTimer != null || _codeCooldownRemainingSeconds > 0;
+    _cancelCodeCooldownTimerOnly();
+    if (!mounted || !hadCooldown) return;
+    setState(() {});
   }
 
   Future<void> _login() async {
@@ -275,6 +326,8 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       });
       return;
     }
+    _cancelCodeCooldown();
+    TextInput.finishAutofillContext();
     await widget.onLoggedIn(
       phoneNumber: phoneNumber,
       authToken: token,
@@ -375,10 +428,12 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                       scale: scale,
                       phoneController: _phoneController,
                       codeController: _codeController,
+                      codeFocusNode: _codeFocusNode,
                       busy: _busy,
                       agreementAccepted: _agreementAccepted,
                       canRequestCode: _canRequestCode,
                       canLogin: _canLogin,
+                      requestCodeLabel: _requestCodeLabel,
                       errorText: _errorText,
                       statusText: _statusText,
                       onAgreementChanged: (value) {

@@ -20,10 +20,12 @@ class _LoginFormPanel extends StatelessWidget {
     required this.scale,
     required this.phoneController,
     required this.codeController,
+    required this.codeFocusNode,
     required this.busy,
     required this.agreementAccepted,
     required this.canRequestCode,
     required this.canLogin,
+    required this.requestCodeLabel,
     required this.onAgreementChanged,
     required this.onRequestCode,
     required this.onLogin,
@@ -36,10 +38,12 @@ class _LoginFormPanel extends StatelessWidget {
   final double scale;
   final TextEditingController phoneController;
   final TextEditingController codeController;
+  final FocusNode codeFocusNode;
   final bool busy;
   final bool agreementAccepted;
   final bool canRequestCode;
   final bool canLogin;
+  final String requestCodeLabel;
   final String? errorText;
   final String? statusText;
   final ValueChanged<bool> onAgreementChanged;
@@ -95,6 +99,7 @@ class _LoginFormPanel extends StatelessWidget {
                   child: _CodeTextField(
                     scale: scale,
                     controller: codeController,
+                    focusNode: codeFocusNode,
                   ),
                 ),
                 Positioned(
@@ -106,6 +111,7 @@ class _LoginFormPanel extends StatelessWidget {
                     scale: scale,
                     busy: busy,
                     canRequestCode: canRequestCode,
+                    label: requestCodeLabel,
                     onRequestCode: onRequestCode,
                   ),
                 ),
@@ -315,6 +321,7 @@ class _PhoneNumberField extends StatelessWidget {
             child: TextField(
               controller: controller,
               keyboardType: TextInputType.phone,
+              autofillHints: const [AutofillHints.telephoneNumber],
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(11),
@@ -346,10 +353,15 @@ class _PhoneNumberField extends StatelessWidget {
 }
 
 class _CodeTextField extends StatelessWidget {
-  const _CodeTextField({required this.scale, required this.controller});
+  const _CodeTextField({
+    required this.scale,
+    required this.controller,
+    required this.focusNode,
+  });
 
   final double scale;
   final TextEditingController controller;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -361,7 +373,9 @@ class _CodeTextField extends StatelessWidget {
           height: 40 * scale,
           child: TextField(
             controller: controller,
+            focusNode: focusNode,
             keyboardType: TextInputType.number,
+            autofillHints: const [AutofillHints.oneTimeCode],
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(6),
@@ -418,12 +432,14 @@ class _RequestCodeButton extends StatelessWidget {
     required this.scale,
     required this.busy,
     required this.canRequestCode,
+    required this.label,
     required this.onRequestCode,
   });
 
   final double scale;
   final bool busy;
   final bool canRequestCode;
+  final String label;
   final VoidCallback onRequestCode;
 
   @override
@@ -473,7 +489,13 @@ class _RequestCodeButton extends StatelessWidget {
           ),
         ),
       ),
-      child: Text(busy ? '处理中' : '获取验证码'),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 6 * scale),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(busy ? '处理中' : label),
+        ),
+      ),
     );
   }
 }
