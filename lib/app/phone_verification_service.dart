@@ -144,14 +144,20 @@ class HttpPhoneVerificationService implements PhoneVerificationService {
   }
 
   String? _messageFromError(Object? error) {
-    final code = error is String ? error : null;
+    final code = error is String ? error.trim() : null;
+    if (code == null || code.isEmpty) return null;
     return switch (code) {
       'invalid_phone' => '请输入有效的手机号',
+      'too_many_requests' => '验证码发送过于频繁，请稍后再试',
       'sms_send_too_frequent' => '验证码发送过于频繁，请稍后再试',
       'dypns_access_key_not_configured' => '验证码服务暂未配置完成',
       'invalid_sms_code' => '验证码不正确或已过期',
       'sms_code_expired_or_missing' => '请先获取验证码',
-      _ => null,
+      _ => _isUserFacingServerMessage(code) ? code : null,
     };
+  }
+
+  bool _isUserFacingServerMessage(String message) {
+    return RegExp('[\u4e00-\u9fff]').hasMatch(message);
   }
 }
