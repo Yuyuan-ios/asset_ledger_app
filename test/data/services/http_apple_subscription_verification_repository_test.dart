@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:asset_ledger/core/config/subscription_config.dart';
 import 'package:asset_ledger/data/services/http_apple_subscription_verification_repository.dart';
+import 'package:asset_ledger/data/services/subscription_identity_store.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
 import 'package:asset_ledger/data/services/subscription_verification_repository.dart';
 import 'package:asset_ledger/data/services/subscription_verification_repository_factory.dart';
@@ -69,6 +70,9 @@ void main() {
       final repository = HttpAppleSubscriptionVerificationRepository(
         config: configured,
         httpClient: client,
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000456',
+        ),
         bundleId: 'com.yuyuan.assetledger',
       );
 
@@ -86,8 +90,36 @@ void main() {
       expect(client.lastPostBody?['platform'], 'ios');
       expect(client.lastPostBody?['bundleId'], 'com.yuyuan.assetledger');
       expect(
+        client.lastPostBody?['appAccountToken'],
+        '00000000-0000-4000-8000-000000000456',
+      );
+      expect(
         client.lastPostBody?['serverVerificationData'],
         'server-${SubscriptionService.monthlyProductId}',
+      );
+    });
+
+    test('current-entitlement sends the stable appAccountToken', () async {
+      final client = FakeVerificationHttpClient(
+        getResponse: const SubscriptionHttpResponse(
+          statusCode: 200,
+          body: '{"outcome":"inactive"}',
+        ),
+      );
+      final repository = HttpAppleSubscriptionVerificationRepository(
+        config: configured,
+        httpClient: client,
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000789',
+        ),
+      );
+
+      await repository.fetchCurrentEntitlement();
+
+      expect(client.lastGetUri?.path, '/iap/apple/current-entitlement');
+      expect(
+        client.lastGetUri?.queryParameters['appAccountToken'],
+        '00000000-0000-4000-8000-000000000789',
       );
     });
 
@@ -101,6 +133,9 @@ void main() {
       final repository = HttpAppleSubscriptionVerificationRepository(
         config: configured,
         httpClient: client,
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000111',
+        ),
       );
 
       final result = await repository.verifyPurchase(
@@ -125,6 +160,9 @@ void main() {
               body:
                   '{"outcome":"revoked","productId":"com.yuyuan.assetledger.pro.monthly"}',
             ),
+          ),
+          identityStore: MemoryIdentityStore(
+            '00000000-0000-4000-8000-000000000222',
           ),
         );
 
@@ -174,11 +212,17 @@ void main() {
             body: '{"error":"server"}',
           ),
         ),
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000333',
+        ),
       );
       final timeoutRepository = HttpAppleSubscriptionVerificationRepository(
         config: configured,
         httpClient: FakeVerificationHttpClient(
           postError: TimeoutException('timed out'),
+        ),
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000444',
         ),
       );
       final invalidJsonRepository = HttpAppleSubscriptionVerificationRepository(
@@ -188,6 +232,9 @@ void main() {
             statusCode: 200,
             body: 'not json',
           ),
+        ),
+        identityStore: MemoryIdentityStore(
+          '00000000-0000-4000-8000-000000000555',
         ),
       );
 
@@ -230,6 +277,21 @@ PurchaseDetails purchaseDetails({required String productId}) {
   );
 }
 
+class MemoryIdentityStore implements SubscriptionIdentityStore {
+  MemoryIdentityStore(this.token);
+
+  final String token;
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<String?> readAppAccountToken() async => token;
+
+  @override
+  Future<String> readOrCreateAppAccountToken() async => token;
+}
+
 class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {
   FakeVerificationHttpClient({
     this.postResponse,
@@ -244,6 +306,7 @@ class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {
   final Object? getError;
 
   Uri? lastPostUri;
+  Uri? lastGetUri;
   Map<String, Object?>? lastPostBody;
   var postCallCount = 0;
   var getCallCount = 0;
@@ -269,6 +332,7 @@ class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {
     required Duration timeout,
   }) async {
     getCallCount++;
+    lastGetUri = uri;
     final error = getError;
     if (error != null) throw error;
     return getResponse ??

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../core/config/subscription_config.dart';
+import 'subscription_identity_store.dart';
 import 'subscription_verification_repository.dart';
 
 class HttpAppleSubscriptionVerificationRepository
@@ -12,13 +13,17 @@ class HttpAppleSubscriptionVerificationRepository
   HttpAppleSubscriptionVerificationRepository({
     SubscriptionConfig config = SubscriptionConfig.fromEnvironment,
     SubscriptionVerificationHttpClient? httpClient,
+    SubscriptionIdentityStore? identityStore,
     String? bundleId,
   }) : _config = config,
        _httpClient = httpClient ?? DartIoSubscriptionVerificationHttpClient(),
+       _identityStore =
+           identityStore ?? SharedPreferencesSubscriptionIdentityStore(),
        _bundleId = bundleId;
 
   final SubscriptionConfig _config;
   final SubscriptionVerificationHttpClient _httpClient;
+  final SubscriptionIdentityStore _identityStore;
   final String? _bundleId;
 
   @override
@@ -34,6 +39,7 @@ class HttpAppleSubscriptionVerificationRepository
     try {
       final request = AppleVerifyPurchaseRequest.fromPurchase(
         purchase,
+        appAccountToken: await _identityStore.readOrCreateAppAccountToken(),
         bundleId: _bundleId,
       );
       final response = await _httpClient.postJson(
@@ -58,8 +64,10 @@ class HttpAppleSubscriptionVerificationRepository
     }
 
     try {
+      final appAccountToken = await _identityStore
+          .readOrCreateAppAccountToken();
       final response = await _httpClient.getJson(
-        uri,
+        _uriWithAppAccountToken(uri, appAccountToken),
         timeout: _config.requestTimeout,
       );
       return _entitlementFromResponse(response, null);
@@ -108,6 +116,15 @@ class HttpAppleSubscriptionVerificationRepository
       reason: reason,
     );
   }
+
+  Uri _uriWithAppAccountToken(Uri uri, String appAccountToken) {
+    return uri.replace(
+      queryParameters: <String, String>{
+        ...uri.queryParameters,
+        'appAccountToken': appAccountToken,
+      },
+    );
+  }
 }
 
 class AppleVerifyPurchaseRequest {
@@ -120,11 +137,13 @@ class AppleVerifyPurchaseRequest {
     required this.localVerificationData,
     required this.source,
     required this.status,
+    required this.appAccountToken,
     this.bundleId,
   });
 
   factory AppleVerifyPurchaseRequest.fromPurchase(
     PurchaseDetails purchase, {
+    required String appAccountToken,
     String? bundleId,
   }) {
     return AppleVerifyPurchaseRequest(
@@ -136,6 +155,7 @@ class AppleVerifyPurchaseRequest {
       localVerificationData: purchase.verificationData.localVerificationData,
       source: purchase.verificationData.source,
       status: purchase.status.name,
+      appAccountToken: appAccountToken,
       bundleId: bundleId,
     );
   }
@@ -148,6 +168,7 @@ class AppleVerifyPurchaseRequest {
   final String localVerificationData;
   final String source;
   final String status;
+  final String appAccountToken;
   final String? bundleId;
 
   Map<String, Object?> toJson() {
@@ -160,6 +181,7 @@ class AppleVerifyPurchaseRequest {
       'localVerificationData': localVerificationData,
       'source': source,
       'status': status,
+      'appAccountToken': appAccountToken,
       if (bundleId != null && bundleId!.isNotEmpty) 'bundleId': bundleId,
     };
   }
