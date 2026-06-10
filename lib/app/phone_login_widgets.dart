@@ -24,6 +24,7 @@ class _LoginFormPanel extends StatelessWidget {
     required this.agreementAccepted,
     required this.canRequestCode,
     required this.canLogin,
+    required this.requestCodeLabel,
     required this.onAgreementChanged,
     required this.onRequestCode,
     required this.onLogin,
@@ -40,6 +41,7 @@ class _LoginFormPanel extends StatelessWidget {
   final bool agreementAccepted;
   final bool canRequestCode;
   final bool canLogin;
+  final String requestCodeLabel;
   final String? errorText;
   final String? statusText;
   final ValueChanged<bool> onAgreementChanged;
@@ -106,6 +108,7 @@ class _LoginFormPanel extends StatelessWidget {
                     scale: scale,
                     busy: busy,
                     canRequestCode: canRequestCode,
+                    label: requestCodeLabel,
                     onRequestCode: onRequestCode,
                   ),
                 ),
@@ -418,12 +421,14 @@ class _RequestCodeButton extends StatelessWidget {
     required this.scale,
     required this.busy,
     required this.canRequestCode,
+    required this.label,
     required this.onRequestCode,
   });
 
   final double scale;
   final bool busy;
   final bool canRequestCode;
+  final String label;
   final VoidCallback onRequestCode;
 
   @override
@@ -473,7 +478,13 @@ class _RequestCodeButton extends StatelessWidget {
           ),
         ),
       ),
-      child: Text(busy ? '处理中' : '获取验证码'),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 6 * scale),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(busy ? '处理中' : label),
+        ),
+      ),
     );
   }
 }
