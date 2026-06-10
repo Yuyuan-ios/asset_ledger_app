@@ -7,8 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 const _expectedDateCellHeight = 56.0;
 
 void main() {
-  testWidgets('renders fixed 2026-2027 range and weekday row', (tester) async {
-    await _openPicker(tester, DateTime(2026, 1, 8));
+  // 默认窗口已改为相对今年的滚动 3 年窗；用导出常量推导年份以保持测试确定性。
+  final int firstYear = jztDatePickerFirstDate.year; // 今年 - 1
+  final int lastYear = jztDatePickerLastDate.year; // 今年 + 1
+
+  testWidgets('renders rolling 3-year window and weekday row', (tester) async {
+    await _openPicker(tester, jztDatePickerFirstDate);
 
     for (final label in const ['日', '一', '二', '三', '四', '五', '六']) {
       expect(
@@ -16,13 +20,13 @@ void main() {
         findsOneWidget,
       );
     }
-    expect(find.text('2026年1月'), findsOneWidget);
-    expect(find.text('2025年12月'), findsNothing);
-    expect(find.text('2028年1月'), findsNothing);
+    // 窗口首月可见；窗口之前的月份不在列表内。
+    expect(find.text('$firstYear年1月'), findsOneWidget);
+    expect(find.text('${firstYear - 1}年12月'), findsNothing);
 
-    await _dragUntilVisible(tester, find.text('2027年12月'));
-    expect(find.text('2027年12月'), findsOneWidget);
-    expect(find.text('2028年1月'), findsNothing);
+    await _dragUntilVisible(tester, find.text('$lastYear年12月'));
+    expect(find.text('$lastYear年12月'), findsOneWidget);
+    expect(find.text('${lastYear + 1}年1月'), findsNothing);
   });
 
   testWidgets('renders no title and no close button', (tester) async {
@@ -377,10 +381,16 @@ void main() {
   testWidgets('does not silently clamp an initial date before the range', (
     tester,
   ) async {
-    final probe = await _openPicker(tester, DateTime(2025, 12, 31));
+    final beforeWindow = jztDatePickerFirstDate.subtract(
+      const Duration(days: 1),
+    );
+    final probe = await _openPicker(tester, beforeWindow);
 
-    expect(find.text('2026年1月'), findsOneWidget);
-    expect(_surfaceColor(tester, 20260101), isNot(SheetColors.action));
+    expect(find.text('$firstYear年1月'), findsOneWidget);
+    expect(
+      _surfaceColor(tester, _ymd(jztDatePickerFirstDate)),
+      isNot(SheetColors.action),
+    );
     expect(_finishButton(tester).onPressed, isNull);
     expect(probe.completed, isFalse);
   });
@@ -388,10 +398,14 @@ void main() {
   testWidgets('does not silently clamp an initial date after the range', (
     tester,
   ) async {
-    await _openPicker(tester, DateTime(2028, 1, 1));
+    final afterWindow = jztDatePickerLastDate.add(const Duration(days: 1));
+    await _openPicker(tester, afterWindow);
 
-    expect(find.text('2027年12月'), findsOneWidget);
-    expect(_surfaceColor(tester, 20271231), isNot(SheetColors.action));
+    expect(find.text('$lastYear年12月'), findsOneWidget);
+    expect(
+      _surfaceColor(tester, _ymd(jztDatePickerLastDate)),
+      isNot(SheetColors.action),
+    );
     expect(_finishButton(tester).onPressed, isNull);
   });
 
@@ -582,6 +596,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(probe.result?.isCancelled, isTrue);
+  });
+
+  testWidgets('clamps an over-wide min/max range to 36 months', (tester) async {
+    // min/max 跨度远超 36 个月时，_buildMonths 把月份数 clamp 到 _monthCount(36)：
+    // 窗口从 minDate 起恰好 36 个自然月（2020.01 ～ 2022.12），第 37 个月不渲染。
+    await _openPickerResult(
+      tester,
+      DateTime(2020, 1, 1),
+      minDate: DateTime(2020, 1, 1),
+      maxDate: DateTime(2030, 12, 31),
+    );
+
+    expect(find.text('2020年1月'), findsOneWidget);
+
+    await _dragUntilVisible(tester, find.text('2022年12月'));
+    expect(find.text('2022年12月'), findsOneWidget);
+    expect(find.text('2023年1月'), findsNothing);
   });
 }
 

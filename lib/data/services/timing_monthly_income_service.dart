@@ -87,7 +87,7 @@ class TimingMonthlyIncomeService {
     for (final entry in grouped.entries) {
       final deviceRecords = entry.value;
       final sorted = _sortByDateThenMeter(deviceRecords);
-      final safeRecords = _keepLastRecordPerDay(sorted);
+      final safeRecords = _retainAllSortedRecords(sorted);
       if (safeRecords.isEmpty) continue;
 
       for (var i = 0; i < safeRecords.length; i++) {
@@ -192,12 +192,12 @@ class TimingMonthlyIncomeService {
     return sorted;
   }
 
-  /// 保留排序后的全部记录。
+  /// 保留排序后的全部记录（不做任何按日去重）。
   ///
-  /// 旧口径按“同设备 + 同日期”只保留最后一条，会误删同日不同项目、
+  /// 旧口径曾按“同设备 + 同日期”只保留最后一条，会误删同日不同项目、
   /// 不同项目身份或不同有效收入记录。当前没有可靠的重复记录定义，
-  /// 因此这里不再做粗粒度去重。
-  static List<TimingRecord> _keepLastRecordPerDay(List<TimingRecord> sorted) {
+  /// 因此这里不再做粗粒度去重，原样返回已排序列表。
+  static List<TimingRecord> _retainAllSortedRecords(List<TimingRecord> sorted) {
     return sorted;
   }
 
