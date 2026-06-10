@@ -591,6 +591,31 @@ void main() {
     expect(find.text('4.0 h'), findsOneWidget);
     expect(find.text('¥22000'), findsOneWidget);
   });
+
+  testWidgets('hours cross-year cutoff displays inclusive end in prior year', (
+    WidgetTester tester,
+  ) async {
+    // 落库 exclusive cutoff = UI inclusive 2027.12.31 + 1 day = 2028.01.01。
+    const record = TimingRecord(
+      id: 31,
+      deviceId: 1,
+      startDate: 20271230,
+      allocationCutoffDate: 20280101,
+      contact: '周亮',
+      site: '成都',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 4,
+      hours: 4,
+      income: 480,
+    );
+
+    await _pumpSectionRecentRecords(tester, records: const [record]);
+
+    // 展示按 cutoff-1 跨年回算为 2027.12.31，绝不展示落库的 exclusive 2028.01.01。
+    expect(find.text('2027.12.30 - 12.31'), findsOneWidget);
+    expect(find.textContaining('2028'), findsNothing);
+  });
 }
 
 const _device = Device(

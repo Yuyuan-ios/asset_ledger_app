@@ -532,15 +532,10 @@ class _TimingPageState extends State<TimingPage> {
 
   String _friendlySaveFailureReason(String message) {
     final trimmed = message.trim();
-    if (trimmed == '分摊截止日期不能晚于下一条同设备记录的计时日期' ||
-        trimmed == '结束日不能晚于下一条同设备记录日期') {
-      return '结束日不能晚于下一条同设备记录日期';
-    }
+    // 校验器内部以“分摊截止日期”措辞抛出；UI 统一为“结束日”语义。
+    // “结束日不能晚于下一条同设备记录日期”已是面向用户文案，原样透传。
     if (trimmed == '分摊截止日期必须晚于计时日期') {
       return '结束日不能早于开始日';
-    }
-    if (trimmed == '同设备同日存在后续记录时，第一版暂不支持显式分摊截止日期') {
-      return '结束日不能晚于下一条同设备记录日期';
     }
     return trimmed;
   }
