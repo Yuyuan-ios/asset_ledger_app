@@ -102,6 +102,17 @@ void main() {
     );
     expect(restored.displayEndDate, isNull);
   });
+
+  test('restore rejects non-int allocation_cutoff_date', () async {
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(
+        timingRecord: {..._recordMap(), 'allocation_cutoff_date': 'not-an-int'},
+      ),
+    );
+
+    expect(result.success, isFalse);
+    expect(result.errorCode, 'invalid_timing_records_allocation_cutoff_date');
+  });
 }
 
 LocalBackupRestoreService _restoreService() {
