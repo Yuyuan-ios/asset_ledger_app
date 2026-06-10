@@ -5,6 +5,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../core/config/subscription_product_ids.dart';
 import 'subscription_entitlement_cache.dart';
+import 'subscription_identity_store.dart';
 import 'subscription_store_gateway.dart';
 import 'subscription_verification_repository.dart';
 import 'subscription_verification_repository_factory.dart';
@@ -13,20 +14,23 @@ enum SubscriptionStatus {
   unknown,
   free,
   pending,
-  activeMonthly,
-  activeYearly,
-  inGracePeriod,
+  activePro,
+  activeMax,
+  inGracePeriodPro,
+  inGracePeriodMax,
   billingRetry,
   expired,
   revoked,
+  noActiveEntitlement,
 }
 
-enum SubscriptionProductKind { monthly, yearly }
+enum SubscriptionProductKind { pro, max }
 
 class SubscriptionSnapshot {
   const SubscriptionSnapshot({
     required this.status,
     required this.products,
+    this.entitlementTier = SubscriptionEntitlementTier.none,
     this.isEntitlementVerified = false,
     this.isLoadingProducts = false,
     this.isPurchasing = false,
@@ -47,6 +51,7 @@ class SubscriptionSnapshot {
 
   final SubscriptionStatus status;
   final Map<SubscriptionProductKind, ProductDetails> products;
+  final SubscriptionEntitlementTier entitlementTier;
   final bool isEntitlementVerified;
   final bool isLoadingProducts;
   final bool isPurchasing;
@@ -59,9 +64,18 @@ class SubscriptionSnapshot {
 
   bool get allowsProFeatures {
     if (!isEntitlementVerified) return false;
-    return status == SubscriptionStatus.activeMonthly ||
-        status == SubscriptionStatus.activeYearly ||
-        status == SubscriptionStatus.inGracePeriod;
+    return entitlementTier.includesPro &&
+        (status == SubscriptionStatus.activePro ||
+            status == SubscriptionStatus.activeMax ||
+            status == SubscriptionStatus.inGracePeriodPro ||
+            status == SubscriptionStatus.inGracePeriodMax);
+  }
+
+  bool get allowsMaxFeatures {
+    if (!isEntitlementVerified) return false;
+    return entitlementTier.includesMax &&
+        (status == SubscriptionStatus.activeMax ||
+            status == SubscriptionStatus.inGracePeriodMax);
   }
 
   bool get canUseCustomAvatar => allowsProFeatures;
@@ -75,6 +89,7 @@ class SubscriptionSnapshot {
   SubscriptionSnapshot copyWith({
     SubscriptionStatus? status,
     Map<SubscriptionProductKind, ProductDetails>? products,
+    SubscriptionEntitlementTier? entitlementTier,
     bool? isEntitlementVerified,
     bool? isLoadingProducts,
     bool? isPurchasing,
@@ -92,6 +107,7 @@ class SubscriptionSnapshot {
     return SubscriptionSnapshot(
       status: status ?? this.status,
       products: products ?? this.products,
+      entitlementTier: entitlementTier ?? this.entitlementTier,
       isEntitlementVerified:
           isEntitlementVerified ?? this.isEntitlementVerified,
       isLoadingProducts: isLoadingProducts ?? this.isLoadingProducts,
@@ -111,8 +127,8 @@ class SubscriptionSnapshot {
 class SubscriptionService {
   const SubscriptionService._();
 
-  static const String monthlyProductId = SubscriptionProductIds.proMonthly;
-  static const String yearlyProductId = SubscriptionProductIds.proYearly;
+  static const String proYearlyProductId = SubscriptionProductIds.proYearly;
+  static const String maxYearlyProductId = SubscriptionProductIds.maxYearly;
 
   static final ValueNotifier<SubscriptionSnapshot> notifier =
       ValueNotifier<SubscriptionSnapshot>(SubscriptionSnapshot.initial());
@@ -126,12 +142,16 @@ class SubscriptionService {
       createDefaultSubscriptionVerificationRepository();
   static SubscriptionEntitlementCache _entitlementCache =
       const SharedPreferencesSubscriptionEntitlementCache();
+  static SubscriptionIdentityStore _identityStore =
+      SharedPreferencesSubscriptionIdentityStore();
 
   static SubscriptionSnapshot get snapshot => notifier.value;
 
   static bool get canUseCustomAvatar => snapshot.canUseCustomAvatar;
 
   static bool get allowsProFeatures => snapshot.allowsProFeatures;
+
+  static bool get allowsMaxFeatures => snapshot.allowsMaxFeatures;
 
   static Future<void> init() async {
     if (!_initialized) {
@@ -187,11 +207,11 @@ class SubscriptionService {
       final products = <SubscriptionProductKind, ProductDetails>{};
       for (final product in response.productDetails) {
         switch (product.id) {
-          case monthlyProductId:
-            products[SubscriptionProductKind.monthly] = product;
+          case proYearlyProductId:
+            products[SubscriptionProductKind.pro] = product;
             break;
-          case yearlyProductId:
-            products[SubscriptionProductKind.yearly] = product;
+          case maxYearlyProductId:
+            products[SubscriptionProductKind.max] = product;
             break;
         }
       }
@@ -236,8 +256,15 @@ class SubscriptionService {
     );
 
     try {
+      final appAccountToken = await _identityStore
+          .readOrCreateAppAccountToken();
       final purchaseParam = PurchaseParam(productDetails: product);
-      await _storeGateway.buyNonConsumable(purchaseParam: purchaseParam);
+      await _storeGateway.buyNonConsumable(
+        purchaseParam: PurchaseParam(
+          productDetails: purchaseParam.productDetails,
+          applicationUserName: appAccountToken,
+        ),
+      );
     } catch (error) {
       _setSnapshot(
         snapshot.copyWith(
@@ -261,7 +288,11 @@ class SubscriptionService {
     );
 
     try {
-      await _storeGateway.restorePurchases();
+      final appAccountToken = await _identityStore
+          .readOrCreateAppAccountToken();
+      await _storeGateway.restorePurchases(
+        applicationUserName: appAccountToken,
+      );
     } catch (error) {
       _setSnapshot(
         snapshot.copyWith(
@@ -370,6 +401,7 @@ class SubscriptionService {
   ) {
     return snapshot.copyWith(
       status: mapVerifiedEntitlementToStatus(cached.outcome),
+      entitlementTier: cached.entitlementTier,
       isEntitlementVerified: false,
       isPurchasing: false,
       isRestoring: false,
@@ -395,6 +427,7 @@ class SubscriptionService {
 
     return snapshot.copyWith(
       status: status,
+      entitlementTier: entitlement.entitlementTier,
       isEntitlementVerified: entitlement.isVerified,
       isPurchasing: false,
       isRestoring: false,
@@ -414,24 +447,24 @@ class SubscriptionService {
     SubscriptionVerificationOutcome outcome,
   ) {
     return switch (outcome) {
-      SubscriptionVerificationOutcome.verifiedActiveMonthly =>
-        SubscriptionStatus.activeMonthly,
-      SubscriptionVerificationOutcome.verifiedActiveYearly =>
-        SubscriptionStatus.activeYearly,
-      SubscriptionVerificationOutcome.verifiedGracePeriod =>
-        SubscriptionStatus.inGracePeriod,
-      SubscriptionVerificationOutcome.verifiedBillingRetry =>
+      SubscriptionVerificationOutcome.verifiedActivePro =>
+        SubscriptionStatus.activePro,
+      SubscriptionVerificationOutcome.verifiedActiveMax =>
+        SubscriptionStatus.activeMax,
+      SubscriptionVerificationOutcome.verifiedGracePeriodPro =>
+        SubscriptionStatus.inGracePeriodPro,
+      SubscriptionVerificationOutcome.verifiedGracePeriodMax =>
+        SubscriptionStatus.inGracePeriodMax,
+      SubscriptionVerificationOutcome.billingRetry =>
         SubscriptionStatus.billingRetry,
-      SubscriptionVerificationOutcome.verifiedInactive =>
-        SubscriptionStatus.free,
-      SubscriptionVerificationOutcome.verifiedExpired =>
-        SubscriptionStatus.expired,
-      SubscriptionVerificationOutcome.verifiedRevoked =>
-        SubscriptionStatus.revoked,
+      SubscriptionVerificationOutcome.expired => SubscriptionStatus.expired,
+      SubscriptionVerificationOutcome.revoked => SubscriptionStatus.revoked,
       SubscriptionVerificationOutcome.verificationFailed =>
         SubscriptionStatus.free,
       SubscriptionVerificationOutcome.verificationUnavailable =>
         SubscriptionStatus.free,
+      SubscriptionVerificationOutcome.noActiveEntitlement =>
+        SubscriptionStatus.noActiveEntitlement,
     };
   }
 
@@ -454,6 +487,7 @@ class SubscriptionService {
       _verificationRepository =
           createDefaultSubscriptionVerificationRepository();
       _entitlementCache = const SharedPreferencesSubscriptionEntitlementCache();
+      _identityStore = SharedPreferencesSubscriptionIdentityStore();
       notifier.value = SubscriptionSnapshot.initial();
       return true;
     }());
@@ -464,6 +498,7 @@ class SubscriptionService {
     SubscriptionStoreGateway? storeGateway,
     SubscriptionVerificationRepository? verificationRepository,
     SubscriptionEntitlementCache? entitlementCache,
+    SubscriptionIdentityStore? identityStore,
   }) {
     assert(() {
       if (storeGateway != null) {
@@ -475,6 +510,9 @@ class SubscriptionService {
       if (entitlementCache != null) {
         _entitlementCache = entitlementCache;
       }
+      if (identityStore != null) {
+        _identityStore = identityStore;
+      }
       return true;
     }());
   }
@@ -484,10 +522,21 @@ class SubscriptionService {
     assert(() {
       notifier.value = snapshot.copyWith(
         status: status,
+        entitlementTier: _tierForStatus(status),
         isEntitlementVerified: true,
         clearError: true,
       );
       return true;
     }());
+  }
+
+  static SubscriptionEntitlementTier _tierForStatus(SubscriptionStatus status) {
+    return switch (status) {
+      SubscriptionStatus.activePro ||
+      SubscriptionStatus.inGracePeriodPro => SubscriptionEntitlementTier.pro,
+      SubscriptionStatus.activeMax ||
+      SubscriptionStatus.inGracePeriodMax => SubscriptionEntitlementTier.max,
+      _ => SubscriptionEntitlementTier.none,
+    };
   }
 }

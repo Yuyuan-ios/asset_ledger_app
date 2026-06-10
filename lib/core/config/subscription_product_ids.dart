@@ -17,26 +17,23 @@ class SubscriptionProductDefinition {
 class SubscriptionProductIds {
   const SubscriptionProductIds._();
 
-  static const String proMonthly = 'com.yuyuan.assetledger.pro.monthly';
   static const String proYearly = 'com.yuyuan.assetledger.pro.yearly';
-
-  static const String monthly = proMonthly;
-  static const String yearly = proYearly;
+  static const String maxYearly = 'com.yuyuan.assetledger.max.yearly';
 
   static const Map<String, SubscriptionProductDefinition> currentProducts = {
-    proMonthly: SubscriptionProductDefinition(
-      productId: proMonthly,
-      tier: SubscriptionTier.pro,
-      duration: SubscriptionDuration.monthly,
-    ),
     proYearly: SubscriptionProductDefinition(
       productId: proYearly,
       tier: SubscriptionTier.pro,
       duration: SubscriptionDuration.yearly,
     ),
+    maxYearly: SubscriptionProductDefinition(
+      productId: maxYearly,
+      tier: SubscriptionTier.max,
+      duration: SubscriptionDuration.yearly,
+    ),
   };
 
-  static const Set<String> currentProductIds = {proMonthly, proYearly};
+  static const Set<String> currentProductIds = {proYearly, maxYearly};
 
   static SubscriptionProductDefinition? definitionFor(String productId) {
     return currentProducts[productId];

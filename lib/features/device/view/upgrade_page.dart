@@ -13,41 +13,42 @@ import '../domain/entities/subscription.dart';
 import 'privacy_page.dart';
 import 'terms_page.dart';
 
-enum _UpgradePlan { annual, monthly }
+enum _UpgradePlan { pro, max }
 
 extension on _UpgradePlan {
   SubscriptionProductKind get productKind {
     return switch (this) {
-      _UpgradePlan.annual => SubscriptionProductKind.yearly,
-      _UpgradePlan.monthly => SubscriptionProductKind.monthly,
+      _UpgradePlan.pro => SubscriptionProductKind.pro,
+      _UpgradePlan.max => SubscriptionProductKind.max,
     };
   }
 
   String get fallbackTitle {
     return switch (this) {
-      _UpgradePlan.annual => '机账通 Pro 年度订阅',
-      _UpgradePlan.monthly => '机账通 Pro 月度订阅',
+      _UpgradePlan.pro => '机账通 Pro 年订阅',
+      _UpgradePlan.max => '机账通 Max 年订阅',
     };
   }
 
   String get periodLabel {
-    return switch (this) {
-      _UpgradePlan.annual => '每年 / 1 year',
-      _UpgradePlan.monthly => '每月 / 1 month',
-    };
+    return '1 年 / 1 year';
   }
 
   String get unitLabel {
-    return switch (this) {
-      _UpgradePlan.annual => '年',
-      _UpgradePlan.monthly => '月',
-    };
+    return '年';
   }
 
   String get planCardTitle {
     return switch (this) {
-      _UpgradePlan.annual => '年套餐',
-      _UpgradePlan.monthly => '月套餐',
+      _UpgradePlan.pro => 'Pro',
+      _UpgradePlan.max => 'Max',
+    };
+  }
+
+  String get planCardBody {
+    return switch (this) {
+      _UpgradePlan.pro => '解锁基础 Pro 功能，订阅有效期内可用。',
+      _UpgradePlan.max => '更高等级权益，包含 Pro 能力，并为后续高级能力预留。',
     };
   }
 }
@@ -62,7 +63,7 @@ class UpgradePage extends StatefulWidget {
 class _UpgradePageState extends State<UpgradePage> {
   static const _subscriptionController = SubscriptionController();
 
-  _UpgradePlan _selectedPlan = _UpgradePlan.annual;
+  _UpgradePlan _selectedPlan = _UpgradePlan.pro;
 
   @override
   void initState() {
@@ -147,7 +148,9 @@ class _UpgradePageState extends State<UpgradePage> {
     } else if (snapshot.status == SubscriptionStatus.pending) {
       message = '正在等待 App Store 交易结果...';
     } else if (snapshot.allowsProFeatures) {
-      message = '订阅已生效，Pro 功能已解锁';
+      message = snapshot.allowsMaxFeatures
+          ? '订阅已生效，Max 权益已解锁'
+          : '订阅已生效，Pro 权益已解锁';
     }
 
     if (message == null || message.isEmpty) {
@@ -183,22 +186,27 @@ class _UpgradePageState extends State<UpgradePage> {
         final purchasing =
             snapshot.isPurchasing ||
             snapshot.status == SubscriptionStatus.pending;
+        final entitlementCoversSelectedPlan = _selectedPlan == _UpgradePlan.max
+            ? snapshot.allowsMaxFeatures
+            : snapshot.allowsProFeatures;
         final canBuy =
             canUsePurchaseFlow &&
             selectedProduct != null &&
             !snapshot.isLoadingProducts &&
             !snapshot.isBusy &&
-            !snapshot.allowsProFeatures;
+            !entitlementCoversSelectedPlan;
         final buttonText = snapshot.isLoadingProducts
             ? '加载中...'
             : !canUsePurchaseFlow
             ? '暂不可购买'
             : purchasing
             ? '处理中...'
-            : snapshot.allowsProFeatures
+            : entitlementCoversSelectedPlan
             ? '已订阅'
             : selectedProduct == null
             ? '暂不可购买'
+            : _selectedPlan == _UpgradePlan.max && snapshot.allowsProFeatures
+            ? '升级到 Max'
             : '继续';
 
         return Scaffold(
@@ -234,36 +242,36 @@ class _UpgradePageState extends State<UpgradePage> {
                         const SizedBox(
                           height: DeviceTokens.upgradeHeroToBenefitsGap,
                         ),
-                        const UpgradeBenefitItem(text: '解锁自定义设备头像等 Pro 功能'),
-                        const UpgradeBenefitItem(text: '订阅有效期内持续使用已开放高级功能'),
+                        const UpgradeBenefitItem(text: '多留一份清楚的电子账'),
+                        const UpgradeBenefitItem(text: 'Pro 与 Max 均为年度自动续期订阅'),
                         UpgradePlanCard(
-                          title: _UpgradePlan.annual.planCardTitle,
+                          title: _UpgradePlan.pro.planCardTitle,
                           subtitle1: _planSubtitle(
                             snapshot: snapshot,
-                            plan: _UpgradePlan.annual,
+                            plan: _UpgradePlan.pro,
                           ),
-                          subtitle2: '订阅有效期内持续使用当前 Pro 权益。',
-                          badge: '推荐',
-                          emphasized: _selectedPlan == _UpgradePlan.annual,
+                          subtitle2: _UpgradePlan.pro.planCardBody,
+                          emphasized: _selectedPlan == _UpgradePlan.pro,
                           onTap: snapshot.isBusy
                               ? null
                               : () => setState(
-                                  () => _selectedPlan = _UpgradePlan.annual,
+                                  () => _selectedPlan = _UpgradePlan.pro,
                                 ),
                         ),
                         const SizedBox(height: DeviceTokens.upgradePlanGap),
                         UpgradePlanCard(
-                          title: _UpgradePlan.monthly.planCardTitle,
+                          title: _UpgradePlan.max.planCardTitle,
                           subtitle1: _planSubtitle(
                             snapshot: snapshot,
-                            plan: _UpgradePlan.monthly,
+                            plan: _UpgradePlan.max,
                           ),
-                          subtitle2: '按月订阅，订阅有效期内持续使用当前 Pro 权益。',
-                          emphasized: _selectedPlan == _UpgradePlan.monthly,
+                          subtitle2: _UpgradePlan.max.planCardBody,
+                          badge: '包含 Pro',
+                          emphasized: _selectedPlan == _UpgradePlan.max,
                           onTap: snapshot.isBusy
                               ? null
                               : () => setState(
-                                  () => _selectedPlan = _UpgradePlan.monthly,
+                                  () => _selectedPlan = _UpgradePlan.max,
                                 ),
                         ),
                         _buildStatusMessage(context, snapshot),
