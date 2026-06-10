@@ -136,6 +136,91 @@ void main() {
 
     expect(find.text('terms page'), findsOneWidget);
   });
+
+  testWidgets('keyboard inset keeps login layout size stable', (
+    WidgetTester tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(390, 844);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    final store = _MemoryPhoneLoginStore();
+    final verificationService = _FakePhoneVerificationService();
+
+    Future<void> pumpLogin({required double keyboardInset}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(390, 844),
+              viewInsets: EdgeInsets.only(bottom: keyboardInset),
+            ),
+            child: PhoneLoginGate(
+              store: store,
+              verificationService: verificationService,
+              child: const Text('home'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pumpLogin(keyboardInset: 0);
+
+    final titleSize = tester.getSize(find.text('手机号登录'));
+    final phoneFieldSize = tester.getSize(find.byType(TextField).at(0));
+    final codeFieldSize = tester.getSize(find.byType(TextField).at(1));
+    final loginButtonSize = tester.getSize(
+      find.widgetWithText(ElevatedButton, '登录'),
+    );
+
+    await pumpLogin(keyboardInset: 320);
+    await tester.tap(find.byType(TextField).at(0));
+    await tester.pump();
+
+    expect(_sameSize(tester.getSize(find.text('手机号登录')), titleSize), isTrue);
+    expect(
+      _sameSize(tester.getSize(find.byType(TextField).at(0)), phoneFieldSize),
+      isTrue,
+    );
+    expect(
+      _sameSize(tester.getSize(find.byType(TextField).at(1)), codeFieldSize),
+      isTrue,
+    );
+    expect(
+      _sameSize(
+        tester.getSize(find.widgetWithText(ElevatedButton, '登录')),
+        loginButtonSize,
+      ),
+      isTrue,
+    );
+
+    final keyboardTop = tester.view.physicalSize.height - 320;
+    final phoneFieldBottom = tester
+        .getBottomLeft(find.byType(TextField).at(0))
+        .dy;
+    expect(phoneFieldBottom, lessThan(keyboardTop));
+
+    await tester.tap(find.byType(TextField).at(1));
+    await tester.pump();
+
+    final codeFieldBottom = tester
+        .getBottomLeft(find.byType(TextField).at(1))
+        .dy;
+    expect(codeFieldBottom, lessThan(keyboardTop));
+  });
+}
+
+bool _sameSize(Size actual, Size expected) {
+  const epsilon = 0.001;
+  return (actual.width - expected.width).abs() <= epsilon &&
+      (actual.height - expected.height).abs() <= epsilon;
 }
 
 class _MemoryPhoneLoginStore implements PhoneLoginStore {

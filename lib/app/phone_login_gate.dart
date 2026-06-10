@@ -538,8 +538,10 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _loginBackground,
+      resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
           final widthScale = constraints.maxWidth / _loginBaseWidth;
           final viewportRatio = constraints.maxHeight / constraints.maxWidth;
           final baseRatio = _loginBaseHeight / _loginBaseWidth;
@@ -553,6 +555,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
           );
 
           return SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: keyboardInset),
             child: SizedBox(
               width: constraints.maxWidth,
               height: pageHeight,
