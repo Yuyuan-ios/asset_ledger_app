@@ -92,6 +92,211 @@ void main() {
     expect(find.text('手机号登录'), findsNothing);
   });
 
+  testWidgets('requesting code focuses code field after success', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    final codeField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(codeField.focusNode?.hasFocus, isTrue);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('failed code request does not focus code field', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService(
+      sendError: const PhoneVerificationException('验证码获取失败，请稍后重试'),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    expect(find.text('重新获取(60s)'), findsNothing);
+    final codeField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(codeField.focusNode?.hasFocus, isFalse);
+  });
+
+  testWidgets('phone and code fields expose autofill hints', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: _FakePhoneVerificationService(),
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final phoneField = tester.widget<TextField>(find.byType(TextField).at(0));
+    final codeField = tester.widget<TextField>(find.byType(TextField).at(1));
+
+    expect(phoneField.autofillHints, contains(AutofillHints.telephoneNumber));
+    expect(codeField.autofillHints, contains(AutofillHints.oneTimeCode));
+  });
+
+  testWidgets('requesting code starts cooldown and disables request button', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    expect(find.text('重新获取(60s)'), findsOneWidget);
+    final cooldownButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '重新获取(60s)'),
+    );
+    expect(cooldownButton.onPressed, isNull);
+
+    await tester.tap(find.text('重新获取(60s)'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('cooldown counts down and re-enables request button', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    expect(find.text('重新获取(60s)'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('重新获取(59s)'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 59));
+
+    expect(find.text('重新获取(1s)'), findsNothing);
+    final requestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '获取验证码'),
+    );
+    expect(requestButton.onPressed, isNotNull);
+
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 2);
+    expect(find.text('重新获取(60s)'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('failed request does not start cooldown', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService(
+      sendError: const PhoneVerificationException('验证码获取失败，请稍后重试'),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    expect(find.text('重新获取(60s)'), findsNothing);
+    expect(find.text('验证码获取失败，请稍后重试'), findsOneWidget);
+    final requestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '获取验证码'),
+    );
+    expect(requestButton.onPressed, isNotNull);
+
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 2);
+    expect(find.text('重新获取(60s)'), findsNothing);
+  });
+
   testWidgets('changing phone after code request clears requested code', (
     WidgetTester tester,
   ) async {
@@ -113,15 +318,29 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('获取验证码'));
     await tester.pump();
+    expect(find.text('重新获取(60s)'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(1), '123456');
     await tester.enterText(find.byType(TextField).at(0), '13900139000');
     await tester.pump();
 
+    expect(find.text('重新获取(60s)'), findsNothing);
+    final requestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '获取验证码'),
+    );
+    expect(requestButton.onPressed, isNotNull);
     await tester.ensureVisible(find.text('登录'));
     final loginButton = tester.widget<ElevatedButton>(
       find.widgetWithText(ElevatedButton, '登录'),
     );
     expect(loginButton.onPressed, isNull);
+
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 2);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
   testWidgets('legal links open privacy policy and terms pages', (
@@ -259,12 +478,19 @@ class _MemoryPhoneLoginStore implements PhoneLoginStore {
 }
 
 class _FakePhoneVerificationService implements PhoneVerificationService {
+  _FakePhoneVerificationService({this.sendError});
+
+  final Object? sendError;
   int sendCalls = 0;
   String? sentPhone;
 
   @override
   Future<PhoneVerificationSendResult> sendCode(String phoneNumber) async {
     sendCalls++;
+    final error = sendError;
+    if (error != null) {
+      throw error;
+    }
     sentPhone = phoneNumber;
     return const PhoneVerificationSendResult(message: '验证码已发送');
   }
