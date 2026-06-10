@@ -92,6 +92,87 @@ void main() {
     expect(find.text('手机号登录'), findsNothing);
   });
 
+  testWidgets('requesting code focuses code field after success', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    final codeField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(codeField.focusNode?.hasFocus, isTrue);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('failed code request does not focus code field', (
+    WidgetTester tester,
+  ) async {
+    final verificationService = _FakePhoneVerificationService(
+      sendError: const PhoneVerificationException('验证码获取失败，请稍后重试'),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: verificationService,
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    await tester.tap(find.text('获取验证码'));
+    await tester.pump();
+
+    expect(verificationService.sendCalls, 1);
+    expect(find.text('重新获取(60s)'), findsNothing);
+    final codeField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(codeField.focusNode?.hasFocus, isFalse);
+  });
+
+  testWidgets('phone and code fields expose autofill hints', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: _MemoryPhoneLoginStore(),
+          verificationService: _FakePhoneVerificationService(),
+          child: const Text('home'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final phoneField = tester.widget<TextField>(find.byType(TextField).at(0));
+    final codeField = tester.widget<TextField>(find.byType(TextField).at(1));
+
+    expect(phoneField.autofillHints, contains(AutofillHints.telephoneNumber));
+    expect(codeField.autofillHints, contains(AutofillHints.oneTimeCode));
+  });
+
   testWidgets('requesting code starts cooldown and disables request button', (
     WidgetTester tester,
   ) async {
