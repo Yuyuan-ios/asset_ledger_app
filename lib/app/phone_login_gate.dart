@@ -75,6 +75,15 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
     setState(() => _session = session);
   }
 
+  Future<void> _handleLoginSkipped() async {
+    final session = PhoneLoginSession.skipped(
+      privacyAccepted: _session?.privacyAccepted ?? false,
+    );
+    await widget.store.save(session);
+    if (!mounted) return;
+    setState(() => _session = session);
+  }
+
   void _openPrivacyPolicy(BuildContext context) {
     final builder = widget.privacyPageBuilder;
     Navigator.of(context, rootNavigator: true).push<void>(
@@ -103,7 +112,8 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
       );
     }
 
-    if (session.loggedIn && session.privacyAccepted) {
+    if ((session.isAuthenticated && session.privacyAccepted) ||
+        session.isSkipped) {
       return widget.child;
     }
 
@@ -111,6 +121,7 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
       verificationService: _verificationService,
       initialAgreementAccepted: session.privacyAccepted,
       onLoggedIn: _handleLoggedIn,
+      onLoginSkipped: _handleLoginSkipped,
       onOpenPrivacyPolicy: () => _openPrivacyPolicy(context),
       onOpenTerms: () => _openTerms(context),
     );
@@ -123,6 +134,7 @@ class PhoneLoginPage extends StatefulWidget {
     required this.verificationService,
     required this.initialAgreementAccepted,
     required this.onLoggedIn,
+    required this.onLoginSkipped,
     required this.onOpenPrivacyPolicy,
     required this.onOpenTerms,
   });
@@ -135,6 +147,7 @@ class PhoneLoginPage extends StatefulWidget {
     required int? tokenExpiresAt,
   })
   onLoggedIn;
+  final Future<void> Function() onLoginSkipped;
   final VoidCallback onOpenPrivacyPolicy;
   final VoidCallback onOpenTerms;
 
@@ -444,6 +457,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                       },
                       onRequestCode: _requestCode,
                       onLogin: _login,
+                      onLoginSkipped: widget.onLoginSkipped,
                       onOpenPrivacyPolicy: widget.onOpenPrivacyPolicy,
                       onOpenTerms: widget.onOpenTerms,
                     ),
