@@ -9,7 +9,7 @@ abstract class SubscriptionStoreGateway {
 
   Future<bool> buyNonConsumable({required PurchaseParam purchaseParam});
 
-  Future<void> restorePurchases();
+  Future<void> restorePurchases({String? applicationUserName});
 
   Future<void> completePurchase(PurchaseDetails purchase);
 }
@@ -39,7 +39,11 @@ class InAppPurchaseSubscriptionStoreGateway
   }
 
   @override
-  Future<void> restorePurchases() => _inAppPurchase.restorePurchases();
+  Future<void> restorePurchases({String? applicationUserName}) {
+    return _inAppPurchase.restorePurchases(
+      applicationUserName: applicationUserName,
+    );
+  }
 
   @override
   Future<void> completePurchase(PurchaseDetails purchase) {
@@ -72,7 +76,7 @@ class UnavailableSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }
 
   @override
-  Future<void> restorePurchases() async {}
+  Future<void> restorePurchases({String? applicationUserName}) async {}
 
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {}

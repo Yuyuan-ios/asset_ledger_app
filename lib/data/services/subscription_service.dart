@@ -5,6 +5,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../core/config/subscription_product_ids.dart';
 import 'subscription_entitlement_cache.dart';
+import 'subscription_identity_store.dart';
 import 'subscription_store_gateway.dart';
 import 'subscription_verification_repository.dart';
 import 'subscription_verification_repository_factory.dart';
@@ -126,6 +127,8 @@ class SubscriptionService {
       createDefaultSubscriptionVerificationRepository();
   static SubscriptionEntitlementCache _entitlementCache =
       const SharedPreferencesSubscriptionEntitlementCache();
+  static SubscriptionIdentityStore _identityStore =
+      SharedPreferencesSubscriptionIdentityStore();
 
   static SubscriptionSnapshot get snapshot => notifier.value;
 
@@ -237,8 +240,15 @@ class SubscriptionService {
     );
 
     try {
+      final appAccountToken = await _identityStore
+          .readOrCreateAppAccountToken();
       final purchaseParam = PurchaseParam(productDetails: product);
-      await _storeGateway.buyNonConsumable(purchaseParam: purchaseParam);
+      await _storeGateway.buyNonConsumable(
+        purchaseParam: PurchaseParam(
+          productDetails: purchaseParam.productDetails,
+          applicationUserName: appAccountToken,
+        ),
+      );
     } catch (error) {
       _setSnapshot(
         snapshot.copyWith(
@@ -262,7 +272,11 @@ class SubscriptionService {
     );
 
     try {
-      await _storeGateway.restorePurchases();
+      final appAccountToken = await _identityStore
+          .readOrCreateAppAccountToken();
+      await _storeGateway.restorePurchases(
+        applicationUserName: appAccountToken,
+      );
     } catch (error) {
       _setSnapshot(
         snapshot.copyWith(
@@ -455,6 +469,7 @@ class SubscriptionService {
       _verificationRepository =
           createDefaultSubscriptionVerificationRepository();
       _entitlementCache = const SharedPreferencesSubscriptionEntitlementCache();
+      _identityStore = SharedPreferencesSubscriptionIdentityStore();
       notifier.value = SubscriptionSnapshot.initial();
       return true;
     }());
@@ -465,6 +480,7 @@ class SubscriptionService {
     SubscriptionStoreGateway? storeGateway,
     SubscriptionVerificationRepository? verificationRepository,
     SubscriptionEntitlementCache? entitlementCache,
+    SubscriptionIdentityStore? identityStore,
   }) {
     assert(() {
       if (storeGateway != null) {
@@ -475,6 +491,9 @@ class SubscriptionService {
       }
       if (entitlementCache != null) {
         _entitlementCache = entitlementCache;
+      }
+      if (identityStore != null) {
+        _identityStore = identityStore;
       }
       return true;
     }());

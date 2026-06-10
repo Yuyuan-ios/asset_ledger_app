@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:asset_ledger/data/services/subscription_entitlement_cache.dart';
+import 'package:asset_ledger/data/services/subscription_identity_store.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
 import 'package:asset_ledger/data/services/subscription_store_gateway.dart';
 import 'package:asset_ledger/data/services/subscription_verification_repository.dart';
@@ -10,16 +11,19 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 void main() {
   late FakeVerificationRepository verificationRepository;
   late MemoryEntitlementCache entitlementCache;
+  late MemoryIdentityStore identityStore;
   late FakeSubscriptionStoreGateway storeGateway;
 
   setUp(() {
     verificationRepository = FakeVerificationRepository();
     entitlementCache = MemoryEntitlementCache();
+    identityStore = MemoryIdentityStore('00000000-0000-4000-8000-000000000001');
     storeGateway = FakeSubscriptionStoreGateway();
     SubscriptionService.configureForTest(
       storeGateway: storeGateway,
       verificationRepository: verificationRepository,
       entitlementCache: entitlementCache,
+      identityStore: identityStore,
     );
   });
 
@@ -105,6 +109,33 @@ void main() {
         '¥6.00',
       );
       expect(SubscriptionService.snapshot.errorMessage, isNull);
+    });
+
+    test('purchase and restore attach the stable appAccountToken', () async {
+      storeGateway.productDetailsResponse = ProductDetailsResponse(
+        productDetails: [
+          productDetails(
+            id: SubscriptionService.yearlyProductId,
+            price: '¥6.00',
+          ),
+        ],
+        notFoundIDs: const [],
+      );
+
+      await SubscriptionService.loadProducts();
+      await SubscriptionService.buySelectedProduct(
+        SubscriptionProductKind.yearly,
+      );
+      await SubscriptionService.restorePurchases();
+
+      expect(
+        storeGateway.lastPurchaseParam?.applicationUserName,
+        '00000000-0000-4000-8000-000000000001',
+      );
+      expect(
+        storeGateway.lastRestoreApplicationUserName,
+        '00000000-0000-4000-8000-000000000001',
+      );
     });
 
     test('purchased but verificationFailed does not unlock pro', () async {
@@ -313,6 +344,21 @@ class MemoryEntitlementCache implements SubscriptionEntitlementCache {
   }
 }
 
+class MemoryIdentityStore implements SubscriptionIdentityStore {
+  MemoryIdentityStore(this.token);
+
+  String token;
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<String?> readAppAccountToken() async => token;
+
+  @override
+  Future<String> readOrCreateAppAccountToken() async => token;
+}
+
 class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   final completedPurchases = <PurchaseDetails>[];
   final purchaseController =
@@ -324,6 +370,7 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
     notFoundIDs: const [],
   );
   PurchaseParam? lastPurchaseParam;
+  String? lastRestoreApplicationUserName;
   var restoreCallCount = 0;
 
   @override
@@ -346,8 +393,9 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }
 
   @override
-  Future<void> restorePurchases() async {
+  Future<void> restorePurchases({String? applicationUserName}) async {
     restoreCallCount++;
+    lastRestoreApplicationUserName = applicationUserName;
   }
 
   @override
