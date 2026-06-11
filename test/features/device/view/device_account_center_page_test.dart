@@ -1,7 +1,9 @@
 import 'package:asset_ledger/app/phone_login_store.dart';
+import 'package:asset_ledger/core/measure/measure_unit.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
 import 'package:asset_ledger/data/services/subscription_verification_repository.dart';
 import 'package:asset_ledger/features/device/domain/entities/device.dart';
+import 'package:asset_ledger/features/device/domain/services/device_business_ledger.dart';
 import 'package:asset_ledger/features/device/view/device_account_center_page.dart';
 import 'package:asset_ledger/features/device/view/device_page_sections.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +41,83 @@ void main() {
     expect(find.text('账号与同步'), findsOneWidget);
     expect(find.text('账户中心'), findsOneWidget);
     expect(find.text('未登录 · 登录后可备份与同步'), findsOneWidget);
+  });
+
+  testWidgets('device page sections show business ledger summaries', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: buildDevicePageSections(
+              devices: const <Device>[
+                Device(
+                  id: 1,
+                  name: 'SANY 1#',
+                  brand: 'SANY',
+                  defaultUnitPrice: 100,
+                  baseMeterHours: 0,
+                ),
+              ],
+              handlers: DevicePageSectionHandlers(
+                onOpenUpgradePage: () {},
+                onOpenAccountCenter: () {},
+                accountCenterSubtitle: '未登录 · 登录后可备份与同步',
+                onOpenAddDeviceFlow: () {},
+                onOpenRateApp: () {},
+                onOpenTermsPage: () {},
+                onOpenPrivacyPage: () {},
+                onOpenContact: () {},
+                onDeviceTap: (_) {},
+                onDeviceLongPress: (_) {},
+                businessLedgers: const [
+                  DeviceBusinessLedger(
+                    deviceId: 1,
+                    deviceName: 'SANY 1#',
+                    incomeFen: 155000,
+                    unitTotals: [
+                      DeviceBusinessUnitTotal(
+                        unit: MeasureUnit.hour,
+                        quantityScaled: 2500,
+                      ),
+                      DeviceBusinessUnitTotal(
+                        unit: MeasureUnit.trip,
+                        quantityScaled: 3000,
+                      ),
+                    ],
+                    projects: [
+                      DeviceBusinessProjectHistory(
+                        projectId: 'p1',
+                        projectName: '李洋 · 万达',
+                        minYmd: 20260103,
+                        receivableFen: 55000,
+                        receivedFen: 10000,
+                        writeOffFen: 0,
+                        remainingFen: 45000,
+                        paymentStatus: DeviceBusinessPaymentStatus.partial,
+                        unitTotals: [
+                          DeviceBusinessUnitTotal(
+                            unit: MeasureUnit.hour,
+                            quantityScaled: 2500,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('设备经营'), findsOneWidget);
+    expect(find.text('SANY 1#'), findsOneWidget);
+    expect(find.textContaining('收入 ¥1550'), findsOneWidget);
+    expect(find.textContaining('2.5小时、3趟'), findsOneWidget);
+    expect(find.textContaining('1 项 · 待收 ¥450'), findsOneWidget);
   });
 
   testWidgets(
