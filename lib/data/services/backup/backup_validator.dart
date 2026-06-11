@@ -271,6 +271,16 @@ class _BackupRestoreValidator {
         // R5.26-B3：旧备份缺 income_fen 时按 income 回填整数分镜像，避免回灌出
         // NULL income_fen；已有非 NULL income_fen 不被覆盖。
         normalized['income_fen'] ??= _fenFromYuan(normalized['income']);
+        // S2/v33：旧备份缺 unit/quantity_scaled 时按 type/hours 回填镜像；
+        // rent 行 quantity 保持 null（租期计量语义未定），已有非 NULL 不覆盖。
+        normalized['unit'] ??= normalized['type'] == 'rent' ? 'RENT' : 'HOUR';
+        if (normalized['type'] != 'rent') {
+          normalized['quantity_scaled'] ??= _quantityScaledFromHours(
+            normalized['hours'],
+          );
+        } else {
+          normalized.putIfAbsent('quantity_scaled', () => null);
+        }
         break;
       case 'account_payments':
         if (allowLegacyProjectIdentity) {
@@ -542,6 +552,14 @@ class _BackupRestoreValidator {
     if (!_isNumber(row['income'])) return 'invalid_timing_records_income';
     if (!_isNullableInt(row['income_fen'])) {
       return 'invalid_timing_records_income_fen';
+    }
+    final unit = row['unit'];
+    if (unit != null &&
+        (unit is! String || MeasureUnitCodec.tryFromDbValue(unit) == null)) {
+      return 'invalid_timing_records_unit';
+    }
+    if (!_isNullableInt(row['quantity_scaled'])) {
+      return 'invalid_timing_records_quantity_scaled';
     }
     if (!_isNullableInt(row['allocation_cutoff_date'])) {
       return 'invalid_timing_records_allocation_cutoff_date';
@@ -876,6 +894,11 @@ class _BackupRestoreValidator {
   static int? _fenFromYuan(Object? value) {
     if (value == null) return null;
     if (value is num) return (value * 100).round();
+    return null;
+  }
+
+  static int? _quantityScaledFromHours(Object? hours) {
+    if (hours is num) return (hours * 1000).round();
     return null;
   }
 

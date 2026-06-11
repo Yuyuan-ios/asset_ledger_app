@@ -101,10 +101,14 @@ class AppDatabase {
   // - v32：timing_records 新增 nullable display_end_date；
   //        rent/台班 UI inclusive 展示结束日，仅用于记录展示与编辑回填。
   //        additive ADD COLUMN，不回填、不重建表、不参与收入/账户/结清计算。
+  // - v33：timing_records 新增 nullable unit / quantity_scaled（S2 计量泛化
+  //        第一片）。additive ADD COLUMN + 回填（hours 行 unit='HOUR'、
+  //        quantity_scaled=round(hours*1000)；rent 行 unit='RENT'、quantity
+  //        保持 NULL）。hours/type 仍是权威，读路径不切换。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 32;
+  static const int _dbVersion = 33;
 
   static int get schemaVersion => _dbVersion;
 
