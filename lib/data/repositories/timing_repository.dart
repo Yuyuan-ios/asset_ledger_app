@@ -5,6 +5,7 @@
 // 1.1 项目内：数据库入口（统一拿到 sqflite Database 实例）
 import 'package:sqflite/sqflite.dart';
 
+import '../../core/measure/measure_unit.dart';
 import '../db/database.dart';
 
 // 1.2 项目内：计时记录模型（TimingRecord / TimingType）
@@ -284,6 +285,13 @@ class SqfliteTimingRepository implements TimingRepository {
       'end_meter': r.endMeter,
       'hours': r.hours,
       'income': r.income,
+      // fen 主存镜像与 REAL income 双写。v34 起 income_fen 为 NOT NULL,由
+      // schema 强制——此前 _toRow 漏写该列,落库一直依赖 onOpen ensure 回填,
+      // 读路径靠 REAL 回退掩盖;NOT NULL 翻转暴露后在此补齐写路径。
+      'income_fen': r.incomeFen,
+      // S2/v33 统一计量镜像(与 type/hours 双写;rent 行 quantity 为 null)。
+      'unit': r.unit.dbValue,
+      'quantity_scaled': r.quantityScaled,
       // ✅ v6：包油规则（不计入燃油效率）
       'exclude_from_fuel_eff': r.excludeFromFuelEfficiency ? 1 : 0,
       'is_breaking': r.isBreaking ? 1 : 0,

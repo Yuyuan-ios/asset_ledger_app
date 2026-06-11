@@ -105,10 +105,14 @@ class AppDatabase {
   //        第一片）。additive ADD COLUMN + 回填（hours 行 unit='HOUR'、
   //        quantity_scaled=round(hours*1000)；rent 行 unit='RENT'、quantity
   //        保持 NULL）。hours/type 仍是权威，读路径不切换。
+  // - v34：timing_records.income_fen 提升为 INTEGER NOT NULL（重建表）。
+  //        onUpgrade 刻意为空（timing 非叶子表，事务内 FK PRAGMA 不生效，
+  //        DROP 会级联删 timing_calculation_history）；重建走 onOpen 的
+  //        ensureTimingIncomeFenNotNull。unit/quantity_scaled 保持 nullable。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 33;
+  static const int _dbVersion = 34;
 
   static int get schemaVersion => _dbVersion;
 

@@ -284,6 +284,7 @@ void main() {
             'end_meter': 1.0,
             'hours': 1.0,
             'income': 380.0,
+            'income_fen': 38000,
             'exclude_from_fuel_eff': 0,
             'is_breaking': 0,
           }),
@@ -301,6 +302,7 @@ void main() {
           'end_meter': 1.0,
           'hours': 1.0,
           'income': 380.0,
+          'income_fen': 38000,
           'exclude_from_fuel_eff': 0,
           'is_breaking': 0,
         });

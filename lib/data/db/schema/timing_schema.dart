@@ -19,7 +19,7 @@ class TimingSchema {
         end_meter REAL NOT NULL,
         hours REAL NOT NULL,
         income REAL NOT NULL,
-        income_fen INTEGER,
+        income_fen INTEGER NOT NULL,
         unit TEXT,
         quantity_scaled INTEGER,
         exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0,
