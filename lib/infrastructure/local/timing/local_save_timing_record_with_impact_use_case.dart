@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/measure/measure_unit.dart';
 import '../../../core/operations/operation_access_control.dart';
 import '../../../data/db/database.dart';
 import '../../../data/models/device.dart';
@@ -102,6 +103,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     required TimingRecord? editing,
     required TimingRecord record,
   }) async {
+    _validateNewRecordQuantityAuthority(editing: editing, record: record);
     final devices = await _deviceRepository.listAll();
     final rates = await _projectRateRepository.listAll();
     final timestamp = _now().toUtc().toIso8601String();
@@ -143,6 +145,10 @@ class LocalSaveTimingRecordWithImpactUseCase
     required SaveTimingRecordPreparation preparation,
     List<TimingCalculationHistory> calculationHistories = const [],
   }) async {
+    _validateNewRecordQuantityAuthority(
+      editing: editing,
+      record: preparation.recordToSave,
+    );
     final editingRecordId = editing?.id;
     if (editing != null && editingRecordId == null) {
       throw const TimingRecordSaveStaleException('编辑模式下计时记录必须带 id');
@@ -567,6 +573,28 @@ class LocalSaveTimingRecordWithImpactUseCase
     if (settlementRevoked) parts.add('已自动撤销结清状态');
     return '已保存，${parts.join('，')}。';
   }
+
+  static void _validateNewRecordQuantityAuthority({
+    required TimingRecord? editing,
+    required TimingRecord record,
+  }) {
+    if (editing != null) return;
+    if (record.unit == MeasureUnit.rent) return;
+    if (record.quantityScaled == null) {
+      throw const TimingRecordQuantityAuthorityException(
+        '新建计时记录缺少 quantity_scaled',
+      );
+    }
+  }
+}
+
+class TimingRecordQuantityAuthorityException implements Exception {
+  const TimingRecordQuantityAuthorityException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'TimingRecordQuantityAuthorityException: $message';
 }
 
 /// R5.26-A: internal result of resolving the save's project_id. [createdProject]
