@@ -1,7 +1,9 @@
+import 'package:asset_ledger/core/measure/energy_type.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
+import 'package:asset_ledger/features/timing/domain/services/timing_entry_template.dart';
 import 'package:asset_ledger/components/pickers/app_date_picker_dialog.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_detail_content_pattern.dart';
@@ -16,6 +18,7 @@ void main() {
     List<TimingRecord> records = const [],
     required List<Device> devices,
     List<TimingCalculationHistory> existingCalculationHistories = const [],
+    TimingEntryTemplateResolver? resolveEntryTemplate,
     TimingDetailSubmitHandler? onSubmit,
   }) async {
     final deviceItems = devices
@@ -58,6 +61,7 @@ void main() {
                   int? excludeId,
                 }) => null,
             resolveCurrentMeter: (_) => 0,
+            resolveEntryTemplate: resolveEntryTemplate,
             onSubmit: onSubmit ?? (_, _) async {},
             onToast: (_) {},
           ),
@@ -205,6 +209,53 @@ void main() {
 
     expect(find.text('破碎'), findsNothing);
   });
+
+  testWidgets('uses the entry template energy label for fuel equipment', (
+    WidgetTester tester,
+  ) async {
+    await pumpTimingDetail(tester, devices: [buildDevice(id: 1)]);
+
+    expect(find.text('包油'), findsOneWidget);
+    expect(find.text('包油/包电'), findsNothing);
+  });
+
+  testWidgets(
+    'hides energy marker when the entry template energy type is NONE',
+    (WidgetTester tester) async {
+      final key = GlobalKey<TimingDetailContentState>();
+      TimingRecord? submittedRecord;
+      const noEnergyTemplate = TimingEntryTemplate(
+        equipmentKey: 'no_energy',
+        equipmentLabel: '无能耗设备',
+        energyType: EnergyType.none,
+        unitLayouts: [
+          TimingEntryTemplates.hourLayout,
+          TimingEntryTemplates.rentLayout,
+        ],
+      );
+
+      await pumpTimingDetail(
+        tester,
+        key: key,
+        editing: buildEditableTimingRecord().copyWith(
+          excludeFromFuelEfficiency: true,
+        ),
+        devices: [buildDevice(id: 1)],
+        resolveEntryTemplate: (_) => noEnergyTemplate,
+        onSubmit: (record, _) async {
+          submittedRecord = record;
+        },
+      );
+
+      expect(find.text('包油'), findsNothing);
+      expect(find.text('包油/包电'), findsNothing);
+
+      await key.currentState!.submit();
+      await tester.pumpAndSettle();
+
+      expect(submittedRecord?.excludeFromFuelEfficiency, isFalse);
+    },
+  );
 
   testWidgets('opens the calculator sheet when tapping the hours field', (
     WidgetTester tester,
