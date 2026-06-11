@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../data/services/project_share_file_picker.dart';
+import '../../../../data/share/jztshare/share_envelope.dart';
 
 /// 文件选择 + 读取结果（视图据此决定取消/报错/进入预览）。
 sealed class PickShareFileResult {
@@ -34,6 +35,7 @@ class PickExternalWorkShareFileUseCase {
 
   static const String invalidTypeMessage = '请选择 FleetLedger .jzt 分享包';
   static const String readErrorMessage = '读取分享包失败，请重新选择文件';
+  static const String fileTooLargeMessage = '分享包文件过大，无法导入';
 
   Future<PickShareFileResult> pick() async {
     final PickedShareFile? picked;
@@ -50,9 +52,20 @@ class PickExternalWorkShareFileUseCase {
 
     try {
       final bytes = picked.bytes;
-      final content = bytes != null
-          ? utf8.decode(bytes)
-          : await _readFromPath(picked.path);
+      final String content;
+      if (bytes != null) {
+        if (bytes.length > JztShareEnvelope.maxContentBytes) {
+          return const PickShareFileError(fileTooLargeMessage);
+        }
+        content = utf8.decode(bytes);
+      } else {
+        final file = _fileFromPath(picked.path);
+        // 先查文件长度再读取,避免把超大文件整个载入内存。
+        if (await file.length() > JztShareEnvelope.maxContentBytes) {
+          return const PickShareFileError(fileTooLargeMessage);
+        }
+        content = await file.readAsString();
+      }
       if (content.trim().isEmpty) {
         return const PickShareFileError(readErrorMessage);
       }
@@ -65,10 +78,10 @@ class PickExternalWorkShareFileUseCase {
   static bool isJztExtension(String name) =>
       name.toLowerCase().endsWith('.jzt');
 
-  Future<String> _readFromPath(String? path) async {
+  File _fileFromPath(String? path) {
     if (path == null || path.trim().isEmpty) {
       throw const FileSystemException('selected file path is unavailable');
     }
-    return File(path).readAsString();
+    return File(path);
   }
 }
