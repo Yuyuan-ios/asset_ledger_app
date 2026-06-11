@@ -370,8 +370,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('项目详情'), findsOneWidget);
-      expect(find.text('项目总额 ¥2900'), findsOneWidget);
-      expect(find.text('项目总额 ¥2000'), findsNothing);
+      // 隔离红线：合并卡详情总额只含我方应收,不混入已关联外协包金额。
+      expect(find.text('项目总额 ¥2000'), findsOneWidget);
+      expect(find.text('项目总额 ¥2900'), findsNothing);
     },
   );
 

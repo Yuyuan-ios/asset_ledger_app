@@ -1,6 +1,5 @@
 import '../../../core/utils/store_feedback.dart';
 import '../domain/services/external_work_receivable.dart';
-import '../domain/services/project_finance_calculator.dart';
 import '../model/account_view_model.dart';
 import '../model/project_title_formatter.dart';
 import '../state/account_filter_store.dart';
@@ -292,16 +291,18 @@ ExternalWorkReceivableRollup rollupExternalWorkReceivable(
   );
 }
 
-/// 把外协设备应收并入账户页计算结果：
-/// - 每个本地项目卡片总应收 += 其已关联外协包设备应收，并标记链条图标状态；
-/// - 总览总应收 / 待收 += 全部外协设备应收（每包只计一次，不重复）。
+/// 给账户页计算结果附加外协的**展示信息**（链条徽标、外协工时）。
+///
+/// §6.4/§6.5 隔离红线：外协是外部事实层，不得污染我方收入/应收统计——
+/// 本地项目卡片的应收/待收/比例与总览 totals **一律不并入**外协设备应收
+/// （「账户页可混排自己项目与项目外协，但总应收第一版不混入外协金额」）。
+/// 外协金额由账户页的外协独立分区（AccountExternalWorkProjectVM 列表）
+/// 单独展示与对账。
 AccountComputed augmentComputedWithExternalWork(
   AccountComputed computed,
   ExternalWorkReceivableRollup rollup,
 ) {
-  if (rollup.totalReceivableFen == 0 &&
-      rollup.totalReceivedFen == 0 &&
-      rollup.receivableFenByProjectId.isEmpty &&
+  if (rollup.receivableFenByProjectId.isEmpty &&
       rollup.hoursByProjectId.isEmpty) {
     return computed;
   }
@@ -311,28 +312,20 @@ AccountComputed augmentComputedWithExternalWork(
       _augmentProjectWithExternalWork(project, rollup),
   ];
 
-  final externalTotalYuan = rollup.totalReceivableFen / 100;
-  final externalReceivedYuan = rollup.totalReceivedFen / 100;
-  final newTotalReceivable = computed.totalReceivable + externalTotalYuan;
-  final newTotalReceived = computed.totalReceived + externalReceivedYuan;
-  final newTotalRemaining =
-      computed.totalRemaining + externalTotalYuan - externalReceivedYuan;
-  final newTotalRatio = newTotalReceivable <= 0
-      ? null
-      : newTotalReceived / newTotalReceivable;
-
   return AccountComputed(
     projects: augmentedProjects,
-    totalReceivable: newTotalReceivable,
-    totalReceived: newTotalReceived,
+    totalReceivable: computed.totalReceivable,
+    totalReceived: computed.totalReceived,
     totalWriteOff: computed.totalWriteOff,
-    totalRemaining: newTotalRemaining,
-    totalRatio: newTotalRatio,
+    totalRemaining: computed.totalRemaining,
+    totalRatio: computed.totalRatio,
     settlementRate: computed.settlementRate,
     deviceReceivables: computed.deviceReceivables,
   );
 }
 
+/// 仅附加展示信息：外协工时 + 链条徽标。我方 receivable/remaining/ratio
+/// 等财务数字保持原值（隔离红线，见 [augmentComputedWithExternalWork]）。
 AccountProjectVM _augmentProjectWithExternalWork(
   AccountProjectVM project,
   ExternalWorkReceivableRollup rollup,
@@ -342,7 +335,6 @@ AccountProjectVM _augmentProjectWithExternalWork(
     ...project.memberProjectIds.map((id) => id.trim()),
   }..removeWhere((id) => id.isEmpty);
 
-  var externalFen = 0;
   var externalHours = 0.0;
   var hasLinked = false;
   for (final id in ids) {
@@ -350,26 +342,13 @@ AccountProjectVM _augmentProjectWithExternalWork(
     final hours = rollup.hoursByProjectId[id];
     if (fen == null && hours == null) continue;
     hasLinked = true;
-    externalFen += fen ?? 0;
     externalHours += hours ?? 0;
   }
   if (!hasLinked) return project;
 
-  final externalYuan = externalFen / 100;
-  final newReceivable = project.receivable + externalYuan;
-  final finance = ProjectFinanceCalculator.summarizeTotals(
-    receivableFen: ProjectFinanceCalculator.yuanToFen(newReceivable),
-    receivedFen: ProjectFinanceCalculator.yuanToFen(project.received),
-    writeOffFen: ProjectFinanceCalculator.yuanToFen(project.writeOff),
-    toleranceFen: 1,
-  );
   return project.copyWith(
-    receivable: newReceivable,
-    remaining: finance.remaining,
     externalWorkHours: project.externalWorkHours + externalHours,
     hasLinkedExternalWork: true,
-    ratio: finance.cashRate,
-    settlementRatio: finance.settlementRate,
   );
 }
 

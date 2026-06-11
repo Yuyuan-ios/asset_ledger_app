@@ -76,9 +76,10 @@ void main() {
       expect(find.text('余远 · 鲜滩、尚义').hitTestable(), findsNothing);
       expect(find.text('王强 · 已关联工地'), findsNothing);
       expect(find.text('总应收'), findsOneWidget);
-      // 总览总应收 = 本地设备应收 ¥1000 + 外协设备应收（两包各计一次）
-      // 61800 + 1200000 + 90000 = 1351800 分 = ¥13518 → 合计 ¥14518。
-      expect(find.text('¥14518'), findsWidgets);
+      // §6.4/§6.5 隔离红线：总览总应收只含本地设备应收 ¥1000,
+      // 外协设备应收一律不混入(外协金额在外协独立分区单独展示)。
+      expect(find.text('¥1000'), findsWidgets);
+      expect(find.text('¥14518'), findsNothing);
 
       await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
       await tester.pumpAndSettle();
@@ -163,8 +164,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('项目详情'), findsOneWidget);
-    expect(find.text('项目总额 ¥1900'), findsOneWidget);
-    expect(find.text('项目总额 ¥1000'), findsNothing);
+    // 隔离红线：项目详情总额只含我方应收,不混入已关联外协包金额。
+    expect(find.text('项目总额 ¥1000'), findsOneWidget);
+    expect(find.text('项目总额 ¥1900'), findsNothing);
   });
 
   testWidgets(
