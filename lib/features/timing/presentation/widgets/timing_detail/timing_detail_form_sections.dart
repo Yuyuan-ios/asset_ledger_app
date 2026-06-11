@@ -164,8 +164,8 @@ extension TimingDetailFormSections on TimingDetailContentState {
     return _buildTwoOptionSegment(
       selectedIndex: _mode == WorkMode.hours ? 0 : 1,
       onTap: _selectModeIndex,
-      leftText: '工时',
-      rightText: '租金(台班)',
+      leftText: _hourLayout.modeLabel,
+      rightText: _rentLayout.modeLabel,
     );
   }
 

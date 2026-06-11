@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import '../../data/models/device.dart';
 import '../../data/models/project_device_rate.dart';
 import '../../data/models/timing_record.dart';
+import '../../core/measure/measure_unit.dart';
 import '../../features/timing/calculator/model/staged_timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import '../../features/timing/calculator/view/work_hour_calculator_sheet.dart';
+import '../../features/timing/domain/services/timing_entry_template.dart';
 import '../../components/fields/timing_time_block.dart';
 import 'exclude_fuel_switch_card_pattern.dart';
 import '../../tokens/mapper/bottom_sheet_tokens.dart';
@@ -65,6 +67,9 @@ typedef TimingDetailSubmitHandler =
       List<TimingCalculationHistory> calculationHistories,
     );
 
+typedef TimingEntryTemplateResolver =
+    TimingEntryTemplate Function(Device device);
+
 class TimingDetailContent extends StatefulWidget {
   const TimingDetailContent({
     super.key,
@@ -80,6 +85,7 @@ class TimingDetailContent extends StatefulWidget {
     required this.resolveIncome,
     required this.validateMeterBounds,
     required this.resolveCurrentMeter,
+    this.resolveEntryTemplate,
     this.existingCalculationHistories = const [],
     this.onCancel,
     required this.onSubmit,
@@ -98,6 +104,7 @@ class TimingDetailContent extends StatefulWidget {
   final TimingIncomeResolver resolveIncome;
   final TimingMeterBoundsValidator validateMeterBounds;
   final TimingCurrentMeterResolver resolveCurrentMeter;
+  final TimingEntryTemplateResolver? resolveEntryTemplate;
   final List<TimingCalculationHistory> existingCalculationHistories;
   final VoidCallback? onCancel;
   final TimingDetailSubmitHandler onSubmit;
@@ -144,6 +151,24 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     final editing = widget.editing;
     return editing != null && editing.deviceId == id && editing.isBreaking;
   }
+
+  TimingEntryTemplate get _entryTemplate {
+    final id = _selectedDeviceId;
+    final device = id == null ? null : widget.deviceById[id];
+    if (device == null) return TimingEntryTemplates.excavator;
+    final resolver =
+        widget.resolveEntryTemplate ?? TimingEntryTemplates.forDevice;
+    return resolver(device);
+  }
+
+  TimingEntryUnitLayout get _hourLayout =>
+      _entryTemplate.layoutFor(MeasureUnit.hour);
+
+  TimingEntryUnitLayout get _rentLayout =>
+      _entryTemplate.layoutFor(MeasureUnit.rent);
+
+  bool get _showsEnergyExclusionControl =>
+      _mode == WorkMode.hours && _entryTemplate.showsEnergyExclusion;
 
   @override
   void initState() {
@@ -377,6 +402,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     if (!_supportsBreakingMode && _attachmentMode != AttachmentMode.digging) {
       setState(() => _attachmentMode = AttachmentMode.digging);
     }
+    if (!_showsEnergyExclusionControl && _excludeFromFuelEfficiency) {
+      setState(() => _excludeFromFuelEfficiency = false);
+    }
   }
 
   Future<void> submit() async {
@@ -450,7 +478,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     }
 
     final type = isRent ? TimingType.rent : TimingType.hours;
-    final excludeFuel = !isRent && _excludeFromFuelEfficiency;
+    final excludeFuel =
+        !isRent && _showsEnergyExclusionControl && _excludeFromFuelEfficiency;
     final allocationEndExclusiveYmd = isRent
         ? null
         : _allocationEndExclusiveYmd();
@@ -566,6 +595,9 @@ class TimingDetailContentState extends State<TimingDetailContent> {
         _excludeFromFuelEfficiency = false;
         _attachmentMode = AttachmentMode.digging;
       }
+      if (!_entryTemplate.showsEnergyExclusion) {
+        _excludeFromFuelEfficiency = false;
+      }
     });
   }
 
@@ -674,7 +706,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                             child: _field(
                               controller: _hoursCtrl,
                               hint: _hoursCtrl.text,
-                              label: '工时（小时）',
+                              label: _hourLayout.quantityLabel,
                               onTap: _submitting
                                   ? null
                                   : _openWorkHourCalculator,
@@ -696,16 +728,20 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                         ],
                       ),
                       const SizedBox(height: TimingTokens.contentGap),
-                      ExcludeFuelSwitchCard(
-                        value: _excludeFromFuelEfficiency,
-                        onChanged: (v) =>
-                            setState(() => _excludeFromFuelEfficiency = v),
-                      ),
+                      if (_showsEnergyExclusionControl)
+                        ExcludeFuelSwitchCard(
+                          value: _excludeFromFuelEfficiency,
+                          title: _entryTemplate.energyExclusionTitle,
+                          description:
+                              _entryTemplate.energyExclusionDescription,
+                          onChanged: (v) =>
+                              setState(() => _excludeFromFuelEfficiency = v),
+                        ),
                     ] else ...[
                       _field(
                         controller: _hoursCtrl,
                         hint: '0.0（可空）',
-                        label: '工时（小时，可空）',
+                        label: _rentLayout.quantityLabel,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
