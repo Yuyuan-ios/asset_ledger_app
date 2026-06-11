@@ -157,7 +157,9 @@ class AccountProjectDetailSheetVmBuilder {
       final target = record.isBreaking
           ? breakingHoursByDevice
           : normalHoursByDevice;
-      target[record.deviceId] = (target[record.deviceId] ?? 0.0) + record.hours;
+      // S2 读路径：明细工时与账户聚合同源,读统一计量权威。
+      target[record.deviceId] =
+          (target[record.deviceId] ?? 0.0) + record.hoursFromQuantity;
     }
 
     final deviceRates = <int, double>{};
@@ -316,8 +318,9 @@ class AccountProjectDetailSheetVmBuilder {
         final target = record.isBreaking
             ? breakingHoursByDevice
             : normalHoursByDevice;
+        // S2 读路径：合并成员明细与账户聚合同源,读统一计量权威。
         target[record.deviceId] =
-            (target[record.deviceId] ?? 0.0) + record.hours;
+            (target[record.deviceId] ?? 0.0) + record.hoursFromQuantity;
       }
 
       final deviceIds = <int>{

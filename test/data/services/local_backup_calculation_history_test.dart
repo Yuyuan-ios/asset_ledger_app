@@ -948,6 +948,7 @@ Map<String, Object?> _timingRecordMap({
     'end_meter': 16.0,
     'hours': 16.0,
     'income': 1600.0,
+    'income_fen': 160000,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,
   };

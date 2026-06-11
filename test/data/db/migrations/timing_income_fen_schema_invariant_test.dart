@@ -8,11 +8,11 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../test_setup.dart';
 
-/// R5.26-B3：timing_records.income_fen schema readiness 不变式。
+/// R5.26-B3 → v34：timing_records.income_fen schema 不变式。
 ///
-/// 锁定 fresh schema：income_fen 存在且 nullable；income REAL 仍 NOT NULL。
-/// 本轮 income_fen 维持 nullable —— income (REAL) 仍是业务主口径，income_fen 仅作
-/// 存储/同步镜像，读路径切换留待 B4；不放宽其它 timing_records 字段。
+/// 锁定 fresh schema：income_fen 存在且 **NOT NULL**（v34/migration_034 起由
+/// schema 强制）；income REAL 兼容列仍 NOT NULL 保留。unit / quantity_scaled
+/// 保持 nullable（rent 行 quantity 合法为 NULL,v33 语义）;不放宽其它字段。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -42,17 +42,21 @@ void main() {
     try {
       final columns = await _columns(db, 'timing_records');
 
-      // income_fen 存在且 nullable（本轮不改 NOT NULL）。
+      // v34：income_fen NOT NULL 由 schema 强制。
       expect(columns.containsKey('income_fen'), isTrue);
       expect(
         _isNullable(columns['income_fen']!),
-        isTrue,
-        reason: 'B3 维持 income_fen nullable；income REAL 仍是业务主口径',
+        isFalse,
+        reason: 'v34/migration_034 起 income_fen 为 INTEGER NOT NULL',
       );
 
-      // income REAL 兼容列仍存在且仍 NOT NULL（本轮不动 REAL income）。
+      // income REAL 兼容列仍存在且仍 NOT NULL（不移除 REAL 兼容列）。
       expect(columns.containsKey('income'), isTrue);
       expect(_isNullable(columns['income']!), isFalse);
+
+      // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
+      expect(_isNullable(columns['unit']!), isTrue);
+      expect(_isNullable(columns['quantity_scaled']!), isTrue);
 
       // 不放宽其它字段白名单：核心列仍在。
       for (final expected in const [
@@ -70,6 +74,8 @@ void main() {
         'hours',
         'income',
         'income_fen',
+        'unit',
+        'quantity_scaled',
         'exclude_from_fuel_eff',
         'is_breaking',
       ]) {

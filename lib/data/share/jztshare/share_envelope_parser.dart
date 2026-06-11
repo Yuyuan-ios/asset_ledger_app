@@ -20,6 +20,14 @@ class JztShareEnvelopeParser {
   const JztShareEnvelopeParser();
 
   ParsedProjectExternalWorkShare parseProjectExternalWorkShare(String input) {
+    // 字符串长度(UTF-16 码元)是 UTF-8 字节数的保守下界;真实文件字节上限由
+    // 文件读取入口(pick use case)把守,这里兜底覆盖非文件调用路径。
+    if (input.length > JztShareEnvelope.maxContentBytes) {
+      throw const JztShareParseException(
+        JztShareErrorCodes.contentTooLarge,
+        'jztshare content exceeds the maximum allowed size',
+      );
+    }
     final root = _decodeRoot(input);
     final envelope = _parseEnvelope(root);
     final payload = ProjectExternalWorkSharePayload.fromMap(envelope.payload);

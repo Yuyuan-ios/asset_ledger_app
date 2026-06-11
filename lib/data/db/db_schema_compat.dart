@@ -113,6 +113,11 @@ class DbSchemaCompat {
     // merge_batch_total_amount_fen 已补列且 NULL 已回填），再重建为 NOT NULL。
     await DbMigrations.ensureAccountPaymentAmountFenNotNull(db);
     await DbMigrations.ensureTimingDisplayEndDate(db);
+    await DbMigrations.ensureTimingQuantityUnit(db);
+    // v34：必须在 ensureTimingIncomeFen / ensureTimingQuantityUnit（补列 +
+    // 回填）之后重建为 NOT NULL（COALESCE 再兜底）。timing 非叶子表,重建
+    // 只能走本 onOpen 路径（见 migration_034 类文档）。
+    await DbMigrations.ensureTimingIncomeFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
