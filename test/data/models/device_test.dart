@@ -47,6 +47,9 @@ void main() {
         'model': null,
         'default_unit_price': 99.5,
         'breaking_unit_price': null,
+        // v35：fen 镜像与 REAL 双写;breaking 未配置时 fen 同样为 null。
+        'default_unit_price_fen': 9950,
+        'breaking_unit_price_fen': null,
         'base_meter_hours': 10.0,
         'is_active': 1,
         'custom_avatar_path': null,

@@ -67,6 +67,13 @@ class Device {
   // -------------------------------------------------------------------
   final EquipmentType equipmentType;
 
+  // -------------------------------------------------------------------
+  // 1.10 单价整数分镜像（v35）：存储优先、REAL 派生回退。
+  // 仅 [Device.fromMap] 设置；其余构造默认 null（由 getter 派生）。
+  // -------------------------------------------------------------------
+  final int? _defaultUnitPriceFen;
+  final int? _breakingUnitPriceFen;
+
   const Device({
     this.id,
     required this.name,
@@ -74,11 +81,27 @@ class Device {
     this.model,
     required this.defaultUnitPrice,
     this.breakingUnitPrice,
+    int? defaultUnitPriceFen,
+    int? breakingUnitPriceFen,
     required this.baseMeterHours,
     this.isActive = true,
     this.customAvatarPath,
     this.equipmentType = EquipmentType.excavator,
-  });
+  }) : _defaultUnitPriceFen = defaultUnitPriceFen,
+       _breakingUnitPriceFen = breakingUnitPriceFen;
+
+  /// 默认单价的整数分（fen 主存读优先口径,v35）。优先返回存储的
+  /// default_unit_price_fen，legacy 行由 REAL 派生 round(×100) 回退。
+  int get defaultUnitPriceFen =>
+      _defaultUnitPriceFen ?? (defaultUnitPrice * 100).round();
+
+  /// 破碎单价的整数分。null 表示未单独配置（计算回落 default）。
+  int? get breakingUnitPriceFen {
+    final stored = _breakingUnitPriceFen;
+    if (stored != null) return stored;
+    final yuan = breakingUnitPrice;
+    return yuan == null ? null : (yuan * 100).round();
+  }
 
   Device copyWith({
     int? id,
@@ -119,6 +142,9 @@ class Device {
       'model': model,
       'default_unit_price': defaultUnitPrice,
       'breaking_unit_price': breakingUnitPrice,
+      // v35：fen 镜像与 REAL 双写;REAL 仍是读口径,切换留待 S1 收口。
+      'default_unit_price_fen': defaultUnitPriceFen,
+      'breaking_unit_price_fen': breakingUnitPriceFen,
       'base_meter_hours': baseMeterHours,
       'is_active': isActive ? 1 : 0,
       'custom_avatar_path': customAvatarPath,
@@ -134,6 +160,8 @@ class Device {
       model: map['model'] as String?,
       defaultUnitPrice: (map['default_unit_price'] as num?)?.toDouble() ?? 0.0,
       breakingUnitPrice: (map['breaking_unit_price'] as num?)?.toDouble(),
+      defaultUnitPriceFen: (map['default_unit_price_fen'] as num?)?.toInt(),
+      breakingUnitPriceFen: (map['breaking_unit_price_fen'] as num?)?.toInt(),
       baseMeterHours: (map['base_meter_hours'] as num?)?.toDouble() ?? 0.0,
       isActive: ((map['is_active'] as int?) ?? 1) == 1,
       customAvatarPath: map['custom_avatar_path'] as String?,

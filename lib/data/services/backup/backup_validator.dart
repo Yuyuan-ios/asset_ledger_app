@@ -257,6 +257,13 @@ class _BackupRestoreValidator {
         break;
       case 'devices':
         normalized['equipment_type'] ??= 'excavator';
+        // v35：旧备份缺单价 fen 镜像时按 REAL 回填;breaking 为 null 保持 null。
+        normalized['default_unit_price_fen'] ??= _fenFromYuan(
+          normalized['default_unit_price'],
+        );
+        normalized['breaking_unit_price_fen'] ??= _fenFromYuan(
+          normalized['breaking_unit_price'],
+        );
         break;
       case 'timing_records':
         normalized['contact'] ??= '';
@@ -306,6 +313,8 @@ class _BackupRestoreValidator {
           );
         }
         normalized['is_breaking'] ??= 0;
+        // v35：旧备份缺 rate_fen 时按 REAL rate 回填。
+        normalized['rate_fen'] ??= _fenFromYuan(normalized['rate']);
         break;
       case 'project_write_offs':
         normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
@@ -501,6 +510,12 @@ class _BackupRestoreValidator {
     if (!_isNullableNumber(row['breaking_unit_price'])) {
       return 'invalid_devices_breaking_unit_price';
     }
+    if (!_isNullableInt(row['default_unit_price_fen'])) {
+      return 'invalid_devices_default_unit_price_fen';
+    }
+    if (!_isNullableInt(row['breaking_unit_price_fen'])) {
+      return 'invalid_devices_breaking_unit_price_fen';
+    }
     if (!_isNumber(row['base_meter_hours'])) {
       return 'invalid_devices_base_meter_hours';
     }
@@ -661,6 +676,9 @@ class _BackupRestoreValidator {
       return 'invalid_project_device_rates_is_breaking';
     }
     if (!_isNumber(row['rate'])) return 'invalid_project_device_rates_rate';
+    if (!_isNullableInt(row['rate_fen'])) {
+      return 'invalid_project_device_rates_rate_fen';
+    }
     return null;
   }
 
