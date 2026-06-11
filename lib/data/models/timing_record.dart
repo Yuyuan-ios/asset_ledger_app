@@ -1,5 +1,6 @@
 // ==============================================================================
 
+import '../../core/measure/measure_unit.dart';
 import 'project_id.dart';
 import 'project_key.dart';
 // 📁 文件说明：计时记录模型 (timing_record.dart)
@@ -68,6 +69,14 @@ class TimingRecord {
   /// 由 [incomeFen] getter 回退派生。仅 [fromMap] 设置；其余构造默认 null。
   final int? _incomeFen;
 
+  /// 存储的计量单位（DB unit 列原值的解析结果，nullable）。null 表示 legacy 行，
+  /// 由 [unit] getter 按 [type] 派生。仅 [fromMap] 设置；其余构造默认 null。
+  final MeasureUnit? _storedUnit;
+
+  /// 存储的 quantity_scaled（DB 列原值，nullable）。null 时由 [quantityScaled]
+  /// getter 按 [hours] 派生镜像（rent 行保持 null）。仅 [fromMap] 设置。
+  final int? _quantityScaled;
+
   /// ✅ 是否排除在燃油效率统计之外
   /// true  = 包油 / 不计入油耗效率
   /// false = 正常计入（默认）
@@ -93,9 +102,13 @@ class TimingRecord {
     required this.hours,
     required this.income,
     int? incomeFen,
+    MeasureUnit? unit,
+    int? quantityScaled,
     this.excludeFromFuelEfficiency = false,
     this.isBreaking = false,
-  }) : _incomeFen = incomeFen;
+  }) : _incomeFen = incomeFen,
+       _storedUnit = unit,
+       _quantityScaled = quantityScaled;
 
   // ---------------------------------------------------------------------------
   // copyWith：用于编辑/更新记录
@@ -164,6 +177,11 @@ class TimingRecord {
       // (income*100)）。R5.26-B4 起 rent 应收读路径已优先 income_fen（缺失回退
       // income REAL）；income REAL 作为兼容列保留，不移除。
       'income_fen': incomeFen,
+      // S2 统一计量镜像双写（v33）：unit/quantity_scaled 与 type/hours 同步
+      // 落库；type/hours 仍是权威，读路径不切换。rent 行 quantity 暂为 null
+      // （租期计量语义留待租期模板落地时定义）。
+      'unit': unit.dbValue,
+      'quantity_scaled': quantityScaled,
       // SQLite 不支持 bool，这里统一用 0 / 1
       'exclude_from_fuel_eff': excludeFromFuelEfficiency ? 1 : 0,
       'is_breaking': isBreaking ? 1 : 0,
@@ -206,6 +224,8 @@ class TimingRecord {
       hours: (m['hours'] as num).toDouble(),
       income: (m['income'] as num).toDouble(),
       incomeFen: (m['income_fen'] as num?)?.toInt(),
+      unit: MeasureUnitCodec.tryFromDbValue(m['unit'] as String?),
+      quantityScaled: (m['quantity_scaled'] as num?)?.toInt(),
       excludeFromFuelEfficiency:
           ((m['exclude_from_fuel_eff'] as int?) ?? 0) == 1,
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
@@ -219,6 +239,18 @@ class TimingRecord {
   /// 收入据此 prefer fen（与旧 `Money.fromYuan(income).fen` 对一致数据逐记录等价）。
   /// **hours 应收不读此值**，仍由 hours×rate 重算；income_fen 对 hours 仅是快照镜像。
   int get incomeFen => _incomeFen ?? _yuanToFen(income);
+
+  /// 计量单位（统一计量模型镜像，《纲要》§3/§10.2）。优先返回存储的 unit；
+  /// legacy 行由 [type] 派生：rent → RENT，其余 → HOUR。type 仍是业务权威。
+  MeasureUnit get unit =>
+      _storedUnit ??
+      (type == TimingType.rent ? MeasureUnit.rent : MeasureUnit.hour);
+
+  /// 计量值定标整数（×1000，HOUR 下等同 hours_milli）。优先返回存储值；
+  /// hours 行由 [hours] 派生镜像；rent 行租期计量语义未定，返回 null。
+  int? get quantityScaled =>
+      _quantityScaled ??
+      (type == TimingType.rent ? null : (hours * 1000).round());
 
   static TimingType _parseType(Object? value) {
     if (value is String) {

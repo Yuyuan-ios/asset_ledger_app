@@ -380,6 +380,9 @@ const Map<String, String> _registeredTimingRecordWriteFiles = {
   // R5.26-B3：income_fen additive 迁移回填（UPDATE timing_records SET income_fen）
   // 是历史数据移动，刻意在 row-level sync 覆盖之外。
   'lib/data/db/migrations/migration_029.dart': 'migration exemption',
+  // S2/v33：unit / quantity_scaled additive 迁移回填（UPDATE timing_records
+  // SET unit / quantity_scaled）同为历史数据移动，刻意在 row-level sync 覆盖之外。
+  'lib/data/db/migrations/migration_033.dart': 'migration exemption',
 };
 
 const Set<String> _deferredRestoreAndMigrationExemptions = {
