@@ -1,0 +1,27 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Fleet Ledger",
+  "@appTitle": {
+    "description": "OS 任务切换器/窗口标题中的应用名(品牌名,跨语言保持一致)"
+  },
+  "tabTiming": "计时",
+  "@tabTiming": {
+    "description": "底部导航:计时记录入口"
+  },
+  "tabEnergy": "油电",
+  "@tabEnergy": {
+    "description": "底部导航:能耗入口。纲要 §10.4:原「燃油」改名「油电」,同时容纳燃油机械油耗与电动设备电量/续航统计"
+  },
+  "tabAccount": "账户",
+  "@tabAccount": {
+    "description": "底部导航:账户/应收入口"
+  },
+  "tabMaintenance": "维保",
+  "@tabMaintenance": {
+    "description": "底部导航:维修保养入口"
+  },
+  "tabDevice": "设备",
+  "@tabDevice": {
+    "description": "底部导航:设备管理入口"
+  }
+}
