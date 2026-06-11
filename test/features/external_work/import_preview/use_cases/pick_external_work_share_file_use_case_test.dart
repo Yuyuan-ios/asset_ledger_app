@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:asset_ledger/data/services/project_share_file_picker.dart';
+import 'package:asset_ledger/data/share/jztshare/share_envelope.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -88,6 +90,46 @@ void main() {
     expect(
       (r as PickShareFileError).message,
       PickExternalWorkShareFileUseCase.readErrorMessage,
+    );
+  });
+
+  test('oversized in-memory bytes are rejected before decoding', () async {
+    final useCase = PickExternalWorkShareFileUseCase(
+      _FakePicker(
+        result: PickedShareFile(
+          name: 'big.jzt',
+          bytes: Uint8List(JztShareEnvelope.maxContentBytes + 1),
+        ),
+      ),
+    );
+    final r = await useCase.pick();
+    expect(r, isA<PickShareFileError>());
+    expect(
+      (r as PickShareFileError).message,
+      PickExternalWorkShareFileUseCase.fileTooLargeMessage,
+    );
+  });
+
+  test('oversized file at path is rejected without loading it', () async {
+    final dir = await Directory.systemTemp.createTemp('jzt_pick_test');
+    addTearDown(() => dir.delete(recursive: true));
+    final file = File('${dir.path}/big.jzt');
+    final raf = await file.open(mode: FileMode.write);
+    // 只写最后一个字节,让文件长度超限而不真正写满内容。
+    await raf.setPosition(JztShareEnvelope.maxContentBytes);
+    await raf.writeByte(0x78);
+    await raf.close();
+
+    final useCase = PickExternalWorkShareFileUseCase(
+      _FakePicker(
+        result: PickedShareFile(name: 'big.jzt', path: file.path),
+      ),
+    );
+    final r = await useCase.pick();
+    expect(r, isA<PickShareFileError>());
+    expect(
+      (r as PickShareFileError).message,
+      PickExternalWorkShareFileUseCase.fileTooLargeMessage,
     );
   });
 

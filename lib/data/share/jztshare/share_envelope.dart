@@ -15,6 +15,10 @@ class JztShareEnvelope {
   static const projectExternalWorkShareType = 'project_external_work_share';
   static const jsonPayloadEncoding = 'json';
 
+  /// 单个 .jzt 分享包允许的最大内容大小（文件字节与文本码元共用的防御上限）。
+  /// 正常分享包(≤ maxExportLines 行)远小于此值；超限直接拒绝,不进入 JSON 解析。
+  static const maxContentBytes = 10 * 1024 * 1024;
+
   final String magic;
   final int formatVersion;
   final String packageType;
