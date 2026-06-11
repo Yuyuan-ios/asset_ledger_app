@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:asset_ledger/core/measure/measure_unit.dart';
 import 'package:asset_ledger/core/operations/operation_access_control.dart';
 import 'package:asset_ledger/core/operations/operation_actor_type.dart';
 import 'package:asset_ledger/data/db/database.dart';
@@ -167,6 +168,61 @@ void main() {
         metaRows.single['payload_hash'],
         outboxRows.single['payload_hash'],
       );
+    });
+
+    test('新建工时记录落库和同步 payload 必带 unit 与 quantity_scaled', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+
+      final result = await useCase.execute(
+        editing: null,
+        record: TimingRecord(
+          deviceId: deviceId,
+          startDate: 20260520,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          type: TimingType.hours,
+          startMeter: 0,
+          endMeter: 7.5,
+          hours: 7.5,
+          income: 750,
+        ),
+      );
+
+      final rows = await db.query('timing_records');
+      expect(rows, hasLength(1));
+      expect(rows.single['unit'], 'HOUR');
+      expect(rows.single['quantity_scaled'], 7500);
+
+      final outboxRows = await db.query('sync_outbox');
+      expect(outboxRows, hasLength(1));
+      final payload =
+          jsonDecode(outboxRows.single['payload_json'] as String)
+              as Map<String, Object?>;
+      final payloadRecord = payload['record'] as Map<String, Object?>;
+      expect(payloadRecord['id'], result.savedRecord.id);
+      expect(payloadRecord['unit'], 'HOUR');
+      expect(payloadRecord['quantity_scaled'], 7500);
+    });
+
+    test('新建非租期记录缺少 quantity_scaled 时拒绝保存', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+
+      await expectLater(
+        useCase.execute(
+          editing: null,
+          record: _MissingQuantityTimingRecord(deviceId: deviceId),
+        ),
+        throwsA(isA<TimingRecordQuantityAuthorityException>()),
+      );
+
+      expect(await db.query('timing_records'), isEmpty);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
     });
   });
 
@@ -2415,6 +2471,27 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
   Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
     return const [];
   }
+}
+
+class _MissingQuantityTimingRecord extends TimingRecord {
+  const _MissingQuantityTimingRecord({required super.deviceId})
+    : super(
+        startDate: 20260520,
+        projectId: 'project:alpha',
+        contact: '甲方',
+        site: 'alpha',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 1,
+        hours: 1,
+        income: 100,
+      );
+
+  @override
+  MeasureUnit get unit => MeasureUnit.hour;
+
+  @override
+  int? get quantityScaled => null;
 }
 
 Future<Database> _openCurrentInMemoryDb() {
