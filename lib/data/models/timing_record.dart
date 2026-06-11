@@ -252,6 +252,12 @@ class TimingRecord {
       _quantityScaled ??
       (type == TimingType.rent ? null : (hours * 1000).round());
 
+  /// 权威工作量的小时表示（[quantityScaled]/1000；rent 行为 0）。
+  ///
+  /// S2 读路径：聚合/报表的工时来源统一走此 getter，而非 REAL [hours]——
+  /// 与旧值的差异仅是对齐到毫时网格（应收经 AmountPolicy 时本就按毫时取整）。
+  double get hoursFromQuantity => (quantityScaled ?? 0) / 1000.0;
+
   static TimingType _parseType(Object? value) {
     if (value is String) {
       for (final type in TimingType.values) {
