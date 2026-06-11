@@ -17,6 +17,8 @@ void main() {
         'device_id': 2,
         'is_breaking': 0,
         'rate': 150.5,
+        // v35：fen 镜像与 REAL 双写。
+        'rate_fen': 15050,
       });
     });
 

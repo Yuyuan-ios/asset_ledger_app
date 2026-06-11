@@ -109,10 +109,14 @@ class AppDatabase {
   //        onUpgrade 刻意为空（timing 非叶子表，事务内 FK PRAGMA 不生效，
   //        DROP 会级联删 timing_calculation_history）；重建走 onOpen 的
   //        ensureTimingIncomeFenNotNull。unit/quantity_scaled 保持 nullable。
+  // - v35：单价整数分权威列（additive）。devices 增 nullable
+  //        default_unit_price_fen / breaking_unit_price_fen，
+  //        project_device_rates 增 nullable rate_fen，按 round(REAL×100)
+  //        回填；REAL 仍是读口径，读路径切换留待 S1 收口切片 1-4。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 34;
+  static const int _dbVersion = 35;
 
   static int get schemaVersion => _dbVersion;
 
