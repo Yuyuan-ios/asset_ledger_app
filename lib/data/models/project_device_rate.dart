@@ -18,13 +18,22 @@ class ProjectDeviceRate {
   final bool isBreaking;
   final double rate;
 
+  /// 存储的 rate_fen（v35，nullable）。null 表示 legacy 行，由 [rateFen]
+  /// getter 派生回退。仅 [fromMap] 设置。
+  final int? _rateFen;
+
   const ProjectDeviceRate({
     this.projectId = '',
     required this.projectKey,
     required this.deviceId,
     this.isBreaking = false,
     required this.rate,
-  });
+    int? rateFen,
+  }) : _rateFen = rateFen;
+
+  /// 覆盖单价的整数分（fen 主存读优先口径,v35）。优先返回存储值，
+  /// legacy 行由 REAL [rate] 派生 round(×100) 回退。
+  int get rateFen => _rateFen ?? (rate * 100).round();
 
   Map<String, Object?> toMap() {
     return {
@@ -33,6 +42,8 @@ class ProjectDeviceRate {
       'device_id': deviceId,
       'is_breaking': isBreaking ? 1 : 0,
       'rate': rate,
+      // v35：fen 镜像与 REAL 双写;REAL 仍是读口径,切换留待 S1 收口。
+      'rate_fen': rateFen,
     };
   }
 
@@ -43,6 +54,7 @@ class ProjectDeviceRate {
       deviceId: (m['device_id'] as int?) ?? 0,
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
       rate: (m['rate'] as num?)?.toDouble() ?? 0.0,
+      rateFen: (m['rate_fen'] as num?)?.toInt(),
     );
   }
 

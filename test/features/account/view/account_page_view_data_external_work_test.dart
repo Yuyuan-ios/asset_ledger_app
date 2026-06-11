@@ -131,7 +131,7 @@ void main() {
   });
 
   group('augmentComputedWithExternalWork', () {
-    test('adds linked external receivable to project card and overview', () {
+    test('linked external work marks the card but never mixes receivable', () {
       final computed = _computed(
         [
           _project(id: 'project:a', displayName: '李洋 · 天眉乐', receivable: 1000),
@@ -169,22 +169,21 @@ void main() {
         (p) => p.effectiveProjectId == 'project:b',
       );
 
-      // 一个项目关联多个 importBatch：总应收累加（¥900 + ¥600）。
-      expect(projectA.receivable, 2500);
-      expect(projectA.remaining, 2500);
+      // §6.4/§6.5 隔离红线：关联外协只标记徽标与工时展示,我方应收不混入。
+      expect(projectA.receivable, 1000);
       expect(projectA.externalWorkHours, 2.0);
       expect(projectA.displayName, '李洋 · 天眉乐');
       expect(projectA.hasLinkedExternalWork, isTrue);
-      // 未关联外协包不并入项目卡片。
+      // 未关联外协包不影响项目卡片。
       expect(projectB.receivable, 500);
       expect(projectB.displayName, isNot(contains('关联')));
       expect(projectB.hasLinkedExternalWork, isFalse);
-      // 总览总应收包含全部外协设备应收（含未关联包），每包只计一次。
-      expect(augmented.totalReceivable, 1500 + 1800);
-      expect(augmented.totalRemaining, 1500 + 1800);
+      // 总览总应收/待收不混入任何外协设备应收。
+      expect(augmented.totalReceivable, 1500);
+      expect(augmented.totalRemaining, 1500);
     });
 
-    test('adds independent external project received to overview cash', () {
+    test('independent external packages never touch overview totals', () {
       final computed = _computed(
         [_project(id: 'project:a', receivable: 1000, received: 300)],
         totalReceivable: 1000,
@@ -206,10 +205,11 @@ void main() {
 
       final augmented = augmentComputedWithExternalWork(computed, rollup);
 
-      expect(augmented.totalReceivable, 2000);
-      expect(augmented.totalReceived, 700);
-      expect(augmented.totalRemaining, 1300);
-      expect(augmented.totalRatio, closeTo(700 / 2000, 0.000001));
+      // 隔离红线：外协导入前后,总览四个数字一律不变。
+      expect(augmented.totalReceivable, 1000);
+      expect(augmented.totalReceived, 300);
+      expect(augmented.totalRemaining, 700);
+      expect(augmented.totalRatio, 0.3);
     });
 
     test('keeps explicit settled state when adding linked external work', () {
@@ -245,17 +245,18 @@ void main() {
       final augmented = augmentComputedWithExternalWork(computed, rollup);
       final project = augmented.projects.single;
 
+      // 隔离红线：外协关联不改我方结清状态与财务数字。
       expect(project.isSettled, isTrue);
       expect(project.isSettledForDisplay, isTrue);
       expect(project.hasLinkedExternalWork, isTrue);
-      expect(project.receivable, 2358);
-      expect(project.remaining, 900);
-      expect(project.ratio, closeTo(1458 / 2358, 0.0001));
-      expect(augmented.totalReceivable, 2358);
-      expect(augmented.totalRemaining, 900);
+      expect(project.receivable, 1458);
+      expect(project.remaining, 0);
+      expect(project.ratio, 1);
+      expect(augmented.totalReceivable, 1458);
+      expect(augmented.totalRemaining, 0);
     });
 
-    test('linked external work can clear display-only settlement', () {
+    test('linked external work keeps display-only settlement intact', () {
       final computed = _computed(
         [
           _project(
@@ -290,12 +291,13 @@ void main() {
       final augmented = augmentComputedWithExternalWork(computed, rollup);
       final project = augmented.projects.single;
 
+      // 隔离红线：外协金额不影响我方"已收齐"展示口径。
       expect(project.isSettled, isFalse);
-      expect(project.isSettledForDisplay, isFalse);
+      expect(project.isSettledForDisplay, isTrue);
       expect(project.hasLinkedExternalWork, isTrue);
-      expect(project.receivable, 2358);
-      expect(project.remaining, 900);
-      expect(project.ratio, closeTo(1458 / 2358, 0.0001));
+      expect(project.receivable, 1458);
+      expect(project.remaining, 0);
+      expect(project.ratio, 1);
     });
 
     test('one batch is never counted into multiple projects', () {
@@ -327,8 +329,11 @@ void main() {
         (p) => p.effectiveProjectId == 'project:b',
       );
 
-      expect(projectA.receivable, 1500);
+      // 隔离红线下两个项目应收都保持原值;徽标只落在关联项目上。
+      expect(projectA.receivable, 1000);
+      expect(projectA.hasLinkedExternalWork, isTrue);
       expect(projectB.receivable, 1000);
+      expect(projectB.hasLinkedExternalWork, isFalse);
     });
 
     test('merged project picks up batches linked to its member ids', () {
@@ -371,7 +376,8 @@ void main() {
       final augmented = augmentComputedWithExternalWork(computed, rollup);
       final mergedAugmented = augmented.projects.single;
 
-      expect(mergedAugmented.receivable, 2400);
+      // 合并卡同样只标记,不混金额。
+      expect(mergedAugmented.receivable, 2000);
       expect(mergedAugmented.externalWorkHours, 1.0);
       expect(mergedAugmented.displayName, '李杰 · 合并2项目');
       expect(mergedAugmented.hasLinkedExternalWork, isTrue);
