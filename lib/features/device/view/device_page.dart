@@ -12,6 +12,7 @@ import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/device.dart';
 import '../domain/entities/local_backup_entities.dart';
 import '../../../features/account/state/account_payment_store.dart';
+import '../../../features/account/state/account_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
@@ -22,6 +23,7 @@ import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/store_error_banner.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../domain/services/device_business_ledger.dart';
 import 'device_page_actions.dart';
 import 'device_page_sections.dart';
 import 'device_account_center_page.dart';
@@ -48,6 +50,7 @@ enum _ManualBackupAction { backupOnly, backupAndShare }
 class _DevicePageState extends State<DevicePage> {
   static const _phoneLoginStore = SharedPreferencesPhoneLoginStore();
   static const _subscriptionController = SubscriptionController();
+  static const _deviceBusinessLedgerUseCase = DeviceBusinessLedgerUseCase();
 
   bool _isExportingBackup = false;
   PhoneLoginSession _loginSession = const PhoneLoginSession.unauthenticated();
@@ -693,6 +696,7 @@ class _DevicePageState extends State<DevicePage> {
       context.read<MaintenanceStore>().loadAll(),
       context.read<AccountPaymentStore>().loadAll(),
       context.read<ProjectRateStore>().loadAll(),
+      context.read<AccountStore>().loadAll(),
     ]);
   }
 
@@ -740,7 +744,20 @@ class _DevicePageState extends State<DevicePage> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<DeviceStore>();
+    final timingStore = context.watch<TimingStore>();
+    final paymentStore = context.watch<AccountPaymentStore>();
+    final rateStore = context.watch<ProjectRateStore>();
+    final accountStore = context.watch<AccountStore>();
     final devices = store.activeDevices;
+    final businessLedgers = _deviceBusinessLedgerUseCase.execute(
+      timingRecords: timingStore.records,
+      devices: devices,
+      rates: rateStore.rates,
+      payments: paymentStore.records,
+      writeOffs: accountStore.writeOffs,
+      activeMergeGroups: accountStore.activeMergeGroups,
+      settledProjectIds: accountStore.settledProjectIds,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
@@ -793,6 +810,7 @@ class _DevicePageState extends State<DevicePage> {
                           toast: _toast,
                         );
                       },
+                      businessLedgers: businessLedgers,
                     ),
                   ),
                 ],
