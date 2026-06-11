@@ -8,7 +8,7 @@ import '../../tokens/mapper/timing_tokens.dart';
 
 /// Figma: Component_TabBar
 /// - 固定底部
-/// - 5 个 Tab（计时/燃油/账户/维保/设备）
+/// - 5 个 Tab（计时/油电/账户/维保/设备）
 /// - 选中：品牌色 + 文案高亮
 /// - 未选中：灰色
 class ComponentTabBar extends StatelessWidget {
@@ -23,7 +23,9 @@ class ComponentTabBar extends StatelessWidget {
 
   static const List<_TabSpec> _tabs = <_TabSpec>[
     _TabSpec(label: '计时', icon: Icons.timer_rounded),
-    _TabSpec(label: '燃油', icon: Icons.local_gas_station_rounded),
+    // 纲要 §10.4:导航入口改名「油电」,同时容纳燃油机械油耗与电动设备
+    // 电量/续航统计;录入页「包油/包电」开关保持原语义不动。
+    _TabSpec(label: '油电', icon: Icons.local_gas_station_rounded),
     _TabSpec(label: '账户', icon: Icons.account_balance_wallet_rounded),
     _TabSpec(label: '维保', icon: Icons.build_rounded),
     _TabSpec(label: '设备', icon: Icons.settings_rounded),

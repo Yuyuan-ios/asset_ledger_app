@@ -162,15 +162,19 @@ class AccountService {
         continue;
       }
 
-      // hours：按模式累计
+      // hours：按模式累计。
+      // S2 读路径切换：工时来源改读统一计量权威 [TimingRecord.hoursFromQuantity]
+      // （quantityScaled = 存储 quantity_scaled ?? round(hours×1000)），hours
+      // REAL 退为派生兜底。与旧 `+ t.hours` 的差异仅是逐记录对齐到毫时网格——
+      // 后续应收经 AmountPolicy 时本就按毫时取整，对网格内数据逐记录等价。
       final target = t.isBreaking
           ? mut.breakingHoursByDevice
           : mut.normalHoursByDevice;
-      target[t.deviceId] = (target[t.deviceId] ?? 0.0) + t.hours;
+      target[t.deviceId] = (target[t.deviceId] ?? 0.0) + t.hoursFromQuantity;
 
       // 兼容旧口径：总工时
       mut.hoursByDevice[t.deviceId] =
-          (mut.hoursByDevice[t.deviceId] ?? 0.0) + t.hours;
+          (mut.hoursByDevice[t.deviceId] ?? 0.0) + t.hoursFromQuantity;
     }
 
     // 输出不可变结构

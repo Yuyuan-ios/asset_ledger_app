@@ -4,6 +4,7 @@ import 'package:asset_ledger/app/app.dart';
 import 'package:asset_ledger/app/inbound_share_file_gate.dart';
 import 'package:asset_ledger/app/phone_login_gate.dart';
 import 'package:asset_ledger/app/router.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 
 void main() {
   testWidgets('Fleet Ledger smoke test', (WidgetTester tester) async {
@@ -21,7 +22,12 @@ void main() {
       ),
     );
 
-    expect(app.title, 'Fleet Ledger');
+    // i18n 阶段 A:标题经 onGenerateTitle 走 AppLocalizations key。
+    expect(app.onGenerateTitle, isNotNull);
+    expect(
+      app.localizationsDelegates,
+      contains(AppLocalizations.delegate),
+    );
     expect(app.debugShowCheckedModeBanner, isFalse);
     final loginGate = app.home;
     expect(loginGate, isA<PhoneLoginGate>());

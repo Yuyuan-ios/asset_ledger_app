@@ -1,3 +1,4 @@
+import 'package:asset_ledger/core/measure/measure_unit.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/models/project_id.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -148,6 +149,9 @@ void main() {
         'income': 1200.0,
         // R5.26-B3：income 的 fen 镜像与 income 双写。
         'income_fen': 120000,
+        // S2/v33：统一计量镜像与 type/hours 双写；rent 行 quantity 为 null。
+        'unit': 'RENT',
+        'quantity_scaled': null,
         'exclude_from_fuel_eff': 1,
         'is_breaking': 0,
       });
@@ -182,6 +186,63 @@ void main() {
       expect(rebuilt.income, 300);
       expect(rebuilt.excludeFromFuelEfficiency, isFalse);
       expect(rebuilt.toString(), contains('excludeFuel:false'));
+      // S2/v33：legacy 行缺 unit/quantity_scaled 时按 type/hours 派生镜像。
+      expect(rebuilt.unit, MeasureUnit.hour);
+      expect(rebuilt.quantityScaled, 5000);
+    });
+
+    test('unit and quantity_scaled mirror storage values and derive for '
+        'legacy rows', () {
+      // 存储值优先：DB 已落 unit/quantity_scaled 时读原值。
+      final stored = TimingRecord.fromMap({
+        'id': 1,
+        'device_id': 1,
+        'start_date': 20260601,
+        'contact': 'A',
+        'site': 'B',
+        'type': 'hours',
+        'start_meter': 0,
+        'end_meter': 7.5,
+        'hours': 7.5,
+        'income': 0,
+        'unit': 'HOUR',
+        'quantity_scaled': 7500,
+      });
+      expect(stored.unit, MeasureUnit.hour);
+      expect(stored.quantityScaled, 7500);
+
+      // 未知 unit 值防御回退（不抛异常，按 type 派生）。
+      final unknownUnit = TimingRecord.fromMap({
+        'id': 2,
+        'device_id': 1,
+        'start_date': 20260601,
+        'contact': 'A',
+        'site': 'B',
+        'type': 'rent',
+        'start_meter': 0,
+        'end_meter': 0,
+        'hours': 0,
+        'income': 800,
+        'unit': 'GALLON',
+      });
+      expect(unknownUnit.unit, MeasureUnit.rent);
+      expect(unknownUnit.quantityScaled, isNull);
+
+      // 双写：toMap 总是带 unit/quantity_scaled。
+      const hoursRecord = TimingRecord(
+        deviceId: 1,
+        startDate: 20260601,
+        contact: 'A',
+        site: 'B',
+        type: TimingType.hours,
+        startMeter: 0,
+        endMeter: 7.5,
+        hours: 7.5,
+        income: 0,
+      );
+      final map = hoursRecord.toMap();
+      expect(map['unit'], 'HOUR');
+      expect(map['quantity_scaled'], 7500);
     });
 
     test('toMap writes non-null display end and fromMap restores it', () {

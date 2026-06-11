@@ -39,6 +39,8 @@ dependencies:
   share_plus: ^12.0.2
   crypto: ^3.0.6
   archive: ^3.6.1
+  # i18n:文案 key 化的消息查找(版本随 flutter_localizations 锁定)
+  intl: any
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +58,8 @@ hooks:
 
 flutter:
   uses-material-design: true
+  # i18n:构建时由 l10n.yaml 生成 AppLocalizations(lib/l10n/gen)
+  generate: true
 
   # ✅ 品牌头像 assets
   assets:

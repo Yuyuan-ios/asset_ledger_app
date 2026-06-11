@@ -45,6 +45,14 @@ void main() {
       );
     });
 
+    test('rejects oversized content before JSON decoding', () {
+      final oversized = 'x' * (JztShareEnvelope.maxContentBytes + 1);
+      expectParseCode(
+        () => parser.parseProjectExternalWorkShare(oversized),
+        JztShareErrorCodes.contentTooLarge,
+      );
+    });
+
     test('rejects missing or mismatched magic', () {
       expectParseCode(
         () => parser.parseProjectExternalWorkShare(

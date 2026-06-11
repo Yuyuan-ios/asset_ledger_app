@@ -104,11 +104,14 @@ void main() {
       expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
     });
 
-    test('timing_records keeps income REAL NOT NULL and nullable income_fen', () {
+    test('timing_records keeps income REAL NOT NULL and fen NOT NULL (v34)',
+        () {
       final schema = _read('lib/data/db/schema/timing_schema.dart');
       expect(schema.contains('income REAL NOT NULL'), isTrue);
-      expect(schema.contains('income_fen INTEGER'), isTrue);
-      expect(schema.contains('income_fen INTEGER NOT NULL'), isFalse);
+      // v34/migration_034：income_fen 升为 NOT NULL（追平 B1/B2 的口径）。
+      expect(schema.contains('income_fen INTEGER NOT NULL'), isTrue);
+      // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
+      expect(schema.contains('quantity_scaled INTEGER NOT NULL'), isFalse);
     });
   });
 }

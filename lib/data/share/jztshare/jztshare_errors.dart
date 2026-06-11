@@ -19,6 +19,7 @@ class JztShareParseException implements FormatException {
 class JztShareErrorCodes {
   const JztShareErrorCodes._();
 
+  static const contentTooLarge = 'content_too_large';
   static const invalidJson = 'invalid_json';
   static const missingMagic = 'missing_magic';
   static const invalidMagic = 'invalid_magic';
