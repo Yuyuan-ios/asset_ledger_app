@@ -1,3 +1,4 @@
+import '../../core/measure/quantity.dart';
 import '../../core/money/amount_policy.dart';
 import '../models/account_payment.dart';
 import '../models/project_device_rate.dart';
@@ -299,14 +300,16 @@ class AccountService {
     required List<AccountPayment> payments,
     List<ProjectWriteOff> writeOffs = const [],
   }) {
-    final effectiveRate = buildEffectiveRateMap(
+    // S1 收口切片 1-4：fen 权威路径直接消费整数分单价,不再经
+    // double rate → round(×100) 中转(对一致数据逐点等价,fen 漂移时以 fen 为准)。
+    final effectiveRateFen = buildEffectiveRateFenMap(
       projectKey: agg.projectKey,
       projectId: agg.projectId,
       devices: devices,
       rates: rates,
       isBreaking: false,
     );
-    final effectiveBreakingRate = buildEffectiveRateMap(
+    final effectiveBreakingRateFen = buildEffectiveRateFenMap(
       projectKey: agg.projectKey,
       projectId: agg.projectId,
       devices: devices,
@@ -316,15 +319,15 @@ class AccountService {
 
     var receivableFen = 0;
     for (final entry in agg.normalHoursByDevice.entries) {
-      receivableFen += _hoursAmountFen(
+      receivableFen += _hoursAmountFenFromFenRate(
         hours: entry.value,
-        rate: effectiveRate[entry.key] ?? 0.0,
+        rateFen: effectiveRateFen[entry.key] ?? 0,
       );
     }
     for (final entry in agg.breakingHoursByDevice.entries) {
-      receivableFen += _hoursAmountFen(
+      receivableFen += _hoursAmountFenFromFenRate(
         hours: entry.value,
-        rate: effectiveBreakingRate[entry.key] ?? 0.0,
+        rateFen: effectiveBreakingRateFen[entry.key] ?? 0,
       );
     }
     // rent：纳入应收（与 calcMoney 一致），使用逐记录累加的 fen。
@@ -396,24 +399,31 @@ class AccountService {
     return totals;
   }
 
-  static Map<int, double> buildEffectiveRateMap({
+  /// 有效单价的整数分权威口径（S1 收口切片 1-4）。
+  ///
+  /// 单价来源统一读 v35 的 fen 镜像（[Device.defaultUnitPriceFen] /
+  /// [Device.breakingUnitPriceFen] / [ProjectDeviceRate.rateFen]，存储优先、
+  /// REAL 派生回退）。[calcMoneyFen] 等业务判断路径直接消费本 map；
+  /// double 口径的 [buildEffectiveRateMap] 由本 map ÷100 派生,仅作显示/
+  /// 兼容,REAL 单价列不再被任何账户路径直接读取。
+  static Map<int, int> buildEffectiveRateFenMap({
     String? projectKey,
     String? projectId,
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
     bool isBreaking = false,
   }) {
-    final defaultRate = <int, double>{};
+    final defaultRateFen = <int, int>{};
     for (final d in devices) {
       if (d.id == null) continue;
       if (isBreaking) {
-        defaultRate[d.id!] = d.breakingUnitPrice ?? d.defaultUnitPrice;
+        defaultRateFen[d.id!] = d.breakingUnitPriceFen ?? d.defaultUnitPriceFen;
       } else {
-        defaultRate[d.id!] = d.defaultUnitPrice;
+        defaultRateFen[d.id!] = d.defaultUnitPriceFen;
       }
     }
 
-    final override = <int, double>{};
+    final override = <int, int>{};
     final targetProjectId = _resolveProjectId(
       projectId: projectId,
       projectKey: projectKey,
@@ -421,11 +431,11 @@ class AccountService {
     for (final r in rates) {
       if (r.effectiveProjectId != targetProjectId) continue;
       if (r.isBreaking != isBreaking) continue;
-      override[r.deviceId] = r.rate;
+      override[r.deviceId] = r.rateFen;
     }
 
-    final out = <int, double>{};
-    for (final entry in defaultRate.entries) {
+    final out = <int, int>{};
+    for (final entry in defaultRateFen.entries) {
       final id = entry.key;
       out[id] = override[id] ?? entry.value;
     }
@@ -433,6 +443,28 @@ class AccountService {
       out[entry.key] = entry.value;
     }
     return out;
+  }
+
+  /// double 元口径的有效单价（显示/兼容）。由 [buildEffectiveRateFenMap]
+  /// ÷100 派生：单价以 2 位小数录入,fen÷100 与原 REAL 对一致数据逐值相等；
+  /// fen 与 REAL 漂移时以 fen 为权威。
+  static Map<int, double> buildEffectiveRateMap({
+    String? projectKey,
+    String? projectId,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+    bool isBreaking = false,
+  }) {
+    final fenMap = buildEffectiveRateFenMap(
+      projectKey: projectKey,
+      projectId: projectId,
+      devices: devices,
+      rates: rates,
+      isBreaking: isBreaking,
+    );
+    return {
+      for (final entry in fenMap.entries) entry.key: entry.value / 100.0,
+    };
   }
 
   static ProjectRateInfo calcRateInfo({
@@ -584,12 +616,16 @@ class AccountService {
     ).yuan;
   }
 
-  /// 工时收入的整数分：与 [_calculateHoursAmount] 同一 [AmountPolicy] 规则，
-  /// 但直接取 `.fen` 不经 yuan double 中转。
-  static int _hoursAmountFen({required double hours, required double rate}) {
-    return AmountPolicy.calculateAmount(
-      hours: WorkHours.fromHours(hours),
-      unitPrice: UnitPrice.fromYuanPerHour(rate),
+  /// 工时收入的整数分（S1 收口口径）：计量定标整数 × 整数分单价,
+  /// 与 [_calculateHoursAmount] 同一 [AmountPolicy] 取整规则,但单价
+  /// 直接消费 fen 权威,不经 double yuan → round(×100) 中转。
+  static int _hoursAmountFenFromFenRate({
+    required double hours,
+    required int rateFen,
+  }) {
+    return AmountPolicy.calculateAmountForQuantity(
+      quantity: Quantity.fromValue(hours),
+      unitPrice: UnitPrice(rateFen),
     ).fen;
   }
 }

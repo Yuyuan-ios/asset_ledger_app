@@ -43,12 +43,13 @@ class SqfliteProjectRateRepository implements ProjectRateRepository {
   Future<int> upsert(ProjectDeviceRate r) async {
     return AppDatabase.inTransaction((txn) async {
       await _ensureProjectWithExecutor(txn, r);
+      // v35：rate_fen 镜像与 REAL 双写（裸列清单写路径，注意与 toMap 同步维护）。
       return txn.rawInsert(
         '''
         INSERT OR REPLACE INTO $table (
-          project_id, project_key, device_id, is_breaking, rate
+          project_id, project_key, device_id, is_breaking, rate, rate_fen
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
       ''',
         [
           r.effectiveProjectId,
@@ -56,6 +57,7 @@ class SqfliteProjectRateRepository implements ProjectRateRepository {
           r.deviceId,
           r.isBreaking ? 1 : 0,
           r.rate,
+          r.rateFen,
         ],
       );
     });
