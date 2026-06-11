@@ -1,0 +1,9 @@
+{
+  "@@locale": "en",
+  "appTitle": "Fleet Ledger",
+  "tabTiming": "Timing",
+  "tabEnergy": "Energy",
+  "tabAccount": "Accounts",
+  "tabMaintenance": "Service",
+  "tabDevice": "Devices"
+}
