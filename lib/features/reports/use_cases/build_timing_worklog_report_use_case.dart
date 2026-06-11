@@ -135,7 +135,8 @@ class _TimingWorklogSourceRow {
       ),
       startMeter: record.startMeter,
       endMeter: record.endMeter,
-      hours: record.hours,
+      // S2 读路径：对账单工时显示落账权威值(quantityScaled),与账户应收同源。
+      hours: record.hoursFromQuantity,
       localRecordId: record.id ?? 0,
       sourceIndex: sourceIndex,
     );

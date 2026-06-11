@@ -102,6 +102,32 @@ void main() {
     expect(agg.hoursByDevice[1], 2.5);
   });
 
+  test('hoursFromQuantity getter: stored wins, legacy derives, rent is 0', () {
+    // 存储权威。
+    expect(
+      TimingRecord.fromMap(
+        hoursRow(id: 1, hours: 7.4999996, quantityScaled: 7500),
+      ).hoursFromQuantity,
+      7.5,
+    );
+    // legacy 行派生(与旧 hours 对齐到毫时网格)。
+    expect(hoursRecord(id: 2, hours: 2.5).hoursFromQuantity, 2.5);
+    // rent 行计量未定 → 0(与旧 t.hours == 0.0 一致)。
+    const rent = TimingRecord(
+      id: 3,
+      deviceId: 1,
+      startDate: 20260303,
+      contact: 'Alice',
+      site: 'Yard A',
+      type: TimingType.rent,
+      startMeter: 0,
+      endMeter: 0,
+      hours: 0,
+      income: 800,
+    );
+    expect(rent.hoursFromQuantity, 0.0);
+  });
+
   test('monthly realtime income reads stored quantity over drifted hours', () {
     final devices = [
       Device(
