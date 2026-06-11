@@ -1,3 +1,4 @@
+import '../../core/measure/quantity.dart';
 import '../../core/money/amount_policy.dart';
 import '../../core/date/gregorian_year_range.dart';
 import '../../core/utils/format_utils.dart';
@@ -104,8 +105,10 @@ class TimingMonthlyIncomeService {
           cache: rateCache,
         );
         // 工时收入按当前有效单价实时重算，不读取 record.income。
-        final realtimeIncome = AmountPolicy.calculateAmount(
-          hours: WorkHours.fromHours(current.hours),
+        // S2 读路径切换：工作量改读统一计量权威 quantityScaled（rent 已在
+        // 上方 continue，此处恒非 null），hours REAL 退为派生兜底。
+        final realtimeIncome = AmountPolicy.calculateAmountForQuantity(
+          quantity: Quantity(current.quantityScaled ?? 0),
           unitPrice: UnitPrice.fromYuanPerHour(rate),
         ).yuan;
 
