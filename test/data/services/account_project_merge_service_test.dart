@@ -377,6 +377,7 @@ Future<void> _insertTiming(
     'end_meter': 1,
     'hours': 1,
     'income': 100,
+    'income_fen': 10000,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,
   });

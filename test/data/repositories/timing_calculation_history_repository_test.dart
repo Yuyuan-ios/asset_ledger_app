@@ -342,6 +342,10 @@ Future<void> _seedTimingRecord(Database db, {required int id}) async {
     row['project_id'] = ProjectId.legacyFromParts(contact: '甲方', site: '一号工地');
     await _seedProject(db, contact: '甲方', site: '一号工地');
   }
+  // v34 起 income_fen NOT NULL；legacy 测试基底（缺列）保持不带。
+  if (columns.any((column) => column['name'] == 'income_fen')) {
+    row['income_fen'] = 80000;
+  }
   await db.insert('timing_records', row);
 }
 
