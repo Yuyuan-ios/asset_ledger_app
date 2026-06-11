@@ -4,6 +4,7 @@ import '../../../core/operations/operation_access_control.dart';
 import '../../../data/db/database.dart';
 import '../../../data/models/account_payment.dart';
 import '../../../data/models/project.dart';
+import '../../../data/models/project_settled_snapshot.dart';
 import '../../../data/models/project_write_off.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../data/repositories/project_repository.dart';
@@ -175,6 +176,15 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
           project.copyWith(
             status: ProjectStatus.settled,
             settledAt: request.createdAtIso,
+            // §6.3 确认快照:结清瞬间的 fen 口径结果随同一确认动作持久化,
+            // 之后上游变动不改写;revoke 清 null,重结清重建。
+            settledSnapshot: ProjectSettledSnapshot(
+              receivableFen: receivableFen,
+              receivedFen: receivedFenAfter,
+              writeOffFen: writeOffFenAfter,
+              remainingFen: remainingFenAfter,
+              settledAt: request.createdAtIso,
+            ).encode(),
             updatedAt: request.createdAtIso,
           ),
         );
@@ -338,6 +348,14 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             project.copyWith(
               status: ProjectStatus.settled,
               settledAt: request.createdAtIso,
+              // §6.3 确认快照:合并结清的成员按各自的 fen 口径落快照。
+              settledSnapshot: ProjectSettledSnapshot(
+                receivableFen: memberReceivableFen,
+                receivedFen: memberReceivedFenBefore,
+                writeOffFen: memberWriteOffFenAfter,
+                remainingFen: memberRemainingFenAfter,
+                settledAt: request.createdAtIso,
+              ).encode(),
               updatedAt: request.createdAtIso,
             ),
           );
@@ -380,16 +398,23 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             table: SqfliteProjectWriteOffRepository.table,
             projectId: member.projectId,
           );
+          final memberReceivableFen = _yuanToFen(member.receivable);
           final memberRemainingFen =
-              _yuanToFen(member.receivable) -
-              memberReceivedFen -
-              memberWriteOffFen;
+              memberReceivableFen - memberReceivedFen - memberWriteOffFen;
           if (memberRemainingFen <= 0) {
             await SqfliteProjectRepository.upsertWithExecutor(
               txn,
               project.copyWith(
                 status: ProjectStatus.settled,
                 settledAt: request.createdAtIso,
+                // §6.3 确认快照:整组结清兜底路径的成员同样落快照。
+                settledSnapshot: ProjectSettledSnapshot(
+                  receivableFen: memberReceivableFen,
+                  receivedFen: memberReceivedFen,
+                  writeOffFen: memberWriteOffFen,
+                  remainingFen: memberRemainingFen,
+                  settledAt: request.createdAtIso,
+                ).encode(),
                 updatedAt: request.createdAtIso,
               ),
             );
