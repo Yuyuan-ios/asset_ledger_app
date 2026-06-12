@@ -20,7 +20,7 @@ class TimingSchema {
         hours REAL NOT NULL,
         income REAL NOT NULL,
         income_fen INTEGER NOT NULL,
-        unit TEXT,
+        unit TEXT NOT NULL,
         quantity_scaled INTEGER,
         exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0,
         is_breaking INTEGER NOT NULL DEFAULT 0,

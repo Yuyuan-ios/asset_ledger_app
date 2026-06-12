@@ -386,6 +386,9 @@ const Map<String, String> _registeredTimingRecordWriteFiles = {
   // v34：income_fen NOT NULL 表重建（INSERT…SELECT / DROP / RENAME）是
   // 历史数据移动，刻意在 row-level sync 覆盖之外。
   'lib/data/db/migrations/migration_034.dart': 'migration exemption',
+  // v36：unit NOT NULL 表重建同为历史数据移动，刻意在 row-level sync
+  // 覆盖之外。
+  'lib/data/db/migrations/migration_036.dart': 'migration exemption',
 };
 
 const Set<String> _deferredRestoreAndMigrationExemptions = {
