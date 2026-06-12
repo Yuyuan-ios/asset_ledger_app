@@ -252,6 +252,54 @@ void main() {
       expect(result.projects.single.receivable, 22000);
     });
   });
+
+  group('AccountComputed.moneyFenByProjectId 权威快照直出', () {
+    test('按真实 project_id 暴露 calcMoneyFen 结果,与 VM double 一致', () {
+      const useCase = ComputeAccountSummaryUseCase();
+      final projectId = ProjectId.legacyFromParts(contact: 'Alpha', site: 'X');
+      final result = useCase.execute(
+        timingRecords: [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            projectId: projectId,
+            startDate: 20260301,
+            contact: 'Alpha',
+            site: 'X',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 10,
+            hours: 10,
+            income: 0,
+          ),
+        ],
+        devices: oneDevice100,
+        rates: const [],
+        payments: [
+          AccountPayment(
+            id: 1,
+            projectId: projectId,
+            projectKey: 'Alpha||X',
+            ymd: 20260310,
+            amount: 600,
+          ),
+        ],
+      );
+
+      final fen = result.moneyFenByProjectId[projectId];
+      expect(fen, isNotNull, reason: '权威快照必须按真实 project_id 暴露');
+      expect(fen!.receivableFen, 100000);
+      expect(fen.receivedFen, 60000);
+      expect(fen.writeOffFen, 0);
+
+      final vm = result.projects.single;
+      expect(
+        ProjectFinanceCalculator.yuanToFen(vm.receivable),
+        fen.receivableFen,
+        reason: 'fen 快照与 double VM 对一致数据相等(直出 vs 派生)',
+      );
+    });
+  });
 }
 
 ProjectWriteOff _writeOff({
@@ -266,5 +314,4 @@ ProjectWriteOff _writeOff({
     writeOffDate: '2026-03-10',
     createdAt: '2026-03-10T00:00:00.000Z',
     updatedAt: '2026-03-10T00:00:00.000Z',
-  );
-}
+  );}
