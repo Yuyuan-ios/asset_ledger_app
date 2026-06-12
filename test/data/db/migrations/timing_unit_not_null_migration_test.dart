@@ -9,19 +9,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../test_setup.dart';
 
-/// v34：timing_records.income_fen 提升为 INTEGER NOT NULL（重建表）。
-///
-/// 覆盖：
-/// - A fresh schema：income_fen NOT NULL；unit NOT NULL（v36 起）；
-///   quantity_scaled 仍 nullable；
-///   income REAL 仍 NOT NULL。
-/// - B v33 漂移（income_fen nullable + 残留 NULL）经 onOpen ensure 重建：
-///   NOT NULL、COALESCE 兜底、行数/原值无丢失、unit/quantity 同车回填、
-///   **timing_calculation_history 子表行存活**（非叶子表重建的核心风险）、
-///   FK RESTRICT 与 idx_timing_records_project 仍在。
-/// - C 坑A：AUTOINCREMENT 历史高水位不倒退、无 timing_records_v34 残留序列行。
-/// - D 幂等：第二次 ensure no-op，数据与高水位不被破坏。
-/// - E FK RESTRICT：重建后孤儿 project_id 插入失败。
+/// v36：timing_records.unit 提升为 TEXT NOT NULL（重建表，S2 schema 权威）。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -30,7 +18,7 @@ void main() {
   late String dbPath;
 
   setUp(() async {
-    tmpDir = await Directory.systemTemp.createTemp('timing_fen_notnull_');
+    tmpDir = await Directory.systemTemp.createTemp('timing_unit_notnull_');
     dbPath = p.join(tmpDir.path, 'asset_ledger.db');
   });
 
@@ -40,7 +28,7 @@ void main() {
     }
   });
 
-  test('A: fresh schema enforces income_fen NOT NULL, keeps mirrors nullable',
+  test('fresh schema enforces unit NOT NULL, quantity stays nullable',
       () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
@@ -50,33 +38,31 @@ void main() {
       ),
     );
     try {
-      expect(await _isNotNull(db, 'timing_records', 'income_fen'), isTrue);
-      expect(await _isNotNull(db, 'timing_records', 'income'), isTrue);
-      // v36 起 unit 升为 NOT NULL（S2 schema 权威）。
       expect(await _isNotNull(db, 'timing_records', 'unit'), isTrue);
       expect(
         await _isNotNull(db, 'timing_records', 'quantity_scaled'),
         isFalse,
       );
+      expect(await _isNotNull(db, 'timing_records', 'income_fen'), isTrue);
     } finally {
       await db.close();
     }
   });
 
   test(
-    'B: drifted v33 schema is rebuilt by onOpen ensure without losing rows '
-    'or calculation history children',
+    'drifted v35 schema is rebuilt by onOpen ensure without losing rows, '
+    'children, or stored units',
     () async {
       final seeded = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
-          version: 33,
+          version: 35,
           onConfigure: (db) async {
             await db.execute('PRAGMA foreign_keys = ON');
           },
           onCreate: (db, _) async {
-            await _createV33Substrate(db);
-            // 残留 NULL income_fen 的 legacy 行 + 已落 fen 的行。
+            await _createV35Substrate(db);
+            // 残留 NULL unit 的 legacy 行（hours / rent 各一）。
             await db.insert('timing_records', {
               'id': 1,
               'project_id': 'project:a',
@@ -88,8 +74,8 @@ void main() {
               'start_meter': 100.0,
               'end_meter': 107.5,
               'hours': 7.5,
-              'income': 2850.0,
-              'income_fen': null,
+              'income': 0.0,
+              'income_fen': 0,
               'unit': null,
               'quantity_scaled': null,
               'exclude_from_fuel_eff': 0,
@@ -108,12 +94,30 @@ void main() {
               'hours': 0.0,
               'income': 800.0,
               'income_fen': 80000,
-              'unit': 'RENT',
+              'unit': null,
               'quantity_scaled': null,
-              'exclude_from_fuel_eff': 1,
+              'exclude_from_fuel_eff': 0,
               'is_breaking': 0,
             });
-            // 子表行：重建期间若 FK 级联生效会被清空——必须存活。
+            // 已落非 HOUR 存储值的行：重建不得改写。
+            await db.insert('timing_records', {
+              'id': 3,
+              'project_id': 'project:a',
+              'device_id': 7,
+              'start_date': 20260603,
+              'contact': '甲方',
+              'site': '一号工地',
+              'type': 'hours',
+              'start_meter': 0.0,
+              'end_meter': 0.0,
+              'hours': 1.5,
+              'income': 0.0,
+              'income_fen': 0,
+              'unit': 'SHIFT',
+              'quantity_scaled': 1500,
+              'exclude_from_fuel_eff': 0,
+              'is_breaking': 0,
+            });
             await db.insert('timing_calculation_history', {
               'id': 'calc-1',
               'timing_record_id': 1,
@@ -138,44 +142,26 @@ void main() {
             return DbMigrations.apply(db, oldVersion, newVersion);
           },
           onOpen: (db) {
-            return DbMigrations.ensureTimingIncomeFenNotNull(db);
+            return DbMigrations.ensureTimingUnitNotNull(db);
           },
         ),
       );
       try {
-        expect(
-          await _isNotNull(upgraded, 'timing_records', 'income_fen'),
-          isTrue,
-        );
+        expect(await _isNotNull(upgraded, 'timing_records', 'unit'), isTrue);
 
         final rows = await upgraded.query('timing_records', orderBy: 'id');
-        expect(rows, hasLength(2));
+        expect(rows, hasLength(3));
+        expect(rows[0]['unit'], 'HOUR');
+        expect(rows[0]['quantity_scaled'], 7500);
+        expect(rows[1]['unit'], 'RENT');
+        expect(rows[1]['quantity_scaled'], isNull, reason: 'rent 行 NULL 合法');
+        expect(rows[2]['unit'], 'SHIFT', reason: '存储值不被回填改写');
+        expect(rows[2]['quantity_scaled'], 1500);
 
-        final legacy = rows.first;
-        // COALESCE 兜底：round(2850.0 * 100)。
-        expect(legacy['income_fen'], 285000);
-        // 重建顺带回填 v33 镜像。
-        expect(legacy['unit'], 'HOUR');
-        expect(legacy['quantity_scaled'], 7500);
-        expect(legacy['income'], 2850.0);
-        expect(legacy['hours'], 7.5);
-
-        final stored = rows.last;
-        expect(stored['income_fen'], 80000);
-        expect(stored['unit'], 'RENT');
-        expect(stored['quantity_scaled'], isNull);
-        expect(stored['exclude_from_fuel_eff'], 1);
-
-        // 子表行存活，FK 链接仍可用。
+        // 子表行存活（非叶子表重建的核心风险）。
         final children = await upgraded.query('timing_calculation_history');
         expect(children, hasLength(1));
-        expect(children.single['timing_record_id'], 1);
 
-        // 索引与 FK 仍在。
-        expect(
-          await _indexExists(upgraded, 'idx_timing_records_project'),
-          isTrue,
-        );
         expect(
           await _hasProjectForeignKey(upgraded, 'timing_records'),
           isTrue,
@@ -186,84 +172,38 @@ void main() {
     },
   );
 
-  test('C: AUTOINCREMENT high-water mark survives the rebuild (pit A)',
-      () async {
+  test('ensure is idempotent after a real rebuild', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 33,
+        version: 35,
         onCreate: (db, _) async {
-          await _createV33Substrate(db);
-          // 插入高 id 再删除,制造 old_seq(1000) > MAX(id)(1) 的历史高水位。
-          await db.insert('timing_records', _hoursRow(id: 1000));
-          await db.delete('timing_records', where: 'id = 1000');
-          await db.insert('timing_records', _hoursRow(id: 1));
-        },
-      ),
-    );
-
-    await DbMigrations.ensureTimingIncomeFenNotNull(db);
-
-    try {
-      final seqRows = await db.rawQuery(
-        "SELECT name, seq FROM sqlite_sequence WHERE name LIKE 'timing_records%';",
-      );
-      expect(seqRows, hasLength(1));
-      expect(seqRows.single['name'], 'timing_records');
-      expect((seqRows.single['seq'] as int), greaterThanOrEqualTo(1000));
-
-      // 新行拿到的 id 必须越过历史高水位,不复用已删除区间。
-      final newId = await db.insert('timing_records', _hoursRow());
-      expect(newId, greaterThan(1000));
-    } finally {
-      await db.close();
-    }
-  });
-
-  test('D: ensure is idempotent after a real rebuild', () async {
-    final db = await databaseFactoryFfi.openDatabase(
-      dbPath,
-      options: OpenDatabaseOptions(
-        version: 33,
-        onCreate: (db, _) async {
-          await _createV33Substrate(db);
-          await db.insert('timing_records', _hoursRow(id: 1));
+          await _createV35Substrate(db);
         },
       ),
     );
     try {
-      await DbMigrations.ensureTimingIncomeFenNotNull(db);
-      final afterFirst = await db.query('timing_records');
+      await DbMigrations.ensureTimingUnitNotNull(db);
+      await DbMigrations.ensureTimingUnitNotNull(db);
+      expect(await _isNotNull(db, 'timing_records', 'unit'), isTrue);
 
-      await DbMigrations.ensureTimingIncomeFenNotNull(db);
-      final afterSecond = await db.query('timing_records');
-
-      expect(afterSecond, afterFirst);
-      expect(await _isNotNull(db, 'timing_records', 'income_fen'), isTrue);
-    } finally {
-      await db.close();
-    }
-  });
-
-  test('E: FK RESTRICT still rejects orphan project ids after rebuild',
-      () async {
-    final db = await databaseFactoryFfi.openDatabase(
-      dbPath,
-      options: OpenDatabaseOptions(
-        version: 33,
-        onConfigure: (db) async {
-          await db.execute('PRAGMA foreign_keys = ON');
-        },
-        onCreate: (db, _) async {
-          await _createV33Substrate(db);
-        },
-      ),
-    );
-    try {
-      await DbMigrations.ensureTimingIncomeFenNotNull(db);
-
+      // NOT NULL 由 schema 强制：缺 unit 的裸插入被拒绝。
       await expectLater(
-        db.insert('timing_records', _hoursRow(projectId: 'project:orphan')),
+        db.insert('timing_records', {
+          'project_id': 'project:a',
+          'device_id': 1,
+          'start_date': 20260601,
+          'contact': 'A',
+          'site': 'B',
+          'type': 'hours',
+          'start_meter': 0.0,
+          'end_meter': 1.0,
+          'hours': 1.0,
+          'income': 0.0,
+          'income_fen': 0,
+          'exclude_from_fuel_eff': 0,
+          'is_breaking': 0,
+        }),
         throwsA(isA<DatabaseException>()),
       );
     } finally {
@@ -272,8 +212,8 @@ void main() {
   });
 }
 
-/// v33 基底：projects + timing_records(income_fen nullable) + 子表。
-Future<void> _createV33Substrate(DatabaseExecutor db) async {
+/// v35 基底：unit nullable 的 timing_records + projects + 子表。
+Future<void> _createV35Substrate(DatabaseExecutor db) async {
   await db.execute('''
     CREATE TABLE projects (
       id TEXT PRIMARY KEY,
@@ -310,7 +250,7 @@ Future<void> _createV33Substrate(DatabaseExecutor db) async {
       end_meter REAL NOT NULL,
       hours REAL NOT NULL,
       income REAL NOT NULL,
-      income_fen INTEGER,
+      income_fen INTEGER NOT NULL,
       unit TEXT,
       quantity_scaled INTEGER,
       exclude_from_fuel_eff INTEGER NOT NULL DEFAULT 0,
@@ -333,39 +273,12 @@ Future<void> _createV33Substrate(DatabaseExecutor db) async {
   ''');
 }
 
-Map<String, Object?> _hoursRow({int? id, String projectId = 'project:a'}) {
-  return {
-    'id': ?id,
-    'project_id': projectId,
-    'device_id': 7,
-    'start_date': 20260601,
-    'contact': '甲方',
-    'site': '一号工地',
-    'type': 'hours',
-    'start_meter': 0.0,
-    'end_meter': 1.0,
-    'hours': 1.0,
-    'income': 0.0,
-    'income_fen': 0,
-    'exclude_from_fuel_eff': 0,
-    'is_breaking': 0,
-  };
-}
-
 Future<bool> _isNotNull(Database db, String table, String column) async {
   final rows = await db.rawQuery('PRAGMA table_info($table);');
   for (final row in rows) {
     if (row['name'] == column) return ((row['notnull'] as int?) ?? 0) == 1;
   }
   return false;
-}
-
-Future<bool> _indexExists(Database db, String name) async {
-  final rows = await db.rawQuery(
-    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?;",
-    [name],
-  );
-  return rows.isNotEmpty;
 }
 
 Future<bool> _hasProjectForeignKey(Database db, String table) async {

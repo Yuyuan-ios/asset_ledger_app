@@ -119,6 +119,10 @@ class DbSchemaCompat {
     // 只能走本 onOpen 路径（见 migration_034 类文档）。
     await DbMigrations.ensureTimingIncomeFenNotNull(db);
     await DbMigrations.ensureUnitPriceFenColumns(db);
+    // v36：必须在 ensureTimingQuantityUnit（unit 补列+回填）与
+    // ensureTimingIncomeFenNotNull 之后,把 unit 重建为 NOT NULL
+    // （COALESCE 再兜底）。非叶子表,重建只能走本 onOpen 路径。
+    await DbMigrations.ensureTimingUnitNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

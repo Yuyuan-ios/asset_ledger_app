@@ -113,10 +113,14 @@ class AppDatabase {
   //        default_unit_price_fen / breaking_unit_price_fen，
   //        project_device_rates 增 nullable rate_fen，按 round(REAL×100)
   //        回填；REAL 仍是读口径，读路径切换留待 S1 收口切片 1-4。
+  // - v36：timing_records.unit 提升为 TEXT NOT NULL（重建表，S2 schema
+  //        权威收口）。onUpgrade 刻意为空（非叶子表，同 v34），重建走
+  //        onOpen 的 ensureTimingUnitNotNull。quantity_scaled 保持
+  //        nullable（rent 行租期计量语义未定）。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 35;
+  static const int _dbVersion = 36;
 
   static int get schemaVersion => _dbVersion;
 

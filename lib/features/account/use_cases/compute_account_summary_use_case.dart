@@ -154,6 +154,16 @@ class ComputeAccountSummaryUseCase {
       totalRatio: summary.cashRate,
       settlementRate: summary.settlementRate,
       deviceReceivables: deviceReceivables,
+      // 整数分权威快照直出（calcMoneyFen,按真实 project_id 键控）,
+      // 供设备台账等下游消费,不再从 double VM 值 round-trip 回 fen。
+      moneyFenByProjectId: {
+        for (final entry in moneyFenByProjectId.entries)
+          entry.key: AccountProjectMoneyFenVM(
+            receivableFen: entry.value.receivableFen,
+            receivedFen: entry.value.receivedFen,
+            writeOffFen: entry.value.writeOffFen,
+          ),
+      },
     );
   }
 

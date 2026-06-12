@@ -132,6 +132,7 @@ class DeviceBusinessLedgerUseCase {
             deviceId: device.id!,
             accountProjects: accountComputed.projects,
             projectsById: projectsById,
+            moneyFenByProjectId: accountComputed.moneyFenByProjectId,
           ),
         ),
     ];
@@ -183,6 +184,7 @@ class DeviceBusinessLedgerUseCase {
     required int deviceId,
     required List<AccountProjectVM> accountProjects,
     required Map<String, AccountProjectVM> projectsById,
+    Map<String, AccountProjectMoneyFenVM> moneyFenByProjectId = const {},
   }) {
     final projectIds = <String>{};
     for (final record in records) {
@@ -206,22 +208,63 @@ class DeviceBusinessLedgerUseCase {
 
     return [
       for (final project in orderedProjects)
-        DeviceBusinessProjectHistory(
-          projectId: project.projectId,
-          projectName: project.displayName,
-          minYmd: project.minYmd,
-          receivableFen: ProjectFinanceCalculator.yuanToFen(project.receivable),
-          receivedFen: ProjectFinanceCalculator.yuanToFen(project.received),
-          writeOffFen: ProjectFinanceCalculator.yuanToFen(project.writeOff),
-          remainingFen: ProjectFinanceCalculator.yuanToFen(project.remaining),
-          paymentStatus: _paymentStatusFor(project),
-          unitTotals: _unitTotalsForDevice(
-            records: records,
-            deviceId: deviceId,
-            projectIds: _projectIdsFor(project),
-          ),
+        _projectHistoryFor(
+          project: project,
+          records: records,
+          deviceId: deviceId,
+          moneyFenByProjectId: moneyFenByProjectId,
         ),
     ];
+  }
+
+  /// 项目历史金额优先消费整数分权威快照（calcMoneyFen 直出,合并卡按成员
+  /// 求和）；快照缺失的 legacy 路径回退 double VM 值 round-trip。
+  DeviceBusinessProjectHistory _projectHistoryFor({
+    required AccountProjectVM project,
+    required List<TimingRecord> records,
+    required int deviceId,
+    required Map<String, AccountProjectMoneyFenVM> moneyFenByProjectId,
+  }) {
+    final realIds = _projectIdsFor(project);
+    var receivableFen = 0;
+    var receivedFen = 0;
+    var writeOffFen = 0;
+    var hasAuthority = false;
+    for (final id in realIds) {
+      final fen = moneyFenByProjectId[id];
+      if (fen == null) continue;
+      hasAuthority = true;
+      receivableFen += fen.receivableFen;
+      receivedFen += fen.receivedFen;
+      writeOffFen += fen.writeOffFen;
+    }
+    if (!hasAuthority) {
+      receivableFen = ProjectFinanceCalculator.yuanToFen(project.receivable);
+      receivedFen = ProjectFinanceCalculator.yuanToFen(project.received);
+      writeOffFen = ProjectFinanceCalculator.yuanToFen(project.writeOff);
+    }
+    final finance = ProjectFinanceCalculator.summarizeTotals(
+      receivableFen: receivableFen,
+      receivedFen: receivedFen,
+      writeOffFen: writeOffFen,
+      toleranceFen: 1,
+    );
+
+    return DeviceBusinessProjectHistory(
+      projectId: project.projectId,
+      projectName: project.displayName,
+      minYmd: project.minYmd,
+      receivableFen: receivableFen,
+      receivedFen: receivedFen,
+      writeOffFen: writeOffFen,
+      remainingFen: finance.remainingFen,
+      paymentStatus: _paymentStatusFor(project),
+      unitTotals: _unitTotalsForDevice(
+        records: records,
+        deviceId: deviceId,
+        projectIds: realIds,
+      ),
+    );
   }
 
   Set<String> _projectIdsFor(AccountProjectVM project) {

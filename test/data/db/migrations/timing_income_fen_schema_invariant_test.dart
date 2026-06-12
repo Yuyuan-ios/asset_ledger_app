@@ -54,8 +54,9 @@ void main() {
       expect(columns.containsKey('income'), isTrue);
       expect(_isNullable(columns['income']!), isFalse);
 
-      // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
-      expect(_isNullable(columns['unit']!), isTrue);
+      // v36：unit 由 schema 强制 NOT NULL（S2 权威收口）；
+      // quantity_scaled 保持 nullable（rent 行租期计量语义未定）。
+      expect(_isNullable(columns['unit']!), isFalse);
       expect(_isNullable(columns['quantity_scaled']!), isTrue);
 
       // 不放宽其它字段白名单：核心列仍在。
