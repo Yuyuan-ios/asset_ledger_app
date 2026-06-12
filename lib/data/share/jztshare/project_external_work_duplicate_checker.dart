@@ -45,6 +45,10 @@ class ProjectExternalWorkDuplicateChecker {
         where: 'source_share_id = ? AND source_record_uuid = ?',
         whereArgs: [shareId, sourceRecordUuid],
       );
+      // 跨包去重以指纹原文比对,不重算。已接受的 v1/v2 边界:v1 时代导入的
+      // 旧行存 v1 指纹(含已被隐私白名单移除的字段,导入端不可重算),同一
+      // 记录在 v2 升级后重新分享不会触发本告警;包内去重由
+      // (source_share_id, source_record_uuid) 唯一索引兜底,不受影响。
       final sameOriginFingerprint = await _exists(
         executor,
         'external_work_records',

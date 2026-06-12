@@ -76,7 +76,9 @@ Latest S7 stage gate:
 
 ## Completed Scope
 
-- S2 generalized quantity/unit authority and entry template contracts.
+- S2 added save-path quantity/unit regression guards plus entry template
+  contracts. (Audit correction: schema-level NOT NULL authority for
+  unit/quantity_scaled was NOT delivered in this run and remains open.)
 - S3 added device ledger/reporting contract work.
 - S4 added project offset snapshot, share privacy whitelist, and price lineage
   checks.
@@ -89,6 +91,10 @@ Latest S7 stage gate:
 
 - S1 was not re-run in this resumed execution.
 - S2 phase-B templates are contract-level and not all exposed in production UI.
+- S2 schema-level unit/quantity_scaled NOT NULL authority is still open
+  (save-path guard only; flip planned with the next timing table rebuild).
+- S4-2 fingerprint v1->v2 has an accepted one-time dedupe boundary across
+  re-shared legacy records (see slice_s4_2 audit addendum).
 - S5 fake-cloud work is not real cloud integration.
 - S5 driver submission workflow is not wired into production UI/persistence.
 - S6 partner sync is local simulation only.
