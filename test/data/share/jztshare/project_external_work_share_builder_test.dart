@@ -152,7 +152,8 @@ void main() {
     final p = buildAll();
     expect(p.records.length, 4); // 富 records 必含全部
     final rec1 = p.records.firstWhere((r) => r.sourceTimingRecordId == 11);
-    expect(rec1.sourceRecordUuid, 'timing:11');
+    expect(rec1.sourceRecordUuid, matches(RegExp(r'^rec-[0-9a-f]{24}$')));
+    expect(rec1.sourceRecordUuid, isNot('timing:11'));
     expect(rec1.type, 'hours');
     expect(rec1.startMeter, 100.0);
     expect(rec1.endMeter, 108.0);
@@ -216,11 +217,16 @@ void main() {
 
   test('export_lines = importable subset; rent/override excluded', () {
     final p = buildAll();
-    expect(p.exportLines.map((l) => l.exportLineUuid).toSet(), {
-      'timing:11',
-      'timing:12',
-    });
-    final l1 = p.exportLines.firstWhere((l) => l.exportLineUuid == 'timing:11');
+    expect(
+      p.exportLines.map((l) => l.exportLineUuid),
+      everyElement(matches(RegExp(r'^rec-[0-9a-f]{24}$'))),
+    );
+    expect(
+      p.exportLines.map((l) => l.exportLineUuid),
+      isNot(contains('timing:11')),
+    );
+    expect(p.exportLines.toSet(), hasLength(2));
+    final l1 = p.exportLines.firstWhere((l) => l.amountFen == 80000);
     expect(l1.hoursMilli, 8000);
     expect(l1.sourceUnitPriceFen, 10000);
     expect(l1.amountFen, 80000); // == 真实 incomeFen，未伪造
@@ -483,6 +489,71 @@ void main() {
     expect(fa.originFingerprint, isNot(fa2.originFingerprint));
   });
 
+  test('source fingerprint whitelist excludes private identifiers', () {
+    expect(ProjectExternalWorkShareRichPayload.currentFingerprintVersion, 2);
+    expect(
+      ProjectExternalWorkShareBuilder.sourceFingerprintWhitelistV2,
+      containsAll(<String>[
+        'fingerprint_version',
+        'package_source_device_id',
+        'work_date',
+        'hours_milli',
+        'income_fen',
+        'record_type',
+        'is_breaking',
+      ]),
+    );
+    for (final forbidden in const [
+      'contact',
+      'phone',
+      'source_project_key',
+      'local_device_id',
+      'device_id',
+      'auto_device_number',
+    ]) {
+      expect(
+        ProjectExternalWorkShareBuilder.sourceFingerprintWhitelistV2,
+        isNot(contains(forbidden)),
+      );
+    }
+  });
+
+  test('source_device_id is package-local, not the local device table id', () {
+    final localDevice = Device(
+      id: 9876,
+      name: '设备9876',
+      brand: 'CAT',
+      defaultUnitPrice: 100,
+      baseMeterHours: 0,
+    );
+    const rec = TimingRecord(
+      id: 9001,
+      deviceId: 9876,
+      startDate: 20240501,
+      contact: '张三',
+      site: '工地A',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 1,
+      hours: 1,
+      income: 100,
+    );
+
+    final p = builder.build(
+      shareId: 'privacy-share',
+      senderName: '李工',
+      sourceInstallationUuid: 'pkg-source',
+      records: const [rec],
+      deviceMap: {9876: localDevice},
+      calcHistoryMap: const {},
+    );
+
+    expect(p.devices.single.sourceDeviceId, 1);
+    expect(p.records.single.sourceDeviceId, 1);
+    expect(p.deviceGroups.single.sourceDeviceId, 1);
+    expect(p.records.single.sourceDeviceId, isNot(9876));
+  });
+
   test('blank required inputs and empty records are rejected', () {
     expect(
       () => builder.build(
@@ -724,52 +795,49 @@ void main() {
     });
   });
 
-  test(
-    'stale income from old device default + project override → '
-    'trusts current override price and recomputes income (no "未知")',
-    () {
-      // 复刻 Bug 2：设备默认 180，项目覆盖价改为 100，但 income 仍是 180 旧口径。
-      final deviceX = Device(
-        id: 7,
-        name: '挖机 7#',
-        brand: 'CAT',
-        defaultUnitPrice: 180.0,
-        baseMeterHours: 0.0,
-        equipmentType: EquipmentType.excavator,
-      );
-      const staleRecord = TimingRecord(
-        id: 74,
-        deviceId: 7,
-        startDate: 20240305,
-        contact: '余远',
-        site: '鲜滩',
-        type: TimingType.hours,
-        startMeter: 0.0,
-        endMeter: 70.1,
-        hours: 70.1,
-        income: 12618.0, // = 70.1 × 180（旧口径，未回写）
-      );
-      final override = ProjectDeviceRate(
-        projectId: staleRecord.effectiveProjectId,
-        projectKey: staleRecord.legacyProjectKey,
-        deviceId: 7,
-        rate: 100.0, // 当前有效项目单价 ¥100
-      );
+  test('stale income from old device default + project override → '
+      'trusts current override price and recomputes income (no "未知")', () {
+    // 复刻 Bug 2：设备默认 180，项目覆盖价改为 100，但 income 仍是 180 旧口径。
+    final deviceX = Device(
+      id: 7,
+      name: '挖机 7#',
+      brand: 'CAT',
+      defaultUnitPrice: 180.0,
+      baseMeterHours: 0.0,
+      equipmentType: EquipmentType.excavator,
+    );
+    const staleRecord = TimingRecord(
+      id: 74,
+      deviceId: 7,
+      startDate: 20240305,
+      contact: '余远',
+      site: '鲜滩',
+      type: TimingType.hours,
+      startMeter: 0.0,
+      endMeter: 70.1,
+      hours: 70.1,
+      income: 12618.0, // = 70.1 × 180（旧口径，未回写）
+    );
+    final override = ProjectDeviceRate(
+      projectId: staleRecord.effectiveProjectId,
+      projectKey: staleRecord.legacyProjectKey,
+      deviceId: 7,
+      rate: 100.0, // 当前有效项目单价 ¥100
+    );
 
-      final p = builder.build(
-        shareId: 'stale-share',
-        senderName: '余远',
-        sourceInstallationUuid: 'install',
-        records: const [staleRecord],
-        deviceMap: {7: deviceX},
-        calcHistoryMap: const {},
-        projectDeviceRates: [override],
-      );
-      final rec = p.records.single;
-      // source_unit_price_fen 用当前有效项目单价 ¥100 = 10000 fen。
-      expect(rec.sourceUnitPriceFen, 10000);
-      // income_fen = AmountPolicy(70.1h, 10000) = 701000，按当前单价口径重算。
-      expect(rec.incomeFen, 701000);
-    },
-  );
+    final p = builder.build(
+      shareId: 'stale-share',
+      senderName: '余远',
+      sourceInstallationUuid: 'install',
+      records: const [staleRecord],
+      deviceMap: {7: deviceX},
+      calcHistoryMap: const {},
+      projectDeviceRates: [override],
+    );
+    final rec = p.records.single;
+    // source_unit_price_fen 用当前有效项目单价 ¥100 = 10000 fen。
+    expect(rec.sourceUnitPriceFen, 10000);
+    // income_fen = AmountPolicy(70.1h, 10000) = 701000，按当前单价口径重算。
+    expect(rec.incomeFen, 701000);
+  });
 }

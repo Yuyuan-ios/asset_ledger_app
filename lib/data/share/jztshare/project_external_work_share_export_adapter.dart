@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
@@ -123,10 +124,11 @@ class ProjectExternalWorkShareExportAdapter {
     final receivedProjectIds = isMerged ? memberSet : {effectiveProjectId};
 
     try {
+      final shareId = _shareId(trimmedSender, createdAt);
       final payload = _builder.build(
-        shareId: _shareId(effectiveProjectId, trimmedSender, createdAt),
+        shareId: shareId,
         senderName: trimmedSender,
-        sourceInstallationUuid: _installationUuid(effectiveProjectId),
+        sourceInstallationUuid: _packageSourceUuid(shareId),
         records: projectRecords,
         deviceMap: deviceMap,
         calcHistoryMap: calcHistoryMap,
@@ -153,20 +155,17 @@ class ProjectExternalWorkShareExportAdapter {
   }
 
   // 来源追踪标识（非本机真实 id）：
-  // - shareId：每次导出唯一（含时间戳），用于导入端防重复。
-  // - installationUuid：按项目稳定，仅作来源归属展示/追踪。
-  static String _shareId(
-    String projectId,
-    String senderName,
-    DateTime createdAt,
-  ) {
+  // - shareId：每次导出唯一（含安全随机 nonce），用于导入端防重复。
+  // - sourceInstallationUuid：每个分享包派生一个临时值，不按项目/设备稳定。
+  static String _shareId(String senderName, DateTime createdAt) {
     final seed =
-        '$projectId|$senderName|${createdAt.toUtc().microsecondsSinceEpoch}';
+        'share|$senderName|${createdAt.toUtc().microsecondsSinceEpoch}|'
+        '${_secureNonce()}';
     return 'pews-${_shortHash(seed, 24)}';
   }
 
-  static String _installationUuid(String projectId) {
-    return 'inst-${_shortHash('project:$projectId', 16)}';
+  static String _packageSourceUuid(String shareId) {
+    return 'pkg-${_shortHash('source:$shareId', 16)}';
   }
 
   static int _projectReceivedFen({
@@ -182,5 +181,14 @@ class ProjectExternalWorkShareExportAdapter {
   static String _shortHash(String input, int length) {
     final hex = sha256.convert(utf8.encode(input)).toString();
     return hex.substring(0, length);
+  }
+
+  static String _secureNonce() {
+    final random = Random.secure();
+    return List<int>.generate(
+      16,
+      (_) => random.nextInt(256),
+      growable: false,
+    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/entities/device.dart';
+import '../domain/services/device_business_ledger.dart';
 import '../domain/services/device_label.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
@@ -8,6 +9,7 @@ import '../../../patterns/device/device_management_section_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_page_action_sections.dart';
+import 'device_business_ledger_section.dart';
 
 class DevicePageSectionHandlers {
   const DevicePageSectionHandlers({
@@ -21,6 +23,7 @@ class DevicePageSectionHandlers {
     required this.onOpenContact,
     required this.onDeviceTap,
     required this.onDeviceLongPress,
+    this.businessLedgers = const [],
   });
 
   final VoidCallback onOpenUpgradePage;
@@ -33,6 +36,7 @@ class DevicePageSectionHandlers {
   final VoidCallback onOpenContact;
   final ValueChanged<Device> onDeviceTap;
   final ValueChanged<Device> onDeviceLongPress;
+  final List<DeviceBusinessLedger> businessLedgers;
 }
 
 List<Widget> buildDevicePageSections({
@@ -72,6 +76,9 @@ List<Widget> buildDevicePageSections({
           onDeviceLongPress: handlers.onDeviceLongPress,
           resolveIndexLabel: (device) => DeviceLabel.indexOnly(device.name),
         ),
+      );
+      sections.add(
+        DeviceBusinessLedgerSection(ledgers: handlers.businessLedgers),
       );
     }
   }

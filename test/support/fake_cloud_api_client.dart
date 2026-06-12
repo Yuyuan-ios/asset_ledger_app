@@ -26,7 +26,8 @@ class FakeCloudApiClient implements CloudApiClient {
   void respondDefault(ApiResponse response) => _defaultResponse = response;
 
   /// Append a one-shot response consumed before the default (in order).
-  void enqueueResponse(ApiResponse response) => _scriptedResponses.add(response);
+  void enqueueResponse(ApiResponse response) =>
+      _scriptedResponses.add(response);
 
   @override
   Future<ApiResponse> send(ApiRequest request) async {
@@ -48,5 +49,17 @@ ApiResponse fakeCloudFailure({
   return ApiResponse(
     statusCode: statusCode,
     error: ApiError(code: code, message: message, retryable: retryable),
+  );
+}
+
+ApiResponse fakeCloudConflict({
+  String code = 'conflict',
+  String message = 'fake cloud conflict',
+}) {
+  return fakeCloudFailure(
+    statusCode: 409,
+    code: code,
+    message: message,
+    retryable: false,
   );
 }

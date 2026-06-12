@@ -426,11 +426,12 @@ void main() {
     });
 
     test(
-      'rich source_unit_price_fen (incl. project override) is preserved end-to-end',
+      'rich source_unit_price_fen is preserved without seeding local override',
       () async {
         final db = await _openDb();
         // 模拟导出端写入 200元/h 的项目覆盖单价：source_unit_price_fen = 20000。
-        // 导入端必须原样保留，绝不反推、绝不替换为 0。
+        // 导入端必须原样保留来源事实，绝不反推、绝不替换为 0；
+        // local_unit_price_fen 属于接收方本地复核层，首次导入不能用 source 种值。
         final parsed = _parsedRich(
           records: [
             _record(
@@ -452,7 +453,7 @@ void main() {
         final rows = await db.query('external_work_records');
         expect(rows, hasLength(1));
         expect(rows.single['source_unit_price_fen'], 20000);
-        expect(rows.single['local_unit_price_fen'], 20000);
+        expect(rows.single['local_unit_price_fen'], isNull);
         expect(rows.single['amount_fen'], 140000);
         expect(rows.single['record_kind'], 'hours');
       },
