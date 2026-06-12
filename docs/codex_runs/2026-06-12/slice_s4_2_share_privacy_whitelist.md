@@ -79,3 +79,22 @@ PASS
 - The existing code made `source_installation_uuid` stable from project id and exposed `source_device_id` as the local device id. This was not uncertain after inspection, so no OpenClaw clarification was needed for "is this stable/private?".
 - The selected action is privacy-reducing mitigation and GitNexus reported MEDIUM, not HIGH/CRITICAL. No OpenClaw high-risk approval was triggered for this slice.
 - No database migration, import table schema change, cloud/secrets, backup format, release, push, or merge action was performed.
+
+## Audit Addendum (2026-06-12 merge review)
+
+- Confirmed red-line fix: the v1 fingerprint hashed `legacyProjectKey`
+  (contact||site, PII-derived) and the local auto-increment `device_id`,
+  both forbidden by the outline (§6.4 "不打包手机号、通讯录、本机 device_id、
+  设备自动编号"). v2 whitelist removes them. This was a pre-existing
+  violation that earlier audits missed.
+- Accepted compatibility boundary: `origin_fingerprint` is the recipient-side
+  cross-package dedupe key (`project_external_work_duplicate_checker` queries
+  `WHERE origin_fingerprint = ?`). Rows imported from v1-era packages keep v1
+  fingerprints; re-sharing the same physical record after this upgrade
+  produces a v2 fingerprint, so the recipient's duplicate warning will NOT
+  fire across the v1/v2 boundary. Recomputing v1 for legacy rows is not
+  possible on the import side (v1 inputs such as the sender's local device id
+  are intentionally absent from v2 payloads). This one-time boundary is
+  accepted as the price of removing PII from the fingerprint; per-share
+  dedupe via the (source_share_id, source_record_uuid) unique index is
+  unaffected.
