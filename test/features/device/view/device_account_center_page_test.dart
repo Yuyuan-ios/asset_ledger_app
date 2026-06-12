@@ -152,7 +152,7 @@ void main() {
             onOpenLocalBackup: () {},
             onOpenLocalRestore: () {},
             onOpenSyncInfo: () {},
-            onOpenLoginSyncInfo: () {},
+            onOpenCloudBackup: () {},
           ),
         ),
       );
@@ -163,7 +163,8 @@ void main() {
       expect(find.text('购买权益'), findsOneWidget);
       expect(find.text('升级 Pro，支持持续维护'), findsOneWidget);
       expect(find.text('恢复购买'), findsOneWidget);
-      expect(find.text('云端备份与协作记录'), findsOneWidget);
+      expect(find.text('云端备份'), findsOneWidget);
+      expect(find.text('登录后可保存与恢复云端备份'), findsOneWidget);
       expect(find.text('手动本地备份'), findsOneWidget);
       expect(find.text('本地恢复'), findsOneWidget);
       expect(find.text('多端同步说明'), findsOneWidget);
@@ -203,7 +204,7 @@ void main() {
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
-          onOpenLoginSyncInfo: () {},
+          onOpenCloudBackup: () {},
         ),
       ),
     );
@@ -248,7 +249,7 @@ void main() {
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
-          onOpenLoginSyncInfo: () {},
+          onOpenCloudBackup: () {},
         ),
       ),
     );
@@ -257,5 +258,53 @@ void main() {
     expect(find.textContaining('尾号 8000'), findsOneWidget);
     expect(find.textContaining('Pro 已开通'), findsWidgets);
     expect(find.textContaining('13800138000'), findsNothing);
+  });
+
+  testWidgets('account center shows cloud backup unavailable state', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+
+    var cloudBackupOpened = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccountCenterPage(
+          loginSession: const PhoneLoginSession(
+            loggedIn: true,
+            privacyAccepted: true,
+            phoneNumber: '13800138000',
+            authToken: 'token',
+          ),
+          subscriptionListenable: subscription,
+          onOpenPhoneLogin: () async =>
+              const PhoneLoginSession.unauthenticated(),
+          onOpenUpgradePage: () {},
+          onRestorePurchases: () async {},
+          onOpenLocalBackup: () {},
+          onOpenLocalRestore: () {},
+          onOpenSyncInfo: () {},
+          onOpenCloudBackup: () {
+            cloudBackupOpened = true;
+          },
+          cloudBackupAvailable: false,
+          cloudBackupUnavailableMessage: '云端备份服务暂未配置',
+        ),
+      ),
+    );
+
+    expect(find.text('云端备份'), findsOneWidget);
+    expect(find.text('云端备份服务暂未配置'), findsOneWidget);
+
+    await tester.tap(find.text('云端备份'));
+    await tester.pump();
+
+    expect(cloudBackupOpened, isTrue);
   });
 }

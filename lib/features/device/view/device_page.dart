@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../../../app/phone_login_gate.dart';
 import '../../../core/utils/store_feedback.dart';
+import '../../../infrastructure/cloud/cloud_backup_gateway.dart';
+import '../application/controllers/cloud_backup_controller.dart';
 import '../application/controllers/local_backup_controller.dart';
 import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/device.dart';
@@ -43,6 +45,8 @@ class DevicePage extends StatefulWidget {
 
 enum _ManualBackupAction { backupOnly, backupAndShare }
 
+enum _CloudBackupAction { uploadCurrent, restoreFromCloud }
+
 // =====================================================================
 // ============================== 三、State：仅做 UI 状态与交互 ==============================
 // =====================================================================
@@ -53,10 +57,14 @@ class _DevicePageState extends State<DevicePage> {
   static const _deviceBusinessLedgerUseCase = DeviceBusinessLedgerUseCase();
 
   bool _isExportingBackup = false;
+  bool _isCloudBackupBusy = false;
   PhoneLoginSession _loginSession = const PhoneLoginSession.unauthenticated();
 
   LocalBackupController get _localBackupController =>
       context.read<LocalBackupController>();
+
+  CloudBackupController get _cloudBackupController =>
+      context.read<CloudBackupController>();
 
   @override
   void initState() {
@@ -231,21 +239,21 @@ class _DevicePageState extends State<DevicePage> {
         reverseTransitionDuration: const Duration(
           milliseconds: DeviceTokens.avatarPickerReverseDurationMs,
         ),
-        pageBuilder: (context, animation, secondaryAnimation) => AccountCenterPage(
-          loginSession: _loginSession,
-          subscriptionListenable: _subscriptionController.notifier,
-          onOpenPhoneLogin: _openPhoneLogin,
-          onOpenUpgradePage: _openUpgradePage,
-          onRestorePurchases: _restorePurchases,
-          onOpenLocalBackup: _openLocalBackup,
-          onOpenLocalRestore: _openLocalRestorePreview,
-          onOpenSyncInfo: _openSyncInfoPlaceholder,
-          onOpenLoginSyncInfo: () => _showAccountSyncPlaceholder(
-            title: '云端备份与协作记录',
-            message:
-                '云备份、换机恢复和协作记录等能力后续将继续做，Pro 用户将优先开放。当前版本仍以本机数据为准，请定期使用手动本地备份保存数据。',
-          ),
-        ),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            AccountCenterPage(
+              loginSession: _loginSession,
+              subscriptionListenable: _subscriptionController.notifier,
+              onOpenPhoneLogin: _openPhoneLogin,
+              onOpenUpgradePage: _openUpgradePage,
+              onRestorePurchases: _restorePurchases,
+              onOpenLocalBackup: _openLocalBackup,
+              onOpenLocalRestore: _openLocalRestorePreview,
+              onOpenSyncInfo: _openSyncInfoPlaceholder,
+              onOpenCloudBackup: _openCloudBackup,
+              cloudBackupAvailable: _cloudBackupController.isAvailable,
+              cloudBackupUnavailableMessage:
+                  _cloudBackupController.unavailableMessage,
+            ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final offset = Tween<Offset>(
             begin: const Offset(1, 0),
@@ -260,6 +268,219 @@ class _DevicePageState extends State<DevicePage> {
     );
     if (!mounted) return;
     await _loadLoginSession();
+  }
+
+  Future<void> _openCloudBackup() async {
+    if (_isCloudBackupBusy) return;
+
+    if (!_cloudBackupController.isAvailable) {
+      await _showAccountSyncPlaceholder(
+        title: '云端备份服务暂未配置',
+        message: _cloudBackupController.unavailableMessage,
+      );
+      return;
+    }
+
+    var session = await _loadLoginSession();
+    if (!mounted) return;
+    if (!session.isAuthenticated) {
+      session = await _openPhoneLogin();
+      if (!mounted) return;
+      if (!session.isAuthenticated) {
+        await _showAccountSyncPlaceholder(
+          title: '需要登录',
+          message: '请先完成手机号登录，再使用云端备份。',
+        );
+        return;
+      }
+    }
+
+    final action = await _chooseCloudBackupAction();
+    if (action == null || !mounted) return;
+    switch (action) {
+      case _CloudBackupAction.uploadCurrent:
+        await _uploadCloudBackup();
+        break;
+      case _CloudBackupAction.restoreFromCloud:
+        await _restoreCloudBackup();
+        break;
+    }
+  }
+
+  Future<_CloudBackupAction?> _chooseCloudBackupAction() {
+    return showDialog<_CloudBackupAction>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('云端备份'),
+          content: const Text('你可以上传当前本机数据，也可以从云端备份恢复到本机。云端恢复会完整替换当前本机业务数据。'),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(_CloudBackupAction.restoreFromCloud),
+              child: const Text('从云端恢复'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(_CloudBackupAction.uploadCurrent),
+              child: const Text('上传当前数据'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _uploadCloudBackup() async {
+    setState(() => _isCloudBackupBusy = true);
+    try {
+      final result = await _cloudBackupController.uploadCurrent();
+      if (!mounted) return;
+      if (!result.success) {
+        await _showAccountSyncPlaceholder(
+          title: '云端备份失败',
+          message: result.errorMessage ?? '云端备份上传失败，请稍后重试。',
+        );
+        return;
+      }
+      await _showAccountSyncPlaceholder(
+        title: '云端备份已上传',
+        message:
+            '当前数据已保存到云端。\n'
+            '备份 ID：${result.backupId ?? '-'}\n'
+            '大小：${_cloudBackupController.formatPayloadSize(result.payloadBytes)}',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCloudBackupBusy = false);
+      }
+    }
+  }
+
+  Future<void> _restoreCloudBackup() async {
+    setState(() => _isCloudBackupBusy = true);
+    final listResult = await _cloudBackupController.listRemote();
+    if (mounted) {
+      setState(() => _isCloudBackupBusy = false);
+    }
+    if (!mounted) return;
+    if (!listResult.success) {
+      await _showAccountSyncPlaceholder(
+        title: '无法读取云端备份',
+        message: listResult.errorMessage ?? '云端备份列表读取失败，请稍后重试。',
+      );
+      return;
+    }
+    if (listResult.backups.isEmpty) {
+      await _showAccountSyncPlaceholder(
+        title: '暂无云端备份',
+        message: '当前账号下还没有可恢复的云端备份。',
+      );
+      return;
+    }
+
+    final selected = await _selectCloudBackup(listResult.backups);
+    if (selected == null || !mounted) return;
+    final confirmed = await _confirmCloudRestore(selected);
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isCloudBackupBusy = true);
+    try {
+      final result = await _cloudBackupController.restoreFromCloud(
+        selected.backupId,
+      );
+      if (!mounted) return;
+      if (result.success) {
+        await _reloadStoresAfterRestore();
+        if (!mounted) return;
+        await _showRestoreSuccessDialog(result);
+        return;
+      }
+      await _showRestoreFailureDialog(result);
+    } finally {
+      if (mounted) {
+        setState(() => _isCloudBackupBusy = false);
+      }
+    }
+  }
+
+  Future<CloudBackupMetadata?> _selectCloudBackup(
+    List<CloudBackupMetadata> backups,
+  ) {
+    return showDialog<CloudBackupMetadata>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('选择云端备份'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: backups.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final backup = backups[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    _cloudBackupController.formatRemoteTimeForDisplay(
+                      backup.createdAtIso,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Schema v${backup.dbSchemaVersion} · '
+                    '${_cloudBackupController.formatPayloadSize(backup.payloadBytes)}',
+                  ),
+                  onTap: () => Navigator.of(dialogContext).pop(backup),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool> _confirmCloudRestore(CloudBackupMetadata backup) async {
+    final backupTime = _cloudBackupController.formatRemoteTimeForDisplay(
+      backup.createdAtIso,
+    );
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('确认从云端恢复？'),
+              content: Text(
+                '将恢复 $backupTime 的云端备份。恢复后，当前本机业务数据会被这份云端备份替换；恢复前 App 会先自动导出当前数据备份。',
+              ),
+              actionsAlignment: MainAxisAlignment.spaceBetween,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('确认恢复'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   Future<void> _openLocalBackup() async {

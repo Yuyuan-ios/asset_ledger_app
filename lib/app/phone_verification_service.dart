@@ -41,10 +41,12 @@ class PhoneVerificationException implements Exception {
 }
 
 class HttpPhoneVerificationService implements PhoneVerificationService {
+  static const String defaultBaseUrl = 'https://api.yuyuan.net.cn/fleet-ledger';
+
   const HttpPhoneVerificationService({
     this.baseUrl = const String.fromEnvironment(
       'FLEET_LEDGER_API_BASE_URL',
-      defaultValue: 'https://api.yuyuan.net.cn/fleet-ledger',
+      defaultValue: defaultBaseUrl,
     ),
     this.timeout = const Duration(seconds: 10),
   });

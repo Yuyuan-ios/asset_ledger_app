@@ -65,7 +65,9 @@ class CloudBackupMetadata {
 }
 
 class CloudBackupGatewayException implements Exception {
-  const CloudBackupGatewayException(this.code, this.message, {
+  const CloudBackupGatewayException(
+    this.code,
+    this.message, {
     this.retryable = false,
   });
 
@@ -168,6 +170,12 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
     Map<String, Object?> body, {
     int maxPayloadBytes = CloudBackupEnvelope.maxPayloadBytes,
   }) {
+    if (body['kind'] != CloudBackupEnvelope.kindValue) {
+      throw const CloudBackupGatewayException(
+        'invalid_envelope',
+        'cloud backup envelope kind is invalid',
+      );
+    }
     final formatVersion = body['format_version'];
     if (formatVersion is! int ||
         formatVersion != CloudBackupEnvelope.supportedFormatVersion) {
@@ -178,11 +186,13 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
     }
     final payloadJson = body['payload_json'];
     final payloadSha256 = body['payload_sha256'];
+    final payloadBytes = body['payload_bytes'];
     final createdAt = body['created_at'];
     final dbSchemaVersion = body['db_schema_version'];
     if (payloadJson is! String ||
         payloadJson.isEmpty ||
         payloadSha256 is! String ||
+        payloadBytes is! int ||
         createdAt is! String ||
         dbSchemaVersion is! int) {
       throw const CloudBackupGatewayException(
@@ -190,10 +200,17 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
         'cloud backup envelope is missing required fields',
       );
     }
-    if (payloadJson.length > maxPayloadBytes) {
+    final actualPayloadBytes = utf8.encode(payloadJson).length;
+    if (actualPayloadBytes > maxPayloadBytes) {
       throw const CloudBackupGatewayException(
         'payload_too_large',
         'cloud backup payload exceeds the maximum allowed size',
+      );
+    }
+    if (payloadBytes != actualPayloadBytes) {
+      throw const CloudBackupGatewayException(
+        'payload_size_mismatch',
+        'cloud backup payload_bytes does not match payload_json',
       );
     }
     return CloudBackupEnvelope(
@@ -201,7 +218,7 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
       createdAtIso: createdAt,
       dbSchemaVersion: dbSchemaVersion,
       payloadSha256: payloadSha256,
-      payloadBytes: (body['payload_bytes'] as num?)?.toInt() ?? 0,
+      payloadBytes: payloadBytes,
       payloadJson: payloadJson,
     );
   }

@@ -3,6 +3,7 @@ import 'package:provider/single_child_widget.dart';
 import '../features/account/state/account_payment_store.dart';
 import '../features/account/state/account_store.dart';
 import '../features/account/state/project_rate_store.dart';
+import '../features/device/application/controllers/cloud_backup_controller.dart';
 import '../features/device/state/device_store.dart';
 import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
@@ -52,6 +53,7 @@ class AppProviders {
       timingStore: timing.timingStore,
       fuelStore: deviceFleet.fuelStore,
       maintenanceStore: deviceFleet.maintenanceStore,
+      cloudBackupController: deviceFleet.cloudBackupController,
       paymentStore: accountMerge.paymentStore,
       projectRateStore: accountMerge.projectRateStore,
       accountStore: accountMerge.accountStore,
@@ -75,6 +77,7 @@ class AppProviderBundle {
   final TimingStore timingStore;
   final FuelStore fuelStore;
   final MaintenanceStore maintenanceStore;
+  final CloudBackupController cloudBackupController;
   final AccountPaymentStore paymentStore;
   final ProjectRateStore projectRateStore;
   final AccountStore accountStore;
@@ -86,6 +89,7 @@ class AppProviderBundle {
     required this.timingStore,
     required this.fuelStore,
     required this.maintenanceStore,
+    required this.cloudBackupController,
     required this.paymentStore,
     required this.projectRateStore,
     required this.accountStore,
