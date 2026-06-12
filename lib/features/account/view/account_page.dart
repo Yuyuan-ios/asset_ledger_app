@@ -841,6 +841,7 @@ class _AccountPageState extends State<AccountPage>
           scope: scope,
           records: context.read<TimingStore>().records,
           devices: context.read<DeviceStore>().allDevices,
+          rates: context.read<ProjectRateStore>().rates,
           externalWorkItems: externalWorkItems,
         );
     if (!mounted) return;

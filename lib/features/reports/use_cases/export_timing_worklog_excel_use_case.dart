@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/external_import_batch.dart';
 import '../../../data/models/external_work_record.dart';
+import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_record.dart';
 import '../infrastructure/timing_worklog_excel_writer.dart';
 import '../models/timing_worklog_report.dart';
@@ -45,20 +46,34 @@ class ExportTimingWorklogExcelOutcome {
 
 class TimingWorklogExportScope {
   TimingWorklogExportScope._({
-    required Set<String> projectIds,
+    required Set<String>? projectIds,
+    required Set<int> deviceIds,
+    required this.startDate,
+    required this.endDate,
+    required this.includeExternalWork,
     required String fileNamePart,
-  }) : projectIds = Set.unmodifiable(projectIds),
+  }) : projectIds = Set.unmodifiable(projectIds ?? const <String>{}),
+       _filtersProject = projectIds != null,
+       deviceIds = Set.unmodifiable(deviceIds),
        fileNamePart = _sanitizeFileNamePart(fileNamePart);
 
   factory TimingWorklogExportScope.singleProject({
     required String projectId,
     required String fileNamePart,
+    Iterable<int> deviceIds = const [],
+    int? startDate,
+    int? endDate,
+    bool includeExternalWork = false,
   }) {
     final normalizedProjectId = projectId.trim();
     return TimingWorklogExportScope._(
       projectIds: normalizedProjectId.isEmpty
           ? const <String>{}
           : <String>{normalizedProjectId},
+      deviceIds: _normalizeDeviceIds(deviceIds),
+      startDate: startDate,
+      endDate: endDate,
+      includeExternalWork: includeExternalWork,
       fileNamePart: fileNamePart,
     );
   }
@@ -66,6 +81,10 @@ class TimingWorklogExportScope {
   factory TimingWorklogExportScope.mergedProject({
     required Iterable<String> memberProjectIds,
     required String fileNamePart,
+    Iterable<int> deviceIds = const [],
+    int? startDate,
+    int? endDate,
+    bool includeExternalWork = false,
   }) {
     final ids = memberProjectIds
         .map((id) => id.trim())
@@ -73,23 +92,75 @@ class TimingWorklogExportScope {
         .toSet();
     return TimingWorklogExportScope._(
       projectIds: ids,
+      deviceIds: _normalizeDeviceIds(deviceIds),
+      startDate: startDate,
+      endDate: endDate,
+      includeExternalWork: includeExternalWork,
+      fileNamePart: fileNamePart,
+    );
+  }
+
+  factory TimingWorklogExportScope.filtered({
+    required String fileNamePart,
+    Iterable<String> projectIds = const [],
+    Iterable<int> deviceIds = const [],
+    int? startDate,
+    int? endDate,
+    bool includeExternalWork = false,
+  }) {
+    final normalizedProjectIds = projectIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty && !id.startsWith('merge:'))
+        .toSet();
+    return TimingWorklogExportScope._(
+      projectIds: normalizedProjectIds.isEmpty ? null : normalizedProjectIds,
+      deviceIds: _normalizeDeviceIds(deviceIds),
+      startDate: startDate,
+      endDate: endDate,
+      includeExternalWork: includeExternalWork,
       fileNamePart: fileNamePart,
     );
   }
 
   final Set<String> projectIds;
+  final bool _filtersProject;
+  final Set<int> deviceIds;
+  final int? startDate;
+  final int? endDate;
+  final bool includeExternalWork;
   final String fileNamePart;
 
   bool includes(TimingRecord record) {
-    return projectIds.contains(record.effectiveProjectId.trim());
+    if (_filtersProject &&
+        !projectIds.contains(record.effectiveProjectId.trim())) {
+      return false;
+    }
+    if (deviceIds.isNotEmpty && !deviceIds.contains(record.deviceId)) {
+      return false;
+    }
+    return _containsDate(record.startDate);
   }
 
   bool includesExternal(TimingExternalWorkRecordItem item) {
+    if (!includeExternalWork) return false;
+    if (deviceIds.isNotEmpty) return false;
     final record = item.record;
     if (record.status != ExternalWorkRecordStatus.active) return false;
     if (item.batch?.status != ExternalImportBatchStatus.active) return false;
     final linkedProjectId = record.linkedProjectId?.trim() ?? '';
-    return linkedProjectId.isNotEmpty && projectIds.contains(linkedProjectId);
+    if (linkedProjectId.isEmpty) return false;
+    if (_filtersProject && !projectIds.contains(linkedProjectId)) {
+      return false;
+    }
+    return _containsDate(record.workDate);
+  }
+
+  bool _containsDate(int ymd) {
+    final start = startDate;
+    if (start != null && ymd < start) return false;
+    final end = endDate;
+    if (end != null && ymd > end) return false;
+    return true;
   }
 
   static String _sanitizeFileNamePart(String raw) {
@@ -101,6 +172,10 @@ class TimingWorklogExportScope {
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
     return cleaned.isEmpty ? '项目' : cleaned;
+  }
+
+  static Set<int> _normalizeDeviceIds(Iterable<int> ids) {
+    return ids.where((id) => id > 0).toSet();
   }
 }
 
@@ -126,6 +201,7 @@ class ExportTimingWorklogExcelUseCase {
     required TimingWorklogExportScope scope,
     required List<TimingRecord> records,
     required List<Device> devices,
+    List<ProjectDeviceRate> rates = const [],
     List<TimingExternalWorkRecordItem> externalWorkItems = const [],
   }) async {
     final scopedRecords = records.where(scope.includes).toList(growable: false);
@@ -139,6 +215,7 @@ class ExportTimingWorklogExcelUseCase {
       final report = _reportBuilder.execute(
         records: scopedRecords,
         devices: devices,
+        rates: rates,
         externalWorkItems: scopedExternalWorkItems,
       );
       if (report.isEmpty) {
@@ -161,8 +238,8 @@ class ExportTimingWorklogExcelUseCase {
         await _presenter.share(
           filePath: file.path,
           fileName: fileName,
-          text: '挖机工时打卡汇总已生成，请查看附件 Excel 文件。',
-          subject: '挖机工时打卡汇总',
+          text: '项目对账明细已生成，请查看附件 Excel 文件。',
+          subject: '项目对账明细',
         );
       } catch (_) {
         return ExportTimingWorklogExcelOutcome.failure('分享面板打开失败，工时表已保留，可稍后重试');
@@ -183,7 +260,7 @@ class ExportTimingWorklogExcelUseCase {
   ) async {
     final dateRange =
         '${_compactDate(report.startDate)}-${_compactDate(report.endDate)}';
-    final stem = '挖机工时打卡汇总_${fileNamePart}_$dateRange';
+    final stem = '项目对账明细_${fileNamePart}_$dateRange';
     var candidate = '$stem.xlsx';
     var seq = 1;
     while (await File(p.join(directory.path, candidate)).exists()) {
