@@ -283,4 +283,77 @@ void main() {
       expect(result.recordCount, 2); // 只 A 的两条，B 不混入
     },
   );
+
+  test('repacking regenerates package-local source identifiers', () async {
+    final dir = await Directory.systemTemp.createTemp('jztshare_adapter_');
+    addTearDown(() => dir.delete(recursive: true));
+    final localDevice = Device(
+      id: 9876,
+      name: 'CAT 9876',
+      brand: 'CAT',
+      defaultUnitPrice: 100,
+      baseMeterHours: 0,
+    );
+    const record = TimingRecord(
+      id: 9001,
+      deviceId: 9876,
+      startDate: 20260601,
+      projectId: 'project-private',
+      contact: '李杰',
+      site: '尚义',
+      type: TimingType.hours,
+      startMeter: 0,
+      endMeter: 8,
+      hours: 8,
+      income: 800,
+    );
+
+    Future<String> exportOnce() async {
+      final result = await adapter.export(
+        projectId: record.effectiveProjectId,
+        projectKey: record.legacyProjectKey,
+        senderName: '老王',
+        allRecords: const [record],
+        allDevices: [localDevice],
+        calcHistoryRepository: _FakeCalcRepo(const {}),
+        producer: producer,
+        createdAt: createdAt,
+        directoryResolver: () async => dir,
+      );
+      return File(result.filePath!).readAsString();
+    }
+
+    final first = parser.parseProjectExternalWorkShare(await exportOnce());
+    final second = parser.parseProjectExternalWorkShare(await exportOnce());
+
+    expect(first.envelope.shareId, isNot(second.envelope.shareId));
+    expect(
+      first.payload.sourceInstallationUuid,
+      isNot(second.payload.sourceInstallationUuid),
+    );
+    expect(first.payload.sourceInstallationUuid, startsWith('pkg-'));
+    expect(first.payload.sourceInstallationUuid, isNot(contains('project')));
+
+    final firstRecord = first.payload.richRecords!.single;
+    final secondRecord = second.payload.richRecords!.single;
+    expect(firstRecord.sourceRecordUuid, isNot(secondRecord.sourceRecordUuid));
+    expect(
+      firstRecord.sourceRecordUuid,
+      matches(RegExp(r'^rec-[0-9a-f]{24}$')),
+    );
+    expect(firstRecord.sourceDeviceId, 1);
+    expect(firstRecord.sourceDeviceId, isNot(9876));
+    expect(
+      first.payload.exportLines.single.exportLineUuid,
+      isNot(second.payload.exportLines.single.exportLineUuid),
+    );
+    expect(
+      first.envelope.integrity.payloadSha256,
+      matches(RegExp(r'^[0-9a-f]{64}$')),
+    );
+    expect(
+      second.envelope.integrity.payloadSha256,
+      matches(RegExp(r'^[0-9a-f]{64}$')),
+    );
+  });
 }
