@@ -32,7 +32,7 @@ class ComputeAccountSummaryUseCase {
     final summaryTimingRecords = timingRecords.where((record) {
       return summaryRange.containsYmd(record.startDate);
     }).toList();
-    final receivableByDevice = _calcNetReceivableByDevice(
+    final receivableFenByDevice = _calcNetReceivableFenByDevice(
       timingRecords: summaryTimingRecords,
       devices: devices,
       rates: rates,
@@ -121,7 +121,7 @@ class ComputeAccountSummaryUseCase {
     final deviceById = buildDeviceByIdMap(devices);
 
     final deviceReceivables =
-        receivableByDevice.entries.where((entry) => entry.value > 0).map((
+        receivableFenByDevice.entries.where((entry) => entry.value > 0).map((
           entry,
         ) {
           final device =
@@ -137,7 +137,9 @@ class ComputeAccountSummaryUseCase {
           return AccountDeviceReceivable(
             deviceId: entry.key,
             name: device.name,
-            amount: entry.value,
+            // fen 权威直出;yuan 仅为显示兼容口径。
+            amount: ProjectFinanceCalculator.fenToYuan(entry.value),
+            amountFen: entry.value,
           );
         }).toList()..sort((a, b) {
           final byLength = a.name.length.compareTo(b.name.length);
@@ -184,7 +186,7 @@ class ComputeAccountSummaryUseCase {
     return GregorianYearRange.forYear(latestYear);
   }
 
-  Map<int, double> _calcNetReceivableByDevice({
+  Map<int, int> _calcNetReceivableFenByDevice({
     required List<TimingRecord> timingRecords,
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
@@ -245,10 +247,8 @@ class ComputeAccountSummaryUseCase {
       }
     }
 
-    return {
-      for (final entry in totalsFen.entries)
-        entry.key: ProjectFinanceCalculator.fenToYuan(entry.value),
-    };
+    // fen 直出:yuan 转换推迟到 VM 构造处,设备级应收不再以 double 为中转。
+    return totalsFen;
   }
 
   Map<int, int> _projectReceivableFenByDevice({

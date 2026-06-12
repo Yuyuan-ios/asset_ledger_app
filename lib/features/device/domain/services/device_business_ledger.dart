@@ -108,7 +108,9 @@ class DeviceBusinessLedgerUseCase {
     );
     final incomeFenByDevice = {
       for (final item in accountComputed.deviceReceivables)
-        item.deviceId: ProjectFinanceCalculator.yuanToFen(item.amount),
+        // fen 权威直出优先;legacy 构造(无 fen)回退 double 派生。
+        item.deviceId:
+            item.amountFen ?? ProjectFinanceCalculator.yuanToFen(item.amount),
     };
     final projectsById = <String, AccountProjectVM>{};
     for (final project in accountComputed.projects) {
