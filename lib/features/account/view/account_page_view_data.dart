@@ -321,6 +321,7 @@ AccountComputed augmentComputedWithExternalWork(
     totalRatio: computed.totalRatio,
     settlementRate: computed.settlementRate,
     deviceReceivables: computed.deviceReceivables,
+    moneyFenByProjectId: computed.moneyFenByProjectId,
   );
 }
 

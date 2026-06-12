@@ -42,6 +42,22 @@ class AccountExternalWorkProjectVM {
   }
 }
 
+/// 单项目金额的整数分权威快照（按真实 project_id 键控,合并卡按成员求和）。
+///
+/// 供设备台账等下游直接消费 fen,避免从 double VM 值 round-trip 回 fen
+/// 的派生口径(无损但非权威直出,口径变化时会漂移)。
+class AccountProjectMoneyFenVM {
+  final int receivableFen;
+  final int receivedFen;
+  final int writeOffFen;
+
+  const AccountProjectMoneyFenVM({
+    required this.receivableFen,
+    required this.receivedFen,
+    required this.writeOffFen,
+  });
+}
+
 class AccountComputed {
   final List<AccountProjectVM> projects;
   final double totalReceivable;
@@ -52,6 +68,9 @@ class AccountComputed {
   final double? settlementRate;
   final List<AccountDeviceReceivable> deviceReceivables;
 
+  /// 整数分权威口径（calcMoneyFen 直出,键为真实 project_id）。
+  final Map<String, AccountProjectMoneyFenVM> moneyFenByProjectId;
+
   const AccountComputed({
     required this.projects,
     required this.totalReceivable,
@@ -61,6 +80,7 @@ class AccountComputed {
     required this.totalRatio,
     this.settlementRate,
     required this.deviceReceivables,
+    this.moneyFenByProjectId = const {},
   });
 
   const AccountComputed.empty()
@@ -71,7 +91,8 @@ class AccountComputed {
       totalRemaining = 0,
       totalRatio = null,
       settlementRate = null,
-      deviceReceivables = const [];
+      deviceReceivables = const [],
+      moneyFenByProjectId = const {};
 }
 
 class AccountProjectVM {

@@ -31,7 +31,8 @@ void main() {
     }
   });
 
-  test('fresh schema provisions nullable unit and quantity_scaled', () async {
+  test('fresh schema provisions unit (NOT NULL since v36) and nullable '
+      'quantity_scaled', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
@@ -42,7 +43,8 @@ void main() {
     try {
       final unitColumn = await _column(db, 'timing_records', 'unit');
       expect(unitColumn, isNotNull);
-      expect(_isNullable(unitColumn!), isTrue);
+      // v36 起 unit 升为 NOT NULL（S2 schema 权威）。
+      expect(_isNullable(unitColumn!), isFalse);
       final quantityColumn = await _column(
         db,
         'timing_records',

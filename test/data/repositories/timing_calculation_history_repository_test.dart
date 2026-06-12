@@ -346,6 +346,10 @@ Future<void> _seedTimingRecord(Database db, {required int id}) async {
   if (columns.any((column) => column['name'] == 'income_fen')) {
     row['income_fen'] = 80000;
   }
+  // v36 起 unit NOT NULL；同样仅在列存在时附带。
+  if (columns.any((column) => column['name'] == 'unit')) {
+    row['unit'] = 'HOUR';
+  }
   await db.insert('timing_records', row);
 }
 
