@@ -1,5 +1,8 @@
 import 'package:asset_ledger/core/measure/measure_unit.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
+import 'package:asset_ledger/data/models/account_project_merge_group.dart';
+import 'package:asset_ledger/data/models/account_project_merge_group_with_members.dart';
+import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
@@ -203,5 +206,93 @@ void main() {
       expect(ledger.unitTotals.single.quantityScaled, 2000);
       expect(ledger.projects.single.projectName, '新项目 · B');
     });
+
+    test(
+      'merged account project name does not pass through member worker names',
+      () {
+        const devices = [
+          Device(
+            id: 1,
+            name: 'SANY 1#',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        ];
+        const timingRecords = [
+          TimingRecord(
+            id: 1,
+            deviceId: 1,
+            startDate: 20260103,
+            contact: '外协工人A',
+            site: '一号线',
+            type: TimingType.hours,
+            startMeter: 0,
+            endMeter: 2,
+            hours: 2,
+            income: 0,
+            unit: MeasureUnit.hour,
+            quantityScaled: 2000,
+          ),
+          TimingRecord(
+            id: 2,
+            deviceId: 1,
+            startDate: 20260104,
+            contact: '外协工人B',
+            site: '二号线',
+            type: TimingType.hours,
+            startMeter: 2,
+            endMeter: 5,
+            hours: 3,
+            income: 0,
+            unit: MeasureUnit.hour,
+            quantityScaled: 3000,
+          ),
+        ];
+        const activeMergeGroups = [
+          AccountProjectMergeGroupWithMembers(
+            group: AccountProjectMergeGroup(
+              id: 9,
+              contact: '业主甲',
+              createdAt: '2026-01-10T00:00:00.000Z',
+            ),
+            members: [
+              AccountProjectMergeMember(
+                groupId: 9,
+                projectKey: '外协工人A||一号线',
+                contact: '外协工人A',
+                site: '一号线',
+                sortOrder: 0,
+                createdAt: '2026-01-10T00:00:00.000Z',
+              ),
+              AccountProjectMergeMember(
+                groupId: 9,
+                projectKey: '外协工人B||二号线',
+                contact: '外协工人B',
+                site: '二号线',
+                sortOrder: 1,
+                createdAt: '2026-01-10T00:00:00.000Z',
+              ),
+            ],
+          ),
+        ];
+
+        const useCase = DeviceBusinessLedgerUseCase();
+        final ledger = useCase
+            .execute(
+              timingRecords: timingRecords,
+              devices: devices,
+              rates: const [],
+              payments: const [],
+              activeMergeGroups: activeMergeGroups,
+            )
+            .single;
+
+        expect(ledger.projects, hasLength(1));
+        expect(ledger.projects.single.projectName, '业主甲 · 合并2项目');
+        expect(ledger.projects.single.projectName, isNot(contains('外协工人')));
+        expect(ledger.projects.single.unitTotals.single.quantityScaled, 5000);
+      },
+    );
   });
 }

@@ -86,8 +86,9 @@ class ExternalWorkImportPreviewLine {
   }
 
   /// 富事实层记录 → 预览行。金额取真实 `income_fen`（authoritative），
-  /// 不按 hours×单价重算；单价透传 `source_unit_price_fen`，null 即未知，
-  /// 绝不伪造为 0。设备快照缺失时 equipment* 留空，不崩溃。
+  /// 不按 hours×单价重算；来源单价透传 `source_unit_price_fen`，null 即未知，
+  /// 绝不伪造为 0。`localUnitPriceFen` 是接收方本地复核层，不由来源事实层种值。
+  /// 设备快照缺失时 equipment* 留空，不崩溃。
   factory ExternalWorkImportPreviewLine.fromRichRecord({
     required ProjectExternalWorkShareRecord record,
     required ProjectExternalWorkShareProjectSnapshot projectSnapshot,
@@ -110,7 +111,7 @@ class ExternalWorkImportPreviewLine {
       workDate: record.workDate,
       hoursMilli: record.hoursMilli,
       sourceUnitPriceFen: record.sourceUnitPriceFen,
-      localUnitPriceFen: record.sourceUnitPriceFen,
+      localUnitPriceFen: null,
       amountFen: record.incomeFen,
       projectReceivedFen: projectSnapshot.projectReceivedFen,
       duplicateStatus: duplicateStatus,
