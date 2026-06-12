@@ -64,10 +64,7 @@ void main() {
       // 代表记录 = 排序后的第一条（最早工作日）。
       expect(pkg.representativeItem.record.id, 'r1');
       // 子记录按倒序展示（最新在前）。
-      expect(pkg.childRows.map((r) => r.item.record.id).toList(), [
-        'r2',
-        'r1',
-      ]);
+      expect(pkg.childRows.map((r) => r.item.record.id).toList(), ['r2', 'r1']);
     });
 
     test('标题 fallback：batch.sourceDisplayName 为空时退到 collaboratorName', () {
@@ -81,9 +78,7 @@ void main() {
     });
 
     test('linkedProjectId 非空 → hasLinkedRecord = true', () {
-      final item = _item(
-        record: _record(linkedProjectId: 'project:alpha'),
-      );
+      final item = _item(record: _record(linkedProjectId: 'project:alpha'));
       final vm = ExternalWorkRecordsViewModelBuilder.build([item]);
       final pkg = vm.yearGroups.single.sourceGroups.single.packages.single;
       expect(pkg.hasLinkedRecord, isTrue);
@@ -145,17 +140,20 @@ void main() {
         ),
       ];
       expect(ExternalWorkRecordsViewModelBuilder.topLevelCount(items), 2);
-      expect(
-        ExternalWorkRecordsViewModelBuilder.aggregateKeys(items),
-        {'batch-batch-a', 'batch-batch-b'},
-      );
+      expect(ExternalWorkRecordsViewModelBuilder.aggregateKeys(items), {
+        'batch-batch-a',
+        'batch-batch-b',
+      });
     });
   });
 
   group('ExternalWorkRecordsViewModelBuilder.buildDetail', () {
     test('基础字段：来源 / 分享人 / 地址 / 设备 / 日期 / 工时 / 单价 / 金额 / 导入时间', () {
       final item = _item(
-        batch: _batch(sourceDisplayName: '余远', importedAt: '2026-03-30T08:00:00.000Z'),
+        batch: _batch(
+          sourceDisplayName: '余远',
+          importedAt: '2026-03-30T08:00:00.000Z',
+        ),
         record: _record(
           siteSnapshot: '五里山',
           equipmentBrand: 'Hitachi',
@@ -178,9 +176,7 @@ void main() {
     });
 
     test('linkedProjectId 非空 → isLinked=true, status=已关联', () {
-      final item = _item(
-        record: _record(linkedProjectId: 'project:alpha'),
-      );
+      final item = _item(record: _record(linkedProjectId: 'project:alpha'));
       final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
       expect(vm.isLinked, isTrue);
       expect(vm.statusText, '已关联');
@@ -222,10 +218,30 @@ void main() {
       expect(vm.sourceUnitPriceText, '未知');
     });
 
-    test('projectReceivedFen > 0 → showProjectReceived=true 且文案正确', () {
+    test('localUnitPriceFen 不作为来源单价 fallback', () {
       final item = _item(
-        record: _record().copyWith(projectReceivedFen: 50000),
+        record: _record().copyWith(
+          sourceUnitPriceFen: null,
+          localUnitPriceFen: 88000,
+        ),
       );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.sourceUnitPriceText, '未知');
+    });
+
+    test('sourceUnitPriceFen 与 localUnitPriceFen 不同时展示 source', () {
+      final item = _item(
+        record: _record().copyWith(
+          sourceUnitPriceFen: 1000,
+          localUnitPriceFen: 88000,
+        ),
+      );
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      expect(vm.sourceUnitPriceText, '${FormatUtils.money(10)} / h');
+    });
+
+    test('projectReceivedFen > 0 → showProjectReceived=true 且文案正确', () {
+      final item = _item(record: _record().copyWith(projectReceivedFen: 50000));
       final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
       expect(vm.showProjectReceived, isTrue);
       expect(vm.projectReceivedText, FormatUtils.money(500));
