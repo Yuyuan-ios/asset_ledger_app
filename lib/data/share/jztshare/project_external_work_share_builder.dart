@@ -18,6 +18,18 @@ import 'project_external_work_share_rich_payload.dart';
 class ProjectExternalWorkShareBuilder {
   const ProjectExternalWorkShareBuilder();
 
+  static const List<String> sourceFingerprintWhitelistV2 = [
+    'fingerprint_version',
+    'package_source_device_id',
+    'work_date',
+    'start_meter_milli',
+    'end_meter_milli',
+    'hours_milli',
+    'income_fen',
+    'record_type',
+    'is_breaking',
+  ];
+
   /// [records]            该项目下的全部 TimingRecord（必须非空，且每条 id 非空）。
   /// [deviceMap]          deviceId -> Device。
   /// [calcHistoryMap]     timingRecordId -> 该记录的计算历史（顺序不限，内部按
@@ -104,6 +116,7 @@ class ProjectExternalWorkShareBuilder {
     // 合并分享下各成员项目可能有各自覆盖价，故按项目缓存、逐条解析。
     final deviceList = deviceMap.values.toList(growable: false);
     final rateMapCache = <String, Map<int, double>>{};
+    final sourceDeviceIdsByDeviceId = _sourceDeviceIdsByDeviceId(sorted);
     double? effectiveRateYuanFor(TimingRecord r) {
       final cacheKey = '${r.effectiveProjectId}|${r.isBreaking}';
       final map = rateMapCache.putIfAbsent(
@@ -125,14 +138,16 @@ class ProjectExternalWorkShareBuilder {
       final recordId = _requireId(record);
       final hoursMilli = WorkHours.fromHours(record.hours).milliHours;
       final isHours = record.type == TimingType.hours;
+      final sourceDeviceId = sourceDeviceIdsByDeviceId[record.deviceId]!;
 
       // originFingerprint 用原始来源金额：保持来源身份稳定（与历史包一致），
       // 不随单价口径重算而漂移。
       final originalIncomeFen = Money.fromYuan(record.income).fen;
       final fingerprint = _originFingerprint(
         record,
-        hoursMilli,
-        originalIncomeFen,
+        sourceDeviceId: sourceDeviceId,
+        hoursMilli: hoursMilli,
+        incomeFen: originalIncomeFen,
       );
 
       // 普通 hours：采信「当前有效项目单价（含项目覆盖）」，并按该单价重算导出
@@ -149,10 +164,10 @@ class ProjectExternalWorkShareBuilder {
 
       shareRecords.add(
         ProjectExternalWorkShareRecord(
-          sourceRecordUuid: _sourceRecordUuid(recordId),
+          sourceRecordUuid: _sourceRecordUuid(recordId, shareId: safeShareId),
           sourceTimingRecordId: recordId,
           sourceProjectId: record.effectiveProjectId,
-          sourceDeviceId: record.deviceId,
+          sourceDeviceId: sourceDeviceId,
           workDate: record.startDate,
           type: record.type.name,
           // rent/台班无有效码表：start/end 留 null，不填 0。
@@ -172,6 +187,7 @@ class ProjectExternalWorkShareBuilder {
 
       final exportLine = _tryBuildExportLine(
         record: record,
+        shareId: safeShareId,
         recordId: recordId,
         hoursMilli: hoursMilli,
         incomeFen: resolved.incomeFen,
@@ -230,31 +246,40 @@ class ProjectExternalWorkShareBuilder {
         displayName: snapshotDisplayName,
         projectReceivedFen: projectReceivedFen < 0 ? 0 : projectReceivedFen,
       ),
-      devices: _buildDevices(sorted, shareRecords, deviceMap),
+      devices: _buildDevices(
+        sorted,
+        shareRecords,
+        deviceMap,
+        sourceDeviceIdsByDeviceId,
+      ),
       records: shareRecords,
-      deviceGroups: _buildDeviceGroups(sorted, shareRecords),
+      deviceGroups: _buildDeviceGroups(
+        sorted,
+        shareRecords,
+        sourceDeviceIdsByDeviceId,
+      ),
       exportLines: exportLines,
       memberProjects: isMerged ? _buildMemberProjects(sorted) : const [],
     );
   }
 
-  static String _sourceRecordUuid(int timingRecordId) =>
-      'timing:$timingRecordId';
+  static String _sourceRecordUuid(int timingRecordId, {String? shareId}) {
+    final scope = shareId?.trim();
+    if (scope == null || scope.isEmpty) {
+      return 'timing:$timingRecordId';
+    }
+    return 'rec-${_shortHash('record:$scope:$timingRecordId', 24)}';
+  }
 
-  // 来源指纹：稳定字段整数归一化后 sha256(hex)。导入端只比对、不重算，
-  // 字段顺序与口径在此固化，禁止随意调整。fingerprint_version 仍为 1：
-  // 算法仍是首个真实发布版（无任何已发布/已导入数据依赖旧 rent 口径），
-  // 故不升版本。
-  // 顺序：sourceProjectKey | deviceId | workDate | startMeterMilli |
-  //       endMeterMilli | hoursMilli | incomeFen | type | isBreaking(0/1)
-  // 码表口径：使用「导出后规范字段」参与指纹——hours 用千分整数码表；
-  // rent/台班导出 start/end_meter 为 null，故指纹中按空串归一化，
-  // 不泄漏 UI 不展示的内部 meter 值（有意设计，由测试锁定）。
+  // 来源指纹 v2：仅允许 sourceFingerprintWhitelistV2 中的包内临时标识
+  // 与非 PII 业务事实参与 sha256。导入端只比对、不重算。
+  // 禁止把联系人、手机号、项目 key、本机 device_id、自动设备编号加入这里。
   static String _originFingerprint(
-    TimingRecord record,
-    int hoursMilli,
-    int incomeFen,
-  ) {
+    TimingRecord record, {
+    required int sourceDeviceId,
+    required int hoursMilli,
+    required int incomeFen,
+  }) {
     final isHours = record.type == TimingType.hours;
     final startMeterToken = isHours
         ? (record.startMeter * 1000).round().toString()
@@ -262,17 +287,21 @@ class ProjectExternalWorkShareBuilder {
     final endMeterToken = isHours
         ? (record.endMeter * 1000).round().toString()
         : '';
-    final canonical = [
-      record.legacyProjectKey,
-      record.deviceId,
-      record.startDate,
-      startMeterToken,
-      endMeterToken,
-      hoursMilli,
-      incomeFen,
-      record.type.name,
-      record.isBreaking ? 1 : 0,
-    ].join('|');
+    final fields = <String, Object>{
+      'fingerprint_version':
+          ProjectExternalWorkShareRichPayload.currentFingerprintVersion,
+      'package_source_device_id': sourceDeviceId,
+      'work_date': record.startDate,
+      'start_meter_milli': startMeterToken,
+      'end_meter_milli': endMeterToken,
+      'hours_milli': hoursMilli,
+      'income_fen': incomeFen,
+      'record_type': record.type.name,
+      'is_breaking': record.isBreaking ? 1 : 0,
+    };
+    final canonical = sourceFingerprintWhitelistV2
+        .map((key) => '$key=${fields[key] ?? ''}')
+        .join('|');
     return sha256.convert(utf8.encode(canonical)).toString();
   }
 
@@ -309,6 +338,7 @@ class ProjectExternalWorkShareBuilder {
   // 不满足者只进富 records[]，不进 export_lines[]，绝不伪造金额。
   static ProjectExternalWorkShareExportLine? _tryBuildExportLine({
     required TimingRecord record,
+    required String shareId,
     required int recordId,
     required int hoursMilli,
     required int incomeFen,
@@ -330,7 +360,7 @@ class ProjectExternalWorkShareBuilder {
     if (unitPriceFen == null) return null;
 
     return ProjectExternalWorkShareExportLine(
-      exportLineUuid: _sourceRecordUuid(recordId),
+      exportLineUuid: _sourceRecordUuid(recordId, shareId: shareId),
       originFingerprint: fingerprint,
       contactSnapshot: record.contact,
       siteSnapshot: record.site,
@@ -399,7 +429,8 @@ class ProjectExternalWorkShareBuilder {
         ? (device.breakingUnitPrice ?? device.defaultUnitPrice)
         : device.defaultUnitPrice;
     final deviceFen = UnitPrice.fromYuanPerHour(deviceDefaultYuan).fenPerHour;
-    if (deviceFen > 0 && _amountFen(hoursMilli, deviceFen) == originalIncomeFen) {
+    if (deviceFen > 0 &&
+        _amountFen(hoursMilli, deviceFen) == originalIncomeFen) {
       return _ResolvedExportAmount(
         unitPriceFen: currentFen,
         incomeFen: _amountFen(hoursMilli, currentFen),
@@ -442,18 +473,23 @@ class ProjectExternalWorkShareBuilder {
     for (final r in sorted) {
       byProject.putIfAbsent(r.effectiveProjectId, () => []).add(r);
     }
-    return byProject.entries.map((entry) {
-      final records = entry.value;
-      final firstRecord = records.first;
-      return ProjectExternalWorkShareMemberProject(
-        sourceProjectId: entry.key,
-        sourceProjectKey: firstRecord.legacyProjectKey,
-        contactSnapshot: firstRecord.contact,
-        siteSnapshot: firstRecord.site,
-        displayName: _memberDisplayName(firstRecord.contact, firstRecord.site),
-        recordIds: records.map(_requireIdStatic).toList(growable: false),
-      );
-    }).toList(growable: false);
+    return byProject.entries
+        .map((entry) {
+          final records = entry.value;
+          final firstRecord = records.first;
+          return ProjectExternalWorkShareMemberProject(
+            sourceProjectId: entry.key,
+            sourceProjectKey: firstRecord.legacyProjectKey,
+            contactSnapshot: firstRecord.contact,
+            siteSnapshot: firstRecord.site,
+            displayName: _memberDisplayName(
+              firstRecord.contact,
+              firstRecord.site,
+            ),
+            recordIds: records.map(_requireIdStatic).toList(growable: false),
+          );
+        })
+        .toList(growable: false);
   }
 
   // 优先用设备真实单价；不一致再用 incomeFen/hoursMilli 反推，反推后必须再过
@@ -491,18 +527,28 @@ class ProjectExternalWorkShareBuilder {
     List<TimingRecord> sorted,
     List<ProjectExternalWorkShareRecord> shareRecords,
     Map<int, Device> deviceMap,
+    Map<int, int> sourceDeviceIdsByDeviceId,
   ) {
-    final byDevice = <int, List<ProjectExternalWorkShareRecord>>{};
-    for (final r in shareRecords) {
-      byDevice.putIfAbsent(r.sourceDeviceId, () => []).add(r);
+    final shareRecordsBySourceDevice =
+        <int, List<ProjectExternalWorkShareRecord>>{};
+    for (final record in shareRecords) {
+      shareRecordsBySourceDevice
+          .putIfAbsent(record.sourceDeviceId, () => [])
+          .add(record);
     }
-    final deviceIds = byDevice.keys.toList()..sort();
-    return deviceIds
-        .map((deviceId) {
-          final group = byDevice[deviceId]!;
-          final device = deviceMap[deviceId];
+    final actualDeviceIds = sourceDeviceIdsByDeviceId.keys.toList()
+      ..sort(
+        (a, b) => sourceDeviceIdsByDeviceId[a]!.compareTo(
+          sourceDeviceIdsByDeviceId[b]!,
+        ),
+      );
+    return actualDeviceIds
+        .map((actualDeviceId) {
+          final sourceDeviceId = sourceDeviceIdsByDeviceId[actualDeviceId]!;
+          final group = shareRecordsBySourceDevice[sourceDeviceId]!;
+          final device = deviceMap[actualDeviceId];
           return ProjectExternalWorkShareDeviceSnapshot(
-            sourceDeviceId: deviceId,
+            sourceDeviceId: sourceDeviceId,
             name: device?.name ?? '',
             brand: device?.brand ?? '',
             model: device?.model,
@@ -519,6 +565,7 @@ class ProjectExternalWorkShareBuilder {
   static List<ProjectExternalWorkShareDeviceGroup> _buildDeviceGroups(
     List<TimingRecord> sorted,
     List<ProjectExternalWorkShareRecord> shareRecords,
+    Map<int, int> sourceDeviceIdsByDeviceId,
   ) {
     // sorted 已按 (workDate, id) 稳定排序；按设备保序分组。
     final byDevice = <int, List<TimingRecord>>{};
@@ -531,6 +578,7 @@ class ProjectExternalWorkShareBuilder {
     final deviceIds = byDevice.keys.toList()..sort();
     return deviceIds
         .map((deviceId) {
+          final sourceDeviceId = sourceDeviceIdsByDeviceId[deviceId]!;
           final groupRecords = byDevice[deviceId]!;
           final shareGroup = groupRecords
               .map((r) => recordById[_requireIdStatic(r)]!)
@@ -564,7 +612,7 @@ class ProjectExternalWorkShareBuilder {
           }
 
           return ProjectExternalWorkShareDeviceGroup(
-            sourceDeviceId: deviceId,
+            sourceDeviceId: sourceDeviceId,
             recordIds: groupRecords
                 .map(_requireIdStatic)
                 .toList(growable: false),
@@ -599,6 +647,25 @@ class ProjectExternalWorkShareBuilder {
       throw ArgumentError.value(value, name, 'must not be blank');
     }
     return value;
+  }
+
+  static Map<int, int> _sourceDeviceIdsByDeviceId(List<TimingRecord> sorted) {
+    final actualDeviceIds = <int>[];
+    for (final record in sorted) {
+      if (!actualDeviceIds.contains(record.deviceId)) {
+        actualDeviceIds.add(record.deviceId);
+      }
+    }
+    actualDeviceIds.sort();
+    return {
+      for (var index = 0; index < actualDeviceIds.length; index += 1)
+        actualDeviceIds[index]: index + 1,
+    };
+  }
+
+  static String _shortHash(String input, int length) {
+    final hex = sha256.convert(utf8.encode(input)).toString();
+    return hex.substring(0, length);
   }
 }
 
