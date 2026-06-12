@@ -17,6 +17,7 @@ import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/account/domain/repositories/project_settlement_repository.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
+import 'package:asset_ledger/features/device/application/controllers/cloud_backup_controller.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart';
@@ -58,6 +59,7 @@ void main() {
       late ExternalWorkImportPreviewPreparer externalWorkPreviewPreparer;
       late ExternalWorkImportConfirmer externalWorkImportConfirmer;
       late TimingExternalWorkStore timingExternalWorkStore;
+      late CloudBackupController cloudBackupController;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
       late FuelStore fuelStore;
@@ -108,6 +110,7 @@ void main() {
                     .read<ExternalWorkImportConfirmer>();
                 timingExternalWorkStore = context
                     .read<TimingExternalWorkStore>();
+                cloudBackupController = context.read<CloudBackupController>();
                 deviceStore = context.read<DeviceStore>();
                 timingStore = context.read<TimingStore>();
                 fuelStore = context.read<FuelStore>();
@@ -164,6 +167,10 @@ void main() {
       expect(identical(accountStore, bundle.accountStore), isTrue);
       expect(
         identical(timingExternalWorkStore, bundle.timingExternalWorkStore),
+        isTrue,
+      );
+      expect(
+        identical(cloudBackupController, bundle.cloudBackupController),
         isTrue,
       );
     },

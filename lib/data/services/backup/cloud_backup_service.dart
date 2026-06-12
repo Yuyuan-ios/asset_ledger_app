@@ -41,7 +41,8 @@ class CloudBackupService {
     int? currentDbSchemaVersion,
     DateTime Function()? now,
   }) : _gateway = gateway,
-       _exportBackup = exportBackup ?? LocalBackupExportService.exportJsonBackup,
+       _exportBackup =
+           exportBackup ?? LocalBackupExportService.exportJsonBackup,
        _restoreService = restoreService ?? LocalBackupRestoreService(),
        _currentDbSchemaVersion =
            currentDbSchemaVersion ?? AppDatabase.schemaVersion,
@@ -65,7 +66,8 @@ class CloudBackupService {
       );
     }
     final payloadJson = await File(filePath).readAsString();
-    if (payloadJson.length > CloudBackupEnvelope.maxPayloadBytes) {
+    final payloadBytes = utf8.encode(payloadJson).length;
+    if (payloadBytes > CloudBackupEnvelope.maxPayloadBytes) {
       return const CloudBackupUploadResult(
         success: false,
         errorCode: 'payload_too_large',
@@ -77,7 +79,7 @@ class CloudBackupService {
       createdAtIso: _now().toUtc().toIso8601String(),
       dbSchemaVersion: _currentDbSchemaVersion,
       payloadSha256: payloadSha256(payloadJson),
-      payloadBytes: utf8.encode(payloadJson).length,
+      payloadBytes: payloadBytes,
       payloadJson: payloadJson,
     );
     try {
@@ -121,8 +123,7 @@ class CloudBackupService {
     }
     if (envelope.dbSchemaVersion > _currentDbSchemaVersion) {
       return BackupRestoreResult.failure(
-        message:
-            '云端备份来自更新版本的应用（schema v${envelope.dbSchemaVersion}），请先升级后再恢复',
+        message: '云端备份来自更新版本的应用（schema v${envelope.dbSchemaVersion}），请先升级后再恢复',
         errorCode: 'newer_schema_version',
       );
     }

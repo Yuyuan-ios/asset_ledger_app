@@ -73,10 +73,7 @@ void main() {
       expect(list, hasLength(1));
       expect(list.single.backupId, 'b1');
       expect(list.single.dbSchemaVersion, 36);
-      expect(
-        client.receivedRequests.single.path,
-        '/v1/backups',
-      );
+      expect(client.receivedRequests.single.path, '/v1/backups');
     });
 
     test('download decodes a valid envelope', () async {
@@ -85,8 +82,7 @@ void main() {
           ApiResponse(statusCode: 200, bodyJson: envelope().encode()),
         );
 
-      final downloaded =
-          await HttpCloudBackupGateway(client).download('b 1/x');
+      final downloaded = await HttpCloudBackupGateway(client).download('b 1/x');
 
       expect(downloaded.payloadJson, '{"data":{}}');
       // 路径段经 URL 编码,防注入。
@@ -96,12 +92,28 @@ void main() {
     test('decodeEnvelope rejects unsupported version, missing fields, '
         'and oversized payloads', () {
       expect(
-        () => HttpCloudBackupGateway.decodeEnvelope({'format_version': 99}),
+        () => HttpCloudBackupGateway.decodeEnvelope({
+          'kind': CloudBackupEnvelope.kindValue,
+          'format_version': 99,
+        }),
         throwsA(
           isA<CloudBackupGatewayException>().having(
             (e) => e.code,
             'code',
             'unsupported_format_version',
+          ),
+        ),
+      );
+      expect(
+        () => HttpCloudBackupGateway.decodeEnvelope({
+          'kind': 'wrong',
+          'format_version': 1,
+        }),
+        throwsA(
+          isA<CloudBackupGatewayException>().having(
+            (e) => e.code,
+            'code',
+            'invalid_envelope',
           ),
         ),
       );
@@ -112,6 +124,18 @@ void main() {
             (e) => e.code,
             'code',
             'invalid_envelope',
+          ),
+        ),
+      );
+      final mismatchedSize = envelope().toJson();
+      mismatchedSize['payload_bytes'] = 999;
+      expect(
+        () => HttpCloudBackupGateway.decodeEnvelope(mismatchedSize),
+        throwsA(
+          isA<CloudBackupGatewayException>().having(
+            (e) => e.code,
+            'code',
+            'payload_size_mismatch',
           ),
         ),
       );

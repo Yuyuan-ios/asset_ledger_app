@@ -20,7 +20,9 @@ class AccountCenterPage extends StatefulWidget {
     required this.onOpenLocalBackup,
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
-    required this.onOpenLoginSyncInfo,
+    required this.onOpenCloudBackup,
+    this.cloudBackupAvailable = true,
+    this.cloudBackupUnavailableMessage = '云端备份服务暂未配置',
   });
 
   final PhoneLoginSession loginSession;
@@ -31,7 +33,9 @@ class AccountCenterPage extends StatefulWidget {
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
-  final VoidCallback onOpenLoginSyncInfo;
+  final VoidCallback onOpenCloudBackup;
+  final bool cloudBackupAvailable;
+  final String cloudBackupUnavailableMessage;
 
   @override
   State<AccountCenterPage> createState() => _AccountCenterPageState();
@@ -99,7 +103,10 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
                       onOpenLocalBackup: widget.onOpenLocalBackup,
                       onOpenLocalRestore: widget.onOpenLocalRestore,
                       onOpenSyncInfo: widget.onOpenSyncInfo,
-                      onOpenLoginSyncInfo: widget.onOpenLoginSyncInfo,
+                      onOpenCloudBackup: widget.onOpenCloudBackup,
+                      cloudBackupAvailable: widget.cloudBackupAvailable,
+                      cloudBackupUnavailableMessage:
+                          widget.cloudBackupUnavailableMessage,
                     );
                   },
                 ),
@@ -122,7 +129,9 @@ class _AccountCenterContent extends StatelessWidget {
     required this.onOpenLocalBackup,
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
-    required this.onOpenLoginSyncInfo,
+    required this.onOpenCloudBackup,
+    required this.cloudBackupAvailable,
+    required this.cloudBackupUnavailableMessage,
   });
 
   final PhoneLoginSession loginSession;
@@ -133,7 +142,9 @@ class _AccountCenterContent extends StatelessWidget {
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
-  final VoidCallback onOpenLoginSyncInfo;
+  final VoidCallback onOpenCloudBackup;
+  final bool cloudBackupAvailable;
+  final String cloudBackupUnavailableMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -189,10 +200,14 @@ class _AccountCenterContent extends StatelessWidget {
           title: '数据安全',
           children: [
             DeviceActionCard(
-              title: '云端备份与协作记录',
-              subtitle: 'Pro 功能，即将上线',
-              leading: const _AccountCenterIcon(Icons.account_circle_outlined),
-              onTap: onOpenLoginSyncInfo,
+              title: '云端备份',
+              subtitle: cloudBackupAvailable
+                  ? loginSession.isAuthenticated
+                        ? '上传当前数据或从云端恢复'
+                        : '登录后可保存与恢复云端备份'
+                  : cloudBackupUnavailableMessage,
+              leading: const _AccountCenterIcon(Icons.cloud_upload_outlined),
+              onTap: onOpenCloudBackup,
             ),
             DeviceActionCard(
               title: '手动本地备份',

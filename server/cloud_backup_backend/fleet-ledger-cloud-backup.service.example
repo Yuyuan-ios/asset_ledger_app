@@ -1,0 +1,21 @@
+[Unit]
+Description=FleetLedger Cloud Backup Backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fleet-ledger-cloud-backup
+EnvironmentFile=/etc/fleet-ledger-cloud-backup.env
+ExecStart=/opt/fleet-ledger-cloud-backup/.venv/bin/python /opt/fleet-ledger-cloud-backup/app.py
+Restart=always
+RestartSec=5
+User=fleetbackup
+Group=fleetbackup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/fleet-ledger-cloud-backup /var/log/fleet-ledger-cloud-backup
+
+[Install]
+WantedBy=multi-user.target

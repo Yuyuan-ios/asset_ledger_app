@@ -10,6 +10,8 @@ import 'api_client.dart';
 /// 非空 baseUrl 与 token 提供者,未配置后端时不允许被构造——composition
 /// root 应在配置缺失时干脆不装配云功能,而不是装一个假的。
 class HttpCloudApiClient implements CloudApiClient {
+  static const bool _isProduction = bool.fromEnvironment('dart.vm.product');
+
   HttpCloudApiClient({
     required String baseUrl,
     required Future<String?> Function() accessTokenProvider,
@@ -19,11 +21,11 @@ class HttpCloudApiClient implements CloudApiClient {
        _accessTokenProvider = accessTokenProvider,
        _timeout = timeout,
        _httpClient = httpClient ?? HttpClient() {
-    if (_baseUrl.isEmpty || !_baseUrl.startsWith('https://')) {
+    if (!_isAllowedBaseUrl(_baseUrl)) {
       throw ArgumentError.value(
         baseUrl,
         'baseUrl',
-        'HttpCloudApiClient 需要显式的 https 后端地址;未配置后端时不要构造本类。',
+        'HttpCloudApiClient 需要显式的 HTTPS 后端地址;仅开发/测试 localhost 可使用 HTTP。',
       );
     }
   }
@@ -32,6 +34,20 @@ class HttpCloudApiClient implements CloudApiClient {
   final Future<String?> Function() _accessTokenProvider;
   final Duration _timeout;
   final HttpClient _httpClient;
+
+  static bool _isAllowedBaseUrl(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return false;
+    if (uri.scheme == 'https') return true;
+    return !_isProduction && uri.scheme == 'http' && _isLocalHost(uri.host);
+  }
+
+  static bool _isLocalHost(String host) {
+    final normalized = host.toLowerCase();
+    return normalized == 'localhost' ||
+        normalized == '127.0.0.1' ||
+        normalized == '::1';
+  }
 
   @override
   Future<ApiResponse> send(ApiRequest request) async {
@@ -42,7 +58,10 @@ class HttpCloudApiClient implements CloudApiClient {
           .timeout(_timeout);
       final token = await _accessTokenProvider();
       if (token != null && token.isNotEmpty) {
-        httpRequest.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+        httpRequest.headers.set(
+          HttpHeaders.authorizationHeader,
+          'Bearer $token',
+        );
       }
       request.headers.forEach(httpRequest.headers.set);
       final body = request.bodyJson;
