@@ -249,9 +249,14 @@ class AccountDeviceReceivable {
   final String name;
   final double amount;
 
+  /// 整数分权威口径（fen 直出）。null 表示 legacy 构造,消费方回退
+  /// round(amount×100) 派生。
+  final int? amountFen;
+
   const AccountDeviceReceivable({
     required this.deviceId,
     required this.name,
     required this.amount,
+    this.amountFen,
   });
 }
