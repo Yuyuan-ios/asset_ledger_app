@@ -171,7 +171,11 @@ void main() {
     );
     final parsed = parser.parseProjectExternalWorkShare(result.content);
     expect(parsed.payload.exportLines.length, 1);
-    expect(parsed.payload.exportLines.first.exportLineUuid, 'timing:11');
+    expect(
+      parsed.payload.exportLines.first.exportLineUuid,
+      matches(RegExp(r'^rec-[0-9a-f]{24}$')),
+    );
+    expect(parsed.payload.exportLines.first.exportLineUuid, isNot('timing:11'));
 
     final p =
         (jsonDecode(result.content) as Map<String, Object?>)['payload']
@@ -186,7 +190,7 @@ void main() {
     expect(rentRec['income_fen'], 50000); // 真实 income，未重算
   });
 
-  test('rich sections retained and fingerprint_version == 1', () {
+  test('rich sections retained and fingerprint_version == 2', () {
     final result = service.buildEnvelope(
       payload: payload(),
       producer: producer,
@@ -204,7 +208,7 @@ void main() {
     ]) {
       expect(p.containsKey(key), isTrue, reason: 'missing $key');
     }
-    expect(p['fingerprint_version'], 1);
+    expect(p['fingerprint_version'], 2);
     expect(p['protocol_version'], 1);
     final hoursRec = (p['records'] as List<Object?>)
         .cast<Map<String, Object?>>()

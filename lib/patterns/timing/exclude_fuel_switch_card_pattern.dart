@@ -9,11 +9,15 @@ class ExcludeFuelSwitchCard extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.title = '包油/包电',
+    this.description = '开启后：本条工时不参与油耗效率统计。',
     this.trailing,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
+  final String title;
+  final String description;
   final Widget? trailing;
 
   @override
@@ -48,12 +52,12 @@ class ExcludeFuelSwitchCard extends StatelessWidget {
               children: [
                 _FigmaSwitch(value: value, onChanged: onChanged),
                 const SizedBox(width: TimingTokens.switchInlineGap),
-                Text('包油/包电', style: titleStyle),
+                Text(title, style: titleStyle),
                 if (trailing != null) ...[const Spacer(), trailing!],
               ],
             ),
             const SizedBox(height: TimingTokens.switchDescTopGap),
-            Text('开启后：本条工时不参与油耗效率统计。', style: descStyle),
+            Text(description, style: descStyle),
           ],
         ),
       ),

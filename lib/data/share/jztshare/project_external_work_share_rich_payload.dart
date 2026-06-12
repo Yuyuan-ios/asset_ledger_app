@@ -91,7 +91,7 @@ class ProjectExternalWorkShareRichPayload {
 
   /// originFingerprint 算法版本：字段集合/顺序/口径变更时递增，
   /// 供导入端判断指纹可比性。
-  static const int currentFingerprintVersion = 1;
+  static const int currentFingerprintVersion = 2;
 
   final String shareId;
   final String senderName;
@@ -430,10 +430,12 @@ class ProjectExternalWorkShareRecord {
     this.filledCalculation,
   });
 
-  /// 无原生 uuid：使用带命名空间的来源 id，格式 `timing:{sourceTimingRecordId}`。
+  /// 包内临时记录 id。导出端必须保证每次重打包生成新的值。
   final String sourceRecordUuid;
   final int sourceTimingRecordId;
   final String sourceProjectId;
+
+  /// 包内临时设备 id，不得复用本机设备表 id。
   final int sourceDeviceId;
   final int workDate;
 

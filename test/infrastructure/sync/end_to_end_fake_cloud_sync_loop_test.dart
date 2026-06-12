@@ -23,11 +23,11 @@ import '../../test_setup.dart';
 /// entity_sync_meta(pendingUpload)，再经 SyncManager.pushPending(live) 打到一个
 /// 功能性假云（FakeCloudApiClient），证明:云收到 POST /sync/outbox payload →
 /// ack → outbox 删行 → meta pendingUpload→synced；幂等；retryable failure 不误标
-/// synced 且行保留待重试。
+/// synced 且行保留待重试；fake-cloud conflict 不覆盖本地权威账。
 ///
-/// 仅测试层组合（不接真 HTTP / 不 pull / 不冲突 / 不接生产 App composition root /
-/// 不改默认 readiness gate）；脊柱用 StaticSyncLiveReadinessGate.readyForTest()
-/// 显式放行 live push（不是静默 fallback）。
+/// 仅测试层组合（不接真 HTTP / 不 pull / 不接生产 App composition root / 不改默认
+/// readiness gate）；脊柱用 StaticSyncLiveReadinessGate.readyForTest() 显式放行
+/// live push（不是静默 fallback）。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -191,4 +191,39 @@ void main() {
       );
     },
   );
+
+  test('fake-cloud conflict keeps outbox pending and does not overwrite local '
+      'authority', () async {
+    final db = await AppDatabase.database;
+    final id = await createRealPayment();
+
+    final conflictClient = FakeCloudApiClient()
+      ..respondDefault(
+        fakeCloudConflict(message: 'remote version has different payload'),
+      );
+    final result = await managerWith(
+      conflictClient,
+    ).pushPending(mode: SyncPushMode.live);
+
+    expect(result.failed, 1);
+    expect(result.pushed, 0);
+    expect(conflictClient.receivedRequests, hasLength(1));
+
+    final outboxAfter = (await db.query('sync_outbox')).single;
+    expect(outboxAfter['entity_type'], 'account_payment');
+    expect(outboxAfter['entity_id'], id.toString());
+    expect(outboxAfter['status'], SyncOutboxStatus.pending.name);
+    expect(outboxAfter['last_error'].toString(), contains('conflict'));
+    expect(outboxAfter['next_retry_at'], isNotNull);
+
+    final metaAfter = (await db.query('entity_sync_meta')).single;
+    expect(metaAfter['sync_status'], SyncStatus.pendingUpload.name);
+    expect(metaAfter['last_synced_at'], isNull);
+
+    final localPayment = (await db.query('account_payments')).single;
+    expect(localPayment['id'], id);
+    expect(localPayment['amount_fen'], 50000);
+    expect(localPayment['amount'], 500.0);
+    expect(localPayment['project_id'], 'project:a');
+  });
 }

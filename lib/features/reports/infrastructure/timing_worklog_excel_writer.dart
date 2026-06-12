@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 
+import '../../../core/measure/measure_unit.dart';
 import '../models/timing_worklog_report.dart';
 
 class TimingWorklogExcelWriter {
@@ -10,7 +11,11 @@ class TimingWorklogExcelWriter {
   static const int defaultRecordsPerPage = 20;
   static const int columnCount = 16;
   static const String signatureText =
-      '本人已核对上述设备工时记录，确认数据真实无误，同意按此进行结算。项目负责人签字：                日期：';
+      '签字确认：项目负责人                经办人                日期：';
+  static const String invoiceText =
+      '开票要素：抬头                税号                金额以本表“金额（元）”合计为准。';
+  static const String basisText =
+      '口径版本：S3-2 reconciliation excel v1；数量来自 quantity_scaled，金额=round(quantity_scaled×unit_price_fen/1000)。';
 
   final int recordsPerPage;
 
@@ -115,6 +120,12 @@ class _SheetXmlBuilder {
     final signatureRow = _row + 1;
     _textRow([TimingWorklogExcelWriter.signatureText], 5, 32);
     _merges.add('A$signatureRow:P$signatureRow');
+    final invoiceRow = _row + 1;
+    _textRow([TimingWorklogExcelWriter.invoiceText], 5, 28);
+    _merges.add('A$invoiceRow:P$invoiceRow');
+    final basisRow = _row + 1;
+    _textRow([TimingWorklogExcelWriter.basisText], 5, 24);
+    _merges.add('A$basisRow:P$basisRow');
     if (!isLast) _breaks.add(_row);
   }
 
@@ -124,18 +135,18 @@ class _SheetXmlBuilder {
       [
         '序号',
         '日期',
-        '机型',
-        '驾驶员',
+        '设备',
+        '联系人',
         '施工地点',
-        '',
+        '项目名称',
         '工作内容',
-        '上午',
-        '中午',
-        '中午',
-        '下午',
-        '合计时间（时）',
-        '',
-        '',
+        '码表',
+        '码表',
+        '数量',
+        '单位',
+        '单价（元/单位）',
+        '金额（元）',
+        '来源',
         '负责人',
         '备注',
       ],
@@ -143,34 +154,30 @@ class _SheetXmlBuilder {
       22,
     );
     _textRow(
-      [
-        '',
-        '',
-        '',
-        '',
-        '地点',
-        '项目名称',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '上午',
-        '下午',
-        '全天',
-        '',
-        '',
-      ],
+      ['', '', '', '', '', '', '', '起', '止', '', '', '', '', '', '', ''],
       2,
       22,
     );
     final bottom = _row;
-    for (final col in ['A', 'B', 'C', 'D', 'G', 'H', 'I', 'J', 'K', 'O', 'P']) {
+    for (final col in [
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'J',
+      'K',
+      'L',
+      'M',
+      'N',
+      'O',
+      'P',
+    ]) {
       _merges.add('$col$top:$col$bottom');
     }
-    _merges
-      ..add('E$top:F$top')
-      ..add('L$top:N$top');
+    _merges.add('H$top:I$top');
   }
 
   void _dataRow(TimingWorklogReportRow row) {
@@ -179,21 +186,25 @@ class _SheetXmlBuilder {
         _Cell.number(row.sequence.toDouble()),
         _Cell.text(_dateWithDots(row.date)),
         _Cell.text(row.deviceName),
-        const _Cell.text(''),
-        const _Cell.text(''),
-        const _Cell.text(''),
-        const _Cell.text(''),
-        const _Cell.text(''),
-        const _Cell.text(''),
-        const _Cell.text(''),
-        const _Cell.text(''),
+        _Cell.text(row.contactName),
+        _Cell.text(row.siteName),
+        _Cell.text(row.projectName),
+        _Cell.text(row.workContent),
         row.startMeter == null
             ? const _Cell.text('')
             : _Cell.number(row.startMeter!),
         row.endMeter == null
             ? const _Cell.text('')
             : _Cell.number(row.endMeter!),
-        _Cell.number(row.hours),
+        row.quantityScaled == null
+            ? const _Cell.text('')
+            : _Cell.number(row.quantity),
+        _Cell.text(_unitLabel(row.unit)),
+        row.unitPriceYuan == null
+            ? const _Cell.text('')
+            : _Cell.number(row.unitPriceYuan!),
+        _Cell.number(row.amountYuan),
+        _Cell.text(_sourceLabel(row.sourceType)),
         const _Cell.text(''),
         const _Cell.text(''),
       ],
@@ -206,9 +217,15 @@ class _SheetXmlBuilder {
     List<TimingWorklogReportRow> pageRows, {
     required bool isLast,
   }) {
-    final pageTotal = pageRows.fold<double>(0, (sum, row) => sum + row.hours);
+    final pageAmountFen = pageRows.fold<int>(
+      0,
+      (sum, row) => sum + row.amountFen,
+    );
     final label = isLast ? '合计' : '小计';
-    final total = isLast ? report.totalHours : pageTotal;
+    final unitSummary = isLast
+        ? _unitSummary(report.unitTotals)
+        : _unitSummary(_pageUnitTotals(pageRows));
+    final totalAmountFen = isLast ? report.totalAmountFen : pageAmountFen;
     _mixedRow(
       [
         const _Cell.text(''),
@@ -220,11 +237,11 @@ class _SheetXmlBuilder {
         _Cell.text(label),
         const _Cell.text(''),
         const _Cell.text(''),
+        _Cell.text(unitSummary),
         const _Cell.text(''),
         const _Cell.text(''),
+        _Cell.number(totalAmountFen / 100.0),
         const _Cell.text(''),
-        const _Cell.text(''),
-        _Cell.number(total),
         const _Cell.text(''),
         const _Cell.text(''),
       ],
@@ -271,6 +288,81 @@ class _SheetXmlBuilder {
   }
 }
 
+List<TimingWorklogUnitTotal> _pageUnitTotals(
+  List<TimingWorklogReportRow> rows,
+) {
+  final totals = <MeasureUnit, int>{};
+  for (final row in rows) {
+    final quantityScaled = row.quantityScaled;
+    if (quantityScaled == null || quantityScaled <= 0) continue;
+    totals[row.unit] = (totals[row.unit] ?? 0) + quantityScaled;
+  }
+  final entries = totals.entries.toList()
+    ..sort((a, b) => a.key.index.compareTo(b.key.index));
+  return [
+    for (final entry in entries)
+      TimingWorklogUnitTotal(unit: entry.key, quantityScaled: entry.value),
+  ];
+}
+
+String _unitSummary(List<TimingWorklogUnitTotal> totals) {
+  if (totals.isEmpty) return '';
+  return totals
+      .map(
+        (total) =>
+            '${_scaledText(total.quantityScaled)}${_unitLabel(total.unit)}',
+      )
+      .join('、');
+}
+
+String _unitLabel(MeasureUnit unit) {
+  switch (unit) {
+    case MeasureUnit.hour:
+      return '小时';
+    case MeasureUnit.shift:
+      return '台班';
+    case MeasureUnit.day:
+      return '天';
+    case MeasureUnit.rent:
+      return '租期';
+    case MeasureUnit.mu:
+      return '亩';
+    case MeasureUnit.acre:
+      return '英亩';
+    case MeasureUnit.hectare:
+      return '公顷';
+    case MeasureUnit.ton:
+      return '吨';
+    case MeasureUnit.cubicMeter:
+      return '方';
+    case MeasureUnit.trip:
+      return '趟';
+    case MeasureUnit.sortie:
+      return '架次';
+    case MeasureUnit.task:
+      return '任务';
+  }
+}
+
+String _sourceLabel(TimingWorklogReportSourceType sourceType) {
+  switch (sourceType) {
+    case TimingWorklogReportSourceType.local:
+      return '本机';
+    case TimingWorklogReportSourceType.external:
+      return '外协';
+  }
+}
+
+String _scaledText(int scaled) => _decimalText(scaled / 1000.0);
+
+String _decimalText(double value) {
+  if (value == value.roundToDouble()) return value.toInt().toString();
+  return value
+      .toStringAsFixed(3)
+      .replaceAll(RegExp(r'0+$'), '')
+      .replaceAll(RegExp(r'\.$'), '');
+}
+
 class _Cell {
   const _Cell.text(this.textValue) : numberValue = null;
   const _Cell.number(this.numberValue) : textValue = '';
@@ -295,9 +387,7 @@ String _textCell(String ref, String value, int style) =>
     '<c r="$ref" t="inlineStr" s="$style"><is><t>${_xml(value)}</t></is></c>';
 String _numberCell(String ref, double? value, int style) {
   final n = value ?? 0;
-  final text = n == n.roundToDouble()
-      ? n.toInt().toString()
-      : n.toStringAsFixed(1);
+  final text = _decimalText(n);
   return '<c r="$ref" s="$style"><v>$text</v></c>';
 }
 
@@ -331,10 +421,10 @@ const _rootRelsXml =
 const _workbookRelsXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
 String _workbookXml(int lastRow) =>
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="工时打卡汇总" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'工时打卡汇总\'!\$A\$1:\$P\$$lastRow</definedName></definedNames></workbook>';
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="项目对账明细" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'项目对账明细\'!\$A\$1:\$P\$$lastRow</definedName></definedNames></workbook>';
 const _corePropsXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>挖机工时打卡汇总</dc:title><dc:creator>FleetLedger</dc:creator><cp:lastModifiedBy>FleetLedger</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:modified></cp:coreProperties>';
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>项目对账明细</dc:title><dc:creator>FleetLedger</dc:creator><cp:lastModifiedBy>FleetLedger</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:modified></cp:coreProperties>';
 const _appPropsXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>FleetLedger</Application></Properties>';
 const _stylesXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.#"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="18"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><sz val="11"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="3" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="2" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.###"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="18"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><sz val="11"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="3" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="2" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
