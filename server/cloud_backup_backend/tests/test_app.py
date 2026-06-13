@@ -69,6 +69,7 @@ class BackendTestCase(unittest.TestCase):
             authenticator=Authenticator(dev_tokens={"token-a": "user-a", "token-b": "user-b"}),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
             oss_prefix="test/backups",
+            account_key_secret="x" * 48,
         )
 
     def tearDown(self):
@@ -110,6 +111,32 @@ class BackendTestCase(unittest.TestCase):
             self.app.create_backup(user_id, envelope)
         self.assertEqual(error.exception.status, 400)
         self.assertEqual(error.exception.code, "invalid_envelope")
+
+    def test_account_backup_key_is_stable_per_account_and_high_entropy(self):
+        app = BackupApp(
+            metadata_store=BackupMetadataStore(f"{self.temp_dir.name}/k.sqlite3"),
+            object_store=FileObjectStore(f"{self.temp_dir.name}/k-objects"),
+            authenticator=Authenticator(dev_tokens={"token-a": "user-a", "token-b": "user-b"}),
+            account_key_secret="x" * 48,
+        )
+        a1 = app.issue_account_backup_key("user-a")
+        a2 = app.issue_account_backup_key("user-a")
+        b1 = app.issue_account_backup_key("user-b")
+        self.assertEqual(a1, a2, "同账号必须稳定(换机/轮换可解密旧包)")
+        self.assertNotEqual(a1, b1, "不同账号密钥不同")
+        self.assertEqual(len(a1), 64, "HMAC-SHA256 hex = 256-bit 高熵")
+
+    def test_account_backup_key_requires_configured_master_secret(self):
+        app = BackupApp(
+            metadata_store=BackupMetadataStore(f"{self.temp_dir.name}/k2.sqlite3"),
+            object_store=FileObjectStore(f"{self.temp_dir.name}/k2-objects"),
+            authenticator=Authenticator(dev_tokens={"token-a": "user-a"}),
+            account_key_secret="",
+        )
+        with self.assertRaises(HttpError) as error:
+            app.issue_account_backup_key("user-a")
+        self.assertEqual(error.exception.status, 503)
+        self.assertEqual(error.exception.code, "backup_key_unavailable")
 
     def test_request_body_user_id_is_ignored(self):
         envelope = make_envelope()
@@ -290,12 +317,14 @@ class BackendTestCase(unittest.TestCase):
             FLEET_BACKUP_PORT="9001",
             FLEET_BACKUP_MAX_PAYLOAD_BYTES="1024",
             FLEET_BACKUP_MAX_REQUEST_BYTES="2048",
+            FLEET_BACKUP_ACCOUNT_KEY_SECRET="x" * 48,
         ):
             config = AppConfig.from_env()
 
         self.assertEqual(config.port, 9001)
         self.assertEqual(config.max_payload_bytes, 1024)
         self.assertEqual(config.max_request_bytes, 2048)
+        self.assertEqual(config.account_key_secret, "x" * 48)
 
     def test_app_config_rejects_request_limit_below_payload_limit(self):
         with _patched_env(
@@ -315,6 +344,7 @@ class BackendHttpTestCase(unittest.TestCase):
             authenticator=Authenticator(dev_tokens={"token-a": "user-a", "token-b": "user-b"}),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
             oss_prefix="test/backups",
+            account_key_secret="x" * 48,
         )
 
     def tearDown(self):
@@ -362,6 +392,46 @@ class BackendHttpTestCase(unittest.TestCase):
         status, body = self.request("GET", f"/v1/backups/{backup_id}", token="token-b")
         self.assertEqual(status, 404)
         self.assertEqual(body["error"]["code"], "not_found")
+
+    def test_http_account_backup_key_is_authenticated_stable_and_scoped(self):
+        status, body = self.request("GET", "/v1/account/backup-key")
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+
+        status, first = self.request("GET", "/v1/account/backup-key", token="token-a")
+        self.assertEqual(status, 200)
+        secret = first["backup_secret"]
+        self.assertIsInstance(secret, str)
+        self.assertEqual(len(secret), 64)
+
+        status, second = self.request("GET", "/v1/account/backup-key", token="token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(second["backup_secret"], secret)
+
+        status, other = self.request("GET", "/v1/account/backup-key", token="token-b")
+        self.assertEqual(status, 200)
+        self.assertNotEqual(other["backup_secret"], secret)
+
+    def test_http_account_backup_key_reports_unavailable_without_master_secret(self):
+        app = BackupApp(
+            metadata_store=BackupMetadataStore(f"{self.temp_dir.name}/no-key.sqlite3"),
+            object_store=FileObjectStore(f"{self.temp_dir.name}/no-key-objects"),
+            authenticator=Authenticator(dev_tokens={"token-a": "user-a"}),
+            rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
+            account_key_secret="",
+        )
+        handler = _HandlerHarness(
+            app,
+            "/v1/account/backup-key",
+            {"authorization": "Bearer token-a"},
+            b"",
+        )
+        from app import BackupRequestHandler
+
+        BackupRequestHandler._handle(handler, "GET")
+        body = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(handler.status, 503)
+        self.assertEqual(body["error"]["code"], "backup_key_unavailable")
 
 
 def make_hs256_jwt(secret, payload):

@@ -19,6 +19,11 @@ bucket policy, or object path is placed in the Flutter client.
   - Response: `{"backups":[{"backup_id","created_at","db_schema_version","payload_bytes"}]}`
 - `GET /v1/backups/{backup_id}`
   - Response: the original cloud backup envelope JSON.
+- `GET /v1/account/backup-key`
+  - Auth: `Authorization: Bearer <app-login-token>`
+  - Response: `{"backup_secret":"..."}`
+  - Returns the stable high-entropy account secret used by the App as
+    `CloudBackupCipher` key material.
 - `GET /healthz`
   - No auth; for local health checks.
 
@@ -78,6 +83,20 @@ Optional JWT hardening:
 - `FLEET_BACKUP_AUTH_JWT_ISSUER`: expected `iss` claim.
 - `FLEET_BACKUP_AUTH_JWT_AUDIENCE`: expected `aud` claim.
 
+## Account Backup Key Issuer
+
+Set `FLEET_BACKUP_ACCOUNT_KEY_SECRET` to a separate 32+ character random value.
+The backend derives a per-account backup secret as:
+
+```text
+HMAC-SHA256(FLEET_BACKUP_ACCOUNT_KEY_SECRET, "fleet-ledger-backup-key:v1:<user_id>")
+```
+
+The returned `backup_secret` is stable for the account, so a user can reinstall
+or switch phones, log in again, and decrypt old encrypted backups. Do not reuse
+JWT, SMS, OSS, or database secrets for this value. Keep it backed up securely:
+rotating or losing it makes existing encrypted backups unrecoverable.
+
 ## OSS Permissions
 
 Use a RAM user or role with the narrowest possible permission for the private
@@ -128,7 +147,7 @@ installer creates the service user, venv, data/log directories, systemd unit,
 and root-owned `0600` env file, but it does not start the service while the env
 file still contains placeholders.
 
-## 客户端加密（账号绑定，零知识）
+## 客户端加密（账号绑定，OSS 存密文）
 
 App 端可对备份 payload 做 **AES-256-GCM 客户端加密**（密钥经 HKDF-SHA256 从
 账号绑定的高熵秘密派生）。此时信封：
@@ -138,16 +157,16 @@ App 端可对备份 payload 做 **AES-256-GCM 客户端加密**（密钥经 HKDF
   仅做大小/哈希等传输校验后原样存入 OSS。
 - `encryption`: `{ algo, kdf, salt, nonce, key_id, plaintext_sha256,
   plaintext_bytes }` —— 仅非秘密元数据，随包透传。`account secret` 永不出现在
-  信封里，后端无法解密（零知识）。
+  信封或 OSS 对象里。
 
 明文备份（`payload_encoding` 缺省/`"plaintext"`）保持原有「payload_json 必须为
 JSON 对象」的防御，向后兼容旧包。
 
 ### 部署者必读：账号密钥下发（P0-A 集成点）
 
-「账号绑定派生」要求账号服务在登录时向 App 下发一份**高熵且稳定**的备份秘密
-（不是手机号、不是会轮换的 access token）。换机重新登录拿到同一份秘密即可解密
-旧备份。后端就绪后，需提供一个受鉴权保护的接口返回该秘密，并在 App 的
-`_resolveAccountBackupSecret`（lib/app/providers/device_fleet_providers.dart）
-接入。未接入时，App 生产构建会**拒绝上传明文**（requireEncryption=true），即云
-备份在密钥就绪前不可用——这是刻意的合规兜底。
+「账号绑定派生」要求账号服务向 App 下发一份**高熵且稳定**的备份秘密（不是手机
+号、不是会轮换的 access token）。本服务通过受鉴权保护的
+`GET /v1/account/backup-key` 返回该秘密，App 的生产装配已通过
+`HttpCloudBackupKeyProvider` 接入。未配置 `FLEET_BACKUP_ACCOUNT_KEY_SECRET` 时，
+端点返回 `backup_key_unavailable`，App 生产构建会**拒绝上传明文**
+（requireEncryption=true），即云备份在密钥就绪前不可用——这是刻意的合规兜底。

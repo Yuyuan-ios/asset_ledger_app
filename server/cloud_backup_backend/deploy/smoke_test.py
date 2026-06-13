@@ -91,9 +91,26 @@ def main() -> int:
     require(status == 401, f"expected unauthenticated GET /v1/backups to return 401, got {status}")
     print("PASS unauthenticated /v1/backups returns 401")
 
+    status, body = request(args.base_url, "GET", "/v1/account/backup-key")
+    require(
+        status == 401,
+        f"expected unauthenticated GET /v1/account/backup-key to return 401, got {status}",
+    )
+    print("PASS unauthenticated /v1/account/backup-key returns 401")
+
     if args.auth_only:
         return 0
     require(args.token, "--token is required unless --auth-only is set")
+
+    status, body = request(args.base_url, "GET", "/v1/account/backup-key", token=args.token)
+    require(status == 200, f"expected backup-key to return 200, got {status} (set FLEET_BACKUP_ACCOUNT_KEY_SECRET?)")
+    secret = body.get("backup_secret")
+    require(isinstance(secret, str) and len(secret) >= 32, "backup_secret missing or too short")
+    # Stable per-account: a second call returns the same secret.
+    status2, body2 = request(args.base_url, "GET", "/v1/account/backup-key", token=args.token)
+    require(status2 == 200, f"expected repeated backup-key to return 200, got {status2}")
+    require(body2.get("backup_secret") == secret, "backup_secret is not stable across calls")
+    print("PASS account backup-key is issued and stable (encryption can activate)")
 
     status, body = request(args.base_url, "POST", "/v1/backups", token=args.token, body=make_envelope())
     require(status == 200, f"expected upload to return 200, got {status}")
@@ -114,6 +131,11 @@ def main() -> int:
     print("PASS owner can download uploaded backup")
 
     if args.other_token:
+        status, body = request(args.base_url, "GET", "/v1/account/backup-key", token=args.other_token)
+        require(status == 200, f"expected second account backup-key to return 200, got {status}")
+        require(body.get("backup_secret") != secret, "second account received the same backup_secret")
+        print("PASS account backup-key is scoped per account")
+
         status, body = request(args.base_url, "GET", "/v1/backups", token=args.other_token)
         require(status == 200, f"expected second account list to return 200, got {status}")
         other_backups = body.get("backups")
