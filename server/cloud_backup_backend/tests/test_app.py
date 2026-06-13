@@ -31,7 +31,32 @@ def make_envelope(payload=None):
         "db_schema_version": 36,
         "payload_sha256": hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
         "payload_bytes": len(payload_json.encode("utf-8")),
+        "payload_encoding": "plaintext",
         "payload_json": payload_json,
+    }
+
+
+def make_encrypted_envelope(cipher_base64="AAECAwQF"):
+    # 模拟 App 的加密信封:payload_json 为 base64 密文(非 JSON 对象),
+    # 加密元数据随包透传,后端不解密。
+    return {
+        "kind": "cloud_backup",
+        "format_version": 1,
+        "created_at": "2026-06-12T00:00:00.000Z",
+        "db_schema_version": 36,
+        "payload_sha256": hashlib.sha256(cipher_base64.encode("utf-8")).hexdigest(),
+        "payload_bytes": len(cipher_base64.encode("utf-8")),
+        "payload_encoding": "aes-256-gcm",
+        "encryption": {
+            "algo": "AES-256-GCM",
+            "kdf": "HKDF-SHA256",
+            "salt": "c2FsdA==",
+            "nonce": "bm9uY2U=",
+            "key_id": "0123456789abcdef",
+            "plaintext_sha256": "a" * 64,
+            "plaintext_bytes": 42,
+        },
+        "payload_json": cipher_base64,
     }
 
 
@@ -65,6 +90,26 @@ class BackendTestCase(unittest.TestCase):
         with self.assertRaises(HttpError) as error:
             self.app.download_backup("user-b", backup_id)
         self.assertEqual(error.exception.status, 404)
+
+    def test_encrypted_envelope_round_trips_and_is_not_decrypted(self):
+        envelope = make_encrypted_envelope()
+        user_id = self.app.authenticator.authenticate("Bearer token-a")
+        backup_id = self.app.create_backup(user_id, envelope)
+
+        downloaded = self.app.download_backup("user-a", backup_id)
+        # 后端透传加密元数据,且 payload_json(base64 密文)未被当作 JSON 拒收。
+        self.assertEqual(downloaded["payload_encoding"], "aes-256-gcm")
+        self.assertEqual(downloaded["encryption"]["key_id"], "0123456789abcdef")
+        self.assertEqual(downloaded["payload_json"], envelope["payload_json"])
+
+    def test_encrypted_envelope_missing_metadata_is_rejected(self):
+        envelope = make_encrypted_envelope()
+        del envelope["encryption"]
+        user_id = self.app.authenticator.authenticate("Bearer token-a")
+        with self.assertRaises(HttpError) as error:
+            self.app.create_backup(user_id, envelope)
+        self.assertEqual(error.exception.status, 400)
+        self.assertEqual(error.exception.code, "invalid_envelope")
 
     def test_request_body_user_id_is_ignored(self):
         envelope = make_envelope()

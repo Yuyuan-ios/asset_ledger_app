@@ -41,6 +41,7 @@ dependencies:
   archive: ^3.6.1
   # i18n:文案 key 化的消息查找(版本随 flutter_localizations 锁定)
   intl: any
+  cryptography: ^2.9.0
 
 dev_dependencies:
   flutter_test:
