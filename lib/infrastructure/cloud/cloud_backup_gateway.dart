@@ -8,6 +8,72 @@ import 'api_client.dart';
 /// format_version / payload_sha256 / 大小上限后才允许进入 restore。
 /// 备份是用户**自己的全量数据归档**(随账号空间存储),与 .jztshare
 /// 分享包不同,不适用「不打包本机标识」的分享隐私白名单。
+/// 客户端加密元数据（账号绑定 AES-256-GCM）。明文备份此块为 null。
+///
+/// 仅含解密所需的**非秘密**信息(算法/盐/nonce/单向密钥指纹/明文完整性)；
+/// accountSecret 永不出现在信封里,后端 OSS 只见密文。
+class CloudBackupEncryptionMeta {
+  const CloudBackupEncryptionMeta({
+    required this.algo,
+    required this.kdf,
+    required this.saltBase64,
+    required this.nonceBase64,
+    required this.keyId,
+    required this.plaintextSha256,
+    required this.plaintextBytes,
+  });
+
+  final String algo;
+  final String kdf;
+  final String saltBase64;
+  final String nonceBase64;
+  final String keyId;
+  final String plaintextSha256;
+  final int plaintextBytes;
+
+  Map<String, Object?> toJson() {
+    return {
+      'algo': algo,
+      'kdf': kdf,
+      'salt': saltBase64,
+      'nonce': nonceBase64,
+      'key_id': keyId,
+      'plaintext_sha256': plaintextSha256,
+      'plaintext_bytes': plaintextBytes,
+    };
+  }
+
+  /// 防御式解析:字段缺失/类型不符返回 null,由调用方按明文/损坏处理。
+  static CloudBackupEncryptionMeta? tryFromJson(Object? raw) {
+    if (raw is! Map<String, Object?>) return null;
+    final algo = raw['algo'];
+    final kdf = raw['kdf'];
+    final salt = raw['salt'];
+    final nonce = raw['nonce'];
+    final keyId = raw['key_id'];
+    final plaintextSha256 = raw['plaintext_sha256'];
+    final plaintextBytes = raw['plaintext_bytes'];
+    if (algo is! String ||
+        kdf is! String ||
+        salt is! String ||
+        nonce is! String ||
+        keyId is! String ||
+        plaintextSha256 is! String ||
+        plaintextBytes is! int) {
+      return null;
+    }
+    return CloudBackupEncryptionMeta(
+      algo: algo,
+      kdf: kdf,
+      saltBase64: salt,
+      nonceBase64: nonce,
+      keyId: keyId,
+      plaintextSha256: plaintextSha256,
+      plaintextBytes: plaintextBytes,
+    );
+  }
+}
+
 class CloudBackupEnvelope {
   const CloudBackupEnvelope({
     required this.formatVersion,
@@ -16,10 +82,15 @@ class CloudBackupEnvelope {
     required this.payloadSha256,
     required this.payloadBytes,
     required this.payloadJson,
+    this.payloadEncoding = encodingPlaintext,
+    this.encryption,
   });
 
   static const int supportedFormatVersion = 1;
   static const String kindValue = 'cloud_backup';
+
+  static const String encodingPlaintext = 'plaintext';
+  static const String encodingAesGcm = 'aes-256-gcm';
 
   /// 单个云备份包络允许的最大 payload 字节数（防御超大下载）。
   static const int maxPayloadBytes = 64 * 1024 * 1024;
@@ -27,12 +98,23 @@ class CloudBackupEnvelope {
   final int formatVersion;
   final String createdAtIso;
   final int dbSchemaVersion;
+
+  /// 对**线上传输体**（[payloadJson]）的 sha256：明文时即明文哈希，密文时即
+  /// 密文 base64 的哈希。传输级完整性，网关 decode 不受加密影响。
   final String payloadSha256;
   final int payloadBytes;
 
-  /// 本地备份 JSON 原文（LocalBackupExportService 的输出,作为不透明文本
-  /// 传输;恢复时交回 LocalBackupRestoreService 走既有校验/事务流程）。
+  /// 传输体:明文备份为 LocalBackupExportService 的 JSON 原文;加密备份为
+  /// base64(密文 ++ GCM tag)。恢复时按 [payloadEncoding] 解码。
   final String payloadJson;
+
+  /// 'plaintext'（默认/向后兼容）或 'aes-256-gcm'。
+  final String payloadEncoding;
+
+  /// 加密元数据;[payloadEncoding]==aes-256-gcm 时非 null。
+  final CloudBackupEncryptionMeta? encryption;
+
+  bool get isEncrypted => payloadEncoding == encodingAesGcm;
 
   Map<String, Object?> toJson() {
     return {
@@ -42,6 +124,8 @@ class CloudBackupEnvelope {
       'db_schema_version': dbSchemaVersion,
       'payload_sha256': payloadSha256,
       'payload_bytes': payloadBytes,
+      'payload_encoding': payloadEncoding,
+      if (encryption != null) 'encryption': encryption!.toJson(),
       'payload_json': payloadJson,
     };
   }
@@ -213,6 +297,21 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
         'cloud backup payload_bytes does not match payload_json',
       );
     }
+    // 加密元数据为 additive 字段:缺失/未知编码按明文处理(向后兼容旧明文包)。
+    final encodingRaw = body['payload_encoding'];
+    final payloadEncoding = encodingRaw == CloudBackupEnvelope.encodingAesGcm
+        ? CloudBackupEnvelope.encodingAesGcm
+        : CloudBackupEnvelope.encodingPlaintext;
+    final encryption = payloadEncoding == CloudBackupEnvelope.encodingAesGcm
+        ? CloudBackupEncryptionMeta.tryFromJson(body['encryption'])
+        : null;
+    if (payloadEncoding == CloudBackupEnvelope.encodingAesGcm &&
+        encryption == null) {
+      throw const CloudBackupGatewayException(
+        'invalid_envelope',
+        'encrypted cloud backup is missing valid encryption metadata',
+      );
+    }
     return CloudBackupEnvelope(
       formatVersion: formatVersion,
       createdAtIso: createdAt,
@@ -220,6 +319,8 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
       payloadSha256: payloadSha256,
       payloadBytes: payloadBytes,
       payloadJson: payloadJson,
+      payloadEncoding: payloadEncoding,
+      encryption: encryption,
     );
   }
 

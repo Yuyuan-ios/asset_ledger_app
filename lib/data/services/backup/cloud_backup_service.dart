@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../../../infrastructure/cloud/cloud_backup_cipher.dart';
 import '../../../infrastructure/cloud/cloud_backup_gateway.dart';
 import '../../db/database.dart';
 import '../../models/backup_restore_result.dart';
@@ -40,19 +41,29 @@ class CloudBackupService {
     LocalBackupRestoreService? restoreService,
     int? currentDbSchemaVersion,
     DateTime Function()? now,
+    CloudBackupKeyProvider? keyProvider,
+    bool requireEncryption = false,
   }) : _gateway = gateway,
        _exportBackup =
            exportBackup ?? LocalBackupExportService.exportJsonBackup,
        _restoreService = restoreService ?? LocalBackupRestoreService(),
        _currentDbSchemaVersion =
            currentDbSchemaVersion ?? AppDatabase.schemaVersion,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _keyProvider = keyProvider,
+       _requireEncryption = requireEncryption;
 
   final CloudBackupGateway _gateway;
   final Future<LocalBackupExportResult> Function() _exportBackup;
   final LocalBackupRestoreService _restoreService;
   final int _currentDbSchemaVersion;
   final DateTime Function() _now;
+
+  /// 账号绑定密钥来源;null = 未配置加密(明文,向后兼容/dev/测试)。
+  final CloudBackupKeyProvider? _keyProvider;
+
+  /// 生产口径:要求加密但密钥不可用时**拒绝上传明文**(不静默降级)。
+  final bool _requireEncryption;
 
   /// 导出当前全库并上传。失败返回带码结果,不抛异常(供 UI 友好提示)。
   Future<CloudBackupUploadResult> uploadCurrent() async {
@@ -65,23 +76,67 @@ class CloudBackupService {
         errorMessage: '本地备份导出失败,已取消上传',
       );
     }
-    final payloadJson = await File(filePath).readAsString();
-    final payloadBytes = utf8.encode(payloadJson).length;
-    if (payloadBytes > CloudBackupEnvelope.maxPayloadBytes) {
+    final plaintextJson = await File(filePath).readAsString();
+    if (utf8.encode(plaintextJson).length >
+        CloudBackupEnvelope.maxPayloadBytes) {
       return const CloudBackupUploadResult(
         success: false,
         errorCode: 'payload_too_large',
         errorMessage: '备份内容超出云端上限',
       );
     }
-    final envelope = CloudBackupEnvelope(
-      formatVersion: CloudBackupEnvelope.supportedFormatVersion,
-      createdAtIso: _now().toUtc().toIso8601String(),
-      dbSchemaVersion: _currentDbSchemaVersion,
-      payloadSha256: payloadSha256(payloadJson),
-      payloadBytes: payloadBytes,
-      payloadJson: payloadJson,
-    );
+
+    // 账号绑定客户端加密:有密钥则上传前加密(OSS 只存密文);密钥不可用时,
+    // 生产口径拒绝上传明文,dev/未配置加密则明文(向后兼容)。
+    final CloudBackupEnvelope envelope;
+    final secret = await _keyProvider?.accountSecret();
+    if (secret != null && secret.isNotEmpty) {
+      final encrypted = await CloudBackupCipher.encrypt(
+        plaintext: plaintextJson,
+        accountSecret: secret,
+      );
+      if (utf8.encode(encrypted.cipherTextBase64).length >
+          CloudBackupEnvelope.maxPayloadBytes) {
+        return const CloudBackupUploadResult(
+          success: false,
+          errorCode: 'payload_too_large',
+          errorMessage: '备份内容超出云端上限',
+        );
+      }
+      envelope = CloudBackupEnvelope(
+        formatVersion: CloudBackupEnvelope.supportedFormatVersion,
+        createdAtIso: _now().toUtc().toIso8601String(),
+        dbSchemaVersion: _currentDbSchemaVersion,
+        payloadSha256: payloadSha256(encrypted.cipherTextBase64),
+        payloadBytes: utf8.encode(encrypted.cipherTextBase64).length,
+        payloadJson: encrypted.cipherTextBase64,
+        payloadEncoding: CloudBackupEnvelope.encodingAesGcm,
+        encryption: CloudBackupEncryptionMeta(
+          algo: CloudBackupCipher.algoName,
+          kdf: CloudBackupCipher.kdfName,
+          saltBase64: encrypted.saltBase64,
+          nonceBase64: encrypted.nonceBase64,
+          keyId: encrypted.keyId,
+          plaintextSha256: encrypted.plaintextSha256,
+          plaintextBytes: encrypted.plaintextBytes,
+        ),
+      );
+    } else if (_requireEncryption) {
+      return const CloudBackupUploadResult(
+        success: false,
+        errorCode: 'encryption_key_unavailable',
+        errorMessage: '账号密钥不可用，已取消上传以避免明文备份',
+      );
+    } else {
+      envelope = CloudBackupEnvelope(
+        formatVersion: CloudBackupEnvelope.supportedFormatVersion,
+        createdAtIso: _now().toUtc().toIso8601String(),
+        dbSchemaVersion: _currentDbSchemaVersion,
+        payloadSha256: payloadSha256(plaintextJson),
+        payloadBytes: utf8.encode(plaintextJson).length,
+        payloadJson: plaintextJson,
+      );
+    }
     try {
       final backupId = await _gateway.upload(envelope);
       return CloudBackupUploadResult(
@@ -114,6 +169,7 @@ class CloudBackupService {
         errorCode: error.code,
       );
     }
+    // 传输级完整性:线上传输体(明文或密文 base64)的 sha256。
     if (payloadSha256(envelope.payloadJson) !=
         envelope.payloadSha256.toLowerCase()) {
       return BackupRestoreResult.failure(
@@ -127,7 +183,43 @@ class CloudBackupService {
         errorCode: 'newer_schema_version',
       );
     }
-    return _restoreService.restoreFromJsonString(envelope.payloadJson);
+
+    // 加密备份:账号密钥解密 → 明文 sha256 二次校验 → 交既有 restore 流程。
+    final String plaintextJson;
+    if (envelope.isEncrypted) {
+      final meta = envelope.encryption!;
+      final secret = await _keyProvider?.accountSecret();
+      if (secret == null || secret.isEmpty) {
+        return BackupRestoreResult.failure(
+          message: '此备份已加密，但当前账号密钥不可用，请重新登录后再恢复',
+          errorCode: 'encryption_key_unavailable',
+        );
+      }
+      if (CloudBackupCipher.keyIdFor(secret) != meta.keyId) {
+        return BackupRestoreResult.failure(
+          message: '此备份属于其他账号，当前账号无法解密',
+          errorCode: 'wrong_account',
+        );
+      }
+      try {
+        plaintextJson = await CloudBackupCipher.decrypt(
+          cipherTextBase64: envelope.payloadJson,
+          saltBase64: meta.saltBase64,
+          nonceBase64: meta.nonceBase64,
+          expectedPlaintextSha256: meta.plaintextSha256,
+          accountSecret: secret,
+        );
+      } on CloudBackupCipherException catch (error) {
+        return BackupRestoreResult.failure(
+          message: '云端备份解密失败：${error.message}',
+          errorCode: error.code,
+        );
+      }
+    } else {
+      plaintextJson = envelope.payloadJson;
+    }
+
+    return _restoreService.restoreFromJsonString(plaintextJson);
   }
 
   /// payload 的 sha256(对备份 JSON 原文 UTF-8 字节,十六进制小写)。

@@ -14,6 +14,10 @@ class CloudBackupConfig {
 
   static const bool _isProduction = bool.fromEnvironment('dart.vm.product');
 
+  /// release 构建标志:供 composition 决定是否强制云备份客户端加密
+  /// （生产拒绝上传明文）。
+  static bool get isProductionBuild => _isProduction;
+
   static CloudBackupEndpointConfig get current {
     return resolve(
       cloudBackupBaseUrl: _cloudBackupBaseUrl,
