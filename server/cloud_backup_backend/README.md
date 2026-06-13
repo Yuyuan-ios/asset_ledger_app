@@ -127,3 +127,27 @@ Aliyun OSS.
 installer creates the service user, venv, data/log directories, systemd unit,
 and root-owned `0600` env file, but it does not start the service while the env
 file still contains placeholders.
+
+## 客户端加密（账号绑定，零知识）
+
+App 端可对备份 payload 做 **AES-256-GCM 客户端加密**（密钥经 HKDF-SHA256 从
+账号绑定的高熵秘密派生）。此时信封：
+
+- `payload_encoding`: `"aes-256-gcm"`
+- `payload_json`: base64(密文 ++ GCM tag) —— 后端**不解密、不解析为 JSON**，
+  仅做大小/哈希等传输校验后原样存入 OSS。
+- `encryption`: `{ algo, kdf, salt, nonce, key_id, plaintext_sha256,
+  plaintext_bytes }` —— 仅非秘密元数据，随包透传。`account secret` 永不出现在
+  信封里，后端无法解密（零知识）。
+
+明文备份（`payload_encoding` 缺省/`"plaintext"`）保持原有「payload_json 必须为
+JSON 对象」的防御，向后兼容旧包。
+
+### 部署者必读：账号密钥下发（P0-A 集成点）
+
+「账号绑定派生」要求账号服务在登录时向 App 下发一份**高熵且稳定**的备份秘密
+（不是手机号、不是会轮换的 access token）。换机重新登录拿到同一份秘密即可解密
+旧备份。后端就绪后，需提供一个受鉴权保护的接口返回该秘密，并在 App 的
+`_resolveAccountBackupSecret`（lib/app/providers/device_fleet_providers.dart）
+接入。未接入时，App 生产构建会**拒绝上传明文**（requireEncryption=true），即云
+备份在密钥就绪前不可用——这是刻意的合规兜底。
