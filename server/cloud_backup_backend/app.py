@@ -35,6 +35,17 @@ MAX_REQUEST_BYTES = 80 * 1024 * 1024
 DEFAULT_PORT = 8008
 SUPPORTED_FORMAT_VERSION = 1
 KIND_VALUE = "cloud_backup"
+ENCODING_PLAINTEXT = "plaintext"
+ENCODING_AES_GCM = "aes-256-gcm"
+ENCRYPTION_META_FIELDS = (
+    "algo",
+    "kdf",
+    "salt",
+    "nonce",
+    "key_id",
+    "plaintext_sha256",
+    "plaintext_bytes",
+)
 
 
 class HttpError(Exception):
@@ -735,21 +746,51 @@ def validate_envelope(envelope: Mapping[str, Any], max_payload_bytes: int) -> Di
     actual_sha = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
     if actual_sha != payload_sha256.lower():
         raise HttpError(400, "payload_hash_mismatch", "payload_sha256 does not match payload_json")
-    try:
-        decoded_payload = json.loads(payload_json)
-    except json.JSONDecodeError as exc:
-        raise HttpError(400, "invalid_payload_json", "payload_json must be valid JSON") from exc
-    if not isinstance(decoded_payload, dict):
-        raise HttpError(400, "invalid_payload_json", "payload_json must be a JSON object")
-    return {
+
+    # 客户端加密(账号绑定 AES-256-GCM):payload_json 为 base64 密文,后端不解密、
+    # 不解析为 JSON 对象,仅透传 encryption 元数据(零知识)。明文备份(缺省/旧包)
+    # 仍要求 payload_json 是 JSON 对象,保持原有防御。
+    encoding = envelope.get("payload_encoding", ENCODING_PLAINTEXT)
+    if encoding not in (ENCODING_PLAINTEXT, ENCODING_AES_GCM):
+        raise HttpError(400, "invalid_envelope", "payload_encoding is not supported")
+
+    stored: Dict[str, Any] = {
         "kind": KIND_VALUE,
         "format_version": SUPPORTED_FORMAT_VERSION,
         "created_at": created_at,
         "db_schema_version": db_schema_version,
         "payload_sha256": payload_sha256.lower(),
         "payload_bytes": payload_bytes,
+        "payload_encoding": encoding,
         "payload_json": payload_json,
     }
+
+    if encoding == ENCODING_AES_GCM:
+        encryption = envelope.get("encryption")
+        if not isinstance(encryption, dict):
+            raise HttpError(400, "invalid_envelope", "encryption metadata is required")
+        for field in ENCRYPTION_META_FIELDS:
+            if field not in encryption:
+                raise HttpError(400, "invalid_envelope", f"encryption.{field} is required")
+        # 透传非秘密元数据;account secret 永不出现在信封,后端无法解密。
+        stored["encryption"] = {
+            "algo": str(encryption["algo"]),
+            "kdf": str(encryption["kdf"]),
+            "salt": str(encryption["salt"]),
+            "nonce": str(encryption["nonce"]),
+            "key_id": str(encryption["key_id"]),
+            "plaintext_sha256": str(encryption["plaintext_sha256"]),
+            "plaintext_bytes": encryption["plaintext_bytes"],
+        }
+    else:
+        try:
+            decoded_payload = json.loads(payload_json)
+        except json.JSONDecodeError as exc:
+            raise HttpError(400, "invalid_payload_json", "payload_json must be valid JSON") from exc
+        if not isinstance(decoded_payload, dict):
+            raise HttpError(400, "invalid_payload_json", "payload_json must be a JSON object")
+
+    return stored
 
 
 def is_plain_int(value: Any) -> bool:
