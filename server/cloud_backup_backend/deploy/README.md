@@ -16,11 +16,17 @@ The installer creates the `fleetbackup` system user, data/log directories, a
 Python venv, `/etc/fleet-ledger-cloud-backup.env`, and the systemd unit. It does
 not start the service while placeholders remain in the env file.
 
+Set `FLEET_BACKUP_ACCOUNT_KEY_SECRET` in the env file before enabling encrypted
+cloud backup. It must be a long random value and must stay stable across
+deployments; losing or rotating it makes existing encrypted backups
+unrecoverable.
+
 ## Nginx
 
 Copy `deploy/nginx.conf.example` to the ECS Nginx config directory and replace
 `backup-api.example.com` and certificate paths. Keep `client_max_body_size` at
-least `70m`.
+least `70m`. The sample proxies both `/v1/backups` and
+`/v1/account/backup-key`.
 
 ## Smoke test
 
@@ -32,4 +38,6 @@ python3 deploy/smoke_test.py --base-url https://backup-api.example.com --token "
 python3 deploy/smoke_test.py --base-url https://backup-api.example.com --token "$TOKEN_A" --other-token "$TOKEN_B"
 ```
 
-The script does not print bearer tokens or payload bodies.
+The script verifies auth rejection, account backup-key issuance/stability,
+backup round-trip, and optional cross-account isolation. It does not print
+bearer tokens, account secrets, or payload bodies.
