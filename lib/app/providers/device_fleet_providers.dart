@@ -7,7 +7,7 @@ import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/fuel_repository.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/services/backup/cloud_backup_service.dart';
-import '../../infrastructure/cloud/cloud_backup_cipher.dart';
+import '../../infrastructure/cloud/http_cloud_backup_key_provider.dart';
 import '../../features/device/application/controllers/cloud_backup_controller.dart';
 import '../../features/device/application/controllers/local_backup_controller.dart';
 import '../../features/device/domain/repositories/local_backup_repository.dart';
@@ -48,35 +48,35 @@ class DeviceFleetProviders {
     final maintenanceStore = MaintenanceStore(maintenanceRepository);
     const localBackupController = LocalBackupController(localBackupRepository);
     final cloudBackupEndpoint = CloudBackupConfig.current;
-    final cloudBackupController = cloudBackupEndpoint.isAvailable
-        ? CloudBackupController(
-            availability: CloudBackupAvailability.available(
-              usesBusinessApiFallback:
-                  cloudBackupEndpoint.usesBusinessApiFallback,
-            ),
-            service: CloudBackupService(
-              gateway: HttpCloudBackupGateway(
-                HttpCloudApiClient(
-                  baseUrl: cloudBackupEndpoint.baseUrl!,
-                  accessTokenProvider: () async {
-                    final session = await phoneLoginStore.read();
-                    return session.isAuthenticated ? session.authToken : null;
-                  },
-                ),
-              ),
-              // 账号绑定客户端加密（OSS 只存密文）。账号密钥须由账号服务在
-              // 登录时下发的高熵稳定秘密——当前后端未部署/未下发,提供者返回
-              // null;生产口径 requireEncryption=true 时拒绝上传明文,避免业务
-              // 数据明文上云(PIPL/合规)。后端就绪后在此接入真实账号密钥来源。
-              keyProvider: CallbackCloudBackupKeyProvider(
-                _resolveAccountBackupSecret,
-              ),
-              requireEncryption: CloudBackupConfig.isProductionBuild,
-            ),
-          )
-        : CloudBackupController.unavailable(
-            cloudBackupEndpoint.disabledMessage ?? '云端备份服务暂未配置',
-          );
+    final CloudBackupController cloudBackupController;
+    if (cloudBackupEndpoint.isAvailable) {
+      // 备份传输与账号密钥下发共用同一鉴权客户端(同 baseUrl + Bearer)。
+      final cloudClient = HttpCloudApiClient(
+        baseUrl: cloudBackupEndpoint.baseUrl!,
+        accessTokenProvider: () async {
+          final session = await phoneLoginStore.read();
+          return session.isAuthenticated ? session.authToken : null;
+        },
+      );
+      cloudBackupController = CloudBackupController(
+        availability: CloudBackupAvailability.available(
+          usesBusinessApiFallback: cloudBackupEndpoint.usesBusinessApiFallback,
+        ),
+        service: CloudBackupService(
+          gateway: HttpCloudBackupGateway(cloudClient),
+          // 账号绑定客户端加密(OSS 只存密文）:密钥由后端
+          // GET /v1/account/backup-key 下发(HMAC 派生的稳定高熵秘密)。
+          // 拉取失败(未登录/未配置/网络)→ null → 生产 requireEncryption
+          // 拒绝上传明文(PIPL/合规兜底),不静默降级。
+          keyProvider: HttpCloudBackupKeyProvider(cloudClient),
+          requireEncryption: CloudBackupConfig.isProductionBuild,
+        ),
+      );
+    } else {
+      cloudBackupController = CloudBackupController.unavailable(
+        cloudBackupEndpoint.disabledMessage ?? '云端备份服务暂未配置',
+      );
+    }
 
     return DeviceFleetProviders._(
       deviceStore: deviceStore,
@@ -98,10 +98,3 @@ class DeviceFleetProviders {
     );
   }
 }
-
-/// 账号绑定的备份密钥来源（后端集成点）。
-///
-/// 账号绑定派生要求账号服务在登录时下发一份**高熵稳定**的备份秘密（不是手机号、
-/// 不是会轮换的 authToken）。后端就绪后在此返回该秘密;当前未部署/未下发,返回
-/// null —— 生产口径下会拒绝上传明文(见 CloudBackupService.requireEncryption)。
-Future<String?> _resolveAccountBackupSecret() async => null;

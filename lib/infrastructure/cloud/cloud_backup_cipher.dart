@@ -63,8 +63,7 @@ class CloudBackupEncryptedPayload {
   final int plaintextBytes;
 }
 
-/// 云备份 payload 的客户端加密（AES-256-GCM + HKDF-SHA256，零知识：后端 OSS
-/// 只存密文）。
+/// 云备份 payload 的客户端加密（AES-256-GCM + HKDF-SHA256，OSS/信封只存密文）。
 ///
 /// 设计:
 /// - 密钥 = HKDF-SHA256(ikm=accountSecret, salt=每次随机 16B, info=固定标签)
