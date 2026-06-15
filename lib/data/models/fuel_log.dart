@@ -23,8 +23,12 @@ class FuelLog {
   // 加油量（升）
   final double liters;
 
-  // 金额（元）
+  // 金额（元）。Track A / A1：cost(REAL) 仍为权威。
   final double cost;
+
+  // 金额（分）影子列。A1 起随 cost 双写：写入恒 = round(cost*100)，
+  // REAL 切换为非权威后（A3）反转为 fen 直读。读旧库可为 null。
+  final int? costFen;
 
   const FuelLog({
     this.id,
@@ -33,6 +37,7 @@ class FuelLog {
     required this.supplier,
     required this.liters,
     required this.cost,
+    this.costFen,
   });
 
   // -------------------------------------------------------------------
@@ -45,6 +50,7 @@ class FuelLog {
     String? supplier,
     double? liters,
     double? cost,
+    int? costFen,
   }) {
     return FuelLog(
       id: id ?? this.id,
@@ -53,6 +59,7 @@ class FuelLog {
       supplier: supplier ?? this.supplier,
       liters: liters ?? this.liters,
       cost: cost ?? this.cost,
+      costFen: costFen ?? this.costFen,
     );
   }
 
@@ -67,6 +74,8 @@ class FuelLog {
       'supplier': supplier,
       'liters': liters,
       'cost': cost,
+      // A1 双写：fen 影子列恒从权威 cost 派生，与迁移回填口径同源。
+      'cost_fen': (cost * 100).round(),
     };
   }
 
@@ -78,6 +87,7 @@ class FuelLog {
       supplier: (map['supplier'] as String?) ?? '',
       liters: (map['liters'] as num).toDouble(),
       cost: (map['cost'] as num).toDouble(),
+      costFen: (map['cost_fen'] as num?)?.toInt(),
     );
   }
 

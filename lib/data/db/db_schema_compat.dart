@@ -123,6 +123,9 @@ class DbSchemaCompat {
     // ensureTimingIncomeFenNotNull 之后,把 unit 重建为 NOT NULL
     // （COALESCE 再兜底）。非叶子表,重建只能走本 onOpen 路径。
     await DbMigrations.ensureTimingUnitNotNull(db);
+    // v37（Track A 之 A1）：fuel_logs.cost_fen / maintenance_records.amount_fen
+    // additive 补列 + 回填。纯影子列,REAL 仍权威,顺序无依赖,置于链尾。
+    await DbMigrations.ensureFuelMaintenanceMoneyFen(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

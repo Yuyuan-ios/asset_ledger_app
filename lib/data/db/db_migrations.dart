@@ -29,6 +29,7 @@ part 'migrations/migration_033.dart';
 part 'migrations/migration_034.dart';
 part 'migrations/migration_035.dart';
 part 'migrations/migration_036.dart';
+part 'migrations/migration_037.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -123,6 +124,10 @@ class DbMigrations {
 
   static Future<void> ensureTimingUnitNotNull(Database db) {
     return Migration036.ensureTimingUnitNotNull(db);
+  }
+
+  static Future<void> ensureFuelMaintenanceMoneyFen(Database db) {
+    return Migration037.ensureFuelMaintenanceMoneyFen(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

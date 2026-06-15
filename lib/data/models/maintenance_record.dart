@@ -11,8 +11,12 @@ class MaintenanceRecord {
   /// 事项，例如：换机油 / 年检 / 维修
   final String item;
 
-  /// 金额
+  /// 金额（元）。Track A / A1：amount(REAL) 仍为权威。
   final double amount;
+
+  /// 金额（分）影子列。A1 起随 amount 双写：写入恒 = round(amount*100)，
+  /// REAL 切换为非权威后（A3）反转为 fen 直读。读旧库可为 null。
+  final int? amountFen;
 
   /// 备注（可空）
   final String? note;
@@ -23,6 +27,7 @@ class MaintenanceRecord {
     required this.ymd,
     required this.item,
     required this.amount,
+    this.amountFen,
     this.note,
   });
 
@@ -32,6 +37,7 @@ class MaintenanceRecord {
     int? ymd,
     String? item,
     double? amount,
+    int? amountFen,
     String? note,
   }) {
     return MaintenanceRecord(
@@ -40,6 +46,7 @@ class MaintenanceRecord {
       ymd: ymd ?? this.ymd,
       item: item ?? this.item,
       amount: amount ?? this.amount,
+      amountFen: amountFen ?? this.amountFen,
       note: note ?? this.note,
     );
   }
@@ -53,6 +60,8 @@ class MaintenanceRecord {
       'ymd': ymd,
       'item': item,
       'amount': amount,
+      // A1 双写：fen 影子列恒从权威 amount 派生，与迁移回填口径同源。
+      'amount_fen': (amount * 100).round(),
       'note': note,
     };
   }
@@ -64,6 +73,7 @@ class MaintenanceRecord {
       ymd: map['ymd'] as int,
       item: map['item'] as String,
       amount: (map['amount'] as num).toDouble(),
+      amountFen: (map['amount_fen'] as num?)?.toInt(),
       note: map['note'] as String?,
     );
   }

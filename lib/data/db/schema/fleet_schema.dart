@@ -27,7 +27,8 @@ class FleetSchema {
         date INTEGER NOT NULL,
         supplier TEXT NOT NULL,
         liters REAL NOT NULL,
-        cost REAL NOT NULL
+        cost REAL NOT NULL,
+        cost_fen INTEGER
       );
     ''');
 
@@ -38,6 +39,7 @@ class FleetSchema {
         ymd INTEGER NOT NULL,
         item TEXT NOT NULL,
         amount REAL NOT NULL,
+        amount_fen INTEGER,
         note TEXT
       );
     ''');

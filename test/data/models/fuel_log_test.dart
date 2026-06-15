@@ -43,6 +43,8 @@ void main() {
         'supplier': '老何',
         'liters': 20.5,
         'cost': 166.0,
+        // A1：fen 影子列随 cost 双写。
+        'cost_fen': 16600,
       });
 
       final rebuilt = FuelLog.fromMap({
@@ -59,7 +61,23 @@ void main() {
       expect(rebuilt.supplier, '');
       expect(rebuilt.liters, 8);
       expect(rebuilt.cost, 64);
+      // 旧库行无 cost_fen → null；不阻断读取，REAL 仍权威。
+      expect(rebuilt.costFen, isNull);
       expect(rebuilt.toString(), contains('dev: 6'));
+    });
+
+    test('toMap derives cost_fen from cost; fromMap reads it back', () {
+      const log = FuelLog(
+        id: 9,
+        deviceId: 1,
+        date: 20260601,
+        supplier: '王五',
+        liters: 30,
+        cost: 19.99, // 浮点敏感：round(19.99*100) == 1999
+      );
+
+      expect(log.toMap()['cost_fen'], 1999);
+      expect(FuelLog.fromMap(log.toMap()).costFen, 1999);
     });
   });
 }
