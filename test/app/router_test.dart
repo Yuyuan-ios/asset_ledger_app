@@ -1,5 +1,7 @@
 import 'package:asset_ledger/app/router.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,6 +13,16 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          // 镜像生产 app.dart 的本地化装配:底部导航文案走 AppLocalizations。
+          // 固定 zh,使既有断言(find.text('账户'))稳定。
+          locale: const Locale('zh'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('zh'), Locale('en')],
           home: AppRouterEntry(
             pageBuilders: List.generate(
               5,
