@@ -487,6 +487,21 @@ void main() {
     expect(fuel['cost_fen'], 12345);
   });
 
+  test('restore accepts old backups without maintenance amount_fen', () async {
+    final db = await _openCurrentInMemoryDb();
+    final legacyMaintenance = _maintenanceMap(id: 1, amount: 234.56)
+      ..remove('amount_fen');
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(schemaVersion: 40, maintenanceRecords: [legacyMaintenance]),
+    );
+
+    expect(result.success, isTrue);
+    final row = (await db.query('maintenance_records')).single;
+    expect(row['amount'], 234.56);
+    expect(row['amount_fen'], 23456);
+  });
+
   test(
     'restore accepts old backups without project rate breaking flag',
     () async {
@@ -853,6 +868,7 @@ Map<String, dynamic> _backupJson({
   List<Map<String, Object?>>? projects,
   List<Map<String, Object?>>? devices,
   List<Map<String, Object?>> fuelLogs = const [],
+  List<Map<String, Object?>> maintenanceRecords = const [],
   List<Map<String, Object?>>? timingRecords,
   List<Map<String, Object?>> calculationHistories = const [],
   List<Map<String, Object?>> accountPayments = const [],
@@ -867,7 +883,7 @@ Map<String, dynamic> _backupJson({
     'devices': devices ?? [_deviceMap(id: 1)],
     'timing_records': timingRecords ?? [_timingRecordMap(id: 7, deviceId: 1)],
     'fuel_logs': fuelLogs,
-    'maintenance_records': const [],
+    'maintenance_records': maintenanceRecords,
     'account_payments': accountPayments,
     ...projectWriteOffs == null
         ? const {}
@@ -899,7 +915,7 @@ Map<String, dynamic> _backupJson({
         'devices': 1,
         'timing_records': 1,
         'fuel_logs': fuelLogs.length,
-        'maintenance_records': 0,
+        'maintenance_records': maintenanceRecords.length,
         'account_payments': accountPayments.length,
         if (projectWriteOffs != null)
           'project_write_offs': projectWriteOffs.length,
@@ -961,6 +977,22 @@ Map<String, Object?> _fuelLogMap({
     'liters': 30.0,
     'cost': cost,
     'cost_fen': (cost * 100).round(),
+  };
+}
+
+Map<String, Object?> _maintenanceMap({
+  required int id,
+  int? deviceId = 1,
+  double amount = 120.0,
+}) {
+  return {
+    'id': id,
+    'device_id': deviceId,
+    'ymd': 20260514,
+    'item': '换机油',
+    'amount': amount,
+    'amount_fen': (amount * 100).round(),
+    'note': '定期保养',
   };
 }
 

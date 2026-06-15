@@ -39,7 +39,7 @@ class FleetSchema {
         ymd INTEGER NOT NULL,
         item TEXT NOT NULL,
         amount REAL NOT NULL,
-        amount_fen INTEGER,
+        amount_fen INTEGER NOT NULL,
         note TEXT
       );
     ''');

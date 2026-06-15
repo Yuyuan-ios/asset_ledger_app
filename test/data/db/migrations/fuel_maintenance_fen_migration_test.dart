@@ -15,8 +15,7 @@ import '../../../test_setup.dart';
 /// 迁移（v37）+ 回填不变式。
 ///
 /// 覆盖：
-/// - 当前版本 fresh create → 两列存在（fuel cost_fen 已 NOT NULL，maintenance
-///   amount_fen 仍 nullable）。
+/// - 当前版本 fresh create → 两列存在且均已 NOT NULL。
 /// - 旧 v36 库缺 fen 列 → 经迁移链升级后列存在、旧行保留、
 ///   fen == round(x*100)、REAL 仍在、浮点敏感值精确。
 /// - 当前版本库 fen 为 NULL → onOpen ensure 自愈。
@@ -55,10 +54,7 @@ void main() {
         isTrue,
       );
       expect(await _isNotNull(db, 'fuel_logs', 'cost_fen'), isTrue);
-      expect(
-        await _isNotNull(db, 'maintenance_records', 'amount_fen'),
-        isFalse,
-      );
+      expect(await _isNotNull(db, 'maintenance_records', 'amount_fen'), isTrue);
     } finally {
       await db.close();
     }

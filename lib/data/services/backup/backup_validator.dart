@@ -311,6 +311,11 @@ class _BackupRestoreValidator {
         // 当前 schema 的 NOT NULL 约束；已有非 NULL 不覆盖。
         normalized['cost_fen'] ??= _fenFromYuan(normalized['cost']);
         break;
+      case 'maintenance_records':
+        // Track A / A2d：旧备份缺 amount_fen 时按 REAL amount 回填，避免恢复撞
+        // 当前 schema 的 NOT NULL 约束；已有非 NULL 不覆盖。
+        normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
+        break;
       case 'project_device_rates':
         if (allowLegacyProjectIdentity) {
           normalized['project_id'] ??= _legacyProjectIdFromKey(
@@ -617,6 +622,9 @@ class _BackupRestoreValidator {
     if (!_isInt(row['ymd'])) return 'invalid_maintenance_records_ymd';
     if (!_isString(row['item'])) return 'invalid_maintenance_records_item';
     if (!_isNumber(row['amount'])) return 'invalid_maintenance_records_amount';
+    if (!_isInt(row['amount_fen'])) {
+      return 'invalid_maintenance_records_amount_fen';
+    }
     if (!_isNullableString(row['note'])) {
       return 'invalid_maintenance_records_note';
     }

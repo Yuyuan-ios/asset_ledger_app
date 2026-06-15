@@ -125,10 +125,12 @@ class AppDatabase {
   //        A2b）。rate REAL 兼容列、复合主键与 projects FK RESTRICT 保留。
   // - v40：fuel_logs.cost_fen 提升为 INTEGER NOT NULL（Track A / A2c）；
   //        cost REAL 兼容列保留，AUTOINCREMENT 高水位保留。
+  // - v41：maintenance_records.amount_fen 提升为 INTEGER NOT NULL（Track A /
+  //        A2d）；amount REAL 兼容列保留，AUTOINCREMENT 高水位保留。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 40;
+  static const int _dbVersion = 41;
 
   static int get schemaVersion => _dbVersion;
 

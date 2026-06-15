@@ -135,6 +135,9 @@ class DbSchemaCompat {
     // v40（Track A / A2c）：fuel_logs.cost_fen 收紧为 NOT NULL；
     // cost REAL 兼容列与 AUTOINCREMENT 高水位保留。
     await DbMigrations.ensureFuelCostFenNotNull(db);
+    // v41（Track A / A2d）：maintenance_records.amount_fen 收紧为 NOT NULL；
+    // amount REAL 兼容列与 AUTOINCREMENT 高水位保留。
+    await DbMigrations.ensureMaintenanceAmountFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

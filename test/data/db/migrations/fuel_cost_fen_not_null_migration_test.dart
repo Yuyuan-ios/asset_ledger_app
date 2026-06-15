@@ -29,7 +29,7 @@ void main() {
     }
   });
 
-  test('fresh schema enforces cost_fen NOT NULL only', () async {
+  test('fresh schema enforces cost_fen NOT NULL', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
@@ -40,10 +40,7 @@ void main() {
     try {
       expect(await _isNotNull(db, 'fuel_logs', 'cost_fen'), isTrue);
       expect(await _isNotNull(db, 'fuel_logs', 'cost'), isTrue);
-      expect(
-        await _isNotNull(db, 'maintenance_records', 'amount_fen'),
-        isFalse,
-      );
+      expect(await _isNotNull(db, 'maintenance_records', 'amount_fen'), isTrue);
 
       await expectLater(
         db.insert('fuel_logs', _fuelRow(cost: 12.34)..remove('cost_fen')),
