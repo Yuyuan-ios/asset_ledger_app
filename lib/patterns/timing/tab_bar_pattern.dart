@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -21,18 +22,20 @@ class ComponentTabBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
-  static const List<_TabSpec> _tabs = <_TabSpec>[
-    _TabSpec(label: '计时', icon: Icons.timer_rounded),
-    // 纲要 §10.4:导航入口改名「油电」,同时容纳燃油机械油耗与电动设备
-    // 电量/续航统计;录入页「包油/包电」开关保持原语义不动。
-    _TabSpec(label: '油电', icon: Icons.local_gas_station_rounded),
-    _TabSpec(label: '账户', icon: Icons.account_balance_wallet_rounded),
-    _TabSpec(label: '维保', icon: Icons.build_rounded),
-    _TabSpec(label: '设备', icon: Icons.settings_rounded),
+  /// 文案走 AppLocalizations（key 化）；图标与顺序固定。
+  /// 纲要 §10.4:第二项为「油电」(tabEnergy),容纳燃油机械油耗与电动设备
+  /// 电量/续航统计;录入页「包油/包电」开关保持原语义不动。
+  static List<_TabSpec> _tabsOf(AppLocalizations l10n) => <_TabSpec>[
+    _TabSpec(label: l10n.tabTiming, icon: Icons.timer_rounded),
+    _TabSpec(label: l10n.tabEnergy, icon: Icons.local_gas_station_rounded),
+    _TabSpec(label: l10n.tabAccount, icon: Icons.account_balance_wallet_rounded),
+    _TabSpec(label: l10n.tabMaintenance, icon: Icons.build_rounded),
+    _TabSpec(label: l10n.tabDevice, icon: Icons.settings_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final tabs = _tabsOf(AppLocalizations.of(context));
     return DecoratedBox(
       decoration: const BoxDecoration(
         boxShadow: [
@@ -82,10 +85,10 @@ class ComponentTabBar extends StatelessWidget {
                 ),
                 child: Row(
                   children: List.generate(
-                    _tabs.length,
+                    tabs.length,
                     (index) => Expanded(
                       child: _TabButton(
-                        spec: _tabs[index],
+                        spec: tabs[index],
                         selected: index == currentIndex,
                         onTap: () => onTap(index),
                       ),
