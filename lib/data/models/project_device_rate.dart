@@ -35,6 +35,8 @@ class ProjectDeviceRate {
   /// legacy 行由 REAL [rate] 派生 round(×100) 回退。
   int get rateFen => _rateFen ?? (rate * 100).round();
 
+  double get effectiveRate => rateFen / 100.0;
+
   Map<String, Object?> toMap() {
     return {
       'project_id': effectiveProjectId,

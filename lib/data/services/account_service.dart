@@ -154,11 +154,10 @@ class AccountService {
 
       // rent：only accumulate income.
       if (t.type == TimingType.rent) {
-        // rentIncomeTotal 是 yuan 展示总额（REAL 兼容口径，保留）。
-        mut.rentIncomeTotal += t.income;
+        // rentIncomeTotal 是 yuan 展示总额，由 income_fen 权威口径派生。
+        mut.rentIncomeTotal += t.incomeFen / 100.0;
         // R5.26-B4：fen 权威口径读优先 income_fen（[TimingRecord.incomeFen] =
-        // 存储 income_fen ?? round(income*100)）。对一致数据与旧
-        // `Money.fromYuan(t.income).fen` 逐记录等价；缺 fen 的 legacy 行自动回退。
+        // 存储 income_fen ?? round(income*100)）。缺 fen 的 legacy 行自动回退。
         mut.rentIncomeFen += t.incomeFen;
         continue;
       }
@@ -360,14 +359,14 @@ class AccountService {
     final totals = <int, double>{};
 
     for (final agg in projects.values) {
-      final effectiveRate = buildEffectiveRateMap(
+      final effectiveRateFen = buildEffectiveRateFenMap(
         projectKey: agg.projectKey,
         projectId: agg.projectId,
         devices: devices,
         rates: rates,
         isBreaking: false,
       );
-      final effectiveBreakingRate = buildEffectiveRateMap(
+      final effectiveBreakingRateFen = buildEffectiveRateFenMap(
         projectKey: agg.projectKey,
         projectId: agg.projectId,
         devices: devices,
@@ -377,24 +376,25 @@ class AccountService {
       for (final entry in agg.normalHoursByDevice.entries) {
         final deviceId = entry.key;
         final hours = entry.value;
-        final rate = effectiveRate[deviceId] ?? 0.0;
+        final rateFen = effectiveRateFen[deviceId] ?? 0;
         totals[deviceId] =
             (totals[deviceId] ?? 0.0) +
-            _calculateHoursAmount(hours: hours, rate: rate);
+            _hoursAmountFenFromFenRate(hours: hours, rateFen: rateFen) / 100.0;
       }
       for (final entry in agg.breakingHoursByDevice.entries) {
         final deviceId = entry.key;
         final hours = entry.value;
-        final rate = effectiveBreakingRate[deviceId] ?? 0.0;
+        final rateFen = effectiveBreakingRateFen[deviceId] ?? 0;
         totals[deviceId] =
             (totals[deviceId] ?? 0.0) +
-            _calculateHoursAmount(hours: hours, rate: rate);
+            _hoursAmountFenFromFenRate(hours: hours, rateFen: rateFen) / 100.0;
       }
     }
     for (final t in timingRecords) {
       if (t.type != TimingType.rent) continue;
-      if (t.income <= 0) continue;
-      totals[t.deviceId] = (totals[t.deviceId] ?? 0.0) + t.income;
+      final income = t.incomeFen / 100.0;
+      if (income <= 0) continue;
+      totals[t.deviceId] = (totals[t.deviceId] ?? 0.0) + income;
     }
     return totals;
   }
@@ -462,9 +462,7 @@ class AccountService {
       rates: rates,
       isBreaking: isBreaking,
     );
-    return {
-      for (final entry in fenMap.entries) entry.key: entry.value / 100.0,
-    };
+    return {for (final entry in fenMap.entries) entry.key: entry.value / 100.0};
   }
 
   static ProjectRateInfo calcRateInfo({

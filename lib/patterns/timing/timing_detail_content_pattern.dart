@@ -147,7 +147,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     final device = widget.deviceById[id];
     if (device == null) return false;
     if (device.equipmentType == EquipmentType.loader) return false;
-    if ((device.breakingUnitPrice ?? 0) > 0) return true;
+    if ((device.effectiveBreakingUnitPrice ?? 0) > 0) return true;
     final editing = widget.editing;
     return editing != null && editing.deviceId == id && editing.isBreaking;
   }
@@ -199,7 +199,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     _startMeterCtrl.text = FormatUtils.meter(editing.startMeter);
     _endMeterCtrl.text = FormatUtils.meter(editing.endMeter);
     _hoursCtrl.text = FormatUtils.meter(editing.hours);
-    _incomeCtrl.text = FormatUtils.meter(editing.income);
+    _incomeCtrl.text = FormatUtils.meter(editing.incomeFen / 100.0);
     _excludeFromFuelEfficiency = editing.excludeFromFuelEfficiency;
   }
 

@@ -169,7 +169,7 @@ class FuelStore extends BaseStore {
       final id = f.deviceId;
       final agg = m.putIfAbsent(id, () => FuelEfficiencyAgg(deviceId: id));
       agg.totalLiters += f.liters;
-      agg.totalCost += f.cost;
+      agg.totalCost += f.effectiveCost;
     }
 
     // 7.2 聚合：工时（只计入“参与燃油效率”的工时）

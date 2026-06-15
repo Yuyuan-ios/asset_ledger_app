@@ -108,9 +108,7 @@ class DeviceBusinessLedgerUseCase {
     );
     final incomeFenByDevice = {
       for (final item in accountComputed.deviceReceivables)
-        // fen 权威直出优先;legacy 构造(无 fen)回退 double 派生。
-        item.deviceId:
-            item.amountFen ?? ProjectFinanceCalculator.yuanToFen(item.amount),
+        item.deviceId: item.amountFen!,
     };
     final projectsById = <String, AccountProjectVM>{};
     for (final project in accountComputed.projects) {
@@ -219,8 +217,7 @@ class DeviceBusinessLedgerUseCase {
     ];
   }
 
-  /// 项目历史金额优先消费整数分权威快照（calcMoneyFen 直出,合并卡按成员
-  /// 求和）；快照缺失的 legacy 路径回退 double VM 值 round-trip。
+  /// 项目历史金额消费整数分权威快照（calcMoneyFen 直出,合并卡按成员求和）。
   DeviceBusinessProjectHistory _projectHistoryFor({
     required AccountProjectVM project,
     required List<TimingRecord> records,
@@ -231,19 +228,12 @@ class DeviceBusinessLedgerUseCase {
     var receivableFen = 0;
     var receivedFen = 0;
     var writeOffFen = 0;
-    var hasAuthority = false;
     for (final id in realIds) {
       final fen = moneyFenByProjectId[id];
       if (fen == null) continue;
-      hasAuthority = true;
       receivableFen += fen.receivableFen;
       receivedFen += fen.receivedFen;
       writeOffFen += fen.writeOffFen;
-    }
-    if (!hasAuthority) {
-      receivableFen = ProjectFinanceCalculator.yuanToFen(project.receivable);
-      receivedFen = ProjectFinanceCalculator.yuanToFen(project.received);
-      writeOffFen = ProjectFinanceCalculator.yuanToFen(project.writeOff);
     }
     final finance = ProjectFinanceCalculator.summarizeTotals(
       receivableFen: receivableFen,

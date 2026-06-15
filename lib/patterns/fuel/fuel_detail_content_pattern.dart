@@ -103,7 +103,7 @@ class FuelDetailContentState extends State<FuelDetailContent> {
       _dateCtrl.text = FormatUtils.date(editing.date);
       _supplierCtrl.text = editing.supplier;
       _litersCtrl.text = FormatUtils.liters(editing.liters);
-      _costCtrl.text = FormatUtils.moneyNumber(editing.cost);
+      _costCtrl.text = FormatUtils.moneyNumber(editing.effectiveCost);
     }
   }
 

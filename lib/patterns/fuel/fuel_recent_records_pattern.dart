@@ -14,7 +14,7 @@ import '../timing/records_title_pattern.dart';
 typedef DeleteFuelRecordCallback = Future<bool> Function(FuelLog log);
 
 String fuelRecentRecordKey(FuelLog r) {
-  return 'fuel-${r.id ?? '${r.date}-${r.deviceId}-${r.supplier}-${r.liters}-${r.cost}'}';
+  return 'fuel-${r.id ?? '${r.date}-${r.deviceId}-${r.supplier}-${r.liters}-${r.effectiveCostFen}'}';
 }
 
 Set<String> fuelRecentRecordKeys(List<FuelLog> logs) {
@@ -247,7 +247,7 @@ class _FuelRecordRow extends StatelessWidget {
                     ),
                     const SizedBox(height: TimingTokens.recordValueBottomGap),
                     Text(
-                      FormatUtils.money(log.cost),
+                      FormatUtils.money(log.effectiveCost),
                       style: _valueStyle(context, fontWeight: FontWeight.w700),
                     ),
                   ],

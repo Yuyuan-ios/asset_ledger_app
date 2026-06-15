@@ -54,7 +54,7 @@ class TimingMonthlyExpenseService {
     final monthlyMaintenance = List<double>.filled(12, 0.0);
 
     for (final log in fuelLogs) {
-      final cost = log.cost;
+      final cost = log.effectiveCost;
       if (cost <= 0) continue;
 
       final recordDate = FormatUtils.dateFromYmd(log.date);
@@ -65,7 +65,7 @@ class TimingMonthlyExpenseService {
     }
 
     for (final record in maintenanceRecords) {
-      final amount = record.amount;
+      final amount = record.effectiveAmount;
       if (amount <= 0) continue;
 
       final recordDate = FormatUtils.dateFromYmd(record.ymd);

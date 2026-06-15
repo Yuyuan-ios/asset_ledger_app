@@ -62,10 +62,10 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
 
     _modelCtrl = TextEditingController(text: d?.model ?? '');
     _unitPriceCtrl = TextEditingController(
-      text: (d?.defaultUnitPrice ?? 0.0).toStringAsFixed(0),
+      text: (d?.effectiveDefaultUnitPrice ?? 0.0).toStringAsFixed(0),
     );
     _breakingUnitPriceCtrl = TextEditingController(
-      text: d?.breakingUnitPrice?.toStringAsFixed(0) ?? '',
+      text: d?.effectiveBreakingUnitPrice?.toStringAsFixed(0) ?? '',
     );
     _baseMeterCtrl = TextEditingController(
       text: (d?.baseMeterHours ?? 0.0).toStringAsFixed(0),

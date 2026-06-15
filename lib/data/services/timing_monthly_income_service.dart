@@ -19,7 +19,7 @@ const double _timingIncomeEpsilon = 0.000001;
 ///    最后一条同设备工时只分摊到 startDate 所在月。
 /// 3) 仅处理收入分摊，不处理支出逻辑。
 /// 4) 工时收入真源是实时重算值 `hours * currentEffectiveRate`；
-///    租金收入按 [TimingRecord.income] 计入记录日期所在月。
+///    租金收入按 [TimingRecord.incomeFen] 计入记录日期所在月。
 class TimingMonthlyIncomeService {
   const TimingMonthlyIncomeService._();
 
@@ -28,7 +28,7 @@ class TimingMonthlyIncomeService {
   /// 口径切换说明：
   /// - 工时记录收入不再读取 [TimingRecord.income]；
   /// - 工时记录实时收入统一为：`hours * currentEffectiveRate`；
-  /// - 租金记录按 [TimingRecord.income] 直接计入记录日期所在月；
+  /// - 租金记录按 [TimingRecord.incomeFen] 直接计入记录日期所在月；
   /// - effectiveRate 规则复用账户页 `AccountService.buildEffectiveRateMap`。
   ///
   /// 其余分摊规则：
@@ -61,12 +61,9 @@ class TimingMonthlyIncomeService {
     final projectMonthlyIncome = <String, Map<int, double>>{};
     final rateCache = <String, Map<int, double>>{};
 
-    // R5.26-B4：本服务是 yuan 口径的月度收入图表（按天均摊 double 累加），不是
-    // fen 权威应收口径，故 rent 收入继续读 REAL [TimingRecord.income]，避免引入
-    // 分→元的二次 rounding 改变图表输出。fen 权威 rent 应收在
-    // AccountService.calcMoneyFen / 账户汇总中读优先 income_fen。income REAL 保留。
     for (final record in records) {
-      if (record.type != TimingType.rent || record.income <= 0) continue;
+      final rentIncome = record.incomeFen / 100.0;
+      if (record.type != TimingType.rent || rentIncome <= 0) continue;
       final start = FormatUtils.dateFromYmd(record.startDate);
       if (!start.isAfter(cutoffDate)) {
         final projectId = record.effectiveProjectId;
@@ -75,10 +72,10 @@ class TimingMonthlyIncomeService {
           projectId: projectId,
           year: start.year,
           month: start.month,
-          amount: record.income,
+          amount: rentIncome,
         );
         if (start.year == targetYear) {
-          monthly[start.month - 1] += record.income;
+          monthly[start.month - 1] += rentIncome;
         }
       }
     }

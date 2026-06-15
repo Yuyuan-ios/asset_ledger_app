@@ -167,9 +167,9 @@ class AccountProjectDetailSheetVmBuilder {
     for (final rate in allRates) {
       if (rate.projectKey != project.projectKey) continue;
       if (rate.isBreaking) {
-        breakingDeviceRates[rate.deviceId] = rate.rate;
+        breakingDeviceRates[rate.deviceId] = rate.effectiveRate;
       } else {
-        deviceRates[rate.deviceId] = rate.rate;
+        deviceRates[rate.deviceId] = rate.effectiveRate;
       }
     }
 
@@ -335,11 +335,11 @@ class AccountProjectDetailSheetVmBuilder {
         final breakingHours = breakingHoursByDevice[deviceId] ?? 0.0;
         final normalRate =
             _rateFor(memberProjectKey, deviceId, isBreaking: false) ??
-            device.defaultUnitPrice;
+            device.effectiveDefaultUnitPrice;
         final breakingRate =
             _rateFor(memberProjectKey, deviceId, isBreaking: true) ??
-            device.breakingUnitPrice ??
-            device.defaultUnitPrice;
+            device.effectiveBreakingUnitPrice ??
+            device.effectiveDefaultUnitPrice;
 
         if (normalHours > 0) {
           rows.add(
@@ -378,12 +378,16 @@ class AccountProjectDetailSheetVmBuilder {
     return rows;
   }
 
-  double? _rateFor(String projectKey, int deviceId, {required bool isBreaking}) {
+  double? _rateFor(
+    String projectKey,
+    int deviceId, {
+    required bool isBreaking,
+  }) {
     for (final rate in allRates) {
       if (rate.projectKey == projectKey &&
           rate.deviceId == deviceId &&
           rate.isBreaking == isBreaking) {
-        return rate.rate;
+        return rate.effectiveRate;
       }
     }
     return null;

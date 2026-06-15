@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 FuelLog _fuel({
   required int date,
   required double cost,
+  int? costFen,
   int id = 1,
   int deviceId = 1,
 }) {
@@ -16,12 +17,14 @@ FuelLog _fuel({
     supplier: '测试供应商',
     liters: 1,
     cost: cost,
+    costFen: costFen,
   );
 }
 
 MaintenanceRecord _maintenance({
   required int ymd,
   required double amount,
+  int? amountFen,
   int id = 1,
   int? deviceId = 1,
 }) {
@@ -31,6 +34,7 @@ MaintenanceRecord _maintenance({
     ymd: ymd,
     item: '测试事项',
     amount: amount,
+    amountFen: amountFen,
     note: null,
   );
 }
@@ -43,9 +47,7 @@ void main() {
           _fuel(id: 1, date: 20260310, cost: 300),
           _fuel(id: 2, date: 20260320, cost: 200),
         ],
-        maintenanceRecords: [
-          _maintenance(id: 1, ymd: 20260315, amount: 500),
-        ],
+        maintenanceRecords: [_maintenance(id: 1, ymd: 20260315, amount: 500)],
         targetYear: 2026,
         targetMonth: 3,
         asOfDate: DateTime(2026, 3, 31),
@@ -125,6 +127,22 @@ void main() {
       expect(stats.totalExpense, 200);
     });
 
+    test('uses fuel and maintenance fen as money authority', () {
+      final stats = TimingMonthlyExpenseService.computeMonthlyExpense(
+        fuelLogs: [_fuel(id: 1, date: 20260110, cost: 9999, costFen: 12345)],
+        maintenanceRecords: [
+          _maintenance(id: 1, ymd: 20260115, amount: 9999, amountFen: 6789),
+        ],
+        targetYear: 2026,
+        targetMonth: 1,
+        asOfDate: DateTime(2026, 1, 31),
+      );
+
+      expect(stats.monthlyFuel[0], 123.45);
+      expect(stats.monthlyMaintenance[0], 67.89);
+      expect(stats.totalExpense, 191.34);
+    });
+
     test('keeps monthly and total expense sums consistent', () {
       final stats = TimingMonthlyExpenseService.computeMonthlyExpense(
         fuelLogs: [
@@ -143,12 +161,24 @@ void main() {
       );
 
       for (var i = 0; i < 12; i++) {
-        expect(stats.monthlyTotal[i], stats.monthlyFuel[i] + stats.monthlyMaintenance[i]);
+        expect(
+          stats.monthlyTotal[i],
+          stats.monthlyFuel[i] + stats.monthlyMaintenance[i],
+        );
       }
 
-      final fuelSum = stats.monthlyFuel.fold<double>(0, (sum, value) => sum + value);
-      final maintenanceSum = stats.monthlyMaintenance.fold<double>(0, (sum, value) => sum + value);
-      final totalSum = stats.monthlyTotal.fold<double>(0, (sum, value) => sum + value);
+      final fuelSum = stats.monthlyFuel.fold<double>(
+        0,
+        (sum, value) => sum + value,
+      );
+      final maintenanceSum = stats.monthlyMaintenance.fold<double>(
+        0,
+        (sum, value) => sum + value,
+      );
+      final totalSum = stats.monthlyTotal.fold<double>(
+        0,
+        (sum, value) => sum + value,
+      );
 
       expect(fuelSum, stats.totalFuel);
       expect(maintenanceSum, stats.totalMaintenance);

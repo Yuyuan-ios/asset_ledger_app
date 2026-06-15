@@ -77,6 +77,9 @@ void main() {
 
   AccountProjectDetailSheetVmBuilder builderFor({
     required List<AccountProjectVM> projects,
+    List<TimingRecord>? timingRecords,
+    List<Device>? allDevices,
+    List<ProjectDeviceRate>? allRates,
     List<ProjectWriteOff> writeOffs = const [],
     List<TimingExternalWorkRecordItem> externalWorkItems = const [],
     Set<String>? settledProjectIds,
@@ -90,10 +93,10 @@ void main() {
         totalRatio: 0,
         deviceReceivables: const [],
       ),
-      timingRecords: records,
-      allDevices: devices,
+      timingRecords: timingRecords ?? records,
+      allDevices: allDevices ?? devices,
       allWriteOffs: writeOffs,
-      allRates: rates,
+      allRates: allRates ?? rates,
       allExternalWorkItems: externalWorkItems,
       settledProjectIds: settledProjectIds,
     );
@@ -131,7 +134,10 @@ void main() {
     int? mergeGroupId = 1,
     double writeOff = 0,
     double remaining = 5000,
-    List<String> memberProjectIds = const ['project:shangyi', 'project:xiantan'],
+    List<String> memberProjectIds = const [
+      'project:shangyi',
+      'project:xiantan',
+    ],
   }) {
     return AccountProjectVM(
       projectId: 'merge:1',
@@ -193,7 +199,10 @@ void main() {
           normalProject(projectId: 'project:settled', remaining: 0),
         ],
       );
-      final vm = builder.build(projectId: 'project:settled', projectKey: normalKey);
+      final vm = builder.build(
+        projectId: 'project:settled',
+        projectKey: normalKey,
+      );
       expect(vm, isNotNull);
       expect(vm!.project.effectiveProjectId, 'project:settled');
     });
@@ -213,6 +222,22 @@ void main() {
       expect(vm.deviceRates, {1: 100});
       expect(vm.mergedDetailRows, isEmpty);
       expect(vm.mergedPaymentDisplayItems, isEmpty);
+    });
+
+    test('derives project override rates from rateFen', () {
+      final vm = builderFor(
+        projects: [normalProject()],
+        allRates: const [
+          ProjectDeviceRate(
+            projectKey: shangyiKey,
+            deviceId: 1,
+            rate: 9999,
+            rateFen: 12345,
+          ),
+        ],
+      ).build(projectKey: normalKey);
+
+      expect(vm!.deviceRates, {1: 123.45});
     });
   });
 
@@ -239,7 +264,11 @@ void main() {
   });
 
   group('核销筛选与撤销判定', () {
-    ProjectWriteOff writeOff(String id, String projectId, {double amount = 60}) {
+    ProjectWriteOff writeOff(
+      String id,
+      String projectId, {
+      double amount = 60,
+    }) {
       return ProjectWriteOff(
         id: id,
         projectId: projectId,
@@ -285,30 +314,38 @@ void main() {
       expect(vm!.deletableWriteOffTarget?.id, 'w-1');
     });
 
-    test('deletableWriteOffTarget: merged with multiple write-offs is null', () {
-      final vm = builderFor(
-        projects: [mergedProject(writeOff: 200, remaining: 0)],
-        writeOffs: [
-          writeOff('writeoff-merge-1-0', 'project:shangyi', amount: 80),
-          writeOff('writeoff-merge-1-1', 'project:xiantan', amount: 120),
-        ],
-        settledProjectIds: const {'project:shangyi', 'project:xiantan'},
-      ).build(projectId: 'merge:1', projectKey: 'merge:1');
+    test(
+      'deletableWriteOffTarget: merged with multiple write-offs is null',
+      () {
+        final vm = builderFor(
+          projects: [mergedProject(writeOff: 200, remaining: 0)],
+          writeOffs: [
+            writeOff('writeoff-merge-1-0', 'project:shangyi', amount: 80),
+            writeOff('writeoff-merge-1-1', 'project:xiantan', amount: 120),
+          ],
+          settledProjectIds: const {'project:shangyi', 'project:xiantan'},
+        ).build(projectId: 'merge:1', projectKey: 'merge:1');
 
-      expect(vm!.deletableWriteOffTarget, isNull);
-      // 合并组生成的核销前缀一致 → 可整体撤销。
-      expect(vm.hasUniqueWriteOffForRevoke, isTrue);
-    });
+        expect(vm!.deletableWriteOffTarget, isNull);
+        // 合并组生成的核销前缀一致 → 可整体撤销。
+        expect(vm.hasUniqueWriteOffForRevoke, isTrue);
+      },
+    );
 
-    test('deletableWriteOffTarget: merged with single write-off returns it', () {
-      final vm = builderFor(
-        projects: [mergedProject(writeOff: 80, remaining: 0)],
-        writeOffs: [writeOff('writeoff-merge-1-0', 'project:shangyi', amount: 80)],
-        settledProjectIds: const {'project:shangyi'},
-      ).build(projectId: 'merge:1', projectKey: 'merge:1');
+    test(
+      'deletableWriteOffTarget: merged with single write-off returns it',
+      () {
+        final vm = builderFor(
+          projects: [mergedProject(writeOff: 80, remaining: 0)],
+          writeOffs: [
+            writeOff('writeoff-merge-1-0', 'project:shangyi', amount: 80),
+          ],
+          settledProjectIds: const {'project:shangyi'},
+        ).build(projectId: 'merge:1', projectKey: 'merge:1');
 
-      expect(vm!.deletableWriteOffTarget?.id, 'writeoff-merge-1-0');
-    });
+        expect(vm!.deletableWriteOffTarget?.id, 'writeoff-merge-1-0');
+      },
+    );
   });
 
   group('merged 明细与收款展示', () {

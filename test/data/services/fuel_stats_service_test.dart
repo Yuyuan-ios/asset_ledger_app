@@ -75,5 +75,24 @@ void main() {
       expect(summary.liters, 120);
       expect(summary.cost, 1080);
     });
+
+    test('uses costFen as the money authority', () {
+      final summary = FuelStatsService.summarizeCurrentYear(
+        logs: const [
+          FuelLog(
+            id: 1,
+            deviceId: 1,
+            date: 20260301,
+            supplier: '张三',
+            liters: 10,
+            cost: 9999,
+            costFen: 12345,
+          ),
+        ],
+        nowYmd: 20260310,
+      );
+
+      expect(summary.cost, 123.45);
+    });
   });
 }

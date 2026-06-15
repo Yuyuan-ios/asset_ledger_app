@@ -119,7 +119,7 @@ class MaintenanceStore extends BaseStore {
     for (final r in _records) {
       if (!range.containsYmd(r.ymd)) continue;
       final k = r.deviceId; // ✅ null=公共
-      out[k] = (out[k] ?? 0) + r.amount;
+      out[k] = (out[k] ?? 0) + r.effectiveAmount;
     }
     return out;
   }

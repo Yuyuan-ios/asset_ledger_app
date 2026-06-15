@@ -23,11 +23,10 @@ class FuelLog {
   // 加油量（升）
   final double liters;
 
-  // 金额（元）。Track A / A1：cost(REAL) 仍为权威。
+  // 金额（元）。A3 起读路径以 cost_fen 为权威；REAL 保留到 A4 删除。
   final double cost;
 
-  // 金额（分）影子列。A1 起随 cost 双写：写入恒 = round(cost*100)，
-  // REAL 切换为非权威后（A3）反转为 fen 直读。读旧库可为 null。
+  // 金额（分）。A2c 后 DB 中 NOT NULL；测试/legacy 构造可为 null。
   final int? costFen;
 
   const FuelLog({
@@ -39,6 +38,10 @@ class FuelLog {
     required this.cost,
     this.costFen,
   });
+
+  int get effectiveCostFen => costFen ?? (cost * 100).round();
+
+  double get effectiveCost => effectiveCostFen / 100.0;
 
   // -------------------------------------------------------------------
   // CopyWith
@@ -52,14 +55,16 @@ class FuelLog {
     double? cost,
     int? costFen,
   }) {
+    final nextCost = cost ?? this.cost;
     return FuelLog(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       date: date ?? this.date,
       supplier: supplier ?? this.supplier,
       liters: liters ?? this.liters,
-      cost: cost ?? this.cost,
-      costFen: costFen ?? this.costFen,
+      cost: nextCost,
+      costFen:
+          costFen ?? (cost == null ? this.costFen : (nextCost * 100).round()),
     );
   }
 

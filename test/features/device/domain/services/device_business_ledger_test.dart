@@ -116,7 +116,7 @@ void main() {
           (item) => item.deviceId == 1,
         );
 
-        expect(deviceOne.incomeFen, (accountDeviceOne.amount * 100).round());
+        expect(deviceOne.incomeFen, accountDeviceOne.amountFen);
         expect(deviceOne.incomeFen, 155000);
         expect(deviceOne.unitTotals.map((total) => total.unit), [
           MeasureUnit.hour,

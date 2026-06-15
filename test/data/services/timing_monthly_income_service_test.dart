@@ -57,6 +57,32 @@ void main() {
       );
     }
 
+    TimingRecord rentRecord({
+      required int id,
+      required int deviceId,
+      required int startDate,
+      required double income,
+      int? incomeFen,
+      String projectId = '',
+      String contact = '甲方',
+      String site = '工地',
+    }) {
+      return TimingRecord(
+        id: id,
+        projectId: projectId,
+        deviceId: deviceId,
+        startDate: startDate,
+        contact: contact,
+        site: site,
+        type: TimingType.rent,
+        startMeter: 0,
+        endMeter: 0,
+        hours: 0,
+        income: income,
+        incomeFen: incomeFen,
+      );
+    }
+
     List<double> computeLegacyMonthlyIncome({
       required List<TimingRecord> records,
       required List<Device> devices,
@@ -76,6 +102,25 @@ void main() {
     }
 
     group('implicit allocation cutoff legacy behavior', () {
+      test('rent income uses incomeFen as the money authority', () {
+        final monthly = computeLegacyMonthlyIncome(
+          records: [
+            rentRecord(
+              id: 1,
+              deviceId: 1,
+              startDate: 20260310,
+              income: 9999,
+              incomeFen: 12345,
+            ),
+          ],
+          devices: [legacyDevice(id: 1)],
+          targetMonth: 3,
+          asOfDate: DateTime(2026, 3, 31),
+        );
+
+        expect(monthly[2], 123.45);
+      });
+
       test(
         'different-day next same-device record acts as exclusive implicit cutoff',
         () {

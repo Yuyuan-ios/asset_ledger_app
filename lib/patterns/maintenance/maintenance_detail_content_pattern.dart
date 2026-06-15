@@ -106,7 +106,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
     } else {
       _dateCtrl.text = FormatUtils.date(editing.ymd);
       _itemCtrl.text = editing.item;
-      _amountCtrl.text = editing.amount.toStringAsFixed(1);
+      _amountCtrl.text = editing.effectiveAmount.toStringAsFixed(1);
       _noteCtrl.text = editing.note ?? '';
 
       _isPublicExpense = (editing.deviceId == null);

@@ -120,6 +120,8 @@ class DeviceService {
         model: device.model,
         defaultUnitPrice: device.defaultUnitPrice,
         breakingUnitPrice: device.breakingUnitPrice,
+        defaultUnitPriceFen: device.defaultUnitPriceFen,
+        breakingUnitPriceFen: device.breakingUnitPriceFen,
         baseMeterHours: device.baseMeterHours,
         isActive: device.isActive,
         customAvatarPath: null,

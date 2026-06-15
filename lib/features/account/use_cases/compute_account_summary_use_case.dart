@@ -211,13 +211,12 @@ class ComputeAccountSummaryUseCase {
 
     final rentFenByProjectDevice = <String, Map<int, int>>{};
     for (final record in timingRecords) {
-      if (record.type != TimingType.rent || record.income <= 0) continue;
+      if (record.type != TimingType.rent || record.incomeFen <= 0) continue;
       final byDevice = rentFenByProjectDevice.putIfAbsent(
         record.effectiveProjectId,
         () => <int, int>{},
       );
-      // R5.26-B4：rent 设备应收读优先 income_fen（缺失回退 round(income*100)）；
-      // 对一致数据与旧 ProjectFinanceCalculator.yuanToFen(record.income) 逐记录等价。
+      // R5.26-B4：rent 设备应收读优先 income_fen（缺失回退 round(income*100)）。
       byDevice[record.deviceId] =
           (byDevice[record.deviceId] ?? 0) + record.incomeFen;
     }
@@ -257,14 +256,14 @@ class ComputeAccountSummaryUseCase {
     required List<ProjectDeviceRate> rates,
   }) {
     final totals = <int, int>{};
-    final effectiveRate = AccountService.buildEffectiveRateMap(
+    final effectiveRateFen = AccountService.buildEffectiveRateFenMap(
       projectKey: agg.projectKey,
       projectId: agg.projectId,
       devices: devices,
       rates: rates,
       isBreaking: false,
     );
-    final effectiveBreakingRate = AccountService.buildEffectiveRateMap(
+    final effectiveBreakingRateFen = AccountService.buildEffectiveRateFenMap(
       projectKey: agg.projectKey,
       projectId: agg.projectId,
       devices: devices,
@@ -275,7 +274,7 @@ class ComputeAccountSummaryUseCase {
     for (final entry in agg.normalHoursByDevice.entries) {
       final amountFen = _hoursAmountFen(
         hours: entry.value,
-        rate: effectiveRate[entry.key] ?? 0,
+        rateFen: effectiveRateFen[entry.key] ?? 0,
       );
       if (amountFen <= 0) continue;
       totals[entry.key] = (totals[entry.key] ?? 0) + amountFen;
@@ -283,7 +282,7 @@ class ComputeAccountSummaryUseCase {
     for (final entry in agg.breakingHoursByDevice.entries) {
       final amountFen = _hoursAmountFen(
         hours: entry.value,
-        rate: effectiveBreakingRate[entry.key] ?? 0,
+        rateFen: effectiveBreakingRateFen[entry.key] ?? 0,
       );
       if (amountFen <= 0) continue;
       totals[entry.key] = (totals[entry.key] ?? 0) + amountFen;
@@ -291,11 +290,11 @@ class ComputeAccountSummaryUseCase {
     return totals;
   }
 
-  int _hoursAmountFen({required double hours, required double rate}) {
-    if (hours <= 0 || rate <= 0) return 0;
+  int _hoursAmountFen({required double hours, required int rateFen}) {
+    if (hours <= 0 || rateFen <= 0) return 0;
     return ProjectFinanceCalculator.calculateWorkAmountFen(
       hoursMilli: ProjectFinanceCalculator.hoursToMilli(hours),
-      unitPriceFenPerHour: ProjectFinanceCalculator.yuanPerHourToFen(rate),
+      unitPriceFenPerHour: rateFen,
     );
   }
 

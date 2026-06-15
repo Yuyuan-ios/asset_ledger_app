@@ -373,12 +373,12 @@ class _AggregateRecordSection {
     final first = chronologicalRecords.first;
     final last = chronologicalRecords.last;
     var totalHours = 0.0;
-    var totalIncome = 0.0;
+    var totalIncomeFen = 0;
     final sortId = last.id ?? 0;
 
     for (final record in chronologicalRecords) {
       totalHours += record.hours;
-      totalIncome += record.income;
+      totalIncomeFen += record.incomeFen;
     }
 
     final summaryRecord = TimingRecord(
@@ -390,7 +390,8 @@ class _AggregateRecordSection {
       startMeter: first.startMeter,
       endMeter: last.endMeter,
       hours: totalHours,
-      income: totalIncome,
+      income: totalIncomeFen / 100.0,
+      incomeFen: totalIncomeFen,
       excludeFromFuelEfficiency: first.excludeFromFuelEfficiency,
       isBreaking: false,
     );
@@ -704,7 +705,7 @@ class _RecordRow extends StatelessWidget {
                                 width: TimingTokens.recordHoursIncomeGap,
                               ),
                             Text(
-                              FormatUtils.money(record.income),
+                              FormatUtils.money(record.incomeFen / 100.0),
                               style: valueStyle,
                             ),
                           ],

@@ -114,7 +114,7 @@ MaintenancePageViewData buildMaintenancePageViewData({
       title: title,
       subtitle: subtitle,
       dateText: FormatUtils.date(record.ymd),
-      amountText: FormatUtils.money(record.amount),
+      amountText: FormatUtils.money(record.effectiveAmount),
     );
   }).toList();
 

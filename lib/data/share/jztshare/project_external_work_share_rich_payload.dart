@@ -6,7 +6,7 @@
 //   与富事实层键 (summary / project_snapshot / devices / records /
 //   device_groups)。旧 ProjectExternalWorkSharePayload.fromMap 对未知键宽容，
 //   因此本输出对现有导入链路零破坏。
-// - 真实金额永远在 records[].income_fen（来自 TimingRecord.income，不重算）。
+// - 真实金额永远在 records[].income_fen（来自 TimingRecord.income_fen，不重算）。
 //   export_lines[] 仅是能无损通过旧 AmountPolicy 校验的兼容子集。
 // - 本文件不写文件、不计算 envelope/payloadSha256（属既有/5C）。
 //
@@ -447,7 +447,7 @@ class ProjectExternalWorkShareRecord {
   final double? endMeter;
   final int hoursMilli;
 
-  /// 始终来自 TimingRecord.income，真实收入，不按工时×单价重算。
+  /// 始终来自 TimingRecord.income_fen，真实收入，不按工时×单价重算。
   final int incomeFen;
 
   /// 可信单价：仅在导出端能从设备真实单价无损还原 incomeFen

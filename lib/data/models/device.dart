@@ -95,12 +95,19 @@ class Device {
   int get defaultUnitPriceFen =>
       _defaultUnitPriceFen ?? (defaultUnitPrice * 100).round();
 
+  double get effectiveDefaultUnitPrice => defaultUnitPriceFen / 100.0;
+
   /// 破碎单价的整数分。null 表示未单独配置（计算回落 default）。
   int? get breakingUnitPriceFen {
     final stored = _breakingUnitPriceFen;
     if (stored != null) return stored;
     final yuan = breakingUnitPrice;
     return yuan == null ? null : (yuan * 100).round();
+  }
+
+  double? get effectiveBreakingUnitPrice {
+    final fen = breakingUnitPriceFen;
+    return fen == null ? null : fen / 100.0;
   }
 
   Device copyWith({
@@ -115,15 +122,25 @@ class Device {
     String? customAvatarPath,
     EquipmentType? equipmentType,
   }) {
+    final nextDefaultUnitPrice = defaultUnitPrice ?? this.defaultUnitPrice;
+    final nextBreakingUnitPrice = identical(breakingUnitPrice, _sentinel)
+        ? this.breakingUnitPrice
+        : breakingUnitPrice as double?;
     return Device(
       id: id ?? this.id,
       name: name ?? this.name,
       brand: brand ?? this.brand,
       model: model ?? this.model,
-      defaultUnitPrice: defaultUnitPrice ?? this.defaultUnitPrice,
-      breakingUnitPrice: identical(breakingUnitPrice, _sentinel)
-          ? this.breakingUnitPrice
-          : breakingUnitPrice as double?,
+      defaultUnitPrice: nextDefaultUnitPrice,
+      breakingUnitPrice: nextBreakingUnitPrice,
+      defaultUnitPriceFen: defaultUnitPrice == null
+          ? _defaultUnitPriceFen
+          : (nextDefaultUnitPrice * 100).round(),
+      breakingUnitPriceFen: identical(breakingUnitPrice, _sentinel)
+          ? _breakingUnitPriceFen
+          : nextBreakingUnitPrice == null
+          ? null
+          : (nextBreakingUnitPrice * 100).round(),
       baseMeterHours: baseMeterHours ?? this.baseMeterHours,
       isActive: isActive ?? this.isActive,
       customAvatarPath: customAvatarPath ?? this.customAvatarPath,

@@ -142,7 +142,7 @@ class ProjectExternalWorkShareBuilder {
 
       // originFingerprint 用原始来源金额：保持来源身份稳定（与历史包一致），
       // 不随单价口径重算而漂移。
-      final originalIncomeFen = Money.fromYuan(record.income).fen;
+      final originalIncomeFen = record.incomeFen;
       final fingerprint = _originFingerprint(
         record,
         sourceDeviceId: sourceDeviceId,
@@ -380,7 +380,7 @@ class ProjectExternalWorkShareBuilder {
   //
   // 规则（与导入端协议一致，全程不做 income÷hours 反推）：
   // - 非 hours / 工时<=0 / 设备缺失 / 无当前有效单价 / 单价<=0：
-  //     单价 = null，金额 = 原始来源金额（TimingRecord.income）。
+  //     单价 = null，金额 = 原始来源金额（TimingRecord.income_fen）。
   // - hours 且来源金额已与「当前有效项目单价」一致：直接采信，金额不变。
   // - hours 且来源金额仍是「设备默认单价」旧口径（单价被改过、income 未回写）：
   //     采信当前有效单价，并按当前单价**重算**导出金额（修正陈旧口径，
@@ -394,7 +394,7 @@ class ProjectExternalWorkShareBuilder {
     required Device? device,
     required double? currentRateYuanPerHour,
   }) {
-    final originalIncomeFen = Money.fromYuan(record.income).fen;
+    final originalIncomeFen = record.incomeFen;
     if (!isHours ||
         hoursMilli <= 0 ||
         device == null ||
@@ -426,8 +426,9 @@ class ProjectExternalWorkShareBuilder {
     // 来源金额仍可由「设备默认单价」解释（典型：改了项目覆盖价但 income 未回写）：
     // 采信当前有效单价，并按当前单价重算导出金额。
     final deviceDefaultYuan = (record.isBreaking)
-        ? (device.breakingUnitPrice ?? device.defaultUnitPrice)
-        : device.defaultUnitPrice;
+        ? (device.effectiveBreakingUnitPrice ??
+              device.effectiveDefaultUnitPrice)
+        : device.effectiveDefaultUnitPrice;
     final deviceFen = UnitPrice.fromYuanPerHour(deviceDefaultYuan).fenPerHour;
     if (deviceFen > 0 &&
         _amountFen(hoursMilli, deviceFen) == originalIncomeFen) {
@@ -501,10 +502,9 @@ class ProjectExternalWorkShareBuilder {
     required int incomeFen,
   }) {
     if (device != null) {
-      final yuanPerHour = (isBreaking && device.breakingUnitPrice != null)
-          ? device.breakingUnitPrice!
-          : device.defaultUnitPrice;
-      final deviceFen = UnitPrice.fromYuanPerHour(yuanPerHour).fenPerHour;
+      final deviceFen = isBreaking
+          ? (device.breakingUnitPriceFen ?? device.defaultUnitPriceFen)
+          : device.defaultUnitPriceFen;
       if (deviceFen >= 0 && _amountFen(hoursMilli, deviceFen) == incomeFen) {
         return deviceFen;
       }

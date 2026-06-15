@@ -11,11 +11,10 @@ class MaintenanceRecord {
   /// 事项，例如：换机油 / 年检 / 维修
   final String item;
 
-  /// 金额（元）。Track A / A1：amount(REAL) 仍为权威。
+  /// 金额（元）。A3 起读路径以 amount_fen 为权威；REAL 保留到 A4 删除。
   final double amount;
 
-  /// 金额（分）影子列。A1 起随 amount 双写：写入恒 = round(amount*100)，
-  /// REAL 切换为非权威后（A3）反转为 fen 直读。读旧库可为 null。
+  /// 金额（分）。A2d 后 DB 中 NOT NULL；测试/legacy 构造可为 null。
   final int? amountFen;
 
   /// 备注（可空）
@@ -31,6 +30,10 @@ class MaintenanceRecord {
     this.note,
   });
 
+  int get effectiveAmountFen => amountFen ?? (amount * 100).round();
+
+  double get effectiveAmount => effectiveAmountFen / 100.0;
+
   MaintenanceRecord copyWith({
     int? id,
     int? deviceId,
@@ -40,13 +43,16 @@ class MaintenanceRecord {
     int? amountFen,
     String? note,
   }) {
+    final nextAmount = amount ?? this.amount;
     return MaintenanceRecord(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       ymd: ymd ?? this.ymd,
       item: item ?? this.item,
-      amount: amount ?? this.amount,
-      amountFen: amountFen ?? this.amountFen,
+      amount: nextAmount,
+      amountFen:
+          amountFen ??
+          (amount == null ? this.amountFen : (nextAmount * 100).round()),
       note: note ?? this.note,
     );
   }

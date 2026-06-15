@@ -762,9 +762,11 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       final id = d.id;
       if (id == null) continue;
 
-      final rate = deviceRates[id] ?? d.defaultUnitPrice;
+      final rate = deviceRates[id] ?? d.effectiveDefaultUnitPrice;
       final breakingRate =
-          breakingDeviceRates[id] ?? d.breakingUnitPrice ?? d.defaultUnitPrice;
+          breakingDeviceRates[id] ??
+          d.effectiveBreakingUnitPrice ??
+          d.effectiveDefaultUnitPrice;
       final normalHours = normalHoursByDevice[id] ?? 0.0;
       final breakingHours = breakingHoursByDevice[id] ?? 0.0;
 

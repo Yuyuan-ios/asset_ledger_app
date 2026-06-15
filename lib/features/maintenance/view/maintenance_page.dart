@@ -167,7 +167,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       content:
           '日期：${FormatUtils.date(r.ymd)}\n'
           '事项：${r.item}\n'
-          '金额：${FormatUtils.money(r.amount)}\n\n'
+          '金额：${FormatUtils.money(r.effectiveAmount)}\n\n'
           '⚠️ 删除后不可恢复',
       confirmText: '删除',
     );

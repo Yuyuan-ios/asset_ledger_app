@@ -48,16 +48,17 @@ class AccountRateEditActions {
     for (final r in rates) {
       if (r.effectiveProjectId != projectId || r.deviceId != firstId) continue;
       if (r.isBreaking) {
-        initBreakingOverride = r.rate;
+        initBreakingOverride = r.effectiveRate;
       } else {
-        initDiggingOverride = r.rate;
+        initDiggingOverride = r.effectiveRate;
       }
     }
-    final initDigging = (initDiggingOverride ?? first.defaultUnitPrice).round();
+    final initDigging = (initDiggingOverride ?? first.effectiveDefaultUnitPrice)
+        .round();
     final initBreaking =
         (initBreakingOverride ??
-                first.breakingUnitPrice ??
-                first.defaultUnitPrice)
+                first.effectiveBreakingUnitPrice ??
+                first.effectiveDefaultUnitPrice)
             .round();
 
     final projectTitle = ProjectTitleFormatter.normalize(project.displayName);
@@ -80,8 +81,9 @@ class AccountRateEditActions {
       for (final d in usedDevices) {
         final id = d.id!;
         const eps = 0.05;
-        final defaultDigging = d.defaultUnitPrice;
-        final defaultBreaking = d.breakingUnitPrice ?? d.defaultUnitPrice;
+        final defaultDigging = d.effectiveDefaultUnitPrice;
+        final defaultBreaking =
+            d.effectiveBreakingUnitPrice ?? d.effectiveDefaultUnitPrice;
 
         if ((newRate.diggingRate - defaultDigging).abs() <= eps) {
           await rateStore.delete(
@@ -153,14 +155,15 @@ class AccountRateEditActions {
       if (r.effectiveProjectId == projectId &&
           r.deviceId == deviceId &&
           r.isBreaking == isBreaking) {
-        currentOverride = r.rate;
+        currentOverride = r.effectiveRate;
         break;
       }
     }
 
     final modeDefaultRate = isBreaking
-        ? (device.breakingUnitPrice ?? device.defaultUnitPrice)
-        : device.defaultUnitPrice;
+        ? (device.effectiveBreakingUnitPrice ??
+              device.effectiveDefaultUnitPrice)
+        : device.effectiveDefaultUnitPrice;
     final current = (currentOverride ?? modeDefaultRate).round();
 
     final projectTitle = ProjectTitleFormatter.normalize(project.displayName);

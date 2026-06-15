@@ -101,7 +101,7 @@ class FuelStatsService {
       }
 
       litersSum += x.liters;
-      costSum += x.cost;
+      costSum += x.effectiveCost;
     }
 
     return FuelYearSummary(

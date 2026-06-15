@@ -132,6 +132,34 @@ void main() {
     expect(p.summary.totalHoursMilli, 17000);
   });
 
+  test('share payload uses timing incomeFen as source amount', () {
+    const driftRent = TimingRecord(
+      id: 91,
+      deviceId: 2,
+      startDate: 20240105,
+      contact: '张三',
+      site: '工地A',
+      type: TimingType.rent,
+      startMeter: 0,
+      endMeter: 0,
+      hours: 1,
+      income: 9999,
+      incomeFen: 12345,
+    );
+
+    final p = builder.build(
+      shareId: 'income-fen-share',
+      senderName: '李工',
+      sourceInstallationUuid: 'install-uuid',
+      records: const [driftRent],
+      deviceMap: {2: deviceB},
+      calcHistoryMap: const {},
+    );
+
+    expect(p.summary.totalIncomeFen, 12345);
+    expect(p.records.single.incomeFen, 12345);
+  });
+
   test('devices aggregate recordCount/hours/income per device', () {
     final p = buildAll();
     expect(p.devices.map((d) => d.sourceDeviceId), [1, 2]);

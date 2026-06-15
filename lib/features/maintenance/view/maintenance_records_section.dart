@@ -165,7 +165,7 @@ class MaintenanceRecordsContent extends StatelessWidget {
 
                 return Dismissible(
                   key: ValueKey(
-                    'maintenance-${record.id ?? '${record.ymd}-${record.deviceId}-${record.item}-${record.amount}'}',
+                    'maintenance-${record.id ?? '${record.ymd}-${record.deviceId}-${record.item}-${record.effectiveAmountFen}'}',
                   ),
                   direction: DismissDirection.endToStart,
                   background: Container(
