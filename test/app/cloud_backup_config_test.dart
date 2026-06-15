@@ -1,7 +1,21 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:asset_ledger/app/cloud_backup_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('production defines include canonical cloud backup endpoint', () {
+    final file = File('dart_defines/production.json');
+    final decoded = jsonDecode(file.readAsStringSync());
+
+    expect(decoded, isA<Map<String, Object?>>());
+    expect(
+      (decoded as Map<String, Object?>)['FLEET_LEDGER_CLOUD_BACKUP_BASE_URL'],
+      'https://backup-api.yuyuan.net.cn',
+    );
+  });
+
   group('CloudBackupConfig.resolve', () {
     test('uses explicit cloud backup endpoint when configured', () {
       final config = CloudBackupConfig.resolve(
