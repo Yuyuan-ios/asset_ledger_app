@@ -17,10 +17,14 @@ class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate {
     'payload-schema-version-actor-traceability-ready',
     'project-lifecycle-outbox-ready',
     'dry-run-push-preview-ready',
+    // Track A（money-fen 收口 A1-A3）：全 App 金额已是「fen 唯一读权威 +
+    // NOT NULL + 双写」=实质 primary storage（REAL 仅余冗余影子，无人当权威读）。
+    // 故 money-fen-primary-storage 自硬阻断退休、转入已完成前置。物理删 REAL
+    // 列（原 A4）降级为日后经类生产备份验证的独立清理，与 live 同步就绪无关。
+    'money-fen-primary-storage-ready',
   ];
 
   static const List<String> hardBlockers = [
-    'money-fen-primary-storage-not-ready',
     'real-cloud-transport-not-configured',
   ];
 

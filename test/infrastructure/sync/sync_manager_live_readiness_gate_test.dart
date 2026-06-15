@@ -87,10 +87,12 @@ void main() {
                   'reason',
                   contains('missing prerequisites'),
                 )
+                // Track A 退休 money-fen 阻断后，live push 仍被剩余的真实云传输
+                // 阻断顶住（Track B 未做），故 reason 不再含 money-fen。
                 .having(
                   (e) => e.reason,
                   'reason',
-                  contains('money-fen-primary-storage-not-ready'),
+                  isNot(contains('money-fen-primary-storage-not-ready')),
                 )
                 .having(
                   (e) => e.reason,

@@ -517,7 +517,8 @@ void main() {
         'class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate',
         'completedPrerequisites',
         'hardBlockers',
-        'money-fen-primary-storage-not-ready',
+        // Track A 后 money-fen 转入已完成前置；唯一硬阻断剩真实云传输。
+        'money-fen-primary-storage-ready',
         'real-cloud-transport-not-configured',
         'warnings',
         'delete-meta-lifecycle-deferred',

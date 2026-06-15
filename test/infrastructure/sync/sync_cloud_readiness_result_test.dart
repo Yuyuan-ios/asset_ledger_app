@@ -4,18 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('sync_cloud_readiness_result', () {
     test(
-      'default live readiness is not ready with R5.26-B and R6 blockers',
+      'default live readiness is blocked only by the cloud transport blocker '
+      'after Track A retires the money-fen blocker',
       () async {
         final result = await const DefaultSyncLiveReadinessGate().check();
 
+        // 仍未 ready：唯一硬阻断是真实云传输未配置（Track B 未做）。
         expect(result.isReady, isFalse);
         expect(result.isNotReady, isTrue);
         expect(
           result.missingPrerequisites,
-          containsAll(<String>[
-            'money-fen-primary-storage-not-ready',
-            'real-cloud-transport-not-configured',
-          ]),
+          contains('real-cloud-transport-not-configured'),
+        );
+        // Track A 退休后，money-fen 不再是硬阻断。
+        expect(
+          result.missingPrerequisites,
+          isNot(contains('money-fen-primary-storage-not-ready')),
         );
         expect(
           result.completedPrerequisites,
@@ -29,6 +33,8 @@ void main() {
             'payload-schema-version-actor-traceability-ready',
             'project-lifecycle-outbox-ready',
             'dry-run-push-preview-ready',
+            // Track A：fen 成 primary storage 后转入已完成前置。
+            'money-fen-primary-storage-ready',
           ]),
         );
         expect(
@@ -46,7 +52,7 @@ void main() {
         expect(result.blockedReason, contains('missing prerequisites'));
         expect(
           result.blockedReason,
-          contains('money-fen-primary-storage-not-ready'),
+          isNot(contains('money-fen-primary-storage-not-ready')),
         );
         expect(
           result.blockedReason,
