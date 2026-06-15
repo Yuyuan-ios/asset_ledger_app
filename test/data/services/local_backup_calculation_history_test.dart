@@ -924,6 +924,8 @@ Map<String, Object?> _deviceMap({required int id}) {
     'model': null,
     'default_unit_price': 100.0,
     'breaking_unit_price': null,
+    'default_unit_price_fen': 10000,
+    'breaking_unit_price_fen': null,
     'base_meter_hours': 0.0,
     'is_active': 1,
     'custom_avatar_path': null,

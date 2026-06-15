@@ -126,6 +126,9 @@ class DbSchemaCompat {
     // v37（Track A 之 A1）：fuel_logs.cost_fen / maintenance_records.amount_fen
     // additive 补列 + 回填。纯影子列,REAL 仍权威,顺序无依赖,置于链尾。
     await DbMigrations.ensureFuelMaintenanceMoneyFen(db);
+    // v38（Track A / A2a）：devices.default_unit_price_fen 收紧为 NOT NULL；
+    // breaking_unit_price_fen 仍随可空 REAL 保持 nullable。
+    await DbMigrations.ensureDeviceDefaultUnitPriceFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

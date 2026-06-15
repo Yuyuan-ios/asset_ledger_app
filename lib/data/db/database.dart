@@ -117,10 +117,14 @@ class AppDatabase {
   //        权威收口）。onUpgrade 刻意为空（非叶子表，同 v34），重建走
   //        onOpen 的 ensureTimingUnitNotNull。quantity_scaled 保持
   //        nullable（rent 行租期计量语义未定）。
+  // - v37：fuel_logs.cost_fen / maintenance_records.amount_fen additive 补列
+  //        + 回填（Track A / A1）。REAL 仍权威，fen 影子双写。
+  // - v38：devices.default_unit_price_fen 提升为 INTEGER NOT NULL（Track A /
+  //        A2a）。breaking_unit_price_fen 保持 nullable；REAL 兼容列保留。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 37;
+  static const int _dbVersion = 38;
 
   static int get schemaVersion => _dbVersion;
 

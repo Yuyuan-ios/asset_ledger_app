@@ -11,7 +11,7 @@ class FleetSchema {
         model TEXT,
         default_unit_price REAL NOT NULL,
         breaking_unit_price REAL,
-        default_unit_price_fen INTEGER,
+        default_unit_price_fen INTEGER NOT NULL,
         breaking_unit_price_fen INTEGER,
         base_meter_hours REAL NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,

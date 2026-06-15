@@ -32,7 +32,7 @@ void main() {
     }
   });
 
-  test('fresh schema provisions nullable unit price fen columns', () async {
+  test('fresh schema provisions unit price fen columns', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
@@ -42,13 +42,15 @@ void main() {
     );
     try {
       for (final spec in const [
-        ['devices', 'default_unit_price_fen'],
-        ['devices', 'breaking_unit_price_fen'],
-        ['project_device_rates', 'rate_fen'],
+        ['devices', 'default_unit_price_fen', false],
+        ['devices', 'breaking_unit_price_fen', true],
+        ['project_device_rates', 'rate_fen', true],
       ]) {
-        final column = await _column(db, spec[0], spec[1]);
+        final tableName = spec[0] as String;
+        final columnName = spec[1] as String;
+        final column = await _column(db, tableName, columnName);
         expect(column, isNotNull, reason: '${spec[0]}.${spec[1]} 缺列');
-        expect(_isNullable(column!), isTrue);
+        expect(_isNullable(column!), spec[2] as bool);
       }
     } finally {
       await db.close();
@@ -156,10 +158,7 @@ void main() {
         'equipment_type': 'excavator',
       });
       await DbMigrations.ensureUnitPriceFenColumns(db);
-      final stored = (await db.query(
-        'devices',
-        where: 'id = 9',
-      )).single;
+      final stored = (await db.query('devices', where: 'id = 9')).single;
       expect(stored['default_unit_price_fen'], 12345);
     } finally {
       await db.close();
