@@ -1,3 +1,4 @@
 {
-  "APPLE_IAP_VERIFICATION_BASE_URL": "https://api.yuyuan.net.cn/fleet-ledger"
+  "APPLE_IAP_VERIFICATION_BASE_URL": "https://api.yuyuan.net.cn/fleet-ledger",
+  "FLEET_LEDGER_CLOUD_BACKUP_BASE_URL": "https://backup-api.yuyuan.net.cn"
 }
