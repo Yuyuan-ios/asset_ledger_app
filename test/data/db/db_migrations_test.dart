@@ -388,6 +388,7 @@ void main() {
           'device_id': 1,
           'is_breaking': 0,
           'rate': 380.0,
+          'rate_fen': 38000,
         }),
         throwsA(isA<DatabaseException>()),
       );
@@ -398,6 +399,7 @@ void main() {
         'device_id': 1,
         'is_breaking': 0,
         'rate': 380.0,
+        'rate_fen': 38000,
       });
 
       await expectLater(

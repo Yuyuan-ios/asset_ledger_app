@@ -44,7 +44,7 @@ void main() {
       for (final spec in const [
         ['devices', 'default_unit_price_fen', false],
         ['devices', 'breaking_unit_price_fen', true],
-        ['project_device_rates', 'rate_fen', true],
+        ['project_device_rates', 'rate_fen', false],
       ]) {
         final tableName = spec[0] as String;
         final columnName = spec[1] as String;

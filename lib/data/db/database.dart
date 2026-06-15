@@ -121,10 +121,12 @@ class AppDatabase {
   //        + 回填（Track A / A1）。REAL 仍权威，fen 影子双写。
   // - v38：devices.default_unit_price_fen 提升为 INTEGER NOT NULL（Track A /
   //        A2a）。breaking_unit_price_fen 保持 nullable；REAL 兼容列保留。
+  // - v39：project_device_rates.rate_fen 提升为 INTEGER NOT NULL（Track A /
+  //        A2b）。rate REAL 兼容列、复合主键与 projects FK RESTRICT 保留。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 38;
+  static const int _dbVersion = 39;
 
   static int get schemaVersion => _dbVersion;
 

@@ -31,6 +31,7 @@ part 'migrations/migration_035.dart';
 part 'migrations/migration_036.dart';
 part 'migrations/migration_037.dart';
 part 'migrations/migration_038.dart';
+part 'migrations/migration_039.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -133,6 +134,10 @@ class DbMigrations {
 
   static Future<void> ensureDeviceDefaultUnitPriceFenNotNull(Database db) {
     return Migration038.ensureDeviceDefaultUnitPriceFenNotNull(db);
+  }
+
+  static Future<void> ensureProjectDeviceRateFenNotNull(Database db) {
+    return Migration039.ensureProjectDeviceRateFenNotNull(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

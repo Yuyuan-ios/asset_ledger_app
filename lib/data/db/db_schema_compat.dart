@@ -129,6 +129,9 @@ class DbSchemaCompat {
     // v38（Track A / A2a）：devices.default_unit_price_fen 收紧为 NOT NULL；
     // breaking_unit_price_fen 仍随可空 REAL 保持 nullable。
     await DbMigrations.ensureDeviceDefaultUnitPriceFenNotNull(db);
+    // v39（Track A / A2b）：project_device_rates.rate_fen 收紧为 NOT NULL；
+    // rate REAL 兼容列、复合主键与 projects FK RESTRICT 保留。
+    await DbMigrations.ensureProjectDeviceRateFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

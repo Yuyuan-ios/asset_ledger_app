@@ -63,7 +63,7 @@ class AccountSchema {
         device_id INTEGER NOT NULL,
         is_breaking INTEGER NOT NULL DEFAULT 0,
         rate REAL NOT NULL,
-        rate_fen INTEGER,
+        rate_fen INTEGER NOT NULL,
         PRIMARY KEY (project_id, device_id, is_breaking),
         FOREIGN KEY (project_id)
           REFERENCES projects(id) ON DELETE RESTRICT

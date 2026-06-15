@@ -970,6 +970,7 @@ Map<String, Object?> _projectRateMap({
     'device_id': deviceId,
     'is_breaking': isBreaking,
     'rate': rate,
+    'rate_fen': (rate * 100).round(),
   };
 }
 
