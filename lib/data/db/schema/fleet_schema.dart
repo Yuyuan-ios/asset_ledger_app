@@ -28,7 +28,7 @@ class FleetSchema {
         supplier TEXT NOT NULL,
         liters REAL NOT NULL,
         cost REAL NOT NULL,
-        cost_fen INTEGER
+        cost_fen INTEGER NOT NULL
       );
     ''');
 

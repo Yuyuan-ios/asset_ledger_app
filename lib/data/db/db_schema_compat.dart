@@ -132,6 +132,9 @@ class DbSchemaCompat {
     // v39（Track A / A2b）：project_device_rates.rate_fen 收紧为 NOT NULL；
     // rate REAL 兼容列、复合主键与 projects FK RESTRICT 保留。
     await DbMigrations.ensureProjectDeviceRateFenNotNull(db);
+    // v40（Track A / A2c）：fuel_logs.cost_fen 收紧为 NOT NULL；
+    // cost REAL 兼容列与 AUTOINCREMENT 高水位保留。
+    await DbMigrations.ensureFuelCostFenNotNull(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

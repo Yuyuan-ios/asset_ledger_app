@@ -306,6 +306,11 @@ class _BackupRestoreValidator {
         normalized.putIfAbsent('merge_batch_note', () => null);
         normalized.putIfAbsent('created_at', () => null);
         break;
+      case 'fuel_logs':
+        // Track A / A2c：旧备份缺 cost_fen 时按 REAL cost 回填，避免恢复撞
+        // 当前 schema 的 NOT NULL 约束；已有非 NULL 不覆盖。
+        normalized['cost_fen'] ??= _fenFromYuan(normalized['cost']);
+        break;
       case 'project_device_rates':
         if (allowLegacyProjectIdentity) {
           normalized['project_id'] ??= _legacyProjectIdFromKey(
@@ -600,6 +605,7 @@ class _BackupRestoreValidator {
     }
     if (!_isNumber(row['liters'])) return 'invalid_fuel_logs_liters';
     if (!_isNumber(row['cost'])) return 'invalid_fuel_logs_cost';
+    if (!_isInt(row['cost_fen'])) return 'invalid_fuel_logs_cost_fen';
     return null;
   }
 

@@ -473,6 +473,20 @@ void main() {
     expect(device['equipment_type'], 'excavator');
   });
 
+  test('restore accepts old backups without fuel cost_fen', () async {
+    final db = await _openCurrentInMemoryDb();
+    final legacyFuel = _fuelLogMap(id: 1, cost: 123.45)..remove('cost_fen');
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(schemaVersion: 36, fuelLogs: [legacyFuel]),
+    );
+
+    expect(result.success, isTrue);
+    final fuel = (await db.query('fuel_logs')).single;
+    expect(fuel['cost'], 123.45);
+    expect(fuel['cost_fen'], 12345);
+  });
+
   test(
     'restore accepts old backups without project rate breaking flag',
     () async {
@@ -838,6 +852,7 @@ Map<String, dynamic> _backupJson({
   bool includeCalculationHistoryTable = true,
   List<Map<String, Object?>>? projects,
   List<Map<String, Object?>>? devices,
+  List<Map<String, Object?>> fuelLogs = const [],
   List<Map<String, Object?>>? timingRecords,
   List<Map<String, Object?>> calculationHistories = const [],
   List<Map<String, Object?>> accountPayments = const [],
@@ -851,7 +866,7 @@ Map<String, dynamic> _backupJson({
     ...projects == null ? const {} : {'projects': projects},
     'devices': devices ?? [_deviceMap(id: 1)],
     'timing_records': timingRecords ?? [_timingRecordMap(id: 7, deviceId: 1)],
-    'fuel_logs': const [],
+    'fuel_logs': fuelLogs,
     'maintenance_records': const [],
     'account_payments': accountPayments,
     ...projectWriteOffs == null
@@ -883,7 +898,7 @@ Map<String, dynamic> _backupJson({
         if (projects != null) 'projects': projects.length,
         'devices': 1,
         'timing_records': 1,
-        'fuel_logs': 0,
+        'fuel_logs': fuelLogs.length,
         'maintenance_records': 0,
         'account_payments': accountPayments.length,
         if (projectWriteOffs != null)
@@ -930,6 +945,22 @@ Map<String, Object?> _deviceMap({required int id}) {
     'is_active': 1,
     'custom_avatar_path': null,
     'equipment_type': 'excavator',
+  };
+}
+
+Map<String, Object?> _fuelLogMap({
+  required int id,
+  int deviceId = 1,
+  double cost = 120.0,
+}) {
+  return {
+    'id': id,
+    'device_id': deviceId,
+    'date': 20260514,
+    'supplier': '王五',
+    'liters': 30.0,
+    'cost': cost,
+    'cost_fen': (cost * 100).round(),
   };
 }
 

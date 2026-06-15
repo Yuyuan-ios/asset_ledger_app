@@ -15,7 +15,8 @@ import '../../../test_setup.dart';
 /// 迁移（v37）+ 回填不变式。
 ///
 /// 覆盖：
-/// - 当前版本 fresh create → 两列存在（INTEGER nullable）。
+/// - 当前版本 fresh create → 两列存在（fuel cost_fen 已 NOT NULL，maintenance
+///   amount_fen 仍 nullable）。
 /// - 旧 v36 库缺 fen 列 → 经迁移链升级后列存在、旧行保留、
 ///   fen == round(x*100)、REAL 仍在、浮点敏感值精确。
 /// - 当前版本库 fen 为 NULL → onOpen ensure 自愈。
@@ -53,6 +54,11 @@ void main() {
         await _columnExists(db, 'maintenance_records', 'amount_fen'),
         isTrue,
       );
+      expect(await _isNotNull(db, 'fuel_logs', 'cost_fen'), isTrue);
+      expect(
+        await _isNotNull(db, 'maintenance_records', 'amount_fen'),
+        isFalse,
+      );
     } finally {
       await db.close();
     }
@@ -71,7 +77,10 @@ void main() {
             await db.insert('fuel_logs', _fuelRow(id: 1, cost: 200.0));
             await db.insert('fuel_logs', _fuelRow(id: 2, cost: 0.1));
             await db.insert('fuel_logs', _fuelRow(id: 3, cost: 19.99));
-            await db.insert('maintenance_records', _maintRow(id: 1, amount: 50.0));
+            await db.insert(
+              'maintenance_records',
+              _maintRow(id: 1, amount: 50.0),
+            );
             await db.insert(
               'maintenance_records',
               _maintRow(id: 2, amount: 1234.56),
@@ -128,41 +137,47 @@ void main() {
     },
   );
 
-  test('null fen on current-version db is healed by ensure, idempotently', () async {
-    final db = await databaseFactoryFfi.openDatabase(
-      dbPath,
-      options: OpenDatabaseOptions(
-        version: AppDatabase.schemaVersion,
-        onCreate: (db, _) => DbSchema.create(db),
-      ),
-    );
-    try {
-      // 显式写入 NULL fen（绕过模型双写）。
-      await db.insert('fuel_logs', {
-        ..._fuelRow(id: 1, cost: 88.8),
-        'cost_fen': null,
-      });
-      // 故意不一致的非 NULL 行：必须保留。
-      await db.insert('fuel_logs', {
-        ..._fuelRow(id: 2, cost: 100.0),
-        'cost_fen': 1,
-      });
-      expect(await _nullCount(db, 'fuel_logs', 'cost_fen'), 1);
-
-      await DbMigrations.ensureFuelMaintenanceMoneyFen(db);
-      await DbMigrations.ensureFuelMaintenanceMoneyFen(db);
-
-      expect(await _nullCount(db, 'fuel_logs', 'cost_fen'), 0);
-      expect((await _row(db, 'fuel_logs', 1))['cost_fen'], 8880);
-      expect(
-        (await _row(db, 'fuel_logs', 2))['cost_fen'],
-        1,
-        reason: '既有非 NULL 不应被回填覆盖',
+  test(
+    'null fen on current-version db is healed by ensure, idempotently',
+    () async {
+      final db = await databaseFactoryFfi.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: AppDatabase.schemaVersion,
+          onCreate: (db, _) async {
+            await DbSchema.create(db);
+            await _recreateFuelLogsNullable(db);
+          },
+        ),
       );
-    } finally {
-      await db.close();
-    }
-  });
+      try {
+        // 显式写入 NULL fen（绕过模型双写）。
+        await db.insert('fuel_logs', {
+          ..._fuelRow(id: 1, cost: 88.8),
+          'cost_fen': null,
+        });
+        // 故意不一致的非 NULL 行：必须保留。
+        await db.insert('fuel_logs', {
+          ..._fuelRow(id: 2, cost: 100.0),
+          'cost_fen': 1,
+        });
+        expect(await _nullCount(db, 'fuel_logs', 'cost_fen'), 1);
+
+        await DbMigrations.ensureFuelMaintenanceMoneyFen(db);
+        await DbMigrations.ensureFuelMaintenanceMoneyFen(db);
+
+        expect(await _nullCount(db, 'fuel_logs', 'cost_fen'), 0);
+        expect((await _row(db, 'fuel_logs', 1))['cost_fen'], 8880);
+        expect(
+          (await _row(db, 'fuel_logs', 2))['cost_fen'],
+          1,
+          reason: '既有非 NULL 不应被回填覆盖',
+        );
+      } finally {
+        await db.close();
+      }
+    },
+  );
 }
 
 // ===========================================================================
@@ -188,6 +203,21 @@ Future<void> _createLegacyFuelMaintenance(DatabaseExecutor db) async {
       item TEXT NOT NULL,
       amount REAL NOT NULL,
       note TEXT
+    );
+  ''');
+}
+
+Future<void> _recreateFuelLogsNullable(DatabaseExecutor db) async {
+  await db.execute('DROP TABLE IF EXISTS fuel_logs;');
+  await db.execute('''
+    CREATE TABLE fuel_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id INTEGER NOT NULL,
+      date INTEGER NOT NULL,
+      supplier TEXT NOT NULL,
+      liters REAL NOT NULL,
+      cost REAL NOT NULL,
+      cost_fen INTEGER
     );
   ''');
 }
@@ -221,6 +251,18 @@ Future<bool> _columnExists(
 ) async {
   final rows = await db.rawQuery('PRAGMA table_info($table);');
   return rows.any((row) => row['name'] == column);
+}
+
+Future<bool> _isNotNull(
+  DatabaseExecutor db,
+  String table,
+  String column,
+) async {
+  final rows = await db.rawQuery('PRAGMA table_info($table);');
+  for (final row in rows) {
+    if (row['name'] == column) return ((row['notnull'] as int?) ?? 0) == 1;
+  }
+  return false;
 }
 
 Future<int> _nullCount(DatabaseExecutor db, String table, String column) async {
