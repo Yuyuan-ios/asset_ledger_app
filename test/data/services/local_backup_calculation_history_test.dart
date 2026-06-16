@@ -473,7 +473,7 @@ void main() {
     expect(device['equipment_type'], 'excavator');
   });
 
-  test('restore accepts old backups without fuel cost_fen', () async {
+  test('restore round-trips legacy fuel cost into cost_fen only', () async {
     final db = await _openCurrentInMemoryDb();
     final legacyFuel = _fuelLogMap(id: 1, cost: 123.45)..remove('cost_fen');
 
@@ -483,8 +483,18 @@ void main() {
 
     expect(result.success, isTrue);
     final fuel = (await db.query('fuel_logs')).single;
-    expect(fuel['cost'], 123.45);
+    expect(fuel.containsKey('cost'), isFalse);
     expect(fuel['cost_fen'], 12345);
+
+    final export = await LocalBackupExportService.exportJsonBackup();
+    expect(export.success, isTrue);
+    final rawJson = await File(export.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final exportedFuel =
+        (data['fuel_logs'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(exportedFuel.containsKey('cost'), isFalse);
+    expect(exportedFuel['cost_fen'], 12345);
   });
 
   test('restore accepts old backups without maintenance amount_fen', () async {

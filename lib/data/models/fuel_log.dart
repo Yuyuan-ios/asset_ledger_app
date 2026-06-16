@@ -23,23 +23,22 @@ class FuelLog {
   // 加油量（升）
   final double liters;
 
-  // 金额（元）。A3 起读路径以 cost_fen 为权威；REAL 保留到 A4 删除。
-  final double cost;
+  // 金额（分）。A4 起为唯一存储权威。
+  final int costFen;
 
-  // 金额（分）。A2c 后 DB 中 NOT NULL；测试/legacy 构造可为 null。
-  final int? costFen;
-
-  const FuelLog({
+  FuelLog({
     this.id,
     required this.deviceId,
     required this.date,
     required this.supplier,
     required this.liters,
-    required this.cost,
-    this.costFen,
-  });
+    required double cost,
+    int? costFen,
+  }) : costFen = costFen ?? (cost * 100).round();
 
-  int get effectiveCostFen => costFen ?? (cost * 100).round();
+  double get cost => costFen / 100.0;
+
+  int get effectiveCostFen => costFen;
 
   double get effectiveCost => effectiveCostFen / 100.0;
 
@@ -55,16 +54,14 @@ class FuelLog {
     double? cost,
     int? costFen,
   }) {
-    final nextCost = cost ?? this.cost;
     return FuelLog(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       date: date ?? this.date,
       supplier: supplier ?? this.supplier,
       liters: liters ?? this.liters,
-      cost: nextCost,
-      costFen:
-          costFen ?? (cost == null ? this.costFen : (nextCost * 100).round()),
+      cost: cost ?? this.cost,
+      costFen: costFen ?? (cost == null ? this.costFen : null),
     );
   }
 
@@ -78,21 +75,23 @@ class FuelLog {
       'date': date,
       'supplier': supplier,
       'liters': liters,
-      'cost': cost,
-      // A1 双写：fen 影子列恒从权威 cost 派生，与迁移回填口径同源。
-      'cost_fen': (cost * 100).round(),
+      'cost_fen': costFen,
     };
   }
 
   factory FuelLog.fromMap(Map<String, dynamic> map) {
+    final rawFen = map['cost_fen'] as num?;
+    if (rawFen == null) {
+      throw StateError('fuel_logs.cost_fen is required');
+    }
     return FuelLog(
       id: map['id'] as int?,
       deviceId: map['device_id'] as int,
       date: map['date'] as int,
       supplier: (map['supplier'] as String?) ?? '',
       liters: (map['liters'] as num).toDouble(),
-      cost: (map['cost'] as num).toDouble(),
-      costFen: (map['cost_fen'] as num?)?.toInt(),
+      cost: rawFen.toInt() / 100.0,
+      costFen: rawFen.toInt(),
     );
   }
 

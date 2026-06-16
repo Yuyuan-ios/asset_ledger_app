@@ -17,7 +17,7 @@ import '../../../test_setup.dart';
 /// 覆盖：
 /// - 当前版本 fresh create → 两列存在且均已 NOT NULL。
 /// - 旧 v36 库缺 fen 列 → 经迁移链升级后列存在、旧行保留、
-///   fen == round(x*100)、REAL 仍在、浮点敏感值精确。
+///   fen == round(x*100)、浮点敏感值精确；A4 后 fuel REAL 已删除。
 /// - 当前版本库 fen 为 NULL → onOpen ensure 自愈。
 /// - 回填只填 NULL、不覆盖既有非 NULL、幂等。
 /// - 模型 toMap 双写 fen / fromMap 读回。
@@ -61,8 +61,7 @@ void main() {
   });
 
   test(
-    'legacy v36 db without fen columns backfills after upgrade, keeping REAL '
-    'and all rows',
+    'legacy v36 db without fen columns backfills after upgrade and keeps rows',
     () async {
       final legacy = await databaseFactoryFfi.openDatabase(
         dbPath,
@@ -106,11 +105,8 @@ void main() {
         expect(await _rowCount(db, 'fuel_logs'), 3);
         expect(await _rowCount(db, 'maintenance_records'), 2);
 
-        // 逐行 fen == round(REAL*100)，REAL 仍为原值。
-        for (final row in await db.query('fuel_logs')) {
-          final cost = (row['cost'] as num).toDouble();
-          expect((row['cost_fen'] as num?)?.toInt(), (cost * 100).round());
-        }
+        expect(await _columnExists(db, 'fuel_logs', 'cost'), isFalse);
+        expect((await _row(db, 'fuel_logs', 1))['cost_fen'], 20000);
         // 浮点敏感值精确。
         expect((await _row(db, 'fuel_logs', 2))['cost_fen'], 10); // 0.1
         expect((await _row(db, 'fuel_logs', 3))['cost_fen'], 1999); // 19.99

@@ -13,7 +13,7 @@ void main() {
   group('ComputeTimingChartFinanceUseCase.execute', () {
     test('keeps chart income separate from net income summary', () {
       final expenseStats = TimingMonthlyExpenseService.computeMonthlyExpense(
-        fuelLogs: const [
+        fuelLogs: [
           FuelLog(
             id: 1,
             deviceId: 1,
@@ -57,7 +57,7 @@ void main() {
         0.0,
       ];
       final expenseStats = TimingMonthlyExpenseService.computeMonthlyExpense(
-        fuelLogs: const [
+        fuelLogs: [
           FuelLog(
             id: 1,
             deviceId: 1,

@@ -21,11 +21,13 @@ class Migration037 {
   static Future<void> ensureFuelMaintenanceMoneyFen(Database db) async {
     if (await _tableExists(db, 'fuel_logs')) {
       await _addColumnIfMissing(db, 'fuel_logs', 'cost_fen', 'INTEGER');
-      await db.execute('''
-        UPDATE fuel_logs
-        SET cost_fen = CAST(ROUND(COALESCE(cost, 0) * 100.0) AS INTEGER)
-        WHERE cost_fen IS NULL;
-      ''');
+      if (await _columnExists(db, 'fuel_logs', 'cost')) {
+        await db.execute('''
+          UPDATE fuel_logs
+          SET cost_fen = CAST(ROUND(COALESCE(cost, 0) * 100.0) AS INTEGER)
+          WHERE cost_fen IS NULL;
+        ''');
+      }
     }
 
     if (await _tableExists(db, 'maintenance_records')) {

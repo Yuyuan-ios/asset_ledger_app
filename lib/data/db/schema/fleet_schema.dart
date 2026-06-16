@@ -27,7 +27,6 @@ class FleetSchema {
         date INTEGER NOT NULL,
         supplier TEXT NOT NULL,
         liters REAL NOT NULL,
-        cost REAL NOT NULL,
         cost_fen INTEGER NOT NULL
       );
     ''');

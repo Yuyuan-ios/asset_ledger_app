@@ -6,7 +6,7 @@ void main() {
   group('FuelStatsService edge cases', () {
     test('returns zero totals when no log falls in the resolved year', () {
       final summary = FuelStatsService.summarizeCurrentYear(
-        logs: const [
+        logs: [
           FuelLog(
             id: 1,
             deviceId: 1,
@@ -24,37 +24,40 @@ void main() {
       expect(summary.cost, 0);
     });
 
-    test('treats blank supplier filter as no filter and includes zero values', () {
-      final summary = FuelStatsService.summarizeCurrentYear(
-        logs: const [
-          FuelLog(
-            id: 1,
-            deviceId: 1,
-            date: 20260301,
-            supplier: '甲供应商',
-            liters: 0,
-            cost: 0,
-          ),
-          FuelLog(
-            id: 2,
-            deviceId: 1,
-            date: 20260302,
-            supplier: '乙供应商',
-            liters: 10,
-            cost: 80,
-          ),
-        ],
-        nowYmd: 20260310,
-        supplier: '   ',
-      );
+    test(
+      'treats blank supplier filter as no filter and includes zero values',
+      () {
+        final summary = FuelStatsService.summarizeCurrentYear(
+          logs: [
+            FuelLog(
+              id: 1,
+              deviceId: 1,
+              date: 20260301,
+              supplier: '甲供应商',
+              liters: 0,
+              cost: 0,
+            ),
+            FuelLog(
+              id: 2,
+              deviceId: 1,
+              date: 20260302,
+              supplier: '乙供应商',
+              liters: 10,
+              cost: 80,
+            ),
+          ],
+          nowYmd: 20260310,
+          supplier: '   ',
+        );
 
-      expect(summary.liters, 10);
-      expect(summary.cost, 80);
-    });
+        expect(summary.liters, 10);
+        expect(summary.cost, 80);
+      },
+    );
 
     test('uses contains matching for supplier filtering', () {
       final summary = FuelStatsService.summarizeCurrentYear(
-        logs: const [
+        logs: [
           FuelLog(
             id: 1,
             deviceId: 1,

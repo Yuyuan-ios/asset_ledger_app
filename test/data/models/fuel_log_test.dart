@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('FuelLog', () {
     test('copyWith overrides selected fields and keeps existing values', () {
-      const log = FuelLog(
+      final log = FuelLog(
         id: 1,
         deviceId: 2,
         date: 20260301,
@@ -13,10 +13,7 @@ void main() {
         cost: 80,
       );
 
-      final updated = log.copyWith(
-        date: 20260302,
-        liters: 12.5,
-      );
+      final updated = log.copyWith(date: 20260302, liters: 12.5);
 
       expect(updated.id, 1);
       expect(updated.deviceId, 2);
@@ -27,7 +24,7 @@ void main() {
     });
 
     test('toMap and fromMap preserve numeric values and fallback supplier', () {
-      const log = FuelLog(
+      final log = FuelLog(
         id: 2,
         deviceId: 5,
         date: 20260303,
@@ -42,8 +39,6 @@ void main() {
         'date': 20260303,
         'supplier': '老何',
         'liters': 20.5,
-        'cost': 166.0,
-        // A1：fen 影子列随 cost 双写。
         'cost_fen': 16600,
       });
 
@@ -52,7 +47,7 @@ void main() {
         'device_id': 6,
         'date': 20260304,
         'liters': 8,
-        'cost': 64,
+        'cost_fen': 6400,
       });
 
       expect(rebuilt.id, 3);
@@ -61,13 +56,12 @@ void main() {
       expect(rebuilt.supplier, '');
       expect(rebuilt.liters, 8);
       expect(rebuilt.cost, 64);
-      // 旧库行无 cost_fen → null；不阻断读取，REAL 仍权威。
-      expect(rebuilt.costFen, isNull);
+      expect(rebuilt.costFen, 6400);
       expect(rebuilt.toString(), contains('dev: 6'));
     });
 
     test('toMap derives cost_fen from cost; fromMap reads it back', () {
-      const log = FuelLog(
+      final log = FuelLog(
         id: 9,
         deviceId: 1,
         date: 20260601,
@@ -78,6 +72,19 @@ void main() {
 
       expect(log.toMap()['cost_fen'], 1999);
       expect(FuelLog.fromMap(log.toMap()).costFen, 1999);
+    });
+
+    test('fromMap requires cost_fen after A4', () {
+      expect(
+        () => FuelLog.fromMap({
+          'id': 3,
+          'device_id': 6,
+          'date': 20260304,
+          'liters': 8,
+          'cost': 64,
+        }),
+        throwsStateError,
+      );
     });
   });
 }

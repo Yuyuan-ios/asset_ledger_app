@@ -7,7 +7,7 @@ void main() {
   testWidgets('fuel recent record title uses spaced display separator', (
     WidgetTester tester,
   ) async {
-    const log = FuelLog(
+    final log = FuelLog(
       id: 1,
       deviceId: 1,
       date: 20260521,
@@ -20,7 +20,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: FuelRecordsListContent(
-            logs: const [log],
+            logs: [log],
             leadingBuilder: (_) => const SizedBox(width: 40, height: 40),
             titleBuilder: (log) => log.supplier,
             subtitleBuilder: (_) => 'HITACHI 1#',

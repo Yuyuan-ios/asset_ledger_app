@@ -6,7 +6,7 @@ void main() {
   group('FuelStatsService.summarizeCurrentYear', () {
     test('sums only logs inside the resolved year range', () {
       final summary = FuelStatsService.summarizeCurrentYear(
-        logs: const [
+        logs: [
           FuelLog(
             id: 1,
             deviceId: 1,
@@ -42,7 +42,7 @@ void main() {
 
     test('filters supplier by contains match when provided', () {
       final summary = FuelStatsService.summarizeCurrentYear(
-        logs: const [
+        logs: [
           FuelLog(
             id: 1,
             deviceId: 1,
@@ -78,7 +78,7 @@ void main() {
 
     test('uses costFen as the money authority', () {
       final summary = FuelStatsService.summarizeCurrentYear(
-        logs: const [
+        logs: [
           FuelLog(
             id: 1,
             deviceId: 1,

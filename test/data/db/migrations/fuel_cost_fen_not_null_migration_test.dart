@@ -29,27 +29,33 @@ void main() {
     }
   });
 
-  test('fresh schema enforces cost_fen NOT NULL', () async {
-    final db = await databaseFactoryFfi.openDatabase(
-      dbPath,
-      options: OpenDatabaseOptions(
-        version: AppDatabase.schemaVersion,
-        onCreate: (db, _) => DbSchema.create(db),
-      ),
-    );
-    try {
-      expect(await _isNotNull(db, 'fuel_logs', 'cost_fen'), isTrue);
-      expect(await _isNotNull(db, 'fuel_logs', 'cost'), isTrue);
-      expect(await _isNotNull(db, 'maintenance_records', 'amount_fen'), isTrue);
-
-      await expectLater(
-        db.insert('fuel_logs', _fuelRow(cost: 12.34)..remove('cost_fen')),
-        throwsA(isA<DatabaseException>()),
+  test(
+    'fresh schema enforces cost_fen NOT NULL and has dropped cost',
+    () async {
+      final db = await databaseFactoryFfi.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: AppDatabase.schemaVersion,
+          onCreate: (db, _) => DbSchema.create(db),
+        ),
       );
-    } finally {
-      await db.close();
-    }
-  });
+      try {
+        expect(await _isNotNull(db, 'fuel_logs', 'cost_fen'), isTrue);
+        expect(await _columnExists(db, 'fuel_logs', 'cost'), isFalse);
+        expect(
+          await _isNotNull(db, 'maintenance_records', 'amount_fen'),
+          isTrue,
+        );
+
+        await expectLater(
+          db.insert('fuel_logs', _currentFuelRow()..remove('cost_fen')),
+          throwsA(isA<DatabaseException>()),
+        );
+      } finally {
+        await db.close();
+      }
+    },
+  );
 
   test(
     'legacy v39 nullable cost_fen is rebuilt, backfilled, and keeps rows',
@@ -156,6 +162,26 @@ void main() {
       await db.close();
     }
   });
+}
+
+Map<String, Object?> _currentFuelRow({int? id, int costFen = 1234}) {
+  return {
+    'id': id,
+    'device_id': 7,
+    'date': 20260601,
+    'supplier': '王五',
+    'liters': 30.0,
+    'cost_fen': costFen,
+  };
+}
+
+Future<bool> _columnExists(
+  DatabaseExecutor db,
+  String table,
+  String column,
+) async {
+  final rows = await db.rawQuery('PRAGMA table_info($table);');
+  return rows.any((row) => row['name'] == column);
 }
 
 Future<void> _createV39FuelLogs(DatabaseExecutor db) async {

@@ -31,7 +31,7 @@ void main() {
       () async {
         final repository = _CountingFuelRepository(
           seed: [
-            const FuelLog(
+            FuelLog(
               id: 2,
               deviceId: 1,
               date: 20260302,
@@ -47,7 +47,7 @@ void main() {
         expect(repository.listAllCalls, 1);
 
         await store.insert(
-          const FuelLog(
+          FuelLog(
             deviceId: 1,
             date: 20260305,
             supplier: 'A',
@@ -59,7 +59,7 @@ void main() {
         expect(store.logs.map((item) => item.id).toList(), [10, 2]);
 
         await store.update(
-          const FuelLog(
+          FuelLog(
             id: 2,
             deviceId: 1,
             date: 20260306,
