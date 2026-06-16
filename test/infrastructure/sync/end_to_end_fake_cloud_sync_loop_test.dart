@@ -223,7 +223,7 @@ void main() {
     final localPayment = (await db.query('account_payments')).single;
     expect(localPayment['id'], id);
     expect(localPayment['amount_fen'], 50000);
-    expect(localPayment['amount'], 500.0);
+    expect(localPayment.containsKey('amount'), isFalse);
     expect(localPayment['project_id'], 'project:a');
   });
 }

@@ -34,12 +34,8 @@ void main() {
     await AppDatabase.resetForTest();
   });
 
-  AccountPayment payment() => const AccountPayment(
-    id: 1,
-    projectKey: 'k',
-    ymd: 20260101,
-    amount: 100,
-  );
+  AccountPayment payment() =>
+      AccountPayment(id: 1, projectKey: 'k', ymd: 20260101, amount: 100);
 
   ActorContext owner(String id) =>
       ActorContext(actorType: OperationActorType.owner, actorId: id);
@@ -72,39 +68,42 @@ void main() {
     expect(await _syncStatus(db), SyncStatus.pendingDelete.name);
   });
 
-  test('preserving upsert keeps server_id/version/source while setting updated_by', () async {
-    final db = await AppDatabase.database;
+  test(
+    'preserving upsert keeps server_id/version/source while setting updated_by',
+    () async {
+      final db = await AppDatabase.database;
 
-    // Pre-seed a meta row as if the cloud had backfilled it.
-    await const LocalEntitySyncMetaRepository().upsert(
-      const EntitySyncMeta(
-        entityType: AccountPaymentSyncEnqueuer.entityType,
-        localId: '1',
-        serverId: 'srv-1',
-        syncStatus: SyncStatus.synced,
-        version: 5,
-        source: 'cloud',
-      ),
-    );
+      // Pre-seed a meta row as if the cloud had backfilled it.
+      await const LocalEntitySyncMetaRepository().upsert(
+        const EntitySyncMeta(
+          entityType: AccountPaymentSyncEnqueuer.entityType,
+          localId: '1',
+          serverId: 'srv-1',
+          syncStatus: SyncStatus.synced,
+          version: 5,
+          source: 'cloud',
+        ),
+      );
 
-    await enqueue('update', SyncStatus.pendingUpdate, owner('owner-Z'));
+      await enqueue('update', SyncStatus.pendingUpdate, owner('owner-Z'));
 
-    final rows = await db.query(
-      'entity_sync_meta',
-      where: 'entity_type = ? AND local_id = ?',
-      whereArgs: [AccountPaymentSyncEnqueuer.entityType, '1'],
-    );
-    expect(rows, hasLength(1));
-    final row = rows.single;
-    // updated_by reflects the latest actor.
-    expect(row['updated_by'], 'owner-Z');
-    // sync_status moves to the new pending state.
-    expect(row['sync_status'], SyncStatus.pendingUpdate.name);
-    // Long-lived fields preserved by the merge.
-    expect(row['server_id'], 'srv-1');
-    expect(row['version'], 5);
-    expect(row['source'], 'cloud');
-  });
+      final rows = await db.query(
+        'entity_sync_meta',
+        where: 'entity_type = ? AND local_id = ?',
+        whereArgs: [AccountPaymentSyncEnqueuer.entityType, '1'],
+      );
+      expect(rows, hasLength(1));
+      final row = rows.single;
+      // updated_by reflects the latest actor.
+      expect(row['updated_by'], 'owner-Z');
+      // sync_status moves to the new pending state.
+      expect(row['sync_status'], SyncStatus.pendingUpdate.name);
+      // Long-lived fields preserved by the merge.
+      expect(row['server_id'], 'srv-1');
+      expect(row['version'], 5);
+      expect(row['source'], 'cloud');
+    },
+  );
 }
 
 Future<Object?> _updatedBy(Database db) async {

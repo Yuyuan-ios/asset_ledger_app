@@ -325,7 +325,7 @@ void main() {
         );
         await db.insert(
           SqfliteAccountPaymentRepository.table,
-          const AccountPayment(
+          AccountPayment(
             projectKey: '李杰||尚义',
             ymd: 20260515,
             amount: 800,

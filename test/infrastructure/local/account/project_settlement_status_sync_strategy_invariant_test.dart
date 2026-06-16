@@ -282,7 +282,7 @@ void main() {
         ''':
               true,
           '''
-        await db.update('account_payments', {'amount': 100});
+        await db.update('account_payments', {'amount_fen': 10000});
         ''':
               false,
           '''

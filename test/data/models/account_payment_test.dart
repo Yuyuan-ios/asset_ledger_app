@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AccountPayment', () {
     test('copyWith overrides selected fields and preserves the rest', () {
-      const payment = AccountPayment(
+      final payment = AccountPayment(
         id: 1,
         projectKey: 'Alice||Yard A',
         ymd: 20260301,
@@ -38,7 +38,7 @@ void main() {
     });
 
     test('toMap and fromMap use storage field names and defaults', () {
-      const payment = AccountPayment(
+      final payment = AccountPayment(
         id: 2,
         projectKey: 'Bob||Yard B',
         ymd: 20260302,
@@ -50,23 +50,17 @@ void main() {
         'project_id': ProjectId.legacyFromKey('Bob||Yard B'),
         'project_key': 'Bob||Yard B',
         'ymd': 20260302,
-        'amount': 88.5,
         'amount_fen': 8850,
         'note': null,
         'source_type': AccountPayment.sourceTypeManual,
         'merge_group_id': null,
         'merge_batch_id': null,
-        'merge_batch_total_amount': null,
         'merge_batch_total_amount_fen': null,
         'merge_batch_note': null,
         'created_at': null,
       });
 
-      final rebuilt = AccountPayment.fromMap({
-        'id': 3,
-        'amount': 120.01,
-        'amount_fen': 12000,
-      });
+      final rebuilt = AccountPayment.fromMap({'id': 3, 'amount_fen': 12000});
 
       expect(rebuilt.id, 3);
       expect(rebuilt.projectId, '');
@@ -87,12 +81,11 @@ void main() {
         'id': 9,
         'project_key': '李杰||尚义',
         'ymd': 20260515,
-        'amount': 1490,
+        'amount_fen': 149000,
         'note': '合并分摊',
         'source_type': AccountPayment.sourceTypeMergeAllocation,
         'merge_group_id': 3,
         'merge_batch_id': 'batch-20260515',
-        'merge_batch_total_amount': 5000,
         'merge_batch_total_amount_fen': 499999,
         'merge_batch_note': '微信收款',
         'created_at': '2026-05-16T01:02:03.000Z',
@@ -111,41 +104,51 @@ void main() {
       expect(payment.createdAt, '2026-05-16T01:02:03.000Z');
     });
 
-    test('fromMap falls back to legacy REAL amount when fen is absent', () {
-      // Pre-v18 historical row / old backup import: only the REAL columns
-      // exist. The model must read them and still derive fen on write-back.
-      final legacy = AccountPayment.fromMap({
+    test('fromMap requires fen authority and ignores legacy REAL amount', () {
+      expect(
+        () => AccountPayment.fromMap({
+          'id': 7,
+          'project_key': 'Carol||Yard C',
+          'ymd': 20251231,
+          'amount': 73.21,
+          'merge_batch_total_amount': 200.05,
+          'source_type': AccountPayment.sourceTypeMergeAllocation,
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      final payment = AccountPayment.fromMap({
         'id': 7,
         'project_key': 'Carol||Yard C',
         'ymd': 20251231,
-        'amount': 73.21,
+        'amount': 1.0,
+        'amount_fen': 7321,
         'merge_batch_total_amount': 200.05,
+        'merge_batch_total_amount_fen': 20005,
         'source_type': AccountPayment.sourceTypeMergeAllocation,
       });
 
-      expect(legacy.amount, 73.21);
-      expect(legacy.mergeBatchTotalAmount, 200.05);
-      expect(legacy.amountFen, 7321);
-      expect(legacy.mergeBatchTotalAmountFen, 20005);
+      expect(payment.amount, 73.21);
+      expect(payment.mergeBatchTotalAmount, 200.05);
 
-      final remapped = legacy.toMap();
-      expect(remapped['amount'], 73.21);
+      final remapped = payment.toMap();
+      expect(remapped.containsKey('amount'), isFalse);
       expect(remapped['amount_fen'], 7321);
-      expect(remapped['merge_batch_total_amount'], 200.05);
+      expect(remapped.containsKey('merge_batch_total_amount'), isFalse);
       expect(remapped['merge_batch_total_amount_fen'], 20005);
     });
 
-    test('fromMap prefers fen and tolerates a NULL fen column', () {
-      final nullFen = AccountPayment.fromMap({
-        'id': 8,
-        'project_key': 'Dan||Yard D',
-        'ymd': 20260101,
-        'amount': 9.99,
-        'amount_fen': null,
-      });
+    test('copyWith can preserve or override fen authority directly', () {
+      final payment = AccountPayment(
+        id: 8,
+        projectKey: 'Dan||Yard D',
+        ymd: 20260101,
+        amount: 9.99,
+      );
 
-      expect(nullFen.amount, 9.99);
-      expect(nullFen.amountFen, 999);
+      expect(payment.copyWith().amountFen, 999);
+      expect(payment.copyWith(amount: 10.01).amountFen, 1001);
+      expect(payment.copyWith(amountFen: 1002).amount, 10.02);
     });
   });
 }

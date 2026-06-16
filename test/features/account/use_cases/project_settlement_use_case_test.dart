@@ -2334,9 +2334,10 @@ Future<int> _paymentCount(Database db) async {
 
 Future<double> _paymentSum(Database db) async {
   final rows = await db.rawQuery(
-    'SELECT COALESCE(SUM(amount), 0) AS total FROM ${SqfliteAccountPaymentRepository.table}',
+    'SELECT COALESCE(SUM(amount_fen), 0) AS total '
+    'FROM ${SqfliteAccountPaymentRepository.table}',
   );
-  return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+  return ((rows.single['total'] as num?)?.toInt() ?? 0) / 100.0;
 }
 
 Future<int> _writeOffCount(Database db) async {

@@ -2658,11 +2658,13 @@ Future<void> _insertPayment(
   required double amount,
   required int amountFen,
 }) async {
+  if (!amount.isFinite) {
+    throw ArgumentError.value(amount, 'amount');
+  }
   await db.insert(SqfliteAccountPaymentRepository.table, <String, Object?>{
     'project_id': projectId,
     'project_key': '甲方||$projectId',
     'ymd': 20260518,
-    'amount': amount,
     'amount_fen': amountFen,
     'note': null,
     'source_type': 'manual',

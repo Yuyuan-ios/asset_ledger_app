@@ -335,6 +335,9 @@ const Map<String, String> _registeredAccountPaymentWriteFiles = {
   // R5.26-B1：account_payments.amount_fen 重建为 NOT NULL 的表重建迁移（14 列
   // INSERT…SELECT），属历史数据搬运，沿用 migration_018 的迁移豁免口径。
   'lib/data/db/migrations/migration_031.dart': 'migration exemption',
+  // Track A A4-6: account_payments 金额 REAL 列拆除的表重建迁移，
+  // 仅搬运历史数据到 fen-only 终态，不属于生产写路径。
+  'lib/data/db/migrations/migration_047.dart': 'migration exemption',
   'lib/data/db/migrations/project_foreign_key_migration.dart':
       'migration exemption',
   'lib/data/db/migrations/project_identity_migration.dart':
@@ -346,6 +349,7 @@ const Set<String> _deferredRestoreAndMigrationExemptions = {
   'lib/data/services/backup/local_restore_service.dart',
   'lib/data/db/migrations/migration_018.dart',
   'lib/data/db/migrations/migration_031.dart',
+  'lib/data/db/migrations/migration_047.dart',
   'lib/data/db/migrations/project_foreign_key_migration.dart',
   'lib/data/db/migrations/project_identity_migration.dart',
 };

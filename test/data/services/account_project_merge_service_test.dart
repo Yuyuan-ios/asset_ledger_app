@@ -392,7 +392,6 @@ Future<void> _insertPayment(
     'project_id': projectId,
     'project_key': projectKey,
     'ymd': 20260515,
-    'amount': 50,
     'amount_fen': 5000,
     'note': '收款',
     'source_type': 'manual',

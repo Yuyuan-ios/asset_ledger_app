@@ -126,7 +126,7 @@ void main() {
       writeOff: writeOff,
       remaining: remaining,
       ratio: 0,
-      payments: const [],
+      payments: [],
     );
   }
 
@@ -159,7 +159,7 @@ void main() {
       writeOff: writeOff,
       remaining: remaining,
       ratio: 0.5,
-      payments: const [
+      payments: [
         AccountPayment(
           id: 1,
           projectKey: shangyiKey,

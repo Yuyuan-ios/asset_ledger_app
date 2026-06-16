@@ -670,7 +670,7 @@ void main() {
       seed: [
         _mergeAllocation(id: 1, projectKey: '李杰||新村', amount: 1000),
         _mergeAllocation(id: 2, projectKey: '李杰||高桥', amount: 500),
-        const AccountPayment(
+        AccountPayment(
           id: 3,
           projectKey: '李杰||新村',
           ymd: 20260515,

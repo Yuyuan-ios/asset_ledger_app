@@ -78,7 +78,7 @@ void main() {
         final rates = [
           ProjectDeviceRate(projectKey: '张扬||药山', deviceId: 1, rate: 80),
         ];
-        const payments = [
+        final payments = [
           AccountPayment(
             id: 1,
             projectKey: '李洋||万达',
@@ -197,7 +197,7 @@ void main() {
             timingRecords: timingRecords,
             devices: devices,
             rates: [],
-            payments: const [],
+            payments: [],
             summaryYear: 2026,
           )
           .single;
@@ -283,7 +283,7 @@ void main() {
               timingRecords: timingRecords,
               devices: devices,
               rates: [],
-              payments: const [],
+              payments: [],
               activeMergeGroups: activeMergeGroups,
             )
             .single;

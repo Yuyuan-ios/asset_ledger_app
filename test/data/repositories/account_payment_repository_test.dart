@@ -26,7 +26,7 @@ void main() {
       final repo = SqfliteAccountPaymentRepository();
 
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||尚义',
           ymd: 20260515,
           amount: 1490,
@@ -62,7 +62,7 @@ void main() {
       final repo = SqfliteAccountPaymentRepository();
 
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||尚义',
           ymd: 20260514,
           amount: 100,
@@ -70,7 +70,7 @@ void main() {
         ),
       );
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||鲜滩',
           ymd: 20260515,
           amount: 200,
@@ -78,7 +78,7 @@ void main() {
         ),
       );
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||高桥',
           ymd: 20260515,
           amount: 300,
@@ -86,7 +86,7 @@ void main() {
         ),
       );
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||新村',
           ymd: 20260515,
           amount: 400,
@@ -104,7 +104,7 @@ void main() {
       final repo = SqfliteAccountPaymentRepository();
 
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||尚义',
           ymd: 20260515,
           amount: 500,
@@ -141,7 +141,7 @@ void main() {
       );
 
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectId: 'project:stable',
           projectKey: '旧联系人||旧工地',
           ymd: 20260517,
@@ -173,7 +173,7 @@ void main() {
         final repo = SqfliteAccountPaymentRepository();
 
         await repo.insert(
-          const AccountPayment(
+          AccountPayment(
             projectId: 'project:stable',
             projectKey: '丁队||五里山',
             ymd: 20260517,
@@ -203,7 +203,7 @@ void main() {
       await repo.insert(_allocation(projectKey: '李杰||尚义', amount: 1000));
       await repo.insert(_allocation(projectKey: '李杰||鲜滩', amount: 500));
       await repo.insert(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '李杰||尚义',
           ymd: 20260515,
           amount: 88,
@@ -231,7 +231,7 @@ void main() {
       await expectLater(
         repo.replaceMergeBatchInTransaction(
           batchId: 'batch-1',
-          newRows: const [
+          newRows: [
             AccountPayment(
               projectKey: 'merge:1',
               ymd: 20260515,

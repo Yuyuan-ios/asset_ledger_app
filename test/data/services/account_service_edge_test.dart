@@ -27,7 +27,7 @@ void main() {
           agg: agg,
           devices: [],
           rates: [],
-          payments: const [],
+          payments: [],
         );
 
         expect(money.receivable, 0);
@@ -135,7 +135,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: 'Over||Pay',
@@ -300,7 +300,7 @@ void main() {
             rate: 150,
           ),
         ],
-        payments: const [
+        payments: [
           AccountPayment(
             projectId: 'project:second',
             projectKey: 'Alpha||Same Site',

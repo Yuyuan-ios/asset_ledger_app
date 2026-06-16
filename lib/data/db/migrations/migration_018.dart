@@ -21,18 +21,26 @@ class Migration018 {
         'merge_batch_total_amount_fen',
         'INTEGER',
       );
-      await db.execute('''
-        UPDATE account_payments
-        SET amount_fen = CAST(ROUND(COALESCE(amount, 0) * 100.0) AS INTEGER)
-        WHERE amount_fen IS NULL;
-      ''');
-      await db.execute('''
-        UPDATE account_payments
-        SET merge_batch_total_amount_fen =
-          CAST(ROUND(merge_batch_total_amount * 100.0) AS INTEGER)
-        WHERE merge_batch_total_amount_fen IS NULL
-          AND merge_batch_total_amount IS NOT NULL;
-      ''');
+      if (await _columnExists(db, 'account_payments', 'amount')) {
+        await db.execute('''
+          UPDATE account_payments
+          SET amount_fen = CAST(ROUND(COALESCE(amount, 0) * 100.0) AS INTEGER)
+          WHERE amount_fen IS NULL;
+        ''');
+      }
+      if (await _columnExists(
+        db,
+        'account_payments',
+        'merge_batch_total_amount',
+      )) {
+        await db.execute('''
+          UPDATE account_payments
+          SET merge_batch_total_amount_fen =
+            CAST(ROUND(merge_batch_total_amount * 100.0) AS INTEGER)
+          WHERE merge_batch_total_amount_fen IS NULL
+            AND merge_batch_total_amount IS NOT NULL;
+        ''');
+      }
     }
 
     if (await _tableExists(db, 'project_write_offs')) {

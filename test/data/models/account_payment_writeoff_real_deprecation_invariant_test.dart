@@ -5,7 +5,7 @@ import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// R5.26-B4 审计收尾：account_payments 读路径仍 fen 权威；
-/// Track A / A4-5 后 project_write_offs 已拆除 amount REAL。
+/// Track A / A4-6 后 account_payments 与 project_write_offs 均已拆除金额 REAL。
 void main() {
   group('AccountPayment / ProjectWriteOff fen-authority', () {
     test('AccountPayment.fromMap prefers amount_fen over REAL amount', () {
@@ -24,17 +24,19 @@ void main() {
     });
 
     test(
-      'AccountPayment.fromMap falls back to REAL amount when fen absent',
+      'AccountPayment.fromMap requires amount_fen when legacy REAL is present',
       () {
-        final payment = AccountPayment.fromMap({
-          'id': 1,
-          'project_id': 'p1',
-          'project_key': 'Alpha||Site',
-          'ymd': 20260601,
-          'amount': 12.34,
-          'source_type': 'manual',
-        });
-        expect(payment.amount, 12.34);
+        expect(
+          () => AccountPayment.fromMap({
+            'id': 1,
+            'project_id': 'p1',
+            'project_key': 'Alpha||Site',
+            'ymd': 20260601,
+            'amount': 12.34,
+            'source_type': 'manual',
+          }),
+          throwsA(isA<StateError>()),
+        );
       },
     );
 
@@ -86,15 +88,15 @@ void main() {
     'REAL compatibility columns retained only where A4 has not dropped them',
     () {
       test(
-        'account_payments keeps amount REAL NOT NULL and now NOT NULL amount_fen',
+        'account_payments drops amount REAL and keeps NOT NULL amount_fen',
         () {
           // 表内逐块断言（避免被同文件 project_write_offs 的 NOT NULL 串误判）。
           final block = _tableBlock(
             _read('lib/data/db/schema/account_schema.dart'),
             'account_payments',
           );
-          expect(block.contains('amount REAL NOT NULL'), isTrue);
-          // R5.26-B1：account_payments.amount_fen 已重建为 NOT NULL。
+          expect(block.contains('amount REAL'), isFalse);
+          expect(block.contains('merge_batch_total_amount REAL'), isFalse);
           expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
           // 坑C：merge_batch_total_amount_fen 仍 nullable（绝不翻 NOT NULL）。
           expect(

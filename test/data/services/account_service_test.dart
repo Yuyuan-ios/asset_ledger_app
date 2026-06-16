@@ -104,25 +104,25 @@ void main() {
           agg: baseProject,
           devices: devices,
           rates: [],
-          payments: const [],
+          payments: [],
         );
         final displayMoney = AccountService.calcMoney(
           agg: displayProject,
           devices: devices,
           rates: [],
-          payments: const [],
+          payments: [],
         );
         final baseMoneyFen = AccountService.calcMoneyFen(
           agg: baseProject,
           devices: devices,
           rates: [],
-          payments: const [],
+          payments: [],
         );
         final displayMoneyFen = AccountService.calcMoneyFen(
           agg: displayProject,
           devices: devices,
           rates: [],
-          payments: const [],
+          payments: [],
         );
 
         expect(displayRecord.incomeFen, baseRecord.incomeFen);
@@ -260,7 +260,7 @@ void main() {
               rate: 250,
             ),
           ],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: 'Alice||Yard A',
@@ -278,7 +278,7 @@ void main() {
 
         final receivedExcluding = AccountService.sumReceivedByProject(
           projectKey: 'Alice||Yard A',
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: 'Alice||Yard A',
@@ -353,7 +353,7 @@ void main() {
           agg: agg,
           devices: [],
           rates: [],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: 'Alice||Yard A',
@@ -431,7 +431,7 @@ void main() {
               isBreaking: true,
             ),
           ],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: 'Alpha||Site X',

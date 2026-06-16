@@ -13,7 +13,7 @@ import 'project_id.dart';
 // - projectId：稳定项目身份
 // - projectKey：legacy 联系人+工地快照
 // - ymd：YYYYMMDD int
-// - amount：金额
+// - amountFen：金额（整数分，唯一存储权威）
 // - note：可空
 // - sourceType：manual 普通收款 / merge_allocation 合并收款分摊
 // - merge*：合并收款分摊批次快照字段
@@ -28,29 +28,36 @@ class AccountPayment {
   final String projectId;
   final String projectKey;
   final int ymd;
-  final double amount;
+  final int amountFen;
   final String? note;
   final String sourceType;
   final int? mergeGroupId;
   final String? mergeBatchId;
-  final double? mergeBatchTotalAmount;
+  final int? mergeBatchTotalAmountFen;
   final String? mergeBatchNote;
   final String? createdAt;
 
-  const AccountPayment({
+  AccountPayment({
     this.id,
     this.projectId = '',
     required this.projectKey,
     required this.ymd,
-    required this.amount,
+    required double amount,
+    int? amountFen,
     this.note,
     this.sourceType = sourceTypeManual,
     this.mergeGroupId,
     this.mergeBatchId,
-    this.mergeBatchTotalAmount,
+    double? mergeBatchTotalAmount,
+    int? mergeBatchTotalAmountFen,
     this.mergeBatchNote,
     this.createdAt,
-  });
+  }) : amountFen = amountFen ?? _yuanToFen(amount),
+       mergeBatchTotalAmountFen =
+           mergeBatchTotalAmountFen ??
+           (mergeBatchTotalAmount == null
+               ? null
+               : _yuanToFen(mergeBatchTotalAmount));
 
   AccountPayment copyWith({
     int? id,
@@ -58,26 +65,36 @@ class AccountPayment {
     String? projectKey,
     int? ymd,
     double? amount,
+    int? amountFen,
     String? note,
     String? sourceType,
     int? mergeGroupId,
     String? mergeBatchId,
     double? mergeBatchTotalAmount,
+    int? mergeBatchTotalAmountFen,
     String? mergeBatchNote,
     String? createdAt,
   }) {
+    final nextMergeBatchTotalAmountFen = mergeBatchTotalAmount == null
+        ? mergeBatchTotalAmountFen ?? this.mergeBatchTotalAmountFen
+        : null;
     return AccountPayment(
       id: id ?? this.id,
       projectId: projectId ?? this.projectId,
       projectKey: projectKey ?? this.projectKey,
       ymd: ymd ?? this.ymd,
       amount: amount ?? this.amount,
+      amountFen: amount == null ? amountFen ?? this.amountFen : null,
       note: note ?? this.note,
       sourceType: sourceType ?? this.sourceType,
       mergeGroupId: mergeGroupId ?? this.mergeGroupId,
       mergeBatchId: mergeBatchId ?? this.mergeBatchId,
       mergeBatchTotalAmount:
-          mergeBatchTotalAmount ?? this.mergeBatchTotalAmount,
+          mergeBatchTotalAmount ??
+          (nextMergeBatchTotalAmountFen == null
+              ? null
+              : _fenToYuan(nextMergeBatchTotalAmountFen)),
+      mergeBatchTotalAmountFen: nextMergeBatchTotalAmountFen,
       mergeBatchNote: mergeBatchNote ?? this.mergeBatchNote,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -89,13 +106,11 @@ class AccountPayment {
       'project_id': effectiveProjectId,
       'project_key': projectKey,
       'ymd': ymd,
-      'amount': amount,
       'amount_fen': amountFen,
       'note': note,
       'source_type': sourceType,
       'merge_group_id': mergeGroupId,
       'merge_batch_id': mergeBatchId,
-      'merge_batch_total_amount': mergeBatchTotalAmount,
       'merge_batch_total_amount_fen': mergeBatchTotalAmountFen,
       'merge_batch_note': mergeBatchNote,
       'created_at': createdAt,
@@ -103,9 +118,10 @@ class AccountPayment {
   }
 
   static AccountPayment fromMap(Map<String, Object?> m) {
-    // 读优先 fen：amount_fen 为权威口径，缺失时才回退 REAL amount。
-    // amount REAL 是 legacy / 展示兼容列，保留不移除（NOT NULL 重建 = B1，未做）。
     final amountFen = _readFen(m['amount_fen']);
+    if (amountFen == null) {
+      throw StateError('account_payments.amount_fen is required');
+    }
     final mergeBatchTotalAmountFen = _readFen(
       m['merge_batch_total_amount_fen'],
     );
@@ -114,27 +130,27 @@ class AccountPayment {
       projectId: (m['project_id'] as String?) ?? '',
       projectKey: (m['project_key'] as String?) ?? '',
       ymd: (m['ymd'] as int?) ?? 0,
-      amount: amountFen == null
-          ? (m['amount'] as num?)?.toDouble() ?? 0.0
-          : _fenToYuan(amountFen),
+      amount: _fenToYuan(amountFen),
+      amountFen: amountFen,
       note: m['note'] as String?,
       sourceType:
           (m['source_type'] as String?) ?? AccountPayment.sourceTypeManual,
       mergeGroupId: m['merge_group_id'] as int?,
       mergeBatchId: m['merge_batch_id'] as String?,
       mergeBatchTotalAmount: mergeBatchTotalAmountFen == null
-          ? (m['merge_batch_total_amount'] as num?)?.toDouble()
+          ? null
           : _fenToYuan(mergeBatchTotalAmountFen),
+      mergeBatchTotalAmountFen: mergeBatchTotalAmountFen,
       mergeBatchNote: m['merge_batch_note'] as String?,
       createdAt: m['created_at'] as String?,
     );
   }
 
-  int get amountFen => _yuanToFen(amount);
+  double get amount => _fenToYuan(amountFen);
 
-  int? get mergeBatchTotalAmountFen {
-    final value = mergeBatchTotalAmount;
-    return value == null ? null : _yuanToFen(value);
+  double? get mergeBatchTotalAmount {
+    final value = mergeBatchTotalAmountFen;
+    return value == null ? null : _fenToYuan(value);
   }
 
   String get effectiveProjectId {

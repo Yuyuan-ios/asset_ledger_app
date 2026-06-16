@@ -183,7 +183,7 @@ void main() {
     test('patches local state for save and delete without reloading', () async {
       final repository = _CountingAccountPaymentRepository(
         seed: [
-          const AccountPayment(
+          AccountPayment(
             id: 3,
             projectKey: '张三||工地A',
             ymd: 20260302,
@@ -198,7 +198,7 @@ void main() {
       expect(repository.listAllCalls, 1);
 
       await store.save(
-        const AccountPayment(
+        AccountPayment(
           projectKey: '张三||工地A',
           ymd: 20260305,
           amount: 800,
@@ -209,7 +209,7 @@ void main() {
       expect(store.records.map((item) => item.id).toList(), [20, 3]);
 
       await store.save(
-        const AccountPayment(
+        AccountPayment(
           id: 3,
           projectKey: '张三||工地A',
           ymd: 20260306,

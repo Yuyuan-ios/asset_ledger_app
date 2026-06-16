@@ -146,6 +146,10 @@ class DbSchemaCompat {
     // v46（Track A / A4-5）：project_write_offs.amount REAL 删除；
     // amount_fen 为唯一存储权威，TEXT PK、projects FK RESTRICT 与两索引保留。
     await DbMigrations.ensureProjectWriteOffAmountRealDropped(db);
+    // v47（Track A / A4-6）：account_payments.amount /
+    // merge_batch_total_amount REAL 删除；fen 为唯一存储权威，
+    // AUTOINCREMENT 高水位与 projects FK RESTRICT 保留。
+    await DbMigrations.ensureAccountPaymentAmountRealsDropped(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
@@ -167,12 +171,6 @@ class DbSchemaCompat {
       await db.execute(
         'ALTER TABLE account_payments ADD COLUMN merge_batch_id TEXT;',
       );
-    }
-    if (!names.contains('merge_batch_total_amount')) {
-      await db.execute('''
-        ALTER TABLE account_payments
-        ADD COLUMN merge_batch_total_amount REAL;
-      ''');
     }
     if (!names.contains('amount_fen')) {
       await db.execute(

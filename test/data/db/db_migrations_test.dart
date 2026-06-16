@@ -76,12 +76,19 @@ void main() {
             'source_type',
             'merge_group_id',
             'merge_batch_id',
-            'merge_batch_total_amount',
             'amount_fen',
             'merge_batch_total_amount_fen',
             'merge_batch_note',
             'created_at',
           ]),
+        );
+        expect(
+          await _columnNames(db, 'account_payments'),
+          isNot(contains('amount')),
+        );
+        expect(
+          await _columnNames(db, 'account_payments'),
+          isNot(contains('merge_batch_total_amount')),
         );
         expect(await _tableExists(db, 'project_device_rates'), isTrue);
         expect(await _tableExists(db, 'timing_calculation_history'), isTrue);
@@ -183,7 +190,8 @@ void main() {
         expect(paymentRow['source_type'], 'manual');
         expect(paymentRow['merge_group_id'], isNull);
         expect(paymentRow['merge_batch_id'], isNull);
-        expect(paymentRow['merge_batch_total_amount'], isNull);
+        expect(paymentRow.containsKey('amount'), isFalse);
+        expect(paymentRow.containsKey('merge_batch_total_amount'), isFalse);
         expect(paymentRow['amount_fen'], 50000);
         expect(paymentRow['merge_batch_total_amount_fen'], isNull);
         expect(paymentRow['merge_batch_note'], isNull);
@@ -232,12 +240,19 @@ void main() {
           'source_type',
           'merge_group_id',
           'merge_batch_id',
-          'merge_batch_total_amount',
           'amount_fen',
           'merge_batch_total_amount_fen',
           'merge_batch_note',
           'created_at',
         ]),
+      );
+      expect(
+        await _columnNames(db, 'account_payments'),
+        isNot(contains('amount')),
+      );
+      expect(
+        await _columnNames(db, 'account_payments'),
+        isNot(contains('merge_batch_total_amount')),
       );
 
       final repairedDevice = (await db.query(
@@ -353,8 +368,6 @@ void main() {
           'project_id': 'project:missing',
           'project_key': '甲方||一号工地',
           'ymd': 20260517,
-          'amount': 100.0,
-          // R5.26-B1：amount_fen 现为 NOT NULL；带合法 fen 确保唯一违例来自 FK。
           'amount_fen': 10000,
         }),
         throwsA(isA<DatabaseException>()),
@@ -364,8 +377,6 @@ void main() {
         'project_id': project.id,
         'project_key': '甲方||一号工地',
         'ymd': 20260517,
-        'amount': 100.0,
-        // R5.26-B1：account_payments.amount_fen 现为 NOT NULL。
         'amount_fen': 10000,
       });
 
@@ -655,6 +666,14 @@ void main() {
         expect(
           await _columnNames(db, 'account_payments'),
           contains('merge_batch_total_amount_fen'),
+        );
+        expect(
+          await _columnNames(db, 'account_payments'),
+          isNot(contains('amount')),
+        );
+        expect(
+          await _columnNames(db, 'account_payments'),
+          isNot(contains('merge_batch_total_amount')),
         );
         expect(
           await _columnNames(db, 'project_write_offs'),

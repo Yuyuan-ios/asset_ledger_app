@@ -151,13 +151,11 @@ void main() {
       'project_id': _projectIdForKey('甲方||一号工地'),
       'project_key': '甲方||一号工地',
       'ymd': 20260515,
-      'amount': 500.0,
       'amount_fen': 50000,
       'note': '收款',
       'source_type': AccountPayment.sourceTypeMergeAllocation,
       'merge_group_id': 3,
       'merge_batch_id': 'batch-1',
-      'merge_batch_total_amount': 5000.0,
       'merge_batch_total_amount_fen': 500000,
       'merge_batch_note': '微信收款',
       'created_at': '2026-05-16T01:02:03.000Z',
@@ -453,7 +451,10 @@ void main() {
       expect(payment['source_type'], AccountPayment.sourceTypeManual);
       expect(payment['merge_group_id'], isNull);
       expect(payment['merge_batch_id'], isNull);
-      expect(payment['merge_batch_total_amount'], isNull);
+      expect(payment.containsKey('amount'), isFalse);
+      expect(payment['amount_fen'], 50000);
+      expect(payment.containsKey('merge_batch_total_amount'), isFalse);
+      expect(payment['merge_batch_total_amount_fen'], isNull);
       expect(payment['merge_batch_note'], isNull);
       expect(payment['created_at'], isNull);
     },
@@ -527,6 +528,58 @@ void main() {
     expect(exportedFuel.containsKey('cost'), isFalse);
     expect(exportedFuel['cost_fen'], 12345);
   });
+
+  test(
+    'restore round-trips legacy account payment amounts into fen only',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      final legacyPayment =
+          _paymentMap(
+              amount: 123.45,
+              includeLegacyAmount: true,
+              includeProjectId: true,
+              sourceType: AccountPayment.sourceTypeMergeAllocation,
+              mergeGroupId: 3,
+              mergeBatchId: 'batch-legacy',
+              mergeBatchTotalAmount: 600.0,
+              includeLegacyMergeBatchTotalAmount: true,
+              mergeBatchNote: 'legacy merge',
+              createdAt: '2026-05-16T01:02:03.000Z',
+            )
+            ..remove('amount_fen')
+            ..remove('merge_batch_total_amount_fen');
+
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(
+          schemaVersion: 31,
+          projects: [_projectMap()],
+          timingRecords: const [],
+          accountPayments: [legacyPayment],
+        ),
+      );
+
+      expect(result.success, isTrue);
+
+      final row = (await db.query('account_payments')).single;
+      expect(row.containsKey('amount'), isFalse);
+      expect(row['amount_fen'], 12345);
+      expect(row.containsKey('merge_batch_total_amount'), isFalse);
+      expect(row['merge_batch_total_amount_fen'], 60000);
+
+      final exported = await LocalBackupExportService.exportJsonBackup();
+      expect(exported.success, isTrue);
+      final rawJson = await File(exported.filePath!).readAsString();
+      final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final exportedPayment =
+          (data['account_payments'] as List<dynamic>).single
+              as Map<String, dynamic>;
+      expect(exportedPayment.containsKey('amount'), isFalse);
+      expect(exportedPayment['amount_fen'], 12345);
+      expect(exportedPayment.containsKey('merge_batch_total_amount'), isFalse);
+      expect(exportedPayment['merge_batch_total_amount_fen'], 60000);
+    },
+  );
 
   test(
     'restore round-trips legacy maintenance amount into amount_fen only',
@@ -786,8 +839,9 @@ void main() {
     expect(payment['source_type'], AccountPayment.sourceTypeMergeAllocation);
     expect(payment['merge_group_id'], 3);
     expect(payment['merge_batch_id'], 'batch-1');
-    expect(payment['merge_batch_total_amount'], 5000.0);
+    expect(payment.containsKey('amount'), isFalse);
     expect(payment['amount_fen'], 50000);
+    expect(payment.containsKey('merge_batch_total_amount'), isFalse);
     expect(payment['merge_batch_total_amount_fen'], 500000);
     expect(payment['merge_batch_note'], '微信收款');
     expect(payment['created_at'], '2026-05-16T01:02:03.000Z');
@@ -1190,11 +1244,13 @@ Map<String, Object?> _paymentMap({
   String projectKey = '甲方||一号工地',
   int ymd = 20260515,
   double amount = 500.0,
+  bool includeLegacyAmount = false,
   String? note = '收款',
   String sourceType = AccountPayment.sourceTypeManual,
   int? mergeGroupId,
   String? mergeBatchId,
   double? mergeBatchTotalAmount,
+  bool includeLegacyMergeBatchTotalAmount = false,
   String? mergeBatchNote,
   String? createdAt,
   bool includeProjectId = false,
@@ -1204,12 +1260,17 @@ Map<String, Object?> _paymentMap({
     if (includeProjectId) 'project_id': _projectIdForKey(projectKey),
     'project_key': projectKey,
     'ymd': ymd,
-    'amount': amount,
+    if (includeLegacyAmount) 'amount': amount,
+    'amount_fen': (amount * 100).round(),
     'note': note,
     'source_type': sourceType,
     'merge_group_id': mergeGroupId,
     'merge_batch_id': mergeBatchId,
-    'merge_batch_total_amount': mergeBatchTotalAmount,
+    if (includeLegacyMergeBatchTotalAmount)
+      'merge_batch_total_amount': mergeBatchTotalAmount,
+    'merge_batch_total_amount_fen': mergeBatchTotalAmount == null
+        ? null
+        : (mergeBatchTotalAmount * 100).round(),
     'merge_batch_note': mergeBatchNote,
     'created_at': createdAt,
   };
@@ -1325,12 +1386,22 @@ Future<void> _seedAccountPayment(
 ) async {
   final projectKey = payment['project_key'] as String;
   await _seedProject(db, projectKey: projectKey);
-  // R5.26-B1：account_payments.amount_fen 现为 NOT NULL；原始 payment map 未带 fen
-  // 时按 round(amount*100) 兜底（显式传入的 amount_fen 仍以 payment 为准）。
-  final amount = (payment['amount'] as num).toDouble();
+  final legacyAmount = payment['amount'] as num?;
+  final amountFen =
+      (payment['amount_fen'] as num?)?.toInt() ??
+      ((legacyAmount ?? 0) * 100).round();
+  final legacyMergeTotal = payment['merge_batch_total_amount'] as num?;
+  final mergeBatchTotalAmountFen =
+      (payment['merge_batch_total_amount_fen'] as num?)?.toInt() ??
+      (legacyMergeTotal == null ? null : (legacyMergeTotal * 100).round());
+  final row = Map<String, Object?>.from(payment);
+  row
+    ..remove('amount')
+    ..remove('merge_batch_total_amount');
   await db.insert('account_payments', {
-    'amount_fen': (amount * 100).round(),
-    ...payment,
+    ...row,
+    'amount_fen': amountFen,
+    'merge_batch_total_amount_fen': mergeBatchTotalAmountFen,
     'project_id': payment['project_id'] ?? _projectIdForKey(projectKey),
   });
 }

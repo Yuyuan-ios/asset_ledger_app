@@ -17,8 +17,9 @@ import '../../../test_setup.dart';
 /// `account_payments.amount_fen` 与 `project_write_offs.amount_fen` 在现有
 /// migration / DbSchemaCompat.ensure / onOpen 路径中**永远不会残留 NULL**，
 /// 为后续 R5.26-B1 / B2 把这两列改成 NOT NULL（需重建表）提供前置保障。
-/// Track A / A4-5 后，project_write_offs.amount REAL 已拆除，旧库回填后仅保留
-/// amount_fen。
+/// Track A / A4-6 后，account_payments.amount /
+/// merge_batch_total_amount 与 project_write_offs.amount REAL 已拆除，旧库回填后
+/// 仅保留 fen 列。
 ///
 /// 覆盖三类 legacy 场景：
 /// - 场景 A：fen 列缺失（pre-v18 历史库）→ 升级链补列 + 回填。
@@ -152,8 +153,21 @@ void main() {
         expect(await _rowCount(db, 'account_payments'), 3);
         expect(await _rowCount(db, 'project_write_offs'), 2);
 
-        // 收款表仍保留 REAL amount，逐行 fen == round(amount*100)。
-        await _expectFenMatchesAmount(db, 'account_payments');
+        expect(await _columnExists(db, 'account_payments', 'amount'), isFalse);
+        expect(
+          await _columnExists(
+            db,
+            'account_payments',
+            'merge_batch_total_amount',
+          ),
+          isFalse,
+        );
+        final payments = await db.query('account_payments', orderBy: 'id');
+        expect(payments.map((row) => row['amount_fen']).toList(), [
+          12345,
+          10,
+          1999,
+        ]);
         expect(
           await _columnExists(db, 'project_write_offs', 'amount'),
           isFalse,
@@ -221,12 +235,14 @@ void main() {
       // 兜底回填（ensureMoneyFenSchema）+ 重建为 NOT NULL（B1）。
       await DbMigrations.ensureMoneyFenSchema(db);
       await DbMigrations.ensureAccountPaymentAmountFenNotNull(db);
+      await DbMigrations.ensureAccountPaymentAmountRealsDropped(db);
 
-      // 列翻为 NOT NULL，NULL 被自愈为 round(amount*100)。
+      // 列翻为 NOT NULL，NULL 被自愈为 round(amount*100)，随后 REAL 被拆除。
       expect(
         await _isColumnNullable(db, 'account_payments', 'amount_fen'),
         isFalse,
       );
+      expect(await _columnExists(db, 'account_payments', 'amount'), isFalse);
       expect(await _nullFenCount(db, 'account_payments'), 0);
       expect((await db.query('account_payments')).single['amount_fen'], 8880);
     } finally {
@@ -327,11 +343,15 @@ void main() {
         reason: 'B2 done: project_write_offs.amount_fen 已是 NOT NULL',
       );
 
-      // account_payments REAL 兼容列仍保留且仍 NOT NULL（A4-6 尚未执行）。
-      expect(await _columnExists(db, 'account_payments', 'amount'), isTrue);
       expect(
-        await _isColumnNullable(db, 'account_payments', 'amount'),
+        await _columnExists(db, 'account_payments', 'amount'),
         isFalse,
+        reason: 'A4-6 done: account_payments.amount REAL 已拆除',
+      );
+      expect(
+        await _columnExists(db, 'account_payments', 'merge_batch_total_amount'),
+        isFalse,
+        reason: 'A4-6 done: merge_batch_total_amount REAL 已拆除',
       );
       expect(await _columnExists(db, 'project_write_offs', 'amount'), isFalse);
     } finally {
@@ -496,24 +516,4 @@ Future<int> _nullFenCount(DatabaseExecutor db, String table) async {
 Future<int> _rowCount(DatabaseExecutor db, String table) async {
   final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM $table');
   return (rows.single['c'] as num?)?.toInt() ?? 0;
-}
-
-/// 逐行断言 amount_fen == round(amount*100)，且 amount REAL 仍为原值。
-Future<void> _expectFenMatchesAmount(DatabaseExecutor db, String table) async {
-  final rows = await db.query(table);
-  expect(rows, isNotEmpty);
-  for (final row in rows) {
-    final amount = (row['amount'] as num).toDouble();
-    final fen = (row['amount_fen'] as num?)?.toInt();
-    expect(
-      fen,
-      isNotNull,
-      reason: '$table row ${row['id']} amount_fen 不应为 NULL',
-    );
-    expect(
-      fen,
-      (amount * 100).round(),
-      reason: '$table row ${row['id']} amount_fen 应等于 round(amount*100)',
-    );
-  }
 }

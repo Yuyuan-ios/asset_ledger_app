@@ -93,7 +93,7 @@ void main() {
         rates: [
           ProjectDeviceRate(projectKey: '李洋||万达', deviceId: 2, rate: 150),
         ],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李洋||万达',
@@ -181,7 +181,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [],
+        payments: [],
         settledProjectIds: {settledId},
       );
 
@@ -218,7 +218,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李洋||万达',
@@ -263,7 +263,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [],
+          payments: [],
         );
 
         expect(result.projects.single.receivable, 0);
@@ -301,7 +301,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [],
+        payments: [],
       );
 
       expect(result.totalReceivable, 22000);
@@ -339,7 +339,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '周亮||成都',
@@ -406,7 +406,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: '丁队||五里山',
@@ -480,7 +480,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [],
+        payments: [],
         writeOffs: [
           ProjectWriteOff(
             id: 'write-off-1',
@@ -539,7 +539,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: '王强||河道',
@@ -619,7 +619,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: '赵六||尚义',
@@ -713,7 +713,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [
+          payments: [
             AccountPayment(
               id: 1,
               projectKey: '李杰||尚义',
@@ -829,7 +829,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [],
+          payments: [],
           activeMergeGroups: const [
             AccountProjectMergeGroupWithMembers(
               group: AccountProjectMergeGroup(
@@ -911,7 +911,7 @@ void main() {
             ),
           ],
           rates: [],
-          payments: const [],
+          payments: [],
           activeMergeGroups: const [
             AccountProjectMergeGroupWithMembers(
               group: AccountProjectMergeGroup(

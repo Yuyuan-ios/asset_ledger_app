@@ -50,7 +50,7 @@ void main() {
   group('calcMoneyFen feeds ProjectFinanceCalculator.summarizeTotals', () {
     test('received + write-off < receivable -> remaining > 0, not settled', () {
       final money = receivable1000Fen(
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: 'Alpha||Site X',
@@ -90,7 +90,7 @@ void main() {
         agg: agg,
         devices: oneDevice100,
         rates: const [],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: 'Alpha||Site X',
@@ -115,7 +115,7 @@ void main() {
 
     test('received > receivable -> negative remaining, explicit overPaid', () {
       final money = receivable1000Fen(
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: 'Alpha||Site X',
@@ -172,7 +172,7 @@ void main() {
         ],
         devices: oneDevice100,
         rates: const [],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李杰||尚义',
@@ -243,7 +243,7 @@ void main() {
         ],
         devices: oneDevice100,
         rates: const [],
-        payments: const [],
+        payments: [],
       );
 
       expect(result.totalReceivable, 22000);

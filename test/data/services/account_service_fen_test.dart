@@ -36,7 +36,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [],
+        payments: [],
       );
 
       // 0.333h * 100 元/h = 33.30 元 = 3330 分。
@@ -84,7 +84,7 @@ void main() {
             isBreaking: true,
           ),
         ],
-        payments: const [],
+        payments: [],
       );
 
       // (10h * 120) + (3h * 260) = 1200 + 780 = 1980 元 = 198000 分。
@@ -116,7 +116,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: 'Alpha||Site X',
@@ -168,7 +168,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [],
+        payments: [],
         writeOffs: [
           ProjectWriteOff(
             id: 'w1',
@@ -227,7 +227,7 @@ void main() {
           ),
         ],
         rates: [],
-        payments: const [],
+        payments: [],
       );
 
       // (10*100) + (5*80) + rent 500 = 1000 + 400 + 500 = 1900 元 = 190000 分。
@@ -237,7 +237,7 @@ void main() {
 
   group('AccountService fen sum helpers', () {
     test('sumReceivedFenByProject can exclude one payment id', () {
-      const payments = [
+      final payments = [
         AccountPayment(
           id: 1,
           projectKey: 'Alpha||Site X',

@@ -7,7 +7,7 @@ void main() {
     test('shows normal member payments with site source labels', () {
       final items = buildMergedPaymentDisplayItems(
         memberProjectKeys: const ['李杰||尚义', '李杰||鲜滩'],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李杰||尚义',
@@ -33,7 +33,7 @@ void main() {
     test('groups merge allocation rows by mergeBatchId', () {
       final items = buildMergedPaymentDisplayItems(
         memberProjectKeys: const ['李杰||尚义', '李杰||鲜滩'],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李杰||尚义',
@@ -73,7 +73,7 @@ void main() {
     test('falls back to allocation amount sum when batch total is missing', () {
       final items = buildMergedPaymentDisplayItems(
         memberProjectKeys: const ['李杰||尚义', '李杰||鲜滩'],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李杰||尚义',
@@ -99,7 +99,7 @@ void main() {
     test('sorts mixed payments by ymd, createdAt, and id descending', () {
       final items = buildMergedPaymentDisplayItems(
         memberProjectKeys: const ['李杰||尚义', '李杰||鲜滩'],
-        payments: const [
+        payments: [
           AccountPayment(
             id: 1,
             projectKey: '李杰||尚义',

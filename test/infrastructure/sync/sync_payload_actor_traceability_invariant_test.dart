@@ -47,7 +47,7 @@ void main() {
       await AppDatabase.inTransaction((txn) async {
         await const AccountPaymentSyncEnqueuer().enqueue(
           txn,
-          payment: const AccountPayment(
+          payment: AccountPayment(
             id: 1,
             projectKey: 'k',
             ymd: 20260101,
@@ -112,7 +112,7 @@ void main() {
       await AppDatabase.inTransaction((txn) async {
         await const AccountPaymentSyncEnqueuer().enqueue(
           txn,
-          payment: const AccountPayment(
+          payment: AccountPayment(
             id: 2,
             projectKey: 'k',
             ymd: 20260101,

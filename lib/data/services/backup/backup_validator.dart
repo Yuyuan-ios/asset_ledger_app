@@ -299,13 +299,16 @@ class _BackupRestoreValidator {
           );
         }
         normalized['source_type'] ??= 'manual';
+        // Track A / A4-6：旧备份缺 fen 时按 legacy REAL 回填；插入新
+        // schema 前移除已删除的 REAL 金额列。
         normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
         normalized.putIfAbsent('merge_group_id', () => null);
         normalized.putIfAbsent('merge_batch_id', () => null);
-        normalized.putIfAbsent('merge_batch_total_amount', () => null);
         normalized['merge_batch_total_amount_fen'] ??= _fenFromYuan(
           normalized['merge_batch_total_amount'],
         );
+        normalized.remove('amount');
+        normalized.remove('merge_batch_total_amount');
         normalized.putIfAbsent('merge_batch_note', () => null);
         normalized.putIfAbsent('created_at', () => null);
         break;
@@ -642,8 +645,7 @@ class _BackupRestoreValidator {
       return 'invalid_account_payments_project_key';
     }
     if (!_isInt(row['ymd'])) return 'invalid_account_payments_ymd';
-    if (!_isNumber(row['amount'])) return 'invalid_account_payments_amount';
-    if (!_isNullableInt(row['amount_fen'])) {
+    if (!_isNonNegativeInt(row['amount_fen'])) {
       return 'invalid_account_payments_amount_fen';
     }
     if (!_isNullableString(row['note'])) return 'invalid_account_payments_note';
@@ -663,10 +665,7 @@ class _BackupRestoreValidator {
     if (!_isNullableString(row['merge_batch_id'])) {
       return 'invalid_account_payments_merge_batch_id';
     }
-    if (!_isNullableNumber(row['merge_batch_total_amount'])) {
-      return 'invalid_account_payments_merge_batch_total_amount';
-    }
-    if (!_isNullableInt(row['merge_batch_total_amount_fen'])) {
+    if (!_isNullableNonNegativeInt(row['merge_batch_total_amount_fen'])) {
       return 'invalid_account_payments_merge_batch_total_amount_fen';
     }
     if (!_isNullableString(row['merge_batch_note'])) {
@@ -954,6 +953,4 @@ class _BackupRestoreValidator {
       value == null || _isBooleanInt(value);
 
   static bool _isNumber(Object? value) => value is num;
-
-  static bool _isNullableNumber(Object? value) => value == null || value is num;
 }

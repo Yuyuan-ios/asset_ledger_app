@@ -346,18 +346,20 @@ Future<void> _insertWriteOffRow(
   });
 }
 
-/// 直接落库一行 payment：amount REAL 与 amount_fen 故意脱钩。
+/// 直接落库一行 payment：只写 amount_fen，用来探测权威 SUM 走的是哪一列。
 Future<void> _insertPaymentRow(
   Database db, {
   required String projectId,
   required double amount,
   required int amountFen,
 }) async {
+  if (!amount.isFinite) {
+    throw ArgumentError.value(amount, 'amount');
+  }
   await db.insert(SqfliteAccountPaymentRepository.table, <String, Object?>{
     'project_id': projectId,
     'project_key': '甲方||$projectId',
     'ymd': 20260518,
-    'amount': amount,
     'amount_fen': amountFen,
     'note': null,
     'source_type': 'manual',

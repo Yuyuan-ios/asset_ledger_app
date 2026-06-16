@@ -73,7 +73,13 @@ class BackupRestoreTables {
     ],
     'fuel_logs': ['id', 'device_id', 'date', 'liters', 'cost_fen'],
     'maintenance_records': ['id', 'device_id', 'ymd', 'item', 'amount_fen'],
-    'account_payments': ['id', 'project_id', 'project_key', 'ymd', 'amount'],
+    'account_payments': [
+      'id',
+      'project_id',
+      'project_key',
+      'ymd',
+      'amount_fen',
+    ],
     'project_write_offs': [
       'id',
       'project_id',

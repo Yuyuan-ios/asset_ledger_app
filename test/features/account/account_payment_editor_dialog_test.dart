@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const project = AccountProjectVM(
+  final project = AccountProjectVM(
     projectKey: 'ding+site',
     displayName: '丁队 + 五里山',
     minYmd: 20260301,
@@ -58,7 +58,7 @@ void main() {
   testWidgets('new payment returns the stable project id', (
     WidgetTester tester,
   ) async {
-    const stableProject = AccountProjectVM(
+    final stableProject = AccountProjectVM(
       projectId: 'project:stable',
       projectKey: '丁队||五里山',
       displayName: '丁队 + 五里山',
@@ -85,7 +85,7 @@ void main() {
               onPressed: () async {
                 result = await showDialog<AccountPayment>(
                   context: context,
-                  builder: (_) => const AccountPaymentEditorDialog(
+                  builder: (_) => AccountPaymentEditorDialog(
                     project: stableProject,
                     allPayments: [],
                   ),
@@ -113,7 +113,7 @@ void main() {
   testWidgets('editing payment preserves its project id', (
     WidgetTester tester,
   ) async {
-    const stableProject = AccountProjectVM(
+    final stableProject = AccountProjectVM(
       projectId: 'project:stable',
       projectKey: '丁队||五里山',
       displayName: '丁队 + 五里山',

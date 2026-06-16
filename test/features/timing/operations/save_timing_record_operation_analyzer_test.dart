@@ -1044,16 +1044,14 @@ Future<void> _seedPayment(
   await db.rawInsert(
     '''
     INSERT INTO account_payments (
-      project_id, project_key, ymd, amount, amount_fen, note, source_type,
-      created_at
+      project_id, project_key, ymd, amount_fen, note, source_type, created_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ''',
     [
       projectId,
       '甲方||$projectId',
       20260518,
-      amountFen / 100.0,
       amountFen,
       null,
       'manual',

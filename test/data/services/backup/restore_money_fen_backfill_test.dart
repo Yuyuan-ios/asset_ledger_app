@@ -70,22 +70,24 @@ void main() {
       // 行数与回填值正确。
       final payments = await db.query('account_payments', orderBy: 'id ASC');
       expect(payments.length, 3);
+      expect(payments.map((row) => row.containsKey('amount')).toSet(), {false});
+      final expectedPaymentFen = {1: 12345, 2: 10, 3: 20000};
       for (final row in payments) {
-        final amount = (row['amount'] as num).toDouble();
+        final id = (row['id'] as num).toInt();
         expect(
           (row['amount_fen'] as num?)?.toInt(),
-          (amount * 100).round(),
-          reason: 'account_payments ${row['id']} fen 应 == round(amount*100)',
+          expectedPaymentFen[id],
+          reason: 'account_payments $id fen 应由旧备份 amount 回填',
         );
       }
 
       // merge 行的 merge_batch_total_amount_fen 也被回填。
       final mergeRow = payments.firstWhere((row) => row['id'] == 3);
       expect(mergeRow['source_type'], 'merge_allocation');
+      expect(mergeRow.containsKey('merge_batch_total_amount'), isFalse);
       expect(
         (mergeRow['merge_batch_total_amount_fen'] as num?)?.toInt(),
-        ((mergeRow['merge_batch_total_amount'] as num).toDouble() * 100)
-            .round(),
+        60000,
       );
 
       final writeOffs = await db.query('project_write_offs', orderBy: 'id ASC');
