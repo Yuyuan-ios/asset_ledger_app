@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// R2：财务 fen 收口 —— calcMoneyFen 接入 ProjectFinanceCalculator 与
 /// ComputeAccountSummaryUseCase 后的端到端口径锁定。
 void main() {
-  const oneDevice100 = [
+  final oneDevice100 = [
     Device(
       id: 1,
       name: 'SANY 1#',
@@ -98,9 +98,7 @@ void main() {
             amount: 600,
           ),
         ],
-        writeOffs: [
-          _writeOff(projectKey: 'Alpha||Site X', amount: 400),
-        ],
+        writeOffs: [_writeOff(projectKey: 'Alpha||Site X', amount: 400)],
       );
       final summary = ProjectFinanceCalculator.summarizeTotals(
         receivableFen: money.receivableFen,
@@ -314,4 +312,5 @@ ProjectWriteOff _writeOff({
     writeOffDate: '2026-03-10',
     createdAt: '2026-03-10T00:00:00.000Z',
     updatedAt: '2026-03-10T00:00:00.000Z',
-  );}
+  );
+}

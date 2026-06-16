@@ -473,6 +473,38 @@ void main() {
     expect(device['equipment_type'], 'excavator');
   });
 
+  test('restore round-trips legacy device unit prices into fen only', () async {
+    final db = await _openCurrentInMemoryDb();
+    final legacyDevice = _deviceMap(id: 1)
+      ..remove('default_unit_price_fen')
+      ..remove('breaking_unit_price_fen')
+      ..['default_unit_price'] = 123.45
+      ..['breaking_unit_price'] = 456.78;
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(schemaVersion: 38, devices: [legacyDevice]),
+    );
+
+    expect(result.success, isTrue);
+    final device = (await db.query('devices')).single;
+    expect(device.containsKey('default_unit_price'), isFalse);
+    expect(device.containsKey('breaking_unit_price'), isFalse);
+    expect(device['default_unit_price_fen'], 12345);
+    expect(device['breaking_unit_price_fen'], 45678);
+
+    final export = await LocalBackupExportService.exportJsonBackup();
+    expect(export.success, isTrue);
+    final rawJson = await File(export.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final exportedDevice =
+        (data['devices'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(exportedDevice.containsKey('default_unit_price'), isFalse);
+    expect(exportedDevice.containsKey('breaking_unit_price'), isFalse);
+    expect(exportedDevice['default_unit_price_fen'], 12345);
+    expect(exportedDevice['breaking_unit_price_fen'], 45678);
+  });
+
   test('restore round-trips legacy fuel cost into cost_fen only', () async {
     final db = await _openCurrentInMemoryDb();
     final legacyFuel = _fuelLogMap(id: 1, cost: 123.45)..remove('cost_fen');
@@ -977,8 +1009,6 @@ Map<String, Object?> _deviceMap({required int id}) {
     'name': 'SANY $id#',
     'brand': 'SANY',
     'model': null,
-    'default_unit_price': 100.0,
-    'breaking_unit_price': null,
     'default_unit_price_fen': 10000,
     'breaking_unit_price_fen': null,
     'base_meter_hours': 0.0,

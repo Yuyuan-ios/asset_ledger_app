@@ -270,7 +270,7 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
     prepareCalls += 1;
     return SaveTimingRecordPreparation(
       recordToSave: record,
-      devices: const [
+      devices: [
         Device(
           id: 1,
           name: 'SANY 1#',

@@ -17,14 +17,14 @@ void main() {
   final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
 
   final devices = [
-    const Device(
+    Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',
       defaultUnitPrice: 100,
       baseMeterHours: 0,
     ),
-    const Device(
+    Device(
       id: 2,
       name: 'SANY 1#',
       brand: 'SANY',

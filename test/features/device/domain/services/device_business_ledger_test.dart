@@ -15,7 +15,7 @@ void main() {
     test(
       'uses account summary device income and keeps unit totals separate',
       () {
-        const devices = [
+        final devices = [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -151,7 +151,7 @@ void main() {
     );
 
     test('filters ledgers to the same summary year as the account page', () {
-      const devices = [
+      final devices = [
         Device(
           id: 1,
           name: 'SANY 1#',
@@ -210,7 +210,7 @@ void main() {
     test(
       'merged account project name does not pass through member worker names',
       () {
-        const devices = [
+        final devices = [
           Device(
             id: 1,
             name: 'SANY 1#',

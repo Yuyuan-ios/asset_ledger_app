@@ -55,7 +55,7 @@ class BackupRestoreTables {
       'id',
       'name',
       'brand',
-      'default_unit_price',
+      'default_unit_price_fen',
       'base_meter_hours',
       'is_active',
       'equipment_type',

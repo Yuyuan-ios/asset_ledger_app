@@ -25,7 +25,7 @@ void main() {
 
         final money = AccountService.calcMoney(
           agg: agg,
-          devices: const [],
+          devices: [],
           rates: const [],
           payments: const [],
         );
@@ -42,7 +42,7 @@ void main() {
       () {
         final result = AccountService.buildEffectiveRateMap(
           projectKey: 'Alice||Yard A',
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -91,7 +91,7 @@ void main() {
 
         final info = AccountService.calcRateInfo(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -125,7 +125,7 @@ void main() {
 
         final money = AccountService.calcMoney(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -283,7 +283,7 @@ void main() {
 
       final firstMoney = AccountService.calcMoney(
         agg: projects['project:first']!,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -357,7 +357,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',

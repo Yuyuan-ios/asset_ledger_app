@@ -14,7 +14,7 @@ void main() {
       () {
         final result = DeviceService.nextIndex(
           brand: 'SANY',
-          activeDevices: const [
+          activeDevices: [
             Device(
               id: 1,
               name: 'SANY 2#',
@@ -54,7 +54,7 @@ void main() {
     test('builds the next display name from the trimmed brand', () {
       final result = DeviceService.nextDisplayName(
         brand: '  CAT  ',
-        activeDevices: const [
+        activeDevices: [
           Device(
             id: 1,
             name: 'CAT 1#',
@@ -70,7 +70,7 @@ void main() {
   });
 
   group('DeviceService.applyCustomAvatar', () {
-    const device = Device(
+    final device = Device(
       id: 1,
       name: 'SANY 1#',
       brand: 'SANY',
@@ -104,7 +104,7 @@ void main() {
       'preserves breaking price and equipment type when clearing avatar',
       () {
         final updated = DeviceService.applyCustomAvatar(
-          device: const Device(
+          device: Device(
             id: 2,
             name: 'HITACHI 1#',
             brand: 'HITACHI',

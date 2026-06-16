@@ -9,7 +9,7 @@ void main() {
   testWidgets('renders device index in bold on timing recent records', (
     WidgetTester tester,
   ) async {
-    const device = Device(
+    final device = Device(
       id: 1,
       name: 'SANY 1#',
       brand: 'SANY',
@@ -34,7 +34,7 @@ void main() {
         home: Scaffold(
           body: SectionRecentRecords(
             records: const [record],
-            deviceById: const {1: device},
+            deviceById: {1: device},
             deviceIndexById: const {1: '1#'},
           ),
         ),
@@ -201,7 +201,7 @@ void main() {
           body: CustomScrollView(
             slivers: buildTimingRecentRecordSlivers(
               records: records,
-              deviceById: const {1: _device},
+              deviceById: {1: _device},
               deviceIndexById: const {1: '1#'},
               locallyRemovedKeys: const <String>{},
               expandedAggregateKeys: const <String>{},
@@ -222,7 +222,7 @@ void main() {
   testWidgets('hides zero hours for rent recent record and keeps amount', (
     WidgetTester tester,
   ) async {
-    const device = Device(
+    final device = Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',
@@ -247,7 +247,7 @@ void main() {
         home: Scaffold(
           body: SectionRecentRecords(
             records: const [record],
-            deviceById: const {1: device},
+            deviceById: {1: device},
             deviceIndexById: const {1: '1#'},
           ),
         ),
@@ -381,7 +381,7 @@ void main() {
         home: Scaffold(
           body: SectionRecentRecords(
             records: records,
-            deviceById: const {1: _device, 2: _secondDevice},
+            deviceById: {1: _device, 2: _secondDevice},
             deviceIndexById: const {1: '1#', 2: '2#'},
           ),
         ),
@@ -499,7 +499,7 @@ void main() {
         home: Scaffold(
           body: SectionRecentRecords(
             records: records,
-            deviceById: const {1: _device, 2: _secondDevice},
+            deviceById: {1: _device, 2: _secondDevice},
             deviceIndexById: const {1: '1#', 2: '2#'},
           ),
         ),
@@ -556,7 +556,7 @@ void main() {
   testWidgets('shows rent recent record hours when actual hours exist', (
     WidgetTester tester,
   ) async {
-    const device = Device(
+    final device = Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',
@@ -581,7 +581,7 @@ void main() {
         home: Scaffold(
           body: SectionRecentRecords(
             records: const [record],
-            deviceById: const {1: device},
+            deviceById: {1: device},
             deviceIndexById: const {1: '1#'},
           ),
         ),
@@ -618,7 +618,7 @@ void main() {
   });
 }
 
-const _device = Device(
+final _device = Device(
   id: 1,
   name: 'SANY 1#',
   brand: 'SANY',
@@ -626,7 +626,7 @@ const _device = Device(
   baseMeterHours: 2000,
 );
 
-const _secondDevice = Device(
+final _secondDevice = Device(
   id: 2,
   name: 'CAT 2#',
   brand: 'CAT',
@@ -643,7 +643,7 @@ Future<void> _pumpSectionRecentRecords(
       home: Scaffold(
         body: SectionRecentRecords(
           records: records,
-          deviceById: const {1: _device},
+          deviceById: {1: _device},
           deviceIndexById: const {1: '1#'},
         ),
       ),

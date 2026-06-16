@@ -22,7 +22,7 @@ void main() {
             onRecordsSectionChanged: (_) {},
             records: const [],
             externalWorkItems: const [],
-            deviceById: const {},
+            deviceById: {},
             deviceIndexById: const {},
             onImportExternalWork: () {},
             onLinkExternalWork: () {},
@@ -98,7 +98,7 @@ void main() {
             ),
           ],
           externalWorkItems: const [],
-          deviceById: const {},
+          deviceById: {},
           deviceIndexById: const {1: '1#', 2: '2#'},
           loading: false,
         ),
@@ -118,14 +118,14 @@ void main() {
   testWidgets('recent records filter menu filters by device and restores all', (
     tester,
   ) async {
-    const hitachi = Device(
+    final hitachi = Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',
       defaultUnitPrice: 100,
       baseMeterHours: 2000,
     );
-    const sany = Device(
+    final sany = Device(
       id: 2,
       name: 'SANY 1#',
       brand: 'SANY',
@@ -170,7 +170,7 @@ void main() {
             ),
           ],
           externalWorkItems: const [],
-          deviceById: const {1: hitachi, 2: sany},
+          deviceById: {1: hitachi, 2: sany},
           deviceIndexById: const {1: '1#', 2: '1#'},
           loading: false,
         ),
@@ -235,7 +235,7 @@ void main() {
           onRecordsSectionChanged: (_) {},
           records: const [],
           externalWorkItems: const [],
-          deviceById: const {},
+          deviceById: {},
           deviceIndexById: const {},
           onImportExternalWork: () => importTapped = true,
           onLinkExternalWork: () => linkTapped = true,
@@ -296,7 +296,7 @@ void main() {
                 },
                 records: const [],
                 externalWorkItems: externalItems,
-                deviceById: const {},
+                deviceById: {},
                 deviceIndexById: const {},
                 onImportExternalWork: () => importTapped = true,
                 onLinkExternalWork: () => linkTapped = true,
@@ -394,14 +394,14 @@ void main() {
   testWidgets('recent menu does not expose worklog export action', (
     tester,
   ) async {
-    const hitachi = Device(
+    final hitachi = Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',
       defaultUnitPrice: 100,
       baseMeterHours: 2000,
     );
-    const sany = Device(
+    final sany = Device(
       id: 2,
       name: 'SANY 1#',
       brand: 'SANY',
@@ -437,7 +437,7 @@ void main() {
             ),
           ],
           externalWorkItems: const [],
-          deviceById: const {1: hitachi, 2: sany},
+          deviceById: {1: hitachi, 2: sany},
           deviceIndexById: const {1: '1#', 2: '1#'},
           loading: false,
         ),

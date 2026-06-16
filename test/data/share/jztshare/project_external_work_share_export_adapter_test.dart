@@ -39,7 +39,7 @@ void main() {
   final createdAt = DateTime.utc(2026, 5, 19, 8);
 
   final devices = [
-    const Device(
+    Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',

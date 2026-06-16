@@ -19,7 +19,7 @@ void main() {
         home: Scaffold(
           body: ListView(
             children: buildDevicePageSections(
-              devices: const <Device>[],
+              devices: <Device>[],
               handlers: DevicePageSectionHandlers(
                 onOpenUpgradePage: () {},
                 onOpenAccountCenter: () {},
@@ -51,7 +51,7 @@ void main() {
         home: Scaffold(
           body: ListView(
             children: buildDevicePageSections(
-              devices: const <Device>[
+              devices: <Device>[
                 Device(
                   id: 1,
                   name: 'SANY 1#',

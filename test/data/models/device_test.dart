@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('Device', () {
     test('copyWith overrides selected fields and keeps the rest', () {
-      const device = Device(
+      final device = Device(
         id: 1,
         name: 'SANY 1#',
         brand: 'SANY',
@@ -32,7 +32,7 @@ void main() {
     });
 
     test('toMap and fromMap use database field names and defaults', () {
-      const device = Device(
+      final device = Device(
         id: 2,
         name: 'CAT 1#',
         brand: 'CAT',
@@ -45,9 +45,6 @@ void main() {
         'name': 'CAT 1#',
         'brand': 'CAT',
         'model': null,
-        'default_unit_price': 99.5,
-        'breaking_unit_price': null,
-        // v35：fen 镜像与 REAL 双写;breaking 未配置时 fen 同样为 null。
         'default_unit_price_fen': 9950,
         'breaking_unit_price_fen': null,
         'base_meter_hours': 10.0,
@@ -60,7 +57,7 @@ void main() {
         'id': 3,
         'name': 'HITACHI 1#',
         'brand': 'HITACHI',
-        'default_unit_price': 180,
+        'default_unit_price_fen': 18000,
         'base_meter_hours': 22,
         'is_active': 0,
       });
@@ -70,10 +67,25 @@ void main() {
       expect(rebuilt.brand, 'HITACHI');
       expect(rebuilt.model, isNull);
       expect(rebuilt.defaultUnitPrice, 180);
+      expect(rebuilt.defaultUnitPriceFen, 18000);
       expect(rebuilt.baseMeterHours, 22);
       expect(rebuilt.isActive, isFalse);
       expect(rebuilt.customAvatarPath, isNull);
       expect(rebuilt.equipmentType, EquipmentType.excavator);
+    });
+
+    test('fromMap requires fen authority', () {
+      expect(
+        () => Device.fromMap({
+          'id': 3,
+          'name': 'HITACHI 1#',
+          'brand': 'HITACHI',
+          'default_unit_price': 180,
+          'base_meter_hours': 22,
+          'is_active': 0,
+        }),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 }

@@ -117,7 +117,7 @@ TimingPreviewIncomeUseCase _useCase(_FakeProjectRepository repository) {
 }
 
 Device _device() {
-  return const Device(
+  return Device(
     id: 1,
     name: 'SANY 1#',
     brand: 'sany',

@@ -34,7 +34,10 @@ void main() {
 
         final deviceRow = (await db.query('devices', where: 'id = 1')).single;
         expect(deviceRow['name'], 'Legacy SANY 1#');
-        expect(deviceRow['breaking_unit_price'], isNull);
+        expect(deviceRow.containsKey('default_unit_price'), isFalse);
+        expect(deviceRow.containsKey('breaking_unit_price'), isFalse);
+        expect(deviceRow['default_unit_price_fen'], 38000);
+        expect(deviceRow['breaking_unit_price_fen'], isNull);
         expect(deviceRow['equipment_type'], 'excavator');
 
         final timingRow = (await db.query(
@@ -207,7 +210,11 @@ void main() {
 
       expect(
         await _columnNames(db, 'devices'),
-        containsAll(['breaking_unit_price', 'equipment_type']),
+        allOf(
+          containsAll(['default_unit_price_fen', 'equipment_type']),
+          isNot(contains('default_unit_price')),
+          isNot(contains('breaking_unit_price')),
+        ),
       );
       expect(await _primaryKeyColumns(db, 'project_device_rates'), [
         'project_id',
@@ -236,7 +243,10 @@ void main() {
         where: 'id = 1',
       )).single;
       expect(repairedDevice['equipment_type'], 'excavator');
-      expect(repairedDevice['breaking_unit_price'], isNull);
+      expect(repairedDevice.containsKey('default_unit_price'), isFalse);
+      expect(repairedDevice.containsKey('breaking_unit_price'), isFalse);
+      expect(repairedDevice['default_unit_price_fen'], 50000);
+      expect(repairedDevice['breaking_unit_price_fen'], isNull);
 
       final repairedRate = (await db.query('project_device_rates')).single;
       final repairedProject = (await db.query('projects')).single;

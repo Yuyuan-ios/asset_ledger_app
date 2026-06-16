@@ -1206,7 +1206,7 @@ Future<void> _pumpTimingPage(
 }
 
 Device _device() {
-  return const Device(
+  return Device(
     id: 1,
     name: 'SANY 1#',
     brand: 'SANY',
@@ -1563,7 +1563,7 @@ class _FakeSaveTimingRecordWithImpactUseCase
   }) async {
     return SaveTimingRecordPreparation(
       recordToSave: record,
-      devices: const [],
+      devices: [],
       rates: const [],
       timestampIso: '2026-05-30T00:00:00.000Z',
     );

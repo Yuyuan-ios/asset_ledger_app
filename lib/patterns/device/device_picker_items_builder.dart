@@ -66,7 +66,7 @@ List<DevicePickerItemVm> buildDevicePickerItems({
   if (selectedId != null && !activeIds.contains(selectedId)) {
     final selected = allDevices.firstWhere(
       (d) => d.id == selectedId,
-      orElse: () => const Device(
+      orElse: () => Device(
         id: -1,
         name: '未知设备',
         brand: '',

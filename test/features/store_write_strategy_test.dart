@@ -151,7 +151,7 @@ void main() {
       final store = DeviceStore(repository);
 
       await store.insert(
-        const Device(
+        Device(
           name: '',
           brand: 'SANY',
           defaultUnitPrice: 100,

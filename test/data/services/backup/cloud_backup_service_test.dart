@@ -67,7 +67,6 @@ void main() {
       'id': 1,
       'name': 'SANY 1#',
       'brand': 'sany',
-      'default_unit_price': 380.0,
       'default_unit_price_fen': 38000,
       'base_meter_hours': 0.0,
       'is_active': 1,
@@ -157,24 +156,26 @@ void main() {
     expect(await db.query('timing_records'), before, reason: '失败不得动权威表');
   });
 
-  test('backup from a newer schema version is rejected before restore',
-      () async {
-    final db = await openDb();
-    await seedBusinessData(db);
+  test(
+    'backup from a newer schema version is rejected before restore',
+    () async {
+      final db = await openDb();
+      await seedBusinessData(db);
 
-    final gateway = _InMemoryCloudBackupGateway();
-    final uploader = CloudBackupService(
-      gateway: gateway,
-      currentDbSchemaVersion: AppDatabase.schemaVersion + 1,
-    );
-    final upload = await uploader.uploadCurrent();
-    expect(upload.success, isTrue);
+      final gateway = _InMemoryCloudBackupGateway();
+      final uploader = CloudBackupService(
+        gateway: gateway,
+        currentDbSchemaVersion: AppDatabase.schemaVersion + 1,
+      );
+      final upload = await uploader.uploadCurrent();
+      expect(upload.success, isTrue);
 
-    final restorer = CloudBackupService(gateway: gateway);
-    final result = await restorer.restoreFromCloud(upload.backupId!);
-    expect(result.success, isFalse);
-    expect(result.errorCode, 'newer_schema_version');
-  });
+      final restorer = CloudBackupService(gateway: gateway);
+      final result = await restorer.restoreFromCloud(upload.backupId!);
+      expect(result.success, isFalse);
+      expect(result.errorCode, 'newer_schema_version');
+    },
+  );
 
   test('gateway failures surface as coded results, not exceptions', () async {
     final db = await openDb();
@@ -191,60 +192,64 @@ void main() {
   });
 
   group('client-side encryption', () {
-    test('encrypted upload stores ciphertext and round-trips on restore',
-        () async {
-      final db = await openDb();
-      await seedBusinessData(db);
+    test(
+      'encrypted upload stores ciphertext and round-trips on restore',
+      () async {
+        final db = await openDb();
+        await seedBusinessData(db);
 
-      final gateway = _InMemoryCloudBackupGateway();
-      final service = CloudBackupService(
-        gateway: gateway,
-        keyProvider: const _FixedKeyProvider('account-secret-A'),
-      );
+        final gateway = _InMemoryCloudBackupGateway();
+        final service = CloudBackupService(
+          gateway: gateway,
+          keyProvider: const _FixedKeyProvider('account-secret-A'),
+        );
 
-      final upload = await service.uploadCurrent();
-      expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
+        final upload = await service.uploadCurrent();
+        expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
 
-      final stored = gateway.envelopes[upload.backupId]!;
-      // OSS 只见密文:传输体不含明文业务字段,且标了加密编码 + 元数据。
-      expect(stored.isEncrypted, isTrue);
-      expect(stored.payloadEncoding, CloudBackupEnvelope.encodingAesGcm);
-      expect(stored.encryption, isNotNull);
-      expect(stored.payloadJson, isNot(contains('云端工地')));
-      expect(stored.payloadJson, isNot(contains('project:cloud')));
+        final stored = gateway.envelopes[upload.backupId]!;
+        // OSS 只见密文:传输体不含明文业务字段,且标了加密编码 + 元数据。
+        expect(stored.isEncrypted, isTrue);
+        expect(stored.payloadEncoding, CloudBackupEnvelope.encodingAesGcm);
+        expect(stored.encryption, isNotNull);
+        expect(stored.payloadJson, isNot(contains('云端工地')));
+        expect(stored.payloadJson, isNot(contains('project:cloud')));
 
-      await db.delete('timing_records');
-      await db.delete('devices');
-      await db.delete('projects');
+        await db.delete('timing_records');
+        await db.delete('devices');
+        await db.delete('projects');
 
-      final result = await service.restoreFromCloud(upload.backupId!);
-      expect(result.success, isTrue, reason: result.message);
-      final rows = await db.query('timing_records');
-      expect(rows, hasLength(1));
-      expect(rows.single['quantity_scaled'], 7500);
-    });
+        final result = await service.restoreFromCloud(upload.backupId!);
+        expect(result.success, isTrue, reason: result.message);
+        final rows = await db.query('timing_records');
+        expect(rows, hasLength(1));
+        expect(rows.single['quantity_scaled'], 7500);
+      },
+    );
 
-    test('restore with a different account is rejected as wrong_account',
-        () async {
-      final db = await openDb();
-      await seedBusinessData(db);
+    test(
+      'restore with a different account is rejected as wrong_account',
+      () async {
+        final db = await openDb();
+        await seedBusinessData(db);
 
-      final gateway = _InMemoryCloudBackupGateway();
-      final uploader = CloudBackupService(
-        gateway: gateway,
-        keyProvider: const _FixedKeyProvider('account-secret-A'),
-      );
-      final upload = await uploader.uploadCurrent();
-      expect(upload.success, isTrue);
+        final gateway = _InMemoryCloudBackupGateway();
+        final uploader = CloudBackupService(
+          gateway: gateway,
+          keyProvider: const _FixedKeyProvider('account-secret-A'),
+        );
+        final upload = await uploader.uploadCurrent();
+        expect(upload.success, isTrue);
 
-      final other = CloudBackupService(
-        gateway: gateway,
-        keyProvider: const _FixedKeyProvider('account-secret-B'),
-      );
-      final result = await other.restoreFromCloud(upload.backupId!);
-      expect(result.success, isFalse);
-      expect(result.errorCode, 'wrong_account');
-    });
+        final other = CloudBackupService(
+          gateway: gateway,
+          keyProvider: const _FixedKeyProvider('account-secret-B'),
+        );
+        final result = await other.restoreFromCloud(upload.backupId!);
+        expect(result.success, isFalse);
+        expect(result.errorCode, 'wrong_account');
+      },
+    );
 
     test('encrypted backup cannot be restored without a key', () async {
       final db = await openDb();
@@ -263,45 +268,49 @@ void main() {
       expect(result.errorCode, 'encryption_key_unavailable');
     });
 
-    test('requireEncryption rejects plaintext upload when key unavailable',
-        () async {
-      final db = await openDb();
-      await seedBusinessData(db);
+    test(
+      'requireEncryption rejects plaintext upload when key unavailable',
+      () async {
+        final db = await openDb();
+        await seedBusinessData(db);
 
-      final gateway = _InMemoryCloudBackupGateway();
-      final service = CloudBackupService(
-        gateway: gateway,
-        keyProvider: const _FixedKeyProvider(null),
-        requireEncryption: true,
-      );
-      final upload = await service.uploadCurrent();
-      expect(upload.success, isFalse);
-      expect(upload.errorCode, 'encryption_key_unavailable');
-      expect(gateway.envelopes, isEmpty, reason: '不得上传明文');
-    });
+        final gateway = _InMemoryCloudBackupGateway();
+        final service = CloudBackupService(
+          gateway: gateway,
+          keyProvider: const _FixedKeyProvider(null),
+          requireEncryption: true,
+        );
+        final upload = await service.uploadCurrent();
+        expect(upload.success, isFalse);
+        expect(upload.errorCode, 'encryption_key_unavailable');
+        expect(gateway.envelopes, isEmpty, reason: '不得上传明文');
+      },
+    );
 
-    test('legacy plaintext backups still restore when a key is configured',
-        () async {
-      final db = await openDb();
-      await seedBusinessData(db);
+    test(
+      'legacy plaintext backups still restore when a key is configured',
+      () async {
+        final db = await openDb();
+        await seedBusinessData(db);
 
-      // 先用无加密服务上传明文包(模拟历史备份)。
-      final gateway = _InMemoryCloudBackupGateway();
-      final legacy = CloudBackupService(gateway: gateway);
-      final upload = await legacy.uploadCurrent();
-      expect(gateway.envelopes[upload.backupId]!.isEncrypted, isFalse);
+        // 先用无加密服务上传明文包(模拟历史备份)。
+        final gateway = _InMemoryCloudBackupGateway();
+        final legacy = CloudBackupService(gateway: gateway);
+        final upload = await legacy.uploadCurrent();
+        expect(gateway.envelopes[upload.backupId]!.isEncrypted, isFalse);
 
-      await db.delete('timing_records');
+        await db.delete('timing_records');
 
-      // 之后用带密钥的服务恢复:明文包向后兼容。
-      final withKey = CloudBackupService(
-        gateway: gateway,
-        keyProvider: const _FixedKeyProvider('account-secret-A'),
-      );
-      final result = await withKey.restoreFromCloud(upload.backupId!);
-      expect(result.success, isTrue, reason: result.message);
-      expect(await db.query('timing_records'), hasLength(1));
-    });
+        // 之后用带密钥的服务恢复:明文包向后兼容。
+        final withKey = CloudBackupService(
+          gateway: gateway,
+          keyProvider: const _FixedKeyProvider('account-secret-A'),
+        );
+        final result = await withKey.restoreFromCloud(upload.backupId!);
+        expect(result.success, isTrue, reason: result.message);
+        expect(await db.query('timing_records'), hasLength(1));
+      },
+    );
   });
 }
 

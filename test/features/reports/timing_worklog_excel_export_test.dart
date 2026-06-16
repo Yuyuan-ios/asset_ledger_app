@@ -41,7 +41,7 @@ class _FakePresenter implements ReportFilePresenter {
 }
 
 void main() {
-  const hitachi = Device(
+  final hitachi = Device(
     id: 1,
     name: 'HITACHI 1#',
     brand: '日立',
@@ -78,7 +78,7 @@ void main() {
           income: 800,
         ),
       ],
-      devices: const [hitachi],
+      devices: [hitachi],
     );
 
     expect(report.rows, hasLength(2));
@@ -95,7 +95,7 @@ void main() {
   test('report builder maps linked external work rows', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
       records: const [],
-      devices: const [],
+      devices: [],
       externalWorkItems: [
         _externalItem(
           id: 'external-a',
@@ -136,7 +136,7 @@ void main() {
           hours: 0,
         ),
       ],
-      devices: const [hitachi],
+      devices: [hitachi],
       rates: const [
         ProjectDeviceRate(
           projectId: 'project-a',
@@ -187,7 +187,7 @@ void main() {
             income: 800,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 9,
             name: 'HITACHI 1#',
@@ -206,7 +206,7 @@ void main() {
   test('excel writer builds the fixed template header structure', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
       records: const [_record],
-      devices: const [hitachi],
+      devices: [hitachi],
     );
     final sheet = _sheetXml(report);
     final cells = _cells(sheet);
@@ -232,7 +232,7 @@ void main() {
   test('excel writer maps meter quantity unit price and amount columns', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
       records: const [_record],
-      devices: const [hitachi],
+      devices: [hitachi],
     );
     final cells = _cells(_sheetXml(report));
 
@@ -268,7 +268,7 @@ void main() {
       });
       final report = const BuildTimingWorklogReportUseCase().execute(
         records: records,
-        devices: const [hitachi],
+        devices: [hitachi],
       );
       const writer = TimingWorklogExcelWriter(recordsPerPage: 20);
       final archive = ZipDecoder().decodeBytes(writer.write(report));
@@ -324,7 +324,7 @@ void main() {
         fileNamePart: '李洋 · 天眉乐',
       ),
       records: const [_record],
-      devices: const [hitachi],
+      devices: [hitachi],
     );
 
     expect(outcome.ok, isTrue);
@@ -370,7 +370,7 @@ void main() {
             hours: 3,
           ),
         ],
-        devices: const [hitachi],
+        devices: [hitachi],
         externalWorkItems: [
           _externalItem(
             id: 'external-a',
@@ -477,7 +477,7 @@ void main() {
           hours: 5,
         ),
       ],
-      devices: const [hitachi, _komatsu],
+      devices: [hitachi, _komatsu],
     );
     final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
 
@@ -523,7 +523,7 @@ void main() {
         _record.copyWith(id: 3, projectId: 'project-c', startDate: 20260501),
         _record.copyWith(id: 4, projectId: 'merge:2', startDate: 20260502),
       ],
-      devices: const [hitachi],
+      devices: [hitachi],
       externalWorkItems: [
         _externalItem(
           id: 'external-member-a',
@@ -595,7 +595,7 @@ void main() {
           includeExternalWork: true,
         ),
         records: const [],
-        devices: const [hitachi],
+        devices: [hitachi],
         externalWorkItems: [
           _externalItem(
             id: 'external-only',
@@ -633,7 +633,7 @@ void main() {
         fileNamePart: '李洋 · 天眉乐',
       ),
       records: const [],
-      devices: const [],
+      devices: [],
       externalWorkItems: [
         _externalItem(
           id: 'empty-linked-default',
@@ -681,7 +681,7 @@ void main() {
         fileNamePart: '李洋 · 天眉乐',
       ),
       records: const [_record],
-      devices: const [hitachi],
+      devices: [hitachi],
     );
     expect(result.ok, isFalse);
     expect(result.message, '分享面板打开失败，工时表已保留，可稍后重试');
@@ -754,7 +754,7 @@ const _record = TimingRecord(
   income: 750,
 );
 
-const _komatsu = Device(
+final _komatsu = Device(
   id: 2,
   name: 'KOMATSU 2#',
   brand: '小松',

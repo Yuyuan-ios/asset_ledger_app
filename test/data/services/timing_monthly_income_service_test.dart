@@ -758,7 +758,7 @@ void main() {
                 isBreaking: true,
               ),
             ],
-            devices: const [
+            devices: [
               Device(
                 id: 1,
                 name: 'SANY 1#',
@@ -807,7 +807,7 @@ void main() {
                 isBreaking: true,
               ),
             ],
-            devices: const [
+            devices: [
               Device(
                 id: 1,
                 name: 'SANY 1#',
@@ -880,7 +880,7 @@ void main() {
             income: 9999,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -915,7 +915,7 @@ void main() {
             income: 22000,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'HITACHI 1#',
@@ -979,7 +979,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1060,7 +1060,7 @@ void main() {
               income: 9999,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1103,7 +1103,7 @@ void main() {
             income: 0,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1179,7 +1179,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1231,7 +1231,7 @@ void main() {
             income: 0,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1280,7 +1280,7 @@ void main() {
             income: 0,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1347,7 +1347,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1405,7 +1405,7 @@ void main() {
             income: 9999,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1442,7 +1442,7 @@ void main() {
             income: 9999,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1495,7 +1495,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1537,7 +1537,7 @@ void main() {
             income: 0,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1577,7 +1577,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1615,7 +1615,7 @@ void main() {
             income: 1260,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1652,7 +1652,7 @@ void main() {
             income: 0,
           ),
         ],
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -1698,7 +1698,7 @@ void main() {
 
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
           records: const [record],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -1738,7 +1738,7 @@ void main() {
           income: 0,
         ),
       ];
-      const devices = [
+      final devices = [
         Device(
           id: 1,
           name: 'SANY 1#',

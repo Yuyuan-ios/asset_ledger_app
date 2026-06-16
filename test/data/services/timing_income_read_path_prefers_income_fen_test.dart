@@ -9,11 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// buildProjects.rentIncomeFen / calcMoneyFen 应读 [TimingRecord.incomeFen]
 /// (= 存储 income_fen ?? round(income*100))，而非恒由 income 派生。
 void main() {
-  TimingRecord rent({
-    required int id,
-    required double income,
-    int? incomeFen,
-  }) {
+  TimingRecord rent({required int id, required double income, int? incomeFen}) {
     return TimingRecord(
       id: id,
       deviceId: 1,
@@ -59,7 +55,7 @@ void main() {
       );
       final money = AccountService.calcMoneyFen(
         agg: projects[aliceProjectId]!,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',

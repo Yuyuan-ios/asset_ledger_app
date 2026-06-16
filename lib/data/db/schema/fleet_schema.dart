@@ -9,8 +9,6 @@ class FleetSchema {
         name TEXT NOT NULL,
         brand TEXT NOT NULL,
         model TEXT,
-        default_unit_price REAL NOT NULL,
-        breaking_unit_price REAL,
         default_unit_price_fen INTEGER NOT NULL,
         breaking_unit_price_fen INTEGER,
         base_meter_hours REAL NOT NULL,

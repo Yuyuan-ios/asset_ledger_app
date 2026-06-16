@@ -130,7 +130,7 @@ LocalBackupRestoreService _restoreService() {
 Future<int> _seedDeviceAndProject(Database db) async {
   final deviceId = await db.insert(
     'devices',
-    const Device(
+    Device(
       name: 'SANY 1#',
       brand: 'SANY',
       defaultUnitPrice: 100,
@@ -200,7 +200,7 @@ Map<String, dynamic> _backupJson({required Map<String, Object?> timingRecord}) {
         },
       ],
       'devices': [
-        const Device(
+        Device(
           id: 1,
           name: 'SANY 1#',
           brand: 'SANY',

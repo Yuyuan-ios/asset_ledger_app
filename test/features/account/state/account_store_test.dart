@@ -266,7 +266,7 @@ const _timingRecords = [
   ),
 ];
 
-const _devices = [
+final _devices = [
   Device(
     id: 1,
     name: 'HITACHI 1#',

@@ -127,7 +127,7 @@ void main() {
                   income: 0,
                 ),
               ],
-              devices: const [
+              devices: [
                 Device(
                   id: 1,
                   name: 'SANY 1#',

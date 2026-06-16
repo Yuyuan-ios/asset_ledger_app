@@ -20,7 +20,7 @@ void main() {
                 result = await showDialog<Device>(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => const DeviceEditorDialog(
+                  builder: (_) => DeviceEditorDialog(
                     device: Device(
                       id: 1,
                       name: 'SANY 1#',
@@ -45,16 +45,12 @@ void main() {
 
     final breakingField = find.byWidgetPredicate(
       (widget) =>
-          widget is TextField &&
-          widget.decoration?.labelText == '破碎单价（选填）',
+          widget is TextField && widget.decoration?.labelText == '破碎单价（选填）',
     );
     expect(breakingField, findsOneWidget);
 
     await tester.enterText(breakingField, '60');
-    expect(
-      tester.widget<TextField>(breakingField).controller?.text,
-      '60',
-    );
+    expect(tester.widget<TextField>(breakingField).controller?.text, '60');
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 

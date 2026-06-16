@@ -34,7 +34,7 @@ void main() {
     );
     final money = AccountService.calcMoneyFen(
       agg: projects[projectId]!,
-      devices: const [
+      devices: [
         Device(
           id: 1,
           name: 'SANY 1#',

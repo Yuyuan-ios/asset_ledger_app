@@ -257,13 +257,16 @@ class _BackupRestoreValidator {
         break;
       case 'devices':
         normalized['equipment_type'] ??= 'excavator';
-        // v35：旧备份缺单价 fen 镜像时按 REAL 回填;breaking 为 null 保持 null。
+        // Track A / A4-3：旧备份缺单价 fen 时按 legacy REAL 回填；
+        // 插入新 schema 前移除已删除的 REAL 单价列。
         normalized['default_unit_price_fen'] ??= _fenFromYuan(
           normalized['default_unit_price'],
         );
         normalized['breaking_unit_price_fen'] ??= _fenFromYuan(
           normalized['breaking_unit_price'],
         );
+        normalized.remove('default_unit_price');
+        normalized.remove('breaking_unit_price');
         break;
       case 'timing_records':
         normalized['contact'] ??= '';
@@ -516,13 +519,7 @@ class _BackupRestoreValidator {
     if (!_isString(row['name'])) return 'invalid_devices_name';
     if (!_isString(row['brand'])) return 'invalid_devices_brand';
     if (!_isNullableString(row['model'])) return 'invalid_devices_model';
-    if (!_isNumber(row['default_unit_price'])) {
-      return 'invalid_devices_default_unit_price';
-    }
-    if (!_isNullableNumber(row['breaking_unit_price'])) {
-      return 'invalid_devices_breaking_unit_price';
-    }
-    if (!_isNullableInt(row['default_unit_price_fen'])) {
+    if (!_isInt(row['default_unit_price_fen'])) {
       return 'invalid_devices_default_unit_price_fen';
     }
     if (!_isNullableInt(row['breaking_unit_price_fen'])) {

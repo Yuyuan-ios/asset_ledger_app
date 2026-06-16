@@ -26,17 +26,7 @@ class DbSchemaCompat {
       ON timing_calculation_history(timing_record_id);
     ''');
 
-    // devices.breaking_unit_price 兜底
     final deviceCols = await db.rawQuery('PRAGMA table_info(devices);');
-    final hasBreakingUnitPrice = deviceCols.any(
-      (row) => row['name'] == 'breaking_unit_price',
-    );
-    if (!hasBreakingUnitPrice) {
-      await db.execute(
-        'ALTER TABLE devices ADD COLUMN breaking_unit_price REAL;',
-      );
-    }
-
     final hasEquipmentType = deviceCols.any(
       (row) => row['name'] == 'equipment_type',
     );
@@ -142,6 +132,9 @@ class DbSchemaCompat {
     // v43（Track A / A4-2）：maintenance_records.amount REAL 删除；
     // amount_fen 为唯一存储权威，AUTOINCREMENT 高水位保留。
     await DbMigrations.ensureMaintenanceAmountRealDropped(db);
+    // v44（Track A / A4-3）：devices.default_unit_price /
+    // breaking_unit_price REAL 删除；fen 为唯一存储权威，AUTOINCREMENT 高水位保留。
+    await DbMigrations.ensureDeviceUnitPriceRealsDropped(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

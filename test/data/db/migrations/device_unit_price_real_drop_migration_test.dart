@@ -10,7 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../test_setup.dart';
 
-/// Track A / A2a：devices.default_unit_price_fen 提升为 NOT NULL。
+/// Track A / A4-3：devices 单价 REAL 删除，fen 成为唯一存储权威。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -19,7 +19,9 @@ void main() {
   late String dbPath;
 
   setUp(() async {
-    tmpDir = await Directory.systemTemp.createTemp('device_default_fen_nn_');
+    tmpDir = await Directory.systemTemp.createTemp(
+      'device_unit_price_real_drop_',
+    );
     dbPath = p.join(tmpDir.path, 'asset_ledger.db');
   });
 
@@ -29,7 +31,7 @@ void main() {
     }
   });
 
-  test('fresh schema enforces default_unit_price_fen NOT NULL only', () async {
+  test('fresh schema has unit price fen columns only', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
@@ -38,34 +40,43 @@ void main() {
       ),
     );
     try {
-      expect(await _isNotNull(db, 'devices', 'default_unit_price_fen'), isTrue);
-      expect(
-        await _isNotNull(db, 'devices', 'breaking_unit_price_fen'),
-        isFalse,
-      );
       expect(await _columnExists(db, 'devices', 'default_unit_price'), isFalse);
       expect(
         await _columnExists(db, 'devices', 'breaking_unit_price'),
         isFalse,
       );
+      expect(await _isNotNull(db, 'devices', 'default_unit_price_fen'), isTrue);
+      expect(
+        await _isNotNull(db, 'devices', 'breaking_unit_price_fen'),
+        isFalse,
+      );
+
+      await db.insert('devices', _a4DeviceRow(defaultFen: 12345));
+      final row = (await db.query('devices')).single;
+      final device = Device.fromMap(row);
+      expect(device.defaultUnitPrice, 123.45);
+      expect(device.breakingUnitPrice, isNull);
     } finally {
       await db.close();
     }
   });
 
   test(
-    'legacy v37 nullable default fen is rebuilt, backfilled, and keeps rows',
+    'legacy rows are rebuilt without REAL prices and preserve/backfill fen',
     () async {
-      final legacy = await databaseFactoryFfi.openDatabase(
+      final db = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
-          version: 37,
+          version: 43,
           onCreate: (db, _) async {
-            await _createV37Devices(db);
-            await db.insert('devices', _deviceRow(id: 1, price: 380.5));
+            await _createLegacyDevices(db);
             await db.insert(
               'devices',
-              _deviceRow(
+              _legacyDeviceRow(id: 1, price: 380.5, breakingPrice: 480.0),
+            );
+            await db.insert(
+              'devices',
+              _legacyDeviceRow(
                 id: 2,
                 price: 300.0,
                 defaultFen: 1,
@@ -74,53 +85,62 @@ void main() {
             );
             await db.insert(
               'devices',
-              _deviceRow(id: 3, price: 199.99, breakingPrice: 250.1),
+              _legacyDeviceRow(
+                id: 3,
+                price: 199.99,
+                breakingPrice: 250.1,
+                breakingFen: 2,
+              ),
             );
           },
         ),
       );
-      expect(
-        await _isNotNull(legacy, 'devices', 'default_unit_price_fen'),
-        isFalse,
-      );
-      await legacy.close();
-
-      final upgraded = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: AppDatabase.schemaVersion,
-          onUpgrade: DbMigrations.apply,
-          onOpen: DbMigrations.ensureDeviceDefaultUnitPriceFenNotNull,
-        ),
-      );
       try {
         expect(
-          await _isNotNull(upgraded, 'devices', 'default_unit_price_fen'),
+          await _columnExists(db, 'devices', 'default_unit_price'),
           isTrue,
         );
         expect(
-          await _isNotNull(upgraded, 'devices', 'breaking_unit_price_fen'),
-          isFalse,
+          await _columnExists(db, 'devices', 'breaking_unit_price'),
+          isTrue,
         );
 
-        final rows = await upgraded.query('devices', orderBy: 'id');
+        await DbMigrations.ensureDeviceUnitPriceRealsDropped(db);
+
+        expect(
+          await _columnExists(db, 'devices', 'default_unit_price'),
+          isFalse,
+        );
+        expect(
+          await _columnExists(db, 'devices', 'breaking_unit_price'),
+          isFalse,
+        );
+        expect(
+          await _isNotNull(db, 'devices', 'default_unit_price_fen'),
+          isTrue,
+        );
+        final rows = await db.query('devices', orderBy: 'id');
         expect(rows, hasLength(3));
         expect(rows[0]['default_unit_price_fen'], 38050);
-        expect(rows[0]['breaking_unit_price_fen'], isNull);
+        expect(rows[0]['breaking_unit_price_fen'], 48000);
         expect(
           rows[1]['default_unit_price_fen'],
           1,
-          reason: '既有非 NULL fen 不应被重建覆盖',
+          reason: '既有非 NULL default fen 不应被重建覆盖',
         );
         expect(rows[1]['breaking_unit_price_fen'], isNull);
         expect(rows[2]['default_unit_price_fen'], 19999);
-        expect(rows[2]['breaking_unit_price_fen'], 25010);
+        expect(
+          rows[2]['breaking_unit_price_fen'],
+          2,
+          reason: '既有非 NULL breaking fen 不应被重建覆盖',
+        );
 
-        final device = Device.fromMap(rows[2]);
-        expect(device.defaultUnitPriceFen, 19999);
-        expect(device.breakingUnitPriceFen, 25010);
+        final device = Device.fromMap(rows[0]);
+        expect(device.defaultUnitPrice, 380.5);
+        expect(device.breakingUnitPrice, 480.0);
       } finally {
-        await upgraded.close();
+        await db.close();
       }
     },
   );
@@ -129,19 +149,18 @@ void main() {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 37,
+        version: 43,
         onCreate: (db, _) async {
-          await _createV37Devices(db);
-          await db.insert('devices', _deviceRow(id: 1000, price: 1.0));
+          await _createLegacyDevices(db);
+          await db.insert('devices', _legacyDeviceRow(id: 1000, price: 1.0));
           await db.delete('devices', where: 'id = 1000');
-          await db.insert('devices', _deviceRow(id: 1, price: 2.0));
+          await db.insert('devices', _legacyDeviceRow(id: 1, price: 2.0));
         },
       ),
     );
-
-    await DbMigrations.ensureDeviceDefaultUnitPriceFenNotNull(db);
-
     try {
+      await DbMigrations.ensureDeviceUnitPriceRealsDropped(db);
+
       final seqRows = await db.rawQuery(
         "SELECT name, seq FROM sqlite_sequence WHERE name LIKE 'devices%';",
       );
@@ -149,10 +168,7 @@ void main() {
       expect(seqRows.single['name'], 'devices');
       expect((seqRows.single['seq'] as int), greaterThanOrEqualTo(1000));
 
-      final newId = await db.insert(
-        'devices',
-        _deviceRow(price: 3.0, defaultFen: 300),
-      );
+      final newId = await db.insert('devices', _a4DeviceRow(defaultFen: 300));
       expect(newId, greaterThan(1000));
     } finally {
       await db.close();
@@ -163,29 +179,29 @@ void main() {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 37,
+        version: 43,
         onCreate: (db, _) async {
-          await _createV37Devices(db);
-          await db.insert('devices', _deviceRow(id: 1, price: 88.88));
+          await _createLegacyDevices(db);
+          await db.insert('devices', _legacyDeviceRow(id: 1, price: 88.88));
         },
       ),
     );
     try {
-      await DbMigrations.ensureDeviceDefaultUnitPriceFenNotNull(db);
+      await DbMigrations.ensureDeviceUnitPriceRealsDropped(db);
       final afterFirst = await db.query('devices');
 
-      await DbMigrations.ensureDeviceDefaultUnitPriceFenNotNull(db);
+      await DbMigrations.ensureDeviceUnitPriceRealsDropped(db);
       final afterSecond = await db.query('devices');
 
       expect(afterSecond, afterFirst);
-      expect(await _isNotNull(db, 'devices', 'default_unit_price_fen'), isTrue);
+      expect(await _columnExists(db, 'devices', 'default_unit_price'), isFalse);
     } finally {
       await db.close();
     }
   });
 }
 
-Future<void> _createV37Devices(DatabaseExecutor db) async {
+Future<void> _createLegacyDevices(DatabaseExecutor db) async {
   await db.execute('''
     CREATE TABLE devices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,11 +220,12 @@ Future<void> _createV37Devices(DatabaseExecutor db) async {
   ''');
 }
 
-Map<String, Object?> _deviceRow({
+Map<String, Object?> _legacyDeviceRow({
   int? id,
   required double price,
   int? defaultFen,
   double? breakingPrice,
+  int? breakingFen,
 }) {
   return {
     'id': id,
@@ -218,7 +235,26 @@ Map<String, Object?> _deviceRow({
     'default_unit_price': price,
     'breaking_unit_price': breakingPrice,
     'default_unit_price_fen': defaultFen,
-    'breaking_unit_price_fen': null,
+    'breaking_unit_price_fen': breakingFen,
+    'base_meter_hours': 0.0,
+    'is_active': 1,
+    'custom_avatar_path': null,
+    'equipment_type': 'excavator',
+  };
+}
+
+Map<String, Object?> _a4DeviceRow({
+  int? id,
+  required int defaultFen,
+  int? breakingFen,
+}) {
+  return {
+    'id': id,
+    'name': 'SANY ${id ?? 'new'}',
+    'brand': 'sany',
+    'model': null,
+    'default_unit_price_fen': defaultFen,
+    'breaking_unit_price_fen': breakingFen,
     'base_meter_hours': 0.0,
     'is_active': 1,
     'custom_avatar_path': null,

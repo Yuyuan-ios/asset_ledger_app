@@ -26,7 +26,7 @@ void main() {
 
       final money = AccountService.calcMoneyFen(
         agg: agg,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -60,7 +60,7 @@ void main() {
 
       final money = AccountService.calcMoneyFen(
         agg: agg,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -106,7 +106,7 @@ void main() {
 
       final money = AccountService.calcMoneyFen(
         agg: agg,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -158,7 +158,7 @@ void main() {
 
       final money = AccountService.calcMoneyFen(
         agg: agg,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',
@@ -210,7 +210,7 @@ void main() {
 
       final money = AccountService.calcMoneyFen(
         agg: agg,
-        devices: const [
+        devices: [
           Device(
             id: 1,
             name: 'SANY 1#',

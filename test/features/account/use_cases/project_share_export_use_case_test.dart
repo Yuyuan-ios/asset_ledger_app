@@ -62,7 +62,7 @@ void main() {
     income: 800,
   );
   final devices = [
-    const Device(
+    Device(
       id: 1,
       name: 'HITACHI 1#',
       brand: 'HITACHI',

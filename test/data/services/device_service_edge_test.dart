@@ -7,7 +7,7 @@ void main() {
     test('returns 1 when the requested brand is blank after trimming', () {
       final result = DeviceService.nextIndex(
         brand: '   ',
-        activeDevices: const [
+        activeDevices: [
           Device(
             id: 1,
             name: 'SANY 1#',

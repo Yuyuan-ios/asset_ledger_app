@@ -269,7 +269,7 @@ class _FakeTimingRepository implements TimingRepository {
 class _FakeDeviceRepository implements DeviceRepository {
   @override
   Future<List<Device>> listAll() async {
-    return const [
+    return [
       Device(
         id: 1,
         name: 'HITACHI 1#',

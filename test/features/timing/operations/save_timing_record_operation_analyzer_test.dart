@@ -903,20 +903,12 @@ Future<int> _seedDevice(
   return db.rawInsert(
     '''
     INSERT INTO devices (
-      name, brand, default_unit_price, default_unit_price_fen,
-      base_meter_hours, is_active, equipment_type
+      name, brand, default_unit_price_fen, base_meter_hours, is_active,
+      equipment_type
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?)
     ''',
-    [
-      name,
-      'brand',
-      defaultUnitPrice,
-      (defaultUnitPrice * 100).round(),
-      0.0,
-      1,
-      'excavator',
-    ],
+    [name, 'brand', (defaultUnitPrice * 100).round(), 0.0, 1, 'excavator'],
   );
 }
 

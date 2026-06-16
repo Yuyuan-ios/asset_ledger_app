@@ -44,7 +44,7 @@ void main() {
       final db = await AppDatabase.database;
       final deviceId = await db.insert(
         'devices',
-        const Device(
+        Device(
           name: 'SANY 1#',
           brand: 'SANY',
           defaultUnitPrice: 100,
@@ -133,7 +133,7 @@ void main() {
       final db = await AppDatabase.database;
       final deviceId = await db.insert(
         'devices',
-        const Device(
+        Device(
           name: 'SANY 1#',
           brand: 'SANY',
           defaultUnitPrice: 100,
@@ -200,7 +200,7 @@ void main() {
       final db = await AppDatabase.database;
       final deviceId = await db.insert(
         'devices',
-        const Device(
+        Device(
           name: 'SANY 1#',
           brand: 'SANY',
           defaultUnitPrice: 100,

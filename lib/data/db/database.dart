@@ -131,10 +131,12 @@ class AppDatabase {
   //        A4-1）；AUTOINCREMENT 高水位保留。
   // - v43：maintenance_records 删除 amount REAL，amount_fen 成为唯一存储权威
   //        （Track A / A4-2）；AUTOINCREMENT 高水位保留。
+  // - v44：devices 删除 default_unit_price / breaking_unit_price REAL，
+  //        单价 fen 成为唯一存储权威（Track A / A4-3）；AUTOINCREMENT 高水位保留。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 43;
+  static const int _dbVersion = 44;
 
   static int get schemaVersion => _dbVersion;
 

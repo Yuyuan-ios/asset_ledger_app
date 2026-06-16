@@ -131,7 +131,7 @@ void main() {
 Future<int> _seedDeviceAndProject(Database db) async {
   final deviceId = await db.insert(
     'devices',
-    const Device(
+    Device(
       name: 'SANY 1#',
       brand: 'SANY',
       defaultUnitPrice: 100,

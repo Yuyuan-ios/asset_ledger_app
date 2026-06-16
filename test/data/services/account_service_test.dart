@@ -84,7 +84,7 @@ void main() {
           income: 800.25,
         );
         final displayRecord = baseRecord.copyWith(displayEndDate: 20260430);
-        const devices = [
+        final devices = [
           Device(
             id: 2,
             name: 'SANY 2#',
@@ -237,7 +237,7 @@ void main() {
 
         final money = AccountService.calcMoney(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -297,7 +297,7 @@ void main() {
 
         final rateInfo = AccountService.calcRateInfo(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -351,7 +351,7 @@ void main() {
 
         final money = AccountService.calcMoney(
           agg: agg,
-          devices: const [],
+          devices: [],
           rates: const [],
           payments: const [
             AccountPayment(
@@ -400,7 +400,7 @@ void main() {
 
         final money = AccountService.calcMoney(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -460,7 +460,7 @@ void main() {
       () {
         final result = AccountService.buildEffectiveRateMap(
           projectKey: 'Alpha||Site X',
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -523,7 +523,7 @@ void main() {
 
         final info = AccountService.calcRateInfo(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -559,7 +559,7 @@ void main() {
 
         final info = AccountService.calcRateInfo(
           agg: agg,
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -661,7 +661,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'SANY 1#',
@@ -746,7 +746,7 @@ void main() {
               income: 5000,
             ),
           ],
-          devices: const [
+          devices: [
             Device(
               id: 1,
               name: 'HITACHI 1#',

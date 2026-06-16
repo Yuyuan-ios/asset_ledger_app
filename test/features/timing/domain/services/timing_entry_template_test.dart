@@ -27,7 +27,7 @@ void main() {
     );
 
     test('resolves existing device model types to phase A templates', () {
-      const excavator = Device(
+      final excavator = Device(
         id: 1,
         name: 'SANY 1#',
         brand: 'SANY',
@@ -35,7 +35,7 @@ void main() {
         baseMeterHours: 0,
         equipmentType: EquipmentType.excavator,
       );
-      const loader = Device(
+      final loader = Device(
         id: 2,
         name: 'LiuGong 1#',
         brand: 'LiuGong',
