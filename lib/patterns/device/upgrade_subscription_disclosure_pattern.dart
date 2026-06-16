@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
@@ -29,6 +30,7 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         color: DeviceTokens.upgradeSurface,
@@ -40,7 +42,7 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '订阅信息 / Subscription details',
+            l10n.deviceUpgradeSubscriptionDetailsTitle,
             style: AppTypography.sectionTitle(
               context,
               fontSize: DeviceTokens.upgradePlanTitleSize,
@@ -49,14 +51,26 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
             ),
           ),
           const SizedBox(height: DeviceTokens.upgradePlanSubtitle2TopGap),
-          _DisclosureRow(label: '订阅名称', value: subscriptionTitle),
-          _DisclosureRow(label: '订阅周期', value: subscriptionLength),
-          _DisclosureRow(label: '订阅价格', value: subscriptionPrice),
-          _DisclosureRow(label: '单位价格', value: unitPrice),
+          _DisclosureRow(
+            label: l10n.deviceUpgradeSubscriptionNameLabel,
+            value: subscriptionTitle,
+          ),
+          _DisclosureRow(
+            label: l10n.deviceUpgradeSubscriptionPeriodLabel,
+            value: subscriptionLength,
+          ),
+          _DisclosureRow(
+            label: l10n.deviceUpgradeSubscriptionPriceLabel,
+            value: subscriptionPrice,
+          ),
+          _DisclosureRow(
+            label: l10n.deviceUpgradeUnitPriceLabel,
+            value: unitPrice,
+          ),
           if (!canPurchaseSelectedProduct) ...[
             const SizedBox(height: DeviceTokens.upgradePlanSubtitle2TopGap),
             Text(
-              '商品信息未完整加载前无法购买，请等待 App Store 返回订阅信息。',
+              l10n.deviceUpgradeProductNotLoadedMessage,
               style: AppTypography.body(
                 context,
                 fontSize: DeviceTokens.upgradePlanSubtitle2Size,
@@ -66,8 +80,7 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
           ],
           const SizedBox(height: DeviceTokens.upgradePlanGap),
           Text(
-            '订阅后可解锁 Pro 功能，并在订阅有效期内持续使用已开放的高级功能。\n'
-            'Subscription unlocks premium features while your subscription is active.',
+            l10n.deviceUpgradeUnlocksPremiumMessage,
             style: AppTypography.body(
               context,
               fontSize: DeviceTokens.upgradePlanSubtitle2Size,
@@ -76,8 +89,7 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
           ),
           const SizedBox(height: DeviceTokens.upgradePlanSubtitle2TopGap),
           Text(
-            '订阅会自动续期，除非你在当前周期结束前至少 24 小时关闭自动续期。你可以在 Apple ID 的订阅设置中管理或取消订阅。\n'
-            'Subscriptions renew automatically unless auto-renewal is turned off at least 24 hours before the end of the current period. You can manage or cancel your subscription in your Apple ID subscription settings.',
+            l10n.deviceUpgradeAutoRenewMessage,
             style: AppTypography.body(
               context,
               fontSize: DeviceTokens.upgradePlanSubtitle2Size,
@@ -86,8 +98,7 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
           ),
           const SizedBox(height: DeviceTokens.upgradePlanSubtitle2TopGap),
           Text(
-            '购买前请阅读《隐私政策》和《使用条款》。\n'
-            'Please review the Privacy Policy and Terms of Use before purchasing.',
+            l10n.deviceUpgradeReviewLegalMessage,
             style: AppTypography.body(
               context,
               fontSize: DeviceTokens.upgradePlanSubtitle2Size,
@@ -96,13 +107,13 @@ class UpgradeSubscriptionDisclosurePattern extends StatelessWidget {
           ),
           const SizedBox(height: DeviceTokens.upgradePlanSubtitle2TopGap),
           _LegalLink(
-            label: '隐私政策 Privacy Policy',
+            label: l10n.deviceUpgradePrivacyLinkLabel,
             url: privacyPolicyUrl,
             onTap: onPrivacyTap,
           ),
           const SizedBox(height: DeviceTokens.upgradePlanSubtitle2TopGap),
           _LegalLink(
-            label: '使用条款 Terms of Use',
+            label: l10n.deviceUpgradeTermsLinkLabel,
             url: termsOfServiceUrl,
             onTap: onTermsTap,
           ),

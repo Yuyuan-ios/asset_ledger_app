@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../application/controllers/local_backup_controller.dart';
 import '../domain/entities/local_backup_entities.dart';
@@ -65,13 +66,14 @@ class BackupFileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final resolvedController =
         controller ?? context.read<LocalBackupController>();
     final time = backup.backupTime ?? backup.modifiedAt;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(
-        titleForKind(backup.kind),
+        titleForKind(l10n, backup.kind),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -82,16 +84,16 @@ class BackupFileTile extends StatelessWidget {
     );
   }
 
-  static String titleForKind(LocalBackupFileKind kind) {
+  static String titleForKind(AppLocalizations l10n, LocalBackupFileKind kind) {
     switch (kind) {
       case LocalBackupFileKind.manual:
-        return 'FleetLedger 手动备份';
+        return l10n.deviceBackupManualKindTitle;
       case LocalBackupFileKind.preRestore:
-        return '恢复前备份';
+        return l10n.deviceBackupPreRestoreKindTitle;
       case LocalBackupFileKind.legacy:
-        return '旧版备份';
+        return l10n.deviceBackupLegacyKindTitle;
       case LocalBackupFileKind.unknown:
-        return 'FleetLedger 备份';
+        return l10n.deviceBackupUnknownKindTitle;
     }
   }
 

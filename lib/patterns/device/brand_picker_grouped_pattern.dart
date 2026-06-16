@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../features/device/model/brand_catalog.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 /// ================================================================
@@ -69,6 +70,7 @@ class BrandPickerGrouped extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return ListView(
       // ListView 自己滚动，所以内部 GridView 必须禁用滚动（见 _BrandGrid）
       padding: const EdgeInsets.symmetric(
@@ -79,7 +81,7 @@ class BrandPickerGrouped extends StatelessWidget {
         // 按枚举顺序输出分组：国家标题 + grid
         for (final c in BrandCountry.values)
           if (groups[c]!.isNotEmpty) ...[
-            _CountryHeader(title: c.label),
+            _CountryHeader(title: _countryLabel(l10n, c)),
             const SizedBox(
               height: DeviceTokens.brandPickerCountryHeaderBottomGap,
             ),
@@ -102,6 +104,19 @@ class BrandPickerGrouped extends StatelessWidget {
           ],
       ],
     );
+  }
+
+  String _countryLabel(AppLocalizations l10n, BrandCountry country) {
+    switch (country) {
+      case BrandCountry.cn:
+        return l10n.deviceBrandCountryChina;
+      case BrandCountry.jp:
+        return l10n.deviceBrandCountryJapan;
+      case BrandCountry.us:
+        return l10n.deviceBrandCountryUs;
+      case BrandCountry.kr:
+        return l10n.deviceBrandCountryKorea;
+    }
   }
 }
 

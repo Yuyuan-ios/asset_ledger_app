@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 import '../layout/sheet_text_field_pattern.dart';
@@ -24,26 +25,27 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         _editorField(
           controller: baseMeterController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          labelText: '基准码表（>=0，必填）',
+          labelText: l10n.deviceBaseMeterLabel,
         ),
         const SizedBox(height: SpaceTokens.sectionGap),
         _editorField(
           controller: unitPriceController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          labelText: '默认单价（>0，必填）',
+          labelText: l10n.deviceDefaultRateLabel,
         ),
         if (equipmentType == EquipmentType.excavator) ...[
           const SizedBox(height: SpaceTokens.sectionGap),
           _editorField(
             controller: breakingUnitPriceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            labelText: '破碎单价（选填）',
-            hintText: '不填写默认该设备没有破碎',
+            labelText: l10n.deviceBreakingRateOptionalLabel,
+            hintText: l10n.deviceBreakingRateHint,
             hintStyle: AppTypography.bodySecondary(
               context,
               fontSize: SheetTokens.fieldLabelSize,
@@ -53,7 +55,10 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
           ),
         ],
         const SizedBox(height: SpaceTokens.sectionGap),
-        _editorField(controller: modelController, labelText: '型号（选填）'),
+        _editorField(
+          controller: modelController,
+          labelText: l10n.deviceModelOptionalLabel,
+        ),
       ],
     );
   }

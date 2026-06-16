@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 
@@ -23,10 +24,10 @@ class DevicePickerVm {
   final InputDecoration? decoration;
   final TextStyle? style;
   final Widget? icon;
-  final String labelText;
+  final String? labelText;
   final String? hintText;
-  final String emptyHintText;
-  final String emptyLabelText;
+  final String? emptyHintText;
+  final String? emptyLabelText;
 
   const DevicePickerVm({
     required this.selectedId,
@@ -35,10 +36,10 @@ class DevicePickerVm {
     this.decoration,
     this.style,
     this.icon,
-    this.labelText = '设备编号',
+    this.labelText,
     this.hintText,
-    this.emptyHintText = '暂无在用设备，请先去“设备”页新增',
-    this.emptyLabelText = '设备编号',
+    this.emptyHintText,
+    this.emptyLabelText,
   });
 }
 
@@ -49,6 +50,10 @@ class DevicePickerPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labelText = vm.labelText ?? l10n.devicePickerLabel;
+    final emptyHintText = vm.emptyHintText ?? l10n.devicePickerEmptyHint;
+    final emptyLabelText = vm.emptyLabelText ?? l10n.devicePickerLabel;
     final labelStyle = AppTypography.bodySecondary(
       context,
       fontSize: SheetTokens.fieldLabelSize,
@@ -70,13 +75,16 @@ class DevicePickerPattern extends StatelessWidget {
     if (vm.items.isEmpty) {
       return DropdownButtonFormField<int>(
         initialValue: null,
+        isExpanded: true,
+        hint: Text(emptyHintText, overflow: TextOverflow.ellipsis),
+        disabledHint: Text(emptyHintText, overflow: TextOverflow.ellipsis),
         items: const [],
         onChanged: null,
+        style: hintStyle,
         decoration: InputDecoration(
-          labelText: vm.emptyLabelText,
+          labelText: emptyLabelText,
           floatingLabelBehavior: FloatingLabelBehavior.always,
           labelStyle: labelStyle,
-          hintText: vm.emptyHintText,
           hintStyle: hintStyle,
           filled: true,
           fillColor: SheetColors.fieldBackground,
@@ -97,6 +105,7 @@ class DevicePickerPattern extends StatelessWidget {
 
     return DropdownButtonFormField<int>(
       initialValue: vm.selectedId,
+      isExpanded: true,
       icon:
           vm.icon ??
           const Icon(Icons.arrow_drop_down, color: SheetColors.muted),
@@ -105,14 +114,14 @@ class DevicePickerPattern extends StatelessWidget {
         return DropdownMenuItem<int>(
           value: item.id,
           enabled: item.enabled,
-          child: Text(item.label),
+          child: Text(item.label, overflow: TextOverflow.ellipsis),
         );
       }).toList(),
       onChanged: vm.onChanged,
       decoration:
           vm.decoration ??
           InputDecoration(
-            labelText: vm.labelText,
+            labelText: labelText,
             floatingLabelBehavior: FloatingLabelBehavior.always,
             labelStyle: labelStyle,
             hintText: vm.hintText,

@@ -9,7 +9,9 @@ import 'package:asset_ledger/data/services/subscription_verification_repository.
 import 'package:asset_ledger/data/services/subscription_verification_repository_factory.dart';
 import 'package:asset_ledger/features/device/application/controllers/subscription_controller.dart';
 import 'package:asset_ledger/features/device/view/upgrade_page.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -68,7 +70,7 @@ void main() {
         ),
       );
 
-      await tester.pumpWidget(const MaterialApp(home: UpgradePage()));
+      await tester.pumpWidget(_localizedApp(home: const UpgradePage()));
       await tester.pumpAndSettle();
 
       expect(const SubscriptionController().canUsePurchaseFlow, isTrue);
@@ -99,6 +101,20 @@ void main() {
     skip:
         !(kUseLocalIapVerification ||
             SubscriptionConfig.fromEnvironment.isConfigured),
+  );
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
   );
 }
 

@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
 class DevicePageHeaderSearch extends StatelessWidget {
-  const DevicePageHeaderSearch({
-    super.key,
-    this.title = '设备',
-    this.searchHint = '搜索',
-  });
+  const DevicePageHeaderSearch({super.key, this.title, this.searchHint});
 
-  final String title;
-  final String searchHint;
+  final String? title;
+  final String? searchHint;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final resolvedTitle = title ?? l10n.devicePageTitle;
+    final resolvedSearchHint = searchHint ?? l10n.deviceSearchHint;
     return Column(
       children: [
         Padding(
@@ -28,7 +28,7 @@ class DevicePageHeaderSearch extends StatelessWidget {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              title,
+              resolvedTitle,
               style: AppTypography.pageTitle(
                 context,
                 fontSize: TimingTokens.headerTitleSize,
@@ -60,7 +60,7 @@ class DevicePageHeaderSearch extends StatelessWidget {
               ),
               const SizedBox(width: DevicePageLayoutTokens.searchIconGap),
               Text(
-                searchHint,
+                resolvedSearchHint,
                 style: AppTypography.body(
                   context,
                   fontSize: DevicePageLayoutTokens.searchTextFontSize,

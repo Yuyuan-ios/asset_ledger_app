@@ -1,5 +1,7 @@
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/upgrade_subscription_disclosure_pattern.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -10,7 +12,7 @@ void main() {
     var openedTerms = false;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: SingleChildScrollView(
             child: SizedBox(
@@ -71,7 +73,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: SingleChildScrollView(
             child: UpgradeSubscriptionDisclosurePattern(
@@ -92,4 +94,18 @@ void main() {
 
     expect(find.textContaining('商品信息未完整加载前无法购买'), findsOneWidget);
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

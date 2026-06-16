@@ -1,7 +1,9 @@
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_editor_fields_group_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/sheet_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,7 +20,7 @@ void main() {
     addTearDown(modelController.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: DeviceEditorFieldsGroup(
             baseMeterController: baseMeterController,
@@ -57,7 +59,7 @@ void main() {
     addTearDown(modelController.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: DeviceEditorFieldsGroup(
             baseMeterController: baseMeterController,
@@ -79,4 +81,18 @@ void main() {
     expect(decoration.hintText, '不填写默认该设备没有破碎');
     expect(decoration.hintStyle?.fontSize, SheetTokens.fieldLabelSize);
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

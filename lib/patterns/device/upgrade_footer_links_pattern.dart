@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 class UpgradeFooterLinksPattern extends StatelessWidget {
@@ -17,6 +18,7 @@ class UpgradeFooterLinksPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     // DefaultTextStyle.merge 允许 style 为空（与父级 DefaultTextStyle 合并），
     // 因此不再需要在 patterns 层直接构造 TextStyle 作为兜底。
     return DefaultTextStyle.merge(
@@ -28,12 +30,21 @@ class UpgradeFooterLinksPattern extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          GestureDetector(onTap: onTermsTap, child: const Text('使用条款')),
-          GestureDetector(onTap: onPrivacyTap, child: const Text('隐私政策')),
+          GestureDetector(
+            onTap: onTermsTap,
+            child: Text(l10n.deviceTermsTitle),
+          ),
+          GestureDetector(
+            onTap: onPrivacyTap,
+            child: Text(l10n.devicePrivacyTitle),
+          ),
           if (onRestoreTap != null)
-            GestureDetector(onTap: onRestoreTap, child: const Text('恢复购买'))
+            GestureDetector(
+              onTap: onRestoreTap,
+              child: Text(l10n.deviceRestorePurchasesAction),
+            )
           else
-            const Text('恢复购买'),
+            Text(l10n.deviceRestorePurchasesAction),
         ],
       ),
     );

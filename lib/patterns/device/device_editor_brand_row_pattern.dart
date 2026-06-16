@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 class DeviceEditorBrandRow extends StatelessWidget {
@@ -30,6 +31,11 @@ class DeviceEditorBrandRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final equipmentLabel = equipmentType == EquipmentType.loader
+        ? l10n.deviceEquipmentLoader
+        : l10n.deviceEquipmentExcavator;
+    final resolvedPreview = previewLabel.isEmpty ? '' : '  $previewLabel';
     return Column(
       children: [
         Row(
@@ -37,8 +43,12 @@ class DeviceEditorBrandRow extends StatelessWidget {
             Expanded(
               child: Text(
                 selectedBrand == null || selectedBrand!.trim().isEmpty
-                    ? '未选择品牌（头像）'
-                    : '品牌：${equipmentType.label}  ${selectedBrand!}${previewLabel.isEmpty ? '' : '  $previewLabel'}',
+                    ? l10n.deviceBrandNotSelected
+                    : l10n.deviceBrandSelectedLine(
+                        equipmentLabel,
+                        selectedBrand!,
+                        resolvedPreview,
+                      ),
                 style: AppTypography.body(
                   context,
                   fontSize: DeviceTokens.editorBrandTextFontSize,
@@ -50,7 +60,7 @@ class DeviceEditorBrandRow extends StatelessWidget {
             TextButton(
               onPressed: saving ? null : onSelectBrand,
               child: Text(
-                '选择',
+                l10n.deviceSelectAction,
                 style: AppTypography.body(
                   context,
                   fontSize: DeviceTokens.editorBrandSelectorTextFontSize,
@@ -68,8 +78,8 @@ class DeviceEditorBrandRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   customAvatarPath == null || customAvatarPath!.isEmpty
-                      ? '头像：品牌默认'
-                      : '头像：已设置自定义',
+                      ? l10n.deviceAvatarBrandDefault
+                      : l10n.deviceAvatarCustomSet,
                   style: AppTypography.bodySecondary(
                     context,
                     fontSize: DeviceTokens.editorBrandCustomInfoFontSize,
@@ -81,11 +91,11 @@ class DeviceEditorBrandRow extends StatelessWidget {
               ),
               TextButton(
                 onPressed: saving ? null : onPickFromGallery,
-                child: const Text('相册'),
+                child: Text(l10n.deviceGalleryAction),
               ),
               TextButton(
                 onPressed: saving ? null : onResetAvatar,
-                child: const Text('默认'),
+                child: Text(l10n.deviceDefaultAction),
               ),
             ],
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../app/phone_login_store.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
@@ -22,7 +23,7 @@ class AccountCenterPage extends StatefulWidget {
     required this.onOpenSyncInfo,
     required this.onOpenCloudBackup,
     this.cloudBackupAvailable = true,
-    this.cloudBackupUnavailableMessage = '云端备份服务暂未配置',
+    this.cloudBackupUnavailableMessage,
   });
 
   final PhoneLoginSession loginSession;
@@ -35,7 +36,7 @@ class AccountCenterPage extends StatefulWidget {
   final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenCloudBackup;
   final bool cloudBackupAvailable;
-  final String cloudBackupUnavailableMessage;
+  final String? cloudBackupUnavailableMessage;
 
   @override
   State<AccountCenterPage> createState() => _AccountCenterPageState();
@@ -58,6 +59,7 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       appBar: AppBar(
@@ -65,8 +67,8 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
-          '账户中心',
+        title: Text(
+          l10n.deviceAccountCenterTitle,
           style: TextStyle(
             fontSize: DeviceTokens.avatarPickerTitleFontSize,
             fontWeight: FontWeight.w700,
@@ -106,7 +108,8 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
                       onOpenCloudBackup: widget.onOpenCloudBackup,
                       cloudBackupAvailable: widget.cloudBackupAvailable,
                       cloudBackupUnavailableMessage:
-                          widget.cloudBackupUnavailableMessage,
+                          widget.cloudBackupUnavailableMessage ??
+                          l10n.deviceCloudBackupUnavailableTitle,
                     );
                   },
                 ),
@@ -148,15 +151,17 @@ class _AccountCenterContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DeviceSectionGroup(
-          title: '账号状态',
+          title: l10n.deviceAccountStatusSectionTitle,
           children: [
             DeviceActionCard(
-              title: accountCenterAuthTitle(loginSession),
+              title: accountCenterAuthTitle(l10n, loginSession),
               subtitle: accountCenterAuthSubtitle(
+                l10n: l10n,
                 session: loginSession,
                 subscription: subscription,
               ),
@@ -168,8 +173,8 @@ class _AccountCenterContent extends StatelessWidget {
             ),
             if (!loginSession.isAuthenticated)
               DeviceActionCard(
-                title: '手机号登录',
-                subtitle: '登录后可使用云端备份与购买权益同步',
+                title: l10n.devicePhoneLoginAction,
+                subtitle: l10n.devicePhoneLoginSubtitle,
                 leading: const _AccountCenterIcon(Icons.phone_iphone),
                 trailingIcon: Icons.chevron_right,
                 onTap: onOpenPhoneLogin,
@@ -178,18 +183,18 @@ class _AccountCenterContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         DeviceSectionGroup(
-          title: '购买权益',
+          title: l10n.devicePurchaseSectionTitle,
           children: [
             DeviceActionCard(
-              title: '升级 Pro，支持持续维护',
-              subtitle: purchaseEntitlementSubtitle(subscription),
+              title: l10n.deviceUpgradeProTitle,
+              subtitle: purchaseEntitlementSubtitle(l10n, subscription),
               leading: const _UpgradeLeadingIcon(),
               trailingIcon: Icons.chevron_right,
               onTap: onOpenUpgradePage,
             ),
             DeviceActionCard(
-              title: '恢复购买',
-              subtitle: '从 App Store 恢复已购买权益',
+              title: l10n.deviceRestorePurchasesAction,
+              subtitle: l10n.deviceRestorePurchasesSubtitle,
               leading: const _AccountCenterIcon(Icons.restore_page_outlined),
               onTap: onRestorePurchases,
             ),
@@ -197,33 +202,33 @@ class _AccountCenterContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         DeviceSectionGroup(
-          title: '数据安全',
+          title: l10n.deviceDataSecuritySectionTitle,
           children: [
             DeviceActionCard(
-              title: '云端备份',
+              title: l10n.deviceCloudBackupTitle,
               subtitle: cloudBackupAvailable
                   ? loginSession.isAuthenticated
-                        ? '上传当前数据或从云端恢复'
-                        : '登录后可保存与恢复云端备份'
+                        ? l10n.deviceCloudBackupAuthedSubtitle
+                        : l10n.deviceCloudBackupLoginSubtitle
                   : cloudBackupUnavailableMessage,
               leading: const _AccountCenterIcon(Icons.cloud_upload_outlined),
               onTap: onOpenCloudBackup,
             ),
             DeviceActionCard(
-              title: '手动本地备份',
-              subtitle: '导出当前数据，便于保存与迁移',
+              title: l10n.deviceManualBackupTitle,
+              subtitle: l10n.deviceManualBackupSubtitle,
               leading: const _AccountCenterIcon(Icons.ios_share),
               onTap: onOpenLocalBackup,
             ),
             DeviceActionCard(
-              title: '本地恢复',
-              subtitle: '从备份文件恢复本机数据',
+              title: l10n.deviceLocalRestoreTitle,
+              subtitle: l10n.deviceLocalRestoreSubtitle,
               leading: const _AccountCenterIcon(Icons.restore),
               onTap: onOpenLocalRestore,
             ),
             DeviceActionCard(
-              title: '多端同步说明',
-              subtitle: '当前版本暂不支持自动多端同步',
+              title: l10n.deviceSyncInfoTitle,
+              subtitle: l10n.deviceSyncInfoSubtitle,
               leading: const _AccountCenterIcon(Icons.cloud_outlined),
               onTap: onOpenSyncInfo,
             ),

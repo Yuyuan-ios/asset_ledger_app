@@ -1,6 +1,8 @@
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/features/device/view/device_editor_dialog.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,7 +13,7 @@ void main() {
     Device? result;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         navigatorKey: navigatorKey,
         home: Builder(
           builder: (context) => Scaffold(
@@ -57,4 +59,22 @@ void main() {
     expect(result, isNotNull);
     expect(result!.breakingUnitPrice, 60);
   });
+}
+
+Widget _localizedApp({
+  required GlobalKey<NavigatorState> navigatorKey,
+  required Widget home,
+}) {
+  return MaterialApp(
+    navigatorKey: navigatorKey,
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

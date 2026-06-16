@@ -1,47 +1,65 @@
 import '../../../app/phone_login_store.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../domain/entities/subscription.dart';
 
 String deviceAccountCenterSubtitle({
+  required AppLocalizations l10n,
   required PhoneLoginSession session,
   required SubscriptionSnapshot subscription,
 }) {
   if (!session.isAuthenticated) {
-    return '未登录 · 登录后可备份与同步';
+    return l10n.deviceAccountCenterLoggedOutSubtitle;
   }
 
-  final entitlement = _subscriptionEntitlementLabel(subscription);
+  final entitlement = _subscriptionEntitlementLabel(l10n, subscription);
   final tail = _phoneTail(session.phoneNumber);
-  if (tail == null) return '已登录 · $entitlement';
-  return '已登录 · 尾号 $tail · $entitlement';
+  if (tail == null) {
+    return l10n.deviceAccountCenterLoggedInSubtitle(entitlement);
+  }
+  return l10n.deviceAccountCenterLoggedInTailSubtitle(tail, entitlement);
 }
 
-String accountCenterAuthTitle(PhoneLoginSession session) {
-  return session.isAuthenticated ? '已登录' : '未登录';
+String accountCenterAuthTitle(
+  AppLocalizations l10n,
+  PhoneLoginSession session,
+) {
+  return session.isAuthenticated
+      ? l10n.deviceAccountLoggedInTitle
+      : l10n.deviceAccountLoggedOutTitle;
 }
 
 String accountCenterAuthSubtitle({
+  required AppLocalizations l10n,
   required PhoneLoginSession session,
   required SubscriptionSnapshot subscription,
 }) {
   if (!session.isAuthenticated) {
-    return '登录后可备份、恢复与同步数据';
+    return l10n.deviceAccountAuthLoggedOutSubtitle;
   }
 
-  final entitlement = _subscriptionEntitlementLabel(subscription);
+  final entitlement = _subscriptionEntitlementLabel(l10n, subscription);
   final tail = _phoneTail(session.phoneNumber);
   if (tail == null) return entitlement;
-  return '尾号 $tail · $entitlement';
+  return l10n.deviceAccountAuthTailSubtitle(tail, entitlement);
 }
 
-String purchaseEntitlementSubtitle(SubscriptionSnapshot subscription) {
-  final entitlement = _subscriptionEntitlementLabel(subscription);
+String purchaseEntitlementSubtitle(
+  AppLocalizations l10n,
+  SubscriptionSnapshot subscription,
+) {
+  final entitlement = _subscriptionEntitlementLabel(l10n, subscription);
   final expiry = subscription.expiryDate;
   if (!subscription.allowsProFeatures || expiry == null) return entitlement;
-  return '$entitlement · 有效至 ${_formatDate(expiry)}';
+  return l10n.deviceEntitlementExpires(entitlement, _formatDate(expiry));
 }
 
-String _subscriptionEntitlementLabel(SubscriptionSnapshot subscription) {
-  return subscription.allowsProFeatures ? 'Pro 已开通' : '免费版';
+String _subscriptionEntitlementLabel(
+  AppLocalizations l10n,
+  SubscriptionSnapshot subscription,
+) {
+  return subscription.allowsProFeatures
+      ? l10n.deviceEntitlementPro
+      : l10n.deviceEntitlementFree;
 }
 
 String? _phoneTail(String? phoneNumber) {

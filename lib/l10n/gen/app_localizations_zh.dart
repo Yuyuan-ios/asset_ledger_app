@@ -828,4 +828,804 @@ class AppLocalizationsZh extends AppLocalizations {
   String accountDissolveFailureWithReason(String reason) {
     return '解除合并失败：$reason';
   }
+
+  @override
+  String get deviceCancelAction => '取消';
+
+  @override
+  String get deviceConfirmAction => '确定';
+
+  @override
+  String get deviceDoneAction => '我知道了';
+
+  @override
+  String get devicePageTitle => '设备';
+
+  @override
+  String get deviceSearchHint => '搜索';
+
+  @override
+  String get deviceAccountSyncSectionTitle => '账号与同步';
+
+  @override
+  String get deviceAccountCenterTitle => '账户中心';
+
+  @override
+  String get deviceProfileSectionTitle => '个人资料';
+
+  @override
+  String get deviceUpgradeNowTitle => '立即升级';
+
+  @override
+  String get deviceEquipmentSectionTitle => '设备';
+
+  @override
+  String get deviceAddDeviceAction => '添加设备';
+
+  @override
+  String get deviceRateUsSectionTitle => '给我们评分';
+
+  @override
+  String get deviceRateAppAction => '给app评分';
+
+  @override
+  String get deviceTermsSectionTitle => '条款';
+
+  @override
+  String get deviceTermsTitle => '使用条款';
+
+  @override
+  String get devicePrivacyTitle => '隐私政策';
+
+  @override
+  String get deviceSupportSectionTitle => '支持与反馈';
+
+  @override
+  String get deviceContactDeveloperAction => '联系开发者';
+
+  @override
+  String get deviceManagementTitle => '管理设备(长按图标删除)';
+
+  @override
+  String get deviceEquipmentExcavator => '挖掘机';
+
+  @override
+  String get deviceEquipmentLoader => '装载机';
+
+  @override
+  String get deviceEditorCreateTitle => '新增设备';
+
+  @override
+  String get deviceEditorEditTitle => '编辑设备';
+
+  @override
+  String get deviceBrandNotSelected => '未选择品牌（头像）';
+
+  @override
+  String deviceBrandSelectedLine(
+    String equipmentType,
+    String brand,
+    String preview,
+  ) {
+    return '品牌：$equipmentType  $brand$preview';
+  }
+
+  @override
+  String get deviceSelectAction => '选择';
+
+  @override
+  String get deviceAvatarBrandDefault => '头像：品牌默认';
+
+  @override
+  String get deviceAvatarCustomSet => '头像：已设置自定义';
+
+  @override
+  String get deviceGalleryAction => '相册';
+
+  @override
+  String get deviceDefaultAction => '默认';
+
+  @override
+  String get deviceBaseMeterLabel => '基准码表（>=0，必填）';
+
+  @override
+  String get deviceDefaultRateLabel => '默认单价（>0，必填）';
+
+  @override
+  String get deviceBreakingRateOptionalLabel => '破碎单价（选填）';
+
+  @override
+  String get deviceBreakingRateHint => '不填写默认该设备没有破碎';
+
+  @override
+  String get deviceModelOptionalLabel => '型号（选填）';
+
+  @override
+  String get deviceCustomAvatarProTitle => '需要升级';
+
+  @override
+  String get deviceCustomAvatarProMessage => '自定义设备头像是 Pro 功能，升级后可为设备设置专属头像。';
+
+  @override
+  String get deviceAvatarGalleryChanged => '已从相册更换头像';
+
+  @override
+  String deviceAvatarSaveFailure(String error) {
+    return '头像保存失败：$error';
+  }
+
+  @override
+  String get deviceAvatarSelectTitle => '选择设备头像';
+
+  @override
+  String get deviceAvatarEmpty => '该类别暂无品牌，先选另一类或新增自定义头像';
+
+  @override
+  String get deviceBrandCountryChina => '中国';
+
+  @override
+  String get deviceBrandCountryJapan => '日本';
+
+  @override
+  String get deviceBrandCountryUs => '美国';
+
+  @override
+  String get deviceBrandCountryKorea => '韩国';
+
+  @override
+  String get devicePickerLabel => '设备编号';
+
+  @override
+  String get devicePickerEmptyHint => '暂无在用设备，请先去“设备”页新增';
+
+  @override
+  String get deviceDeactivateTitle => '确认停用设备？';
+
+  @override
+  String deviceDeactivateContent(String name) {
+    return '设备：$name\n\n只会停用设备，不会删除任何计时/燃油/收入历史记录。\n停用后：\n• 设备页默认不再显示\n• 计时页下拉框不可再选\n• 历史记录仍可回显（通过 deviceId 区分新旧设备）';
+  }
+
+  @override
+  String get deviceDeactivateAction => '停用';
+
+  @override
+  String get deviceAccountStatusSectionTitle => '账号状态';
+
+  @override
+  String get deviceAccountCenterLoggedOutSubtitle => '未登录 · 登录后可备份与同步';
+
+  @override
+  String deviceAccountCenterLoggedInSubtitle(String entitlement) {
+    return '已登录 · $entitlement';
+  }
+
+  @override
+  String deviceAccountCenterLoggedInTailSubtitle(
+    String tail,
+    String entitlement,
+  ) {
+    return '已登录 · 尾号 $tail · $entitlement';
+  }
+
+  @override
+  String get deviceAccountLoggedInTitle => '已登录';
+
+  @override
+  String get deviceAccountLoggedOutTitle => '未登录';
+
+  @override
+  String get deviceAccountAuthLoggedOutSubtitle => '登录后可备份、恢复与同步数据';
+
+  @override
+  String deviceAccountAuthTailSubtitle(String tail, String entitlement) {
+    return '尾号 $tail · $entitlement';
+  }
+
+  @override
+  String get deviceEntitlementPro => 'Pro 已开通';
+
+  @override
+  String get deviceEntitlementFree => '免费版';
+
+  @override
+  String deviceEntitlementExpires(String entitlement, String date) {
+    return '$entitlement · 有效至 $date';
+  }
+
+  @override
+  String get devicePhoneLoginAction => '手机号登录';
+
+  @override
+  String get devicePhoneLoginSubtitle => '登录后可使用云端备份与购买权益同步';
+
+  @override
+  String get devicePurchaseSectionTitle => '购买权益';
+
+  @override
+  String get deviceUpgradeProTitle => '升级 Pro，支持持续维护';
+
+  @override
+  String get deviceRestorePurchasesAction => '恢复购买';
+
+  @override
+  String get deviceRestorePurchasesSubtitle => '从 App Store 恢复已购买权益';
+
+  @override
+  String get deviceDataSecuritySectionTitle => '数据安全';
+
+  @override
+  String get deviceCloudBackupTitle => '云端备份';
+
+  @override
+  String get deviceCloudBackupAuthedSubtitle => '上传当前数据或从云端恢复';
+
+  @override
+  String get deviceCloudBackupLoginSubtitle => '登录后可保存与恢复云端备份';
+
+  @override
+  String get deviceManualBackupTitle => '手动本地备份';
+
+  @override
+  String get deviceManualBackupSubtitle => '导出当前数据，便于保存与迁移';
+
+  @override
+  String get deviceLocalRestoreTitle => '本地恢复';
+
+  @override
+  String get deviceLocalRestoreSubtitle => '从备份文件恢复本机数据';
+
+  @override
+  String get deviceSyncInfoTitle => '多端同步说明';
+
+  @override
+  String get deviceSyncInfoSubtitle => '当前版本暂不支持自动多端同步';
+
+  @override
+  String get deviceSyncInfoMessage =>
+      '云端备份未来用于保存数据与换机恢复；多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。';
+
+  @override
+  String get deviceCloudBackupUnavailableTitle => '云端备份服务暂未配置';
+
+  @override
+  String get deviceLoginRequiredTitle => '需要登录';
+
+  @override
+  String get deviceCloudBackupLoginRequiredMessage => '请先完成手机号登录，再使用云端备份。';
+
+  @override
+  String get deviceCloudBackupChooseMessage =>
+      '你可以上传当前本机数据，也可以从云端备份恢复到本机。云端恢复会完整替换当前本机业务数据。';
+
+  @override
+  String get deviceCloudRestoreAction => '从云端恢复';
+
+  @override
+  String get deviceCloudUploadAction => '上传当前数据';
+
+  @override
+  String get deviceCloudBackupFailureTitle => '云端备份失败';
+
+  @override
+  String get deviceCloudBackupUploadFailureMessage => '云端备份上传失败，请稍后重试。';
+
+  @override
+  String get deviceCloudBackupUploadedTitle => '云端备份已上传';
+
+  @override
+  String deviceCloudBackupUploadedMessage(String backupId, String size) {
+    return '当前数据已保存到云端。\n备份 ID：$backupId\n大小：$size';
+  }
+
+  @override
+  String get deviceCloudBackupReadFailureTitle => '无法读取云端备份';
+
+  @override
+  String get deviceCloudBackupReadFailureMessage => '云端备份列表读取失败，请稍后重试。';
+
+  @override
+  String get deviceCloudBackupEmptyTitle => '暂无云端备份';
+
+  @override
+  String get deviceCloudBackupEmptyMessage => '当前账号下还没有可恢复的云端备份。';
+
+  @override
+  String get deviceCloudBackupSelectTitle => '选择云端备份';
+
+  @override
+  String get deviceCloudRestoreConfirmTitle => '确认从云端恢复？';
+
+  @override
+  String deviceCloudRestoreConfirmMessage(String backupTime) {
+    return '将恢复 $backupTime 的云端备份。恢复后，当前本机业务数据会被这份云端备份替换；恢复前 App 会先自动导出当前数据备份。';
+  }
+
+  @override
+  String get deviceRestoreConfirmAction => '确认恢复';
+
+  @override
+  String get deviceLocalBackupFailureTitle => '本地备份失败';
+
+  @override
+  String get deviceLocalBackupFailureMessage => '备份失败，请稍后重试。';
+
+  @override
+  String get deviceLocalBackupGeneratedTitle => '本地备份已生成';
+
+  @override
+  String get deviceLocalBackupPathInvalidMessage =>
+      '备份文件已生成，但文件路径异常。你仍可稍后从本地备份列表中选择该文件。';
+
+  @override
+  String get deviceLocalBackupOnlySuccessMessage => '备份已生成，可在本地恢复时选择这份备份。';
+
+  @override
+  String get deviceLocalBackupSharedSuccessMessage => '备份文件已生成，请确认已保存到安全位置。';
+
+  @override
+  String get deviceLocalBackupShareUnavailableMessage =>
+      '备份文件已生成，但无法打开分享面板。你仍可在本地备份列表中找到它。';
+
+  @override
+  String get deviceManualBackupDialogMessage =>
+      '导出一份当前数据备份文件。你可以仅保存在本机，也可以立即分享或保存到其他位置。';
+
+  @override
+  String get deviceBackupOnlyAction => '仅备份';
+
+  @override
+  String get deviceBackupAndShareAction => '备份并分享';
+
+  @override
+  String get deviceBackupSelectionCancelled => '已取消选择';
+
+  @override
+  String get deviceBackupPreviewUnavailableTitle => '无法预览备份文件';
+
+  @override
+  String get deviceInvalidBackupFileMessage => '这不是有效的 FleetLedger 备份文件';
+
+  @override
+  String get deviceBackupIncompleteMessage => '备份文件格式不完整';
+
+  @override
+  String get deviceBackupSelectFileTitle => '选择备份文件';
+
+  @override
+  String get deviceBackupSelectFileMessage =>
+      '请选择由 FleetLedger 导出的备份文件。通常建议选择最近一次手动备份；恢复前备份用于撤回最近几次恢复操作前的数据。';
+
+  @override
+  String get deviceBackupNoRecognizedFiles =>
+      '暂无可识别的本地备份文件，可点击“从文件选择”选择其他位置的 JSON 备份。';
+
+  @override
+  String get deviceBackupManualSection => '手动备份';
+
+  @override
+  String get deviceBackupPreRestoreSection => '恢复前备份（防误操）';
+
+  @override
+  String get deviceBackupLegacySection => '旧版备份';
+
+  @override
+  String get deviceBackupFromFileAction => '从文件选择';
+
+  @override
+  String get deviceUnknownValue => '未知';
+
+  @override
+  String get deviceBackupPreviewTitle => '备份文件预览';
+
+  @override
+  String get deviceBackupPreviewIntro => '这是一个 FleetLedger 本地备份文件。';
+
+  @override
+  String get deviceBackupTimeLabel => '备份时间';
+
+  @override
+  String get deviceBackupSchemaVersionLabel => '数据库版本';
+
+  @override
+  String get deviceBackupIncludedDataLabel => '包含数据：';
+
+  @override
+  String get deviceBackupDeviceCountLabel => '设备';
+
+  @override
+  String get deviceBackupTimingRecordCountLabel => '计时记录';
+
+  @override
+  String get deviceBackupFuelRecordCountLabel => '油费记录';
+
+  @override
+  String get deviceBackupMaintenanceRecordCountLabel => '维修记录';
+
+  @override
+  String get deviceBackupIncomeRecordCountLabel => '收款记录';
+
+  @override
+  String get deviceBackupProjectSettingsCountLabel => '项目相关设置';
+
+  @override
+  String deviceCountWithUnit(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String deviceMachineCountWithUnit(int count) {
+    return '$count 台';
+  }
+
+  @override
+  String get deviceBackupRestoreWarning => '恢复后，当前本机的业务数据会被这份备份替换。';
+
+  @override
+  String get deviceRestoringMessage => '正在恢复，请勿关闭 App...';
+
+  @override
+  String get deviceLocalRestoreConfirmTitle => '确认恢复备份？';
+
+  @override
+  String get deviceLocalRestoreConfirmMessage =>
+      '恢复后，当前本机的设备、计时、油费、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。';
+
+  @override
+  String get deviceRestoreSuccessTitle => '恢复完成';
+
+  @override
+  String deviceRestoreSuccessMessage(
+    int devices,
+    int timingRecords,
+    int fuelRecords,
+    int maintenanceRecords,
+    int accountPayments,
+    int projectSettings,
+  ) {
+    return '已恢复以下业务数据：\n设备：$devices\n计时记录：$timingRecords\n油费记录：$fuelRecords\n维修记录：$maintenanceRecords\n收款记录：$accountPayments\n项目相关设置：$projectSettings\n\n恢复前已自动备份当前数据。';
+  }
+
+  @override
+  String get deviceRestoreFailureTitle => '恢复失败';
+
+  @override
+  String get deviceRestoreAutoBackupNote => '\n\n恢复前已成功自动备份当前数据。';
+
+  @override
+  String get deviceBackupManualKindTitle => 'FleetLedger 手动备份';
+
+  @override
+  String get deviceBackupPreRestoreKindTitle => '恢复前备份';
+
+  @override
+  String get deviceBackupLegacyKindTitle => '旧版备份';
+
+  @override
+  String get deviceBackupUnknownKindTitle => 'FleetLedger 备份';
+
+  @override
+  String get deviceLedgerSectionTitle => '设备经营';
+
+  @override
+  String get deviceLedgerPaidFull => '已收齐';
+
+  @override
+  String deviceLedgerPendingAmount(String amount) {
+    return '待收 $amount';
+  }
+
+  @override
+  String deviceLedgerSubtitle(
+    String income,
+    String work,
+    int projectCount,
+    String pending,
+  ) {
+    return '收入 $income · $work\n$projectCount 项 · $pending';
+  }
+
+  @override
+  String get deviceLedgerNoWork => '暂无工作量';
+
+  @override
+  String get deviceListSeparator => '、';
+
+  @override
+  String get deviceUnitHour => '小时';
+
+  @override
+  String get deviceUnitShift => '台班';
+
+  @override
+  String get deviceUnitDay => '天';
+
+  @override
+  String get deviceUnitRent => '租期';
+
+  @override
+  String get deviceUnitMu => '亩';
+
+  @override
+  String get deviceUnitAcre => '英亩';
+
+  @override
+  String get deviceUnitHectare => '公顷';
+
+  @override
+  String get deviceUnitTon => '吨';
+
+  @override
+  String get deviceUnitCubicMeter => '方';
+
+  @override
+  String get deviceUnitTrip => '趟';
+
+  @override
+  String get deviceUnitSortie => '架次';
+
+  @override
+  String get deviceUnitTask => '任务';
+
+  @override
+  String get deviceUpgradeProFallbackTitle => '机账通 Pro 年订阅';
+
+  @override
+  String get deviceUpgradeMaxFallbackTitle => '机账通 Max 年订阅';
+
+  @override
+  String get deviceUpgradePeriodYear => '1 年 / 1 year';
+
+  @override
+  String get deviceUpgradeUnitYear => '年';
+
+  @override
+  String get deviceUpgradeProBody => '解锁基础 Pro 功能，订阅有效期内可用。';
+
+  @override
+  String get deviceUpgradeMaxBody => '更高等级权益，包含 Pro 能力，并为后续高级能力预留。';
+
+  @override
+  String get deviceUpgradeLoadingProduct =>
+      '等待 App Store 商品信息 / Loading from App Store';
+
+  @override
+  String get deviceUpgradeUnitPricePending =>
+      '商品信息加载后显示 / Available after product details load';
+
+  @override
+  String get deviceUpgradePurchaseUnavailable => '订阅购买服务暂不可用，请稍后重试';
+
+  @override
+  String get deviceUpgradeLoadingProducts => '正在加载 App Store 订阅商品...';
+
+  @override
+  String get deviceUpgradeProductsUnavailable => '订阅商品暂不可用，请稍后重试';
+
+  @override
+  String get deviceUpgradeTransactionPending => '正在等待 App Store 交易结果...';
+
+  @override
+  String get deviceUpgradeMaxUnlocked => '订阅已生效，Max 权益已解锁';
+
+  @override
+  String get deviceUpgradeProUnlocked => '订阅已生效，Pro 权益已解锁';
+
+  @override
+  String get deviceUpgradeButtonLoading => '加载中...';
+
+  @override
+  String get deviceUpgradeButtonUnavailable => '暂不可购买';
+
+  @override
+  String get deviceUpgradeButtonProcessing => '处理中...';
+
+  @override
+  String get deviceUpgradeButtonSubscribed => '已订阅';
+
+  @override
+  String get deviceUpgradeButtonUpgradeMax => '升级到 Max';
+
+  @override
+  String get deviceUpgradeButtonContinue => '继续';
+
+  @override
+  String get deviceUpgradeBenefitClearLedger => '多留一份清楚的电子账';
+
+  @override
+  String get deviceUpgradeBenefitAutoRenewal => 'Pro 与 Max 均为年度自动续期订阅';
+
+  @override
+  String get deviceUpgradeBadgeIncludesPro => '包含 Pro';
+
+  @override
+  String get deviceUpgradeSubscriptionDetailsTitle =>
+      '订阅信息 / Subscription details';
+
+  @override
+  String get deviceUpgradeSubscriptionNameLabel => '订阅名称';
+
+  @override
+  String get deviceUpgradeSubscriptionPeriodLabel => '订阅周期';
+
+  @override
+  String get deviceUpgradeSubscriptionPriceLabel => '订阅价格';
+
+  @override
+  String get deviceUpgradeUnitPriceLabel => '单位价格';
+
+  @override
+  String get deviceUpgradeProductNotLoadedMessage =>
+      '商品信息未完整加载前无法购买，请等待 App Store 返回订阅信息。';
+
+  @override
+  String get deviceUpgradeUnlocksPremiumMessage =>
+      '订阅后可解锁 Pro 功能，并在订阅有效期内持续使用已开放的高级功能。\nSubscription unlocks premium features while your subscription is active.';
+
+  @override
+  String get deviceUpgradeAutoRenewMessage =>
+      '订阅会自动续期，除非你在当前周期结束前至少 24 小时关闭自动续期。你可以在 Apple ID 的订阅设置中管理或取消订阅。\nSubscriptions renew automatically unless auto-renewal is turned off at least 24 hours before the end of the current period. You can manage or cancel your subscription in your Apple ID subscription settings.';
+
+  @override
+  String get deviceUpgradeReviewLegalMessage =>
+      '购买前请阅读《隐私政策》和《使用条款》。\nPlease review the Privacy Policy and Terms of Use before purchasing.';
+
+  @override
+  String get deviceUpgradePrivacyLinkLabel => '隐私政策 Privacy Policy';
+
+  @override
+  String get deviceUpgradeTermsLinkLabel => '使用条款 Terms of Use';
+
+  @override
+  String get devicePrivacyEffectiveDate => '生效日期：2026 年 6 月 9 日';
+
+  @override
+  String get devicePrivacySection1Title => '1. 适用范围';
+
+  @override
+  String get devicePrivacySection1Body =>
+      '欢迎使用 FleetLedger。\nFleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、燃油消耗、项目收支、维保明细及设备信息。\n\n本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。';
+
+  @override
+  String get devicePrivacySection2Title => '2. 当前版本涉及的本地数据类型';
+
+  @override
+  String get devicePrivacySection2Body =>
+      '在当前版本中，应用涉及的数据主要包括：\n• 你主动录入的设备信息、工时记录、燃油记录、项目收支、维保明细等业务数据；\n• 你在手机号登录页主动输入的手机号，以及你对隐私政策和使用条款的确认状态；\n• 你主动选择并设置的头像或图片文件；\n• 应用在本机运行过程中，为实现本地存储、页面展示、筛选查询、统计展示与功能判断所需的必要本地信息。\n\n上述业务数据在当前版本中主要存储在你的设备本地。为实现手机号验证码登录，你输入的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务提供短信验证码发送与校验能力。如你主动使用云端备份，应用会将当前账本备份上传至开发者配置的云端备份服务，用于后续备份列表展示和换机恢复。当前版本未接入广告 SDK、行为分析 SDK、第三方追踪服务或自动多端同步服务。';
+
+  @override
+  String get devicePrivacySection3Title => '3. 数据来源与用途说明';
+
+  @override
+  String get devicePrivacySection3Body =>
+      '当前版本中的相关数据主要来源于：\n• 你的主动输入；\n• 你的主动上传或主动选择；\n• 你在使用相关功能时在设备本地形成的数据。\n\n这些数据主要用于在你的设备上实现 FleetLedger 的核心功能，包括但不限于：\n• 保存和展示设备经营记录；\n• 生成统计结果与页面展示内容；\n• 支持筛选、查询、汇总、头像显示等功能；\n• 在必要情况下协助进行本地问题排查与功能判断。\n\n除手机号验证码登录、你主动使用云端备份或恢复、你主动通过系统能力发起评分、邮件联系或打开外部链接等行为外，开发者当前不会通过本应用主动接收你在应用内录入的业务数据。';
+
+  @override
+  String get devicePrivacySection4Title => '4. 权限使用说明';
+
+  @override
+  String get devicePrivacySection4Body =>
+      '为实现相关功能，FleetLedger 可能在你主动操作时请求系统权限。';
+
+  @override
+  String get devicePrivacySection5Title => '4.1 图片或相册相关权限';
+
+  @override
+  String get devicePrivacySection5Body =>
+      '当你主动为设备设置头像、选择图片或更新相关展示内容时，应用可能请求访问图片或相册的权限。该权限仅用于完成你主动发起的操作，不会在未经你同意的情况下自动读取你的图片内容。';
+
+  @override
+  String get devicePrivacySection6Title => '4.2 外部链接与系统能力';
+
+  @override
+  String get devicePrivacySection6Body =>
+      '当你主动点击“给 app 评分”“联系开发者”“隐私政策”“使用条款”“升级/订阅”或“恢复购买”等入口时，应用可能调用系统提供的浏览器、邮件、应用商店或其他系统能力，以完成对应操作。此类行为属于你主动发起的系统跳转。';
+
+  @override
+  String get devicePrivacySection7Title => '5. 信息共享、上传与第三方服务';
+
+  @override
+  String get devicePrivacySection7Body =>
+      '当前版本下，你输入的业务记录主要存储在本地设备中；手机号验证码登录所需的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务处理短信验证码发送与校验。你主动使用云端备份时，应用会将当前账本备份上传至开发者配置的云端备份服务；你主动从云端恢复时，应用会下载你账号下选择的备份。\n\n开发者不会将这些记录出售、出租或主动共享给广告网络、数据经纪商或其他无关第三方。\n\n当前版本未接入以下类型的第三方服务：\n• 广告投放服务；\n• 行为分析服务；\n• 第三方追踪服务；\n• 自动多端同步服务。\n\n当前版本已接入的短信验证码服务仅用于手机号登录验证，不用于广告投放、行为分析或第三方追踪。\n\n如你主动使用应用商店评分、系统邮件联系、升级、订阅或恢复购买等系统能力，相关流程将由 Apple App Store、设备系统或对应平台按照其自身规则处理。若生产版本启用订阅服务端校验，应用可能向开发者配置的校验服务发送确认订阅状态所需的交易校验信息。开发者当前不直接收集你的银行卡号、支付账号密码等支付凭证信息。';
+
+  @override
+  String get devicePrivacySection8Title => '6. 数据存储与安全';
+
+  @override
+  String get devicePrivacySection8Body =>
+      '当前版本中的主要业务数据保存在你的设备本地。你主动上传的云端备份会保存在账号对应的云端备份空间，用于备份列表展示和恢复。手机号验证码登录所需的登录凭证会保存在本机，用于维持登录状态。我们会在应用能力范围内采取合理措施，尽量降低数据被意外丢失、误操作或未经授权访问的风险。\n\n但请你理解，任何本地设备、操作系统环境或存储介质都无法保证绝对安全。建议你妥善保管自己的设备，并谨慎处理重要业务数据。';
+
+  @override
+  String get devicePrivacySection9Title => '7. 数据保留与删除';
+
+  @override
+  String get devicePrivacySection9Body =>
+      '在当前版本中，相关业务数据通常会保留在你的本地设备中，直至出现以下情况之一：\n• 你主动删除相关记录；\n• 你主动清除应用数据；\n• 你卸载应用；\n• 因设备系统、存储环境或其他异常导致本地数据变化或丢失。\n\n如果你没有主动上传云端备份，开发者通常无法为你恢复仅保存在本地设备中的账本数据。';
+
+  @override
+  String get devicePrivacySection10Title => '8. 儿童与未成年人保护';
+
+  @override
+  String get devicePrivacySection10Body =>
+      'FleetLedger 主要面向工程机械经营记录与管理场景，不以儿童为目标用户。如你是未成年人，建议在监护人指导下阅读并使用本应用。';
+
+  @override
+  String get devicePrivacySection11Title => '9. 未来功能更新说明';
+
+  @override
+  String get devicePrivacySection11Body =>
+      '当前版本中，手机号验证码登录和用户主动发起的云端备份/恢复会按本政策说明处理相关信息。\n\n如未来版本引入以下能力，包括但不限于：\n• 自动多端同步；\n• 行为分析工具；\n• 第三方服务接入；\n• 错误日志收集；\n• 其他涉及数据上传、处理或共享的新功能，\n\n我们会根据届时的实际功能与数据流程，及时更新本隐私政策，并同步更新 App Store 隐私披露信息。';
+
+  @override
+  String get devicePrivacySection12Title => '10. 隐私政策的更新';
+
+  @override
+  String get devicePrivacySection12Body =>
+      '我们可能会根据产品功能迭代、法律法规要求或服务变化，对本政策进行更新。更新后的版本会通过应用内相关页面、支持页面或其他合理方式进行发布。\n\n如无特别说明，更新后的政策自发布之日起生效。';
+
+  @override
+  String get devicePrivacySection13Title => '11. 联系我们';
+
+  @override
+  String get devicePrivacySection13Body =>
+      '如果你对本隐私政策有疑问，或希望就隐私相关问题与我们联系，可以通过以下方式联系开发者：\n\n电子邮箱：582748196@qq.com';
+
+  @override
+  String get deviceTermsEffectiveDate => '生效日期：2026-03-17';
+
+  @override
+  String get deviceTermsSection1Title => '1. 适用范围与接受';
+
+  @override
+  String get deviceTermsSection1Body =>
+      '本使用条款适用于“FleetLedger”在 iOS 与 Android 平台提供的产品与服务。你在下载、安装、访问或继续使用本应用时，即表示你已阅读并同意受本条款约束。';
+
+  @override
+  String get deviceTermsSection2Title => '2. 产品功能说明';
+
+  @override
+  String get deviceTermsSection2Body =>
+      '本应用面向工程机械经营场景，主要用于设备信息、工时、燃油、项目收支、维保明细等内容的记录与管理。应用展示结果仅作为经营辅助工具，不构成财务、税务、法律或其他专业意见。';
+
+  @override
+  String get deviceTermsSection3Title => '3. 用户责任';
+
+  @override
+  String get deviceTermsSection3Body =>
+      '你应确保录入、保存、导出或分享的信息真实、准确、完整，并保证你对相关数据拥有合法使用权。你不得利用本应用制作、存储或传播违法、侵权、欺诈、恶意或其他违反适用法律法规的内容。';
+
+  @override
+  String get deviceTermsSection4Title => '4. 本地数据与备份';
+
+  @override
+  String get deviceTermsSection4Body =>
+      '当前版本的设备信息、工时、燃油、项目收支、维保明细等主要业务数据主要采用本地存储方式。手机号验证码登录会通过开发者配置的账号接口和短信验证码服务完成校验，用于识别登录状态。\n\n你理解并同意：因设备损坏、系统异常、误删除、权限变更、卸载应用或其他非开发者可控原因导致的本地业务数据丢失风险，应由你自行承担。建议你根据业务重要程度自行做好备份。';
+
+  @override
+  String get deviceTermsSection5Title => '5. 权限、平台能力与付费功能';
+
+  @override
+  String get deviceTermsSection5Body =>
+      '当你主动使用图片选择、评分入口、升级/订阅或恢复购买能力时，应用可能调用系统权限或 Apple App Store、Google Play 提供的平台能力。自动续期订阅的名称、周期、价格与权益以购买页和对应应用商店确认页展示为准；订阅会自动续期，除非你在当前周期结束前至少 24 小时关闭自动续期。你可以在 Apple ID 的订阅设置中管理或取消订阅，退款、取消与续费规则以对应应用商店规则为准，相关支付结算由对应平台处理。';
+
+  @override
+  String get deviceTermsSection6Title => '6. 知识产权';
+
+  @override
+  String get deviceTermsSection6Body =>
+      '本应用的软件代码、界面设计、文案结构与相关标识等内容，除法律另有规定或另有声明外，相关权利归开发者所有。未经许可，你不得对应用进行非法复制、反向工程、传播或商业化利用。';
+
+  @override
+  String get deviceTermsSection7Title => '7. 免责声明与责任限制';
+
+  @override
+  String get deviceTermsSection7Body =>
+      '本应用按“现状”和“现有可用”状态提供。我们会持续改进产品体验，但不保证应用始终无中断、无错误或完全满足你的特定业务需求。对于因你录入错误、未及时备份、设备故障、系统限制、第三方平台异常或不可抗力导致的损失，在适用法律允许范围内，开发者承担的责任以法律强制要求为限。';
+
+  @override
+  String get deviceTermsSection8Title => '8. 条款更新与联系';
+
+  @override
+  String get deviceTermsSection8Body =>
+      '我们可能根据产品迭代、平台政策或法律法规变化对本条款进行更新。更新版本发布后，如你继续使用本应用，视为接受更新后的条款。如有问题，可联系：582748196@qq.com。';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/measure/measure_unit.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../tokens/mapper/device_tokens.dart';
@@ -14,6 +15,7 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final visible = ledgers
         .where((ledger) => ledger.projects.isNotEmpty || ledger.incomeFen > 0)
         .take(4)
@@ -21,7 +23,7 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
     if (visible.isEmpty) return const SizedBox.shrink();
 
     return DeviceSectionGroup(
-      title: '设备经营',
+      title: l10n.deviceLedgerSectionTitle,
       padding: const EdgeInsets.symmetric(
         horizontal: DeviceTokens.sectionHorizontalInset,
       ),
@@ -29,16 +31,16 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
         for (final ledger in visible)
           DeviceActionCard(
             title: ledger.deviceName,
-            subtitle: _subtitleFor(ledger),
+            subtitle: _subtitleFor(l10n, ledger),
             onTap: () {},
           ),
       ],
     );
   }
 
-  String _subtitleFor(DeviceBusinessLedger ledger) {
+  String _subtitleFor(AppLocalizations l10n, DeviceBusinessLedger ledger) {
     final income = FormatUtils.money(ledger.incomeFen / 100);
-    final work = _unitSummary(ledger.unitTotals);
+    final work = _unitSummary(l10n, ledger.unitTotals);
     final projectCount = ledger.projects.length;
     final pendingFen = ledger.projects.fold<int>(
       0,
@@ -46,19 +48,22 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
           sum + (project.remainingFen > 0 ? project.remainingFen : 0),
     );
     final pending = pendingFen <= 0
-        ? '已收齐'
-        : '待收 ${FormatUtils.money(pendingFen / 100)}';
-    return '收入 $income · $work\n$projectCount 项 · $pending';
+        ? l10n.deviceLedgerPaidFull
+        : l10n.deviceLedgerPendingAmount(FormatUtils.money(pendingFen / 100));
+    return l10n.deviceLedgerSubtitle(income, work, projectCount, pending);
   }
 
-  String _unitSummary(List<DeviceBusinessUnitTotal> totals) {
-    if (totals.isEmpty) return '暂无工作量';
+  String _unitSummary(
+    AppLocalizations l10n,
+    List<DeviceBusinessUnitTotal> totals,
+  ) {
+    if (totals.isEmpty) return l10n.deviceLedgerNoWork;
     return totals
         .take(3)
         .map((total) {
-          return '${_quantityText(total.quantityScaled)}${_unitLabel(total.unit)}';
+          return '${_quantityText(total.quantityScaled)}${_unitLabel(l10n, total.unit)}';
         })
-        .join('、');
+        .join(l10n.deviceListSeparator);
   }
 
   String _quantityText(int quantityScaled) {
@@ -68,32 +73,32 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
     return value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
   }
 
-  String _unitLabel(MeasureUnit unit) {
+  String _unitLabel(AppLocalizations l10n, MeasureUnit unit) {
     switch (unit) {
       case MeasureUnit.hour:
-        return '小时';
+        return l10n.deviceUnitHour;
       case MeasureUnit.shift:
-        return '台班';
+        return l10n.deviceUnitShift;
       case MeasureUnit.day:
-        return '天';
+        return l10n.deviceUnitDay;
       case MeasureUnit.rent:
-        return '租期';
+        return l10n.deviceUnitRent;
       case MeasureUnit.mu:
-        return '亩';
+        return l10n.deviceUnitMu;
       case MeasureUnit.acre:
-        return '英亩';
+        return l10n.deviceUnitAcre;
       case MeasureUnit.hectare:
-        return '公顷';
+        return l10n.deviceUnitHectare;
       case MeasureUnit.ton:
-        return '吨';
+        return l10n.deviceUnitTon;
       case MeasureUnit.cubicMeter:
-        return '方';
+        return l10n.deviceUnitCubicMeter;
       case MeasureUnit.trip:
-        return '趟';
+        return l10n.deviceUnitTrip;
       case MeasureUnit.sortie:
-        return '架次';
+        return l10n.deviceUnitSortie;
       case MeasureUnit.task:
-        return '任务';
+        return l10n.deviceUnitTask;
     }
   }
 }

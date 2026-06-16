@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/pro_gate.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../application/controllers/device_avatar_controller.dart';
 import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/device.dart';
@@ -124,10 +125,11 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
   }
 
   Future<bool> _ensureProForCustomAvatar() async {
+    final l10n = AppLocalizations.of(context);
     return requireProFeature(
       context,
-      title: '需要升级',
-      message: '自定义设备头像是 Pro 功能，升级后可为设备设置专属头像。',
+      title: l10n.deviceCustomAvatarProTitle,
+      message: l10n.deviceCustomAvatarProMessage,
       isAllowed: _subscriptionController.snapshot.allowsProFeatures,
       isAllowedAfterUpgrade: () =>
           _subscriptionController.snapshot.allowsProFeatures,
@@ -139,6 +141,7 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
 
   Future<void> _pickCustomAvatarFromGallery() async {
     if (_saving) return;
+    final l10n = AppLocalizations.of(context);
     final allowed = await _ensureProForCustomAvatar();
     if (!allowed || !mounted) return;
     final picker = ImagePicker();
@@ -151,14 +154,15 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
       final savedPath = await _avatarController.savePickedAvatar(file);
       if (!mounted) return;
       setState(() => _customAvatarPath = savedPath);
-      _showMsg('已从相册更换头像');
+      _showMsg(l10n.deviceAvatarGalleryChanged);
     } catch (e) {
-      _showMsg('头像保存失败：$e');
+      _showMsg(l10n.deviceAvatarSaveFailure('$e'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final editing = widget.device != null;
 
     final previewLabel = _previewName.trim().isEmpty
@@ -178,7 +182,9 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
       ),
       title: Align(
         alignment: Alignment.center,
-        child: Text(editing ? '编辑设备' : '新增设备'),
+        child: Text(
+          editing ? l10n.deviceEditorEditTitle : l10n.deviceEditorCreateTitle,
+        ),
       ),
       content: ConstrainedBox(
         constraints: BoxConstraints(
@@ -214,6 +220,7 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: DeviceEditorActionsPattern.build(
+        context: context,
         saving: _saving,
         onCancel: () => _close(null),
         onConfirm: () async {

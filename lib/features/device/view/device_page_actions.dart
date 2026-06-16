@@ -5,6 +5,7 @@ import '../application/controllers/device_action_controller.dart';
 import '../domain/entities/device.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import 'device_avatar_select_page.dart';
 import 'device_editor_dialog.dart';
 import 'privacy_page.dart';
@@ -136,17 +137,13 @@ class DevicePageActions {
   }
 
   static Future<bool> _confirmDeactivate(BuildContext context, Device d) async {
+    final l10n = AppLocalizations.of(context);
     return showAppConfirmDialog(
       context: context,
-      title: '确认停用设备？',
-      content:
-          '设备：${d.name}\n\n'
-          '✅ 只会停用设备，不会删除任何计时/燃油/收入历史记录。\n'
-          '停用后：\n'
-          '• 设备页默认不再显示\n'
-          '• 计时页下拉框不可再选\n'
-          '• 历史记录仍可回显（通过 deviceId 区分新旧设备）',
-      confirmText: '停用',
+      title: l10n.deviceDeactivateTitle,
+      content: l10n.deviceDeactivateContent(d.name),
+      cancelText: l10n.deviceCancelAction,
+      confirmText: l10n.deviceDeactivateAction,
     );
   }
 }

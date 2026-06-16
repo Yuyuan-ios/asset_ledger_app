@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/foundation/typography.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../domain/entities/device.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
@@ -57,6 +58,7 @@ class DeviceAvatarSelectPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       appBar: AppBar(
@@ -65,7 +67,7 @@ class DeviceAvatarSelectPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          '选择设备头像',
+          l10n.deviceAvatarSelectTitle,
           style: AppTypography.sectionTitle(
             context,
             fontSize: DeviceTokens.avatarPickerTitleFontSize,
@@ -107,6 +109,7 @@ class _EquipmentTypeBrandPickerState extends State<_EquipmentTypeBrandPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final viewData = DeviceAvatarSelectViewData.fromSelectedType(_selectedType);
     return Column(
       children: [
@@ -126,7 +129,7 @@ class _EquipmentTypeBrandPickerState extends State<_EquipmentTypeBrandPicker> {
           child: viewData.isEmpty
               ? Center(
                   child: Text(
-                    '该类别暂无品牌，先选另一类或新增自定义头像',
+                    l10n.deviceAvatarEmpty,
                     style: AppTypography.bodySecondary(
                       context,
                       fontSize: DeviceTokens.avatarPickerEmptyTextFontSize,
@@ -166,6 +169,10 @@ class _DeviceTypeSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget buildItem(EquipmentType type) {
+      final l10n = AppLocalizations.of(context);
+      final label = type == EquipmentType.loader
+          ? l10n.deviceEquipmentLoader
+          : l10n.deviceEquipmentExcavator;
       final selected = selectedType == type;
       return Expanded(
         child: InkWell(
@@ -183,7 +190,7 @@ class _DeviceTypeSegment extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              type.label,
+              label,
               style: AppTypography.body(
                 context,
                 fontSize: DeviceTokens.avatarTypeSegmentItemFontSize,

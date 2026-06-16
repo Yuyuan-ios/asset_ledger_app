@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/entities/device.dart';
 import '../domain/services/device_business_ledger.dart';
 import '../domain/services/device_label.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
 import '../../../patterns/device/device_management_section_pattern.dart';
@@ -40,10 +41,12 @@ class DevicePageSectionHandlers {
 }
 
 List<Widget> buildDevicePageSections({
+  required AppLocalizations l10n,
   required List<Device> devices,
   required DevicePageSectionHandlers handlers,
 }) {
   final actionConfigs = buildDevicePageActionSectionConfigs(
+    l10n: l10n,
     onOpenUpgradePage: handlers.onOpenUpgradePage,
     onOpenAddDeviceFlow: handlers.onOpenAddDeviceFlow,
     onOpenRateApp: handlers.onOpenRateApp,
@@ -57,7 +60,7 @@ List<Widget> buildDevicePageSections({
   final sections = <Widget>[];
   for (final config in actionConfigs) {
     if (config.id == DevicePageActionSectionId.profile) {
-      sections.add(_buildAccountSyncSection(handlers));
+      sections.add(_buildAccountSyncSection(l10n, handlers));
       continue;
     }
 
@@ -71,6 +74,7 @@ List<Widget> buildDevicePageSections({
     if (config.id == DevicePageActionSectionId.equipment) {
       sections.add(
         DeviceManagementSection(
+          title: l10n.deviceManagementTitle,
           devices: devices,
           onDeviceTap: handlers.onDeviceTap,
           onDeviceLongPress: handlers.onDeviceLongPress,
@@ -98,12 +102,15 @@ List<Widget> _withSectionSpacing(List<Widget> sections) {
   return widgets;
 }
 
-Widget _buildAccountSyncSection(DevicePageSectionHandlers handlers) {
+Widget _buildAccountSyncSection(
+  AppLocalizations l10n,
+  DevicePageSectionHandlers handlers,
+) {
   return DeviceSectionGroup(
-    title: '账号与同步',
+    title: l10n.deviceAccountSyncSectionTitle,
     children: [
       DeviceActionCard(
-        title: '账户中心',
+        title: l10n.deviceAccountCenterTitle,
         subtitle: handlers.accountCenterSubtitle,
         onTap: handlers.onOpenAccountCenter,
         trailingIcon: Icons.chevron_right,

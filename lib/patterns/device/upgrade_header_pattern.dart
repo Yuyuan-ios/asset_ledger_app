@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
 class UpgradeHeaderPattern extends StatelessWidget {
   const UpgradeHeaderPattern({
     super.key,
     required this.onBack,
-    this.backLabel = '设备',
-    this.title = '立即升级',
+    this.backLabel,
+    this.title,
   });
 
   final VoidCallback onBack;
-  final String backLabel;
-  final String title;
+  final String? backLabel;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final resolvedBackLabel = backLabel ?? l10n.devicePageTitle;
+    final resolvedTitle = title ?? l10n.deviceUpgradeNowTitle;
     return Column(
       children: [
         Container(
@@ -43,7 +47,7 @@ class UpgradeHeaderPattern extends StatelessWidget {
                   size: DeviceTokens.upgradeBackIconSize,
                 ),
                 label: Text(
-                  backLabel,
+                  resolvedBackLabel,
                   style: AppTypography.body(
                     context,
                     fontSize: DeviceTokens.upgradeBackLabelSize,
@@ -54,7 +58,7 @@ class UpgradeHeaderPattern extends StatelessWidget {
               ),
               Expanded(
                 child: Text(
-                  title,
+                  resolvedTitle,
                   textAlign: TextAlign.center,
                   style: AppTypography.pageTitle(
                     context,

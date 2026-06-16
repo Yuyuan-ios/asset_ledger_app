@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/avatars/app_device_avatar.dart';
 import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/device_tokens.dart';
 
 /// 返回设备的"序号 label"（如 `1#`）。计算由 feature/device 层完成
@@ -25,6 +26,7 @@ class DeviceManagementGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final visible = devices.take(DeviceManagementGridTokens.slots).toList();
     final baseGridWidth =
         DeviceTokens.pageContentWidth -
@@ -74,8 +76,8 @@ class DeviceManagementGrid extends StatelessWidget {
               final label = resolveIndexLabel(d);
               final displayIndex = label.trim().isEmpty ? '—' : label.trim();
               final categoryLabel = d.equipmentType == EquipmentType.loader
-                  ? '装载机'
-                  : '挖掘机';
+                  ? l10n.deviceEquipmentLoader
+                  : l10n.deviceEquipmentExcavator;
               final displayText = displayIndex == '—'
                   ? categoryLabel
                   : '$displayIndex$categoryLabel';

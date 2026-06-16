@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/config/support_feedback_config.dart';
 import '../../../core/foundation/typography.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/upgrade_benefit_item_pattern.dart';
 import '../../../patterns/device/upgrade_footer_links_pattern.dart';
 import '../../../patterns/device/upgrade_header_pattern.dart';
@@ -23,19 +24,19 @@ extension on _UpgradePlan {
     };
   }
 
-  String get fallbackTitle {
+  String fallbackTitle(AppLocalizations l10n) {
     return switch (this) {
-      _UpgradePlan.pro => '机账通 Pro 年订阅',
-      _UpgradePlan.max => '机账通 Max 年订阅',
+      _UpgradePlan.pro => l10n.deviceUpgradeProFallbackTitle,
+      _UpgradePlan.max => l10n.deviceUpgradeMaxFallbackTitle,
     };
   }
 
-  String get periodLabel {
-    return '1 年 / 1 year';
+  String periodLabel(AppLocalizations l10n) {
+    return l10n.deviceUpgradePeriodYear;
   }
 
-  String get unitLabel {
-    return '年';
+  String unitLabel(AppLocalizations l10n) {
+    return l10n.deviceUpgradeUnitYear;
   }
 
   String get planCardTitle {
@@ -45,10 +46,10 @@ extension on _UpgradePlan {
     };
   }
 
-  String get planCardBody {
+  String planCardBody(AppLocalizations l10n) {
     return switch (this) {
-      _UpgradePlan.pro => '解锁基础 Pro 功能，订阅有效期内可用。',
-      _UpgradePlan.max => '更高等级权益，包含 Pro 能力，并为后续高级能力预留。',
+      _UpgradePlan.pro => l10n.deviceUpgradeProBody,
+      _UpgradePlan.max => l10n.deviceUpgradeMaxBody,
     };
   }
 }
@@ -96,61 +97,66 @@ class _UpgradePageState extends State<UpgradePage> {
   }
 
   String _productTitle({
+    required AppLocalizations l10n,
     required SubscriptionSnapshot snapshot,
     required _UpgradePlan plan,
   }) {
     final title = snapshot.productFor(plan.productKind)?.title.trim();
-    if (title == null || title.isEmpty) return plan.fallbackTitle;
+    if (title == null || title.isEmpty) return plan.fallbackTitle(l10n);
     return title;
   }
 
   String _priceLabel({
+    required AppLocalizations l10n,
     required SubscriptionSnapshot snapshot,
     required _UpgradePlan plan,
   }) {
     final price = snapshot.productFor(plan.productKind)?.price.trim();
     if (price == null || price.isEmpty) {
-      return '等待 App Store 商品信息 / Loading from App Store';
+      return l10n.deviceUpgradeLoadingProduct;
     }
     return price;
   }
 
   String _unitPriceLabel({
+    required AppLocalizations l10n,
     required SubscriptionSnapshot snapshot,
     required _UpgradePlan plan,
   }) {
     final price = snapshot.productFor(plan.productKind)?.price.trim();
     if (price == null || price.isEmpty) {
-      return '商品信息加载后显示 / Available after product details load';
+      return l10n.deviceUpgradeUnitPricePending;
     }
-    return '$price / ${plan.unitLabel}';
+    return '$price / ${plan.unitLabel(l10n)}';
   }
 
   String _planSubtitle({
+    required AppLocalizations l10n,
     required SubscriptionSnapshot snapshot,
     required _UpgradePlan plan,
   }) {
-    return '${_priceLabel(snapshot: snapshot, plan: plan)} · ${plan.periodLabel}';
+    return '${_priceLabel(l10n: l10n, snapshot: snapshot, plan: plan)} · ${plan.periodLabel(l10n)}';
   }
 
   Widget _buildStatusMessage(
     BuildContext context,
     SubscriptionSnapshot snapshot,
   ) {
+    final l10n = AppLocalizations.of(context);
     final canUsePurchaseFlow = _subscriptionController.canUsePurchaseFlow;
     String? message = snapshot.errorMessage;
     if (!canUsePurchaseFlow) {
-      message = '订阅购买服务暂不可用，请稍后重试';
+      message = l10n.deviceUpgradePurchaseUnavailable;
     } else if (snapshot.isLoadingProducts) {
-      message = '正在加载 App Store 订阅商品...';
+      message = l10n.deviceUpgradeLoadingProducts;
     } else if (!snapshot.hasProducts) {
-      message ??= '订阅商品暂不可用，请稍后重试';
+      message ??= l10n.deviceUpgradeProductsUnavailable;
     } else if (snapshot.status == SubscriptionStatus.pending) {
-      message = '正在等待 App Store 交易结果...';
+      message = l10n.deviceUpgradeTransactionPending;
     } else if (snapshot.allowsProFeatures) {
       message = snapshot.allowsMaxFeatures
-          ? '订阅已生效，Max 权益已解锁'
-          : '订阅已生效，Pro 权益已解锁';
+          ? l10n.deviceUpgradeMaxUnlocked
+          : l10n.deviceUpgradeProUnlocked;
     }
 
     if (message == null || message.isEmpty) {
@@ -176,6 +182,7 @@ class _UpgradePageState extends State<UpgradePage> {
     return ValueListenableBuilder<SubscriptionSnapshot>(
       valueListenable: _subscriptionController.notifier,
       builder: (context, snapshot, _) {
+        final l10n = AppLocalizations.of(context);
         final selectedProduct = snapshot.productFor(_selectedPlan.productKind);
         final subscriptionVerificationConfigured =
             _subscriptionController.canUsePurchaseFlow;
@@ -196,18 +203,18 @@ class _UpgradePageState extends State<UpgradePage> {
             !snapshot.isBusy &&
             !entitlementCoversSelectedPlan;
         final buttonText = snapshot.isLoadingProducts
-            ? '加载中...'
+            ? l10n.deviceUpgradeButtonLoading
             : !canUsePurchaseFlow
-            ? '暂不可购买'
+            ? l10n.deviceUpgradeButtonUnavailable
             : purchasing
-            ? '处理中...'
+            ? l10n.deviceUpgradeButtonProcessing
             : entitlementCoversSelectedPlan
-            ? '已订阅'
+            ? l10n.deviceUpgradeButtonSubscribed
             : selectedProduct == null
-            ? '暂不可购买'
+            ? l10n.deviceUpgradeButtonUnavailable
             : _selectedPlan == _UpgradePlan.max && snapshot.allowsProFeatures
-            ? '升级到 Max'
-            : '继续';
+            ? l10n.deviceUpgradeButtonUpgradeMax
+            : l10n.deviceUpgradeButtonContinue;
 
         return Scaffold(
           backgroundColor: DeviceTokens.upgradePageBg,
@@ -217,8 +224,8 @@ class _UpgradePageState extends State<UpgradePage> {
               children: [
                 UpgradeHeaderPattern(
                   onBack: () => Navigator.of(context).pop(),
-                  backLabel: '设备',
-                  title: '立即升级',
+                  backLabel: l10n.devicePageTitle,
+                  title: l10n.deviceUpgradeNowTitle,
                 ),
                 Expanded(
                   child: Container(
@@ -242,15 +249,20 @@ class _UpgradePageState extends State<UpgradePage> {
                         const SizedBox(
                           height: DeviceTokens.upgradeHeroToBenefitsGap,
                         ),
-                        const UpgradeBenefitItem(text: '多留一份清楚的电子账'),
-                        const UpgradeBenefitItem(text: 'Pro 与 Max 均为年度自动续期订阅'),
+                        UpgradeBenefitItem(
+                          text: l10n.deviceUpgradeBenefitClearLedger,
+                        ),
+                        UpgradeBenefitItem(
+                          text: l10n.deviceUpgradeBenefitAutoRenewal,
+                        ),
                         UpgradePlanCard(
                           title: _UpgradePlan.pro.planCardTitle,
                           subtitle1: _planSubtitle(
+                            l10n: l10n,
                             snapshot: snapshot,
                             plan: _UpgradePlan.pro,
                           ),
-                          subtitle2: _UpgradePlan.pro.planCardBody,
+                          subtitle2: _UpgradePlan.pro.planCardBody(l10n),
                           emphasized: _selectedPlan == _UpgradePlan.pro,
                           onTap: snapshot.isBusy
                               ? null
@@ -262,11 +274,12 @@ class _UpgradePageState extends State<UpgradePage> {
                         UpgradePlanCard(
                           title: _UpgradePlan.max.planCardTitle,
                           subtitle1: _planSubtitle(
+                            l10n: l10n,
                             snapshot: snapshot,
                             plan: _UpgradePlan.max,
                           ),
-                          subtitle2: _UpgradePlan.max.planCardBody,
-                          badge: '包含 Pro',
+                          subtitle2: _UpgradePlan.max.planCardBody(l10n),
+                          badge: l10n.deviceUpgradeBadgeIncludesPro,
                           emphasized: _selectedPlan == _UpgradePlan.max,
                           onTap: snapshot.isBusy
                               ? null
@@ -280,15 +293,18 @@ class _UpgradePageState extends State<UpgradePage> {
                         ),
                         UpgradeSubscriptionDisclosurePattern(
                           subscriptionTitle: _productTitle(
+                            l10n: l10n,
                             snapshot: snapshot,
                             plan: _selectedPlan,
                           ),
-                          subscriptionLength: _selectedPlan.periodLabel,
+                          subscriptionLength: _selectedPlan.periodLabel(l10n),
                           subscriptionPrice: _priceLabel(
+                            l10n: l10n,
                             snapshot: snapshot,
                             plan: _selectedPlan,
                           ),
                           unitPrice: _unitPriceLabel(
+                            l10n: l10n,
                             snapshot: snapshot,
                             plan: _selectedPlan,
                           ),

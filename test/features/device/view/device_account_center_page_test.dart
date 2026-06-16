@@ -6,7 +6,9 @@ import 'package:asset_ledger/features/device/domain/entities/device.dart';
 import 'package:asset_ledger/features/device/domain/services/device_business_ledger.dart';
 import 'package:asset_ledger/features/device/view/device_account_center_page.dart';
 import 'package:asset_ledger/features/device/view/device_page_sections.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -14,16 +16,20 @@ void main() {
   testWidgets('device page account card shows unauthenticated status', (
     WidgetTester tester,
   ) async {
+    final l10n = lookupAppLocalizations(const Locale('zh'));
+
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: ListView(
             children: buildDevicePageSections(
+              l10n: l10n,
               devices: <Device>[],
               handlers: DevicePageSectionHandlers(
                 onOpenUpgradePage: () {},
                 onOpenAccountCenter: () {},
-                accountCenterSubtitle: '未登录 · 登录后可备份与同步',
+                accountCenterSubtitle:
+                    l10n.deviceAccountCenterLoggedOutSubtitle,
                 onOpenAddDeviceFlow: () {},
                 onOpenRateApp: () {},
                 onOpenTermsPage: () {},
@@ -46,11 +52,14 @@ void main() {
   testWidgets('device page sections show business ledger summaries', (
     WidgetTester tester,
   ) async {
+    final l10n = lookupAppLocalizations(const Locale('zh'));
+
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: ListView(
             children: buildDevicePageSections(
+              l10n: l10n,
               devices: <Device>[
                 Device(
                   id: 1,
@@ -63,7 +72,8 @@ void main() {
               handlers: DevicePageSectionHandlers(
                 onOpenUpgradePage: () {},
                 onOpenAccountCenter: () {},
-                accountCenterSubtitle: '未登录 · 登录后可备份与同步',
+                accountCenterSubtitle:
+                    l10n.deviceAccountCenterLoggedOutSubtitle,
                 onOpenAddDeviceFlow: () {},
                 onOpenRateApp: () {},
                 onOpenTermsPage: () {},
@@ -134,7 +144,7 @@ void main() {
       var loginOpened = false;
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedApp(
           home: AccountCenterPage(
             loginSession: const PhoneLoginSession.unauthenticated(),
             subscriptionListenable: subscription,
@@ -191,7 +201,7 @@ void main() {
     var loginOpened = false;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: AccountCenterPage(
           loginSession: const PhoneLoginSession.skipped(),
           subscriptionListenable: subscription,
@@ -233,7 +243,7 @@ void main() {
     addTearDown(subscription.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: AccountCenterPage(
           loginSession: const PhoneLoginSession(
             loggedIn: true,
@@ -274,7 +284,7 @@ void main() {
     var cloudBackupOpened = false;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: AccountCenterPage(
           loginSession: const PhoneLoginSession(
             loggedIn: true,
@@ -307,4 +317,18 @@ void main() {
 
     expect(cloudBackupOpened, isTrue);
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/device.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/device_tokens.dart';
 import 'device_management_grid_pattern.dart';
 import 'device_section_group_pattern.dart';
@@ -12,7 +13,7 @@ class DeviceManagementSection extends StatelessWidget {
     required this.onDeviceTap,
     required this.onDeviceLongPress,
     required this.resolveIndexLabel,
-    this.title = '管理设备(长按图标删除)',
+    this.title,
     this.padding = const EdgeInsets.symmetric(
       horizontal: DeviceTokens.sectionHorizontalInset,
     ),
@@ -22,13 +23,14 @@ class DeviceManagementSection extends StatelessWidget {
   final ValueChanged<Device> onDeviceTap;
   final ValueChanged<Device> onDeviceLongPress;
   final DeviceIndexLabelResolver resolveIndexLabel;
-  final String title;
+  final String? title;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return DeviceSectionGroup(
-      title: title,
+      title: title ?? l10n.deviceManagementTitle,
       padding: padding,
       children: [
         DeviceManagementGrid(

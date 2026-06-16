@@ -1,123 +1,75 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/legal_section_pattern.dart';
 
 class PrivacyPage extends StatelessWidget {
   const PrivacyPage({super.key});
 
-  static const List<LegalSectionContent> _sections = [
-    LegalSectionContent(
-      title: '1. 适用范围',
-      body:
-          '欢迎使用 FleetLedger。\n'
-          'FleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、燃油消耗、项目收支、维保明细及设备信息。\n\n'
-          '本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n'
-          '本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。',
-    ),
-    LegalSectionContent(
-      title: '2. 当前版本涉及的本地数据类型',
-      body:
-          '在当前版本中，应用涉及的数据主要包括：\n'
-          '• 你主动录入的设备信息、工时记录、燃油记录、项目收支、维保明细等业务数据；\n'
-          '• 你在手机号登录页主动输入的手机号，以及你对隐私政策和使用条款的确认状态；\n'
-          '• 你主动选择并设置的头像或图片文件；\n'
-          '• 应用在本机运行过程中，为实现本地存储、页面展示、筛选查询、统计展示与功能判断所需的必要本地信息。\n\n'
-          '上述业务数据在当前版本中主要存储在你的设备本地。为实现手机号验证码登录，你输入的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务提供短信验证码发送与校验能力。如你主动使用云端备份，应用会将当前账本备份上传至开发者配置的云端备份服务，用于后续备份列表展示和换机恢复。当前版本未接入广告 SDK、行为分析 SDK、第三方追踪服务或自动多端同步服务。',
-    ),
-    LegalSectionContent(
-      title: '3. 数据来源与用途说明',
-      body:
-          '当前版本中的相关数据主要来源于：\n'
-          '• 你的主动输入；\n'
-          '• 你的主动上传或主动选择；\n'
-          '• 你在使用相关功能时在设备本地形成的数据。\n\n'
-          '这些数据主要用于在你的设备上实现 FleetLedger 的核心功能，包括但不限于：\n'
-          '• 保存和展示设备经营记录；\n'
-          '• 生成统计结果与页面展示内容；\n'
-          '• 支持筛选、查询、汇总、头像显示等功能；\n'
-          '• 在必要情况下协助进行本地问题排查与功能判断。\n\n'
-          '除手机号验证码登录、你主动使用云端备份或恢复、你主动通过系统能力发起评分、邮件联系或打开外部链接等行为外，开发者当前不会通过本应用主动接收你在应用内录入的业务数据。',
-    ),
-    LegalSectionContent(
-      title: '4. 权限使用说明',
-      body: '为实现相关功能，FleetLedger 可能在你主动操作时请求系统权限。',
-    ),
-    LegalSectionContent(
-      title: '4.1 图片或相册相关权限',
-      body:
-          '当你主动为设备设置头像、选择图片或更新相关展示内容时，应用可能请求访问图片或相册的权限。该权限仅用于完成你主动发起的操作，不会在未经你同意的情况下自动读取你的图片内容。',
-    ),
-    LegalSectionContent(
-      title: '4.2 外部链接与系统能力',
-      body:
-          '当你主动点击“给 app 评分”“联系开发者”“隐私政策”“使用条款”“升级/订阅”或“恢复购买”等入口时，应用可能调用系统提供的浏览器、邮件、应用商店或其他系统能力，以完成对应操作。此类行为属于你主动发起的系统跳转。',
-    ),
-    LegalSectionContent(
-      title: '5. 信息共享、上传与第三方服务',
-      body:
-          '当前版本下，你输入的业务记录主要存储在本地设备中；手机号验证码登录所需的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务处理短信验证码发送与校验。你主动使用云端备份时，应用会将当前账本备份上传至开发者配置的云端备份服务；你主动从云端恢复时，应用会下载你账号下选择的备份。\n\n'
-          '开发者不会将这些记录出售、出租或主动共享给广告网络、数据经纪商或其他无关第三方。\n\n'
-          '当前版本未接入以下类型的第三方服务：\n'
-          '• 广告投放服务；\n'
-          '• 行为分析服务；\n'
-          '• 第三方追踪服务；\n'
-          '• 自动多端同步服务。\n\n'
-          '当前版本已接入的短信验证码服务仅用于手机号登录验证，不用于广告投放、行为分析或第三方追踪。\n\n'
-          '如你主动使用应用商店评分、系统邮件联系、升级、订阅或恢复购买等系统能力，相关流程将由 Apple App Store、设备系统或对应平台按照其自身规则处理。若生产版本启用订阅服务端校验，应用可能向开发者配置的校验服务发送确认订阅状态所需的交易校验信息。开发者当前不直接收集你的银行卡号、支付账号密码等支付凭证信息。',
-    ),
-    LegalSectionContent(
-      title: '6. 数据存储与安全',
-      body:
-          '当前版本中的主要业务数据保存在你的设备本地。你主动上传的云端备份会保存在账号对应的云端备份空间，用于备份列表展示和恢复。手机号验证码登录所需的登录凭证会保存在本机，用于维持登录状态。我们会在应用能力范围内采取合理措施，尽量降低数据被意外丢失、误操作或未经授权访问的风险。\n\n'
-          '但请你理解，任何本地设备、操作系统环境或存储介质都无法保证绝对安全。建议你妥善保管自己的设备，并谨慎处理重要业务数据。',
-    ),
-    LegalSectionContent(
-      title: '7. 数据保留与删除',
-      body:
-          '在当前版本中，相关业务数据通常会保留在你的本地设备中，直至出现以下情况之一：\n'
-          '• 你主动删除相关记录；\n'
-          '• 你主动清除应用数据；\n'
-          '• 你卸载应用；\n'
-          '• 因设备系统、存储环境或其他异常导致本地数据变化或丢失。\n\n'
-          '如果你没有主动上传云端备份，开发者通常无法为你恢复仅保存在本地设备中的账本数据。',
-    ),
-    LegalSectionContent(
-      title: '8. 儿童与未成年人保护',
-      body:
-          'FleetLedger 主要面向工程机械经营记录与管理场景，不以儿童为目标用户。如你是未成年人，建议在监护人指导下阅读并使用本应用。',
-    ),
-    LegalSectionContent(
-      title: '9. 未来功能更新说明',
-      body:
-          '当前版本中，手机号验证码登录和用户主动发起的云端备份/恢复会按本政策说明处理相关信息。\n\n'
-          '如未来版本引入以下能力，包括但不限于：\n'
-          '• 自动多端同步；\n'
-          '• 行为分析工具；\n'
-          '• 第三方服务接入；\n'
-          '• 错误日志收集；\n'
-          '• 其他涉及数据上传、处理或共享的新功能，\n\n'
-          '我们会根据届时的实际功能与数据流程，及时更新本隐私政策，并同步更新 App Store 隐私披露信息。',
-    ),
-    LegalSectionContent(
-      title: '10. 隐私政策的更新',
-      body:
-          '我们可能会根据产品功能迭代、法律法规要求或服务变化，对本政策进行更新。更新后的版本会通过应用内相关页面、支持页面或其他合理方式进行发布。\n\n'
-          '如无特别说明，更新后的政策自发布之日起生效。',
-    ),
-    LegalSectionContent(
-      title: '11. 联系我们',
-      body:
-          '如果你对本隐私政策有疑问，或希望就隐私相关问题与我们联系，可以通过以下方式联系开发者：\n\n'
-          '电子邮箱：582748196@qq.com',
-    ),
-  ];
+  List<LegalSectionContent> _sections(AppLocalizations l10n) {
+    return [
+      LegalSectionContent(
+        title: l10n.devicePrivacySection1Title,
+        body: l10n.devicePrivacySection1Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection2Title,
+        body: l10n.devicePrivacySection2Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection3Title,
+        body: l10n.devicePrivacySection3Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection4Title,
+        body: l10n.devicePrivacySection4Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection5Title,
+        body: l10n.devicePrivacySection5Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection6Title,
+        body: l10n.devicePrivacySection6Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection7Title,
+        body: l10n.devicePrivacySection7Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection8Title,
+        body: l10n.devicePrivacySection8Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection9Title,
+        body: l10n.devicePrivacySection9Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection10Title,
+        body: l10n.devicePrivacySection10Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection11Title,
+        body: l10n.devicePrivacySection11Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection12Title,
+        body: l10n.devicePrivacySection12Body,
+      ),
+      LegalSectionContent(
+        title: l10n.devicePrivacySection13Title,
+        body: l10n.devicePrivacySection13Body,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const LegalDocumentPage(
-      title: '隐私政策',
-      sections: _sections,
-      effectiveDateText: '生效日期：2026 年 6 月 9 日',
+    final l10n = AppLocalizations.of(context);
+    return LegalDocumentPage(
+      title: l10n.devicePrivacyTitle,
+      sections: _sections(l10n),
+      effectiveDateText: l10n.devicePrivacyEffectiveDate,
     );
   }
 }

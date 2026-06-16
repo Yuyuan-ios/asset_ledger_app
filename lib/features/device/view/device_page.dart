@@ -24,6 +24,7 @@ import '../../../patterns/device/device_page_header_search_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/store_error_banner.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../domain/services/device_business_ledger.dart';
 import 'device_page_actions.dart';
@@ -65,6 +66,8 @@ class _DevicePageState extends State<DevicePage> {
 
   CloudBackupController get _cloudBackupController =>
       context.read<CloudBackupController>();
+
+  AppLocalizations get _l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -117,7 +120,7 @@ class _DevicePageState extends State<DevicePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('知道了'),
+              child: Text(_l10n.deviceDoneAction),
             ),
           ],
         );
@@ -275,7 +278,7 @@ class _DevicePageState extends State<DevicePage> {
 
     if (!_cloudBackupController.isAvailable) {
       await _showAccountSyncPlaceholder(
-        title: '云端备份服务暂未配置',
+        title: _l10n.deviceCloudBackupUnavailableTitle,
         message: _cloudBackupController.unavailableMessage,
       );
       return;
@@ -288,8 +291,8 @@ class _DevicePageState extends State<DevicePage> {
       if (!mounted) return;
       if (!session.isAuthenticated) {
         await _showAccountSyncPlaceholder(
-          title: '需要登录',
-          message: '请先完成手机号登录，再使用云端备份。',
+          title: _l10n.deviceLoginRequiredTitle,
+          message: _l10n.deviceCloudBackupLoginRequiredMessage,
         );
         return;
       }
@@ -312,25 +315,25 @@ class _DevicePageState extends State<DevicePage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('云端备份'),
-          content: const Text('你可以上传当前本机数据，也可以从云端备份恢复到本机。云端恢复会完整替换当前本机业务数据。'),
+          title: Text(_l10n.deviceCloudBackupTitle),
+          content: Text(_l10n.deviceCloudBackupChooseMessage),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
+              child: Text(_l10n.deviceCancelAction),
             ),
             TextButton(
               onPressed: () => Navigator.of(
                 dialogContext,
               ).pop(_CloudBackupAction.restoreFromCloud),
-              child: const Text('从云端恢复'),
+              child: Text(_l10n.deviceCloudRestoreAction),
             ),
             TextButton(
               onPressed: () => Navigator.of(
                 dialogContext,
               ).pop(_CloudBackupAction.uploadCurrent),
-              child: const Text('上传当前数据'),
+              child: Text(_l10n.deviceCloudUploadAction),
             ),
           ],
         );
@@ -345,17 +348,19 @@ class _DevicePageState extends State<DevicePage> {
       if (!mounted) return;
       if (!result.success) {
         await _showAccountSyncPlaceholder(
-          title: '云端备份失败',
-          message: result.errorMessage ?? '云端备份上传失败，请稍后重试。',
+          title: _l10n.deviceCloudBackupFailureTitle,
+          message:
+              result.errorMessage ??
+              _l10n.deviceCloudBackupUploadFailureMessage,
         );
         return;
       }
       await _showAccountSyncPlaceholder(
-        title: '云端备份已上传',
-        message:
-            '当前数据已保存到云端。\n'
-            '备份 ID：${result.backupId ?? '-'}\n'
-            '大小：${_cloudBackupController.formatPayloadSize(result.payloadBytes)}',
+        title: _l10n.deviceCloudBackupUploadedTitle,
+        message: _l10n.deviceCloudBackupUploadedMessage(
+          result.backupId ?? '-',
+          _cloudBackupController.formatPayloadSize(result.payloadBytes),
+        ),
       );
     } finally {
       if (mounted) {
@@ -373,15 +378,17 @@ class _DevicePageState extends State<DevicePage> {
     if (!mounted) return;
     if (!listResult.success) {
       await _showAccountSyncPlaceholder(
-        title: '无法读取云端备份',
-        message: listResult.errorMessage ?? '云端备份列表读取失败，请稍后重试。',
+        title: _l10n.deviceCloudBackupReadFailureTitle,
+        message:
+            listResult.errorMessage ??
+            _l10n.deviceCloudBackupReadFailureMessage,
       );
       return;
     }
     if (listResult.backups.isEmpty) {
       await _showAccountSyncPlaceholder(
-        title: '暂无云端备份',
-        message: '当前账号下还没有可恢复的云端备份。',
+        title: _l10n.deviceCloudBackupEmptyTitle,
+        message: _l10n.deviceCloudBackupEmptyMessage,
       );
       return;
     }
@@ -418,7 +425,7 @@ class _DevicePageState extends State<DevicePage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('选择云端备份'),
+          title: Text(_l10n.deviceCloudBackupSelectTitle),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.separated(
@@ -446,7 +453,7 @@ class _DevicePageState extends State<DevicePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
+              child: Text(_l10n.deviceCancelAction),
             ),
           ],
         );
@@ -462,19 +469,17 @@ class _DevicePageState extends State<DevicePage> {
           context: context,
           builder: (dialogContext) {
             return AlertDialog(
-              title: const Text('确认从云端恢复？'),
-              content: Text(
-                '将恢复 $backupTime 的云端备份。恢复后，当前本机业务数据会被这份云端备份替换；恢复前 App 会先自动导出当前数据备份。',
-              ),
+              title: Text(_l10n.deviceCloudRestoreConfirmTitle),
+              content: Text(_l10n.deviceCloudRestoreConfirmMessage(backupTime)),
               actionsAlignment: MainAxisAlignment.spaceBetween,
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('取消'),
+                  child: Text(_l10n.deviceCancelAction),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('确认恢复'),
+                  child: Text(_l10n.deviceRestoreConfirmAction),
                 ),
               ],
             );
@@ -499,8 +504,8 @@ class _DevicePageState extends State<DevicePage> {
 
       if (!result.success) {
         await _showAccountSyncPlaceholder(
-          title: '本地备份失败',
-          message: result.errorMessage ?? '备份失败，请稍后重试。',
+          title: _l10n.deviceLocalBackupFailureTitle,
+          message: result.errorMessage ?? _l10n.deviceLocalBackupFailureMessage,
         );
         return;
       }
@@ -509,16 +514,16 @@ class _DevicePageState extends State<DevicePage> {
       final shouldShare = action == _ManualBackupAction.backupAndShare;
       if (filePath == null || filePath.trim().isEmpty) {
         await _showAccountSyncPlaceholder(
-          title: '本地备份已生成',
-          message: '备份文件已生成，但文件路径异常。你仍可稍后从本地备份列表中选择该文件。',
+          title: _l10n.deviceLocalBackupGeneratedTitle,
+          message: _l10n.deviceLocalBackupPathInvalidMessage,
         );
         return;
       }
 
       if (!shouldShare) {
         await _showAccountSyncPlaceholder(
-          title: '本地备份已生成',
-          message: '备份已生成，可在本地恢复时选择这份备份。',
+          title: _l10n.deviceLocalBackupGeneratedTitle,
+          message: _l10n.deviceLocalBackupOnlySuccessMessage,
         );
         return;
       }
@@ -526,8 +531,8 @@ class _DevicePageState extends State<DevicePage> {
       await _shareManualBackup(filePath);
       if (!mounted) return;
       await _showAccountSyncPlaceholder(
-        title: '本地备份已生成',
-        message: '备份文件已生成，请确认已保存到安全位置。',
+        title: _l10n.deviceLocalBackupGeneratedTitle,
+        message: _l10n.deviceLocalBackupSharedSuccessMessage,
       );
     } finally {
       if (mounted) {
@@ -545,24 +550,24 @@ class _DevicePageState extends State<DevicePage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('本地备份'),
-          content: const Text('导出一份当前数据备份文件。你可以仅保存在本机，也可以立即分享或保存到其他位置。'),
+          title: Text(_l10n.deviceManualBackupTitle),
+          content: Text(_l10n.deviceManualBackupDialogMessage),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
+              child: Text(_l10n.deviceCancelAction),
             ),
             TextButton(
               onPressed: () => Navigator.of(
                 dialogContext,
               ).pop(_ManualBackupAction.backupOnly),
-              child: const Text('仅备份'),
+              child: Text(_l10n.deviceBackupOnlyAction),
             ),
             TextButton(
               onPressed: () => Navigator.of(
                 dialogContext,
               ).pop(_ManualBackupAction.backupAndShare),
-              child: const Text('备份并分享'),
+              child: Text(_l10n.deviceBackupAndShareAction),
             ),
           ],
         );
@@ -579,8 +584,8 @@ class _DevicePageState extends State<DevicePage> {
     } catch (_) {
       if (!mounted) return;
       await _showAccountSyncPlaceholder(
-        title: '本地备份已生成',
-        message: '备份文件已生成，但无法打开分享面板。你仍可在本地备份列表中找到它。',
+        title: _l10n.deviceLocalBackupGeneratedTitle,
+        message: _l10n.deviceLocalBackupShareUnavailableMessage,
       );
     }
   }
@@ -598,14 +603,14 @@ class _DevicePageState extends State<DevicePage> {
 
     final preview = previewResult.preview;
     if (preview.isCancelled) {
-      _toast('已取消选择');
+      _toast(_l10n.deviceBackupSelectionCancelled);
       return;
     }
 
     if (!preview.isValid) {
       await _showAccountSyncPlaceholder(
-        title: '无法预览备份文件',
-        message: preview.errorMessage ?? '这不是有效的 FleetLedger 备份文件',
+        title: _l10n.deviceBackupPreviewUnavailableTitle,
+        message: preview.errorMessage ?? _l10n.deviceInvalidBackupFileMessage,
       );
       return;
     }
@@ -613,8 +618,8 @@ class _DevicePageState extends State<DevicePage> {
     final backupJson = previewResult.decodedJson;
     if (backupJson == null) {
       await _showAccountSyncPlaceholder(
-        title: '无法预览备份文件',
-        message: '备份文件格式不完整',
+        title: _l10n.deviceBackupPreviewUnavailableTitle,
+        message: _l10n.deviceBackupIncompleteMessage,
       );
       return;
     }
@@ -649,21 +654,19 @@ class _DevicePageState extends State<DevicePage> {
             legacyBackups.isNotEmpty;
 
         return AlertDialog(
-          title: const Text('选择备份文件'),
+          title: Text(_l10n.deviceBackupSelectFileTitle),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '请选择由 FleetLedger 导出的备份文件。通常建议选择最近一次手动备份；恢复前备份用于撤回最近几次恢复操作前的数据。',
-                ),
+                Text(_l10n.deviceBackupSelectFileMessage),
                 const SizedBox(height: 12),
                 if (!hasRecognizedBackups)
-                  const Text('暂无可识别的本地备份文件，可点击“从文件选择”选择其他位置的 JSON 备份。'),
+                  Text(_l10n.deviceBackupNoRecognizedFiles),
                 if (manualBackups.isNotEmpty)
                   BackupFileSection(
-                    title: '手动备份',
+                    title: _l10n.deviceBackupManualSection,
                     backups: manualBackups,
                     onSelected: (backup) => Navigator.of(
                       dialogContext,
@@ -671,7 +674,7 @@ class _DevicePageState extends State<DevicePage> {
                   ),
                 if (preRestoreBackups.isNotEmpty)
                   BackupFileSection(
-                    title: '恢复前备份（防误操）',
+                    title: _l10n.deviceBackupPreRestoreSection,
                     backups: preRestoreBackups,
                     onSelected: (backup) => Navigator.of(
                       dialogContext,
@@ -679,7 +682,7 @@ class _DevicePageState extends State<DevicePage> {
                   ),
                 if (legacyBackups.isNotEmpty)
                   BackupFileSection(
-                    title: '旧版备份',
+                    title: _l10n.deviceBackupLegacySection,
                     backups: legacyBackups,
                     onSelected: (backup) => Navigator.of(
                       dialogContext,
@@ -691,13 +694,13 @@ class _DevicePageState extends State<DevicePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
+              child: Text(_l10n.deviceCancelAction),
             ),
             TextButton(
               onPressed: () => Navigator.of(
                 dialogContext,
               ).pop(const BackupFileSelection.filePicker()),
-              child: const Text('从文件选择'),
+              child: Text(_l10n.deviceBackupFromFileAction),
             ),
           ],
         );
@@ -734,7 +737,7 @@ class _DevicePageState extends State<DevicePage> {
 
     final exportedAt = preview.exportedAt?.toLocal();
     final exportedAtText = exportedAt == null
-        ? '未知'
+        ? _l10n.deviceUnknownValue
         : _formatDateTime(exportedAt);
     final restoreBlockReason = _restoreBlockReason(preview);
     final canRestore = restoreBlockReason == null;
@@ -747,49 +750,63 @@ class _DevicePageState extends State<DevicePage> {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             return AlertDialog(
-              title: const Text('备份文件预览'),
+              title: Text(_l10n.deviceBackupPreviewTitle),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('这是一个 FleetLedger 本地备份文件。'),
+                    Text(_l10n.deviceBackupPreviewIntro),
                     const SizedBox(height: 12),
-                    BackupPreviewLine(label: '备份时间', value: exportedAtText),
                     BackupPreviewLine(
-                      label: '数据库版本',
-                      value: preview.schemaVersion?.toString() ?? '未知',
+                      label: _l10n.deviceBackupTimeLabel,
+                      value: exportedAtText,
+                    ),
+                    BackupPreviewLine(
+                      label: _l10n.deviceBackupSchemaVersionLabel,
+                      value:
+                          preview.schemaVersion?.toString() ??
+                          _l10n.deviceUnknownValue,
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      '包含数据：',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    Text(
+                      _l10n.deviceBackupIncludedDataLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     BackupPreviewLine(
-                      label: '设备',
-                      value: '${preview.deviceCount} 台',
+                      label: _l10n.deviceBackupDeviceCountLabel,
+                      value: _l10n.deviceMachineCountWithUnit(
+                        preview.deviceCount,
+                      ),
                     ),
                     BackupPreviewLine(
-                      label: '计时记录',
-                      value: '${preview.timingRecordCount} 条',
+                      label: _l10n.deviceBackupTimingRecordCountLabel,
+                      value: _l10n.deviceCountWithUnit(
+                        preview.timingRecordCount,
+                      ),
                     ),
                     BackupPreviewLine(
-                      label: '油费记录',
-                      value: '${preview.fuelRecordCount} 条',
+                      label: _l10n.deviceBackupFuelRecordCountLabel,
+                      value: _l10n.deviceCountWithUnit(preview.fuelRecordCount),
                     ),
                     BackupPreviewLine(
-                      label: '维修记录',
-                      value: '${preview.maintenanceRecordCount} 条',
+                      label: _l10n.deviceBackupMaintenanceRecordCountLabel,
+                      value: _l10n.deviceCountWithUnit(
+                        preview.maintenanceRecordCount,
+                      ),
                     ),
                     BackupPreviewLine(
-                      label: '收款记录',
-                      value: '${preview.incomeRecordCount} 条',
+                      label: _l10n.deviceBackupIncomeRecordCountLabel,
+                      value: _l10n.deviceCountWithUnit(
+                        preview.incomeRecordCount,
+                      ),
                     ),
                     BackupPreviewLine(
-                      label: '项目相关设置',
-                      value:
-                          '${preview.tableCounts['project_device_rates'] ?? 0} 条',
+                      label: _l10n.deviceBackupProjectSettingsCountLabel,
+                      value: _l10n.deviceCountWithUnit(
+                        preview.tableCounts['project_device_rates'] ?? 0,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (preview.warningMessage != null) ...[
@@ -806,18 +823,18 @@ class _DevicePageState extends State<DevicePage> {
                       ),
                       const SizedBox(height: 8),
                     ],
-                    const Text('恢复后，当前本机的业务数据会被这份备份替换。'),
+                    Text(_l10n.deviceBackupRestoreWarning),
                     if (isRestoring) ...[
                       const SizedBox(height: 16),
-                      const Row(
+                      Row(
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          SizedBox(width: 10),
-                          Expanded(child: Text('正在恢复，请勿关闭 App...')),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(_l10n.deviceRestoringMessage)),
                         ],
                       ),
                     ],
@@ -830,7 +847,7 @@ class _DevicePageState extends State<DevicePage> {
                   onPressed: isRestoring
                       ? null
                       : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('我知道了'),
+                  child: Text(_l10n.deviceDoneAction),
                 ),
                 if (canRestore)
                   TextButton(
@@ -867,7 +884,7 @@ class _DevicePageState extends State<DevicePage> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('确认恢复'),
+                        : Text(_l10n.deviceRestoreConfirmAction),
                   ),
               ],
             );
@@ -888,19 +905,17 @@ class _DevicePageState extends State<DevicePage> {
           context: context,
           builder: (dialogContext) {
             return AlertDialog(
-              title: const Text('确认恢复备份？'),
-              content: const Text(
-                '恢复后，当前本机的设备、计时、油费、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。',
-              ),
+              title: Text(_l10n.deviceLocalRestoreConfirmTitle),
+              content: Text(_l10n.deviceLocalRestoreConfirmMessage),
               actionsAlignment: MainAxisAlignment.spaceBetween,
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('取消'),
+                  child: Text(_l10n.deviceCancelAction),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('确认恢复'),
+                  child: Text(_l10n.deviceRestoreConfirmAction),
                 ),
               ],
             );
@@ -924,33 +939,32 @@ class _DevicePageState extends State<DevicePage> {
   Future<void> _showRestoreSuccessDialog(BackupRestoreResult result) async {
     final counts = result.restoredCounts;
     await _showAccountSyncPlaceholder(
-      title: '恢复完成',
-      message:
-          '已恢复以下业务数据：\n'
-          '设备：${counts['devices'] ?? 0}\n'
-          '计时记录：${counts['timing_records'] ?? 0}\n'
-          '油费记录：${counts['fuel_logs'] ?? 0}\n'
-          '维修记录：${counts['maintenance_records'] ?? 0}\n'
-          '收款记录：${counts['account_payments'] ?? 0}\n'
-          '项目相关设置：${counts['project_device_rates'] ?? 0}\n\n'
-          '恢复前已自动备份当前数据。',
+      title: _l10n.deviceRestoreSuccessTitle,
+      message: _l10n.deviceRestoreSuccessMessage(
+        counts['devices'] ?? 0,
+        counts['timing_records'] ?? 0,
+        counts['fuel_logs'] ?? 0,
+        counts['maintenance_records'] ?? 0,
+        counts['account_payments'] ?? 0,
+        counts['project_device_rates'] ?? 0,
+      ),
     );
   }
 
   Future<void> _showRestoreFailureDialog(BackupRestoreResult result) async {
     final backupNote = result.autoBackupPath == null
         ? ''
-        : '\n\n恢复前已成功自动备份当前数据。';
+        : _l10n.deviceRestoreAutoBackupNote;
     await _showAccountSyncPlaceholder(
-      title: '恢复失败',
+      title: _l10n.deviceRestoreFailureTitle,
       message: '${result.message}$backupNote',
     );
   }
 
   Future<void> _openSyncInfoPlaceholder() async {
     await _showAccountSyncPlaceholder(
-      title: '多端同步说明',
-      message: '云端备份未来用于保存数据与换机恢复；多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。',
+      title: _l10n.deviceSyncInfoTitle,
+      message: _l10n.deviceSyncInfoMessage,
     );
   }
 
@@ -964,6 +978,7 @@ class _DevicePageState extends State<DevicePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final store = context.watch<DeviceStore>();
     final timingStore = context.watch<TimingStore>();
     final paymentStore = context.watch<AccountPaymentStore>();
@@ -1008,11 +1023,13 @@ class _DevicePageState extends State<DevicePage> {
                     ),
                   ],
                   ...buildDevicePageSections(
+                    l10n: l10n,
                     devices: devices,
                     handlers: DevicePageSectionHandlers(
                       onOpenUpgradePage: _openUpgradePage,
                       onOpenAccountCenter: _openAccountCenter,
                       accountCenterSubtitle: deviceAccountCenterSubtitle(
+                        l10n: l10n,
                         session: _loginSession,
                         subscription: _subscriptionController.snapshot,
                       ),

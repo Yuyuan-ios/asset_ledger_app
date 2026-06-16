@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 
@@ -20,6 +21,7 @@ class DevicePageActionSectionConfig {
 }
 
 List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
+  required AppLocalizations l10n,
   required VoidCallback onOpenUpgradePage,
   required VoidCallback onOpenAddDeviceFlow,
   required VoidCallback onOpenRateApp,
@@ -32,7 +34,7 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
   return [
     DevicePageActionSectionConfig(
       id: DevicePageActionSectionId.profile,
-      title: '个人资料',
+      title: l10n.deviceProfileSectionTitle,
       items: [
         DeviceActionItemConfig(
           leading: Container(
@@ -50,7 +52,7 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
               size: DeviceActionCardTokens.premiumBadgeIconSize,
             ),
           ),
-          title: '立即升级',
+          title: l10n.deviceUpgradeNowTitle,
           onTap: onOpenUpgradePage,
           trailingIcon: forwardIcon,
         ),
@@ -58,7 +60,7 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
     ),
     DevicePageActionSectionConfig(
       id: DevicePageActionSectionId.equipment,
-      title: '设备',
+      title: l10n.deviceEquipmentSectionTitle,
       padding: const EdgeInsets.symmetric(
         horizontal: DeviceTokens.sectionHorizontalInset,
       ),
@@ -69,7 +71,7 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
             size: DeviceActionCardTokens.addDeviceLeadingIconSize,
             color: Colors.black87,
           ),
-          title: '添加设备',
+          title: l10n.deviceAddDeviceAction,
           onTap: onOpenAddDeviceFlow,
           trailingIcon: forwardIcon,
         ),
@@ -77,10 +79,10 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
     ),
     DevicePageActionSectionConfig(
       id: DevicePageActionSectionId.rating,
-      title: '给我们评分',
+      title: l10n.deviceRateUsSectionTitle,
       items: [
         DeviceActionItemConfig(
-          title: '给app评分',
+          title: l10n.deviceRateAppAction,
           onTap: onOpenRateApp,
           trailingIcon: externalIcon,
         ),
@@ -88,15 +90,15 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
     ),
     DevicePageActionSectionConfig(
       id: DevicePageActionSectionId.terms,
-      title: '条款',
+      title: l10n.deviceTermsSectionTitle,
       items: [
         DeviceActionItemConfig(
-          title: '使用条款',
+          title: l10n.deviceTermsTitle,
           onTap: onOpenTermsPage,
           trailingIcon: externalIcon,
         ),
         DeviceActionItemConfig(
-          title: '隐私政策',
+          title: l10n.devicePrivacyTitle,
           onTap: onOpenPrivacyPage,
           trailingIcon: externalIcon,
         ),
@@ -104,10 +106,10 @@ List<DevicePageActionSectionConfig> buildDevicePageActionSectionConfigs({
     ),
     DevicePageActionSectionConfig(
       id: DevicePageActionSectionId.contact,
-      title: '支持与反馈',
+      title: l10n.deviceSupportSectionTitle,
       items: [
         DeviceActionItemConfig(
-          title: '联系开发者',
+          title: l10n.deviceContactDeveloperAction,
           onTap: onOpenContact,
           trailingIcon: externalIcon,
         ),
