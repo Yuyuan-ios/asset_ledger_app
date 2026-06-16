@@ -32,8 +32,8 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _localizedApp(
+        Scaffold(
           body: SectionRecentRecords(
             records: [record],
             deviceById: {1: device},
@@ -299,8 +299,8 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _localizedApp(
+        Scaffold(
           body: SectionRecentRecords(
             records: [record],
             deviceById: {1: device},
@@ -433,8 +433,8 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _localizedApp(
+        Scaffold(
           body: SectionRecentRecords(
             records: records,
             deviceById: {1: _device, 2: _secondDevice},
@@ -551,8 +551,8 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _localizedApp(
+        Scaffold(
           body: SectionRecentRecords(
             records: records,
             deviceById: {1: _device, 2: _secondDevice},
@@ -633,8 +633,8 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
+      _localizedApp(
+        Scaffold(
           body: SectionRecentRecords(
             records: [record],
             deviceById: {1: device},
@@ -707,13 +707,27 @@ Widget _localizedSliverHost(
   );
 }
 
+MaterialApp _localizedApp(Widget home) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
+}
+
 Future<void> _pumpSectionRecentRecords(
   WidgetTester tester, {
   required List<TimingRecord> records,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
+    _localizedApp(
+      Scaffold(
         body: SectionRecentRecords(
           records: records,
           deviceById: {1: _device},

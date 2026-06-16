@@ -455,6 +455,7 @@ class _DateGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     final aggregate = aggregateSection;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,7 +467,7 @@ class _DateGroup extends StatelessWidget {
           child: Text(
             aggregate == null
                 ? headerOverride ?? FormatUtils.date(ymd)
-                : '${FormatUtils.date(ymd)} (${aggregateExpanded ? '已展开' : '已聚合'})',
+                : '${FormatUtils.date(ymd)} (${aggregateExpanded ? l10n.timingRecentAggregateExpanded : l10n.timingRecentAggregateCollapsed})',
             style: textTheme.bodySmall?.copyWith(
               fontSize: TimingTokens.dateHeaderFontSize,
               color: AppColors.textPrimary,
@@ -485,9 +486,12 @@ class _DateGroup extends StatelessWidget {
             device: deviceById[aggregate.deviceId],
             deviceIndexText: deviceIndexById[aggregate.deviceId] ?? '?',
             subtitleEmphasis: deviceIndexById[aggregate.deviceId] ?? '?',
-            subtitleSecondary: ' ${aggregate.records.length}条记录',
-            bottomRightOverride:
-                '误差 ${FormatUtils.meter(aggregate.meterError)}，累计 ${FormatUtils.hours(aggregate.totalHours)}',
+            subtitleSecondary:
+                ' ${l10n.timingRecentRecordCount(aggregate.records.length)}',
+            bottomRightOverride: l10n.timingRecentAggregateSummary(
+              FormatUtils.meter(aggregate.meterError),
+              FormatUtils.hours(aggregate.totalHours),
+            ),
             onTap: onToggleAggregate,
           ),
           if (aggregateExpanded)
@@ -503,7 +507,7 @@ class _DateGroup extends StatelessWidget {
                     : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',
                 subtitleEmphasized: false,
                 bottomRightOverride: record.isBreaking
-                    ? '破碎 ${FormatUtils.hours(record.hours)}'
+                    ? '${l10n.timingRecentBreakingBadge} ${FormatUtils.hours(record.hours)}'
                     : FormatUtils.hours(record.hours),
                 onTap: onTapRecord == null ? null : () => onTapRecord!(record),
               ),

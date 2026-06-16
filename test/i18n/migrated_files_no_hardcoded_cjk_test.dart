@@ -14,6 +14,7 @@ const List<String> migratedFiles = <String>[
   'lib/features/timing/presentation/widgets/timing_detail/timing_detail_form_sections.dart',
   'lib/patterns/timing/card_main_chart_pattern.dart',
   'lib/patterns/timing/external_work_link_sheet.dart',
+  'lib/patterns/timing/recent_records_pattern.dart',
   'lib/patterns/timing/tab_bar_pattern.dart',
   'lib/patterns/timing/timing_recent_records_slivers.dart',
   'lib/patterns/timing/timing_home_pattern.dart',
