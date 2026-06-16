@@ -30,6 +30,7 @@ import '../../../patterns/maintenance/maintenance_sliver_home_pattern.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../components/feedback/app_toast.dart';
+import '../../../l10n/gen/app_localizations.dart';
 
 import '../../../features/device/state/device_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
@@ -79,6 +80,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final timingStore = context.read<TimingStore>();
     final maintenanceStore = context.read<MaintenanceStore>();
     final formKey = GlobalKey<MaintenanceDetailContentState>();
+    final l10n = AppLocalizations.of(context);
     final initialDeviceId = editing?.deviceId ?? _latestTimingDeviceId();
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
@@ -104,9 +106,13 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
     await openEditorSheet<void>(
       context: context,
-      title: editing == null ? '新建维保' : '编辑维保',
+      title: editing == null
+          ? l10n.maintenanceCreateSheetTitle
+          : l10n.maintenanceEditSheetTitle,
       useSafeArea: true,
       dividerToContentGap: 8,
+      cancelText: l10n.maintenanceCancelAction,
+      confirmText: l10n.maintenanceConfirmAction,
       onConfirm: () => formKey.currentState?.submit(),
       childBuilder: (ctx) {
         return Padding(
@@ -160,16 +166,18 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
   Future<bool> _confirmDelete(MaintenanceRecord r) async {
     if (r.id == null) return false;
+    final l10n = AppLocalizations.of(context);
 
     final ok = await showAppConfirmDialog(
       context: context,
-      title: '确认删除？',
+      title: l10n.maintenanceDeleteConfirmTitle,
       content:
-          '日期：${FormatUtils.date(r.ymd)}\n'
-          '事项：${r.item}\n'
-          '金额：${FormatUtils.money(r.effectiveAmount)}\n\n'
-          '⚠️ 删除后不可恢复',
-      confirmText: '删除',
+          '${l10n.maintenanceDeleteConfirmDateLine(FormatUtils.date(r.ymd))}\n'
+          '${l10n.maintenanceDeleteConfirmItemLine(r.item)}\n'
+          '${l10n.maintenanceDeleteConfirmAmountLine(FormatUtils.money(r.effectiveAmount))}\n\n'
+          '${l10n.maintenanceDeleteConfirmWarning}',
+      cancelText: l10n.maintenanceCancelAction,
+      confirmText: l10n.maintenanceDeleteConfirmAction,
     );
 
     return ok == true;
@@ -192,6 +200,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
   // =====================================================================
 
   Widget _buildSummaryCard(MaintenanceSummaryViewData summary) {
+    final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.body(
       context,
       fontSize: 14,
@@ -230,7 +239,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       return FuelSummaryCard(
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text('当年维保费：暂无数据', style: emptyStyle),
+          child: Text(l10n.maintenanceSummaryEmpty, style: emptyStyle),
         ),
       );
     }
@@ -239,7 +248,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('当年维保费用（按设备 & 公共）', style: titleStyle),
+          Text(l10n.maintenanceSummaryTitle, style: titleStyle),
           const SizedBox(height: 10),
 
           // 设备分摊
@@ -271,7 +280,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Expanded(child: Text('公共支出', style: nameStyle)),
+                Expanded(
+                  child: Text(
+                    l10n.maintenancePublicExpenseLabel,
+                    style: nameStyle,
+                  ),
+                ),
                 Text(FormatUtils.money(summary.publicTotal), style: valueStyle),
               ],
             ),
@@ -282,7 +296,9 @@ class _MaintenancePageState extends State<MaintenancePage> {
           // 合计
           Row(
             children: [
-              Expanded(child: Text('合计', style: totalLabelStyle)),
+              Expanded(
+                child: Text(l10n.maintenanceTotalLabel, style: totalLabelStyle),
+              ),
               Text(FormatUtils.money(summary.allTotal), style: totalStyle),
             ],
           ),
@@ -297,6 +313,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final store = context.watch<MaintenanceStore>();
     final deviceStore = context.watch<DeviceStore>();
     final viewData = buildMaintenancePageViewData(
@@ -312,9 +329,15 @@ class _MaintenancePageState extends State<MaintenancePage> {
     );
 
     return MaintenanceSliverHomePattern(
-      header: SectionHeader(title: '维保', onAdd: () => _openMaintenanceEditor()),
+      header: SectionHeader(
+        title: l10n.maintenancePageTitle,
+        onAdd: () => _openMaintenanceEditor(),
+      ),
       summary: _buildSummaryCard(viewData.summary),
-      recordsTitle: RecordsTitle(count: viewData.rows.length),
+      recordsTitle: RecordsTitle(
+        count: viewData.rows.length,
+        title: l10n.commonRecentRecordsCount(viewData.rows.length),
+      ),
       records: recordsContent,
       loading: viewData.loading,
       error: viewData.error,

@@ -364,4 +364,85 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fuelSupplierFilterHint => '输入关键字即可过滤（可空）';
+
+  @override
+  String get maintenancePageTitle => '维保';
+
+  @override
+  String get maintenanceCreateSheetTitle => '新建维保';
+
+  @override
+  String get maintenanceEditSheetTitle => '编辑维保';
+
+  @override
+  String get maintenanceCancelAction => '取消';
+
+  @override
+  String get maintenanceConfirmAction => '确定';
+
+  @override
+  String get maintenanceDeleteConfirmTitle => '确认删除？';
+
+  @override
+  String maintenanceDeleteConfirmDateLine(String date) {
+    return '日期：$date';
+  }
+
+  @override
+  String maintenanceDeleteConfirmItemLine(String item) {
+    return '事项：$item';
+  }
+
+  @override
+  String maintenanceDeleteConfirmAmountLine(String amount) {
+    return '金额：$amount';
+  }
+
+  @override
+  String get maintenanceDeleteConfirmWarning => '⚠️ 删除后不可恢复';
+
+  @override
+  String get maintenanceDeleteConfirmAction => '删除';
+
+  @override
+  String get maintenanceSummaryEmpty => '当年维保费：暂无数据';
+
+  @override
+  String get maintenanceSummaryTitle => '当年维保费用（按设备 & 公共）';
+
+  @override
+  String get maintenancePublicExpenseLabel => '公共支出';
+
+  @override
+  String get maintenanceTotalLabel => '合计';
+
+  @override
+  String get maintenancePublicExpenseSwitchTitle => '公共支出（不属于任何设备）';
+
+  @override
+  String get maintenanceDeviceLabel => '设备编号';
+
+  @override
+  String get maintenanceDeviceHint => '请选择设备';
+
+  @override
+  String get maintenanceNoActiveDeviceHint => '暂无在用设备，请先去“设备”页新增';
+
+  @override
+  String get maintenanceItemRequiredLabel => '事项（必填）';
+
+  @override
+  String get maintenanceItemHint => '例如：更换机油/保养/维修';
+
+  @override
+  String get maintenanceAmountYuanLabel => '金额（元）';
+
+  @override
+  String get maintenanceAmountHint => '例如：980.0';
+
+  @override
+  String get maintenanceNoteOptionalLabel => '备注（可填）';
+
+  @override
+  String get maintenanceNoteHint => '例如：含工时/含配件';
 }

@@ -757,6 +757,156 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'输入关键字即可过滤（可空）'**
   String get fuelSupplierFilterHint;
+
+  /// 维保模块:维保页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'维保'**
+  String get maintenancePageTitle;
+
+  /// 维保模块:新增维保记录底部录入 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'新建维保'**
+  String get maintenanceCreateSheetTitle;
+
+  /// 维保模块:编辑维保记录底部录入 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑维保'**
+  String get maintenanceEditSheetTitle;
+
+  /// 维保模块:维保记录弹窗取消按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get maintenanceCancelAction;
+
+  /// 维保模块:维保记录录入 sheet 确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get maintenanceConfirmAction;
+
+  /// 维保模块:删除维保记录二次确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除？'**
+  String get maintenanceDeleteConfirmTitle;
+
+  /// 维保模块:删除维保记录二次确认弹窗日期行
+  ///
+  /// In zh, this message translates to:
+  /// **'日期：{date}'**
+  String maintenanceDeleteConfirmDateLine(String date);
+
+  /// 维保模块:删除维保记录二次确认弹窗事项行
+  ///
+  /// In zh, this message translates to:
+  /// **'事项：{item}'**
+  String maintenanceDeleteConfirmItemLine(String item);
+
+  /// 维保模块:删除维保记录二次确认弹窗金额行
+  ///
+  /// In zh, this message translates to:
+  /// **'金额：{amount}'**
+  String maintenanceDeleteConfirmAmountLine(String amount);
+
+  /// 维保模块:删除维保记录二次确认弹窗警告
+  ///
+  /// In zh, this message translates to:
+  /// **'⚠️ 删除后不可恢复'**
+  String get maintenanceDeleteConfirmWarning;
+
+  /// 维保模块:删除维保记录二次确认弹窗确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get maintenanceDeleteConfirmAction;
+
+  /// 维保模块:当年维保费用统计卡为空时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'当年维保费：暂无数据'**
+  String get maintenanceSummaryEmpty;
+
+  /// 维保模块:当年维保费用统计卡标题
+  ///
+  /// In zh, this message translates to:
+  /// **'当年维保费用（按设备 & 公共）'**
+  String get maintenanceSummaryTitle;
+
+  /// 维保模块:公共支出标签
+  ///
+  /// In zh, this message translates to:
+  /// **'公共支出'**
+  String get maintenancePublicExpenseLabel;
+
+  /// 维保模块:维保费用统计合计标签
+  ///
+  /// In zh, this message translates to:
+  /// **'合计'**
+  String get maintenanceTotalLabel;
+
+  /// 维保模块:维保录入表单公共支出开关标题
+  ///
+  /// In zh, this message translates to:
+  /// **'公共支出（不属于任何设备）'**
+  String get maintenancePublicExpenseSwitchTitle;
+
+  /// 维保模块:维保录入表单设备下拉字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'设备编号'**
+  String get maintenanceDeviceLabel;
+
+  /// 维保模块:维保录入表单设备下拉字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择设备'**
+  String get maintenanceDeviceHint;
+
+  /// 维保模块:维保录入表单无在用设备时的设备下拉占位
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无在用设备，请先去“设备”页新增'**
+  String get maintenanceNoActiveDeviceHint;
+
+  /// 维保模块:维保录入表单事项字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'事项（必填）'**
+  String get maintenanceItemRequiredLabel;
+
+  /// 维保模块:维保录入表单事项字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：更换机油/保养/维修'**
+  String get maintenanceItemHint;
+
+  /// 维保模块:维保录入表单金额字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'金额（元）'**
+  String get maintenanceAmountYuanLabel;
+
+  /// 维保模块:维保录入表单金额字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：980.0'**
+  String get maintenanceAmountHint;
+
+  /// 维保模块:维保录入表单备注字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'备注（可填）'**
+  String get maintenanceNoteOptionalLabel;
+
+  /// 维保模块:维保录入表单备注字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：含工时/含配件'**
+  String get maintenanceNoteHint;
 }
 
 class _AppLocalizationsDelegate

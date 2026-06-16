@@ -25,6 +25,7 @@ import '../../patterns/device/device_picker_pattern.dart';
 import '../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
 import '../../components/fields/app_date_field.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
 
 // =====================================================================
@@ -226,6 +227,7 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final switchTitleStyle = AppTypography.body(
       context,
       fontWeight: FontWeight.w500,
@@ -246,7 +248,10 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                   // 1) 公共支出开关（置顶）
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text('公共支出（不属于任何设备）', style: switchTitleStyle),
+                    title: Text(
+                      l10n.maintenancePublicExpenseSwitchTitle,
+                      style: switchTitleStyle,
+                    ),
                     value: _isPublicExpense,
                     onChanged: (v) {
                       setState(() {
@@ -268,6 +273,10 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                           items: widget.deviceItems,
                           onChanged: (id) =>
                               setState(() => _selectedDeviceId = id),
+                          labelText: l10n.maintenanceDeviceLabel,
+                          hintText: l10n.maintenanceDeviceHint,
+                          emptyHintText: l10n.maintenanceNoActiveDeviceHint,
+                          emptyLabelText: l10n.maintenanceDeviceLabel,
                         ),
                       ),
                     ),
@@ -281,8 +290,8 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                   // 4) 事项
                   AutoSuggestField(
                     controller: _itemCtrl,
-                    label: '事项（必填）',
-                    hint: '例如：更换机油/保养/维修',
+                    label: l10n.maintenanceItemRequiredLabel,
+                    hint: l10n.maintenanceItemHint,
                     suggestionsBuilder: widget.itemSuggestions,
                     onSelected: (v) => _itemCtrl.text = v,
                   ),
@@ -291,8 +300,8 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                   // 5) 金额
                   SheetTextFieldPattern(
                     controller: _amountCtrl,
-                    labelText: '金额（元）',
-                    hintText: '例如：980.0',
+                    labelText: l10n.maintenanceAmountYuanLabel,
+                    hintText: l10n.maintenanceAmountHint,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -304,8 +313,8 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                   // 6) 备注
                   SheetTextFieldPattern(
                     controller: _noteCtrl,
-                    labelText: '备注（可填）',
-                    hintText: '例如：含工时/含配件',
+                    labelText: l10n.maintenanceNoteOptionalLabel,
+                    hintText: l10n.maintenanceNoteHint,
                   ),
                 ],
               ),

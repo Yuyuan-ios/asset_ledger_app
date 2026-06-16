@@ -391,4 +391,88 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fuelSupplierFilterHint => 'Type a keyword to filter (optional)';
+
+  @override
+  String get maintenancePageTitle => 'Service';
+
+  @override
+  String get maintenanceCreateSheetTitle => 'Add service';
+
+  @override
+  String get maintenanceEditSheetTitle => 'Edit service';
+
+  @override
+  String get maintenanceCancelAction => 'Cancel';
+
+  @override
+  String get maintenanceConfirmAction => 'Done';
+
+  @override
+  String get maintenanceDeleteConfirmTitle => 'Delete service record?';
+
+  @override
+  String maintenanceDeleteConfirmDateLine(String date) {
+    return 'Date: $date';
+  }
+
+  @override
+  String maintenanceDeleteConfirmItemLine(String item) {
+    return 'Item: $item';
+  }
+
+  @override
+  String maintenanceDeleteConfirmAmountLine(String amount) {
+    return 'Amount: $amount';
+  }
+
+  @override
+  String get maintenanceDeleteConfirmWarning => 'This cannot be undone.';
+
+  @override
+  String get maintenanceDeleteConfirmAction => 'Delete';
+
+  @override
+  String get maintenanceSummaryEmpty => 'Current-year service cost: no data';
+
+  @override
+  String get maintenanceSummaryTitle =>
+      'Current-year service cost (device & shared)';
+
+  @override
+  String get maintenancePublicExpenseLabel => 'Shared cost';
+
+  @override
+  String get maintenanceTotalLabel => 'Total';
+
+  @override
+  String get maintenancePublicExpenseSwitchTitle =>
+      'Shared cost (not tied to a device)';
+
+  @override
+  String get maintenanceDeviceLabel => 'Device';
+
+  @override
+  String get maintenanceDeviceHint => 'Select device';
+
+  @override
+  String get maintenanceNoActiveDeviceHint =>
+      'No active devices. Add one on the Devices tab first';
+
+  @override
+  String get maintenanceItemRequiredLabel => 'Service item (required)';
+
+  @override
+  String get maintenanceItemHint => 'Example: oil change / service / repair';
+
+  @override
+  String get maintenanceAmountYuanLabel => 'Amount (CNY)';
+
+  @override
+  String get maintenanceAmountHint => 'Example: 980.0';
+
+  @override
+  String get maintenanceNoteOptionalLabel => 'Notes (optional)';
+
+  @override
+  String get maintenanceNoteHint => 'Example: includes labor / parts';
 }

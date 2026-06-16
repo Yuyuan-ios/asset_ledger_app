@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../components/feedback/app_records_empty_hint.dart';
 import '../../../core/foundation/spacing.dart';
 import '../../../core/foundation/typography.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../domain/entities/maintenance_entities.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
@@ -26,10 +27,14 @@ class MaintenanceRecordsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RecordsTitle(count: rows.length),
+        RecordsTitle(
+          count: rows.length,
+          title: l10n.commonRecentRecordsCount(rows.length),
+        ),
         const SizedBox(height: FuelTokens.recordsTitleTopGap),
         MaintenanceRecordsContent(
           rows: rows,
@@ -58,6 +63,7 @@ class MaintenanceRecordsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final rowTitleStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.recordTitleFontSize,
@@ -90,7 +96,10 @@ class MaintenanceRecordsContent extends StatelessWidget {
         if (rows.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
-            child: const AppRecentRecordsEmptyState(),
+            child: AppRecentRecordsEmptyState(
+              title: l10n.commonNoRecordsTitle,
+              subtitle: l10n.commonCreateFromTopRightHint,
+            ),
           )
         else
           for (var index = 0; index < rows.length; index++) ...[
