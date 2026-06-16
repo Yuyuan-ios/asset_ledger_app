@@ -1,6 +1,8 @@
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/timing/timing_home_pattern.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// NestedScrollView 方案的关键保证：
@@ -22,7 +24,7 @@ void main() {
 
   Future<void> pump(WidgetTester tester, List<TimingRecord> records) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: TimingHomePattern(
           header: const SizedBox(height: 20),
           chart: const SizedBox(key: Key('exp-chart'), height: 120),
@@ -75,7 +77,7 @@ void main() {
   ) async {
     var section = TimingRecordsSection.recent;
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: StatefulBuilder(
           builder: (context, setState) {
             return TimingHomePattern(
@@ -108,4 +110,17 @@ void main() {
 
     expect(section, TimingRecordsSection.recent);
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

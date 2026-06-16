@@ -14,5 +14,10 @@
   "timingCalculationHistoryMeta": "{date} | {count, plural, =1{1 ticket} other{{count} tickets}}",
   "timingCalculationAppliedBadge": "Applied to hours",
   "timingAttachmentDigging": "Bucket",
-  "timingAttachmentBreaking": "Breaker"
+  "timingAttachmentBreaking": "Breaker",
+  "timingRecentRecordsTitle": "Recent records",
+  "timingExternalWorkProjectsTitle": "External work",
+  "timingAllDevicesFilter": "All devices",
+  "timingExternalWorkImportAction": "Import",
+  "timingExternalWorkLinkAction": "Link"
 }

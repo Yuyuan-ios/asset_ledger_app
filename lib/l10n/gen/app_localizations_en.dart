@@ -62,4 +62,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timingAttachmentBreaking => 'Breaker';
+
+  @override
+  String get timingRecentRecordsTitle => 'Recent records';
+
+  @override
+  String get timingExternalWorkProjectsTitle => 'External work';
+
+  @override
+  String get timingAllDevicesFilter => 'All devices';
+
+  @override
+  String get timingExternalWorkImportAction => 'Import';
+
+  @override
+  String get timingExternalWorkLinkAction => 'Link';
 }

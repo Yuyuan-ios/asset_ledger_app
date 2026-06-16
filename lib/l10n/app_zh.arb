@@ -75,5 +75,25 @@
   "timingAttachmentBreaking": "破碎",
   "@timingAttachmentBreaking": {
     "description": "计时模块:计时录入页附件模式选择器的破碎锤选项"
+  },
+  "timingRecentRecordsTitle": "最近记录",
+  "@timingRecentRecordsTitle": {
+    "description": "计时模块:计时首页最近记录分区标题"
+  },
+  "timingExternalWorkProjectsTitle": "外协项目",
+  "@timingExternalWorkProjectsTitle": {
+    "description": "计时模块:计时首页外协项目分区标题"
+  },
+  "timingAllDevicesFilter": "全部设备",
+  "@timingAllDevicesFilter": {
+    "description": "计时模块:最近记录设备筛选菜单的全部设备选项"
+  },
+  "timingExternalWorkImportAction": "导入",
+  "@timingExternalWorkImportAction": {
+    "description": "计时模块:外协项目记录标题栏的导入按钮"
+  },
+  "timingExternalWorkLinkAction": "关联",
+  "@timingExternalWorkLinkAction": {
+    "description": "计时模块:外协项目记录标题栏的关联按钮"
   }
 }

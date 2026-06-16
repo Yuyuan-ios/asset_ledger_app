@@ -56,4 +56,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get timingAttachmentBreaking => '破碎';
+
+  @override
+  String get timingRecentRecordsTitle => '最近记录';
+
+  @override
+  String get timingExternalWorkProjectsTitle => '外协项目';
+
+  @override
+  String get timingAllDevicesFilter => '全部设备';
+
+  @override
+  String get timingExternalWorkImportAction => '导入';
+
+  @override
+  String get timingExternalWorkLinkAction => '关联';
 }

@@ -4,9 +4,11 @@ import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/patterns/timing/timing_home_pattern.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,7 +16,7 @@ void main() {
     'records header shows only the current title at the pinned height',
     (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedApp(
           home: TimingHomePattern(
             header: const SizedBox(height: 20),
             chart: const SizedBox(height: 80),
@@ -62,7 +64,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: TimingHomePattern(
           header: const SizedBox(height: 20),
           chart: const SizedBox(height: 80),
@@ -134,7 +136,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: TimingHomePattern(
           header: const SizedBox(height: 20),
           chart: const SizedBox(height: 80),
@@ -227,7 +229,7 @@ void main() {
     var linkTapped = false;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: TimingHomePattern(
           header: const SizedBox(height: 20),
           chart: const SizedBox(height: 80),
@@ -284,7 +286,7 @@ void main() {
 
     Future<void> pump() async {
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedApp(
           home: StatefulBuilder(
             builder: (context, setState) {
               return TimingHomePattern(
@@ -410,7 +412,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: TimingHomePattern(
           header: const SizedBox(height: 20),
           chart: const SizedBox(height: 80),
@@ -459,6 +461,51 @@ void main() {
     expect(find.text('全部设备'), findsOneWidget);
     expect(find.text('HITACHI 1#'), findsWidgets);
   });
+
+  testWidgets('renders localized English home control labels', (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('en'),
+        home: TimingHomePattern(
+          header: const SizedBox(height: 20),
+          chart: const SizedBox(height: 80),
+          recordsSection: TimingRecordsSection.externalWork,
+          onRecordsSectionChanged: (_) {},
+          records: [],
+          externalWorkItems: [_externalItem(0)],
+          deviceById: {},
+          deviceIndexById: const {},
+          onImportExternalWork: () {},
+          onLinkExternalWork: () {},
+          loading: false,
+        ),
+      ),
+    );
+
+    expect(find.text('External work(1)'), findsOneWidget);
+    expect(find.text('Import'), findsOneWidget);
+    expect(find.text('Link'), findsOneWidget);
+    expect(find.text('外协项目(1)'), findsNothing);
+    expect(find.text('导入'), findsNothing);
+    expect(find.text('关联'), findsNothing);
+  });
+}
+
+Widget _localizedApp({
+  required Widget home,
+  Locale locale = const Locale('zh'),
+}) {
+  return MaterialApp(
+    locale: locale,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }
 
 TimingRecord _timingRecord({

@@ -187,6 +187,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'破碎'**
   String get timingAttachmentBreaking;
+
+  /// 计时模块:计时首页最近记录分区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'最近记录'**
+  String get timingRecentRecordsTitle;
+
+  /// 计时模块:计时首页外协项目分区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'外协项目'**
+  String get timingExternalWorkProjectsTitle;
+
+  /// 计时模块:最近记录设备筛选菜单的全部设备选项
+  ///
+  /// In zh, this message translates to:
+  /// **'全部设备'**
+  String get timingAllDevicesFilter;
+
+  /// 计时模块:外协项目记录标题栏的导入按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'导入'**
+  String get timingExternalWorkImportAction;
+
+  /// 计时模块:外协项目记录标题栏的关联按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'关联'**
+  String get timingExternalWorkLinkAction;
 }
 
 class _AppLocalizationsDelegate

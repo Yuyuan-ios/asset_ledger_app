@@ -6,6 +6,7 @@ import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
 import '../../data/models/timing_record.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../layout/phone_page_layout.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
@@ -198,6 +199,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
       Rect.fromLTWH(anchor.dx, anchor.dy + renderBox.size.height, 1, 1),
       Offset.zero & overlay.size,
     );
+    final l10n = AppLocalizations.of(anchorContext);
 
     final selected = await showMenu<int>(
       context: anchorContext,
@@ -211,7 +213,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
           value: _allDevicesMenuValue,
           height: 44,
           child: _RecentDeviceFilterMenuItem(
-            label: '全部设备',
+            label: l10n.timingAllDevicesFilter,
             selected: _selectedDeviceId == null,
           ),
         ),
@@ -235,6 +237,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       body: SafeArea(
@@ -328,11 +331,13 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                                           widget.recordsSection ==
                                               TimingRecordsSection.recent
                                           ? _RecordsAreaTitle(
-                                              label: '最近记录',
+                                              label:
+                                                  l10n.timingRecentRecordsTitle,
                                               count: recentTopLevelCount,
                                             )
                                           : _RecordsAreaTitle(
-                                              label: '外协项目',
+                                              label: l10n
+                                                  .timingExternalWorkProjectsTitle,
                                               count: externalWorkTopLevelCount,
                                             ),
                                       actions:
@@ -591,6 +596,7 @@ class _ExternalWorkHeaderActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -598,7 +604,7 @@ class _ExternalWorkHeaderActions extends StatelessWidget {
           _ExternalWorkHeaderActionButton(
             key: const Key('timing-external-work-header-import'),
             icon: Icons.file_download_outlined,
-            label: '导入',
+            label: l10n.timingExternalWorkImportAction,
             onPressed: onImport,
           ),
         if (hasExternalWork && onLink != null) ...[
@@ -606,7 +612,7 @@ class _ExternalWorkHeaderActions extends StatelessWidget {
           _ExternalWorkHeaderActionButton(
             key: const Key('timing-external-work-header-link'),
             icon: Icons.link,
-            label: '关联',
+            label: l10n.timingExternalWorkLinkAction,
             onPressed: onLink,
           ),
         ],
