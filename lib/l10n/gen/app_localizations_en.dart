@@ -102,4 +102,94 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timingRecentBreakingBadge => 'Breaker';
+
+  @override
+  String get timingExternalWorkLinkSheetTitle => 'Link to project';
+
+  @override
+  String get timingExternalWorkSelectPackage => 'Select external work package';
+
+  @override
+  String get timingExternalWorkPackageSummary => 'Package summary';
+
+  @override
+  String get timingExternalWorkCancelAction => 'Cancel';
+
+  @override
+  String get timingExternalWorkUnlinkAction => 'Unlink';
+
+  @override
+  String get timingExternalWorkConfirmLinkAction => 'Confirm link';
+
+  @override
+  String timingExternalWorkLinkedProject(String title) {
+    return 'Linked: $title';
+  }
+
+  @override
+  String get timingExternalWorkSelectProject => 'Select project to link';
+
+  @override
+  String get timingExternalWorkNoLinkableProjects =>
+      'No local projects available';
+
+  @override
+  String timingExternalWorkSettledCandidateTitle(String title) {
+    return '$title (settled)';
+  }
+
+  @override
+  String get timingExternalWorkSettledHint =>
+      'This project is settled. Linking the external work package will reopen it and recalculate the receivable from the updated project total.';
+
+  @override
+  String get timingExternalWorkSettledConfirmTitle => 'Link settled project';
+
+  @override
+  String get timingExternalWorkSettledConfirmContent =>
+      'This project is settled. Linking the external work package will reopen it and recalculate the receivable from the updated project total. Continue?';
+
+  @override
+  String get timingExternalWorkContinueAction => 'Continue';
+
+  @override
+  String get timingExternalWorkDefaultLinkedProjectTitle => 'Linked project';
+
+  @override
+  String timingExternalWorkPackageRecordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records',
+      one: '1 record',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get timingExternalWorkSiteSummarySeparator => ', ';
+
+  @override
+  String get timingExternalWorkLinkSuccess => 'Linked to project';
+
+  @override
+  String get timingExternalWorkLinkSettledSuccess =>
+      'Linked to project and settlement reopened';
+
+  @override
+  String get timingExternalWorkLinkFailure => 'Link failed. Try again';
+
+  @override
+  String get timingExternalWorkUnlinkConfirmTitle => 'Unlink';
+
+  @override
+  String get timingExternalWorkUnlinkConfirmContent =>
+      'After unlinking, this external work package will remain as an independent external project. External work records will not be deleted. Continue?';
+
+  @override
+  String get timingExternalWorkUnlinkSuccess =>
+      'Unlinked. External work records kept';
+
+  @override
+  String get timingExternalWorkUnlinkFailure => 'Unlink failed. Try again';
 }

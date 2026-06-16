@@ -3,22 +3,15 @@ import 'package:flutter/material.dart';
 import '../../components/buttons/app_primary_button.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
-
-/// 选择已结清项目时的边界提示文案（弹窗内联，提示关联会撤销结清并重算待收）。
-const String externalWorkLinkSettledHint =
-    '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。';
-
-/// 关联到已结清项目前的二次确认文案（点击"确认关联"后弹出）。
-const String externalWorkLinkSettledConfirm =
-    '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。是否继续？';
-
-/// 解除关联确认文案（确认后真实清空 batch 关联，但不删除外协记录）。
-const String externalWorkLinkUnlinkConfirm =
-    '解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？';
+import '../../l10n/gen/app_localizations.dart';
 
 /// 防溢出的地址摘要：去重 + 取前 [maxShown] 个用 “、” 连接，超出再加 “...”。
 /// 风格对齐项目标题地址展示（如 “鲜滩、尚义...”）。
-String externalWorkLinkSiteSummary(Iterable<String> sites, {int maxShown = 2}) {
+String externalWorkLinkSiteSummary(
+  Iterable<String> sites, {
+  int maxShown = 2,
+  String separator = ', ',
+}) {
   final seen = <String>{};
   final distinct = <String>[];
   for (final raw in sites) {
@@ -27,7 +20,7 @@ String externalWorkLinkSiteSummary(Iterable<String> sites, {int maxShown = 2}) {
     distinct.add(site);
   }
   if (distinct.isEmpty) return '';
-  final shown = distinct.take(maxShown).join('、');
+  final shown = distinct.take(maxShown).join(separator);
   return distinct.length > maxShown ? '$shown...' : shown;
 }
 
@@ -161,9 +154,13 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
   }
 
   List<Widget> _buildScrollableBody(ExternalWorkLinkPackage? package) {
+    final l10n = AppLocalizations.of(context);
     return [
       if (widget.packages.isNotEmpty) ...[
-        Text('选择外协包', style: AppTypography.sectionTitle(context)),
+        Text(
+          l10n.timingExternalWorkSelectPackage,
+          style: AppTypography.sectionTitle(context),
+        ),
         const SizedBox(height: AppSpace.sm),
         for (final pkg in widget.packages)
           _RadioRow(
@@ -175,7 +172,10 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
         const SizedBox(height: AppSpace.md),
       ],
       if (package != null) ...[
-        Text('外协包摘要', style: AppTypography.sectionTitle(context)),
+        Text(
+          l10n.timingExternalWorkPackageSummary,
+          style: AppTypography.sectionTitle(context),
+        ),
         const SizedBox(height: AppSpace.sm),
         Text(
           package.summaryDetail,
@@ -194,6 +194,7 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
   }
 
   Widget _buildFixedActions(ExternalWorkLinkPackage? package) {
+    final l10n = AppLocalizations.of(context);
     return SafeArea(
       top: false,
       child: Padding(
@@ -204,7 +205,7 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
               child: OutlinedButton(
                 key: const Key('external-work-link-cancel'),
                 onPressed: widget.onCancel,
-                child: const Text('取消'),
+                child: Text(l10n.timingExternalWorkCancelAction),
               ),
             ),
             const SizedBox(width: AppSpace.md),
@@ -216,20 +217,21 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
   }
 
   Widget _buildPrimaryAction(ExternalWorkLinkPackage? package) {
+    final l10n = AppLocalizations.of(context);
     if (package?.isLinked == true) {
       return OutlinedButton(
         key: const Key('external-work-link-unlink'),
         onPressed: widget.onUnlink == null || package == null
             ? null
             : () => widget.onUnlink!(package),
-        child: const Text('解除关联'),
+        child: Text(l10n.timingExternalWorkUnlinkAction),
       );
     }
 
     final candidate = _selectedCandidate;
     return AppPrimaryButton(
       key: const Key('external-work-link-confirm'),
-      label: '确认关联',
+      label: l10n.timingExternalWorkConfirmLinkAction,
       onPressed: package == null || candidate == null
           ? null
           : () => widget.onConfirm(package, candidate),
@@ -240,22 +242,27 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
     BuildContext context,
     ExternalWorkLinkPackage package,
   ) {
+    final l10n = AppLocalizations.of(context);
     return [
       Text(
-        '已关联：${package.linkedProjectTitle}',
+        l10n.timingExternalWorkLinkedProject(package.linkedProjectTitle ?? ''),
         style: AppTypography.body(context, fontWeight: FontWeight.w600),
       ),
     ];
   }
 
   List<Widget> _buildPickContent(ExternalWorkLinkPackage package) {
+    final l10n = AppLocalizations.of(context);
     final candidate = _selectedCandidate;
     return [
-      Text('选择要关联的项目', style: AppTypography.sectionTitle(context)),
+      Text(
+        l10n.timingExternalWorkSelectProject,
+        style: AppTypography.sectionTitle(context),
+      ),
       const SizedBox(height: AppSpace.sm),
       if (widget.candidates.isEmpty)
         Text(
-          '暂无可关联的自有项目',
+          l10n.timingExternalWorkNoLinkableProjects,
           style: AppTypography.body(
             context,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -265,14 +272,16 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
         for (final item in widget.candidates)
           _RadioRow(
             key: Key('external-work-link-candidate-${item.projectId}'),
-            title: item.settled ? '${item.title}（已结清）' : item.title,
+            title: item.settled
+                ? l10n.timingExternalWorkSettledCandidateTitle(item.title)
+                : item.title,
             selected: _selectedProjectId == item.projectId,
             onTap: () => setState(() => _selectedProjectId = item.projectId),
           ),
       if (candidate != null && candidate.settled) ...[
         const SizedBox(height: AppSpace.sm),
         Text(
-          externalWorkLinkSettledHint,
+          l10n.timingExternalWorkSettledHint,
           style: AppTypography.caption(context, color: Colors.orange.shade800),
         ),
       ],

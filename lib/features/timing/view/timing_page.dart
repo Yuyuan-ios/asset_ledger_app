@@ -35,6 +35,7 @@ import '../../../patterns/timing/external_work_link_sheet.dart';
 import '../../../patterns/timing/card_main_chart_pattern.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../device/application/device_meter_resolver.dart';
 import '../../account/model/account_view_model.dart';
 import '../../account/model/project_title_formatter.dart';
@@ -132,11 +133,12 @@ class _TimingPageState extends State<TimingPage> {
     if (packages.isEmpty) return;
 
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     await showAppBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
         return AppBottomSheetShell(
-          title: '关联到项目',
+          title: l10n.timingExternalWorkLinkSheetTitle,
           scrollable: false,
           footerEnabled: false,
           contentPadding: EdgeInsets.zero,
@@ -190,9 +192,11 @@ class _TimingPageState extends State<TimingPage> {
     List<TimingExternalWorkRecordItem> batchItems,
     List<ExternalWorkLinkCandidate> candidates,
   ) {
+    final l10n = AppLocalizations.of(context);
     final sourceName = batchItems.first.displayName;
     final siteSummary = externalWorkLinkSiteSummary(
       batchItems.map((item) => item.record.siteSnapshot),
+      separator: l10n.timingExternalWorkSiteSummarySeparator,
     );
     final optionTitle = ProjectTitleFormatter.project(
       contact: sourceName,
@@ -206,7 +210,7 @@ class _TimingPageState extends State<TimingPage> {
     );
     final summaryDetail = [
       if (equipment.isNotEmpty) equipment,
-      '${batchItems.length}条记录',
+      l10n.timingExternalWorkPackageRecordCount(batchItems.length),
       '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
     ].join(' · ');
 
@@ -222,7 +226,7 @@ class _TimingPageState extends State<TimingPage> {
           break;
         }
       }
-      linkedTitle ??= '已关联项目';
+      linkedTitle ??= l10n.timingExternalWorkDefaultLinkedProjectTitle;
     }
 
     return ExternalWorkLinkPackage(
@@ -270,13 +274,14 @@ class _TimingPageState extends State<TimingPage> {
     ExternalWorkLinkPackage package,
     ExternalWorkLinkCandidate candidate,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final store = context.read<TimingExternalWorkStore>();
     if (candidate.settled) {
       final confirmed = await showAppConfirmDialog(
         context: context,
-        title: '关联到已结清项目',
-        content: externalWorkLinkSettledConfirm,
-        confirmText: '继续',
+        title: l10n.timingExternalWorkSettledConfirmTitle,
+        content: l10n.timingExternalWorkSettledConfirmContent,
+        confirmText: l10n.timingExternalWorkContinueAction,
       );
       if (!confirmed || !mounted) return;
       final accountStore = context.read<AccountStore>();
@@ -285,8 +290,8 @@ class _TimingPageState extends State<TimingPage> {
           package.batchId,
           candidate.projectId,
         ),
-        successMessage: '已关联到项目，原结清已撤销',
-        failureMessage: '关联失败，请重试',
+        successMessage: l10n.timingExternalWorkLinkSettledSuccess,
+        failureMessage: l10n.timingExternalWorkLinkFailure,
       );
       // 关联+撤销结清已原子提交；刷新账户聚合让结清状态/总应收重新计算。
       if (ok && mounted) await accountStore.loadAll();
@@ -295,24 +300,25 @@ class _TimingPageState extends State<TimingPage> {
     await _runExternalWorkWrite(
       action: () =>
           store.linkBatchToProject(package.batchId, candidate.projectId),
-      successMessage: '已关联到项目',
-      failureMessage: '关联失败，请重试',
+      successMessage: l10n.timingExternalWorkLinkSuccess,
+      failureMessage: l10n.timingExternalWorkLinkFailure,
     );
   }
 
   Future<void> _unlinkExternalWork(ExternalWorkLinkPackage package) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '解除关联',
-      content: externalWorkLinkUnlinkConfirm,
-      confirmText: '继续',
+      title: l10n.timingExternalWorkUnlinkConfirmTitle,
+      content: l10n.timingExternalWorkUnlinkConfirmContent,
+      confirmText: l10n.timingExternalWorkContinueAction,
     );
     if (!confirmed || !mounted) return;
     final store = context.read<TimingExternalWorkStore>();
     await _runExternalWorkWrite(
       action: () => store.unlinkBatch(package.batchId),
-      successMessage: '已解除关联，外协记录已保留',
-      failureMessage: '解除关联失败，请重试',
+      successMessage: l10n.timingExternalWorkUnlinkSuccess,
+      failureMessage: l10n.timingExternalWorkUnlinkFailure,
     );
   }
 

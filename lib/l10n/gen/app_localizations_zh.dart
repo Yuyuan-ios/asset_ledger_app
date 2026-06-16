@@ -90,4 +90,85 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get timingRecentBreakingBadge => '破碎';
+
+  @override
+  String get timingExternalWorkLinkSheetTitle => '关联到项目';
+
+  @override
+  String get timingExternalWorkSelectPackage => '选择外协包';
+
+  @override
+  String get timingExternalWorkPackageSummary => '外协包摘要';
+
+  @override
+  String get timingExternalWorkCancelAction => '取消';
+
+  @override
+  String get timingExternalWorkUnlinkAction => '解除关联';
+
+  @override
+  String get timingExternalWorkConfirmLinkAction => '确认关联';
+
+  @override
+  String timingExternalWorkLinkedProject(String title) {
+    return '已关联：$title';
+  }
+
+  @override
+  String get timingExternalWorkSelectProject => '选择要关联的项目';
+
+  @override
+  String get timingExternalWorkNoLinkableProjects => '暂无可关联的自有项目';
+
+  @override
+  String timingExternalWorkSettledCandidateTitle(String title) {
+    return '$title（已结清）';
+  }
+
+  @override
+  String get timingExternalWorkSettledHint =>
+      '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。';
+
+  @override
+  String get timingExternalWorkSettledConfirmTitle => '关联到已结清项目';
+
+  @override
+  String get timingExternalWorkSettledConfirmContent =>
+      '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。是否继续？';
+
+  @override
+  String get timingExternalWorkContinueAction => '继续';
+
+  @override
+  String get timingExternalWorkDefaultLinkedProjectTitle => '已关联项目';
+
+  @override
+  String timingExternalWorkPackageRecordCount(int count) {
+    return '$count条记录';
+  }
+
+  @override
+  String get timingExternalWorkSiteSummarySeparator => '、';
+
+  @override
+  String get timingExternalWorkLinkSuccess => '已关联到项目';
+
+  @override
+  String get timingExternalWorkLinkSettledSuccess => '已关联到项目，原结清已撤销';
+
+  @override
+  String get timingExternalWorkLinkFailure => '关联失败，请重试';
+
+  @override
+  String get timingExternalWorkUnlinkConfirmTitle => '解除关联';
+
+  @override
+  String get timingExternalWorkUnlinkConfirmContent =>
+      '解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？';
+
+  @override
+  String get timingExternalWorkUnlinkSuccess => '已解除关联，外协记录已保留';
+
+  @override
+  String get timingExternalWorkUnlinkFailure => '解除关联失败，请重试';
 }

@@ -1,12 +1,17 @@
 import 'package:asset_ledger/components/buttons/app_primary_button.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/timing/external_work_link_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('externalWorkLinkSiteSummary', () {
     test('joins distinct sites with Chinese comma and truncates with ...', () {
-      expect(externalWorkLinkSiteSummary(['鲜滩', '尚义', '五里山']), '鲜滩、尚义...');
+      expect(
+        externalWorkLinkSiteSummary(['鲜滩', '尚义', '五里山'], separator: '、'),
+        '鲜滩、尚义...',
+      );
     });
 
     test('single site shows no separator/ellipsis', () {
@@ -14,7 +19,10 @@ void main() {
     });
 
     test('exactly maxShown sites have no ellipsis', () {
-      expect(externalWorkLinkSiteSummary(['鲜滩', '尚义']), '鲜滩、尚义');
+      expect(
+        externalWorkLinkSiteSummary(['鲜滩', '尚义'], separator: '、'),
+        '鲜滩、尚义',
+      );
     });
 
     test('dedupes and ignores blanks', () {
@@ -57,6 +65,7 @@ void main() {
     ExternalWorkLinkConfirm? onConfirm,
     ExternalWorkLinkUnlink? onUnlink,
     double? height,
+    Locale locale = const Locale('zh'),
   }) async {
     final sheet = ExternalWorkLinkSheet(
       packages: packages,
@@ -67,6 +76,14 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: height == null
               ? sheet
@@ -142,10 +159,11 @@ void main() {
   ) async {
     await pumpSheet(tester, packages: const [pkgXiantan]);
 
-    expect(find.text(externalWorkLinkSettledHint), findsNothing);
+    const settledHint = '该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。';
+    expect(find.text(settledHint), findsNothing);
     await tester.tap(find.byKey(const Key('external-work-link-candidate-p2')));
     await tester.pump();
-    expect(find.text(externalWorkLinkSettledHint), findsOneWidget);
+    expect(find.text(settledHint), findsOneWidget);
   });
 
   testWidgets('linked package shows linked state + unlink, no confirm', (
@@ -171,6 +189,66 @@ void main() {
     await tester.tap(find.byKey(const Key('external-work-link-unlink')));
     await tester.pump();
     expect(unlinked?.batchId, 'b1');
+  });
+
+  testWidgets('sheet labels localize in English', (tester) async {
+    const englishCandidates = [
+      ExternalWorkLinkCandidate(
+        projectId: 'p1',
+        title: 'Project A',
+        settled: true,
+      ),
+    ];
+
+    await pumpSheet(
+      tester,
+      locale: const Locale('en'),
+      packages: const [
+        ExternalWorkLinkPackage(
+          batchId: 'b1',
+          optionTitle: 'Alex · River site',
+          summaryDetail: 'Hitachi · 2 records · 16.0h',
+        ),
+      ],
+      withCandidates: englishCandidates,
+    );
+
+    expect(find.text('Select external work package'), findsOneWidget);
+    expect(find.text('Package summary'), findsOneWidget);
+    expect(find.text('Select project to link'), findsOneWidget);
+    expect(find.text('Project A (settled)'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Confirm link'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('external-work-link-candidate-p1')));
+    await tester.pump();
+    expect(
+      find.text(
+        'This project is settled. Linking the external work package will '
+        'reopen it and recalculate the receivable from the updated project total.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('已结清'), findsNothing);
+
+    await pumpSheet(
+      tester,
+      locale: const Locale('en'),
+      packages: const [
+        ExternalWorkLinkPackage(
+          batchId: 'b2',
+          optionTitle: 'Alex · Quarry',
+          summaryDetail: 'CAT · 1 record · 8.0h',
+          linkedProjectTitle: 'Project B',
+        ),
+      ],
+      withCandidates: englishCandidates,
+      onUnlink: (_) {},
+    );
+
+    expect(find.text('Linked: Project B'), findsOneWidget);
+    expect(find.text('Unlink'), findsOneWidget);
+    expect(find.textContaining('已关联'), findsNothing);
   });
 
   testWidgets('actions stay fixed while candidates scroll', (tester) async {

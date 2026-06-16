@@ -131,5 +131,119 @@
   "timingRecentBreakingBadge": "破碎",
   "@timingRecentBreakingBadge": {
     "description": "计时模块:最近记录行中表示破碎模式的短标签"
+  },
+  "timingExternalWorkLinkSheetTitle": "关联到项目",
+  "@timingExternalWorkLinkSheetTitle": {
+    "description": "计时模块:外协包关联底部弹窗标题"
+  },
+  "timingExternalWorkSelectPackage": "选择外协包",
+  "@timingExternalWorkSelectPackage": {
+    "description": "计时模块:外协包关联弹窗中的外协包选择区标题"
+  },
+  "timingExternalWorkPackageSummary": "外协包摘要",
+  "@timingExternalWorkPackageSummary": {
+    "description": "计时模块:外协包关联弹窗中的外协包摘要区标题"
+  },
+  "timingExternalWorkCancelAction": "取消",
+  "@timingExternalWorkCancelAction": {
+    "description": "计时模块:外协包关联弹窗取消按钮"
+  },
+  "timingExternalWorkUnlinkAction": "解除关联",
+  "@timingExternalWorkUnlinkAction": {
+    "description": "计时模块:外协包关联弹窗解除关联按钮"
+  },
+  "timingExternalWorkConfirmLinkAction": "确认关联",
+  "@timingExternalWorkConfirmLinkAction": {
+    "description": "计时模块:外协包关联弹窗确认关联按钮"
+  },
+  "timingExternalWorkLinkedProject": "已关联：{title}",
+  "@timingExternalWorkLinkedProject": {
+    "description": "计时模块:外协包关联弹窗中已关联项目提示",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "李杰 · 鲜滩"
+      }
+    }
+  },
+  "timingExternalWorkSelectProject": "选择要关联的项目",
+  "@timingExternalWorkSelectProject": {
+    "description": "计时模块:外协包关联弹窗中的本地项目选择区标题"
+  },
+  "timingExternalWorkNoLinkableProjects": "暂无可关联的自有项目",
+  "@timingExternalWorkNoLinkableProjects": {
+    "description": "计时模块:外协包关联弹窗中无可关联项目时的空态"
+  },
+  "timingExternalWorkSettledCandidateTitle": "{title}（已结清）",
+  "@timingExternalWorkSettledCandidateTitle": {
+    "description": "计时模块:外协包关联弹窗中已结清候选项目的显示标题",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "刘锐 · 五里山"
+      }
+    }
+  },
+  "timingExternalWorkSettledHint": "该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。",
+  "@timingExternalWorkSettledHint": {
+    "description": "计时模块:选择已结清项目时在外协包关联弹窗内展示的边界提示"
+  },
+  "timingExternalWorkSettledConfirmTitle": "关联到已结清项目",
+  "@timingExternalWorkSettledConfirmTitle": {
+    "description": "计时模块:关联外协包到已结清项目前的确认弹窗标题"
+  },
+  "timingExternalWorkSettledConfirmContent": "该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。是否继续？",
+  "@timingExternalWorkSettledConfirmContent": {
+    "description": "计时模块:关联外协包到已结清项目前的确认弹窗正文"
+  },
+  "timingExternalWorkContinueAction": "继续",
+  "@timingExternalWorkContinueAction": {
+    "description": "计时模块:外协包关联二次确认弹窗的继续按钮"
+  },
+  "timingExternalWorkDefaultLinkedProjectTitle": "已关联项目",
+  "@timingExternalWorkDefaultLinkedProjectTitle": {
+    "description": "计时模块:外协包已有关联但找不到本地项目标题时的默认项目名"
+  },
+  "timingExternalWorkPackageRecordCount": "{count}条记录",
+  "@timingExternalWorkPackageRecordCount": {
+    "description": "计时模块:外协包摘要中的记录数量",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "timingExternalWorkSiteSummarySeparator": "、",
+  "@timingExternalWorkSiteSummarySeparator": {
+    "description": "计时模块:外协包地址摘要中多个地址之间的分隔符"
+  },
+  "timingExternalWorkLinkSuccess": "已关联到项目",
+  "@timingExternalWorkLinkSuccess": {
+    "description": "计时模块:外协包成功关联到本地项目后的 toast"
+  },
+  "timingExternalWorkLinkSettledSuccess": "已关联到项目，原结清已撤销",
+  "@timingExternalWorkLinkSettledSuccess": {
+    "description": "计时模块:外协包成功关联到已结清项目并撤销结清后的 toast"
+  },
+  "timingExternalWorkLinkFailure": "关联失败，请重试",
+  "@timingExternalWorkLinkFailure": {
+    "description": "计时模块:外协包关联失败 toast"
+  },
+  "timingExternalWorkUnlinkConfirmTitle": "解除关联",
+  "@timingExternalWorkUnlinkConfirmTitle": {
+    "description": "计时模块:解除外协包关联前的确认弹窗标题"
+  },
+  "timingExternalWorkUnlinkConfirmContent": "解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？",
+  "@timingExternalWorkUnlinkConfirmContent": {
+    "description": "计时模块:解除外协包关联前的确认弹窗正文"
+  },
+  "timingExternalWorkUnlinkSuccess": "已解除关联，外协记录已保留",
+  "@timingExternalWorkUnlinkSuccess": {
+    "description": "计时模块:外协包解除关联成功 toast"
+  },
+  "timingExternalWorkUnlinkFailure": "解除关联失败，请重试",
+  "@timingExternalWorkUnlinkFailure": {
+    "description": "计时模块:外协包解除关联失败 toast"
   }
 }

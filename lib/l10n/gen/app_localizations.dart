@@ -247,6 +247,150 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'破碎'**
   String get timingRecentBreakingBadge;
+
+  /// 计时模块:外协包关联底部弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'关联到项目'**
+  String get timingExternalWorkLinkSheetTitle;
+
+  /// 计时模块:外协包关联弹窗中的外协包选择区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'选择外协包'**
+  String get timingExternalWorkSelectPackage;
+
+  /// 计时模块:外协包关联弹窗中的外协包摘要区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'外协包摘要'**
+  String get timingExternalWorkPackageSummary;
+
+  /// 计时模块:外协包关联弹窗取消按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get timingExternalWorkCancelAction;
+
+  /// 计时模块:外协包关联弹窗解除关联按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'解除关联'**
+  String get timingExternalWorkUnlinkAction;
+
+  /// 计时模块:外协包关联弹窗确认关联按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确认关联'**
+  String get timingExternalWorkConfirmLinkAction;
+
+  /// 计时模块:外协包关联弹窗中已关联项目提示
+  ///
+  /// In zh, this message translates to:
+  /// **'已关联：{title}'**
+  String timingExternalWorkLinkedProject(String title);
+
+  /// 计时模块:外协包关联弹窗中的本地项目选择区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要关联的项目'**
+  String get timingExternalWorkSelectProject;
+
+  /// 计时模块:外协包关联弹窗中无可关联项目时的空态
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可关联的自有项目'**
+  String get timingExternalWorkNoLinkableProjects;
+
+  /// 计时模块:外协包关联弹窗中已结清候选项目的显示标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{title}（已结清）'**
+  String timingExternalWorkSettledCandidateTitle(String title);
+
+  /// 计时模块:选择已结清项目时在外协包关联弹窗内展示的边界提示
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。'**
+  String get timingExternalWorkSettledHint;
+
+  /// 计时模块:关联外协包到已结清项目前的确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'关联到已结清项目'**
+  String get timingExternalWorkSettledConfirmTitle;
+
+  /// 计时模块:关联外协包到已结清项目前的确认弹窗正文
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目已结清。关联外协包后将撤销结清状态，并按新的项目总应收重新计算待收。是否继续？'**
+  String get timingExternalWorkSettledConfirmContent;
+
+  /// 计时模块:外协包关联二次确认弹窗的继续按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get timingExternalWorkContinueAction;
+
+  /// 计时模块:外协包已有关联但找不到本地项目标题时的默认项目名
+  ///
+  /// In zh, this message translates to:
+  /// **'已关联项目'**
+  String get timingExternalWorkDefaultLinkedProjectTitle;
+
+  /// 计时模块:外协包摘要中的记录数量
+  ///
+  /// In zh, this message translates to:
+  /// **'{count}条记录'**
+  String timingExternalWorkPackageRecordCount(int count);
+
+  /// 计时模块:外协包地址摘要中多个地址之间的分隔符
+  ///
+  /// In zh, this message translates to:
+  /// **'、'**
+  String get timingExternalWorkSiteSummarySeparator;
+
+  /// 计时模块:外协包成功关联到本地项目后的 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已关联到项目'**
+  String get timingExternalWorkLinkSuccess;
+
+  /// 计时模块:外协包成功关联到已结清项目并撤销结清后的 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已关联到项目，原结清已撤销'**
+  String get timingExternalWorkLinkSettledSuccess;
+
+  /// 计时模块:外协包关联失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'关联失败，请重试'**
+  String get timingExternalWorkLinkFailure;
+
+  /// 计时模块:解除外协包关联前的确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'解除关联'**
+  String get timingExternalWorkUnlinkConfirmTitle;
+
+  /// 计时模块:解除外协包关联前的确认弹窗正文
+  ///
+  /// In zh, this message translates to:
+  /// **'解除关联后，该外协包将作为独立的外协的项目保留，不会删除外协记录。是否继续？'**
+  String get timingExternalWorkUnlinkConfirmContent;
+
+  /// 计时模块:外协包解除关联成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已解除关联，外协记录已保留'**
+  String get timingExternalWorkUnlinkSuccess;
+
+  /// 计时模块:外协包解除关联失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'解除关联失败，请重试'**
+  String get timingExternalWorkUnlinkFailure;
 }
 
 class _AppLocalizationsDelegate
