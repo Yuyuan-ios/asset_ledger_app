@@ -1,0 +1,21 @@
+[Unit]
+Description=FleetLedger Cloud Sync Backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fleet-ledger-cloud-sync
+EnvironmentFile=/etc/fleet-ledger-cloud-sync.env
+ExecStart=/opt/fleet-ledger-cloud-sync/.venv/bin/python /opt/fleet-ledger-cloud-sync/app.py
+Restart=always
+RestartSec=5
+User=fleetsync
+Group=fleetsync
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/fleet-ledger-cloud-sync /var/log/fleet-ledger-cloud-sync
+
+[Install]
+WantedBy=multi-user.target
