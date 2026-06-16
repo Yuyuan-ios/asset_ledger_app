@@ -21,6 +21,7 @@ import '../../../patterns/fuel/fuel_sliver_home_pattern.dart';
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/fuel/fuel_supplier_filter_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../device/application/device_meter_resolver.dart';
 import 'fuel_page_view_data.dart';
 
@@ -62,6 +63,7 @@ class _FuelPageState extends State<FuelPage> {
     final timingStore = context.read<TimingStore>();
     final fuelStore = context.read<FuelStore>();
     final formKey = GlobalKey<FuelDetailContentState>();
+    final l10n = AppLocalizations.of(context);
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
@@ -71,8 +73,12 @@ class _FuelPageState extends State<FuelPage> {
 
     await openEditorSheet<void>(
       context: context,
-      title: editing == null ? '新增燃油' : '编辑燃油',
+      title: editing == null
+          ? l10n.fuelCreateSheetTitle
+          : l10n.fuelEditSheetTitle,
       useSafeArea: true,
+      cancelText: l10n.fuelCancelAction,
+      confirmText: l10n.fuelConfirmAction,
       onConfirm: () => formKey.currentState?.submit(),
       childBuilder: (ctx) {
         return FuelDetailContent(
@@ -111,11 +117,13 @@ class _FuelPageState extends State<FuelPage> {
 
   Future<bool> _confirmDelete(FuelLog log) async {
     if (log.id == null) return false;
+    final l10n = AppLocalizations.of(context);
     final ok = await showAppConfirmDialog(
       context: context,
-      title: '确认删除？',
-      content: '删除后不可恢复。',
-      confirmText: '删除',
+      title: l10n.fuelDeleteConfirmTitle,
+      content: l10n.fuelDeleteConfirmContent,
+      cancelText: l10n.fuelCancelAction,
+      confirmText: l10n.fuelDeleteConfirmAction,
     );
     return ok == true;
   }
@@ -138,6 +146,7 @@ class _FuelPageState extends State<FuelPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fuelStore = context.watch<FuelStore>();
     final deviceStore = context.watch<DeviceStore>();
     final timingStore = context.watch<TimingStore>();
@@ -172,7 +181,7 @@ class _FuelPageState extends State<FuelPage> {
                 byDevice: viewData.byDevice,
                 deviceNameOf: (id) {
                   final d = deviceStore.tryFindById(id);
-                  return d?.name ?? '设备$id（已停用/不存在）';
+                  return d?.name ?? l10n.fuelInactiveDeviceFallbackName(id);
                 },
               ),
             ),
@@ -207,7 +216,10 @@ class _FuelPageState extends State<FuelPage> {
     );
 
     return FuelSliverHomePattern(
-      header: SectionHeader(title: '燃油', onAdd: () => _openFuelEditor()),
+      header: SectionHeader(
+        title: l10n.fuelPageTitle,
+        onAdd: () => _openFuelEditor(),
+      ),
       summary: summary,
       filter: filter,
       logs: viewData.filteredLogs,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/feedback/store_error_banner.dart';
 import '../../components/layout/pinned_header_delegate.dart';
 import '../../data/models/fuel_log.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
 import '../layout/phone_page_layout.dart';
@@ -68,6 +69,7 @@ class _FuelSliverHomePatternState extends State<FuelSliverHomePattern> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final visibleLogs = widget.logs
         .where((log) => !_locallyRemovedKeys.contains(fuelRecentRecordKey(log)))
         .toList();
@@ -136,6 +138,9 @@ class _FuelSliverHomePatternState extends State<FuelSliverHomePattern> {
                                 filter: widget.filter,
                                 recordsTitle: RecordsTitle(
                                   count: visibleLogs.length,
+                                  title: l10n.commonRecentRecordsCount(
+                                    visibleLogs.length,
+                                  ),
                                 ),
                               ),
                             ),

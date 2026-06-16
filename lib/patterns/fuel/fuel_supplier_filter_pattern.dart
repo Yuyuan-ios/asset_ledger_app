@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../components/fields/app_auto_suggest_field.dart';
+import '../../l10n/gen/app_localizations.dart';
 
 class FuelSupplierFilter extends StatelessWidget {
   final TextEditingController controller;
@@ -18,10 +19,11 @@ class FuelSupplierFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AutoSuggestField(
       controller: controller,
-      label: '筛选：供应人',
-      hint: '输入关键字即可过滤（可空）',
+      label: l10n.fuelSupplierFilterLabel,
+      hint: l10n.fuelSupplierFilterHint,
       suggestionsBuilder: suggestionsBuilder,
       onChanged: onChanged,
       onSelected: onSelected,

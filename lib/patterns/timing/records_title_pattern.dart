@@ -5,7 +5,9 @@ import '../../tokens/mapper/timing_tokens.dart';
 
 class RecordsTitle extends StatelessWidget {
   final int count;
-  const RecordsTitle({super.key, required this.count});
+  final String? title;
+
+  const RecordsTitle({super.key, required this.count, this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +19,6 @@ class RecordsTitle extends StatelessWidget {
       height: TimingTokens.recordsTitleLineHeight,
     );
 
-    return Text('最近记录($count)', style: titleStyle);
+    return Text(title ?? '最近记录($count)', style: titleStyle);
   }
 }

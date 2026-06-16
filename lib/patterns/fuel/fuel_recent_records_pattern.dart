@@ -8,6 +8,7 @@ import '../../tokens/mapper/fuel_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 import '../../core/utils/display_text_formatter.dart';
 import '../../core/utils/format_utils.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../timing/records_title_pattern.dart';
 
@@ -68,6 +69,7 @@ class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final visibleLogs = widget.logs
         .where((r) => !_locallyRemovedKeys.contains(fuelRecentRecordKey(r)))
         .toList();
@@ -75,7 +77,10 @@ class _FuelRecentRecordsSectionState extends State<FuelRecentRecordsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RecordsTitle(count: visibleLogs.length),
+        RecordsTitle(
+          count: visibleLogs.length,
+          title: l10n.commonRecentRecordsCount(visibleLogs.length),
+        ),
         SizedBox(height: FuelTokens.recordsTitleTopGap),
         FuelRecordsListContent(
           logs: visibleLogs,
@@ -114,7 +119,11 @@ class FuelRecordsListContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (logs.isEmpty) {
-      return const AppRecentRecordsEmptyState();
+      final l10n = AppLocalizations.of(context);
+      return AppRecentRecordsEmptyState(
+        title: l10n.commonNoRecordsTitle,
+        subtitle: l10n.commonCreateFromTopRightHint,
+      );
     }
 
     final grouped = <int, List<FuelLog>>{};

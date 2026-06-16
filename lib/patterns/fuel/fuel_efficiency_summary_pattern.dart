@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/fuel/model/fuel_efficiency_agg.dart';
 import '../../core/utils/format_utils.dart';
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
 
@@ -18,6 +19,7 @@ class FuelEfficiencySummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.body(
       context,
       fontSize: FuelTokens.summaryCardTitleSize,
@@ -127,10 +129,12 @@ class FuelEfficiencySummary extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('设备燃油效率', style: titleStyle),
+          Text(l10n.fuelEfficiencyTitle, style: titleStyle),
           const SizedBox(height: FuelTokens.summaryCardItemGap),
           Expanded(
-            child: Center(child: Text('暂无数据（先录入燃油记录与工时记录）', style: emptyStyle)),
+            child: Center(
+              child: Text(l10n.fuelEfficiencyEmpty, style: emptyStyle),
+            ),
           ),
         ],
       );
@@ -161,7 +165,7 @@ class FuelEfficiencySummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('设备燃油效率', style: titleStyle),
+        Text(l10n.fuelEfficiencyTitle, style: titleStyle),
         const SizedBox(height: FuelTokens.summaryCardItemGap),
         Expanded(child: bodyChild),
       ],

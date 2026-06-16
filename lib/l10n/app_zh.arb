@@ -401,5 +401,117 @@
   "timingChartExpenseLabel": "支出",
   "@timingChartExpenseLabel": {
     "description": "计时模块:计时首页图表支出图例和值标签"
+  },
+  "commonRecentRecordsCount": "最近记录({count})",
+  "@commonRecentRecordsCount": {
+    "description": "通用:最近记录列表标题及记录数量",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "commonNoRecordsTitle": "暂无记录",
+  "@commonNoRecordsTitle": {
+    "description": "通用:最近记录列表为空时的标题"
+  },
+  "commonCreateFromTopRightHint": "点击右上角 + 新建",
+  "@commonCreateFromTopRightHint": {
+    "description": "通用:最近记录列表为空时提示用户从右上角新增"
+  },
+  "fuelPageTitle": "燃油",
+  "@fuelPageTitle": {
+    "description": "油电模块:燃油页标题"
+  },
+  "fuelCreateSheetTitle": "新增燃油",
+  "@fuelCreateSheetTitle": {
+    "description": "油电模块:新增燃油记录底部录入 sheet 标题"
+  },
+  "fuelEditSheetTitle": "编辑燃油",
+  "@fuelEditSheetTitle": {
+    "description": "油电模块:编辑燃油记录底部录入 sheet 标题"
+  },
+  "fuelCancelAction": "取消",
+  "@fuelCancelAction": {
+    "description": "油电模块:燃油记录弹窗取消按钮"
+  },
+  "fuelConfirmAction": "确定",
+  "@fuelConfirmAction": {
+    "description": "油电模块:燃油记录录入 sheet 确认按钮"
+  },
+  "fuelDeleteConfirmTitle": "确认删除？",
+  "@fuelDeleteConfirmTitle": {
+    "description": "油电模块:删除燃油记录二次确认弹窗标题"
+  },
+  "fuelDeleteConfirmContent": "删除后不可恢复。",
+  "@fuelDeleteConfirmContent": {
+    "description": "油电模块:删除燃油记录二次确认弹窗正文"
+  },
+  "fuelDeleteConfirmAction": "删除",
+  "@fuelDeleteConfirmAction": {
+    "description": "油电模块:删除燃油记录二次确认弹窗确认按钮"
+  },
+  "fuelInactiveDeviceFallbackName": "设备{id}（已停用/不存在）",
+  "@fuelInactiveDeviceFallbackName": {
+    "description": "油电模块:燃油效率卡片中设备已停用或不存在时的兜底设备名",
+    "placeholders": {
+      "id": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "fuelDeviceLabel": "设备编号",
+  "@fuelDeviceLabel": {
+    "description": "油电模块:燃油录入表单设备下拉字段标签"
+  },
+  "fuelDeviceHint": "请选择设备",
+  "@fuelDeviceHint": {
+    "description": "油电模块:燃油录入表单设备下拉字段占位"
+  },
+  "fuelNoActiveDeviceHint": "暂无在用设备，请先去“设备”页新增",
+  "@fuelNoActiveDeviceHint": {
+    "description": "油电模块:燃油录入表单无在用设备时的设备下拉占位"
+  },
+  "fuelSupplierRequiredLabel": "供应人（必填）",
+  "@fuelSupplierRequiredLabel": {
+    "description": "油电模块:燃油录入表单供应人字段标签"
+  },
+  "fuelSupplierHint": "例如：中石化 / 老王油品",
+  "@fuelSupplierHint": {
+    "description": "油电模块:燃油录入表单供应人字段占位"
+  },
+  "fuelLitersLabel": "加油量（升）",
+  "@fuelLitersLabel": {
+    "description": "油电模块:燃油录入表单加油量字段标签"
+  },
+  "fuelLitersHint": "例如：120.0",
+  "@fuelLitersHint": {
+    "description": "油电模块:燃油录入表单加油量字段占位"
+  },
+  "fuelAmountYuanLabel": "金额（元）",
+  "@fuelAmountYuanLabel": {
+    "description": "油电模块:燃油录入表单金额字段标签"
+  },
+  "fuelAmountHint": "例如：980.0",
+  "@fuelAmountHint": {
+    "description": "油电模块:燃油录入表单金额字段占位"
+  },
+  "fuelEfficiencyTitle": "设备燃油效率",
+  "@fuelEfficiencyTitle": {
+    "description": "油电模块:燃油效率统计卡片标题"
+  },
+  "fuelEfficiencyEmpty": "暂无数据（先录入燃油记录与工时记录）",
+  "@fuelEfficiencyEmpty": {
+    "description": "油电模块:燃油效率统计卡片为空时的提示"
+  },
+  "fuelSupplierFilterLabel": "筛选：供应人",
+  "@fuelSupplierFilterLabel": {
+    "description": "油电模块:供应人筛选输入框标签"
+  },
+  "fuelSupplierFilterHint": "输入关键字即可过滤（可空）",
+  "@fuelSupplierFilterHint": {
+    "description": "油电模块:供应人筛选输入框占位"
   }
 }

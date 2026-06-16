@@ -310,4 +310,85 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timingChartExpenseLabel => 'Expense';
+
+  @override
+  String commonRecentRecordsCount(int count) {
+    return 'Recent records ($count)';
+  }
+
+  @override
+  String get commonNoRecordsTitle => 'No records';
+
+  @override
+  String get commonCreateFromTopRightHint => 'Tap + at the top right to create';
+
+  @override
+  String get fuelPageTitle => 'Fuel';
+
+  @override
+  String get fuelCreateSheetTitle => 'Add fuel';
+
+  @override
+  String get fuelEditSheetTitle => 'Edit fuel';
+
+  @override
+  String get fuelCancelAction => 'Cancel';
+
+  @override
+  String get fuelConfirmAction => 'Done';
+
+  @override
+  String get fuelDeleteConfirmTitle => 'Delete fuel record?';
+
+  @override
+  String get fuelDeleteConfirmContent => 'This cannot be undone.';
+
+  @override
+  String get fuelDeleteConfirmAction => 'Delete';
+
+  @override
+  String fuelInactiveDeviceFallbackName(int id) {
+    return 'Device $id (inactive/missing)';
+  }
+
+  @override
+  String get fuelDeviceLabel => 'Device';
+
+  @override
+  String get fuelDeviceHint => 'Select device';
+
+  @override
+  String get fuelNoActiveDeviceHint =>
+      'No active devices. Add one on the Devices tab first';
+
+  @override
+  String get fuelSupplierRequiredLabel => 'Supplier (required)';
+
+  @override
+  String get fuelSupplierHint => 'Example: Sinopec / Wang fuel';
+
+  @override
+  String get fuelLitersLabel => 'Fuel volume (L)';
+
+  @override
+  String get fuelLitersHint => 'Example: 120.0';
+
+  @override
+  String get fuelAmountYuanLabel => 'Amount (CNY)';
+
+  @override
+  String get fuelAmountHint => 'Example: 980.0';
+
+  @override
+  String get fuelEfficiencyTitle => 'Fuel efficiency by device';
+
+  @override
+  String get fuelEfficiencyEmpty =>
+      'No data yet. Add fuel and timing records first';
+
+  @override
+  String get fuelSupplierFilterLabel => 'Filter: supplier';
+
+  @override
+  String get fuelSupplierFilterHint => 'Type a keyword to filter (optional)';
 }

@@ -285,4 +285,83 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get timingChartExpenseLabel => '支出';
+
+  @override
+  String commonRecentRecordsCount(int count) {
+    return '最近记录($count)';
+  }
+
+  @override
+  String get commonNoRecordsTitle => '暂无记录';
+
+  @override
+  String get commonCreateFromTopRightHint => '点击右上角 + 新建';
+
+  @override
+  String get fuelPageTitle => '燃油';
+
+  @override
+  String get fuelCreateSheetTitle => '新增燃油';
+
+  @override
+  String get fuelEditSheetTitle => '编辑燃油';
+
+  @override
+  String get fuelCancelAction => '取消';
+
+  @override
+  String get fuelConfirmAction => '确定';
+
+  @override
+  String get fuelDeleteConfirmTitle => '确认删除？';
+
+  @override
+  String get fuelDeleteConfirmContent => '删除后不可恢复。';
+
+  @override
+  String get fuelDeleteConfirmAction => '删除';
+
+  @override
+  String fuelInactiveDeviceFallbackName(int id) {
+    return '设备$id（已停用/不存在）';
+  }
+
+  @override
+  String get fuelDeviceLabel => '设备编号';
+
+  @override
+  String get fuelDeviceHint => '请选择设备';
+
+  @override
+  String get fuelNoActiveDeviceHint => '暂无在用设备，请先去“设备”页新增';
+
+  @override
+  String get fuelSupplierRequiredLabel => '供应人（必填）';
+
+  @override
+  String get fuelSupplierHint => '例如：中石化 / 老王油品';
+
+  @override
+  String get fuelLitersLabel => '加油量（升）';
+
+  @override
+  String get fuelLitersHint => '例如：120.0';
+
+  @override
+  String get fuelAmountYuanLabel => '金额（元）';
+
+  @override
+  String get fuelAmountHint => '例如：980.0';
+
+  @override
+  String get fuelEfficiencyTitle => '设备燃油效率';
+
+  @override
+  String get fuelEfficiencyEmpty => '暂无数据（先录入燃油记录与工时记录）';
+
+  @override
+  String get fuelSupplierFilterLabel => '筛选：供应人';
+
+  @override
+  String get fuelSupplierFilterHint => '输入关键字即可过滤（可空）';
 }

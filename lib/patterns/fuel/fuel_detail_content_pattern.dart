@@ -21,6 +21,7 @@ import '../../core/utils/form_feedback.dart';
 import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../patterns/device/device_picker_pattern.dart';
 import '../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../components/fields/app_date_field.dart';
@@ -244,6 +245,7 @@ class FuelDetailContentState extends State<FuelDetailContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () => FocusScope.of(context).unfocus(),
@@ -269,6 +271,10 @@ class FuelDetailContentState extends State<FuelDetailContent> {
                         items: widget.deviceItems,
                         onChanged: (id) =>
                             setState(() => _selectedDeviceId = id),
+                        labelText: l10n.fuelDeviceLabel,
+                        hintText: l10n.fuelDeviceHint,
+                        emptyHintText: l10n.fuelNoActiveDeviceHint,
+                        emptyLabelText: l10n.fuelDeviceLabel,
                       ),
                     ),
                     const SizedBox(height: SheetTokens.formFieldGap),
@@ -283,8 +289,8 @@ class FuelDetailContentState extends State<FuelDetailContent> {
                     // 3) 供应人（必填，联想）
                     AutoSuggestField(
                       controller: _supplierCtrl,
-                      label: '供应人（必填）',
-                      hint: '例如：中石化 / 老王油品',
+                      label: l10n.fuelSupplierRequiredLabel,
+                      hint: l10n.fuelSupplierHint,
                       suggestionsBuilder: widget.supplierSuggestions,
                       onSelected: (v) => _supplierCtrl.text = v,
                     ),
@@ -293,8 +299,8 @@ class FuelDetailContentState extends State<FuelDetailContent> {
                     // 4) 加油量
                     SheetTextFieldPattern(
                       controller: _litersCtrl,
-                      labelText: '加油量（升）',
-                      hintText: '例如：120.0',
+                      labelText: l10n.fuelLitersLabel,
+                      hintText: l10n.fuelLitersHint,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
@@ -305,8 +311,8 @@ class FuelDetailContentState extends State<FuelDetailContent> {
                     // 5) 金额
                     SheetTextFieldPattern(
                       controller: _costCtrl,
-                      labelText: '金额（元）',
-                      hintText: '例如：980.0',
+                      labelText: l10n.fuelAmountYuanLabel,
+                      hintText: l10n.fuelAmountHint,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),

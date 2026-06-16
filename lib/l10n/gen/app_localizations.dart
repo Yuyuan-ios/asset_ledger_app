@@ -607,6 +607,156 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'支出'**
   String get timingChartExpenseLabel;
+
+  /// 通用:最近记录列表标题及记录数量
+  ///
+  /// In zh, this message translates to:
+  /// **'最近记录({count})'**
+  String commonRecentRecordsCount(int count);
+
+  /// 通用:最近记录列表为空时的标题
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无记录'**
+  String get commonNoRecordsTitle;
+
+  /// 通用:最近记录列表为空时提示用户从右上角新增
+  ///
+  /// In zh, this message translates to:
+  /// **'点击右上角 + 新建'**
+  String get commonCreateFromTopRightHint;
+
+  /// 油电模块:燃油页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'燃油'**
+  String get fuelPageTitle;
+
+  /// 油电模块:新增燃油记录底部录入 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'新增燃油'**
+  String get fuelCreateSheetTitle;
+
+  /// 油电模块:编辑燃油记录底部录入 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑燃油'**
+  String get fuelEditSheetTitle;
+
+  /// 油电模块:燃油记录弹窗取消按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get fuelCancelAction;
+
+  /// 油电模块:燃油记录录入 sheet 确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get fuelConfirmAction;
+
+  /// 油电模块:删除燃油记录二次确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除？'**
+  String get fuelDeleteConfirmTitle;
+
+  /// 油电模块:删除燃油记录二次确认弹窗正文
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后不可恢复。'**
+  String get fuelDeleteConfirmContent;
+
+  /// 油电模块:删除燃油记录二次确认弹窗确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get fuelDeleteConfirmAction;
+
+  /// 油电模块:燃油效率卡片中设备已停用或不存在时的兜底设备名
+  ///
+  /// In zh, this message translates to:
+  /// **'设备{id}（已停用/不存在）'**
+  String fuelInactiveDeviceFallbackName(int id);
+
+  /// 油电模块:燃油录入表单设备下拉字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'设备编号'**
+  String get fuelDeviceLabel;
+
+  /// 油电模块:燃油录入表单设备下拉字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择设备'**
+  String get fuelDeviceHint;
+
+  /// 油电模块:燃油录入表单无在用设备时的设备下拉占位
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无在用设备，请先去“设备”页新增'**
+  String get fuelNoActiveDeviceHint;
+
+  /// 油电模块:燃油录入表单供应人字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'供应人（必填）'**
+  String get fuelSupplierRequiredLabel;
+
+  /// 油电模块:燃油录入表单供应人字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：中石化 / 老王油品'**
+  String get fuelSupplierHint;
+
+  /// 油电模块:燃油录入表单加油量字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'加油量（升）'**
+  String get fuelLitersLabel;
+
+  /// 油电模块:燃油录入表单加油量字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：120.0'**
+  String get fuelLitersHint;
+
+  /// 油电模块:燃油录入表单金额字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'金额（元）'**
+  String get fuelAmountYuanLabel;
+
+  /// 油电模块:燃油录入表单金额字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：980.0'**
+  String get fuelAmountHint;
+
+  /// 油电模块:燃油效率统计卡片标题
+  ///
+  /// In zh, this message translates to:
+  /// **'设备燃油效率'**
+  String get fuelEfficiencyTitle;
+
+  /// 油电模块:燃油效率统计卡片为空时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无数据（先录入燃油记录与工时记录）'**
+  String get fuelEfficiencyEmpty;
+
+  /// 油电模块:供应人筛选输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选：供应人'**
+  String get fuelSupplierFilterLabel;
+
+  /// 油电模块:供应人筛选输入框占位
+  ///
+  /// In zh, this message translates to:
+  /// **'输入关键字即可过滤（可空）'**
+  String get fuelSupplierFilterHint;
 }
 
 class _AppLocalizationsDelegate
