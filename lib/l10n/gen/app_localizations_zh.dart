@@ -173,6 +173,106 @@ class AppLocalizationsZh extends AppLocalizations {
   String get timingExternalWorkUnlinkFailure => '解除关联失败，请重试';
 
   @override
+  String get timingEntryCreateSheetTitle => '新建计时';
+
+  @override
+  String get timingEntryEditSheetTitle => '编辑计时';
+
+  @override
+  String get timingEntryCancelAction => '取消';
+
+  @override
+  String get timingEntryDeleteRecordAction => '删除本记录';
+
+  @override
+  String get timingEntryHistoryLoadFailure => '工时计算历史加载失败，仍可继续编辑';
+
+  @override
+  String get timingEntrySaveFailure => '保存失败，请重试';
+
+  @override
+  String get timingEntryDeletePrecheckFailure => '删除前检查失败，请重试';
+
+  @override
+  String get timingEntryDeleteConfirmTitle => '删除计时记录';
+
+  @override
+  String get timingEntryDeleteConfirmAction => '删除';
+
+  @override
+  String get timingEntryDeleteFailure => '删除失败，请重试';
+
+  @override
+  String get timingEntryDeleteBlockedTitle => '无法删除';
+
+  @override
+  String get timingEntryDeleteBlockedConfirm => '知道了';
+
+  @override
+  String get timingEntryDeleteSettledConfirmContent =>
+      '该项目已结清。删除计时记录后将撤销结清状态，并按新的项目金额重新计算待收。是否继续？';
+
+  @override
+  String get timingEntryDeleteLastRecordConfirmContent =>
+      '删除后，该项目将不再有本地计时记录，并会同步解除相关合并/外协关联。是否继续？';
+
+  @override
+  String get timingEntryDeleteDefaultConfirmContent => '删除后不可恢复，确认删除这条记录吗？';
+
+  @override
+  String get timingEntryDeleted => '已删除';
+
+  @override
+  String get timingEntrySettlementRevoked => '已撤销结清';
+
+  @override
+  String get timingEntryMergeDissolved => '已解除合并';
+
+  @override
+  String get timingEntryMergeMemberRemoved => '已移出合并';
+
+  @override
+  String get timingEntryExternalWorkUnlinked => '已解除外协关联';
+
+  @override
+  String get timingEntryDeleteCascadeSeparator => '、';
+
+  @override
+  String timingEntryDeleteCascadeSuccess(String details) {
+    return '已删除，$details';
+  }
+
+  @override
+  String get timingEntryDeviceLabel => '设备编号';
+
+  @override
+  String get timingEntryDeviceHint => '请选择设备';
+
+  @override
+  String get timingEntryNoActiveDeviceHint => '暂无在用设备，请先去“设备”页新增';
+
+  @override
+  String get timingEntryContactLabel => '联系人';
+
+  @override
+  String get timingEntrySiteLabel => '使用地址/工地';
+
+  @override
+  String get timingEntryStartWorkTimeLabel => '开始工作时间';
+
+  @override
+  String get timingEntryEndWorkTimeLabel => '结束工作时间';
+
+  @override
+  String get timingEntryWorkHourBasisTooltip => '工时计算依据';
+
+  @override
+  String get timingEntryOptionalZeroHint => '0.0（可空）';
+
+  @override
+  String get timingEntryAmountYuanLabel => '金额（元）';
+
+  @override
   String timingChartYearLabel(int year) {
     return '$year年';
   }

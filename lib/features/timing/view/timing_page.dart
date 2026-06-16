@@ -365,7 +365,7 @@ class _TimingPageState extends State<TimingPage> {
         editing,
       );
     } catch (_) {
-      _toast('工时计算历史加载失败，仍可继续编辑');
+      _toast(AppLocalizations.of(context).timingEntryHistoryLoadFailure);
       return const <TimingCalculationHistory>[];
     }
   }
@@ -397,6 +397,7 @@ class _TimingPageState extends State<TimingPage> {
     final existingCalculationHistories =
         await _loadExistingCalculationHistories(editing);
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
 
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
@@ -407,9 +408,13 @@ class _TimingPageState extends State<TimingPage> {
 
     await openEditorSheet<void>(
       context: context,
-      title: editing == null ? '新建计时' : '编辑计时',
+      title: editing == null
+          ? l10n.timingEntryCreateSheetTitle
+          : l10n.timingEntryEditSheetTitle,
       useSafeArea: false,
-      cancelText: editing == null ? '取消' : '删除本记录',
+      cancelText: editing == null
+          ? l10n.timingEntryCancelAction
+          : l10n.timingEntryDeleteRecordAction,
       cancelForegroundColor: editing == null ? null : Colors.red.shade600,
       onCancel: editing == null
           ? null
@@ -533,7 +538,9 @@ class _TimingPageState extends State<TimingPage> {
       return formValidationMessage(_friendlySaveFailureReason(error.message));
     }
     final feedback = storeActionFeedback(timingStore, action: '保存');
-    return feedback.isSuccess ? '保存失败，请重试' : feedback.message;
+    return feedback.isSuccess
+        ? AppLocalizations.of(context).timingEntrySaveFailure
+        : feedback.message;
   }
 
   String _friendlySaveFailureReason(String message) {
@@ -565,7 +572,9 @@ class _TimingPageState extends State<TimingPage> {
     try {
       impact = await deleteUseCase.analyzeImpact(recordId);
     } catch (_) {
-      if (mounted) _toast('删除前检查失败，请重试');
+      if (mounted) {
+        _toast(AppLocalizations.of(context).timingEntryDeletePrecheckFailure);
+      }
       return;
     }
     if (!mounted) return;
@@ -581,9 +590,10 @@ class _TimingPageState extends State<TimingPage> {
 
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '删除计时记录',
+      title: AppLocalizations.of(context).timingEntryDeleteConfirmTitle,
       content: _deleteConfirmContent(impact),
-      confirmText: '删除',
+      cancelText: AppLocalizations.of(context).timingEntryCancelAction,
+      confirmText: AppLocalizations.of(context).timingEntryDeleteConfirmAction,
       confirmDestructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -596,7 +606,9 @@ class _TimingPageState extends State<TimingPage> {
       await _showDeleteBlockedDialog(sheetContext, error.message);
       return;
     } catch (_) {
-      if (mounted) _toast('删除失败，请重试');
+      if (mounted) {
+        _toast(AppLocalizations.of(context).timingEntryDeleteFailure);
+      }
       return;
     }
     if (!mounted) return;
@@ -615,38 +627,48 @@ class _TimingPageState extends State<TimingPage> {
     if (!mounted || !sheetContext.mounted) return;
     await showAppAlertDialog(
       context: sheetContext,
-      title: '无法删除',
+      title: AppLocalizations.of(sheetContext).timingEntryDeleteBlockedTitle,
       message: message,
-      confirmText: '知道了',
+      confirmText: AppLocalizations.of(
+        sheetContext,
+      ).timingEntryDeleteBlockedConfirm,
     );
   }
 
   String _deleteConfirmContent(TimingRecordDeleteImpact impact) {
+    final l10n = AppLocalizations.of(context);
     final parts = <String>[];
     if (impact.requiresSettlementRevoke) {
-      parts.add('该项目已结清。删除计时记录后将撤销结清状态，并按新的项目金额重新计算待收。是否继续？');
+      parts.add(l10n.timingEntryDeleteSettledConfirmContent);
     }
     if (impact.hasLastRecordCascade) {
-      parts.add('删除后，该项目将不再有本地计时记录，并会同步解除相关合并/外协关联。是否继续？');
+      parts.add(l10n.timingEntryDeleteLastRecordConfirmContent);
     }
     if (parts.isEmpty) {
-      return '删除后不可恢复，确认删除这条记录吗？';
+      return l10n.timingEntryDeleteDefaultConfirmContent;
     }
     return parts.join('\n\n');
   }
 
   String _deleteSuccessMessage(TimingRecordDeleteOutcome outcome) {
-    if (!outcome.hasCascade) return '已删除';
+    final l10n = AppLocalizations.of(context);
+    if (!outcome.hasCascade) return l10n.timingEntryDeleted;
     final parts = <String>[];
-    if (outcome.settlementRevoked) parts.add('已撤销结清');
-    if (outcome.mergeGroupDissolved) {
-      parts.add('已解除合并');
-    } else if (outcome.mergeMemberRemoved) {
-      parts.add('已移出合并');
+    if (outcome.settlementRevoked) {
+      parts.add(l10n.timingEntrySettlementRevoked);
     }
-    if (outcome.externalWorkUnlinked) parts.add('已解除外协关联');
-    if (parts.isEmpty) return '已删除';
-    return '已删除，${parts.join('、')}';
+    if (outcome.mergeGroupDissolved) {
+      parts.add(l10n.timingEntryMergeDissolved);
+    } else if (outcome.mergeMemberRemoved) {
+      parts.add(l10n.timingEntryMergeMemberRemoved);
+    }
+    if (outcome.externalWorkUnlinked) {
+      parts.add(l10n.timingEntryExternalWorkUnlinked);
+    }
+    if (parts.isEmpty) return l10n.timingEntryDeleted;
+    return l10n.timingEntryDeleteCascadeSuccess(
+      parts.join(l10n.timingEntryDeleteCascadeSeparator),
+    );
   }
 
   Future<void> _reloadAfterDelete() async {

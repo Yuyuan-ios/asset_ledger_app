@@ -215,6 +215,47 @@ void main() {
     expect(find.text('破碎'), findsNothing);
   });
 
+  testWidgets('renders localized zh entry display labels', (
+    WidgetTester tester,
+  ) async {
+    await pumpTimingDetail(
+      tester,
+      devices: [buildDevice(id: 1, breakingUnitPrice: 180)],
+    );
+
+    final uiCopy = collectUiCopy(tester);
+    expect(uiCopy, contains('联系人'));
+    expect(uiCopy, contains('使用地址/工地'));
+    expect(uiCopy, contains('开始工作时间'));
+    expect(uiCopy, contains('结束工作时间'));
+    expect(find.byTooltip('工时计算依据'), findsOneWidget);
+  });
+
+  testWidgets('renders localized en entry display labels', (
+    WidgetTester tester,
+  ) async {
+    await pumpTimingDetail(
+      tester,
+      locale: const Locale('en'),
+      devices: [buildDevice(id: 1, breakingUnitPrice: 180)],
+    );
+
+    var uiCopy = collectUiCopy(tester);
+    expect(uiCopy, contains('Contact'));
+    expect(uiCopy, contains('Work site/address'));
+    expect(uiCopy, contains('Start work time'));
+    expect(uiCopy, contains('End work time'));
+    expect(find.byTooltip('Work hour calculation basis'), findsOneWidget);
+    expect(uiCopy, isNot(contains('开始工作时间')));
+    expect(uiCopy, isNot(contains('结束工作时间')));
+
+    await tester.tap(find.text('租金(台班)'));
+    await tester.pumpAndSettle();
+
+    uiCopy = collectUiCopy(tester);
+    expect(uiCopy, contains('Amount (CNY)'));
+  });
+
   testWidgets(
     'keeps breaking selector visible for editing legacy breaking records',
     (WidgetTester tester) async {

@@ -194,6 +194,110 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timingExternalWorkUnlinkFailure => 'Unlink failed. Try again';
 
   @override
+  String get timingEntryCreateSheetTitle => 'New timing';
+
+  @override
+  String get timingEntryEditSheetTitle => 'Edit timing';
+
+  @override
+  String get timingEntryCancelAction => 'Cancel';
+
+  @override
+  String get timingEntryDeleteRecordAction => 'Delete this record';
+
+  @override
+  String get timingEntryHistoryLoadFailure =>
+      'Calculation history failed to load. You can keep editing';
+
+  @override
+  String get timingEntrySaveFailure => 'Save failed. Try again';
+
+  @override
+  String get timingEntryDeletePrecheckFailure =>
+      'Delete check failed. Try again';
+
+  @override
+  String get timingEntryDeleteConfirmTitle => 'Delete timing record';
+
+  @override
+  String get timingEntryDeleteConfirmAction => 'Delete';
+
+  @override
+  String get timingEntryDeleteFailure => 'Delete failed. Try again';
+
+  @override
+  String get timingEntryDeleteBlockedTitle => 'Cannot delete';
+
+  @override
+  String get timingEntryDeleteBlockedConfirm => 'OK';
+
+  @override
+  String get timingEntryDeleteSettledConfirmContent =>
+      'This project is settled. Deleting the timing record will reopen the settlement and recalculate the receivable from the updated project amount. Continue?';
+
+  @override
+  String get timingEntryDeleteLastRecordConfirmContent =>
+      'After deleting, this project will no longer have local timing records, and related merge/external work links will be removed. Continue?';
+
+  @override
+  String get timingEntryDeleteDefaultConfirmContent =>
+      'This cannot be undone. Delete this timing record?';
+
+  @override
+  String get timingEntryDeleted => 'Deleted';
+
+  @override
+  String get timingEntrySettlementRevoked => 'Settlement reopened';
+
+  @override
+  String get timingEntryMergeDissolved => 'Merge dissolved';
+
+  @override
+  String get timingEntryMergeMemberRemoved => 'Removed from merge';
+
+  @override
+  String get timingEntryExternalWorkUnlinked => 'External work unlinked';
+
+  @override
+  String get timingEntryDeleteCascadeSeparator => ', ';
+
+  @override
+  String timingEntryDeleteCascadeSuccess(String details) {
+    return 'Deleted, $details';
+  }
+
+  @override
+  String get timingEntryDeviceLabel => 'Device';
+
+  @override
+  String get timingEntryDeviceHint => 'Select device';
+
+  @override
+  String get timingEntryNoActiveDeviceHint =>
+      'No active devices. Add one on the Devices tab first';
+
+  @override
+  String get timingEntryContactLabel => 'Contact';
+
+  @override
+  String get timingEntrySiteLabel => 'Work site/address';
+
+  @override
+  String get timingEntryStartWorkTimeLabel => 'Start work time';
+
+  @override
+  String get timingEntryEndWorkTimeLabel => 'End work time';
+
+  @override
+  String get timingEntryWorkHourBasisTooltip => 'Work hour calculation basis';
+
+  @override
+  String get timingEntryOptionalZeroHint => '0.0 (optional)';
+
+  @override
+  String get timingEntryAmountYuanLabel => 'Amount (CNY)';
+
+  @override
   String timingChartYearLabel(int year) {
     return '$year';
   }

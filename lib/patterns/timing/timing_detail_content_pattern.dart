@@ -613,6 +613,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () => FocusScope.of(context).unfocus(),
@@ -636,7 +637,10 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                         selectedId: _selectedDeviceId,
                         items: widget.deviceItems,
                         onChanged: _submitting ? (_) {} : _onDeviceChanged,
-                        hintText: '请选择设备',
+                        labelText: l10n.timingEntryDeviceLabel,
+                        hintText: l10n.timingEntryDeviceHint,
+                        emptyHintText: l10n.timingEntryNoActiveDeviceHint,
+                        emptyLabelText: l10n.timingEntryDeviceLabel,
                       ),
                     ),
                     const SizedBox(height: TimingTokens.contentGap),
@@ -654,8 +658,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                           child: AutoSuggestField(
                             controller: _contactCtrl,
                             focusNode: _contactFocus,
-                            label: '联系人',
-                            hint: '联系人',
+                            label: l10n.timingEntryContactLabel,
+                            hint: l10n.timingEntryContactLabel,
                             onSelected: (_) {},
                             suggestionsBuilder: widget.contactSuggestions,
                           ),
@@ -666,8 +670,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                           child: AutoSuggestField(
                             controller: _siteCtrl,
                             focusNode: _siteFocus,
-                            label: '使用地址/工地',
-                            hint: '使用地址/工地',
+                            label: l10n.timingEntrySiteLabel,
+                            hint: l10n.timingEntrySiteLabel,
                             onSelected: (_) {},
                             suggestionsBuilder: widget.siteSuggestions,
                           ),
@@ -676,7 +680,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     ),
                     const SizedBox(height: TimingTokens.contentGap),
                     TimingTimeBlock(
-                      title: '开始工作时间',
+                      title: l10n.timingEntryStartWorkTimeLabel,
                       controller: _startMeterCtrl,
                       alignLabelToContainer: true,
                       onChanged: (start) {
@@ -687,7 +691,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     ),
                     const SizedBox(height: TimingTokens.contentGap),
                     TimingTimeBlock(
-                      title: '结束工作时间',
+                      title: l10n.timingEntryEndWorkTimeLabel,
                       controller: _endMeterCtrl,
                       alignLabelToContainer: true,
                       onChanged: (_) {
@@ -714,7 +718,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                                   : _openWorkHourCalculator,
                               onChanged: (_) => _recalcEndFromHours(),
                               suffixIcon: _TimingFieldAssetIconButton(
-                                tooltip: '工时计算依据',
+                                tooltip: l10n.timingEntryWorkHourBasisTooltip,
                                 assetPath: _workHourCalculatorIconAsset,
                                 onPressed: _submitting
                                     ? null
@@ -742,7 +746,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                     ] else ...[
                       _field(
                         controller: _hoursCtrl,
-                        hint: '0.0（可空）',
+                        hint: l10n.timingEntryOptionalZeroHint,
                         label: _rentLayout.quantityLabel,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -754,7 +758,7 @@ class TimingDetailContentState extends State<TimingDetailContent> {
                       _field(
                         controller: _incomeCtrl,
                         hint: _incomeCtrl.text,
-                        label: '金额（元）',
+                        label: l10n.timingEntryAmountYuanLabel,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),

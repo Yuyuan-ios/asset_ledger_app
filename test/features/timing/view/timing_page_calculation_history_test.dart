@@ -185,6 +185,36 @@ void main() {
     );
   });
 
+  testWidgets('renders timing editor chrome in English', (
+    WidgetTester tester,
+  ) async {
+    await _pumpTimingPage(
+      tester,
+      locale: const Locale('en'),
+      historyRepository: _FakeCalculationHistoryRepository(),
+    );
+
+    await tester.tap(find.text('甲方 · 一号工地'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit timing'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextButton, 'Delete this record'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'Delete this record'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete timing record'), findsOneWidget);
+    expect(
+      find.text('This cannot be undone. Delete this timing record?'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Delete'), findsOneWidget);
+  });
+
   testWidgets('editing delete opens confirm dialog and cancel keeps record', (
     WidgetTester tester,
   ) async {
@@ -1100,6 +1130,7 @@ void main() {
 
 Future<void> _pumpTimingPage(
   WidgetTester tester, {
+  Locale locale = const Locale('zh'),
   _FakeTimingRepository? timingRepository,
   required TimingCalculationHistoryRepository historyRepository,
   _FakeAccountProjectMergeRepository? mergeRepository,
@@ -1156,7 +1187,7 @@ Future<void> _pumpTimingPage(
 
   await tester.pumpWidget(
     MaterialApp(
-      locale: const Locale('zh'),
+      locale: locale,
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,

@@ -246,6 +246,140 @@
   "@timingExternalWorkUnlinkFailure": {
     "description": "计时模块:外协包解除关联失败 toast"
   },
+  "timingEntryCreateSheetTitle": "新建计时",
+  "@timingEntryCreateSheetTitle": {
+    "description": "计时模块:新建计时记录底部录入 sheet 标题"
+  },
+  "timingEntryEditSheetTitle": "编辑计时",
+  "@timingEntryEditSheetTitle": {
+    "description": "计时模块:编辑计时记录底部录入 sheet 标题"
+  },
+  "timingEntryCancelAction": "取消",
+  "@timingEntryCancelAction": {
+    "description": "计时模块:新建计时记录底部录入 sheet 的取消按钮"
+  },
+  "timingEntryDeleteRecordAction": "删除本记录",
+  "@timingEntryDeleteRecordAction": {
+    "description": "计时模块:编辑计时记录底部录入 sheet 的删除当前记录按钮"
+  },
+  "timingEntryHistoryLoadFailure": "工时计算历史加载失败，仍可继续编辑",
+  "@timingEntryHistoryLoadFailure": {
+    "description": "计时模块:编辑计时记录时加载工时计算历史失败后的 toast"
+  },
+  "timingEntrySaveFailure": "保存失败，请重试",
+  "@timingEntrySaveFailure": {
+    "description": "计时模块:计时记录保存失败的通用 toast"
+  },
+  "timingEntryDeletePrecheckFailure": "删除前检查失败，请重试",
+  "@timingEntryDeletePrecheckFailure": {
+    "description": "计时模块:计时记录删除前影响检查失败的 toast"
+  },
+  "timingEntryDeleteConfirmTitle": "删除计时记录",
+  "@timingEntryDeleteConfirmTitle": {
+    "description": "计时模块:删除计时记录二次确认弹窗标题"
+  },
+  "timingEntryDeleteConfirmAction": "删除",
+  "@timingEntryDeleteConfirmAction": {
+    "description": "计时模块:删除计时记录二次确认弹窗确认按钮"
+  },
+  "timingEntryDeleteFailure": "删除失败，请重试",
+  "@timingEntryDeleteFailure": {
+    "description": "计时模块:删除计时记录失败 toast"
+  },
+  "timingEntryDeleteBlockedTitle": "无法删除",
+  "@timingEntryDeleteBlockedTitle": {
+    "description": "计时模块:计时记录因收款等原因无法删除的弹窗标题"
+  },
+  "timingEntryDeleteBlockedConfirm": "知道了",
+  "@timingEntryDeleteBlockedConfirm": {
+    "description": "计时模块:无法删除计时记录提示弹窗确认按钮"
+  },
+  "timingEntryDeleteSettledConfirmContent": "该项目已结清。删除计时记录后将撤销结清状态，并按新的项目金额重新计算待收。是否继续？",
+  "@timingEntryDeleteSettledConfirmContent": {
+    "description": "计时模块:删除已结清项目中的计时记录时的二次确认正文"
+  },
+  "timingEntryDeleteLastRecordConfirmContent": "删除后，该项目将不再有本地计时记录，并会同步解除相关合并/外协关联。是否继续？",
+  "@timingEntryDeleteLastRecordConfirmContent": {
+    "description": "计时模块:删除项目最后一条本地计时记录时的二次确认正文"
+  },
+  "timingEntryDeleteDefaultConfirmContent": "删除后不可恢复，确认删除这条记录吗？",
+  "@timingEntryDeleteDefaultConfirmContent": {
+    "description": "计时模块:普通计时记录删除二次确认正文"
+  },
+  "timingEntryDeleted": "已删除",
+  "@timingEntryDeleted": {
+    "description": "计时模块:计时记录删除成功 toast"
+  },
+  "timingEntrySettlementRevoked": "已撤销结清",
+  "@timingEntrySettlementRevoked": {
+    "description": "计时模块:删除计时记录后同步撤销结清状态的成功摘要片段"
+  },
+  "timingEntryMergeDissolved": "已解除合并",
+  "@timingEntryMergeDissolved": {
+    "description": "计时模块:删除计时记录后同步解除合并组的成功摘要片段"
+  },
+  "timingEntryMergeMemberRemoved": "已移出合并",
+  "@timingEntryMergeMemberRemoved": {
+    "description": "计时模块:删除计时记录后同步从合并组移出项目的成功摘要片段"
+  },
+  "timingEntryExternalWorkUnlinked": "已解除外协关联",
+  "@timingEntryExternalWorkUnlinked": {
+    "description": "计时模块:删除计时记录后同步解除外协关联的成功摘要片段"
+  },
+  "timingEntryDeleteCascadeSeparator": "、",
+  "@timingEntryDeleteCascadeSeparator": {
+    "description": "计时模块:删除计时记录成功摘要中多个级联动作之间的分隔符"
+  },
+  "timingEntryDeleteCascadeSuccess": "已删除，{details}",
+  "@timingEntryDeleteCascadeSuccess": {
+    "description": "计时模块:删除计时记录成功且带有级联动作摘要的 toast",
+    "placeholders": {
+      "details": {
+        "type": "String",
+        "example": "已撤销结清、已解除合并"
+      }
+    }
+  },
+  "timingEntryDeviceLabel": "设备编号",
+  "@timingEntryDeviceLabel": {
+    "description": "计时模块:计时录入表单设备下拉字段标签"
+  },
+  "timingEntryDeviceHint": "请选择设备",
+  "@timingEntryDeviceHint": {
+    "description": "计时模块:计时录入表单设备下拉字段占位"
+  },
+  "timingEntryNoActiveDeviceHint": "暂无在用设备，请先去“设备”页新增",
+  "@timingEntryNoActiveDeviceHint": {
+    "description": "计时模块:计时录入表单无在用设备时的设备下拉占位"
+  },
+  "timingEntryContactLabel": "联系人",
+  "@timingEntryContactLabel": {
+    "description": "计时模块:计时录入表单联系人字段标签与占位"
+  },
+  "timingEntrySiteLabel": "使用地址/工地",
+  "@timingEntrySiteLabel": {
+    "description": "计时模块:计时录入表单使用地址/工地字段标签与占位"
+  },
+  "timingEntryStartWorkTimeLabel": "开始工作时间",
+  "@timingEntryStartWorkTimeLabel": {
+    "description": "计时模块:计时录入表单开始工作时间/码表字段标题"
+  },
+  "timingEntryEndWorkTimeLabel": "结束工作时间",
+  "@timingEntryEndWorkTimeLabel": {
+    "description": "计时模块:计时录入表单结束工作时间/码表字段标题"
+  },
+  "timingEntryWorkHourBasisTooltip": "工时计算依据",
+  "@timingEntryWorkHourBasisTooltip": {
+    "description": "计时模块:计时录入表单打开工时计算器的图标 tooltip"
+  },
+  "timingEntryOptionalZeroHint": "0.0（可空）",
+  "@timingEntryOptionalZeroHint": {
+    "description": "计时模块:计时录入表单租金模式工时字段可空占位"
+  },
+  "timingEntryAmountYuanLabel": "金额（元）",
+  "@timingEntryAmountYuanLabel": {
+    "description": "计时模块:计时录入表单租金模式金额字段标签"
+  },
   "timingChartYearLabel": "{year}年",
   "@timingChartYearLabel": {
     "description": "计时模块:计时首页收入/支出图表的年份标题",

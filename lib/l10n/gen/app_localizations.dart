@@ -392,6 +392,198 @@ abstract class AppLocalizations {
   /// **'解除关联失败，请重试'**
   String get timingExternalWorkUnlinkFailure;
 
+  /// 计时模块:新建计时记录底部录入 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'新建计时'**
+  String get timingEntryCreateSheetTitle;
+
+  /// 计时模块:编辑计时记录底部录入 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑计时'**
+  String get timingEntryEditSheetTitle;
+
+  /// 计时模块:新建计时记录底部录入 sheet 的取消按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get timingEntryCancelAction;
+
+  /// 计时模块:编辑计时记录底部录入 sheet 的删除当前记录按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除本记录'**
+  String get timingEntryDeleteRecordAction;
+
+  /// 计时模块:编辑计时记录时加载工时计算历史失败后的 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'工时计算历史加载失败，仍可继续编辑'**
+  String get timingEntryHistoryLoadFailure;
+
+  /// 计时模块:计时记录保存失败的通用 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败，请重试'**
+  String get timingEntrySaveFailure;
+
+  /// 计时模块:计时记录删除前影响检查失败的 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'删除前检查失败，请重试'**
+  String get timingEntryDeletePrecheckFailure;
+
+  /// 计时模块:删除计时记录二次确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'删除计时记录'**
+  String get timingEntryDeleteConfirmTitle;
+
+  /// 计时模块:删除计时记录二次确认弹窗确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get timingEntryDeleteConfirmAction;
+
+  /// 计时模块:删除计时记录失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'删除失败，请重试'**
+  String get timingEntryDeleteFailure;
+
+  /// 计时模块:计时记录因收款等原因无法删除的弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'无法删除'**
+  String get timingEntryDeleteBlockedTitle;
+
+  /// 计时模块:无法删除计时记录提示弹窗确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get timingEntryDeleteBlockedConfirm;
+
+  /// 计时模块:删除已结清项目中的计时记录时的二次确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目已结清。删除计时记录后将撤销结清状态，并按新的项目金额重新计算待收。是否继续？'**
+  String get timingEntryDeleteSettledConfirmContent;
+
+  /// 计时模块:删除项目最后一条本地计时记录时的二次确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后，该项目将不再有本地计时记录，并会同步解除相关合并/外协关联。是否继续？'**
+  String get timingEntryDeleteLastRecordConfirmContent;
+
+  /// 计时模块:普通计时记录删除二次确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后不可恢复，确认删除这条记录吗？'**
+  String get timingEntryDeleteDefaultConfirmContent;
+
+  /// 计时模块:计时记录删除成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除'**
+  String get timingEntryDeleted;
+
+  /// 计时模块:删除计时记录后同步撤销结清状态的成功摘要片段
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销结清'**
+  String get timingEntrySettlementRevoked;
+
+  /// 计时模块:删除计时记录后同步解除合并组的成功摘要片段
+  ///
+  /// In zh, this message translates to:
+  /// **'已解除合并'**
+  String get timingEntryMergeDissolved;
+
+  /// 计时模块:删除计时记录后同步从合并组移出项目的成功摘要片段
+  ///
+  /// In zh, this message translates to:
+  /// **'已移出合并'**
+  String get timingEntryMergeMemberRemoved;
+
+  /// 计时模块:删除计时记录后同步解除外协关联的成功摘要片段
+  ///
+  /// In zh, this message translates to:
+  /// **'已解除外协关联'**
+  String get timingEntryExternalWorkUnlinked;
+
+  /// 计时模块:删除计时记录成功摘要中多个级联动作之间的分隔符
+  ///
+  /// In zh, this message translates to:
+  /// **'、'**
+  String get timingEntryDeleteCascadeSeparator;
+
+  /// 计时模块:删除计时记录成功且带有级联动作摘要的 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除，{details}'**
+  String timingEntryDeleteCascadeSuccess(String details);
+
+  /// 计时模块:计时录入表单设备下拉字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'设备编号'**
+  String get timingEntryDeviceLabel;
+
+  /// 计时模块:计时录入表单设备下拉字段占位
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择设备'**
+  String get timingEntryDeviceHint;
+
+  /// 计时模块:计时录入表单无在用设备时的设备下拉占位
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无在用设备，请先去“设备”页新增'**
+  String get timingEntryNoActiveDeviceHint;
+
+  /// 计时模块:计时录入表单联系人字段标签与占位
+  ///
+  /// In zh, this message translates to:
+  /// **'联系人'**
+  String get timingEntryContactLabel;
+
+  /// 计时模块:计时录入表单使用地址/工地字段标签与占位
+  ///
+  /// In zh, this message translates to:
+  /// **'使用地址/工地'**
+  String get timingEntrySiteLabel;
+
+  /// 计时模块:计时录入表单开始工作时间/码表字段标题
+  ///
+  /// In zh, this message translates to:
+  /// **'开始工作时间'**
+  String get timingEntryStartWorkTimeLabel;
+
+  /// 计时模块:计时录入表单结束工作时间/码表字段标题
+  ///
+  /// In zh, this message translates to:
+  /// **'结束工作时间'**
+  String get timingEntryEndWorkTimeLabel;
+
+  /// 计时模块:计时录入表单打开工时计算器的图标 tooltip
+  ///
+  /// In zh, this message translates to:
+  /// **'工时计算依据'**
+  String get timingEntryWorkHourBasisTooltip;
+
+  /// 计时模块:计时录入表单租金模式工时字段可空占位
+  ///
+  /// In zh, this message translates to:
+  /// **'0.0（可空）'**
+  String get timingEntryOptionalZeroHint;
+
+  /// 计时模块:计时录入表单租金模式金额字段标签
+  ///
+  /// In zh, this message translates to:
+  /// **'金额（元）'**
+  String get timingEntryAmountYuanLabel;
+
   /// 计时模块:计时首页收入/支出图表的年份标题
   ///
   /// In zh, this message translates to:
