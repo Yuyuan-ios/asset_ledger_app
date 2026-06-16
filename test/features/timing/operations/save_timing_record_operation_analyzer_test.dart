@@ -199,12 +199,12 @@ void main() {
       final groupA = await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: const [('project:a', '甲方||A'), ('project:c', '甲方||C')],
+        members: [('project:a', '甲方||A'), ('project:c', '甲方||C')],
       );
       final groupB = await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: const [('project:b', '甲方||B'), ('project:d', '甲方||D')],
+        members: [('project:b', '甲方||B'), ('project:d', '甲方||D')],
       );
 
       final result = await analyzer.analyze(
@@ -274,7 +274,7 @@ void main() {
         final groupId = await _seedActiveMergeGroup(
           db,
           contact: '甲方',
-          members: const [('project:a', '甲方||A'), ('project:b', '甲方||B')],
+          members: [('project:a', '甲方||A'), ('project:b', '甲方||B')],
         );
 
         final result = await analyzer.analyze(
@@ -644,7 +644,7 @@ void main() {
       final groupId = await _seedActiveMergeGroup(
         db,
         contact: '甲方',
-        members: const [('project:a', '甲方||A'), ('project:c', '甲方||C')],
+        members: [('project:a', '甲方||A'), ('project:c', '甲方||C')],
       );
 
       // 编辑 → 把记录搬去 B（active），触发 projectChanged + 合并组检测。
@@ -1018,7 +1018,7 @@ Future<int> _seedActiveMergeGroup(
 }
 
 Future<Map<String, int>> _countRowsOfInterest(Database db) async {
-  const tables = [
+  final tables = [
     'projects',
     'timing_records',
     'devices',

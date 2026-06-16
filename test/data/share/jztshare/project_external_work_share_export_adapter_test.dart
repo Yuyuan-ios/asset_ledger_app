@@ -18,7 +18,7 @@ class _FakeCalcRepo implements TimingCalculationHistoryRepository {
   @override
   Future<List<TimingCalculationHistory>> findByTimingRecordId(int id) async {
     queried.add(id);
-    return _byRecord[id] ?? const [];
+    return _byRecord[id] ?? [];
   }
 
   @override
@@ -49,7 +49,7 @@ void main() {
   ];
 
   // 项目 A：李杰/尚义
-  const a1 = TimingRecord(
+  final a1 = TimingRecord(
     id: 11,
     deviceId: 1,
     startDate: 20260501,
@@ -61,7 +61,7 @@ void main() {
     hours: 8,
     income: 800,
   );
-  const a2 = TimingRecord(
+  final a2 = TimingRecord(
     id: 12,
     deviceId: 1,
     startDate: 20260502,
@@ -74,7 +74,7 @@ void main() {
     income: 500,
   );
   // 项目 B：王五/工地B（不应出现在 A 的分享包里）
-  const b1 = TimingRecord(
+  final b1 = TimingRecord(
     id: 21,
     deviceId: 1,
     startDate: 20260503,
@@ -110,7 +110,7 @@ void main() {
       projectId: a1.effectiveProjectId,
       projectKey: a1.legacyProjectKey,
       senderName: '  老王外协  ',
-      allRecords: const [a1, b1, a2],
+      allRecords: [a1, b1, a2],
       allDevices: devices,
       allPayments: [
         AccountPayment(
@@ -166,7 +166,7 @@ void main() {
         projectId: 'nope',
         projectKey: '不存在||项目',
         senderName: '老王',
-        allRecords: const [a1, a2],
+        allRecords: [a1, a2],
         allDevices: devices,
         calcHistoryRepository: _FakeCalcRepo(const {}),
         producer: producer,
@@ -189,7 +189,7 @@ void main() {
         projectId: a1.effectiveProjectId,
         projectKey: a1.legacyProjectKey,
         senderName: '   ',
-        allRecords: const [a1],
+        allRecords: [a1],
         allDevices: devices,
         calcHistoryRepository: _FakeCalcRepo(const {}),
         producer: producer,
@@ -207,7 +207,7 @@ void main() {
       addTearDown(() => dir.delete(recursive: true));
 
       // 同联系人/同地址 → legacyProjectKey 相同，但 projectId 不同。
-      const current = TimingRecord(
+      final current = TimingRecord(
         id: 41,
         deviceId: 1,
         startDate: 20260601,
@@ -220,7 +220,7 @@ void main() {
         hours: 8,
         income: 800,
       );
-      const old = TimingRecord(
+      final old = TimingRecord(
         id: 42,
         deviceId: 1,
         startDate: 20260101,
@@ -240,7 +240,7 @@ void main() {
         projectId: current.effectiveProjectId,
         projectKey: current.legacyProjectKey,
         senderName: '老王',
-        allRecords: const [current, old],
+        allRecords: [current, old],
         allDevices: devices,
         calcHistoryRepository: _FakeCalcRepo(const {}),
         producer: producer,
@@ -273,7 +273,7 @@ void main() {
         projectId: '', // legacy 场景：无明确 projectId
         projectKey: a1.legacyProjectKey,
         senderName: '老王',
-        allRecords: const [a1, a2, b1],
+        allRecords: [a1, a2, b1],
         allDevices: devices,
         calcHistoryRepository: _FakeCalcRepo(const {}),
         producer: producer,
@@ -294,7 +294,7 @@ void main() {
       defaultUnitPrice: 100,
       baseMeterHours: 0,
     );
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 9001,
       deviceId: 9876,
       startDate: 20260601,
@@ -313,7 +313,7 @@ void main() {
         projectId: record.effectiveProjectId,
         projectKey: record.legacyProjectKey,
         senderName: '老王',
-        allRecords: const [record],
+        allRecords: [record],
         allDevices: [localDevice],
         calcHistoryRepository: _FakeCalcRepo(const {}),
         producer: producer,

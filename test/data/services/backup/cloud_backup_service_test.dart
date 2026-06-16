@@ -83,7 +83,6 @@ void main() {
       'start_meter': 0.0,
       'end_meter': 7.5,
       'hours': 7.5,
-      'income': 0.0,
       'income_fen': 0,
       'unit': 'HOUR',
       'quantity_scaled': 7500,

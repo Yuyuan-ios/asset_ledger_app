@@ -13,7 +13,7 @@ void main() {
       'groups by trimmed project key and separates rent income from hours',
       () {
         final projects = AccountService.buildProjects(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 2,
@@ -71,7 +71,7 @@ void main() {
     test(
       'rent displayEndDate does not affect account receivable or incomeFen',
       () {
-        const baseRecord = TimingRecord(
+        final baseRecord = TimingRecord(
           id: 4,
           deviceId: 2,
           startDate: 20260301,
@@ -140,7 +140,7 @@ void main() {
       'aggregates multi-device multi-mode hours with interleaved dates and correct minYmd',
       () {
         final projects = AccountService.buildProjects(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 11,
               deviceId: 2,
@@ -582,7 +582,7 @@ void main() {
       'calcReceivableByDevice aggregates same device across projects with per-project overrides',
       () {
         final totals = AccountService.calcReceivableByDevice(
-          timingRecords: const [
+          timingRecords: [
             // Project A: device 1
             TimingRecord(
               id: 21,
@@ -720,7 +720,7 @@ void main() {
       'calcReceivableByDevice counts rent income once for the bound device',
       () {
         final totals = AccountService.calcReceivableByDevice(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 31,
               deviceId: 1,

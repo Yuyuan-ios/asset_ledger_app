@@ -16,7 +16,7 @@ void main() {
       defaultUnitPrice: 120,
       baseMeterHours: 2000,
     );
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 1,
       deviceId: 1,
       startDate: 20260317,
@@ -33,7 +33,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SectionRecentRecords(
-            records: const [record],
+            records: [record],
             deviceById: {1: device},
             deviceIndexById: const {1: '1#'},
           ),
@@ -53,7 +53,7 @@ void main() {
   ) async {
     await _pumpSectionRecentRecords(
       tester,
-      records: const [
+      records: [
         TimingRecord(
           id: 10,
           deviceId: 1,
@@ -114,7 +114,7 @@ void main() {
     (WidgetTester tester) async {
       await _pumpSectionRecentRecords(
         tester,
-        records: const [
+        records: [
           TimingRecord(
             id: 10,
             deviceId: 1,
@@ -156,7 +156,7 @@ void main() {
   testWidgets('sliver aggregate row shows three-record count', (
     WidgetTester tester,
   ) async {
-    const records = [
+    final records = [
       TimingRecord(
         id: 20,
         deviceId: 1,
@@ -229,7 +229,7 @@ void main() {
       defaultUnitPrice: 120,
       baseMeterHours: 2000,
     );
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 2,
       deviceId: 1,
       startDate: 20260516,
@@ -246,7 +246,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SectionRecentRecords(
-            records: const [record],
+            records: [record],
             deviceById: {1: device},
             deviceIndexById: const {1: '1#'},
           ),
@@ -261,7 +261,7 @@ void main() {
   testWidgets(
     'single hours record displays inclusive date range from exclusive cutoff',
     (WidgetTester tester) async {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 4,
         deviceId: 1,
         startDate: 20260606,
@@ -275,7 +275,7 @@ void main() {
         income: 480,
       );
 
-      await _pumpSectionRecentRecords(tester, records: const [record]);
+      await _pumpSectionRecentRecords(tester, records: [record]);
 
       expect(find.text('2026.06.06 - 06.18'), findsOneWidget);
       expect(find.text('2026.06.06 - 06.19'), findsNothing);
@@ -286,7 +286,7 @@ void main() {
   testWidgets('hours same-day range displays a single date', (
     WidgetTester tester,
   ) async {
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 14,
       deviceId: 1,
       startDate: 20260609,
@@ -300,7 +300,7 @@ void main() {
       income: 480,
     );
 
-    await _pumpSectionRecentRecords(tester, records: const [record]);
+    await _pumpSectionRecentRecords(tester, records: [record]);
 
     expect(find.text('2026.06.09'), findsOneWidget);
     expect(find.text('2026.06.09 - 06.09'), findsNothing);
@@ -309,7 +309,7 @@ void main() {
   testWidgets('hours handoff range can end on next record start date', (
     WidgetTester tester,
   ) async {
-    const records = [
+    final records = [
       TimingRecord(
         id: 14,
         deviceId: 1,
@@ -348,7 +348,7 @@ void main() {
   testWidgets('same-day explicit end record is split from plain date group', (
     WidgetTester tester,
   ) async {
-    const records = [
+    final records = [
       TimingRecord(
         id: 4,
         deviceId: 1,
@@ -395,7 +395,7 @@ void main() {
   testWidgets('rent exclusive cutoff is ignored by recent date range display', (
     WidgetTester tester,
   ) async {
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 6,
       deviceId: 1,
       startDate: 20260516,
@@ -409,7 +409,7 @@ void main() {
       income: 22000,
     );
 
-    await _pumpSectionRecentRecords(tester, records: const [record]);
+    await _pumpSectionRecentRecords(tester, records: [record]);
 
     expect(find.text('2026.05.16'), findsOneWidget);
     expect(find.text('2026.05.16 - 05.19'), findsNothing);
@@ -418,7 +418,7 @@ void main() {
   testWidgets(
     'rent display end shows direct inclusive range without minus one',
     (WidgetTester tester) async {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 7,
         deviceId: 1,
         startDate: 20260516,
@@ -433,7 +433,7 @@ void main() {
         income: 22000,
       );
 
-      await _pumpSectionRecentRecords(tester, records: const [record]);
+      await _pumpSectionRecentRecords(tester, records: [record]);
 
       expect(find.text('2026.05.16 - 05.20'), findsOneWidget);
       expect(find.text('2026.05.16 - 05.19'), findsNothing);
@@ -443,7 +443,7 @@ void main() {
   testWidgets('rent same-day display end displays a single date', (
     WidgetTester tester,
   ) async {
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 15,
       deviceId: 1,
       startDate: 20260609,
@@ -457,7 +457,7 @@ void main() {
       income: 22000,
     );
 
-    await _pumpSectionRecentRecords(tester, records: const [record]);
+    await _pumpSectionRecentRecords(tester, records: [record]);
 
     expect(find.text('2026.06.09'), findsOneWidget);
     expect(find.text('2026.06.09 - 06.09'), findsNothing);
@@ -466,7 +466,7 @@ void main() {
   testWidgets('same-day rent display range record is split from plain group', (
     WidgetTester tester,
   ) async {
-    const records = [
+    final records = [
       TimingRecord(
         id: 8,
         deviceId: 1,
@@ -515,7 +515,7 @@ void main() {
   ) async {
     await _pumpSectionRecentRecords(
       tester,
-      records: const [
+      records: [
         TimingRecord(
           id: 10,
           deviceId: 1,
@@ -563,7 +563,7 @@ void main() {
       defaultUnitPrice: 120,
       baseMeterHours: 2000,
     );
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 3,
       deviceId: 1,
       startDate: 20260516,
@@ -580,7 +580,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SectionRecentRecords(
-            records: const [record],
+            records: [record],
             deviceById: {1: device},
             deviceIndexById: const {1: '1#'},
           ),
@@ -596,7 +596,7 @@ void main() {
     WidgetTester tester,
   ) async {
     // 落库 exclusive cutoff = UI inclusive 2027.12.31 + 1 day = 2028.01.01。
-    const record = TimingRecord(
+    final record = TimingRecord(
       id: 31,
       deviceId: 1,
       startDate: 20271230,
@@ -610,7 +610,7 @@ void main() {
       income: 480,
     );
 
-    await _pumpSectionRecentRecords(tester, records: const [record]);
+    await _pumpSectionRecentRecords(tester, records: [record]);
 
     // 展示按 cutoff-1 跨年回算为 2027.12.31，绝不展示落库的 exclusive 2028.01.01。
     expect(find.text('2027.12.30 - 12.31'), findsOneWidget);

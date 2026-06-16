@@ -33,7 +33,7 @@ void main() {
         ..verdict = SaveTimingRecordFreshnessVerdict(
           isFresh: true,
           latest: _previousResult(),
-          staleReasons: const [],
+          staleReasons: [],
         );
       final command = _FakeCommand(
         result: OperationExecutionResult.success(
@@ -366,7 +366,7 @@ void main() {
         ..verdict = SaveTimingRecordFreshnessVerdict(
           isFresh: true,
           latest: _previousResult(),
-          staleReasons: const [],
+          staleReasons: [],
         );
       final command = _FakeCommand(
         result: OperationExecutionResult.success(
@@ -477,7 +477,7 @@ void main() {
     });
 
     test('actor id mismatch: token_invalid, no claim, no execute', () async {
-      final driverScope = ActorScope.devices(deviceIds: const ['1']);
+      final driverScope = ActorScope.devices(deviceIds: ['1']);
       final analyzer = _FakeAnalyzer();
       final command = _FakeCommand();
       final auditRepo = _FakeAuditRepo();
@@ -526,7 +526,7 @@ void main() {
         logsByToken.single,
         tokenId: 'tok-1',
         code: 'token_invalid',
-        reasons: const ['actor_id_mismatch'],
+        reasons: ['actor_id_mismatch'],
       );
     });
 
@@ -549,7 +549,7 @@ void main() {
         operationId: 'op-save-1',
         tokenId: 'tok-1',
         actor: ownerActor,
-        scope: ActorScope.devices(deviceIds: const ['9']),
+        scope: ActorScope.devices(deviceIds: ['9']),
         now: checkedNow,
         executeSaveWithExecutor: (_) async => _saveResult(),
       );
@@ -565,7 +565,7 @@ void main() {
         logsByToken.single,
         tokenId: 'tok-1',
         code: 'token_invalid',
-        reasons: const ['scope_hash_mismatch'],
+        reasons: ['scope_hash_mismatch'],
       );
     });
 
@@ -612,7 +612,7 @@ void main() {
         logsByToken.single,
         tokenId: 'tok-1',
         code: 'token_invalid',
-        reasons: const ['token_expired'],
+        reasons: ['token_expired'],
       );
     });
 
@@ -992,7 +992,7 @@ void main() {
         logsByToken.last,
         tokenId: 'tok-1',
         code: 'token_invalid',
-        reasons: const ['token_not_issued'],
+        reasons: ['token_not_issued'],
       );
     });
   });
@@ -1124,7 +1124,7 @@ class _FakeTokenRepository implements OperationTokenRepository {
     String? sessionId,
     required DateTime now,
     int limit = 50,
-  }) async => const [];
+  }) async => [];
 
   @override
   Future<bool> markCancelled({
@@ -1145,7 +1145,7 @@ const _projectRef = OperationEntityRef(
 );
 
 SaveTimingRecordOperationAnalyzeInput _analyzeInput() {
-  return const SaveTimingRecordOperationAnalyzeInput(
+  return SaveTimingRecordOperationAnalyzeInput(
     operationId: 'op-save-1',
     editingRecordId: 1,
     draftRecord: TimingRecord(
@@ -1200,8 +1200,8 @@ SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
     projectChanged: false,
     mergeDissolved: false,
     settlementRevoked: false,
-    affectedProjectIds: const ['project:a'],
-    revokedProjectIds: const [],
+    affectedProjectIds: ['project:a'],
+    revokedProjectIds: [],
     userMessage: userMessage,
   );
 }
@@ -1248,7 +1248,7 @@ class _FakeAnalyzer extends SaveTimingRecordOperationAnalyzer {
         SaveTimingRecordFreshnessVerdict(
           isFresh: true,
           latest: previousResult,
-          staleReasons: const [],
+          staleReasons: [],
         );
   }
 }

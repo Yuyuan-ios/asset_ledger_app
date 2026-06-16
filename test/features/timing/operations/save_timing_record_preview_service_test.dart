@@ -60,7 +60,7 @@ void main() {
     test('response exposes redacted projection only', () async {
       final redacted = _redactedPreview(
         operationId: 'op-service-only-redacted',
-        warnings: const ['安全提示'],
+        warnings: ['安全提示'],
       );
       final service = SaveTimingRecordPreviewService(
         previewAdapter: _FakePreviewAdapter(
@@ -107,10 +107,10 @@ void main() {
         redacted: true,
         scopeAllowed: false,
         summary: '预览内容已隐藏',
-        affectedEntities: const [],
-        impactItems: const [],
-        warnings: const [],
-        scopeReasons: const ['device not in actor scope'],
+        affectedEntities: [],
+        impactItems: [],
+        warnings: [],
+        scopeReasons: ['device not in actor scope'],
       );
       final service = SaveTimingRecordPreviewService(
         previewAdapter: _FakePreviewAdapter(
@@ -124,7 +124,7 @@ void main() {
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
-        scope: ActorScope.devices(deviceIds: const ['99'], actorId: 'driver-1'),
+        scope: ActorScope.devices(deviceIds: ['99'], actorId: 'driver-1'),
       );
 
       expect(result.preview.scopeAllowed, isFalse);
@@ -139,14 +139,14 @@ void main() {
         redacted: true,
         scopeAllowed: true,
         summary: '编辑计时；设备：Hitachi',
-        affectedEntities: const [
+        affectedEntities: [
           OperationEntityRef(
             entityType: 'device',
             entityId: 'device:hidden',
             label: 'Hitachi',
           ),
         ],
-        warnings: const ['预览基于当前本地数据，执行前必须重新分析确认。'],
+        warnings: ['预览基于当前本地数据，执行前必须重新分析确认。'],
       );
       final service = SaveTimingRecordPreviewService(
         previewAdapter: _FakePreviewAdapter(
@@ -160,7 +160,7 @@ void main() {
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
-        scope: ActorScope.devices(deviceIds: const ['7'], actorId: 'driver-1'),
+        scope: ActorScope.devices(deviceIds: ['7'], actorId: 'driver-1'),
       );
 
       expect(result.preview.redacted, isTrue);
@@ -184,10 +184,7 @@ void main() {
             actorType: OperationActorType.driver,
             actorId: 'driver-1',
           ),
-          scope: ActorScope.devices(
-            deviceIds: const ['7'],
-            actorId: 'driver-1',
-          ),
+          scope: ActorScope.devices(deviceIds: ['7'], actorId: 'driver-1'),
         ),
       ]) {
         final service = SaveTimingRecordPreviewService(
@@ -476,7 +473,7 @@ void main() {
 SaveTimingRecordOperationAnalyzeInput _input() {
   return SaveTimingRecordOperationAnalyzeInput(
     operationId: 'op-service-1',
-    draftRecord: const TimingRecord(
+    draftRecord: TimingRecord(
       id: 1,
       deviceId: 7,
       startDate: 20260531,
@@ -519,8 +516,8 @@ SaveTimingRecordOperationRedactedPreviewResponse _adapterResponse({
     oldProjectId: 'project-a',
     existingNewProjectId: 'project-a',
     wouldCreateNewProject: false,
-    affectedProjectIds: const ['project-a'],
-    mergeGroupIdsToDissolve: const [],
+    affectedProjectIds: ['project-a'],
+    mergeGroupIdsToDissolve: [],
     requiresReanalysisBeforeExecute: true,
     warnings: previewInput.warnings,
   );
@@ -568,15 +565,15 @@ RedactedSaveTimingRecordPreview _redactedPreview({
       willRevokeSettlement: redacted ? null : false,
       oldProjectId: redacted ? null : 'project-a',
       existingNewProjectId: redacted ? null : 'project-a',
-      affectedProjectIds: redacted ? const [] : const ['project-a'],
-      mergeGroupIdsToDissolve: const [],
+      affectedProjectIds: redacted ? [] : ['project-a'],
+      mergeGroupIdsToDissolve: [],
       warnings: warnings,
     ),
     freshness: null,
     redacted: redacted,
-    redactionReasons: redacted ? const ['已脱敏'] : const [],
-    visibleCapabilities: const [],
-    hiddenCapabilities: const [],
+    redactionReasons: redacted ? ['已脱敏'] : [],
+    visibleCapabilities: [],
+    hiddenCapabilities: [],
     scopeAllowed: scopeAllowed,
     scopeReasons: scopeReasons,
   );
@@ -662,7 +659,7 @@ class _FakeTokenRepository implements OperationTokenRepository {
     required DateTime now,
     int limit = 50,
   }) async {
-    return const [];
+    return [];
   }
 
   @override
@@ -708,7 +705,7 @@ class _FreshAnalyzer extends SaveTimingRecordOperationAnalyzer {
     return SaveTimingRecordFreshnessVerdict(
       isFresh: true,
       latest: previousResult,
-      staleReasons: const [],
+      staleReasons: [],
     );
   }
 }
@@ -719,8 +716,8 @@ SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
     projectChanged: false,
     mergeDissolved: false,
     settlementRevoked: false,
-    affectedProjectIds: const ['project-a'],
-    revokedProjectIds: const [],
+    affectedProjectIds: ['project-a'],
+    revokedProjectIds: [],
     userMessage: userMessage,
   );
 }

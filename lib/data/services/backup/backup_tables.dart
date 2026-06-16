@@ -69,7 +69,7 @@ class BackupRestoreTables {
       'start_meter',
       'end_meter',
       'hours',
-      'income',
+      'income_fen',
     ],
     'fuel_logs': ['id', 'device_id', 'date', 'liters', 'cost_fen'],
     'maintenance_records': ['id', 'device_id', 'ymd', 'item', 'amount_fen'],

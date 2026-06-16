@@ -93,7 +93,7 @@ void main() {
       return TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
         records: records,
         devices: devices,
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: targetMonth,
         asOfDate: asOfDate,
@@ -523,7 +523,7 @@ void main() {
 
       test('rent allocation cutoff is ignored by hours priority rule', () {
         final monthly = computeLegacyMonthlyIncome(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -553,7 +553,7 @@ void main() {
 
       test('rent display end date does not affect monthly income', () {
         final monthly = computeLegacyMonthlyIncome(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -732,7 +732,7 @@ void main() {
       final monthlyAtFeb =
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
             records: [
-              const TimingRecord(
+              TimingRecord(
                 id: 1,
                 deviceId: 1,
                 startDate: 20260101,
@@ -744,7 +744,7 @@ void main() {
                 hours: 6,
                 income: 0, // 图表逻辑不再依赖该字段
               ),
-              const TimingRecord(
+              TimingRecord(
                 id: 2,
                 deviceId: 1,
                 startDate: 20260205,
@@ -768,7 +768,7 @@ void main() {
                 baseMeterHours: 0,
               ),
             ],
-            rates: const [],
+            rates: [],
             targetYear: 2026,
             targetMonth: 2,
             asOfDate: DateTime(2026, 2, 28),
@@ -781,7 +781,7 @@ void main() {
       final monthlyAtMar =
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
             records: [
-              const TimingRecord(
+              TimingRecord(
                 id: 1,
                 deviceId: 1,
                 startDate: 20260101,
@@ -793,7 +793,7 @@ void main() {
                 hours: 6,
                 income: 0,
               ),
-              const TimingRecord(
+              TimingRecord(
                 id: 2,
                 deviceId: 1,
                 startDate: 20260205,
@@ -817,7 +817,7 @@ void main() {
                 baseMeterHours: 0,
               ),
             ],
-            rates: const [],
+            rates: [],
             targetYear: 2026,
             targetMonth: 3,
             asOfDate: DateTime(2026, 3, 31),
@@ -831,7 +831,7 @@ void main() {
     test('keeps same-device same-day records before segmenting', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
         records: [
-          const TimingRecord(
+          TimingRecord(
             id: 1,
             deviceId: 1,
             startDate: 20260110,
@@ -843,7 +843,7 @@ void main() {
             hours: 10,
             income: 9999,
           ),
-          const TimingRecord(
+          TimingRecord(
             id: 2,
             deviceId: 1,
             startDate: 20260110,
@@ -855,7 +855,7 @@ void main() {
             hours: 1,
             income: 9999,
           ),
-          const TimingRecord(
+          TimingRecord(
             id: 4,
             deviceId: 1,
             startDate: 20260110,
@@ -867,7 +867,7 @@ void main() {
             hours: 2,
             income: 9999,
           ),
-          const TimingRecord(
+          TimingRecord(
             id: 3,
             deviceId: 1,
             startDate: 20260112,
@@ -889,7 +889,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 1,
         asOfDate: DateTime(2026, 1, 31),
@@ -901,7 +901,7 @@ void main() {
 
     test('adds rent income to the record month', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -924,7 +924,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 16),
@@ -940,7 +940,7 @@ void main() {
       () {
         final projectKey = ProjectKey.buildKey(contact: '李洋', site: '万达');
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -1022,7 +1022,7 @@ void main() {
       'skips non-positive realtime income and records beyond target month end',
       () {
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -1076,7 +1076,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           targetYear: 2026,
           targetMonth: 1,
           asOfDate: DateTime(2026, 1, 31),
@@ -1089,7 +1089,7 @@ void main() {
 
     test('keeps unfinished open segment in the start month by default', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -1112,7 +1112,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 20),
@@ -1128,7 +1128,7 @@ void main() {
       'keeps april income when april records exist under realtime rules',
       () {
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -1189,7 +1189,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           targetYear: 2026,
           targetMonth: 4,
           asOfDate: DateTime(2026, 4, 30),
@@ -1205,7 +1205,7 @@ void main() {
 
     test('keeps same-day records instead of dropping all but the last one', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 10,
             deviceId: 1,
@@ -1240,7 +1240,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 1,
         asOfDate: DateTime(2026, 1, 31),
@@ -1252,7 +1252,7 @@ void main() {
 
     test('counts same-device same-day records from different projects', () {
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 20,
             deviceId: 1,
@@ -1289,7 +1289,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 31),
@@ -1309,7 +1309,7 @@ void main() {
       () {
         final projectKey = ProjectKey.buildKey(contact: '李洋', site: '万达');
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -1390,7 +1390,7 @@ void main() {
     test('keeps monthly income unchanged when there is no write-off', () {
       const projectId = 'project:no-write-off';
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             projectId: projectId,
@@ -1414,7 +1414,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 31),
@@ -1427,7 +1427,7 @@ void main() {
     test('deducts a single-month project write-off from that month', () {
       const projectId = 'project:single-month-write-off';
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             projectId: projectId,
@@ -1451,7 +1451,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 31),
@@ -1467,7 +1467,7 @@ void main() {
       () {
         const projectId = 'project:cross-month-write-off';
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               projectId: projectId,
@@ -1504,7 +1504,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           targetYear: 2026,
           targetMonth: 6,
           asOfDate: DateTime(2026, 6, 30),
@@ -1522,7 +1522,7 @@ void main() {
     test('reduces annual income by a large project write-off', () {
       const projectId = 'project:large-write-off';
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             projectId: projectId,
@@ -1546,7 +1546,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 31),
@@ -1562,7 +1562,7 @@ void main() {
       () {
         const projectId = 'project:cash-settled';
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [
+          records: [
             TimingRecord(
               id: 1,
               projectId: projectId,
@@ -1586,11 +1586,11 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           targetYear: 2026,
           targetMonth: 5,
           asOfDate: DateTime(2026, 5, 31),
-          projectWriteOffs: const [],
+          projectWriteOffs: [],
         );
 
         expect(monthly[4], closeTo(1260.0, 0.001));
@@ -1600,7 +1600,7 @@ void main() {
     test('includes rent income in project write-off allocation', () {
       const projectId = 'project:rent-write-off';
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             projectId: projectId,
@@ -1624,7 +1624,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 31),
@@ -1637,7 +1637,7 @@ void main() {
     test('clamps monthly income at zero when write-off exceeds income', () {
       const projectId = 'project:over-write-off';
       final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             projectId: projectId,
@@ -1661,7 +1661,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 5,
         asOfDate: DateTime(2026, 5, 31),
@@ -1676,7 +1676,7 @@ void main() {
       'does not mutate timing records or rates while applying write-off',
       () {
         const projectId = 'project:immutable-input';
-        const record = TimingRecord(
+        final record = TimingRecord(
           id: 1,
           projectId: projectId,
           deviceId: 1,
@@ -1697,7 +1697,7 @@ void main() {
         );
 
         final monthly = TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
-          records: const [record],
+          records: [record],
           devices: [
             Device(
               id: 1,
@@ -1723,7 +1723,7 @@ void main() {
 
     test('restores monthly income after project write-off is deleted', () {
       const projectId = 'project:delete-write-off-restore-income';
-      const records = [
+      final records = [
         TimingRecord(
           id: 1,
           projectId: projectId,
@@ -1752,7 +1752,7 @@ void main() {
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
             records: records,
             devices: devices,
-            rates: const [],
+            rates: [],
             targetYear: 2026,
             targetMonth: 5,
             asOfDate: DateTime(2026, 5, 31),
@@ -1762,11 +1762,11 @@ void main() {
           TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
             records: records,
             devices: devices,
-            rates: const [],
+            rates: [],
             targetYear: 2026,
             targetMonth: 5,
             asOfDate: DateTime(2026, 5, 31),
-            projectWriteOffs: const [],
+            projectWriteOffs: [],
           );
 
       expect(withWriteOff[4], closeTo(1200.0, 0.001));

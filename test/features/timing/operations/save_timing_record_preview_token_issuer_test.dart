@@ -103,7 +103,7 @@ void main() {
         request: _request(),
         previewResponse: _adapterResponse(redacted: _redactedPreview()),
         actor: ActorContext(actorType: OperationActorType.owner),
-        scope: ActorScope.devices(deviceIds: const ['7']),
+        scope: ActorScope.devices(deviceIds: ['7']),
         now: now,
       );
 
@@ -318,7 +318,7 @@ SaveTimingRecordOperationPreviewRequest _request() {
 SaveTimingRecordOperationAnalyzeInput _input() {
   return SaveTimingRecordOperationAnalyzeInput(
     operationId: 'op-service-1',
-    draftRecord: const TimingRecord(
+    draftRecord: TimingRecord(
       id: 1,
       deviceId: 7,
       startDate: 20260531,
@@ -361,8 +361,8 @@ SaveTimingRecordOperationRedactedPreviewResponse _adapterResponse({
     oldProjectId: 'project-a',
     existingNewProjectId: 'project-a',
     wouldCreateNewProject: false,
-    affectedProjectIds: const ['project-a'],
-    mergeGroupIdsToDissolve: const [],
+    affectedProjectIds: ['project-a'],
+    mergeGroupIdsToDissolve: [],
     requiresReanalysisBeforeExecute: true,
     warnings: previewInput.warnings,
   );
@@ -406,11 +406,11 @@ RedactedSaveTimingRecordPreview _redactedPreview({bool scopeAllowed = true}) {
     ),
     freshness: null,
     redacted: false,
-    redactionReasons: const [],
-    visibleCapabilities: const [],
-    hiddenCapabilities: const [],
+    redactionReasons: [],
+    visibleCapabilities: [],
+    hiddenCapabilities: [],
     scopeAllowed: scopeAllowed,
-    scopeReasons: scopeAllowed ? const [] : const ['scope missing'],
+    scopeReasons: scopeAllowed ? [] : ['scope missing'],
   );
 }
 
@@ -463,7 +463,7 @@ class _FakeTokenRepository implements OperationTokenRepository {
     required DateTime now,
     int limit = 50,
   }) async {
-    return const [];
+    return [];
   }
 
   @override

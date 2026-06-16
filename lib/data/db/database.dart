@@ -140,10 +140,13 @@ class AppDatabase {
   // - v47：account_payments 删除 amount / merge_batch_total_amount REAL，
   //        收款金额 fen 成为唯一存储权威（Track A / A4-6）；
   //        AUTOINCREMENT 高水位、projects FK RESTRICT 与索引保留。
+  // - v48：timing_records 删除 income REAL，income_fen 成为唯一存储权威
+  //        （Track A / A4-7）；timing_records 非叶子表，onUpgrade 留空，
+  //        重建走 onOpen，AUTOINCREMENT 高水位与计算历史 FK 保留。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 47;
+  static const int _dbVersion = 48;
 
   static int get schemaVersion => _dbVersion;
 

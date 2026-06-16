@@ -43,8 +43,8 @@ void main() {
           baseMeterHours: 0,
         ),
       ],
-      rates: const [],
-      payments: const [],
+      rates: [],
+      payments: [],
     );
 
     // 8h × 100 元/h = 800 元 = 80000 分；income_fen 不参与 hours 应收。

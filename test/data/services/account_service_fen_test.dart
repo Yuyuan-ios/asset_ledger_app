@@ -149,7 +149,7 @@ void main() {
         contact: 'Alpha',
         site: 'Site X',
         minYmd: 20260301,
-        deviceIds: const [1],
+        deviceIds: [1],
         hoursByDevice: const {1: 10},
         normalHoursByDevice: const {1: 10},
         breakingHoursByDevice: const {},
@@ -294,7 +294,7 @@ void main() {
   group('AccountService.buildProjects rentIncomeFen', () {
     test('accumulates rent income per record in fen', () {
       final projects = AccountService.buildProjects(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,

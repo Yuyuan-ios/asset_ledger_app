@@ -389,6 +389,9 @@ const Map<String, String> _registeredTimingRecordWriteFiles = {
   // v36：unit NOT NULL 表重建同为历史数据移动，刻意在 row-level sync
   // 覆盖之外。
   'lib/data/db/migrations/migration_036.dart': 'migration exemption',
+  // Track A / A4-7：income REAL 拆除表重建同为历史数据移动，刻意在
+  // row-level sync 覆盖之外。
+  'lib/data/db/migrations/migration_048.dart': 'migration exemption',
 };
 
 const Set<String> _deferredRestoreAndMigrationExemptions = {
@@ -396,6 +399,7 @@ const Set<String> _deferredRestoreAndMigrationExemptions = {
   'lib/data/services/backup/local_restore_service.dart',
   'lib/data/db/migrations/project_foreign_key_migration.dart',
   'lib/data/db/migrations/project_identity_migration.dart',
+  'lib/data/db/migrations/migration_048.dart',
 };
 
 String _read(String relativePath) => File(relativePath).readAsStringSync();

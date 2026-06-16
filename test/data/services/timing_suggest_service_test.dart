@@ -3,7 +3,7 @@ import 'package:asset_ledger/data/services/timing_suggest_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const records = [
+  final records = [
     TimingRecord(
       id: 1,
       deviceId: 1,
@@ -52,10 +52,7 @@ void main() {
 
   group('TimingSuggestService.contactSuggestions', () {
     test('matches contacts case-insensitively with prefix before contains', () {
-      final result = TimingSuggestService.contactSuggestions(
-        records,
-        'al',
-      );
+      final result = TimingSuggestService.contactSuggestions(records, 'al');
 
       expect(result, ['Alice']);
     });

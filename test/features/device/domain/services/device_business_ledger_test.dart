@@ -31,7 +31,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ];
-        const timingRecords = [
+        final timingRecords = [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -160,7 +160,7 @@ void main() {
           baseMeterHours: 0,
         ),
       ];
-      const timingRecords = [
+      final timingRecords = [
         TimingRecord(
           id: 1,
           deviceId: 1,
@@ -219,7 +219,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ];
-        const timingRecords = [
+        final timingRecords = [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -249,7 +249,7 @@ void main() {
             quantityScaled: 3000,
           ),
         ];
-        const activeMergeGroups = [
+        final activeMergeGroups = [
           AccountProjectMergeGroupWithMembers(
             group: AccountProjectMergeGroup(
               id: 9,

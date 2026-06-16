@@ -17,7 +17,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -157,7 +157,7 @@ void main() {
       final settledId = ProjectId.legacyFromParts(contact: '李洋', site: '万达');
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -194,7 +194,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -239,7 +239,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -277,7 +277,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -315,7 +315,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -382,7 +382,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -444,7 +444,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -515,7 +515,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -593,7 +593,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -646,7 +646,7 @@ void main() {
         };
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -727,7 +727,7 @@ void main() {
               amount: 3510,
             ),
           ],
-          activeMergeGroups: const [
+          activeMergeGroups: [
             AccountProjectMergeGroupWithMembers(
               group: AccountProjectMergeGroup(
                 id: 1,
@@ -793,7 +793,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -830,7 +830,7 @@ void main() {
           ],
           rates: [],
           payments: [],
-          activeMergeGroups: const [
+          activeMergeGroups: [
             AccountProjectMergeGroupWithMembers(
               group: AccountProjectMergeGroup(
                 id: 7,
@@ -875,7 +875,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 1,
@@ -912,7 +912,7 @@ void main() {
           ],
           rates: [],
           payments: [],
-          activeMergeGroups: const [
+          activeMergeGroups: [
             AccountProjectMergeGroupWithMembers(
               group: AccountProjectMergeGroup(
                 id: 1,

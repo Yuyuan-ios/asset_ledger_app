@@ -70,8 +70,8 @@ void main() {
       final money = AccountService.calcMoneyFen(
         agg: agg,
         devices: [device(id: 1, defaultPrice: rate)],
-        rates: const [],
-        payments: const [],
+        rates: [],
+        payments: [],
       );
 
       // 旧公式:逐设备 hours 聚合 × UnitPrice.fromYuanPerHour(rate)。
@@ -103,8 +103,8 @@ void main() {
     final byDeviceDefault = AccountService.calcMoneyFen(
       agg: agg,
       devices: [dirtyDevice],
-      rates: const [],
-      payments: const [],
+      rates: [],
+      payments: [],
     );
     // 10h × 380.50 元/h = 3805.00 元。
     expect(byDeviceDefault.receivableFen, 380500);
@@ -122,7 +122,7 @@ void main() {
       agg: agg,
       devices: [dirtyDevice],
       rates: [dirtyOverride],
-      payments: const [],
+      payments: [],
     );
     expect(byOverride.receivableFen, 400000);
   });
@@ -135,16 +135,16 @@ void main() {
     final withBreaking = AccountService.calcMoneyFen(
       agg: agg,
       devices: [device(id: 1, defaultPrice: 300, breakingPrice: 480)],
-      rates: const [],
-      payments: const [],
+      rates: [],
+      payments: [],
     );
     expect(withBreaking.receivableFen, 96000); // 2h × 480
 
     final withoutBreaking = AccountService.calcMoneyFen(
       agg: agg,
       devices: [device(id: 1, defaultPrice: 300)],
-      rates: const [],
-      payments: const [],
+      rates: [],
+      payments: [],
     );
     expect(withoutBreaking.receivableFen, 60000); // 2h × 300(回落 default)
   });
@@ -158,7 +158,7 @@ void main() {
       ProjectDeviceRate(projectKey: 'Alice||Yard A', deviceId: 1, rate: 400.5),
     ];
 
-    for (final isBreaking in const [false, true]) {
+    for (final isBreaking in [false, true]) {
       final fenMap = AccountService.buildEffectiveRateFenMap(
         projectKey: 'Alice||Yard A',
         devices: devices,

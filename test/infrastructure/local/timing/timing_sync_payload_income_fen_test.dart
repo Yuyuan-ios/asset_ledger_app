@@ -105,8 +105,8 @@ void main() {
       expect(payload['payload_schema_version'], 1);
 
       final record = payload['record'] as Map<String, Object?>;
-      // record 携带 income 与其 fen 镜像。
-      expect(record['income'], 200.0);
+      // Track A / A4-7：record 只携带 income_fen。
+      expect(record.containsKey('income'), isFalse);
       expect(record['income_fen'], 20000);
       // 顶层字段不渗入 record。
       expect(record.containsKey('payload_schema_version'), isFalse);

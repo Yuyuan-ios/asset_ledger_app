@@ -47,14 +47,14 @@ void main() {
       projectChanged: projectChanged,
       willDissolveMerge: willDissolveMerge,
       willRevokeSettlement: willRevokeSettlement,
-      affectedEntities: affectedEntities ?? const [projectRef],
+      affectedEntities: affectedEntities ?? [projectRef],
       warnings: warnings,
     );
   }
 
   group('preview', () {
     test('builds add timing preview with medium risk and confirmation', () {
-      final preview = command.preview(input(warnings: const ['请确认工时']));
+      final preview = command.preview(input(warnings: ['请确认工时']));
 
       expect(preview.operationId, 'op-save-1');
       expect(preview.operationType, OperationType.saveTimingRecord);
@@ -64,8 +64,8 @@ void main() {
       expect(preview.summary, contains('新增计时'));
       expect(preview.summary, contains('Hitachi 200'));
       expect(preview.summary, contains('丁队五里山'));
-      expect(preview.affectedEntities, const [projectRef]);
-      expect(preview.warnings, const ['请确认工时']);
+      expect(preview.affectedEntities, [projectRef]);
+      expect(preview.warnings, ['请确认工时']);
       expect(preview.impactItems, isEmpty);
     });
 
@@ -639,7 +639,7 @@ void main() {
               mergeDissolved: false,
               settlementRevoked: false,
               affectedProjectIds: [resolved.projectId],
-              revokedProjectIds: const [],
+              revokedProjectIds: [],
               userMessage: '已保存',
             );
           },
@@ -816,7 +816,7 @@ Future<Database> _openCurrentInMemoryDb() {
 
 SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
   return SaveTimingRecordWithImpactResult(
-    savedRecord: const TimingRecord(
+    savedRecord: TimingRecord(
       id: 1,
       deviceId: 1,
       startDate: 20260529,
@@ -832,8 +832,8 @@ SaveTimingRecordWithImpactResult _saveResult({String? userMessage}) {
     projectChanged: false,
     mergeDissolved: false,
     settlementRevoked: false,
-    affectedProjectIds: const ['project:a'],
-    revokedProjectIds: const [],
+    affectedProjectIds: ['project:a'],
+    revokedProjectIds: [],
     userMessage: userMessage,
   );
 }
@@ -919,7 +919,7 @@ class _FakeAuditRepo implements OperationAuditLogRepository {
 
   @override
   Future<List<OperationAuditLog>> listRecent({int limit = 50}) async {
-    if (limit <= 0) return const [];
+    if (limit <= 0) return [];
     final sorted = [...inserted]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return sorted.take(limit).toList();

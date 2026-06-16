@@ -258,7 +258,7 @@ DriverEntryLink _link({
   return DriverEntryLink(
     id: 'link-1',
     driverId: 'driver-1',
-    allowedDeviceIds: const [7],
+    allowedDeviceIds: [7],
     expiresAt: expiresAt,
     revokedAt: revokedAt,
     maxSubmissions: maxSubmissions,

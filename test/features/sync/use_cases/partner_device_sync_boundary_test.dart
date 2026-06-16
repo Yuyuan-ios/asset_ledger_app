@@ -14,10 +14,7 @@ void main() {
       final snapshot = boundary.buildSnapshot(
         context: _context(
           actor: _partner(),
-          scope: ActorScope.devices(
-            deviceIds: const ['2'],
-            actorId: 'partner-1',
-          ),
+          scope: ActorScope.devices(deviceIds: ['2'], actorId: 'partner-1'),
           now: now,
         ),
         devices: [_device('1', 'Hitachi 1#'), _device('2', 'SANY 2#')],
@@ -40,10 +37,7 @@ void main() {
         final snapshot = boundary.buildSnapshot(
           context: _context(
             actor: _partner(),
-            scope: ActorScope.devices(
-              deviceIds: const ['2'],
-              actorId: 'partner-1',
-            ),
+            scope: ActorScope.devices(deviceIds: ['2'], actorId: 'partner-1'),
             now: now,
           ),
           devices: [_device('2', 'SANY 2#')],
@@ -87,10 +81,7 @@ void main() {
       final mismatchedScope = boundary.buildSnapshot(
         context: _context(
           actor: _partner(),
-          scope: ActorScope.devices(
-            deviceIds: const ['9'],
-            actorId: 'partner-1',
-          ),
+          scope: ActorScope.devices(deviceIds: ['9'], actorId: 'partner-1'),
           now: now,
         ),
         devices: [_device('2', 'SANY 2#')],
@@ -108,7 +99,7 @@ void main() {
         context: _context(
           actor: _partner(),
           scope: ActorScope.devices(
-            deviceIds: const ['2'],
+            deviceIds: ['2'],
             actorId: 'partner-1',
             expiresAt: now,
           ),
@@ -139,10 +130,7 @@ void main() {
             actorType: OperationActorType.driver,
             actorId: 'driver-1',
           ),
-          scope: ActorScope.devices(
-            deviceIds: const ['2'],
-            actorId: 'driver-1',
-          ),
+          scope: ActorScope.devices(deviceIds: ['2'], actorId: 'driver-1'),
           now: now,
         ),
         devices: [_device('2', 'SANY 2#')],
@@ -170,10 +158,7 @@ void main() {
             delegatedActorType: OperationActorType.partner,
             delegatedActorId: 'partner-1',
           ),
-          scope: ActorScope.devices(
-            deviceIds: const ['2'],
-            actorId: 'partner-1',
-          ),
+          scope: ActorScope.devices(deviceIds: ['2'], actorId: 'partner-1'),
           now: now,
         ),
         devices: [_device('1', 'Hitachi 1#'), _device('2', 'SANY 2#')],

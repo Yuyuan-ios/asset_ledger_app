@@ -30,7 +30,7 @@ void main() {
   );
 
   // r1/r2: hours 且 income == hours×设备单价 → 进 export_lines。
-  const r1 = TimingRecord(
+  final r1 = TimingRecord(
     id: 11,
     deviceId: 1,
     startDate: 20240101,
@@ -42,7 +42,7 @@ void main() {
     hours: 8.0,
     income: 800.0,
   );
-  const r2 = TimingRecord(
+  final r2 = TimingRecord(
     id: 12,
     deviceId: 1,
     startDate: 20240102,
@@ -55,7 +55,7 @@ void main() {
     income: 500.0,
   );
   // r3: rent/台班 → 只进 records，不进 export_lines；码表留空。
-  const r3 = TimingRecord(
+  final r3 = TimingRecord(
     id: 13,
     deviceId: 2,
     startDate: 20240103,
@@ -68,7 +68,7 @@ void main() {
     income: 1200.0,
   );
   // r4: hours 但人工覆写金额，无法无损反推单价 → 只进 records。
-  const r4 = TimingRecord(
+  final r4 = TimingRecord(
     id: 14,
     deviceId: 1,
     startDate: 20240104,
@@ -117,7 +117,7 @@ void main() {
     shareId: 'share-1',
     senderName: '李工',
     sourceInstallationUuid: 'install-uuid',
-    records: const [r4, r2, r3, r1], // 乱序输入验证稳定排序
+    records: [r4, r2, r3, r1], // 乱序输入验证稳定排序
     deviceMap: {1: deviceA, 2: deviceB},
     calcHistoryMap: calcHistoryMap,
   );
@@ -133,7 +133,7 @@ void main() {
   });
 
   test('share payload uses timing incomeFen as source amount', () {
-    const driftRent = TimingRecord(
+    final driftRent = TimingRecord(
       id: 91,
       deviceId: 2,
       startDate: 20240105,
@@ -151,7 +151,7 @@ void main() {
       shareId: 'income-fen-share',
       senderName: '李工',
       sourceInstallationUuid: 'install-uuid',
-      records: const [driftRent],
+      records: [driftRent],
       deviceMap: {2: deviceB},
       calcHistoryMap: const {},
     );
@@ -296,7 +296,7 @@ void main() {
 
     test('hours record with missing device → null', () {
       // 单条 hours 记录，但 deviceMap 不含该设备。
-      const orphan = TimingRecord(
+      final orphan = TimingRecord(
         id: 91,
         deviceId: 999, // 不存在
         startDate: 20240105,
@@ -312,7 +312,7 @@ void main() {
         shareId: 's',
         senderName: 's',
         sourceInstallationUuid: 'u',
-        records: const [orphan],
+        records: [orphan],
         deviceMap: const {},
         calcHistoryMap: const {},
       );
@@ -358,7 +358,7 @@ void main() {
           baseMeterHours: 0.0,
           equipmentType: EquipmentType.excavator,
         );
-        const overrideRecord = TimingRecord(
+        final overrideRecord = TimingRecord(
           id: 71,
           deviceId: 7,
           startDate: 20240301,
@@ -381,7 +381,7 @@ void main() {
           shareId: 'override-share',
           senderName: '李工',
           sourceInstallationUuid: 'install',
-          records: const [overrideRecord],
+          records: [overrideRecord],
           deviceMap: {7: deviceX},
           calcHistoryMap: const {},
           projectDeviceRates: [rate],
@@ -405,7 +405,7 @@ void main() {
           baseMeterHours: 0.0,
           equipmentType: EquipmentType.excavator,
         );
-        const rec = TimingRecord(
+        final rec = TimingRecord(
           id: 72,
           deviceId: 7,
           startDate: 20240302,
@@ -421,10 +421,10 @@ void main() {
           shareId: 'no-override',
           senderName: '李工',
           sourceInstallationUuid: 'install',
-          records: const [rec],
+          records: [rec],
           deviceMap: {7: deviceX},
           calcHistoryMap: const {},
-          projectDeviceRates: const [],
+          projectDeviceRates: [],
         );
         expect(p.records.single.sourceUnitPriceFen, 18000);
       },
@@ -443,7 +443,7 @@ void main() {
           baseMeterHours: 0.0,
           equipmentType: EquipmentType.excavator,
         );
-        const rec = TimingRecord(
+        final rec = TimingRecord(
           id: 73,
           deviceId: 7,
           startDate: 20240303,
@@ -459,10 +459,10 @@ void main() {
           shareId: 'manual-override',
           senderName: '李工',
           sourceInstallationUuid: 'install',
-          records: const [rec],
+          records: [rec],
           deviceMap: {7: deviceX},
           calcHistoryMap: const {},
-          projectDeviceRates: const [],
+          projectDeviceRates: [],
         );
         expect(p.records.single.sourceUnitPriceFen, isNull);
       },
@@ -485,7 +485,7 @@ void main() {
       shareId: 'share-with-paid',
       senderName: '李工',
       sourceInstallationUuid: 'install-uuid',
-      records: const [r1],
+      records: [r1],
       deviceMap: {1: deviceA},
       calcHistoryMap: const {},
       projectReceivedFen: 123456,
@@ -531,7 +531,7 @@ void main() {
         'is_breaking',
       ]),
     );
-    for (final forbidden in const [
+    for (final forbidden in [
       'contact',
       'phone',
       'source_project_key',
@@ -554,7 +554,7 @@ void main() {
       defaultUnitPrice: 100,
       baseMeterHours: 0,
     );
-    const rec = TimingRecord(
+    final rec = TimingRecord(
       id: 9001,
       deviceId: 9876,
       startDate: 20240501,
@@ -571,7 +571,7 @@ void main() {
       shareId: 'privacy-share',
       senderName: '李工',
       sourceInstallationUuid: 'pkg-source',
-      records: const [rec],
+      records: [rec],
       deviceMap: {9876: localDevice},
       calcHistoryMap: const {},
     );
@@ -588,7 +588,7 @@ void main() {
         shareId: '  ',
         senderName: '李工',
         sourceInstallationUuid: 'u',
-        records: const [r1],
+        records: [r1],
         deviceMap: {1: deviceA},
         calcHistoryMap: const {},
       ),
@@ -599,7 +599,7 @@ void main() {
         shareId: 's',
         senderName: '李工',
         sourceInstallationUuid: 'u',
-        records: const [],
+        records: [],
         deviceMap: const {},
         calcHistoryMap: const {},
       ),
@@ -610,7 +610,7 @@ void main() {
   test(
     'records spanning multiple projects are rejected (no silent filter)',
     () {
-      const other = TimingRecord(
+      final other = TimingRecord(
         id: 21,
         deviceId: 1,
         startDate: 20240105,
@@ -627,7 +627,7 @@ void main() {
           shareId: 's',
           senderName: '李工',
           sourceInstallationUuid: 'u',
-          records: const [r1, other],
+          records: [r1, other],
           deviceMap: {1: deviceA},
           calcHistoryMap: const {},
         ),
@@ -642,7 +642,7 @@ void main() {
         shareId: 's',
         senderName: '李工',
         sourceInstallationUuid: 'u',
-        records: const [r1],
+        records: [r1],
         deviceMap: {1: deviceA},
         calcHistoryMap: const {},
         expectedProjectId: 'some-other-project',
@@ -652,7 +652,7 @@ void main() {
   });
 
   test('rent originFingerprint ignores internal meter (exported null)', () {
-    const rentZero = TimingRecord(
+    final rentZero = TimingRecord(
       id: 31,
       deviceId: 2,
       startDate: 20240106,
@@ -664,7 +664,7 @@ void main() {
       hours: 1.0,
       income: 600.0,
     );
-    const rentNoisyMeter = TimingRecord(
+    final rentNoisyMeter = TimingRecord(
       id: 31,
       deviceId: 2,
       startDate: 20240106,
@@ -693,7 +693,7 @@ void main() {
 
   group('merged share (memberProjectIds)', () {
     // 两个成员项目：同联系人「余远」，工地「鲜滩」「尚义」。
-    const memberRecordA = TimingRecord(
+    final memberRecordA = TimingRecord(
       id: 101,
       deviceId: 1,
       startDate: 20240201,
@@ -705,7 +705,7 @@ void main() {
       hours: 8.0,
       income: 800.0, // deviceA 默认 100 → 一致
     );
-    const memberRecordB = TimingRecord(
+    final memberRecordB = TimingRecord(
       id: 102,
       deviceId: 1,
       startDate: 20240202,
@@ -723,7 +723,7 @@ void main() {
         shareId: 'merge-share',
         senderName: '余远',
         sourceInstallationUuid: 'install',
-        records: const [memberRecordB, memberRecordA], // 乱序
+        records: [memberRecordB, memberRecordA], // 乱序
         deviceMap: {1: deviceA},
         calcHistoryMap: const {},
         expectedProjectId: 'merge:9',
@@ -747,7 +747,7 @@ void main() {
         shareId: 'merge-share',
         senderName: '余远',
         sourceInstallationUuid: 'install',
-        records: const [memberRecordA, memberRecordB],
+        records: [memberRecordA, memberRecordB],
         deviceMap: {1: deviceA},
         calcHistoryMap: const {},
         expectedProjectId: 'merge:9',
@@ -785,7 +785,7 @@ void main() {
     });
 
     test('still defends against truly unrelated (non-member) projects', () {
-      const intruder = TimingRecord(
+      final intruder = TimingRecord(
         id: 103,
         deviceId: 1,
         startDate: 20240203,
@@ -802,7 +802,7 @@ void main() {
           shareId: 'merge-share',
           senderName: '余远',
           sourceInstallationUuid: 'install',
-          records: const [memberRecordA, intruder],
+          records: [memberRecordA, intruder],
           deviceMap: {1: deviceA},
           calcHistoryMap: const {},
           expectedProjectId: 'merge:9',
@@ -834,7 +834,7 @@ void main() {
       baseMeterHours: 0.0,
       equipmentType: EquipmentType.excavator,
     );
-    const staleRecord = TimingRecord(
+    final staleRecord = TimingRecord(
       id: 74,
       deviceId: 7,
       startDate: 20240305,
@@ -857,7 +857,7 @@ void main() {
       shareId: 'stale-share',
       senderName: '余远',
       sourceInstallationUuid: 'install',
-      records: const [staleRecord],
+      records: [staleRecord],
       deviceMap: {7: deviceX},
       calcHistoryMap: const {},
       projectDeviceRates: [override],

@@ -209,10 +209,10 @@ Map<String, dynamic> _backupJson({required Map<String, Object?> timingRecord}) {
         ).toMap(),
       ],
       'timing_records': [timingRecord],
-      'fuel_logs': const [],
-      'maintenance_records': const [],
-      'account_payments': const [],
-      'project_device_rates': const [],
+      'fuel_logs': [],
+      'maintenance_records': [],
+      'account_payments': [],
+      'project_device_rates': [],
     },
   };
 }
@@ -229,7 +229,6 @@ Map<String, Object?> _recordMap() {
     'start_meter': 0.0,
     'end_meter': 0.0,
     'hours': 0.0,
-    'income': 1000.0,
     'income_fen': 100000,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,

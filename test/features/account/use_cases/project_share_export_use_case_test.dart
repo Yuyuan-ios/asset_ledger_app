@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeCalcRepo implements TimingCalculationHistoryRepository {
   @override
   Future<List<TimingCalculationHistory>> findByTimingRecordId(int id) async =>
-      const [];
+      [];
   @override
   Future<void> insertMany(int a, List<TimingCalculationHistory> b) async {}
   @override
@@ -49,7 +49,7 @@ class _FakeSharePresenter implements ProjectShareFilePresenter {
 }
 
 void main() {
-  const a1 = TimingRecord(
+  final a1 = TimingRecord(
     id: 11,
     deviceId: 1,
     startDate: 20260501,
@@ -85,7 +85,7 @@ void main() {
       projectId: a1.effectiveProjectId,
       projectKey: a1.legacyProjectKey,
       senderName: '老王',
-      allRecords: const [a1],
+      allRecords: [a1],
       allDevices: devices,
       now: DateTime.utc(2026, 5, 19, 8),
     );
@@ -124,7 +124,7 @@ void main() {
         projectId: a1.effectiveProjectId,
         projectKey: a1.legacyProjectKey,
         senderName: '老王',
-        allRecords: const [a1],
+        allRecords: [a1],
         allDevices: devices,
         now: DateTime.utc(2026, 5, 19, 8),
       );
@@ -152,7 +152,7 @@ void main() {
       projectId: 'missing',
       projectKey: '不存在||项目',
       senderName: '老王',
-      allRecords: const [a1],
+      allRecords: [a1],
       allDevices: devices,
     );
 
@@ -162,7 +162,7 @@ void main() {
   });
 
   group('merged project share', () {
-    const memberA = TimingRecord(
+    final memberA = TimingRecord(
       id: 21,
       deviceId: 1,
       startDate: 20260501,
@@ -174,7 +174,7 @@ void main() {
       hours: 8,
       income: 800,
     );
-    const memberB = TimingRecord(
+    final memberB = TimingRecord(
       id: 22,
       deviceId: 1,
       startDate: 20260502,
@@ -205,7 +205,7 @@ void main() {
           memberA.effectiveProjectId,
           memberB.effectiveProjectId,
         ],
-        allRecords: const [memberA, memberB],
+        allRecords: [memberA, memberB],
         allDevices: devices,
         now: DateTime.utc(2026, 5, 19, 8),
       );
@@ -238,8 +238,8 @@ void main() {
           projectId: 'merge:99',
           projectKey: 'merge:99',
           senderName: '余远',
-          memberProjectIds: const ['no-such-project-id'],
-          allRecords: const [memberA, memberB],
+          memberProjectIds: ['no-such-project-id'],
+          allRecords: [memberA, memberB],
           allDevices: devices,
         );
 

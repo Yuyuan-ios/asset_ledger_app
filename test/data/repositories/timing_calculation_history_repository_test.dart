@@ -75,7 +75,7 @@ void main() {
       await _openCurrentInMemoryDb();
       final repository = SqfliteTimingCalculationHistoryRepository();
 
-      await repository.insertMany(1, const []);
+      await repository.insertMany(1, []);
 
       expect(await repository.findByTimingRecordId(1), isEmpty);
     });
@@ -333,11 +333,13 @@ Future<void> _seedTimingRecord(Database db, {required int id}) async {
     'start_meter': 0.0,
     'end_meter': 8.0,
     'hours': 8.0,
-    'income': 800.0,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,
   };
   final columns = await db.rawQuery('PRAGMA table_info(timing_records);');
+  if (columns.any((column) => column['name'] == 'income')) {
+    row['income'] = 800.0;
+  }
   if (columns.any((column) => column['name'] == 'project_id')) {
     row['project_id'] = ProjectId.legacyFromParts(contact: '甲方', site: '一号工地');
     await _seedProject(db, contact: '甲方', site: '一号工地');

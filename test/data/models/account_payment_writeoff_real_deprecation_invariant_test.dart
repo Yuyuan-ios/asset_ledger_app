@@ -123,17 +123,14 @@ void main() {
         },
       );
 
-      test(
-        'timing_records keeps income REAL NOT NULL and fen NOT NULL (v34)',
-        () {
-          final schema = _read('lib/data/db/schema/timing_schema.dart');
-          expect(schema.contains('income REAL NOT NULL'), isTrue);
-          // v34/migration_034：income_fen 升为 NOT NULL（追平 B1/B2 的口径）。
-          expect(schema.contains('income_fen INTEGER NOT NULL'), isTrue);
-          // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
-          expect(schema.contains('quantity_scaled INTEGER NOT NULL'), isFalse);
-        },
-      );
+      test('timing_records drops income REAL and keeps fen NOT NULL', () {
+        final schema = _read('lib/data/db/schema/timing_schema.dart');
+        expect(schema.contains('income REAL'), isFalse);
+        // v48/A4-7：income_fen 是唯一存储权威。
+        expect(schema.contains('income_fen INTEGER NOT NULL'), isTrue);
+        // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
+        expect(schema.contains('quantity_scaled INTEGER NOT NULL'), isFalse);
+      });
     },
   );
 }

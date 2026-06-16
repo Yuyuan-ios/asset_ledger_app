@@ -8,7 +8,7 @@ void main() {
     test(
       'input hash preserves null legacy payload and changes for non-null cutoff',
       () {
-        const legacyDraft = TimingRecord(
+        final legacyDraft = TimingRecord(
           deviceId: 1,
           startDate: 20260601,
           projectId: 'project:alpha',
@@ -20,7 +20,7 @@ void main() {
           hours: 8,
           income: 800,
         );
-        const cutoffDraft = TimingRecord(
+        final cutoffDraft = TimingRecord(
           deviceId: 1,
           startDate: 20260601,
           allocationCutoffDate: 20260610,

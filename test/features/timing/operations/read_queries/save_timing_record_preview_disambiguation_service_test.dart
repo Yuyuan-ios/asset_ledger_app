@@ -258,10 +258,7 @@ void main() {
         _request(
           context: _context(
             actor: _driver(),
-            scope: ActorScope.devices(
-              deviceIds: const ['1'],
-              actorId: 'driver-1',
-            ),
+            scope: ActorScope.devices(deviceIds: ['1'], actorId: 'driver-1'),
             now: now,
           ),
           deviceId: 1,
@@ -298,10 +295,7 @@ void main() {
           _request(
             context: _context(
               actor: _partner(),
-              scope: ActorScope.devices(
-                deviceIds: const ['1'],
-                actorId: 'partner-1',
-              ),
+              scope: ActorScope.devices(deviceIds: ['1'], actorId: 'partner-1'),
               now: now,
             ),
             deviceId: 1,

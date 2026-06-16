@@ -18,7 +18,6 @@ class TimingSchema {
         start_meter REAL NOT NULL,
         end_meter REAL NOT NULL,
         hours REAL NOT NULL,
-        income REAL NOT NULL,
         income_fen INTEGER NOT NULL,
         unit TEXT NOT NULL,
         quantity_scaled INTEGER,

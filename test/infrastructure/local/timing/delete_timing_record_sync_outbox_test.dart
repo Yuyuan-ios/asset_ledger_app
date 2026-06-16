@@ -238,7 +238,7 @@ void main() {
         entityId: deleteId.toString(),
         status: SyncStatus.pendingDelete,
       );
-      for (final writeOffId in const ['writeoff-a-1', 'writeoff-a-2']) {
+      for (final writeOffId in ['writeoff-a-1', 'writeoff-a-2']) {
         _expectMetaMatchesOutbox(
           outboxRows,
           metaRows,
@@ -310,10 +310,7 @@ void main() {
       entityId: recordId.toString(),
       status: SyncStatus.pendingDelete,
     );
-    for (final externalRecordId in const [
-      'external-record-a',
-      'external-record-b',
-    ]) {
+    for (final externalRecordId in ['external-record-a', 'external-record-b']) {
       _expectMetaMatchesOutbox(
         outboxRows,
         metaRows,
@@ -592,7 +589,7 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
 
   @override
   Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
-    return const [];
+    return [];
   }
 
   void _throwIfMatched({

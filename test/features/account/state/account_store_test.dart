@@ -22,7 +22,7 @@ void main() {
       () async {
         final store = AccountStore(
           mergeService: AccountProjectMergeService(
-            repository: _FakeMergeRepository(activeGroups: const []),
+            repository: _FakeMergeRepository(activeGroups: []),
           ),
         );
 
@@ -31,8 +31,8 @@ void main() {
         final result = store.compute(
           timingRecords: _timingRecords,
           devices: _devices,
-          rates: const [],
-          payments: const [],
+          rates: [],
+          payments: [],
         );
 
         expect(result.projects.map((project) => project.projectKey).toList(), [
@@ -54,7 +54,7 @@ void main() {
         final store = AccountStore(
           mergeService: AccountProjectMergeService(
             repository: _FakeMergeRepository(
-              activeGroups: const [
+              activeGroups: [
                 AccountProjectMergeGroupWithMembers(
                   group: AccountProjectMergeGroup(
                     id: 1,
@@ -92,8 +92,8 @@ void main() {
         final result = store.compute(
           timingRecords: _timingRecords,
           devices: _devices,
-          rates: const [],
-          payments: const [],
+          rates: [],
+          payments: [],
         );
 
         expect(result.projects, hasLength(1));
@@ -126,7 +126,7 @@ void main() {
     test('uses loaded write-offs when computing summaries', () async {
       final store = AccountStore(
         mergeService: AccountProjectMergeService(
-          repository: _FakeMergeRepository(activeGroups: const []),
+          repository: _FakeMergeRepository(activeGroups: []),
         ),
         writeOffRepository: _FakeWriteOffRepository(
           items: [
@@ -148,8 +148,8 @@ void main() {
       final result = store.compute(
         timingRecords: _timingRecords,
         devices: _devices,
-        rates: const [],
-        payments: const [],
+        rates: [],
+        payments: [],
       );
 
       final xiantan = result.projects.firstWhere(
@@ -167,7 +167,7 @@ void main() {
     test('loads settled project ids for merge candidate filtering', () async {
       final store = AccountStore(
         mergeService: AccountProjectMergeService(
-          repository: _FakeMergeRepository(activeGroups: const []),
+          repository: _FakeMergeRepository(activeGroups: []),
         ),
         projectRepository: _FakeProjectRepository(
           projects: [
@@ -196,7 +196,7 @@ void main() {
       ];
       final store = AccountStore(
         mergeService: AccountProjectMergeService(
-          repository: _FakeMergeRepository(activeGroups: const []),
+          repository: _FakeMergeRepository(activeGroups: []),
         ),
         writeOffRepository: _FakeWriteOffRepository(items: writeOffItems),
       );
@@ -205,8 +205,8 @@ void main() {
       final before = store.compute(
         timingRecords: _timingRecords,
         devices: _devices,
-        rates: const [],
-        payments: const [],
+        rates: [],
+        payments: [],
       );
 
       writeOffItems.clear();
@@ -214,8 +214,8 @@ void main() {
       final after = store.compute(
         timingRecords: _timingRecords,
         devices: _devices,
-        rates: const [],
-        payments: const [],
+        rates: [],
+        payments: [],
       );
 
       expect(before.totalReceivable, 1000);
@@ -239,7 +239,7 @@ Project _project(String id, ProjectStatus status) {
   );
 }
 
-const _timingRecords = [
+final _timingRecords = [
   TimingRecord(
     id: 1,
     deviceId: 1,

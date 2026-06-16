@@ -52,7 +52,7 @@ void main() {
 
   test('report builder uses brand and model for machine type', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
-      records: const [
+      records: [
         TimingRecord(
           id: 2,
           deviceId: 1,
@@ -94,7 +94,7 @@ void main() {
 
   test('report builder maps linked external work rows', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
-      records: const [],
+      records: [],
       devices: [],
       externalWorkItems: [
         _externalItem(
@@ -173,7 +173,7 @@ void main() {
     'report builder falls back to device name when brand and model are empty',
     () {
       final report = const BuildTimingWorklogReportUseCase().execute(
-        records: const [
+        records: [
           TimingRecord(
             id: 1,
             deviceId: 9,
@@ -205,7 +205,7 @@ void main() {
 
   test('excel writer builds the fixed template header structure', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
-      records: const [_record],
+      records: [_record],
       devices: [hitachi],
     );
     final sheet = _sheetXml(report);
@@ -231,7 +231,7 @@ void main() {
 
   test('excel writer maps meter quantity unit price and amount columns', () {
     final report = const BuildTimingWorklogReportUseCase().execute(
-      records: const [_record],
+      records: [_record],
       devices: [hitachi],
     );
     final cells = _cells(_sheetXml(report));
@@ -323,7 +323,7 @@ void main() {
         projectId: 'project-a',
         fileNamePart: '李洋 · 天眉乐',
       ),
-      records: const [_record],
+      records: [_record],
       devices: [hitachi],
     );
 
@@ -442,8 +442,8 @@ void main() {
     final outcome = await useCase.execute(
       scope: TimingWorklogExportScope.filtered(
         fileNamePart: '设备1_5月',
-        projectIds: const ['project-a'],
-        deviceIds: const [1],
+        projectIds: ['project-a'],
+        deviceIds: [1],
         startDate: 20260521,
         endDate: 20260522,
       ),
@@ -503,7 +503,7 @@ void main() {
 
     final outcome = await useCase.execute(
       scope: TimingWorklogExportScope.mergedProject(
-        memberProjectIds: const ['member-a', 'member-b', 'merge:2'],
+        memberProjectIds: ['member-a', 'member-b', 'merge:2'],
         fileNamePart: '李杰 · 合并2项目',
         includeExternalWork: true,
       ),
@@ -594,7 +594,7 @@ void main() {
           fileNamePart: '李洋 · 天眉乐',
           includeExternalWork: true,
         ),
-        records: const [],
+        records: [],
         devices: [hitachi],
         externalWorkItems: [
           _externalItem(
@@ -632,7 +632,7 @@ void main() {
         projectId: 'project-a',
         fileNamePart: '李洋 · 天眉乐',
       ),
-      records: const [],
+      records: [],
       devices: [],
       externalWorkItems: [
         _externalItem(
@@ -680,7 +680,7 @@ void main() {
         projectId: 'project-a',
         fileNamePart: '李洋 · 天眉乐',
       ),
-      records: const [_record],
+      records: [_record],
       devices: [hitachi],
     );
     expect(result.ok, isFalse);
@@ -740,7 +740,7 @@ TimingExternalWorkRecordItem _externalItem({
   );
 }
 
-const _record = TimingRecord(
+final _record = TimingRecord(
   id: 1,
   deviceId: 1,
   startDate: 20260526,

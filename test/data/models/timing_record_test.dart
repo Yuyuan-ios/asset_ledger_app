@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('TimingRecord', () {
     test('copyWith overrides fields including enum and exclude flag', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 1,
         deviceId: 2,
         startDate: 20260301,
@@ -35,7 +35,7 @@ void main() {
     });
 
     test('copyWith preserves allocationCutoffDate when omitted', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 1,
         deviceId: 2,
         startDate: 20260601,
@@ -56,7 +56,7 @@ void main() {
     });
 
     test('copyWith updates allocationCutoffDate when provided', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 1,
         deviceId: 2,
         startDate: 20260601,
@@ -75,7 +75,7 @@ void main() {
     });
 
     test('copyWith clears allocationCutoffDate when requested', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 1,
         deviceId: 2,
         startDate: 20260601,
@@ -96,7 +96,7 @@ void main() {
     });
 
     test('copyWith can set and clear displayEndDate independently', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 1,
         deviceId: 2,
         startDate: 20260601,
@@ -120,7 +120,7 @@ void main() {
     });
 
     test('toMap and fromMap encode enum names and bool flags for storage', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 2,
         deviceId: 3,
         startDate: 20260302,
@@ -146,8 +146,6 @@ void main() {
         'start_meter': 50.0,
         'end_meter': 50.0,
         'hours': 0.0,
-        'income': 1200.0,
-        // R5.26-B3：income 的 fen 镜像与 income 双写。
         'income_fen': 120000,
         // S2/v33：统一计量镜像与 type/hours 双写；rent 行 quantity 为 null。
         'unit': 'RENT',
@@ -166,7 +164,7 @@ void main() {
         'start_meter': 10,
         'end_meter': 15,
         'hours': 5,
-        'income': 300,
+        'income_fen': 30000,
       });
 
       expect(rebuilt.id, 4);
@@ -204,7 +202,7 @@ void main() {
         'start_meter': 0,
         'end_meter': 7.5,
         'hours': 7.5,
-        'income': 0,
+        'income_fen': 0,
         'unit': 'HOUR',
         'quantity_scaled': 7500,
       });
@@ -222,14 +220,14 @@ void main() {
         'start_meter': 0,
         'end_meter': 0,
         'hours': 0,
-        'income': 800,
+        'income_fen': 80000,
         'unit': 'GALLON',
       });
       expect(unknownUnit.unit, MeasureUnit.rent);
       expect(unknownUnit.quantityScaled, isNull);
 
       // 双写：toMap 总是带 unit/quantity_scaled。
-      const hoursRecord = TimingRecord(
+      final hoursRecord = TimingRecord(
         deviceId: 1,
         startDate: 20260601,
         contact: 'A',
@@ -246,7 +244,7 @@ void main() {
     });
 
     test('toMap writes non-null display end and fromMap restores it', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 9,
         deviceId: 3,
         startDate: 20260601,
@@ -270,7 +268,7 @@ void main() {
     });
 
     test('toMap writes non-null allocation cutoff and fromMap restores it', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 9,
         deviceId: 3,
         startDate: 20260601,
@@ -293,7 +291,7 @@ void main() {
     test(
       'toMap can explicitly include null allocation cutoff for sync payload',
       () {
-        const record = TimingRecord(
+        final record = TimingRecord(
           id: 9,
           deviceId: 3,
           startDate: 20260601,
@@ -323,7 +321,7 @@ void main() {
     );
 
     test('toMap can explicitly include null display end for sync payload', () {
-      const record = TimingRecord(
+      final record = TimingRecord(
         id: 9,
         deviceId: 3,
         startDate: 20260601,
@@ -360,7 +358,7 @@ void main() {
         'start_meter': 10,
         'end_meter': 15,
         'hours': 5,
-        'income': 300,
+        'income_fen': 30000,
       });
 
       expect(rebuilt.type, TimingType.hours);

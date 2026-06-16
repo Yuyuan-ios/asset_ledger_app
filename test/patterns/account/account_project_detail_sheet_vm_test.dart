@@ -34,7 +34,7 @@ void main() {
   ];
 
   final records = [
-    const TimingRecord(
+    TimingRecord(
       deviceId: 1,
       startDate: 20260501,
       contact: '李杰',
@@ -45,7 +45,7 @@ void main() {
       hours: 64.9,
       income: 6490,
     ),
-    const TimingRecord(
+    TimingRecord(
       deviceId: 1,
       startDate: 20260502,
       contact: '李杰',
@@ -56,7 +56,7 @@ void main() {
       hours: 239,
       income: 23900,
     ),
-    const TimingRecord(
+    TimingRecord(
       deviceId: 2,
       startDate: 20260502,
       contact: '李杰',
@@ -91,7 +91,7 @@ void main() {
         totalReceived: 0,
         totalRemaining: 0,
         totalRatio: 0,
-        deviceReceivables: const [],
+        deviceReceivables: [],
       ),
       timingRecords: timingRecords ?? records,
       allDevices: allDevices ?? devices,
@@ -115,7 +115,7 @@ void main() {
       displayName: '李杰 + 尚义',
       hasLinkedExternalWork: linked,
       minYmd: 20260501,
-      deviceIds: const [1],
+      deviceIds: [1],
       hoursByDevice: const {1: 64.9},
       rentIncomeTotal: 0,
       minRate: 100,
@@ -145,10 +145,10 @@ void main() {
       displayName: '李杰 + 合并2项目',
       kind: AccountProjectKind.merged,
       mergeGroupId: mergeGroupId,
-      memberProjectKeys: const [shangyiKey, xiantanKey],
+      memberProjectKeys: [shangyiKey, xiantanKey],
       memberProjectIds: memberProjectIds,
       minYmd: 20260501,
-      deviceIds: const [1, 2],
+      deviceIds: [1, 2],
       hoursByDevice: const {1: 303.9, 2: 20},
       rentIncomeTotal: 0,
       minRate: 100,

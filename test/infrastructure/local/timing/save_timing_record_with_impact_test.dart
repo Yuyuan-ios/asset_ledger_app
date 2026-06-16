@@ -473,7 +473,7 @@ void main() {
 
       final rows = await db.query('timing_records');
       expect(rows, hasLength(1));
-      expect((rows.single['income'] as num).toDouble(), 200);
+      expect(rows.single['income_fen'], 20000);
     });
 
     test('编辑成功后同事务写入 pending update outbox 和 pendingUpdate meta', () async {
@@ -506,7 +506,7 @@ void main() {
           jsonDecode(outboxRows.single['payload_json'] as String)
               as Map<String, Object?>;
       expect(payload['operation'], 'update');
-      expect((payload['record'] as Map<String, Object?>)['income'], 200);
+      expect((payload['record'] as Map<String, Object?>)['income_fen'], 20000);
 
       final metaRows = await db.query('entity_sync_meta');
       expect(metaRows, hasLength(1));
@@ -560,7 +560,7 @@ void main() {
       final timingRows = await db.query('timing_records');
       expect(timingRows, hasLength(1));
       expect(timingRows.single['allocation_cutoff_date'], isNull);
-      expect(timingRows.single['income'], 100);
+      expect(timingRows.single['income_fen'], 10000);
 
       final projectRows = await db.query(
         'projects',
@@ -652,7 +652,7 @@ void main() {
       final timingRows = await db.query('timing_records');
       expect(timingRows, hasLength(1));
       expect(timingRows.single['allocation_cutoff_date'], isNull);
-      expect(timingRows.single['income'], 100);
+      expect(timingRows.single['income_fen'], 10000);
       expect(await db.query('sync_outbox'), isEmpty);
       expect(await db.query('entity_sync_meta'), isEmpty);
     });
@@ -740,7 +740,7 @@ void main() {
           whereArgs: [existing.id],
         );
         expect(timingRows.single['allocation_cutoff_date'], 20260610);
-        expect(timingRows.single['income'], 100);
+        expect(timingRows.single['income_fen'], 10000);
         expect((await db.query('sync_outbox')).single['operation'], 'update');
       },
     );
@@ -835,7 +835,7 @@ void main() {
           whereArgs: [existing.id],
         );
         expect(timingRows.single['allocation_cutoff_date'], isNull);
-        expect(timingRows.single['income'], 100);
+        expect(timingRows.single['income_fen'], 10000);
         expect(await db.query('sync_outbox'), isEmpty);
         expect(await db.query('entity_sync_meta'), isEmpty);
       },
@@ -1038,7 +1038,7 @@ void main() {
           where: 'id = ?',
           whereArgs: [existing.id],
         );
-        expect(timingRows.single['income'], 100);
+        expect(timingRows.single['income_fen'], 10000);
         expect(timingRows.single['allocation_cutoff_date'], 20260610);
 
         final outboxRows = await db.query('sync_outbox');
@@ -1163,9 +1163,9 @@ void main() {
         throwsA(isA<StateError>()),
       );
 
-      // 1) timing_records 未被更新到新值（仍是 income=100）。
+      // 1) timing_records 未被更新到新值（仍是 income_fen=10000）。
       final timingRows = await db.query('timing_records');
-      expect(timingRows.single['income'], 100, reason: '保存计时应被事务回滚');
+      expect(timingRows.single['income_fen'], 10000, reason: '保存计时应被事务回滚');
       expect(
         timingRows.single['project_id'],
         'project:A',
@@ -1753,7 +1753,7 @@ void main() {
         whereArgs: [existingOnA.id],
       );
       expect(timingRows.single['project_id'], 'project:A');
-      expect(timingRows.single['income'], 100);
+      expect(timingRows.single['income_fen'], 10000);
 
       final projectA = (await db.query(
         'projects',
@@ -1846,7 +1846,11 @@ void main() {
 
       // 现在为了真正测"刚好差 1 fen"，构造 A 应收 = 100 元（10000 fen），已收 9999 fen：
       // 删掉刚才加的 0.01 元那条。
-      await db.delete('timing_records', where: 'income = ?', whereArgs: [0.01]);
+      await db.delete(
+        'timing_records',
+        where: 'income_fen = ?',
+        whereArgs: [1],
+      );
       // A 应收回到 100.00 元（10000 fen），已收 9999 fen → 差 1 fen。
       final probe2 = await impactService.evaluate(
         executor: db,
@@ -2163,9 +2167,9 @@ void main() {
         throwsA(isA<TimingRecordSaveStaleException>()),
       );
 
-      // 1) 原 timing 行未被修改（保留 income=100、projectId=A）。
+      // 1) 原 timing 行未被修改（保留 income_fen=10000、projectId=A）。
       final timingRows = await db.query('timing_records');
-      expect(timingRows.single['income'], 100);
+      expect(timingRows.single['income_fen'], 10000);
       expect(timingRows.single['project_id'], 'project:A');
 
       // 2) 合并组未被解除。
@@ -2359,9 +2363,9 @@ void main() {
       );
 
       // 整事务回滚验证：
-      // 1) timing_records 仍是 income=100、project_id=project:A。
+      // 1) timing_records 仍是 income_fen=10000、project_id=project:A。
       final timingRows = await db.query('timing_records');
-      expect(timingRows.single['income'], 100);
+      expect(timingRows.single['income_fen'], 10000);
       expect(timingRows.single['project_id'], 'project:A');
 
       // 2) 两个 merge group 仍都是 is_active=1（即便第一次 dissolve 调用进了
@@ -2469,12 +2473,12 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
 
   @override
   Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
-    return const [];
+    return [];
   }
 }
 
 class _MissingQuantityTimingRecord extends TimingRecord {
-  const _MissingQuantityTimingRecord({required super.deviceId})
+  _MissingQuantityTimingRecord({required super.deviceId})
     : super(
         startDate: 20260520,
         projectId: 'project:alpha',

@@ -35,7 +35,7 @@ void main() {
   );
 
   // r1: hours，income == hours×单价 → 进 export_lines。
-  const r1 = TimingRecord(
+  final r1 = TimingRecord(
     id: 11,
     deviceId: 1,
     startDate: 20240101,
@@ -48,7 +48,7 @@ void main() {
     income: 800.0,
   );
   // r3: rent，与 r1 同设备 → 混合 device group；只进 rich records。
-  const r3 = TimingRecord(
+  final r3 = TimingRecord(
     id: 13,
     deviceId: 1,
     startDate: 20240103,
@@ -96,7 +96,7 @@ void main() {
     shareId: 'share-5c',
     senderName: '李工',
     sourceInstallationUuid: 'install-uuid',
-    records: const [r3, r1],
+    records: [r3, r1],
     deviceMap: {1: deviceA},
     calcHistoryMap: calcHistoryMap,
   );
@@ -199,7 +199,7 @@ void main() {
     final p =
         (jsonDecode(result.content) as Map<String, Object?>)['payload']
             as Map<String, Object?>;
-    for (final key in const [
+    for (final key in [
       'summary',
       'project_snapshot',
       'devices',
@@ -302,7 +302,7 @@ void main() {
       shareId: 's',
       senderName: r'a/b:c*d e',
       sourceInstallationUuid: 'u',
-      records: const [r1],
+      records: [r1],
       deviceMap: {1: deviceA},
       calcHistoryMap: const {},
     );

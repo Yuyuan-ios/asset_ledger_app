@@ -78,7 +78,7 @@ void main() {
         final verdict = SaveTimingRecordFreshnessVerdict(
           isFresh: true,
           latest: previous,
-          staleReasons: const [],
+          staleReasons: [],
         );
         final analyzer = _FakeAnalyzer(analysis: previous, verdict: verdict);
         final adapter = SaveTimingRecordOperationPreviewAdapter(
@@ -114,7 +114,7 @@ void main() {
       final verdict = SaveTimingRecordFreshnessVerdict(
         isFresh: false,
         latest: latest,
-        staleReasons: const [staleReason],
+        staleReasons: [staleReason],
       );
       final analyzer = _FakeAnalyzer(analysis: previous, verdict: verdict);
       final adapter = SaveTimingRecordOperationPreviewAdapter(
@@ -213,10 +213,7 @@ void main() {
             actorType: OperationActorType.driver,
             actorId: 'driver-1',
           ),
-          scope: ActorScope.devices(
-            deviceIds: const ['7'],
-            actorId: 'driver-1',
-          ),
+          scope: ActorScope.devices(deviceIds: ['7'], actorId: 'driver-1'),
         );
 
         expect(result.redacted.redacted, isTrue);
@@ -250,7 +247,7 @@ void main() {
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
-        scope: ActorScope.devices(deviceIds: const ['99'], actorId: 'driver-1'),
+        scope: ActorScope.devices(deviceIds: ['99'], actorId: 'driver-1'),
       );
 
       expect(result.redacted.scopeAllowed, isFalse);
@@ -280,7 +277,7 @@ void main() {
           actorType: OperationActorType.agent,
           actorId: 'agent-1',
         ),
-        scope: ActorScope.devices(deviceIds: const ['7'], actorId: 'agent-1'),
+        scope: ActorScope.devices(deviceIds: ['7'], actorId: 'agent-1'),
       );
 
       expect(result.redacted.scopeAllowed, isFalse);
@@ -308,7 +305,7 @@ void main() {
           actorType: OperationActorType.driver,
           actorId: 'driver-1',
         ),
-        scope: ActorScope.devices(deviceIds: const ['7'], actorId: 'driver-1'),
+        scope: ActorScope.devices(deviceIds: ['7'], actorId: 'driver-1'),
       );
 
       expect(result.full.analysis, same(analysis));
@@ -327,7 +324,7 @@ SaveTimingRecordOperationAnalyzeInput _input({
 }) {
   return SaveTimingRecordOperationAnalyzeInput(
     operationId: operationId,
-    draftRecord: const TimingRecord(
+    draftRecord: TimingRecord(
       id: 1,
       deviceId: 7,
       startDate: 20260531,
@@ -362,8 +359,8 @@ SaveTimingRecordOperationAnalyzeResult _analysis({
     projectChanged: projectChanged,
     willDissolveMerge: willDissolveMerge,
     willRevokeSettlement: willRevokeSettlement,
-    affectedEntities: const [_deviceRef, _projectRef],
-    warnings: const ['预览基于当前本地数据'],
+    affectedEntities: [_deviceRef, _projectRef],
+    warnings: ['预览基于当前本地数据'],
   );
   final preview = SaveTimingRecordOperationCommand().preview(previewInput);
   return SaveTimingRecordOperationAnalyzeResult(
@@ -372,10 +369,10 @@ SaveTimingRecordOperationAnalyzeResult _analysis({
     oldProjectId: oldProjectId,
     existingNewProjectId: 'project-a',
     wouldCreateNewProject: false,
-    affectedProjectIds: const ['project-a'],
-    mergeGroupIdsToDissolve: willDissolveMerge ? const [9001] : const [],
+    affectedProjectIds: ['project-a'],
+    mergeGroupIdsToDissolve: willDissolveMerge ? [9001] : [],
     requiresReanalysisBeforeExecute: true,
-    warnings: const ['预览基于当前本地数据'],
+    warnings: ['预览基于当前本地数据'],
   );
 }
 
@@ -399,7 +396,7 @@ String _serialize(RedactedSaveTimingRecordPreview redacted) {
 
 void _expectNoProjectLeak(RedactedSaveTimingRecordPreview redacted) {
   final text = _serialize(redacted);
-  for (final needle in const ['李杰', '五里山', 'project-a', 'project:']) {
+  for (final needle in ['李杰', '五里山', 'project-a', 'project:']) {
     expect(
       text,
       isNot(contains(needle)),
@@ -410,14 +407,7 @@ void _expectNoProjectLeak(RedactedSaveTimingRecordPreview redacted) {
 
 void _expectNoDeviceOrProjectLeak(RedactedSaveTimingRecordPreview redacted) {
   final text = _serialize(redacted);
-  for (final needle in const [
-    'Hitachi',
-    '7',
-    '李杰',
-    '五里山',
-    'project-a',
-    'project:',
-  ]) {
+  for (final needle in ['Hitachi', '7', '李杰', '五里山', 'project-a', 'project:']) {
     expect(
       text,
       isNot(contains(needle)),
@@ -463,7 +453,7 @@ class _FakeAnalyzer extends SaveTimingRecordOperationAnalyzer {
         SaveTimingRecordFreshnessVerdict(
           isFresh: true,
           latest: analysis,
-          staleReasons: const [],
+          staleReasons: [],
         );
   }
 }

@@ -1564,7 +1564,7 @@ class _FakeSaveTimingRecordWithImpactUseCase
     return SaveTimingRecordPreparation(
       recordToSave: record,
       devices: [],
-      rates: const [],
+      rates: [],
       timestampIso: '2026-05-30T00:00:00.000Z',
     );
   }
@@ -1649,7 +1649,7 @@ class _FakeSaveTimingRecordWithImpactUseCase
       mergeDissolved: mergeDissolved,
       settlementRevoked: false,
       affectedProjectIds: affectedProjectIds,
-      revokedProjectIds: const [],
+      revokedProjectIds: [],
       userMessage: mergeDissolved ? '已保存，已自动解除相关合并项目。' : null,
     );
   }
@@ -1832,7 +1832,7 @@ class _FakeDeviceRepository implements DeviceRepository {
 
 class _FakeFuelRepository implements FuelRepository {
   @override
-  Future<List<FuelLog>> listAll() async => const [];
+  Future<List<FuelLog>> listAll() async => [];
 
   @override
   Future<int> insert(FuelLog log) async => 1;
@@ -1849,7 +1849,7 @@ class _FakeFuelRepository implements FuelRepository {
 
 class _FakeMaintenanceRepository implements MaintenanceRepository {
   @override
-  Future<List<MaintenanceRecord>> listAll() async => const [];
+  Future<List<MaintenanceRecord>> listAll() async => [];
 
   @override
   Future<int> insert(MaintenanceRecord record) async => 1;
@@ -1863,7 +1863,7 @@ class _FakeMaintenanceRepository implements MaintenanceRepository {
 
 class _FakeProjectRateRepository implements ProjectRateRepository {
   @override
-  Future<List<ProjectDeviceRate>> listAll() async => const [];
+  Future<List<ProjectDeviceRate>> listAll() async => [];
 
   @override
   Future<int> upsert(ProjectDeviceRate rate) async => 1;
@@ -1959,7 +1959,7 @@ AccountProjectMergeGroup _mergeGroup() {
 }
 
 List<AccountProjectMergeMember> _mergeMembers() {
-  return const [
+  return [
     AccountProjectMergeMember(
       id: 1,
       groupId: 1,
@@ -2052,7 +2052,7 @@ class _FakeAccountProjectMergeRepository
   @override
   Future<List<AccountProjectMergeGroup>> listActiveGroups() async {
     final current = group;
-    if (current == null || !current.isActive) return const [];
+    if (current == null || !current.isActive) return [];
     return [current];
   }
 
@@ -2060,7 +2060,7 @@ class _FakeAccountProjectMergeRepository
   Future<List<AccountProjectMergeGroupWithMembers>>
   listActiveGroupsWithMembers() async {
     final current = group;
-    if (current == null || !current.isActive) return const [];
+    if (current == null || !current.isActive) return [];
     return [
       AccountProjectMergeGroupWithMembers(
         group: current,

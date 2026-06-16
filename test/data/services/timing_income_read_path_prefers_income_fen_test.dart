@@ -64,8 +64,8 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
-        payments: const [],
+        rates: [],
+        payments: [],
       );
       // 无 hours 应收，仅 rent：以存储 income_fen 12345 为准。
       expect(money.receivableFen, 12345);

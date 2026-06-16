@@ -375,7 +375,6 @@ Future<void> _insertTiming(
     'start_meter': 0,
     'end_meter': 1,
     'hours': 1,
-    'income': 100,
     'income_fen': 10000,
     'unit': 'HOUR',
     'exclude_from_fuel_eff': 0,

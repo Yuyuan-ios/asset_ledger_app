@@ -42,7 +42,7 @@ void main() {
     return AccountService.calcMoneyFen(
       agg: agg,
       devices: oneDevice100,
-      rates: const [],
+      rates: [],
       payments: payments,
     );
   }
@@ -89,7 +89,7 @@ void main() {
       final money = AccountService.calcMoneyFen(
         agg: agg,
         devices: oneDevice100,
-        rates: const [],
+        rates: [],
         payments: [
           AccountPayment(
             id: 1,
@@ -142,7 +142,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           // 成员 A：租金 333.33 元。
           TimingRecord(
             id: 1,
@@ -171,7 +171,7 @@ void main() {
           ),
         ],
         devices: oneDevice100,
-        rates: const [],
+        rates: [],
         payments: [
           AccountPayment(
             id: 1,
@@ -180,7 +180,7 @@ void main() {
             amount: 400,
           ),
         ],
-        activeMergeGroups: const [
+        activeMergeGroups: [
           AccountProjectMergeGroupWithMembers(
             group: AccountProjectMergeGroup(
               id: 1,
@@ -227,7 +227,7 @@ void main() {
       const useCase = ComputeAccountSummaryUseCase();
 
       final result = useCase.execute(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 1,
             deviceId: 1,
@@ -242,7 +242,7 @@ void main() {
           ),
         ],
         devices: oneDevice100,
-        rates: const [],
+        rates: [],
         payments: [],
       );
 
@@ -272,7 +272,7 @@ void main() {
           ),
         ],
         devices: oneDevice100,
-        rates: const [],
+        rates: [],
         payments: [
           AccountPayment(
             id: 1,

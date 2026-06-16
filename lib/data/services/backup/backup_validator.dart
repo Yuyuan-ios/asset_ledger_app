@@ -278,9 +278,10 @@ class _BackupRestoreValidator {
             timestamp: BackupRestoreTables.legacyProjectTimestamp,
           ).id;
         }
-        // R5.26-B3：旧备份缺 income_fen 时按 income 回填整数分镜像，避免回灌出
-        // NULL income_fen；已有非 NULL income_fen 不被覆盖。
+        // Track A / A4-7：旧备份缺 income_fen 时按 legacy REAL income
+        // 回填；插入新 schema 前移除已删除的 REAL income 列。
         normalized['income_fen'] ??= _fenFromYuan(normalized['income']);
+        normalized.remove('income');
         // S2/v33：旧备份缺 unit/quantity_scaled 时按 type/hours 回填镜像；
         // rent 行 quantity 保持 null（租期计量语义未定），已有非 NULL 不覆盖。
         normalized['unit'] ??= normalized['type'] == 'rent' ? 'RENT' : 'HOUR';
@@ -581,8 +582,7 @@ class _BackupRestoreValidator {
     }
     if (!_isNumber(row['end_meter'])) return 'invalid_timing_records_end_meter';
     if (!_isNumber(row['hours'])) return 'invalid_timing_records_hours';
-    if (!_isNumber(row['income'])) return 'invalid_timing_records_income';
-    if (!_isNullableInt(row['income_fen'])) {
+    if (!_isNonNegativeInt(row['income_fen'])) {
       return 'invalid_timing_records_income_fen';
     }
     final unit = row['unit'];

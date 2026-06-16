@@ -30,7 +30,7 @@ void main() {
       );
 
       final result = const ComputeTimingChartFinanceUseCase().execute(
-        monthlyIncome: const [1200, 0, 39666, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        monthlyIncome: [1200, 0, 39666, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         expenseStats: expenseStats,
         annualReceivable: 42294,
       );
@@ -42,7 +42,7 @@ void main() {
     });
 
     test('calculates net income from annual receivable minus expense', () {
-      const monthlyIncomeAfterWriteOff = [
+      final monthlyIncomeAfterWriteOff = [
         0.0,
         0.0,
         0.0,
@@ -114,7 +114,7 @@ void main() {
                   hours: 7,
                   income: 0,
                 ),
-                const TimingRecord(
+                TimingRecord(
                   id: 2,
                   deviceId: 1,
                   startDate: 20270101,

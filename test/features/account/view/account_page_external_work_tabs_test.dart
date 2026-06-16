@@ -228,7 +228,7 @@ void main() {
 class _FakeTimingRepository implements TimingRepository {
   @override
   Future<List<TimingRecord>> listAll() async {
-    return const [
+    return [
       TimingRecord(
         id: 1,
         deviceId: 1,
@@ -304,7 +304,7 @@ class _FakeDeviceRepository implements DeviceRepository {
 
 class _FakePaymentRepository implements AccountPaymentRepository {
   @override
-  Future<List<AccountPayment>> listAll() async => const [];
+  Future<List<AccountPayment>> listAll() async => [];
 
   @override
   Future<int> insert(AccountPayment payment) async => 1;
@@ -313,8 +313,7 @@ class _FakePaymentRepository implements AccountPaymentRepository {
   Future<void> insertAllInTransaction(List<AccountPayment> payments) async {}
 
   @override
-  Future<List<AccountPayment>> listByMergeBatchId(String batchId) async =>
-      const [];
+  Future<List<AccountPayment>> listByMergeBatchId(String batchId) async => [];
 
   @override
   Future<int> deleteByMergeBatchId(String batchId) async => 0;
@@ -334,7 +333,7 @@ class _FakePaymentRepository implements AccountPaymentRepository {
 
 class _FakeRateRepository implements ProjectRateRepository {
   @override
-  Future<List<ProjectDeviceRate>> listAll() async => const [];
+  Future<List<ProjectDeviceRate>> listAll() async => [];
 
   @override
   Future<int> upsert(ProjectDeviceRate rate) async => 1;
@@ -426,14 +425,14 @@ class _FakeExternalWorkRecordRepository
           ),
         ];
       default:
-        return const [];
+        return [];
     }
   }
 
   @override
   Future<List<ExternalWorkRecord>> listByLinkedProjectId(
     String projectId,
-  ) async => const [];
+  ) async => [];
 
   @override
   Future<int> deleteById(String recordId) async => 0;

@@ -8,11 +8,11 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../test_setup.dart';
 
-/// R5.26-B3 → v34：timing_records.income_fen schema 不变式。
+/// R5.26-B3 → v34，Track A / A4-7：timing_records.income_fen schema 不变式。
 ///
 /// 锁定 fresh schema：income_fen 存在且 **NOT NULL**（v34/migration_034 起由
-/// schema 强制）；income REAL 兼容列仍 NOT NULL 保留。unit / quantity_scaled
-/// 保持 nullable（rent 行 quantity 合法为 NULL,v33 语义）;不放宽其它字段。
+/// schema 强制）；A4-7 起 income REAL 已删除。unit NOT NULL；quantity_scaled
+/// 保持 nullable（rent 行 quantity 合法为 NULL,v33 语义）；不放宽其它字段。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -31,7 +31,7 @@ void main() {
     }
   });
 
-  test('fresh timing_records schema has income_fen and keeps income REAL', () async {
+  test('fresh timing_records schema is income_fen-only', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
@@ -50,9 +50,8 @@ void main() {
         reason: 'v34/migration_034 起 income_fen 为 INTEGER NOT NULL',
       );
 
-      // income REAL 兼容列仍存在且仍 NOT NULL（不移除 REAL 兼容列）。
-      expect(columns.containsKey('income'), isTrue);
-      expect(_isNullable(columns['income']!), isFalse);
+      // Track A / A4-7：income REAL 已删除，income_fen 是唯一存储权威。
+      expect(columns.containsKey('income'), isFalse);
 
       // v36：unit 由 schema 强制 NOT NULL（S2 权威收口）；
       // quantity_scaled 保持 nullable（rent 行租期计量语义未定）。
@@ -73,7 +72,6 @@ void main() {
         'start_meter',
         'end_meter',
         'hours',
-        'income',
         'income_fen',
         'unit',
         'quantity_scaled',

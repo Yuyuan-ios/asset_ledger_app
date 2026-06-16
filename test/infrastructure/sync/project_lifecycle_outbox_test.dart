@@ -697,6 +697,6 @@ class _ThrowingSyncOutboxRepository implements SyncOutboxRepository {
 
   @override
   Future<List<SyncOutboxEntry>> listPending({int limit = 50}) async {
-    return const [];
+    return [];
   }
 }

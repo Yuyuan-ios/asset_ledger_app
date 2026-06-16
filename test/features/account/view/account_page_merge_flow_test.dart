@@ -763,7 +763,7 @@ Provider<AccountActionController> _accountActionControllerProvider(
 class _FakeTimingRepository implements TimingRepository {
   @override
   Future<List<TimingRecord>> listAll() async {
-    return const [
+    return [
       TimingRecord(
         id: 1,
         deviceId: 1,
@@ -1071,7 +1071,7 @@ AccountPayment _mergeAllocation({
 
 class _FakeRateRepository implements ProjectRateRepository {
   @override
-  Future<List<ProjectDeviceRate>> listAll() async => const [];
+  Future<List<ProjectDeviceRate>> listAll() async => [];
 
   @override
   Future<int> upsert(ProjectDeviceRate rate) async => 1;
@@ -1129,7 +1129,7 @@ class _FakeExternalWorkRecordRepository
 
   @override
   Future<List<ExternalWorkRecord>> listByBatchId(String batchId) async {
-    if (batchId != 'external-linked') return const [];
+    if (batchId != 'external-linked') return [];
     return [
       ExternalWorkRecord.imported(
         id: 'external-record-c',
@@ -1154,7 +1154,7 @@ class _FakeExternalWorkRecordRepository
   @override
   Future<List<ExternalWorkRecord>> listByLinkedProjectId(
     String projectId,
-  ) async => const [];
+  ) async => [];
 
   @override
   Future<int> deleteById(String recordId) async => 0;
@@ -1210,7 +1210,7 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   int? dissolvedGroupId;
   final bool failDissolve;
   String? createdContact;
-  List<String> createdProjectKeys = const [];
+  List<String> createdProjectKeys = [];
   AccountProjectMergeGroupWithMembers? _created;
 
   @override
@@ -1218,8 +1218,8 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   listActiveGroupsWithMembers() async {
     listActiveGroupsWithMembersCalls++;
     final created = _created;
-    if (created == null) return const [];
-    if (!created.group.isActive) return const [];
+    if (created == null) return [];
+    if (!created.group.isActive) return [];
     return [created];
   }
 
@@ -1243,7 +1243,7 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   @override
   Future<List<AccountProjectMergeMember>> listActiveMembersByProjectKeys(
     List<String> projectKeys,
-  ) async => const [];
+  ) async => [];
 
   @override
   Future<List<AccountProjectMergeMember>> listActiveMembersByProjectIds(
@@ -1251,7 +1251,7 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
   ) async {
     final projectIdSet = projectIds.map((id) => id.trim()).toSet();
     final created = _created;
-    if (created == null) return const [];
+    if (created == null) return [];
     return created.members.where((member) {
       return member.isActive &&
           projectIdSet.contains(member.effectiveProjectId);
@@ -1324,7 +1324,7 @@ class _FakeMergeRepository implements AccountProjectMergeRepository {
         createdAt: createdAt,
         updatedAt: createdAt,
       ),
-      members: const [
+      members: [
         AccountProjectMergeMember(
           id: 1,
           groupId: 1,

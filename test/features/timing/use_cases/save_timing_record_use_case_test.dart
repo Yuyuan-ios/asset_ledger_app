@@ -39,7 +39,7 @@ void main() {
         final timingRepository = _SpyTimingRepository();
         final timingStore = TimingStore(timingRepository);
         final withImpact = _SpyWithImpactUseCase(
-          result: const SaveTimingRecordWithImpactResult(
+          result: SaveTimingRecordWithImpactResult(
             savedRecord: _staticSavedRecord,
             projectChanged: false,
             mergeDissolved: false,
@@ -62,7 +62,7 @@ void main() {
           operationIdFactory: () => 'op-save-1',
         );
 
-        const editing = _staticSavedRecord;
+        final editing = _staticSavedRecord;
         final newRecord = editing.copyWith(hours: 9);
         final calcHistories = [
           TimingCalculationHistory(
@@ -118,7 +118,7 @@ void main() {
         final timingRepository = _SpyTimingRepository();
         final timingStore = TimingStore(timingRepository);
         final withImpact = _SpyWithImpactUseCase(
-          result: const SaveTimingRecordWithImpactResult(
+          result: SaveTimingRecordWithImpactResult(
             savedRecord: _staticSavedRecord,
             projectChanged: true,
             mergeDissolved: true,
@@ -152,7 +152,7 @@ void main() {
           final timingRepository = _SpyTimingRepository();
           final timingStore = TimingStore(timingRepository);
           final withImpact = _SpyWithImpactUseCase(
-            result: const SaveTimingRecordWithImpactResult(
+            result: SaveTimingRecordWithImpactResult(
               savedRecord: _staticSavedRecord,
               projectChanged: false,
               mergeDissolved: false,
@@ -189,7 +189,7 @@ void main() {
           final timingRepository = _SpyTimingRepository();
           final timingStore = TimingStore(timingRepository);
           final withImpact = _SpyWithImpactUseCase(
-            result: const SaveTimingRecordWithImpactResult(
+            result: SaveTimingRecordWithImpactResult(
               savedRecord: _staticSavedRecord,
               projectChanged: false,
               mergeDissolved: false,
@@ -232,7 +232,7 @@ void main() {
   _registerExecuteWithTokenTests();
 }
 
-const TimingRecord _staticSavedRecord = TimingRecord(
+final TimingRecord _staticSavedRecord = TimingRecord(
   id: 1,
   deviceId: 1,
   startDate: 20260518,
@@ -259,7 +259,7 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
   OperationDatabaseExecutor? lastExecutor;
   TimingRecord? lastEditing;
   TimingRecord? lastRecord;
-  List<TimingCalculationHistory> lastCalculationHistories = const [];
+  List<TimingCalculationHistory> lastCalculationHistories = [];
   SaveTimingRecordWithImpactResult? lastResult;
 
   @override
@@ -279,7 +279,7 @@ class _SpyWithImpactUseCase implements SaveTimingRecordWithImpactUseCase {
           baseMeterHours: 0,
         ),
       ],
-      rates: const [],
+      rates: [],
       timestampIso: '2026-05-30T00:00:00.000Z',
     );
   }
@@ -418,7 +418,7 @@ class _SpyTimingRepository implements TimingRepository {
   @override
   Future<List<TimingRecord>> listAll() async {
     listAllCalls += 1;
-    return const [];
+    return [];
   }
 
   @override
@@ -463,7 +463,7 @@ void _registerExecuteWithTokenTests() {
         final timingRepository = _SpyTimingRepository();
         final timingStore = TimingStore(timingRepository);
         final withImpact = _SpyWithImpactUseCase(
-          result: const SaveTimingRecordWithImpactResult(
+          result: SaveTimingRecordWithImpactResult(
             savedRecord: _staticSavedRecord,
             projectChanged: false,
             mergeDissolved: false,
@@ -489,7 +489,7 @@ void _registerExecuteWithTokenTests() {
         final previewService = _FakePreviewService();
         final confirmAdapter = _FakeConfirmAdapter(command: command);
 
-        const editing = _staticSavedRecord;
+        final editing = _staticSavedRecord;
         final newRecord = editing.copyWith(hours: 8);
 
         final useCase = SaveTimingRecordUseCase(
@@ -544,7 +544,7 @@ void _registerExecuteWithTokenTests() {
         final timingRepository = _SpyTimingRepository();
         final timingStore = TimingStore(timingRepository);
         final withImpact = _SpyWithImpactUseCase(
-          result: const SaveTimingRecordWithImpactResult(
+          result: SaveTimingRecordWithImpactResult(
             savedRecord: _staticSavedRecord,
             projectChanged: false,
             mergeDissolved: false,
@@ -568,7 +568,7 @@ void _registerExecuteWithTokenTests() {
         final confirmAdapter = _FakeConfirmAdapter(command: command);
 
         final actorCtx = ActorContext(actorType: OperationActorType.owner);
-        const editing = _staticSavedRecord;
+        final editing = _staticSavedRecord;
         final newRecord = editing.copyWith(hours: 9);
 
         final useCase = SaveTimingRecordUseCase(
@@ -596,7 +596,7 @@ void _registerExecuteWithTokenTests() {
         final timingRepository = _SpyTimingRepository();
         final timingStore = TimingStore(timingRepository);
         final withImpact = _SpyWithImpactUseCase(
-          result: const SaveTimingRecordWithImpactResult(
+          result: SaveTimingRecordWithImpactResult(
             savedRecord: _staticSavedRecord,
             projectChanged: false,
             mergeDissolved: false,
@@ -676,17 +676,17 @@ class _FakePreviewService implements SaveTimingRecordPreviewService {
         willRevokeSettlement: false,
         oldProjectId: null,
         existingNewProjectId: 'project:alpha',
-        affectedProjectIds: const ['project:alpha'],
-        mergeGroupIdsToDissolve: const [],
-        warnings: const [],
+        affectedProjectIds: ['project:alpha'],
+        mergeGroupIdsToDissolve: [],
+        warnings: [],
       ),
       freshness: null,
       redacted: false,
-      redactionReasons: const [],
-      visibleCapabilities: const [],
-      hiddenCapabilities: const [],
+      redactionReasons: [],
+      visibleCapabilities: [],
+      hiddenCapabilities: [],
       scopeAllowed: true,
-      scopeReasons: const [],
+      scopeReasons: [],
     );
     return SaveTimingRecordPreviewServiceResponse(
       preview: redacted,
@@ -697,7 +697,7 @@ class _FakePreviewService implements SaveTimingRecordPreviewService {
       confirmUnavailableReasonCode: canProceedToConfirm
           ? null
           : 'preview_denied',
-      warnings: const [],
+      warnings: [],
     );
   }
 
@@ -807,15 +807,15 @@ SaveTimingRecordOperationAnalyzeResult _analysisForInput(
     timingRecordId: input.editingRecordId?.toString(),
     deviceLabel: 'test-device',
     projectLabel: 'test-project',
-    affectedEntities: const [],
-    warnings: const [],
+    affectedEntities: [],
+    warnings: [],
   );
   final preview = OperationPreview(
     operationId: input.operationId,
     operationType: OperationType.saveTimingRecord,
     title: '修改计时记录',
     summary: '测试保存计时',
-    affectedEntities: const [],
+    affectedEntities: [],
     requiresConfirmation: true,
     riskLevel: OperationRiskLevel.low,
   );
@@ -825,9 +825,9 @@ SaveTimingRecordOperationAnalyzeResult _analysisForInput(
     oldProjectId: null,
     existingNewProjectId: 'project:alpha',
     wouldCreateNewProject: false,
-    affectedProjectIds: const ['project:alpha'],
-    mergeGroupIdsToDissolve: const [],
+    affectedProjectIds: ['project:alpha'],
+    mergeGroupIdsToDissolve: [],
     requiresReanalysisBeforeExecute: true,
-    warnings: const [],
+    warnings: [],
   );
 }

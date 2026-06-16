@@ -553,7 +553,7 @@ void main() {
         _backupJson(
           schemaVersion: 31,
           projects: [_projectMap()],
-          timingRecords: const [],
+          timingRecords: [],
           accountPayments: [legacyPayment],
         ),
       );
@@ -968,7 +968,7 @@ void main() {
     final result = await _restoreService().restoreFromDecodedJson(
       _backupJson(
         schemaVersion: AppDatabase.schemaVersion,
-        mergeGroups: const [],
+        mergeGroups: [],
         mergeMembers: [
           _mergeMemberMap(
             id: 11,
@@ -1179,7 +1179,6 @@ Map<String, Object?> _timingRecordMap({
     'start_meter': 0.0,
     'end_meter': 16.0,
     'hours': 16.0,
-    'income': 1600.0,
     'income_fen': 160000,
     'unit': 'HOUR',
     'exclude_from_fuel_eff': 0,

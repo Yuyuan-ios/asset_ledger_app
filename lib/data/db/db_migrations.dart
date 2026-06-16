@@ -40,6 +40,7 @@ part 'migrations/migration_044.dart';
 part 'migrations/migration_045.dart';
 part 'migrations/migration_046.dart';
 part 'migrations/migration_047.dart';
+part 'migrations/migration_048.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -178,6 +179,10 @@ class DbMigrations {
 
   static Future<void> ensureAccountPaymentAmountRealsDropped(Database db) {
     return Migration047.ensureAccountPaymentAmountRealsDropped(db);
+  }
+
+  static Future<void> ensureTimingIncomeRealDropped(Database db) {
+    return Migration048.ensureTimingIncomeRealDropped(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

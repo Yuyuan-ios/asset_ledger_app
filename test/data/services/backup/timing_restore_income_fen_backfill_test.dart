@@ -35,48 +35,43 @@ void main() {
     await AppDatabase.resetForTest();
   });
 
-  test(
-    'legacy backup without income_fen restores timing_records with non-null '
-    'backfilled fen and does not fail',
-    () async {
-      final restoreService = LocalBackupRestoreService(
-        previewService: const LocalBackupImportPreviewService(),
-        exportBackup: () async => const LocalBackupExportResult(
-          success: true,
-          filePath: '/tmp/pre-restore-stub.json',
-          fileName: 'pre-restore-stub.json',
-        ),
-      );
+  test('legacy backup without income_fen restores timing_records with non-null '
+      'backfilled fen and does not fail', () async {
+    final restoreService = LocalBackupRestoreService(
+      previewService: const LocalBackupImportPreviewService(),
+      exportBackup: () async => const LocalBackupExportResult(
+        success: true,
+        filePath: '/tmp/pre-restore-stub.json',
+        fileName: 'pre-restore-stub.json',
+      ),
+    );
 
-      final result = await restoreService.restoreFromDecodedJson(
-        _buildLegacyTimingBackupMissingIncomeFen(),
-      );
-      expect(
-        result.success,
-        isTrue,
-        reason: '缺 income_fen 的旧备份不应导致 restore 失败：${result.message}',
-      );
+    final result = await restoreService.restoreFromDecodedJson(
+      _buildLegacyTimingBackupMissingIncomeFen(),
+    );
+    expect(
+      result.success,
+      isTrue,
+      reason: '缺 income_fen 的旧备份不应导致 restore 失败：${result.message}',
+    );
 
-      final db = await AppDatabase.database;
-      final rows = await db.query('timing_records', orderBy: 'id ASC');
-      expect(rows.length, 3);
+    final db = await AppDatabase.database;
+    final rows = await db.query('timing_records', orderBy: 'id ASC');
+    expect(rows.length, 3);
 
-      // 无 NULL income_fen + 逐行回填正确。
-      for (final row in rows) {
-        final income = (row['income'] as num).toDouble();
-        expect(
-          (row['income_fen'] as num?)?.toInt(),
-          (income * 100).round(),
-          reason: 'timing_records ${row['id']} income_fen 应 == round(income*100)',
-        );
-      }
-      // 其它字段未受影响。
-      final first = rows.first;
-      expect(first['hours'], 8.0);
-      expect(first['type'], 'hours');
-      expect(first['contact'], '甲方');
-    },
-  );
+    // 无 NULL income_fen + 逐行从旧备份 income 回填正确；新 schema 不再含 income。
+    expect(rows.map((row) => row['income']).toSet(), {null});
+    expect(rows.map((row) => row['income_fen']).toList(), [
+      20000,
+      1999,
+      120000,
+    ]);
+    // 其它字段未受影响。
+    final first = rows.first;
+    expect(first['hours'], 8.0);
+    expect(first['type'], 'hours');
+    expect(first['contact'], '甲方');
+  });
 }
 
 Map<String, dynamic> _buildLegacyTimingBackupMissingIncomeFen() {

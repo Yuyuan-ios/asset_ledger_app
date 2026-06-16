@@ -38,7 +38,7 @@ void main() {
   ];
 
   final records = [
-    const TimingRecord(
+    TimingRecord(
       deviceId: 1,
       startDate: 20260501,
       contact: '李杰',
@@ -49,7 +49,7 @@ void main() {
       hours: 64.9,
       income: 6490,
     ),
-    const TimingRecord(
+    TimingRecord(
       deviceId: 1,
       startDate: 20260502,
       contact: '李杰',
@@ -60,7 +60,7 @@ void main() {
       hours: 239,
       income: 23900,
     ),
-    const TimingRecord(
+    TimingRecord(
       deviceId: 2,
       startDate: 20260502,
       contact: '李杰',
@@ -97,7 +97,7 @@ void main() {
             projectKey: projectKey,
             timingRecords: records,
             allDevices: devices,
-            allPayments: const [],
+            allPayments: [],
             allWriteOffs: writeOffs,
             allRates: [
               ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
@@ -134,12 +134,12 @@ void main() {
       displayName: '李杰 + 合并2项目',
       kind: AccountProjectKind.merged,
       mergeGroupId: mergeGroupId,
-      memberProjectKeys: const [shangyiKey, xiantanKey],
-      memberProjectIds: const ['project:shangyi', 'project:xiantan'],
-      includedSites: const ['尚义', '鲜滩'],
+      memberProjectKeys: [shangyiKey, xiantanKey],
+      memberProjectIds: ['project:shangyi', 'project:xiantan'],
+      includedSites: ['尚义', '鲜滩'],
       includedSitesText: '尚义、鲜滩',
       minYmd: 20260501,
-      deviceIds: const [1, 2],
+      deviceIds: [1, 2],
       hoursByDevice: const {1: 303.9, 2: 20},
       rentIncomeTotal: 0,
       minRate: 100,
@@ -211,7 +211,7 @@ void main() {
             totalReceived: 5000,
             totalRemaining: 5000,
             totalRatio: 0.5,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           onEditDeviceRate: (project, _, _, _, _) async {
             editedProject = project;
@@ -330,7 +330,7 @@ void main() {
             totalReceived: 5000,
             totalRemaining: 5000,
             totalRatio: 0.5,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           onEditDeviceRate: (_, _, _, _, _) async {},
           onDissolveMergeGroup: (_) async {},
@@ -358,7 +358,7 @@ void main() {
               projectKey: normalKey,
               displayName: '李杰 + 尚义',
               minYmd: 20260501,
-              deviceIds: const [1],
+              deviceIds: [1],
               hoursByDevice: const {1: 64.9},
               rentIncomeTotal: 0,
               minRate: 100,
@@ -383,7 +383,7 @@ void main() {
           totalReceived: 0,
           totalRemaining: 6490,
           totalRatio: 0,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         onEditDeviceRate: (project, _, _, _, _) async {
           editedProject = project;
@@ -462,7 +462,7 @@ void main() {
               displayName: '李洋•天眉乐 + 关联',
               hasLinkedExternalWork: true,
               minYmd: 20260521,
-              deviceIds: const [1],
+              deviceIds: [1],
               hoursByDevice: const {1: 8.1},
               rentIncomeTotal: 0,
               minRate: 180,
@@ -479,7 +479,7 @@ void main() {
           totalReceived: 0,
           totalRemaining: 1458,
           totalRatio: 0,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         onEditDeviceRate: (_, _, _, _, _) async {},
         onSettleProject: (_) async {},
@@ -519,7 +519,7 @@ void main() {
               projectKey: normalKey,
               displayName: '甲方 + 一号工地',
               minYmd: 20260501,
-              deviceIds: const [1],
+              deviceIds: [1],
               hoursByDevice: const {1: 12.6},
               rentIncomeTotal: 0,
               minRate: 100,
@@ -540,7 +540,7 @@ void main() {
           totalRemaining: 0,
           totalRatio: 1200 / 1260,
           settlementRate: 1,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         writeOffs: [
           ProjectWriteOff(
@@ -589,7 +589,7 @@ void main() {
         projectId: 'project:settled',
         projectKey: sharedKey,
         computed: AccountComputed(
-          projects: const [
+          projects: [
             AccountProjectVM(
               projectId: 'project:active',
               projectKey: sharedKey,
@@ -633,7 +633,7 @@ void main() {
           totalRemaining: 1000,
           totalRatio: 1200 / 2260,
           settlementRate: 1260 / 2260,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         writeOffs: [
           ProjectWriteOff(
@@ -680,7 +680,7 @@ void main() {
                 projectKey: normalKey,
                 displayName: '甲方 + 一号工地',
                 minYmd: 20260501,
-                deviceIds: const [1],
+                deviceIds: [1],
                 hoursByDevice: const {1: 12.6},
                 rentIncomeTotal: 0,
                 minRate: 100,
@@ -701,7 +701,7 @@ void main() {
             totalRemaining: 0,
             totalRatio: 1200 / 1260,
             settlementRate: 1,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           writeOffs: [
             ProjectWriteOff(
@@ -760,7 +760,7 @@ void main() {
             totalRemaining: 0,
             totalRatio: 0.98,
             settlementRate: 1,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           writeOffs: [
             ProjectWriteOff(
@@ -815,7 +815,7 @@ void main() {
                 projectKey: normalKey,
                 displayName: '甲方 + 一号工地',
                 minYmd: 20260501,
-                deviceIds: const [1],
+                deviceIds: [1],
                 hoursByDevice: const {1: 12.6},
                 rentIncomeTotal: 0,
                 minRate: 100,
@@ -835,7 +835,7 @@ void main() {
             totalRemaining: 0,
             totalRatio: 1,
             settlementRate: 1,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           settledProjectIds: const {'project:1'},
           onEditDeviceRate: (_, _, _, _, _) async {},
@@ -868,7 +868,7 @@ void main() {
               projectKey: normalKey,
               displayName: '甲方 + 一号工地',
               minYmd: 20260501,
-              deviceIds: const [1],
+              deviceIds: [1],
               hoursByDevice: const {1: 12.6},
               rentIncomeTotal: 0,
               minRate: 100,
@@ -888,7 +888,7 @@ void main() {
           totalRemaining: 0,
           totalRatio: 1,
           settlementRate: 1,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         settledProjectIds: const {},
         onEditDeviceRate: (_, _, _, _, _) async {},
@@ -921,7 +921,7 @@ void main() {
                 displayName: '李洋 · 天眉乐',
                 hasLinkedExternalWork: true,
                 minYmd: 20260501,
-                deviceIds: const [1],
+                deviceIds: [1],
                 hoursByDevice: const {1: 8.1},
                 rentIncomeTotal: 0,
                 minRate: 180,
@@ -938,7 +938,7 @@ void main() {
             totalReceived: 0,
             totalRemaining: 2718,
             totalRatio: 0,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           onEditDeviceRate: (_, _, _, _, _) async {},
           externalWorkItems: [
@@ -982,7 +982,7 @@ void main() {
             totalReceived: 5000,
             totalRemaining: 5000,
             totalRatio: 0.5,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           onEditDeviceRate: (_, _, _, _, _) async {},
           onDissolveMergeGroup: (_) async {},
@@ -1042,7 +1042,7 @@ void main() {
               projectKey: normalKey,
               displayName: '李杰 · 尚义',
               minYmd: 20260501,
-              deviceIds: const [1],
+              deviceIds: [1],
               hoursByDevice: const {1: 64.9},
               rentIncomeTotal: 0,
               minRate: 100,
@@ -1059,7 +1059,7 @@ void main() {
           totalReceived: 0,
           totalRemaining: 6490,
           totalRatio: 0,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         onEditDeviceRate: (_, _, _, _, _) async {},
         // 提供一条已关联到别的项目的外协记录，确认它不会被错误地展示。
@@ -1092,7 +1092,7 @@ void main() {
             totalReceived: 5000,
             totalRemaining: 5000,
             totalRatio: 0.5,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           onEditDeviceRate: (_, _, _, _, _) async {},
           onDissolveMergeGroup: (_) async {},
@@ -1128,7 +1128,7 @@ void main() {
         kind: base.kind,
         mergeGroupId: base.mergeGroupId,
         memberProjectKeys: base.memberProjectKeys,
-        memberProjectIds: const [],
+        memberProjectIds: [],
         includedSites: base.includedSites,
         includedSitesText: base.includedSitesText,
         minYmd: base.minYmd,
@@ -1154,7 +1154,7 @@ void main() {
             totalReceived: merged.received,
             totalRemaining: merged.remaining,
             totalRatio: merged.ratio ?? 0,
-            deviceReceivables: const [],
+            deviceReceivables: [],
           ),
           onEditDeviceRate: (_, _, _, _, _) async {},
           onDissolveMergeGroup: (_) async {},
@@ -1193,7 +1193,7 @@ void main() {
               displayName: '李洋 · 天眉乐',
               hasLinkedExternalWork: true,
               minYmd: 20260501,
-              deviceIds: const [1],
+              deviceIds: [1],
               hoursByDevice: const {1: 8.1},
               rentIncomeTotal: 0,
               minRate: 180,
@@ -1210,7 +1210,7 @@ void main() {
           totalReceived: 0,
           totalRemaining: 2718,
           totalRatio: 0,
-          deviceReceivables: const [],
+          deviceReceivables: [],
         ),
         onEditDeviceRate: (_, _, _, _, _) async {},
         externalWorkItems: [

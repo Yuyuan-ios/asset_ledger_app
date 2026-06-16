@@ -150,6 +150,9 @@ class DbSchemaCompat {
     // merge_batch_total_amount REAL 删除；fen 为唯一存储权威，
     // AUTOINCREMENT 高水位与 projects FK RESTRICT 保留。
     await DbMigrations.ensureAccountPaymentAmountRealsDropped(db);
+    // v48（Track A / A4-7）：timing_records.income REAL 删除；
+    // timing_records 是非叶子表，重建只能走本 onOpen 路径。
+    await DbMigrations.ensureTimingIncomeRealDropped(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

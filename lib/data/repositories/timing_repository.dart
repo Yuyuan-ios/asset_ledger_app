@@ -284,10 +284,7 @@ class SqfliteTimingRepository implements TimingRepository {
       'start_meter': r.startMeter,
       'end_meter': r.endMeter,
       'hours': r.hours,
-      'income': r.income,
-      // fen 主存镜像与 REAL income 双写。v34 起 income_fen 为 NOT NULL,由
-      // schema 强制——此前 _toRow 漏写该列,落库一直依赖 onOpen ensure 回填,
-      // 读路径靠 REAL 回退掩盖;NOT NULL 翻转暴露后在此补齐写路径。
+      // Track A / A4-7：income_fen 是唯一收入存储列；income REAL 已拆除。
       'income_fen': r.incomeFen,
       // S2/v33 统一计量镜像(与 type/hours 双写;rent 行 quantity 为 null)。
       'unit': r.unit.dbValue,

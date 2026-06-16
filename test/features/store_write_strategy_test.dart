@@ -83,7 +83,7 @@ void main() {
     test('patches local state for save and delete without reloading', () async {
       final repository = _CountingTimingRepository(
         seed: [
-          const TimingRecord(
+          TimingRecord(
             id: 4,
             deviceId: 2,
             startDate: 20260302,
@@ -103,7 +103,7 @@ void main() {
       expect(repository.listAllCalls, 1);
 
       await store.save(
-        const TimingRecord(
+        TimingRecord(
           deviceId: 3,
           startDate: 20260305,
           contact: 'B',
@@ -120,7 +120,7 @@ void main() {
       expect(store.records.map((item) => item.id).toList(), [11, 4]);
 
       await store.save(
-        const TimingRecord(
+        TimingRecord(
           id: 4,
           deviceId: 2,
           startDate: 20260306,

@@ -59,15 +59,12 @@ class TimingRecord {
   /// 工时（小时）
   final double hours;
 
-  /// 本条记录对应的收入（REAL 兼容/回退口径）。
+  /// 本条记录收入的整数分（fen 存储权威）。
   ///
-  /// R5.26-B4：fen 主存为 [incomeFen]（读优先 DB 的 income_fen 列）；income REAL
-  /// 作为兼容列保留、不移除，仅在 income_fen 缺失时回退。
-  final double income;
-
-  /// 存储的 income_fen（DB 列原值，nullable）。null 表示 legacy/旧行未落 fen，
-  /// 由 [incomeFen] getter 回退派生。仅 [fromMap] 设置；其余构造默认 null。
-  final int? _incomeFen;
+  /// Track A / A4-7 起 DB 只保留 income_fen；[income] 是由本字段派生的
+  /// yuan getter。构造函数仍接收 yuan double 作为调用便利入口，并立即 round
+  /// 成整数分。
+  final int incomeFen;
 
   /// 存储的计量单位（DB unit 列原值的解析结果，nullable）。null 表示 legacy 行，
   /// 由 [unit] getter 按 [type] 派生。仅 [fromMap] 设置；其余构造默认 null。
@@ -87,7 +84,7 @@ class TimingRecord {
   /// false = 挖斗（默认）
   final bool isBreaking;
 
-  const TimingRecord({
+  TimingRecord({
     this.id,
     required this.deviceId,
     required this.startDate,
@@ -100,13 +97,13 @@ class TimingRecord {
     required this.startMeter,
     required this.endMeter,
     required this.hours,
-    required this.income,
+    required double income,
     int? incomeFen,
     MeasureUnit? unit,
     int? quantityScaled,
     this.excludeFromFuelEfficiency = false,
     this.isBreaking = false,
-  }) : _incomeFen = incomeFen,
+  }) : incomeFen = incomeFen ?? _yuanToFen(income),
        _storedUnit = unit,
        _quantityScaled = quantityScaled;
 
@@ -127,9 +124,12 @@ class TimingRecord {
     double? endMeter,
     double? hours,
     double? income,
+    int? incomeFen,
     bool? excludeFromFuelEfficiency,
     bool? isBreaking,
   }) {
+    final resolvedIncomeFen =
+        incomeFen ?? (income == null ? this.incomeFen : _yuanToFen(income));
     return TimingRecord(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
@@ -147,7 +147,8 @@ class TimingRecord {
       startMeter: startMeter ?? this.startMeter,
       endMeter: endMeter ?? this.endMeter,
       hours: hours ?? this.hours,
-      income: income ?? this.income,
+      income: resolvedIncomeFen / 100,
+      incomeFen: resolvedIncomeFen,
       excludeFromFuelEfficiency:
           excludeFromFuelEfficiency ?? this.excludeFromFuelEfficiency,
       isBreaking: isBreaking ?? this.isBreaking,
@@ -172,10 +173,8 @@ class TimingRecord {
       'start_meter': startMeter,
       'end_meter': endMeter,
       'hours': hours,
-      'income': income,
-      // 与 REAL income 双写整数分镜像（[incomeFen] = 存储 income_fen ?? round
-      // (income*100)）。R5.26-B4 起 rent 应收读路径已优先 income_fen（缺失回退
-      // income REAL）；income REAL 作为兼容列保留，不移除。
+      // Track A / A4-7：income_fen 是唯一存储权威，income REAL 已从 schema
+      // 删除；double income 仅为派生 getter。
       'income_fen': incomeFen,
       // S2 统一计量镜像双写（v33）：unit/quantity_scaled 与 type/hours 同步
       // 落库；type/hours 仍是权威，读路径不切换。rent 行 quantity 暂为 null
@@ -206,9 +205,10 @@ class TimingRecord {
   // 字段不存在时，默认 false
   // ---------------------------------------------------------------------------
   static TimingRecord fromMap(Map<String, Object?> m) {
-    // R5.26-B4：读优先 fen —— income_fen 存在时读入存储原值（缺列/NULL 的 legacy
-    // 行回退由 [incomeFen] getter 派生）。income (REAL) 仍读入作兼容/回退口径，
-    // 业务 hours 应收不受影响（仍由 hours×rate 重算）。
+    final incomeFen = (m['income_fen'] as num?)?.toInt();
+    if (incomeFen == null) {
+      throw StateError('timing_records.income_fen is required');
+    }
     return TimingRecord(
       id: m['id'] as int?,
       deviceId: m['device_id'] as int,
@@ -222,8 +222,8 @@ class TimingRecord {
       startMeter: (m['start_meter'] as num).toDouble(),
       endMeter: (m['end_meter'] as num).toDouble(),
       hours: (m['hours'] as num).toDouble(),
-      income: (m['income'] as num).toDouble(),
-      incomeFen: (m['income_fen'] as num?)?.toInt(),
+      income: incomeFen / 100,
+      incomeFen: incomeFen,
       unit: MeasureUnitCodec.tryFromDbValue(m['unit'] as String?),
       quantityScaled: (m['quantity_scaled'] as num?)?.toInt(),
       excludeFromFuelEfficiency:
@@ -232,13 +232,10 @@ class TimingRecord {
     );
   }
 
-  /// 本条记录收入的整数分（fen 主存读优先口径）。
+  /// 本条记录收入的 yuan 派生值。
   ///
-  /// R5.26-B4：优先返回存储的 income_fen（DB 列原值），缺失/legacy 时由 REAL
-  /// [income] 派生镜像 round(income*100) 回退。account/项目/年度汇总的 **rent**
-  /// 收入据此 prefer fen（与旧 `Money.fromYuan(income).fen` 对一致数据逐记录等价）。
-  /// **hours 应收不读此值**，仍由 hours×rate 重算；income_fen 对 hours 仅是快照镜像。
-  int get incomeFen => _incomeFen ?? _yuanToFen(income);
+  /// **hours 应收不读此值**，仍由 hours×rate 重算；income_fen 对 hours 仅是快照。
+  double get income => incomeFen / 100;
 
   /// 计量单位（统一计量模型镜像，《纲要》§3/§10.2）。优先返回存储的 unit；
   /// legacy 行由 [type] 派生：rent → RENT，其余 → HOUR。type 仍是业务权威。

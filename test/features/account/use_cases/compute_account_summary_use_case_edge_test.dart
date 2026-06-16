@@ -11,10 +11,10 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [],
-          devices: const [],
+          timingRecords: [],
+          devices: [],
           rates: [],
-          payments: const [],
+          payments: [],
         );
 
         expect(result.projects, isEmpty);
@@ -34,7 +34,7 @@ void main() {
         const useCase = ComputeAccountSummaryUseCase();
 
         final result = useCase.execute(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 1,
               deviceId: 12,
@@ -60,7 +60,7 @@ void main() {
               income: 0,
             ),
           ],
-          devices: const [],
+          devices: [],
           rates: [
             ProjectDeviceRate(
               projectKey: 'Alice||Yard A',
@@ -73,7 +73,7 @@ void main() {
               rate: 90,
             ),
           ],
-          payments: const [],
+          payments: [],
         );
 
         expect(result.deviceReceivables.map((item) => item.name).toList(), [

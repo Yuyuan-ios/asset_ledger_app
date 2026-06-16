@@ -162,7 +162,7 @@ void main() {
       'buildProjects merges same key after trim and keeps project boundaries',
       () {
         final projects = AccountService.buildProjects(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 101,
               deviceId: 1,
@@ -246,7 +246,7 @@ void main() {
 
     test('same contact and site can stay separate by projectId', () {
       final projects = AccountService.buildProjects(
-        timingRecords: const [
+        timingRecords: [
           TimingRecord(
             id: 301,
             projectId: 'project:first',
@@ -318,7 +318,7 @@ void main() {
       'calcReceivableByDevice applies non-positive project overrides directly',
       () {
         final totals = AccountService.calcReceivableByDevice(
-          timingRecords: const [
+          timingRecords: [
             TimingRecord(
               id: 201,
               deviceId: 1,

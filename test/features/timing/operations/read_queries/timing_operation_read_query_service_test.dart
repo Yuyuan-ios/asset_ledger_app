@@ -488,7 +488,7 @@ TimingRecord _record({
     'start_meter': 100.0,
     'end_meter': 107.5,
     'hours': hours,
-    ['in', 'come'].join(): 900.0,
+    'income_fen': 90000,
     'exclude_from_fuel_eff': 0,
     'is_breaking': 0,
   });

@@ -51,7 +51,6 @@ void main() {
       'start_meter': 0.0,
       'end_meter': hours,
       'hours': hours,
-      'income': 0.0,
       'income_fen': 0,
       'unit': 'HOUR',
       'quantity_scaled': quantityScaled,
@@ -113,7 +112,7 @@ void main() {
     // legacy 行派生(与旧 hours 对齐到毫时网格)。
     expect(hoursRecord(id: 2, hours: 2.5).hoursFromQuantity, 2.5);
     // rent 行计量未定 → 0(与旧 t.hours == 0.0 一致)。
-    const rent = TimingRecord(
+    final rent = TimingRecord(
       id: 3,
       deviceId: 1,
       startDate: 20260303,
@@ -142,7 +141,7 @@ void main() {
       return TimingMonthlyIncomeService.computeMonthlyIncomeRealtime(
         records: [record],
         devices: devices,
-        rates: const [],
+        rates: [],
         targetYear: 2026,
         targetMonth: 12,
         asOfDate: DateTime(2026, 12, 31),

@@ -148,7 +148,10 @@ void main() {
 
       // 记录与收款都不动。
       expect(await SqfliteTimingRepository().findById(recordId), isNotNull);
-      expect(await SqfliteAccountPaymentRepository().countByProjectId('project:a'), 1);
+      expect(
+        await SqfliteAccountPaymentRepository().countByProjectId('project:a'),
+        1,
+      );
     });
 
     // #5
@@ -169,8 +172,14 @@ void main() {
       expect(outcome.mergeGroupDissolved, isFalse);
       final mergeRepo = SqfliteAccountProjectMergeRepository();
       expect(await mergeRepo.findActiveMemberByProjectId('project:a'), isNull);
-      expect(await mergeRepo.findActiveMemberByProjectId('project:b'), isNotNull);
-      expect(await mergeRepo.findActiveMemberByProjectId('project:c'), isNotNull);
+      expect(
+        await mergeRepo.findActiveMemberByProjectId('project:b'),
+        isNotNull,
+      );
+      expect(
+        await mergeRepo.findActiveMemberByProjectId('project:c'),
+        isNotNull,
+      );
       expect(await mergeRepo.listActiveGroups(), hasLength(1));
     });
 
@@ -230,118 +239,148 @@ void main() {
     });
 
     // #9
-    test('rolls back the whole transaction when a cascade step fails', () async {
-      final db = await _openCurrentInMemoryDb();
-      await _insertProject(db, id: 'project:a');
-      final recordId = await _insertTiming(projectId: 'project:a');
-      await _insertLinkedExternalBatch(linkedProjectId: 'project:a');
+    test(
+      'rolls back the whole transaction when a cascade step fails',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _insertProject(db, id: 'project:a');
+        final recordId = await _insertTiming(projectId: 'project:a');
+        await _insertLinkedExternalBatch(linkedProjectId: 'project:a');
 
-      final useCase = LocalDeleteTimingRecordWithImpactUseCase(
-        timingRepository: SqfliteTimingRepository(),
-        paymentRepository: SqfliteAccountPaymentRepository(),
-        mergeRepository: SqfliteAccountProjectMergeRepository(),
-        externalWorkRecordRepository: _ThrowingExternalWorkRecordRepository(),
-        writeOffRepository: SqfliteProjectWriteOffRepository(),
-        projectRepository: SqfliteProjectRepository(),
-      );
+        final useCase = LocalDeleteTimingRecordWithImpactUseCase(
+          timingRepository: SqfliteTimingRepository(),
+          paymentRepository: SqfliteAccountPaymentRepository(),
+          mergeRepository: SqfliteAccountProjectMergeRepository(),
+          externalWorkRecordRepository: _ThrowingExternalWorkRecordRepository(),
+          writeOffRepository: SqfliteProjectWriteOffRepository(),
+          projectRepository: SqfliteProjectRepository(),
+        );
 
-      await expectLater(
-        useCase.executeDeleteWithImpact(recordId),
-        throwsA(isA<StateError>()),
-      );
+        await expectLater(
+          useCase.executeDeleteWithImpact(recordId),
+          throwsA(isA<StateError>()),
+        );
 
-      // 记录仍在、外协关联未被清空：整笔事务已回滚。
-      expect(await SqfliteTimingRepository().findById(recordId), isNotNull);
-      final records = await SqfliteExternalWorkRecordRepository().listByBatchId(
-        'batch-1',
-      );
-      expect(records.every((r) => r.linkedProjectId == 'project:a'), isTrue);
-    });
+        // 记录仍在、外协关联未被清空：整笔事务已回滚。
+        expect(await SqfliteTimingRepository().findById(recordId), isNotNull);
+        final records = await SqfliteExternalWorkRecordRepository()
+            .listByBatchId('batch-1');
+        expect(records.every((r) => r.linkedProjectId == 'project:a'), isTrue);
+      },
+    );
 
     // #10 + #11: no residual active merge members after the merged projects'
     // last records are deleted (account card count == merge sheet members).
-    test('clears residual merge members after both projects lose timing',
-        () async {
-      final db = await _openCurrentInMemoryDb();
-      await _insertProject(db, id: 'project:a', contact: '李杰', site: '工地A');
-      await _insertProject(db, id: 'project:b', contact: '富牛', site: '工地B');
-      final aId = await _insertTiming(
-        projectId: 'project:a',
-        contact: '李杰',
-        site: '工地A',
-      );
-      final bId = await _insertTiming(
-        projectId: 'project:b',
-        contact: '富牛',
-        site: '工地B',
-      );
-      await _createMergeGroup(['project:a', 'project:b'], contact: '李杰');
+    test(
+      'clears residual merge members after both projects lose timing',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        await _insertProject(db, id: 'project:a', contact: '李杰', site: '工地A');
+        await _insertProject(db, id: 'project:b', contact: '富牛', site: '工地B');
+        final aId = await _insertTiming(
+          projectId: 'project:a',
+          contact: '李杰',
+          site: '工地A',
+        );
+        final bId = await _insertTiming(
+          projectId: 'project:b',
+          contact: '富牛',
+          site: '工地B',
+        );
+        await _createMergeGroup(['project:a', 'project:b'], contact: '李杰');
 
-      final mergeRepo = SqfliteAccountProjectMergeRepository();
-      // 删除第一个项目最后一条计时 → 组降到 1 个有效成员，自动停用整组。
-      await _useCase().executeDeleteWithImpact(aId);
-      expect(await mergeRepo.listActiveGroupsWithMembers(), isEmpty);
+        final mergeRepo = SqfliteAccountProjectMergeRepository();
+        // 删除第一个项目最后一条计时 → 组降到 1 个有效成员，自动停用整组。
+        await _useCase().executeDeleteWithImpact(aId);
+        expect(await mergeRepo.listActiveGroupsWithMembers(), isEmpty);
 
-      // 删除第二个项目最后一条计时 → 无残留可清，安全完成。
-      final outcome = await _useCase().executeDeleteWithImpact(bId);
-      expect(outcome.mergeMemberRemoved, isFalse);
-      expect(await mergeRepo.listActiveMembers(), isEmpty);
-      expect(await SqfliteTimingRepository().findById(aId), isNull);
-      expect(await SqfliteTimingRepository().findById(bId), isNull);
-    });
+        // 删除第二个项目最后一条计时 → 无残留可清，安全完成。
+        final outcome = await _useCase().executeDeleteWithImpact(bId);
+        expect(outcome.mergeMemberRemoved, isFalse);
+        expect(await mergeRepo.listActiveMembers(), isEmpty);
+        expect(await SqfliteTimingRepository().findById(aId), isNull);
+        expect(await SqfliteTimingRepository().findById(bId), isNull);
+      },
+    );
   });
 
   group('executeDeleteWithImpact effective merge members', () {
     // #6: 剩余成员含历史孤儿，有效成员不足 2 → 孤儿停用 + 整组解散。
-    test('deactivates trace-less orphans and dissolves below 2 effective',
-        () async {
-      final db = await _openCurrentInMemoryDb();
-      for (final id in const ['project:a', 'project:b', 'project:c', 'project:d']) {
-        await _insertProject(db, id: id, site: id);
-      }
-      final aId = await _insertTiming(projectId: 'project:a');
-      await _insertTiming(projectId: 'project:b'); // b 有计时（有效）
-      // c、d 无计时、无任何痕迹 → 孤儿
-      await _createMergeGroup(['project:a', 'project:b', 'project:c', 'project:d']);
+    test(
+      'deactivates trace-less orphans and dissolves below 2 effective',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        for (final id in ['project:a', 'project:b', 'project:c', 'project:d']) {
+          await _insertProject(db, id: id, site: id);
+        }
+        final aId = await _insertTiming(projectId: 'project:a');
+        await _insertTiming(projectId: 'project:b'); // b 有计时（有效）
+        // c、d 无计时、无任何痕迹 → 孤儿
+        await _createMergeGroup([
+          'project:a',
+          'project:b',
+          'project:c',
+          'project:d',
+        ]);
 
-      final outcome = await _useCase().executeDeleteWithImpact(aId);
+        final outcome = await _useCase().executeDeleteWithImpact(aId);
 
-      expect(outcome.mergeMemberRemoved, isTrue);
-      expect(outcome.mergeGroupDissolved, isTrue);
-      final mergeRepo = SqfliteAccountProjectMergeRepository();
-      expect(await mergeRepo.listActiveGroups(), isEmpty);
-      expect(await mergeRepo.listActiveMembers(), isEmpty);
-    });
+        expect(outcome.mergeMemberRemoved, isTrue);
+        expect(outcome.mergeGroupDissolved, isTrue);
+        final mergeRepo = SqfliteAccountProjectMergeRepository();
+        expect(await mergeRepo.listActiveGroups(), isEmpty);
+        expect(await mergeRepo.listActiveMembers(), isEmpty);
+      },
+    );
 
     // #7: 剩余有效成员 >= 2 → 组保持 active，同时顺带清理孤儿。
-    test('keeps the group and cleans orphans when >= 2 effective remain',
-        () async {
-      final db = await _openCurrentInMemoryDb();
-      for (final id in const ['project:a', 'project:b', 'project:c', 'project:d']) {
-        await _insertProject(db, id: id, site: id);
-      }
-      final aId = await _insertTiming(projectId: 'project:a');
-      await _insertTiming(projectId: 'project:b'); // 有效
-      await _insertTiming(projectId: 'project:c'); // 有效
-      // d 无痕迹 → 孤儿
-      await _createMergeGroup(['project:a', 'project:b', 'project:c', 'project:d']);
+    test(
+      'keeps the group and cleans orphans when >= 2 effective remain',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        for (final id in ['project:a', 'project:b', 'project:c', 'project:d']) {
+          await _insertProject(db, id: id, site: id);
+        }
+        final aId = await _insertTiming(projectId: 'project:a');
+        await _insertTiming(projectId: 'project:b'); // 有效
+        await _insertTiming(projectId: 'project:c'); // 有效
+        // d 无痕迹 → 孤儿
+        await _createMergeGroup([
+          'project:a',
+          'project:b',
+          'project:c',
+          'project:d',
+        ]);
 
-      final outcome = await _useCase().executeDeleteWithImpact(aId);
+        final outcome = await _useCase().executeDeleteWithImpact(aId);
 
-      expect(outcome.mergeMemberRemoved, isTrue);
-      expect(outcome.mergeGroupDissolved, isFalse);
-      final mergeRepo = SqfliteAccountProjectMergeRepository();
-      expect(await mergeRepo.findActiveMemberByProjectId('project:a'), isNull);
-      expect(await mergeRepo.findActiveMemberByProjectId('project:d'), isNull);
-      expect(await mergeRepo.findActiveMemberByProjectId('project:b'), isNotNull);
-      expect(await mergeRepo.findActiveMemberByProjectId('project:c'), isNotNull);
-      expect(await mergeRepo.listActiveGroups(), hasLength(1));
-    });
+        expect(outcome.mergeMemberRemoved, isTrue);
+        expect(outcome.mergeGroupDissolved, isFalse);
+        final mergeRepo = SqfliteAccountProjectMergeRepository();
+        expect(
+          await mergeRepo.findActiveMemberByProjectId('project:a'),
+          isNull,
+        );
+        expect(
+          await mergeRepo.findActiveMemberByProjectId('project:d'),
+          isNull,
+        );
+        expect(
+          await mergeRepo.findActiveMemberByProjectId('project:b'),
+          isNotNull,
+        );
+        expect(
+          await mergeRepo.findActiveMemberByProjectId('project:c'),
+          isNotNull,
+        );
+        expect(await mergeRepo.listActiveGroups(), hasLength(1));
+      },
+    );
 
     // #8: raw active 仍为 2，但其中 1 个是无痕迹孤儿 → 有效成员 1 → 解散。
     test('dissolves when raw active is 2 but effective is 1', () async {
       final db = await _openCurrentInMemoryDb();
-      for (final id in const ['project:a', 'project:b', 'project:c']) {
+      for (final id in ['project:a', 'project:b', 'project:c']) {
         await _insertProject(db, id: id, site: id);
       }
       final aId = await _insertTiming(projectId: 'project:a');
@@ -360,7 +399,7 @@ void main() {
     // #9: 有账务/外协/结清痕迹（无计时）的成员不被自动停用。
     test('does not deactivate members that still carry traces', () async {
       final db = await _openCurrentInMemoryDb();
-      for (final id in const [
+      for (final id in [
         'project:a',
         'project:pay',
         'project:wo',
@@ -388,7 +427,7 @@ void main() {
       expect(outcome.mergeGroupDissolved, isFalse);
       final mergeRepo = SqfliteAccountProjectMergeRepository();
       expect(await mergeRepo.listActiveGroups(), hasLength(1));
-      for (final id in const [
+      for (final id in [
         'project:pay',
         'project:wo',
         'project:settled',
@@ -405,7 +444,7 @@ void main() {
     // #10: 合并清理过程中后续步骤失败 → 整笔事务回滚，不留半清理状态。
     test('rolls back merge cleanup when a later step fails', () async {
       final db = await _openCurrentInMemoryDb();
-      for (final id in const ['project:a', 'project:b', 'project:c']) {
+      for (final id in ['project:a', 'project:b', 'project:c']) {
         await _insertProject(db, id: id, site: id);
       }
       final aId = await _insertTiming(projectId: 'project:a');
@@ -432,7 +471,7 @@ void main() {
       expect(await SqfliteTimingRepository().findById(aId), isNotNull);
       final mergeRepo = SqfliteAccountProjectMergeRepository();
       expect(await mergeRepo.listActiveGroups(), hasLength(1));
-      for (final id in const ['project:a', 'project:b', 'project:c']) {
+      for (final id in ['project:a', 'project:b', 'project:c']) {
         expect(await mergeRepo.findActiveMemberByProjectId(id), isNotNull);
       }
     });
@@ -590,8 +629,16 @@ Future<void> _insertLinkedExternalBatch({
     ),
   );
   await SqfliteExternalWorkRecordRepository().insertRecords([
-    _externalRecord(id: 'rec-a', uuid: 'src-a', linkedProjectId: linkedProjectId),
-    _externalRecord(id: 'rec-b', uuid: 'src-b', linkedProjectId: linkedProjectId),
+    _externalRecord(
+      id: 'rec-a',
+      uuid: 'src-a',
+      linkedProjectId: linkedProjectId,
+    ),
+    _externalRecord(
+      id: 'rec-b',
+      uuid: 'src-b',
+      linkedProjectId: linkedProjectId,
+    ),
   ]);
 }
 
