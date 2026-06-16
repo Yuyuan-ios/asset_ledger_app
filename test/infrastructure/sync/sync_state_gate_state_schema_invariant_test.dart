@@ -25,6 +25,7 @@ void main() {
           orderedEquals(<String>[
             'scope',
             'last_pull_cursor',
+            'pull_cursor',
             'last_push_at',
             'last_success_at',
             'last_error',
@@ -37,6 +38,12 @@ void main() {
         expect(gateState, isNotNull);
         expect(gateState!['type'], 'TEXT');
         expect(gateState['notnull'], 0);
+
+        final pullCursor = columns['pull_cursor'];
+        expect(pullCursor, isNotNull);
+        expect(pullCursor!['type'], 'INTEGER');
+        expect(pullCursor['notnull'], 1);
+        expect(pullCursor['dflt_value'], '0');
       } finally {
         await db.close();
       }

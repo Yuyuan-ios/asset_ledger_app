@@ -2,10 +2,10 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../data/db/database.dart';
 
-/// R5.21：sync_state push gate 的最小读写 helper。
+/// sync_state 的最小读写 helper。
 ///
 /// 设计纪律：
-/// - 只服务 push gate 一个语义；不引入复杂状态机，不接 ConflictResolver / pull cursor。
+/// - push gate 与 pull cursor 都保持为独立 scope；不引入复杂状态机。
 /// - 所有写方法都暴露 *WithExecutor 版本，使 restore reconcile 等业务事务可以把
 ///   "清 sync_outbox / 清 entity_sync_meta / 写 gate=restore-pending" 三个动作放在
 ///   同一个 [AppDatabase.inTransaction] 里整体提交或整体回滚。
@@ -16,6 +16,19 @@ abstract class SyncStateRepository {
 
   /// 等价于 `(await readPushGate()) != null`。
   Future<bool> isPushGated();
+
+  /// 读取 Track B pull 游标(last_applied_server_seq)。没有 row 时返回 0。
+  Future<int> readPullCursor();
+
+  /// 在调用方事务内写入 pull 游标。只允许非负 server_seq。
+  Future<void> writePullCursorWithExecutor(
+    DatabaseExecutor executor,
+    int cursor, {
+    DateTime? now,
+  });
+
+  /// 非事务入口：等价于在新事务里调用 [writePullCursorWithExecutor]。
+  Future<void> writePullCursor(int cursor, {DateTime? now});
 
   /// 在调用方事务内把 push gate 设为 [SyncStateRepository.gateRestorePending]。
   Future<void> markPushGateRestorePendingWithExecutor(
@@ -35,6 +48,7 @@ abstract class SyncStateRepository {
   Future<void> clearPushGate({DateTime? now});
 
   static const String kPushGateScope = 'push_gate';
+  static const String kPullCursorScope = 'pull_cursor';
   static const String gateRestorePending = 'restore-pending';
 }
 
@@ -64,6 +78,47 @@ class LocalSyncStateRepository implements SyncStateRepository {
 
   @override
   Future<bool> isPushGated() async => (await readPushGate()) != null;
+
+  @override
+  Future<int> readPullCursor() async {
+    final db = await AppDatabase.database;
+    final rows = await db.query(
+      _table,
+      columns: const ['pull_cursor'],
+      where: 'scope = ?',
+      whereArgs: const [SyncStateRepository.kPullCursorScope],
+      limit: 1,
+    );
+    if (rows.isEmpty) return 0;
+    final value = rows.single['pull_cursor'];
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  @override
+  Future<void> writePullCursorWithExecutor(
+    DatabaseExecutor executor,
+    int cursor, {
+    DateTime? now,
+  }) async {
+    if (cursor < 0) {
+      throw ArgumentError.value(cursor, 'cursor', 'must be non-negative');
+    }
+    final ts = (now ?? _now()).toUtc().toIso8601String();
+    await executor.insert(_table, {
+      'scope': SyncStateRepository.kPullCursorScope,
+      'pull_cursor': cursor,
+      'updated_at': ts,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<void> writePullCursor(int cursor, {DateTime? now}) async {
+    await AppDatabase.inTransaction<void>(
+      (txn) => writePullCursorWithExecutor(txn, cursor, now: now),
+    );
+  }
 
   @override
   Future<void> markPushGateRestorePendingWithExecutor(

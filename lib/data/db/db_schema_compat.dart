@@ -153,6 +153,9 @@ class DbSchemaCompat {
     // v48（Track A / A4-7）：timing_records.income REAL 删除；
     // timing_records 是非叶子表，重建只能走本 onOpen 路径。
     await DbMigrations.ensureTimingIncomeRealDropped(db);
+    // v49（Track B / B2）：sync_state pull_cursor 是 additive 列，
+    // 用 onOpen 兜底历史库结构漂移。
+    await DbMigrations.ensureSyncStatePullCursor(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

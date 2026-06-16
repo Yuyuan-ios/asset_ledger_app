@@ -30,6 +30,7 @@ class SyncSchema {
       CREATE TABLE IF NOT EXISTS sync_state (
         scope TEXT PRIMARY KEY,
         last_pull_cursor TEXT,
+        pull_cursor INTEGER NOT NULL DEFAULT 0,
         last_push_at TEXT,
         last_success_at TEXT,
         last_error TEXT,
