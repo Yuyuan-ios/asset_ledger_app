@@ -84,6 +84,7 @@ class LocalRestoreService {
         // 在未来 Cloud push 接通时把残留 outbox 静默推到云端。
         await txn.delete('sync_outbox');
         await txn.delete('entity_sync_meta');
+        await txn.delete('sync_conflicts');
         await _syncStateRepository.markPushGateRestorePendingWithExecutor(txn);
       });
 

@@ -43,6 +43,7 @@ void main() {
         'sync_outbox',
         'sync_state',
         'entity_sync_meta',
+        'sync_conflicts',
         'work_records',
       ]),
     );

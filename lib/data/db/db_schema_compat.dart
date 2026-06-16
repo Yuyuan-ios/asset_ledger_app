@@ -156,6 +156,9 @@ class DbSchemaCompat {
     // v49（Track B / B2）：sync_state pull_cursor 是 additive 列，
     // 用 onOpen 兜底历史库结构漂移。
     await DbMigrations.ensureSyncStatePullCursor(db);
+    // v50（Track B / B3）：sync_conflicts 是本地冲突复核队列，
+    // 用 onOpen 兜底历史库结构漂移。
+    await DbMigrations.ensureSyncConflictsSchema(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

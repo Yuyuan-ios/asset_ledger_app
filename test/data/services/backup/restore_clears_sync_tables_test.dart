@@ -4,6 +4,7 @@ import 'package:asset_ledger/data/services/local_backup_export_service.dart';
 import 'package:asset_ledger/data/services/local_backup_import_preview_service.dart';
 import 'package:asset_ledger/data/services/local_backup_restore_service.dart';
 import 'package:asset_ledger/infrastructure/sync/entity_sync_meta.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_conflict_repository.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_state_repository.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_status.dart';
@@ -65,11 +66,28 @@ void main() {
           source: 'owner_app',
         ),
       );
+      await const LocalSyncConflictRepository().insertIfAbsent(
+        const SyncConflict(
+          id: 'conflict-pre-restore',
+          entityType: 'timing_record',
+          entityId: 'pre-restore-1',
+          remoteServerSeq: 7,
+          remoteBaseVersion: 1,
+          remoteNewVersion: 2,
+          remotePayloadJson: '{"record":{}}',
+          remotePayloadHash: 'remote-hash',
+          remoteDeleted: false,
+          conflictReason: 'remote_newer_local_dirty',
+          detectedAt: '2026-06-05T01:00:00.000Z',
+          status: SyncConflictStatus.pending,
+        ),
+      );
 
       // sanity：两表先有残留，sync_state 中 push gate 还未设置。
       final db = await AppDatabase.database;
       expect((await db.query('sync_outbox')).length, 2);
       expect((await db.query('entity_sync_meta')).length, 1);
+      expect((await db.query('sync_conflicts')).length, 1);
       const gateRepo = LocalSyncStateRepository();
       expect(await gateRepo.isPushGated(), isFalse);
 
@@ -101,6 +119,11 @@ void main() {
         (await db.query('entity_sync_meta')).length,
         0,
         reason: 'restore must clear entity_sync_meta in the same transaction',
+      );
+      expect(
+        (await db.query('sync_conflicts')).length,
+        0,
+        reason: 'restore must clear sync_conflicts in the same transaction',
       );
       expect(
         await gateRepo.readPushGate(),
@@ -139,7 +162,8 @@ void main() {
     expect(
       (await db.query('sync_outbox')).length,
       1,
-      reason: 'restore that never entered the transaction must not clear outbox',
+      reason:
+          'restore that never entered the transaction must not clear outbox',
     );
     const gateRepo = LocalSyncStateRepository();
     expect(

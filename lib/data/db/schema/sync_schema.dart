@@ -63,6 +63,31 @@ class SyncSchema {
     ''');
 
     await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_conflicts (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        remote_server_seq INTEGER NOT NULL CHECK (remote_server_seq >= 0),
+        remote_base_version INTEGER NOT NULL DEFAULT 0 CHECK (remote_base_version >= 0),
+        remote_new_version INTEGER NOT NULL CHECK (remote_new_version >= 0),
+        remote_payload_json TEXT NOT NULL,
+        remote_payload_hash TEXT NOT NULL,
+        remote_deleted INTEGER NOT NULL DEFAULT 0 CHECK (remote_deleted IN (0, 1)),
+        conflict_reason TEXT NOT NULL,
+        detected_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        resolution TEXT,
+        resolved_at TEXT,
+        UNIQUE(entity_type, entity_id, remote_server_seq)
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status_detected
+      ON sync_conflicts(status, detected_at);
+    ''');
+
+    await db.execute('''
       CREATE TABLE IF NOT EXISTS work_records (
         server_id TEXT,
         local_id TEXT PRIMARY KEY,

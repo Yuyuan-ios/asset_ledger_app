@@ -146,10 +146,12 @@ class AppDatabase {
   // - v49：sync_state 新增 INTEGER NOT NULL DEFAULT 0 pull_cursor
   //        （Track B / B2）；记录 last_applied_server_seq。保留旧
   //        last_pull_cursor TEXT 兼容列，不改 push gate 行为。
+  // - v50：新增 sync_conflicts（Track B / B3）；持久化 pull 冲突队列，
+  //        以 (entity_type, entity_id, remote_server_seq) 防重复。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 49;
+  static const int _dbVersion = 50;
 
   static int get schemaVersion => _dbVersion;
 
