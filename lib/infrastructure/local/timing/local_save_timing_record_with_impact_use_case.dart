@@ -19,13 +19,12 @@ import '../../../data/services/project_resolver.dart';
 import '../../../features/account/domain/services/project_finance_calculator.dart';
 import '../../../features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
-import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
-import '../../sync/sync_status.dart';
 import '../../sync/sync_transaction_group.dart';
 import '../account/project_sync_enqueuer.dart';
 import '../account/project_settlement_impact_service.dart';
+import 'timing_record_sync_enqueuer.dart';
 
 /// [SaveTimingRecordWithImpactUseCase] 的本地实现。
 ///
@@ -56,6 +55,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
     ProjectSyncEnqueuer? projectSyncEnqueuer,
+    TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer,
     SyncActorProvider? actorProvider,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
@@ -67,13 +67,15 @@ class LocalSaveTimingRecordWithImpactUseCase
            projectRepository ?? const SqfliteProjectRepository(),
        _projectResolver = projectResolver,
        _impactService = impactService,
-       _syncOutboxRepository =
-           syncOutboxRepository ?? const LocalSyncOutboxRepository(),
-       _entitySyncMetaRepository =
-           entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
        _projectSyncEnqueuer =
            projectSyncEnqueuer ??
            ProjectSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
+       _timingRecordSyncEnqueuer =
+           timingRecordSyncEnqueuer ??
+           TimingRecordSyncEnqueuer(
              syncOutboxRepository: syncOutboxRepository,
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
@@ -89,14 +91,10 @@ class LocalSaveTimingRecordWithImpactUseCase
   final SqfliteProjectRepository _projectRepository;
   final ProjectResolver _projectResolver;
   final ProjectSettlementImpactService _impactService;
-  final SyncOutboxRepository _syncOutboxRepository;
-  final EntitySyncMetaRepository _entitySyncMetaRepository;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
+  final TimingRecordSyncEnqueuer _timingRecordSyncEnqueuer;
   final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
-
-  static const String _timingRecordEntityType = 'timing_record';
-  static const String _ownerAppSource = 'owner_app';
 
   @override
   Future<SaveTimingRecordPreparation> prepareForSave({
@@ -339,55 +337,23 @@ class LocalSaveTimingRecordWithImpactUseCase
     if (id == null) {
       throw StateError('sync_outbox 入队需要最终落库后的 timing_record id');
     }
-    final operation = isEditing ? 'update' : 'create';
-    final entityId = id.toString();
-    final shouldIncludeNullAllocationCutoffDate =
-        isEditing &&
-        savedRecord.allocationCutoffDate == null &&
-        existingRecord?.allocationCutoffDate != null;
-    final shouldIncludeNullDisplayEndDate =
-        isEditing &&
-        savedRecord.displayEndDate == null &&
-        existingRecord?.displayEndDate != null;
-    // R5.25-Hardening: production composition root threads a SyncActorProvider
-    // backed by AppIdentityService so payload.actor.id and
-    // entity_sync_meta.updated_by carry the persisted owner id; tests/legacy
-    // paths without a provider fall back to ownerAppSyncActor (null actor id),
-    // covered by production_owner_actor_provider_invariant_test.
-    final resolvedActor = resolveSyncActor(actor);
-    final entry = await _syncOutboxRepository.enqueueWithExecutor(
+    if (isEditing) {
+      await _timingRecordSyncEnqueuer.enqueueUpdate(
+        txn,
+        record: savedRecord,
+        existingRecord: existingRecord,
+        transactionGroupId: group?.id,
+        localSequence: group?.nextSequence(),
+        actor: actor,
+      );
+      return;
+    }
+    await _timingRecordSyncEnqueuer.enqueueCreate(
       txn,
-      entityType: _timingRecordEntityType,
-      entityId: entityId,
-      operation: operation,
-      payload: {
-        'payload_schema_version': kSyncPayloadSchemaVersion,
-        'entity_type': _timingRecordEntityType,
-        'entity_id': entityId,
-        'operation': operation,
-        'actor': syncActorPayload(resolvedActor),
-        'record': savedRecord.toMap(
-          includeNullAllocationCutoffDate:
-              shouldIncludeNullAllocationCutoffDate,
-          includeNullDisplayEndDate: shouldIncludeNullDisplayEndDate,
-        ),
-      },
+      record: savedRecord,
       transactionGroupId: group?.id,
       localSequence: group?.nextSequence(),
-    );
-    await _entitySyncMetaRepository.upsertWithExecutor(
-      txn,
-      EntitySyncMeta(
-        entityType: _timingRecordEntityType,
-        localId: entityId,
-        syncStatus: isEditing
-            ? SyncStatus.pendingUpdate
-            : SyncStatus.pendingUpload,
-        version: 0,
-        source: _ownerAppSource,
-        updatedBy: resolvedActor.actorId,
-        payloadHash: entry.payloadHash,
-      ),
+      actor: actor,
     );
   }
 

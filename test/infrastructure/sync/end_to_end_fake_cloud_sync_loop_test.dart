@@ -8,6 +8,7 @@ import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/local/account/local_account_payment_write_use_case.dart';
 import 'package:asset_ledger/infrastructure/sync/entity_sync_meta.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_conflict_repository.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
@@ -374,22 +375,22 @@ void main() {
       ),
     );
 
+    final remoteConflictResponse = _pullResponse([
+      _remoteTimingChange(
+        serverSeq: 4,
+        entityId: 201,
+        baseVersion: 1,
+        newVersion: 2,
+        payload: _remoteTimingPayload(
+          id: 201,
+          deviceId: deviceId,
+          incomeFen: 30000,
+        ),
+      ),
+    ], nextCursor: 4);
     final client = FakeCloudApiClient()
-      ..enqueueResponse(
-        _pullResponse([
-          _remoteTimingChange(
-            serverSeq: 4,
-            entityId: 201,
-            baseVersion: 1,
-            newVersion: 2,
-            payload: _remoteTimingPayload(
-              id: 201,
-              deviceId: deviceId,
-              incomeFen: 30000,
-            ),
-          ),
-        ], nextCursor: 4),
-      );
+      ..enqueueResponse(remoteConflictResponse)
+      ..enqueueResponse(remoteConflictResponse);
 
     final result = await managerWith(client).pullPending(limit: 10);
 
@@ -405,6 +406,23 @@ void main() {
     final outboxAfter = (await db.query('sync_outbox')).single;
     expect(outboxAfter['status'], SyncOutboxStatus.pending.name);
     expect(outboxAfter['payload_hash'], 'local-hash');
+
+    final conflicts = await const LocalSyncConflictRepository().listPending();
+    expect(conflicts, hasLength(1));
+    expect(conflicts.single.entityType, 'timing_record');
+    expect(conflicts.single.entityId, '201');
+    expect(conflicts.single.remoteServerSeq, 4);
+    expect(conflicts.single.remoteBaseVersion, 1);
+    expect(conflicts.single.remoteNewVersion, 2);
+    expect(conflicts.single.conflictReason, 'remote_newer_local_dirty');
+
+    await const LocalSyncStateRepository().writePullCursor(3, now: fixedNow);
+    final duplicateResult = await managerWith(client).pullPending(limit: 10);
+    expect(duplicateResult.conflicts, hasLength(1));
+    expect(
+      await const LocalSyncConflictRepository().listPending(),
+      hasLength(1),
+    );
   });
 
   test('pullPending skips changes that originated from this device', () async {

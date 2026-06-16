@@ -4,6 +4,7 @@ import 'conflict_resolver.dart';
 import 'entity_sync_meta.dart';
 import 'remote_change.dart';
 import 'remote_change_applier.dart';
+import 'sync_conflict_repository.dart';
 import 'sync_live_readiness_gate.dart';
 import 'sync_outbox_entry.dart';
 import 'sync_repositories.dart';
@@ -152,6 +153,8 @@ class SyncManager {
     RemoteChangeApplier remoteChangeApplier =
         const TimingRecordRemoteChangeApplier(),
     ConflictResolver conflictResolver = const ConflictResolver(),
+    SyncConflictRepository syncConflictRepository =
+        const LocalSyncConflictRepository(),
     SyncLiveReadinessGate liveReadinessGate =
         const DefaultSyncLiveReadinessGate(),
     String? localDeviceId,
@@ -163,6 +166,7 @@ class SyncManager {
        _pullMetaRepository = pullMetaRepository,
        _remoteChangeApplier = remoteChangeApplier,
        _conflictResolver = conflictResolver,
+       _syncConflictRepository = syncConflictRepository,
        _liveReadinessGate = liveReadinessGate,
        _localDeviceId = localDeviceId,
        _now = now ?? DateTime.now;
@@ -174,6 +178,7 @@ class SyncManager {
   final EntitySyncMetaRepository _pullMetaRepository;
   final RemoteChangeApplier _remoteChangeApplier;
   final ConflictResolver _conflictResolver;
+  final SyncConflictRepository _syncConflictRepository;
   final SyncLiveReadinessGate _liveReadinessGate;
   final String? _localDeviceId;
   final DateTime Function() _now;
@@ -271,14 +276,24 @@ class SyncManager {
         continue;
       }
 
-      await _syncStateRepository.writePullCursor(nextCursor, now: _now());
+      final reason = decision.reason ?? decision.status.name;
+      await AppDatabase.inTransaction<void>((txn) async {
+        await _syncConflictRepository.insertIfAbsentWithExecutor(
+          txn,
+          SyncConflict.fromRemoteChange(
+            change: change,
+            reason: reason,
+            detectedAt: _now(),
+          ),
+        );
+        await _syncStateRepository.writePullCursorWithExecutor(
+          txn,
+          nextCursor,
+          now: _now(),
+        );
+      });
       processedCursor = nextCursor;
-      conflicts.add(
-        SyncPullConflict(
-          change: change,
-          reason: decision.reason ?? decision.status.name,
-        ),
-      );
+      conflicts.add(SyncPullConflict(change: change, reason: reason));
     }
 
     return SyncPullResult(

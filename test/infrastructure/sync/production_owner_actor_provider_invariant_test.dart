@@ -129,6 +129,9 @@ void main() {
           'lib/infrastructure/local/timing/'
           'local_delete_timing_record_with_impact_use_case.dart',
         );
+        final timingEnqueuer = _read(
+          'lib/infrastructure/local/timing/timing_record_sync_enqueuer.dart',
+        );
         // Save: evaluates the provider once, then shares that actor across the
         // timing row and any project restore rows in the same transaction group.
         expect(
@@ -148,11 +151,12 @@ void main() {
         );
         expect(
           save,
-          contains('resolveSyncActor(actor)'),
+          contains('_timingRecordSyncEnqueuer.enqueueUpdate('),
           reason:
-              'Timing save inline payload must wrap the provider-resolved '
-              'actor through resolveSyncActor, preserving the legacy fallback.',
+              'Timing save must delegate row-level sync payload writes through '
+              'the timing enqueuer.',
         );
+        expect(save, contains('_timingRecordSyncEnqueuer.enqueueCreate('));
         // Delete: passes the actor through to _enqueueSyncForDeletedRecord and
         // the cascade enqueuers in the same transaction.
         expect(
@@ -165,10 +169,29 @@ void main() {
         );
         expect(
           del,
+          contains('_timingRecordSyncEnqueuer.enqueueDelete('),
+          reason:
+              'Timing delete must delegate row-level sync payload writes '
+              'through the timing enqueuer.',
+        );
+        expect(
+          timingEnqueuer,
           contains('resolveSyncActor(actor)'),
           reason:
-              'Timing delete inline payload must wrap the provider-resolved '
-              'actor through resolveSyncActor, preserving the legacy fallback.',
+              'Timing enqueuer must wrap the provider-resolved actor through '
+              'resolveSyncActor, preserving the legacy fallback.',
+        );
+        expect(
+          timingEnqueuer,
+          contains('syncActorPayload(resolvedActor)'),
+          reason:
+              'Timing enqueuer must carry the resolved actor into the payload.',
+        );
+        expect(
+          timingEnqueuer,
+          contains('updatedBy: resolvedActor.actorId'),
+          reason:
+              'Timing enqueuer must mirror the resolved actor into metadata.',
         );
       },
     );

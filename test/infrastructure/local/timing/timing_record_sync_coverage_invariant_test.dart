@@ -8,16 +8,18 @@ void main() {
       final source = _read(
         'lib/infrastructure/local/timing/local_save_timing_record_with_impact_use_case.dart',
       );
+      final enqueuer = _read(
+        'lib/infrastructure/local/timing/timing_record_sync_enqueuer.dart',
+      );
 
       _expectAllContains(source, const [
         'class LocalSaveTimingRecordWithImpactUseCase',
         'SyncOutboxRepository? syncOutboxRepository',
         'EntitySyncMetaRepository? entitySyncMetaRepository',
         'ProjectSyncEnqueuer? projectSyncEnqueuer',
-        'LocalSyncOutboxRepository()',
-        'LocalEntitySyncMetaRepository()',
+        'TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer',
         'ProjectSyncEnqueuer(',
-        "static const String _timingRecordEntityType = 'timing_record';",
+        'TimingRecordSyncEnqueuer(',
         'AppDatabase.inTransaction',
         'executeWithExecutor(',
         '_saveRecordWithExecutor(',
@@ -26,26 +28,41 @@ void main() {
         '_enqueueSyncForSavedRecord(',
         '_enqueueRevokedProjectUpdate(',
         '_projectSyncEnqueuer.enqueueUpdate(',
-        '_syncOutboxRepository.enqueueWithExecutor(',
-        '_entitySyncMetaRepository.upsertWithExecutor(',
-        "final operation = isEditing ? 'update' : 'create';",
-        // R5.25 payload schema version + actor traceability + updated_by.
-        "'payload_schema_version': kSyncPayloadSchemaVersion",
-        "'actor': syncActorPayload(resolvedActor)",
-        'updatedBy: resolvedActor.actorId',
-        "'entity_type': _timingRecordEntityType",
-        "'entity_id': entityId",
-        "'operation': operation",
-        "'record': savedRecord.toMap(",
+        '_timingRecordSyncEnqueuer.enqueueUpdate(',
+        '_timingRecordSyncEnqueuer.enqueueCreate(',
         'transactionGroupId: group?.id',
         'localSequence: group?.nextSequence()',
         'transactionGroupId: group.id',
         'localSequence: group.nextSequence()',
-        'SyncStatus.pendingUpdate',
-        'SyncStatus.pendingUpload',
-        'payloadHash: entry.payloadHash',
         'insertWithExecutor(',
         'updateWithExecutor(',
+      ]);
+      _expectAllContains(enqueuer, const [
+        'class TimingRecordSyncEnqueuer',
+        'SyncOutboxRepository? syncOutboxRepository',
+        'EntitySyncMetaRepository? entitySyncMetaRepository',
+        'LocalSyncOutboxRepository()',
+        'LocalEntitySyncMetaRepository()',
+        "static const String entityType = 'timing_record';",
+        'Future<void> enqueueCreate(',
+        "operation: 'create'",
+        'SyncStatus.pendingUpload',
+        'Future<void> enqueueUpdate(',
+        "operation: 'update'",
+        'SyncStatus.pendingUpdate',
+        '_syncOutboxRepository.enqueueWithExecutor(',
+        '_entitySyncMetaRepository.upsertWithExecutor(',
+        // R5.25 payload schema version + actor traceability + updated_by.
+        "'payload_schema_version': kSyncPayloadSchemaVersion",
+        "'actor': syncActorPayload(resolvedActor)",
+        'updatedBy: resolvedActor.actorId',
+        "'entity_type': entityType",
+        "'entity_id': entityId",
+        "'operation': operation",
+        "'record': record.toMap(",
+        'transactionGroupId: transactionGroupId',
+        'localSequence: localSequence',
+        'payloadHash: entry.payloadHash',
       ]);
       _expectInOrder(source, const [
         'AppDatabase.inTransaction',
@@ -70,6 +87,9 @@ void main() {
       final source = _read(
         'lib/infrastructure/local/timing/local_delete_timing_record_with_impact_use_case.dart',
       );
+      final enqueuer = _read(
+        'lib/infrastructure/local/timing/timing_record_sync_enqueuer.dart',
+      );
 
       _expectAllContains(source, const [
         'class LocalDeleteTimingRecordWithImpactUseCase',
@@ -78,12 +98,11 @@ void main() {
         'ProjectWriteOffSyncEnqueuer? projectWriteOffSyncEnqueuer',
         'ProjectSyncEnqueuer? projectSyncEnqueuer',
         'ExternalWorkSyncEnqueuer? externalWorkSyncEnqueuer',
-        'LocalSyncOutboxRepository()',
-        'LocalEntitySyncMetaRepository()',
+        'TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer',
         'ProjectWriteOffSyncEnqueuer(',
         'ProjectSyncEnqueuer(',
         'ExternalWorkSyncEnqueuer(',
-        "static const String _timingRecordEntityType = 'timing_record';",
+        'TimingRecordSyncEnqueuer(',
         'AppDatabase.inTransaction',
         'executeDeleteWithImpact(',
         '_timingRepository.findByIdWithExecutor(',
@@ -99,14 +118,19 @@ void main() {
         'unlinkByProjectIdWithExecutor(',
         '_externalWorkSyncEnqueuer.enqueueUpdate(',
         '_enqueueSyncForDeletedRecord(',
+        '_timingRecordSyncEnqueuer.enqueueDelete(',
+      ]);
+      _expectAllContains(enqueuer, const [
+        'class TimingRecordSyncEnqueuer',
+        'Future<void> enqueueDelete(',
+        "operation: 'delete'",
+        'SyncStatus.pendingDelete',
         '_syncOutboxRepository.enqueueWithExecutor(',
         '_entitySyncMetaRepository.upsertWithExecutor(',
-        "operation: 'delete'",
-        "'entity_type': _timingRecordEntityType",
+        "'entity_type': entityType",
         "'entity_id': entityId",
-        "'operation': 'delete'",
-        "'record': deletedRecord.toMap()",
-        'SyncStatus.pendingDelete',
+        "'operation': operation",
+        "'record': record.toMap(",
         'payloadHash: entry.payloadHash',
       ]);
       _expectInOrder(source, const [

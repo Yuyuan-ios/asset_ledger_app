@@ -137,9 +137,21 @@ class SyncConflict {
 abstract class SyncConflictRepository {
   Future<bool> insertIfAbsent(SyncConflict conflict);
 
+  Future<bool> insertIfAbsentWithExecutor(
+    DatabaseExecutor executor,
+    SyncConflict conflict,
+  );
+
   Future<List<SyncConflict>> listPending({int limit = 50});
 
   Future<int> markResolved({
+    required String id,
+    required SyncConflictResolution resolution,
+    DateTime? now,
+  });
+
+  Future<int> markResolvedWithExecutor(
+    DatabaseExecutor executor, {
     required String id,
     required SyncConflictResolution resolution,
     DateTime? now,
@@ -157,7 +169,15 @@ class LocalSyncConflictRepository implements SyncConflictRepository {
   @override
   Future<bool> insertIfAbsent(SyncConflict conflict) async {
     final db = await AppDatabase.database;
-    final inserted = await db.insert(
+    return insertIfAbsentWithExecutor(db, conflict);
+  }
+
+  @override
+  Future<bool> insertIfAbsentWithExecutor(
+    DatabaseExecutor executor,
+    SyncConflict conflict,
+  ) async {
+    final inserted = await executor.insert(
       _table,
       conflict.toMap(),
       conflictAlgorithm: ConflictAlgorithm.ignore,
@@ -185,7 +205,22 @@ class LocalSyncConflictRepository implements SyncConflictRepository {
     DateTime? now,
   }) async {
     final db = await AppDatabase.database;
-    return db.update(
+    return markResolvedWithExecutor(
+      db,
+      id: id,
+      resolution: resolution,
+      now: now,
+    );
+  }
+
+  @override
+  Future<int> markResolvedWithExecutor(
+    DatabaseExecutor executor, {
+    required String id,
+    required SyncConflictResolution resolution,
+    DateTime? now,
+  }) async {
+    return executor.update(
       _table,
       {
         'status': SyncConflictStatus.resolved.name,

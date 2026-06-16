@@ -11,14 +11,13 @@ import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
-import '../../sync/entity_sync_meta.dart';
 import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
-import '../../sync/sync_status.dart';
 import '../../sync/sync_transaction_group.dart';
 import '../account/project_sync_enqueuer.dart';
 import '../account/project_write_off_sync_enqueuer.dart';
 import 'external_work_sync_enqueuer.dart';
+import 'timing_record_sync_enqueuer.dart';
 
 /// 删除计时记录影响分析 + 联动清理的本地实现。
 ///
@@ -38,6 +37,7 @@ class LocalDeleteTimingRecordWithImpactUseCase
     ProjectWriteOffSyncEnqueuer? projectWriteOffSyncEnqueuer,
     ProjectSyncEnqueuer? projectSyncEnqueuer,
     ExternalWorkSyncEnqueuer? externalWorkSyncEnqueuer,
+    TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer,
     SyncActorProvider? actorProvider,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
@@ -46,10 +46,6 @@ class LocalDeleteTimingRecordWithImpactUseCase
        _externalWorkRecordRepository = externalWorkRecordRepository,
        _writeOffRepository = writeOffRepository,
        _projectRepository = projectRepository,
-       _syncOutboxRepository =
-           syncOutboxRepository ?? const LocalSyncOutboxRepository(),
-       _entitySyncMetaRepository =
-           entitySyncMetaRepository ?? const LocalEntitySyncMetaRepository(),
        _projectWriteOffSyncEnqueuer =
            projectWriteOffSyncEnqueuer ??
            ProjectWriteOffSyncEnqueuer(
@@ -68,6 +64,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
              syncOutboxRepository: syncOutboxRepository,
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
+       _timingRecordSyncEnqueuer =
+           timingRecordSyncEnqueuer ??
+           TimingRecordSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
        _actorProvider = actorProvider,
        _now = now ?? DateTime.now;
 
@@ -77,17 +79,14 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final SqfliteExternalWorkRecordRepository _externalWorkRecordRepository;
   final SqfliteProjectWriteOffRepository _writeOffRepository;
   final SqfliteProjectRepository _projectRepository;
-  final SyncOutboxRepository _syncOutboxRepository;
-  final EntitySyncMetaRepository _entitySyncMetaRepository;
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
   final ExternalWorkSyncEnqueuer _externalWorkSyncEnqueuer;
+  final TimingRecordSyncEnqueuer _timingRecordSyncEnqueuer;
   final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
 
   static const int _minActiveMergeMembers = 2;
-  static const String _timingRecordEntityType = 'timing_record';
-  static const String _ownerAppSource = 'owner_app';
 
   @override
   Future<TimingRecordDeleteImpact> analyzeImpact(int recordId) async {
@@ -345,40 +344,12 @@ class LocalDeleteTimingRecordWithImpactUseCase
     if (id == null) {
       throw StateError('sync_outbox 入队需要被删除 timing_record 的 id');
     }
-    final entityId = id.toString();
-    // R5.25-Hardening: production composition root threads a SyncActorProvider
-    // backed by AppIdentityService so payload.actor.id and
-    // entity_sync_meta.updated_by carry the persisted owner id; tests/legacy
-    // paths without a provider fall back to ownerAppSyncActor (null actor id),
-    // covered by production_owner_actor_provider_invariant_test.
-    final resolvedActor = resolveSyncActor(actor);
-    final entry = await _syncOutboxRepository.enqueueWithExecutor(
+    await _timingRecordSyncEnqueuer.enqueueDelete(
       txn,
-      entityType: _timingRecordEntityType,
-      entityId: entityId,
-      operation: 'delete',
-      payload: {
-        'payload_schema_version': kSyncPayloadSchemaVersion,
-        'entity_type': _timingRecordEntityType,
-        'entity_id': entityId,
-        'operation': 'delete',
-        'actor': syncActorPayload(resolvedActor),
-        'record': deletedRecord.toMap(),
-      },
+      record: deletedRecord,
       transactionGroupId: group?.id,
       localSequence: group?.nextSequence(),
-    );
-    await _entitySyncMetaRepository.upsertWithExecutor(
-      txn,
-      EntitySyncMeta(
-        entityType: _timingRecordEntityType,
-        localId: entityId,
-        syncStatus: SyncStatus.pendingDelete,
-        version: 0,
-        source: _ownerAppSource,
-        updatedBy: resolvedActor.actorId,
-        payloadHash: entry.payloadHash,
-      ),
+      actor: actor,
     );
   }
 

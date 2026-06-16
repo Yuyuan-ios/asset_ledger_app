@@ -12,10 +12,7 @@ void main() {
     'lib/infrastructure/local/account/project_sync_enqueuer.dart',
     'lib/infrastructure/local/account/project_write_off_sync_enqueuer.dart',
     'lib/infrastructure/local/timing/external_work_sync_enqueuer.dart',
-    'lib/infrastructure/local/timing/'
-        'local_save_timing_record_with_impact_use_case.dart',
-    'lib/infrastructure/local/timing/'
-        'local_delete_timing_record_with_impact_use_case.dart',
+    'lib/infrastructure/local/timing/timing_record_sync_enqueuer.dart',
   ];
 
   for (final path in payloadSites) {
