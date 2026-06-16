@@ -2315,5 +2315,95 @@
   "deviceTermsSection8Body": "我们可能根据产品迭代、平台政策或法律法规变化对本条款进行更新。更新版本发布后，如你继续使用本应用，视为接受更新后的条款。如有问题，可联系：582748196@qq.com。",
   "@deviceTermsSection8Body": {
     "description": "设备模块:使用条款第8节正文"
+  },
+  "syncConflictReviewTitle": "同步冲突复核",
+  "@syncConflictReviewTitle": {
+    "description": "同步冲突复核页标题"
+  },
+  "syncConflictReviewEmpty": "暂无待复核冲突",
+  "@syncConflictReviewEmpty": {
+    "description": "同步冲突复核页空态"
+  },
+  "syncConflictReviewLoadFailure": "冲突列表加载失败，请稍后重试",
+  "@syncConflictReviewLoadFailure": {
+    "description": "同步冲突复核页加载失败提示"
+  },
+  "syncConflictResolveFailure": "裁决失败，请稍后重试",
+  "@syncConflictResolveFailure": {
+    "description": "同步冲突复核页裁决失败提示"
+  },
+  "syncConflictReviewManualHint": "需要手动合并时，先保留本地，再到常规编辑页调整。",
+  "@syncConflictReviewManualHint": {
+    "description": "同步冲突复核页手动合并说明"
+  },
+  "syncConflictReviewEntityTitle": "计时记录 {entityId}",
+  "@syncConflictReviewEntityTitle": {
+    "description": "同步冲突复核页单条冲突标题",
+    "placeholders": {
+      "entityId": {
+        "type": "String",
+        "example": "101"
+      }
+    }
+  },
+  "syncConflictReviewReason": "原因：{reason}",
+  "@syncConflictReviewReason": {
+    "description": "同步冲突复核页冲突原因",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "remote_newer_local_dirty"
+      }
+    }
+  },
+  "syncConflictReviewLocalLabel": "本地当前",
+  "@syncConflictReviewLocalLabel": {
+    "description": "同步冲突复核页本地摘要标签"
+  },
+  "syncConflictReviewRemoteLabel": "远端来袭",
+  "@syncConflictReviewRemoteLabel": {
+    "description": "同步冲突复核页远端摘要标签"
+  },
+  "syncConflictReviewUseRemote": "用远端",
+  "@syncConflictReviewUseRemote": {
+    "description": "同步冲突复核页使用远端按钮"
+  },
+  "syncConflictReviewUseLocal": "用本地",
+  "@syncConflictReviewUseLocal": {
+    "description": "同步冲突复核页使用本地按钮"
+  },
+  "syncConflictReviewMissingLocal": "本地记录已不存在",
+  "@syncConflictReviewMissingLocal": {
+    "description": "同步冲突复核页本地记录缺失摘要"
+  },
+  "syncConflictReviewMissingRemote": "远端记录无法解析",
+  "@syncConflictReviewMissingRemote": {
+    "description": "同步冲突复核页远端记录缺失摘要"
+  },
+  "syncConflictReviewDeletedSummary": "已删除记录",
+  "@syncConflictReviewDeletedSummary": {
+    "description": "同步冲突复核页删除墓碑摘要"
+  },
+  "syncConflictReviewTimingSummary": "设备 {deviceId} · {date} · {hours} h · ¥{amount}",
+  "@syncConflictReviewTimingSummary": {
+    "description": "同步冲突复核页计时记录摘要",
+    "placeholders": {
+      "deviceId": {
+        "type": "int",
+        "example": "1"
+      },
+      "date": {
+        "type": "String",
+        "example": "2026-06-01"
+      },
+      "hours": {
+        "type": "String",
+        "example": "1.5"
+      },
+      "amount": {
+        "type": "String",
+        "example": "100.00"
+      }
+    }
   }
 }

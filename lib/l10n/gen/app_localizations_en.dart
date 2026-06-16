@@ -1748,4 +1748,63 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceTermsSection8Body =>
       'We may update these terms according to product iteration, platform policies, or changes in laws and regulations. If you continue using the app after an updated version is released, you are deemed to accept the updated terms. Questions: 582748196@qq.com.';
+
+  @override
+  String get syncConflictReviewTitle => 'Sync conflict review';
+
+  @override
+  String get syncConflictReviewEmpty => 'No conflicts to review';
+
+  @override
+  String get syncConflictReviewLoadFailure =>
+      'Failed to load conflicts. Try again later';
+
+  @override
+  String get syncConflictResolveFailure => 'Resolution failed. Try again later';
+
+  @override
+  String get syncConflictReviewManualHint =>
+      'For a manual merge, keep local first, then adjust it from the regular edit page.';
+
+  @override
+  String syncConflictReviewEntityTitle(String entityId) {
+    return 'Timing record $entityId';
+  }
+
+  @override
+  String syncConflictReviewReason(String reason) {
+    return 'Reason: $reason';
+  }
+
+  @override
+  String get syncConflictReviewLocalLabel => 'Local current';
+
+  @override
+  String get syncConflictReviewRemoteLabel => 'Remote incoming';
+
+  @override
+  String get syncConflictReviewUseRemote => 'Use remote';
+
+  @override
+  String get syncConflictReviewUseLocal => 'Use local';
+
+  @override
+  String get syncConflictReviewMissingLocal => 'Local record no longer exists';
+
+  @override
+  String get syncConflictReviewMissingRemote =>
+      'Remote record could not be parsed';
+
+  @override
+  String get syncConflictReviewDeletedSummary => 'Deleted record';
+
+  @override
+  String syncConflictReviewTimingSummary(
+    int deviceId,
+    String date,
+    String hours,
+    String amount,
+  ) {
+    return 'Device $deviceId · $date · $hours h · ¥$amount';
+  }
 }

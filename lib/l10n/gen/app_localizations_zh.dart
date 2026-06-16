@@ -1628,4 +1628,60 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get deviceTermsSection8Body =>
       '我们可能根据产品迭代、平台政策或法律法规变化对本条款进行更新。更新版本发布后，如你继续使用本应用，视为接受更新后的条款。如有问题，可联系：582748196@qq.com。';
+
+  @override
+  String get syncConflictReviewTitle => '同步冲突复核';
+
+  @override
+  String get syncConflictReviewEmpty => '暂无待复核冲突';
+
+  @override
+  String get syncConflictReviewLoadFailure => '冲突列表加载失败，请稍后重试';
+
+  @override
+  String get syncConflictResolveFailure => '裁决失败，请稍后重试';
+
+  @override
+  String get syncConflictReviewManualHint => '需要手动合并时，先保留本地，再到常规编辑页调整。';
+
+  @override
+  String syncConflictReviewEntityTitle(String entityId) {
+    return '计时记录 $entityId';
+  }
+
+  @override
+  String syncConflictReviewReason(String reason) {
+    return '原因：$reason';
+  }
+
+  @override
+  String get syncConflictReviewLocalLabel => '本地当前';
+
+  @override
+  String get syncConflictReviewRemoteLabel => '远端来袭';
+
+  @override
+  String get syncConflictReviewUseRemote => '用远端';
+
+  @override
+  String get syncConflictReviewUseLocal => '用本地';
+
+  @override
+  String get syncConflictReviewMissingLocal => '本地记录已不存在';
+
+  @override
+  String get syncConflictReviewMissingRemote => '远端记录无法解析';
+
+  @override
+  String get syncConflictReviewDeletedSummary => '已删除记录';
+
+  @override
+  String syncConflictReviewTimingSummary(
+    int deviceId,
+    String date,
+    String hours,
+    String amount,
+  ) {
+    return '设备 $deviceId · $date · $hours h · ¥$amount';
+  }
 }

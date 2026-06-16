@@ -7,7 +7,13 @@ import 'sync_conflict_repository.dart';
 import 'sync_repositories.dart';
 import 'sync_status.dart';
 
-class SyncConflictResolutionUseCase {
+abstract class SyncConflictResolver {
+  Future<void> useRemote(SyncConflict conflict);
+
+  Future<void> useLocal(SyncConflict conflict);
+}
+
+class SyncConflictResolutionUseCase implements SyncConflictResolver {
   SyncConflictResolutionUseCase({
     SyncConflictRepository conflictRepository =
         const LocalSyncConflictRepository(),
@@ -33,6 +39,7 @@ class SyncConflictResolutionUseCase {
   final TimingRecordSyncEnqueuer _timingRecordSyncEnqueuer;
   final DateTime Function() _now;
 
+  @override
   Future<void> useRemote(SyncConflict conflict) async {
     _ensurePendingTimingConflict(conflict);
     await AppDatabase.inTransaction<void>((txn) async {
@@ -55,6 +62,7 @@ class SyncConflictResolutionUseCase {
     });
   }
 
+  @override
   Future<void> useLocal(SyncConflict conflict) async {
     _ensurePendingTimingConflict(conflict);
     final id = int.tryParse(conflict.entityId);

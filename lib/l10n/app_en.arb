@@ -486,5 +486,20 @@
   "deviceTermsSection7Title": "7. Disclaimer and limitation of liability",
   "deviceTermsSection7Body": "The app is provided \"as is\" and \"as available\". We will continue improving the product experience, but do not guarantee that the app will always be uninterrupted, error-free, or fully meet your specific business needs. To the extent permitted by applicable law, the developer's liability for losses caused by your input errors, failure to back up in time, device failures, system limitations, third-party platform issues, or force majeure is limited to what is mandatorily required by law.",
   "deviceTermsSection8Title": "8. Updates and contact",
-  "deviceTermsSection8Body": "We may update these terms according to product iteration, platform policies, or changes in laws and regulations. If you continue using the app after an updated version is released, you are deemed to accept the updated terms. Questions: 582748196@qq.com."
+  "deviceTermsSection8Body": "We may update these terms according to product iteration, platform policies, or changes in laws and regulations. If you continue using the app after an updated version is released, you are deemed to accept the updated terms. Questions: 582748196@qq.com.",
+  "syncConflictReviewTitle": "Sync conflict review",
+  "syncConflictReviewEmpty": "No conflicts to review",
+  "syncConflictReviewLoadFailure": "Failed to load conflicts. Try again later",
+  "syncConflictResolveFailure": "Resolution failed. Try again later",
+  "syncConflictReviewManualHint": "For a manual merge, keep local first, then adjust it from the regular edit page.",
+  "syncConflictReviewEntityTitle": "Timing record {entityId}",
+  "syncConflictReviewReason": "Reason: {reason}",
+  "syncConflictReviewLocalLabel": "Local current",
+  "syncConflictReviewRemoteLabel": "Remote incoming",
+  "syncConflictReviewUseRemote": "Use remote",
+  "syncConflictReviewUseLocal": "Use local",
+  "syncConflictReviewMissingLocal": "Local record no longer exists",
+  "syncConflictReviewMissingRemote": "Remote record could not be parsed",
+  "syncConflictReviewDeletedSummary": "Deleted record",
+  "syncConflictReviewTimingSummary": "Device {deviceId} · {date} · {hours} h · ¥{amount}"
 }

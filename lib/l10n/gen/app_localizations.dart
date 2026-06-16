@@ -3041,6 +3041,101 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我们可能根据产品迭代、平台政策或法律法规变化对本条款进行更新。更新版本发布后，如你继续使用本应用，视为接受更新后的条款。如有问题，可联系：582748196@qq.com。'**
   String get deviceTermsSection8Body;
+
+  /// 同步冲突复核页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'同步冲突复核'**
+  String get syncConflictReviewTitle;
+
+  /// 同步冲突复核页空态
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无待复核冲突'**
+  String get syncConflictReviewEmpty;
+
+  /// 同步冲突复核页加载失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'冲突列表加载失败，请稍后重试'**
+  String get syncConflictReviewLoadFailure;
+
+  /// 同步冲突复核页裁决失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'裁决失败，请稍后重试'**
+  String get syncConflictResolveFailure;
+
+  /// 同步冲突复核页手动合并说明
+  ///
+  /// In zh, this message translates to:
+  /// **'需要手动合并时，先保留本地，再到常规编辑页调整。'**
+  String get syncConflictReviewManualHint;
+
+  /// 同步冲突复核页单条冲突标题
+  ///
+  /// In zh, this message translates to:
+  /// **'计时记录 {entityId}'**
+  String syncConflictReviewEntityTitle(String entityId);
+
+  /// 同步冲突复核页冲突原因
+  ///
+  /// In zh, this message translates to:
+  /// **'原因：{reason}'**
+  String syncConflictReviewReason(String reason);
+
+  /// 同步冲突复核页本地摘要标签
+  ///
+  /// In zh, this message translates to:
+  /// **'本地当前'**
+  String get syncConflictReviewLocalLabel;
+
+  /// 同步冲突复核页远端摘要标签
+  ///
+  /// In zh, this message translates to:
+  /// **'远端来袭'**
+  String get syncConflictReviewRemoteLabel;
+
+  /// 同步冲突复核页使用远端按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'用远端'**
+  String get syncConflictReviewUseRemote;
+
+  /// 同步冲突复核页使用本地按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'用本地'**
+  String get syncConflictReviewUseLocal;
+
+  /// 同步冲突复核页本地记录缺失摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'本地记录已不存在'**
+  String get syncConflictReviewMissingLocal;
+
+  /// 同步冲突复核页远端记录缺失摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'远端记录无法解析'**
+  String get syncConflictReviewMissingRemote;
+
+  /// 同步冲突复核页删除墓碑摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除记录'**
+  String get syncConflictReviewDeletedSummary;
+
+  /// 同步冲突复核页计时记录摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'设备 {deviceId} · {date} · {hours} h · ¥{amount}'**
+  String syncConflictReviewTimingSummary(
+    int deviceId,
+    String date,
+    String hours,
+    String amount,
+  );
 }
 
 class _AppLocalizationsDelegate
