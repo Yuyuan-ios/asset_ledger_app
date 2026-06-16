@@ -334,7 +334,10 @@ class _BackupRestoreValidator {
         normalized.remove('rate');
         break;
       case 'project_write_offs':
+        // Track A / A4-5：旧备份缺 amount_fen 时按 legacy REAL amount 回填；
+        // 插入新 schema 前移除已删除的 REAL amount 列。
         normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
+        normalized.remove('amount');
         normalized.putIfAbsent('note', () => null);
         break;
       case 'account_project_merge_members':
@@ -699,11 +702,7 @@ class _BackupRestoreValidator {
     if (!_isNonEmptyString(row['project_id'])) {
       return 'invalid_project_write_offs_project_id';
     }
-    final amount = row['amount'];
-    if (!_isNumber(amount) || (amount as num) <= 0) {
-      return 'invalid_project_write_offs_amount';
-    }
-    if (!_isNullableInt(row['amount_fen'])) {
+    if (!_isNonNegativeInt(row['amount_fen'])) {
       return 'invalid_project_write_offs_amount_fen';
     }
     final reason = row['reason'];

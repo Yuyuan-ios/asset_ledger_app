@@ -84,20 +84,23 @@ void main() {
       expect(mergeRow['source_type'], 'merge_allocation');
       expect(
         (mergeRow['merge_batch_total_amount_fen'] as num?)?.toInt(),
-        ((mergeRow['merge_batch_total_amount'] as num).toDouble() * 100).round(),
+        ((mergeRow['merge_batch_total_amount'] as num).toDouble() * 100)
+            .round(),
       );
 
       final writeOffs = await db.query('project_write_offs', orderBy: 'id ASC');
       expect(writeOffs.length, 2);
+      expect(writeOffs.map((row) => row.containsKey('amount')).toSet(), {
+        false,
+      });
+      final expectedWriteOffFen = {'wo-1': 678, 'wo-2': 3};
       for (final row in writeOffs) {
-        final amount = (row['amount'] as num).toDouble();
+        final id = row['id'] as String;
         expect(
           (row['amount_fen'] as num?)?.toInt(),
-          (amount * 100).round(),
-          reason: 'project_write_offs ${row['id']} fen 应 == round(amount*100)',
+          expectedWriteOffFen[id],
+          reason: 'project_write_offs $id fen 应由旧备份 amount 回填',
         );
-        // REAL amount 兼容列仍保留原值。
-        expect(amount > 0, isTrue);
       }
     },
   );

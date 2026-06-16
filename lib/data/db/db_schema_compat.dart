@@ -143,6 +143,9 @@ class DbSchemaCompat {
     // v45（Track A / A4-4）：project_device_rates.rate REAL 删除；
     // rate_fen 为唯一存储权威，复合主键与 projects FK RESTRICT 保留。
     await DbMigrations.ensureProjectDeviceRateRealDropped(db);
+    // v46（Track A / A4-5）：project_write_offs.amount REAL 删除；
+    // amount_fen 为唯一存储权威，TEXT PK、projects FK RESTRICT 与两索引保留。
+    await DbMigrations.ensureProjectWriteOffAmountRealDropped(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

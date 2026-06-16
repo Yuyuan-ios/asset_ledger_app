@@ -538,7 +538,6 @@ void main() {
         containsAll([
           'id',
           'project_id',
-          'amount',
           'amount_fen',
           'reason',
           'note',
@@ -660,6 +659,10 @@ void main() {
         expect(
           await _columnNames(db, 'project_write_offs'),
           contains('amount_fen'),
+        );
+        expect(
+          await _columnNames(db, 'project_write_offs'),
+          isNot(contains('amount')),
         );
 
         final payment = (await db.query('account_payments')).single;

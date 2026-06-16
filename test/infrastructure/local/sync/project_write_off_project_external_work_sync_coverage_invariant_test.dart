@@ -473,6 +473,8 @@ const Map<String, String> _registeredProjectWriteOffWriteFiles = {
       'migration amount_fen backfill exemption',
   'lib/data/db/migrations/migration_030.dart':
       'migration table rebuild exemption',
+  'lib/data/db/migrations/migration_046.dart':
+      'Track A migration table rebuild/drop REAL exemption',
 };
 
 const Map<String, String> _registeredProjectStatusWriteFiles = {

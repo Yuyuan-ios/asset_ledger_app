@@ -4,8 +4,8 @@ import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// R5.26-B4 审计收尾：account_payments / project_write_offs 读路径仍 fen 权威，
-/// REAL amount 仅为兼容列保留（不移除、不改 NOT NULL）。生产聚合不直接读 amount REAL。
+/// R5.26-B4 审计收尾：account_payments 读路径仍 fen 权威；
+/// Track A / A4-5 后 project_write_offs 已拆除 amount REAL。
 void main() {
   group('AccountPayment / ProjectWriteOff fen-authority', () {
     test('AccountPayment.fromMap prefers amount_fen over REAL amount', () {
@@ -23,32 +23,38 @@ void main() {
       expect(payment.amountFen, 99999);
     });
 
-    test('AccountPayment.fromMap falls back to REAL amount when fen absent', () {
-      final payment = AccountPayment.fromMap({
-        'id': 1,
-        'project_id': 'p1',
-        'project_key': 'Alpha||Site',
-        'ymd': 20260601,
-        'amount': 12.34,
-        'source_type': 'manual',
-      });
-      expect(payment.amount, 12.34);
-    });
+    test(
+      'AccountPayment.fromMap falls back to REAL amount when fen absent',
+      () {
+        final payment = AccountPayment.fromMap({
+          'id': 1,
+          'project_id': 'p1',
+          'project_key': 'Alpha||Site',
+          'ymd': 20260601,
+          'amount': 12.34,
+          'source_type': 'manual',
+        });
+        expect(payment.amount, 12.34);
+      },
+    );
 
-    test('ProjectWriteOff.fromMap prefers amount_fen over REAL amount', () {
-      final writeOff = ProjectWriteOff.fromMap({
-        'id': 'w1',
-        'project_id': 'p1',
-        'amount': 1.0,
-        'amount_fen': 6050,
-        'reason': 'rounding',
-        'write_off_date': '2026-06-01',
-        'created_at': '2026-06-01T00:00:00.000Z',
-        'updated_at': '2026-06-01T00:00:00.000Z',
-      });
-      expect(writeOff.amount, 60.50);
-      expect(writeOff.amountFen, 6050);
-    });
+    test(
+      'ProjectWriteOff.fromMap reads amount_fen and ignores REAL amount',
+      () {
+        final writeOff = ProjectWriteOff.fromMap({
+          'id': 'w1',
+          'project_id': 'p1',
+          'amount': 1.0,
+          'amount_fen': 6050,
+          'reason': 'rounding',
+          'write_off_date': '2026-06-01',
+          'created_at': '2026-06-01T00:00:00.000Z',
+          'updated_at': '2026-06-01T00:00:00.000Z',
+        });
+        expect(writeOff.amount, 60.50);
+        expect(writeOff.amountFen, 6050);
+      },
+    );
   });
 
   group('production aggregates use SUM(amount_fen), not REAL amount', () {
@@ -76,44 +82,58 @@ void main() {
     });
   });
 
-  group('REAL compatibility columns retained; fen NOT NULL tracks B1/B2', () {
-    test('account_payments keeps amount REAL NOT NULL and now NOT NULL amount_fen', () {
-      // 表内逐块断言（避免被同文件 project_write_offs 的 NOT NULL 串误判）。
-      final block = _tableBlock(
-        _read('lib/data/db/schema/account_schema.dart'),
-        'account_payments',
-      );
-      expect(block.contains('amount REAL NOT NULL'), isTrue);
-      // R5.26-B1：account_payments.amount_fen 已重建为 NOT NULL。
-      expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
-      // 坑C：merge_batch_total_amount_fen 仍 nullable（绝不翻 NOT NULL）。
-      expect(
-        block.contains('merge_batch_total_amount_fen INTEGER NOT NULL'),
-        isFalse,
-      );
-    });
-
-    test('project_write_offs keeps amount REAL and now NOT NULL amount_fen', () {
-      // R5.26-B2：project_write_offs.amount_fen 已重建为 NOT NULL；amount REAL 与
-      // CHECK(amount>0) 作为兼容列保留。
-      final block = _tableBlock(
-        _read('lib/data/db/schema/account_schema.dart'),
-        'project_write_offs',
-      );
-      expect(block.contains('amount REAL NOT NULL CHECK (amount > 0)'), isTrue);
-      expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
-    });
-
-    test('timing_records keeps income REAL NOT NULL and fen NOT NULL (v34)',
+  group(
+    'REAL compatibility columns retained only where A4 has not dropped them',
+    () {
+      test(
+        'account_payments keeps amount REAL NOT NULL and now NOT NULL amount_fen',
         () {
-      final schema = _read('lib/data/db/schema/timing_schema.dart');
-      expect(schema.contains('income REAL NOT NULL'), isTrue);
-      // v34/migration_034：income_fen 升为 NOT NULL（追平 B1/B2 的口径）。
-      expect(schema.contains('income_fen INTEGER NOT NULL'), isTrue);
-      // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
-      expect(schema.contains('quantity_scaled INTEGER NOT NULL'), isFalse);
-    });
-  });
+          // 表内逐块断言（避免被同文件 project_write_offs 的 NOT NULL 串误判）。
+          final block = _tableBlock(
+            _read('lib/data/db/schema/account_schema.dart'),
+            'account_payments',
+          );
+          expect(block.contains('amount REAL NOT NULL'), isTrue);
+          // R5.26-B1：account_payments.amount_fen 已重建为 NOT NULL。
+          expect(block.contains('amount_fen INTEGER NOT NULL'), isTrue);
+          // 坑C：merge_batch_total_amount_fen 仍 nullable（绝不翻 NOT NULL）。
+          expect(
+            block.contains('merge_batch_total_amount_fen INTEGER NOT NULL'),
+            isFalse,
+          );
+        },
+      );
+
+      test(
+        'project_write_offs drops amount REAL and keeps NOT NULL amount_fen',
+        () {
+          final block = _tableBlock(
+            _read('lib/data/db/schema/account_schema.dart'),
+            'project_write_offs',
+          );
+          expect(block.contains('amount REAL'), isFalse);
+          expect(
+            block.contains(
+              'amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0)',
+            ),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'timing_records keeps income REAL NOT NULL and fen NOT NULL (v34)',
+        () {
+          final schema = _read('lib/data/db/schema/timing_schema.dart');
+          expect(schema.contains('income REAL NOT NULL'), isTrue);
+          // v34/migration_034：income_fen 升为 NOT NULL（追平 B1/B2 的口径）。
+          expect(schema.contains('income_fen INTEGER NOT NULL'), isTrue);
+          // v33 计量镜像列保持 nullable（rent 行 quantity 合法为 NULL）。
+          expect(schema.contains('quantity_scaled INTEGER NOT NULL'), isFalse);
+        },
+      );
+    },
+  );
 }
 
 String _read(String relativePath) => File(relativePath).readAsStringSync();

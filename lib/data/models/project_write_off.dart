@@ -57,30 +57,34 @@ extension ProjectWriteOffReasonX on ProjectWriteOffReason {
 }
 
 class ProjectWriteOff {
-  const ProjectWriteOff({
+  ProjectWriteOff({
     required this.id,
     required this.projectId,
-    required this.amount,
+    required double amount,
+    int? amountFen,
     required this.reason,
     this.note,
     required this.writeOffDate,
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : amountFen = amountFen ?? _yuanToFen(amount);
 
   final String id;
   final String projectId;
-  final double amount;
+  final int amountFen;
   final String reason;
   final String? note;
   final String writeOffDate;
   final String createdAt;
   final String updatedAt;
 
+  double get amount => _fenToYuan(amountFen);
+
   ProjectWriteOff copyWith({
     String? id,
     String? projectId,
     double? amount,
+    int? amountFen,
     String? reason,
     Object? note = _sentinel,
     String? writeOffDate,
@@ -91,6 +95,7 @@ class ProjectWriteOff {
       id: id ?? this.id,
       projectId: projectId ?? this.projectId,
       amount: amount ?? this.amount,
+      amountFen: amount == null ? amountFen ?? this.amountFen : null,
       reason: reason ?? this.reason,
       note: identical(note, _sentinel) ? this.note : note as String?,
       writeOffDate: writeOffDate ?? this.writeOffDate,
@@ -103,7 +108,6 @@ class ProjectWriteOff {
     return {
       'id': id,
       'project_id': projectId,
-      'amount': amount,
       'amount_fen': amountFen,
       'reason': reason,
       'note': note,
@@ -114,15 +118,15 @@ class ProjectWriteOff {
   }
 
   static ProjectWriteOff fromMap(Map<String, Object?> map) {
-    // 读优先 fen：amount_fen 为权威口径，缺失时才回退 REAL amount。
-    // amount REAL 是 legacy / 展示兼容列，保留不移除（NOT NULL 重建 = B2，未做）。
     final amountFen = _readFen(map['amount_fen']);
+    if (amountFen == null) {
+      throw StateError('project_write_offs.amount_fen is required');
+    }
     return ProjectWriteOff(
       id: (map['id'] as String?) ?? '',
       projectId: (map['project_id'] as String?) ?? '',
-      amount: amountFen == null
-          ? (map['amount'] as num?)?.toDouble() ?? 0.0
-          : _fenToYuan(amountFen),
+      amount: _fenToYuan(amountFen),
+      amountFen: amountFen,
       reason: (map['reason'] as String?) ?? '',
       note: map['note'] as String?,
       writeOffDate: (map['write_off_date'] as String?) ?? '',
@@ -130,8 +134,6 @@ class ProjectWriteOff {
       updatedAt: (map['updated_at'] as String?) ?? '',
     );
   }
-
-  int get amountFen => _yuanToFen(amount);
 }
 
 const _sentinel = Object();

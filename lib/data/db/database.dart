@@ -135,10 +135,12 @@ class AppDatabase {
   //        单价 fen 成为唯一存储权威（Track A / A4-3）；AUTOINCREMENT 高水位保留。
   // - v45：project_device_rates 删除 rate REAL，rate_fen 成为唯一存储权威
   //        （Track A / A4-4）；复合主键与 projects FK RESTRICT 保留。
+  // - v46：project_write_offs 删除 amount REAL，amount_fen 成为唯一存储权威
+  //        （Track A / A4-5）；TEXT PK、projects FK RESTRICT 与两索引保留。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 45;
+  static const int _dbVersion = 46;
 
   static int get schemaVersion => _dbVersion;
 

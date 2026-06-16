@@ -65,7 +65,7 @@ void main() {
       final record = payload['record'] as Map<String, Object?>;
       expect(record['id'], writeOff.id);
       expect(record['project_id'], 'project:1');
-      expect(record['amount'], 125.5);
+      expect(record.containsKey('amount'), isFalse);
       expect(record['amount_fen'], 12550);
       expect(record['reason'], ProjectWriteOffReason.settlement.dbValue);
       expect(record['write_off_date'], '2026-06-01');

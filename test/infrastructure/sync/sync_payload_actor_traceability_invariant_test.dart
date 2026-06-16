@@ -35,42 +35,45 @@ void main() {
     await AppDatabase.resetForTest();
   });
 
-  test('payload actor matches the injected ActorContext (type/id/session)', () async {
-    final db = await AppDatabase.database;
-    final actor = ActorContext(
-      actorType: OperationActorType.owner,
-      actorId: 'owner-123',
-      sessionId: 'sess-9',
-    );
-    await AppDatabase.inTransaction((txn) async {
-      await const AccountPaymentSyncEnqueuer().enqueue(
-        txn,
-        payment: const AccountPayment(
-          id: 1,
-          projectKey: 'k',
-          ymd: 20260101,
-          amount: 100,
-        ),
-        operation: 'create',
-        status: SyncStatus.pendingUpload,
-        actor: actor,
+  test(
+    'payload actor matches the injected ActorContext (type/id/session)',
+    () async {
+      final db = await AppDatabase.database;
+      final actor = ActorContext(
+        actorType: OperationActorType.owner,
+        actorId: 'owner-123',
+        sessionId: 'sess-9',
       );
-    });
+      await AppDatabase.inTransaction((txn) async {
+        await const AccountPaymentSyncEnqueuer().enqueue(
+          txn,
+          payment: const AccountPayment(
+            id: 1,
+            projectKey: 'k',
+            ymd: 20260101,
+            amount: 100,
+          ),
+          operation: 'create',
+          status: SyncStatus.pendingUpload,
+          actor: actor,
+        );
+      });
 
-    final payload = await _singlePayload(db);
-    expect(payload['payload_schema_version'], 1);
-    expect(payload['actor'], <String, Object?>{
-      'type': 'owner',
-      'id': 'owner-123',
-      'session_id': 'sess-9',
-    });
-    // actor is not duplicated inside the business record.
-    final record = payload['record'] as Map<String, Object?>;
-    expect(record.containsKey('actor'), isFalse);
-    expect(record.containsKey('payload_schema_version'), isFalse);
-    // record still carries the business fields untouched.
-    expect(record['amount_fen'], 10000);
-  });
+      final payload = await _singlePayload(db);
+      expect(payload['payload_schema_version'], 1);
+      expect(payload['actor'], <String, Object?>{
+        'type': 'owner',
+        'id': 'owner-123',
+        'session_id': 'sess-9',
+      });
+      // actor is not duplicated inside the business record.
+      final record = payload['record'] as Map<String, Object?>;
+      expect(record.containsKey('actor'), isFalse);
+      expect(record.containsKey('payload_schema_version'), isFalse);
+      // record still carries the business fields untouched.
+      expect(record['amount_fen'], 10000);
+    },
+  );
 
   test('actor session_id key is present even when null', () async {
     final db = await AppDatabase.database;
@@ -82,7 +85,7 @@ void main() {
     await AppDatabase.inTransaction((txn) async {
       await const ProjectWriteOffSyncEnqueuer().enqueueCreate(
         txn,
-        const ProjectWriteOff(
+        ProjectWriteOff(
           id: 'wo-1',
           projectId: 'p1',
           amount: 5,
@@ -95,34 +98,39 @@ void main() {
       );
     });
 
-    final actorMap = (await _singlePayload(db))['actor'] as Map<String, Object?>;
+    final actorMap =
+        (await _singlePayload(db))['actor'] as Map<String, Object?>;
     expect(actorMap.containsKey('session_id'), isTrue);
     expect(actorMap['session_id'], isNull);
     expect(actorMap['id'], 'owner-9');
   });
 
-  test('no injected actor → documented owner-app fallback (owner, null id)', () async {
-    final db = await AppDatabase.database;
-    await AppDatabase.inTransaction((txn) async {
-      await const AccountPaymentSyncEnqueuer().enqueue(
-        txn,
-        payment: const AccountPayment(
-          id: 2,
-          projectKey: 'k',
-          ymd: 20260101,
-          amount: 100,
-        ),
-        operation: 'create',
-        status: SyncStatus.pendingUpload,
-        // no actor.
-      );
-    });
+  test(
+    'no injected actor → documented owner-app fallback (owner, null id)',
+    () async {
+      final db = await AppDatabase.database;
+      await AppDatabase.inTransaction((txn) async {
+        await const AccountPaymentSyncEnqueuer().enqueue(
+          txn,
+          payment: const AccountPayment(
+            id: 2,
+            projectKey: 'k',
+            ymd: 20260101,
+            amount: 100,
+          ),
+          operation: 'create',
+          status: SyncStatus.pendingUpload,
+          // no actor.
+        );
+      });
 
-    final actorMap = (await _singlePayload(db))['actor'] as Map<String, Object?>;
-    expect(actorMap['type'], 'owner');
-    expect(actorMap['id'], isNull);
-    expect(actorMap.containsKey('session_id'), isTrue);
-  });
+      final actorMap =
+          (await _singlePayload(db))['actor'] as Map<String, Object?>;
+      expect(actorMap['type'], 'owner');
+      expect(actorMap['id'], isNull);
+      expect(actorMap.containsKey('session_id'), isTrue);
+    },
+  );
 }
 
 Future<Map<String, Object?>> _singlePayload(Database db) async {

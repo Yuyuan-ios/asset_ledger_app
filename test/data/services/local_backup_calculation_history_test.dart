@@ -190,7 +190,6 @@ void main() {
     expect(writeOffs.single, {
       'id': 'write-off-1',
       'project_id': _projectIdForKey('甲方||一号工地'),
-      'amount': 60.0,
       'amount_fen': 6000,
       'reason': ProjectWriteOffReason.rounding.dbValue,
       'note': '尾款不再追收',
@@ -602,6 +601,38 @@ void main() {
     expect(exportedRate['rate_fen'], 12345);
   });
 
+  test(
+    'restore round-trips legacy write-off amount into amount_fen only',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      final legacyWriteOff = _writeOffMap(
+        id: 'write-off-legacy',
+        amount: 98.76,
+        includeLegacyAmount: true,
+      )..remove('amount_fen');
+
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(schemaVersion: 29, projectWriteOffs: [legacyWriteOff]),
+      );
+
+      expect(result.success, isTrue);
+      final row = (await db.query('project_write_offs')).single;
+      expect(row.containsKey('amount'), isFalse);
+      expect(row['amount_fen'], 9876);
+
+      final export = await LocalBackupExportService.exportJsonBackup();
+      expect(export.success, isTrue);
+      final rawJson = await File(export.filePath!).readAsString();
+      final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final exportedWriteOff =
+          (data['project_write_offs'] as List<dynamic>).single
+              as Map<String, dynamic>;
+      expect(exportedWriteOff.containsKey('amount'), isFalse);
+      expect(exportedWriteOff['amount_fen'], 9876);
+    },
+  );
+
   test('restore accepts old backups without timing contact and site', () async {
     final db = await _openCurrentInMemoryDb();
     final legacyTimingRecord = _timingRecordMap(id: 7, deviceId: 1)
@@ -784,7 +815,7 @@ void main() {
     expect(rows, hasLength(1));
     expect(rows.single['id'], 'write-off-1');
     expect(rows.single['project_id'], _projectIdForKey('甲方||一号工地'));
-    expect(rows.single['amount'], 60.0);
+    expect(rows.single.containsKey('amount'), isFalse);
     expect(rows.single['amount_fen'], 6000);
     expect(rows.single['reason'], ProjectWriteOffReason.rounding.dbValue);
   });
@@ -1188,6 +1219,7 @@ Map<String, Object?> _writeOffMap({
   String id = 'write-off-1',
   String projectKey = '甲方||一号工地',
   double amount = 60.0,
+  bool includeLegacyAmount = false,
   String reason = 'rounding',
   String? note = '尾款不再追收',
   String writeOffDate = '2026-05-18',
@@ -1197,7 +1229,8 @@ Map<String, Object?> _writeOffMap({
   return {
     'id': id,
     'project_id': _projectIdForKey(projectKey),
-    'amount': amount,
+    if (includeLegacyAmount) 'amount': amount,
+    'amount_fen': (amount * 100).round(),
     'reason': reason,
     'note': note,
     'write_off_date': writeOffDate,
@@ -1308,12 +1341,14 @@ Future<void> _seedProjectWriteOff(
 ) async {
   final projectId = writeOff['project_id'] as String;
   await _seedProject(db, projectKey: '甲方||一号工地');
-  // R5.26-B2：project_write_offs.amount_fen 现为 NOT NULL；原始 seed map 未带 fen
-  // 时按 round(amount*100) 兜底（显式 amount_fen 仍以 writeOff 为准）。
-  final amount = (writeOff['amount'] as num).toDouble();
+  final legacyAmount = writeOff['amount'] as num?;
+  final amountFen =
+      (writeOff['amount_fen'] as num?)?.toInt() ??
+      ((legacyAmount ?? 0) * 100).round();
+  final normalized = Map<String, Object?>.of(writeOff)..remove('amount');
   await db.insert('project_write_offs', {
-    'amount_fen': (amount * 100).round(),
-    ...writeOff,
+    ...normalized,
+    'amount_fen': amountFen,
     'project_id': projectId,
   });
 }

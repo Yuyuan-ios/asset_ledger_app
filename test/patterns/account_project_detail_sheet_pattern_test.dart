@@ -542,7 +542,7 @@ void main() {
           settlementRate: 1,
           deviceReceivables: const [],
         ),
-        writeOffs: const [
+        writeOffs: [
           ProjectWriteOff(
             id: 'write-off-1',
             projectId: 'project:1',
@@ -635,7 +635,7 @@ void main() {
           settlementRate: 1260 / 2260,
           deviceReceivables: const [],
         ),
-        writeOffs: const [
+        writeOffs: [
           ProjectWriteOff(
             id: 'write-off-settled',
             projectId: 'project:settled',
@@ -703,7 +703,7 @@ void main() {
             settlementRate: 1,
             deviceReceivables: const [],
           ),
-          writeOffs: const [
+          writeOffs: [
             ProjectWriteOff(
               id: 'write-off-1',
               projectId: 'project:1',
@@ -762,7 +762,7 @@ void main() {
             settlementRate: 1,
             deviceReceivables: const [],
           ),
-          writeOffs: const [
+          writeOffs: [
             ProjectWriteOff(
               id: 'writeoff-merge-1-0',
               projectId: 'project:shangyi',

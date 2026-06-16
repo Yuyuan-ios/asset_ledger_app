@@ -17,6 +17,8 @@ import '../../../test_setup.dart';
 /// `account_payments.amount_fen` 与 `project_write_offs.amount_fen` 在现有
 /// migration / DbSchemaCompat.ensure / onOpen 路径中**永远不会残留 NULL**，
 /// 为后续 R5.26-B1 / B2 把这两列改成 NOT NULL（需重建表）提供前置保障。
+/// Track A / A4-5 后，project_write_offs.amount REAL 已拆除，旧库回填后仅保留
+/// amount_fen。
 ///
 /// 覆盖三类 legacy 场景：
 /// - 场景 A：fen 列缺失（pre-v18 历史库）→ 升级链补列 + 回填。
@@ -150,9 +152,14 @@ void main() {
         expect(await _rowCount(db, 'account_payments'), 3);
         expect(await _rowCount(db, 'project_write_offs'), 2);
 
-        // 逐行 fen == round(amount*100)，且 REAL amount 兼容列仍保留原值。
+        // 收款表仍保留 REAL amount，逐行 fen == round(amount*100)。
         await _expectFenMatchesAmount(db, 'account_payments');
-        await _expectFenMatchesAmount(db, 'project_write_offs');
+        expect(
+          await _columnExists(db, 'project_write_offs', 'amount'),
+          isFalse,
+        );
+        final writeOffs = await db.query('project_write_offs', orderBy: 'id');
+        expect(writeOffs.map((row) => row['amount_fen']).toList(), [678, 3]);
 
         // merge_batch_total_amount_fen 同样被回填（有 merge 总额的那一行）。
         final mergeRow = (await db.query(
@@ -180,179 +187,157 @@ void main() {
   // 复刻漂移前提，再调 ensureMoneyFenSchema + ensureAccountPaymentAmountFenNotNull
   // 验证自愈为 NOT NULL / 无 NULL / COALESCE 正确。
   // ---------------------------------------------------------------------------
-  test(
-    'drifted nullable account_payments.amount_fen (with NULL) is healed to '
-    'NOT NULL by ensure (onOpen-equivalent path)',
-    () async {
-      final db = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: AppDatabase.schemaVersion,
-          onConfigure: _enableForeignKeys,
-          onCreate: (db, _) async {
-            await DbSchema.create(db);
-            await _recreateAccountPaymentsNullable(db);
-            await _insertProject(db, id: 'project:drift');
-            await db.insert('account_payments', {
-              'id': 1,
-              'project_id': 'project:drift',
-              'project_key': '甲方||漂移工地',
-              'ymd': 20260601,
-              'amount': 88.80,
-              'amount_fen': null,
-            });
-          },
-        ),
+  test('drifted nullable account_payments.amount_fen (with NULL) is healed to '
+      'NOT NULL by ensure (onOpen-equivalent path)', () async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: AppDatabase.schemaVersion,
+        onConfigure: _enableForeignKeys,
+        onCreate: (db, _) async {
+          await DbSchema.create(db);
+          await _recreateAccountPaymentsNullable(db);
+          await _insertProject(db, id: 'project:drift');
+          await db.insert('account_payments', {
+            'id': 1,
+            'project_id': 'project:drift',
+            'project_key': '甲方||漂移工地',
+            'ymd': 20260601,
+            'amount': 88.80,
+            'amount_fen': null,
+          });
+        },
+      ),
+    );
+    try {
+      // sanity：列在、nullable、值为 NULL。
+      expect(await _columnExists(db, 'account_payments', 'amount_fen'), isTrue);
+      expect(
+        await _isColumnNullable(db, 'account_payments', 'amount_fen'),
+        isTrue,
       );
-      try {
-        // sanity：列在、nullable、值为 NULL。
-        expect(await _columnExists(db, 'account_payments', 'amount_fen'), isTrue);
-        expect(
-          await _isColumnNullable(db, 'account_payments', 'amount_fen'),
-          isTrue,
-        );
-        expect(await _nullFenCount(db, 'account_payments'), 1);
+      expect(await _nullFenCount(db, 'account_payments'), 1);
 
-        // 兜底回填（ensureMoneyFenSchema）+ 重建为 NOT NULL（B1）。
-        await DbMigrations.ensureMoneyFenSchema(db);
-        await DbMigrations.ensureAccountPaymentAmountFenNotNull(db);
+      // 兜底回填（ensureMoneyFenSchema）+ 重建为 NOT NULL（B1）。
+      await DbMigrations.ensureMoneyFenSchema(db);
+      await DbMigrations.ensureAccountPaymentAmountFenNotNull(db);
 
-        // 列翻为 NOT NULL，NULL 被自愈为 round(amount*100)。
-        expect(
-          await _isColumnNullable(db, 'account_payments', 'amount_fen'),
-          isFalse,
-        );
-        expect(await _nullFenCount(db, 'account_payments'), 0);
-        expect(
-          (await db.query('account_payments')).single['amount_fen'],
-          8880,
-        );
-      } finally {
-        await db.close();
-      }
-    },
-  );
+      // 列翻为 NOT NULL，NULL 被自愈为 round(amount*100)。
+      expect(
+        await _isColumnNullable(db, 'account_payments', 'amount_fen'),
+        isFalse,
+      );
+      expect(await _nullFenCount(db, 'account_payments'), 0);
+      expect((await db.query('account_payments')).single['amount_fen'], 8880);
+    } finally {
+      await db.close();
+    }
+  });
 
   // ---------------------------------------------------------------------------
   // 回填语义：只填 NULL，不覆盖既有 fen 值。
   // ---------------------------------------------------------------------------
-  test(
-    'money fen backfill fills only NULL rows and never clobbers an existing '
-    'fen value, and is idempotent',
-    () async {
-      // B1 后当前 schema 不允许插 amount_fen=NULL，故用 legacy-nullable 桩复刻
-      // 「一行 NULL、一行明确非 round(amount*100) 值」，验证 ensureMoneyFenSchema 的
-      // no-clobber 语义（只填 NULL、不覆盖既有 fen）。
-      final db = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: AppDatabase.schemaVersion,
-          onConfigure: _enableForeignKeys,
-          onCreate: (db, _) async {
-            await DbSchema.create(db);
-            await _recreateAccountPaymentsNullable(db);
-            await _insertProject(db, id: 'project:keep');
-            // 一行 fen=NULL（待回填）。
-            await db.insert('account_payments', {
-              'id': 1,
-              'project_id': 'project:keep',
-              'project_key': '甲方||保留工地',
-              'ymd': 20260601,
-              'amount': 50.0,
-              'amount_fen': null,
-            });
-            // 一行 fen 故意与 amount 不一致且非 NULL（必须保留，不被回填覆盖）。
-            await db.insert('account_payments', {
-              'id': 2,
-              'project_id': 'project:keep',
-              'project_key': '甲方||保留工地',
-              'ymd': 20260602,
-              'amount': 100.0,
-              'amount_fen': 1,
-            });
-          },
-        ),
-      );
-      try {
-        // 跑两次，验证幂等。
-        await DbMigrations.ensureMoneyFenSchema(db);
-        await DbMigrations.ensureMoneyFenSchema(db);
+  test('money fen backfill fills only NULL rows and never clobbers an existing '
+      'fen value, and is idempotent', () async {
+    // B1 后当前 schema 不允许插 amount_fen=NULL，故用 legacy-nullable 桩复刻
+    // 「一行 NULL、一行明确非 round(amount*100) 值」，验证 ensureMoneyFenSchema 的
+    // no-clobber 语义（只填 NULL、不覆盖既有 fen）。
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: AppDatabase.schemaVersion,
+        onConfigure: _enableForeignKeys,
+        onCreate: (db, _) async {
+          await DbSchema.create(db);
+          await _recreateAccountPaymentsNullable(db);
+          await _insertProject(db, id: 'project:keep');
+          // 一行 fen=NULL（待回填）。
+          await db.insert('account_payments', {
+            'id': 1,
+            'project_id': 'project:keep',
+            'project_key': '甲方||保留工地',
+            'ymd': 20260601,
+            'amount': 50.0,
+            'amount_fen': null,
+          });
+          // 一行 fen 故意与 amount 不一致且非 NULL（必须保留，不被回填覆盖）。
+          await db.insert('account_payments', {
+            'id': 2,
+            'project_id': 'project:keep',
+            'project_key': '甲方||保留工地',
+            'ymd': 20260602,
+            'amount': 100.0,
+            'amount_fen': 1,
+          });
+        },
+      ),
+    );
+    try {
+      // 跑两次，验证幂等。
+      await DbMigrations.ensureMoneyFenSchema(db);
+      await DbMigrations.ensureMoneyFenSchema(db);
 
-        expect(await _nullFenCount(db, 'account_payments'), 0);
-        // NULL 行被回填到 round(50*100)=5000。
-        expect(
-          (await db.query(
-            'account_payments',
-            where: 'id = ?',
-            whereArgs: [1],
-          )).single['amount_fen'],
-          5000,
-        );
-        // 既有非 NULL 行的 fen=1 不被覆盖（即便与 amount 不一致）。
-        expect(
-          (await db.query(
-            'account_payments',
-            where: 'id = ?',
-            whereArgs: [2],
-          )).single['amount_fen'],
-          1,
-        );
-      } finally {
-        await db.close();
-      }
-    },
-  );
+      expect(await _nullFenCount(db, 'account_payments'), 0);
+      // NULL 行被回填到 round(50*100)=5000。
+      expect(
+        (await db.query(
+          'account_payments',
+          where: 'id = ?',
+          whereArgs: [1],
+        )).single['amount_fen'],
+        5000,
+      );
+      // 既有非 NULL 行的 fen=1 不被覆盖（即便与 amount 不一致）。
+      expect(
+        (await db.query(
+          'account_payments',
+          where: 'id = ?',
+          whereArgs: [2],
+        )).single['amount_fen'],
+        1,
+      );
+    } finally {
+      await db.close();
+    }
+  });
 
   // ---------------------------------------------------------------------------
   // Schema readiness：两列均已 NOT NULL（B1 + B2 done）。
   // ---------------------------------------------------------------------------
-  test(
-    'fresh schema at current version: both account_payments.amount_fen and '
-    'project_write_offs.amount_fen are NOT NULL (B1 + B2 done)',
-    () async {
-      final db = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: AppDatabase.schemaVersion,
-          onCreate: (db, _) => DbSchema.create(db),
-        ),
+  test('fresh schema at current version: both account_payments.amount_fen and '
+      'project_write_offs.amount_fen are NOT NULL (B1 + B2 done)', () async {
+    final db = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: AppDatabase.schemaVersion,
+        onCreate: (db, _) => DbSchema.create(db),
+      ),
+    );
+    try {
+      // ⚠️ canary：R5.26-B1 已把 account_payments.amount_fen 重建为 NOT NULL；
+      //    R5.26-B2 已把 project_write_offs.amount_fen 重建为 NOT NULL。
+      expect(
+        await _isColumnNullable(db, 'account_payments', 'amount_fen'),
+        isFalse,
+        reason: 'B1 done: account_payments.amount_fen 已是 NOT NULL',
       );
-      try {
-        // ⚠️ canary：R5.26-B1 已把 account_payments.amount_fen 重建为 NOT NULL；
-        //    R5.26-B2 已把 project_write_offs.amount_fen 重建为 NOT NULL。
-        expect(
-          await _isColumnNullable(db, 'account_payments', 'amount_fen'),
-          isFalse,
-          reason: 'B1 done: account_payments.amount_fen 已是 NOT NULL',
-        );
-        expect(
-          await _isColumnNullable(db, 'project_write_offs', 'amount_fen'),
-          isFalse,
-          reason: 'B2 done: project_write_offs.amount_fen 已是 NOT NULL',
-        );
+      expect(
+        await _isColumnNullable(db, 'project_write_offs', 'amount_fen'),
+        isFalse,
+        reason: 'B2 done: project_write_offs.amount_fen 已是 NOT NULL',
+      );
 
-        // REAL 兼容列仍保留且仍 NOT NULL（本轮不动 REAL 主口径列）。
-        expect(
-          await _columnExists(db, 'account_payments', 'amount'),
-          isTrue,
-        );
-        expect(
-          await _isColumnNullable(db, 'account_payments', 'amount'),
-          isFalse,
-        );
-        expect(
-          await _columnExists(db, 'project_write_offs', 'amount'),
-          isTrue,
-        );
-        expect(
-          await _isColumnNullable(db, 'project_write_offs', 'amount'),
-          isFalse,
-        );
-      } finally {
-        await db.close();
-      }
-    },
-  );
+      // account_payments REAL 兼容列仍保留且仍 NOT NULL（A4-6 尚未执行）。
+      expect(await _columnExists(db, 'account_payments', 'amount'), isTrue);
+      expect(
+        await _isColumnNullable(db, 'account_payments', 'amount'),
+        isFalse,
+      );
+      expect(await _columnExists(db, 'project_write_offs', 'amount'), isFalse);
+    } finally {
+      await db.close();
+    }
+  });
 }
 
 // ===========================================================================
@@ -514,16 +499,17 @@ Future<int> _rowCount(DatabaseExecutor db, String table) async {
 }
 
 /// 逐行断言 amount_fen == round(amount*100)，且 amount REAL 仍为原值。
-Future<void> _expectFenMatchesAmount(
-  DatabaseExecutor db,
-  String table,
-) async {
+Future<void> _expectFenMatchesAmount(DatabaseExecutor db, String table) async {
   final rows = await db.query(table);
   expect(rows, isNotEmpty);
   for (final row in rows) {
     final amount = (row['amount'] as num).toDouble();
     final fen = (row['amount_fen'] as num?)?.toInt();
-    expect(fen, isNotNull, reason: '$table row ${row['id']} amount_fen 不应为 NULL');
+    expect(
+      fen,
+      isNotNull,
+      reason: '$table row ${row['id']} amount_fen 不应为 NULL',
+    );
     expect(
       fen,
       (amount * 100).round(),

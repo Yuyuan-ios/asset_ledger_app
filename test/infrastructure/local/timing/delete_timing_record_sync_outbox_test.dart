@@ -209,7 +209,7 @@ void main() {
       );
       expect(firstWriteOff['id'], 'writeoff-a-1');
       expect(firstWriteOff['project_id'], 'project:a');
-      expect(firstWriteOff['amount'], 100);
+      expect(firstWriteOff.containsKey('amount'), isFalse);
       expect(firstWriteOff['amount_fen'], 10000);
       expect(firstWriteOff['reason'], ProjectWriteOffReason.settlement.dbValue);
       expect(firstWriteOff['write_off_date'], '2026-05-20');

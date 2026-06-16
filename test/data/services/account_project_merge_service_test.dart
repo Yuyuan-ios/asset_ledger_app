@@ -350,7 +350,6 @@ Future<void> _insertWriteOff(String projectId) async {
   await db.insert('project_write_offs', {
     'id': 'writeoff-1',
     'project_id': projectId,
-    'amount': 120,
     'amount_fen': 12000,
     'reason': 'settlement',
     'note': '结清',

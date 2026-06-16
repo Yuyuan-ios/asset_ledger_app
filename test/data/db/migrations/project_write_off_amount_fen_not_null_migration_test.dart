@@ -15,8 +15,9 @@ import '../../../test_setup.dart';
 ///
 /// 覆盖：
 /// - 多版本升级（v16/v17 缺列、v18 nullable+残留 NULL）→ v30：amount_fen NOT NULL、
-///   无 NULL、行数无丢失、amount REAL 原值保留、COALESCE 兜底、CHECK(amount>0) 与
-///   projects FK RESTRICT 仍生效、两索引仍在。
+///   无 NULL、行数无丢失、COALESCE 兜底、projects FK RESTRICT 仍生效、两索引仍在。
+///   Track A / A4-5 后，current open path 会继续拆除 amount REAL，并把 CHECK 转到
+///   amount_fen >= 0。
 /// - 当前版本漂移（nullable + NULL 行）经 ensure 自愈为 NOT NULL。
 /// - fresh schema 即 NOT NULL；ensure 幂等（已 NOT NULL 重复调用为 no-op）。
 /// 全程 sqflite_common_ffi，覆盖 onCreate / onUpgrade / onOpen。
@@ -38,132 +39,148 @@ void main() {
     }
   });
 
-  test('fresh schema at current version: project_write_offs.amount_fen NOT NULL',
-      () async {
-    final db = await databaseFactoryFfi.openDatabase(
+  test(
+    'fresh schema at current version: project_write_offs.amount_fen NOT NULL',
+    () async {
+      final db = await databaseFactoryFfi.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: AppDatabase.schemaVersion,
+          onCreate: (db, _) => DbSchema.create(db),
+        ),
+      );
+      try {
+        expect(
+          await _isNotNull(db, 'project_write_offs', 'amount_fen'),
+          isTrue,
+        );
+        expect(
+          await _columnExists(db, 'project_write_offs', 'amount'),
+          isFalse,
+        );
+      } finally {
+        await db.close();
+      }
+    },
+  );
+
+  test('legacy v17 (no amount_fen column) -> v30: NOT NULL, backfilled, data + '
+      'constraints + indexes preserved', () async {
+    final legacy = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: AppDatabase.schemaVersion,
-        onCreate: (db, _) => DbSchema.create(db),
+        version: 17,
+        onConfigure: _enableForeignKeys,
+        onCreate: (db, _) async {
+          await DbSchema.create(db);
+          await _recreateWriteOffsLegacy(db, withAmountFenColumn: false);
+          await _insertProject(db, id: 'project:a');
+          await _insertWriteOffRaw(db, id: 'w1', amount: 6.78);
+          await _insertWriteOffRaw(db, id: 'w2', amount: 0.1);
+          await _insertWriteOffRaw(db, id: 'w3', amount: 19.99);
+        },
       ),
     );
+    expect(
+      await _columnExists(legacy, 'project_write_offs', 'amount_fen'),
+      isFalse,
+    );
+    await legacy.close();
+
+    final db = await _openCurrentDb(dbPath);
     try {
+      // 列已重建为 NOT NULL。
       expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isTrue);
-      // amount REAL 兼容列仍在且仍 NOT NULL。
-      expect(await _isNotNull(db, 'project_write_offs', 'amount'), isTrue);
+      // 无 NULL + 行数无丢失。
+      expect(await _nullFenCount(db), 0);
+      expect(await _rowCount(db, 'project_write_offs'), 3);
+      expect(await _columnExists(db, 'project_write_offs', 'amount'), isFalse);
+      final rows = await db.query('project_write_offs', orderBy: 'id');
+      expect(rows.map((row) => row['amount_fen']).toList(), [678, 10, 1999]);
+      // 两索引仍在。
+      expect(
+        await _indexExists(db, 'idx_project_write_offs_project_id'),
+        isTrue,
+      );
+      expect(
+        await _indexExists(db, 'idx_project_write_offs_write_off_date'),
+        isTrue,
+      );
+      // CHECK(amount_fen >= 0) 仍生效。
+      await expectLater(
+        db.insert(
+          'project_write_offs',
+          _writeOffRow(id: 'bad', amount: 0, amountFen: -1),
+        ),
+        throwsA(isA<DatabaseException>()),
+      );
+      // FK RESTRICT 仍生效：孤儿 project_id 插入失败。
+      await expectLater(
+        db.insert(
+          'project_write_offs',
+          _writeOffRow(id: 'orphan', amount: 5, projectId: 'no-such'),
+        ),
+        throwsA(isA<DatabaseException>()),
+      );
+      // FK RESTRICT 仍生效：删除被引用的 project 失败。
+      await expectLater(
+        db.delete('projects', where: 'id = ?', whereArgs: ['project:a']),
+        throwsA(isA<DatabaseException>()),
+      );
     } finally {
       await db.close();
     }
   });
 
-  test(
-    'legacy v17 (no amount_fen column) -> v30: NOT NULL, backfilled, data + '
-    'constraints + indexes preserved',
-    () async {
-      final legacy = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: 17,
-          onConfigure: _enableForeignKeys,
-          onCreate: (db, _) async {
-            await DbSchema.create(db);
-            await _recreateWriteOffsLegacy(db, withAmountFenColumn: false);
-            await _insertProject(db, id: 'project:a');
-            await _insertWriteOffRaw(db, id: 'w1', amount: 6.78);
-            await _insertWriteOffRaw(db, id: 'w2', amount: 0.1);
-            await _insertWriteOffRaw(db, id: 'w3', amount: 19.99);
-          },
-        ),
-      );
+  test('legacy v18 (nullable amount_fen with residual NULL) -> v30: COALESCE '
+      'backfills NULL, keeps existing fen', () async {
+    final legacy = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 18,
+        onConfigure: _enableForeignKeys,
+        onCreate: (db, _) async {
+          await DbSchema.create(db);
+          await _recreateWriteOffsLegacy(db, withAmountFenColumn: true);
+          await _insertProject(db, id: 'project:a');
+          // 一行带一致 fen、一行 fen=NULL（残留漂移）。
+          await _insertWriteOffRaw(db, id: 'w1', amount: 60.0, amountFen: 6000);
+          await _insertWriteOffRaw(
+            db,
+            id: 'w2',
+            amount: 12.34,
+            amountFen: null,
+          );
+        },
+      ),
+    );
+    await legacy.close();
+
+    final db = await _openCurrentDb(dbPath);
+    try {
+      expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isTrue);
+      expect(await _nullFenCount(db), 0);
       expect(
-        await _columnExists(legacy, 'project_write_offs', 'amount_fen'),
-        isFalse,
+        (await db.query(
+          'project_write_offs',
+          where: 'id = ?',
+          whereArgs: ['w1'],
+        )).single['amount_fen'],
+        6000,
       );
-      await legacy.close();
-
-      final db = await _openCurrentDb(dbPath);
-      try {
-        // 列已重建为 NOT NULL。
-        expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isTrue);
-        // 无 NULL + 行数无丢失。
-        expect(await _nullFenCount(db), 0);
-        expect(await _rowCount(db, 'project_write_offs'), 3);
-        // 逐行 amount_fen == round(amount*100)，amount REAL 原值保留。
-        for (final row in await db.query('project_write_offs')) {
-          final amount = (row['amount'] as num).toDouble();
-          expect((row['amount_fen'] as num?)?.toInt(), (amount * 100).round());
-        }
-        // 两索引仍在。
-        expect(await _indexExists(db, 'idx_project_write_offs_project_id'), isTrue);
-        expect(
-          await _indexExists(db, 'idx_project_write_offs_write_off_date'),
-          isTrue,
-        );
-        // CHECK(amount>0) 仍生效。
-        await expectLater(
-          db.insert('project_write_offs', _writeOffRow(id: 'bad', amount: 0)),
-          throwsA(isA<DatabaseException>()),
-        );
-        // FK RESTRICT 仍生效：孤儿 project_id 插入失败。
-        await expectLater(
-          db.insert(
-            'project_write_offs',
-            _writeOffRow(id: 'orphan', amount: 5, projectId: 'no-such'),
-          ),
-          throwsA(isA<DatabaseException>()),
-        );
-        // FK RESTRICT 仍生效：删除被引用的 project 失败。
-        await expectLater(
-          db.delete('projects', where: 'id = ?', whereArgs: ['project:a']),
-          throwsA(isA<DatabaseException>()),
-        );
-      } finally {
-        await db.close();
-      }
-    },
-  );
-
-  test(
-    'legacy v18 (nullable amount_fen with residual NULL) -> v30: COALESCE '
-    'backfills NULL, keeps existing fen',
-    () async {
-      final legacy = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: 18,
-          onConfigure: _enableForeignKeys,
-          onCreate: (db, _) async {
-            await DbSchema.create(db);
-            await _recreateWriteOffsLegacy(db, withAmountFenColumn: true);
-            await _insertProject(db, id: 'project:a');
-            // 一行带一致 fen、一行 fen=NULL（残留漂移）。
-            await _insertWriteOffRaw(db, id: 'w1', amount: 60.0, amountFen: 6000);
-            await _insertWriteOffRaw(db, id: 'w2', amount: 12.34, amountFen: null);
-          },
-        ),
+      // NULL 行被 COALESCE 兜底为 round(12.34*100)=1234。
+      expect(
+        (await db.query(
+          'project_write_offs',
+          where: 'id = ?',
+          whereArgs: ['w2'],
+        )).single['amount_fen'],
+        1234,
       );
-      await legacy.close();
-
-      final db = await _openCurrentDb(dbPath);
-      try {
-        expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isTrue);
-        expect(await _nullFenCount(db), 0);
-        expect(
-          (await db.query('project_write_offs', where: 'id = ?', whereArgs: ['w1']))
-              .single['amount_fen'],
-          6000,
-        );
-        // NULL 行被 COALESCE 兜底为 round(12.34*100)=1234。
-        expect(
-          (await db.query('project_write_offs', where: 'id = ?', whereArgs: ['w2']))
-              .single['amount_fen'],
-          1234,
-        );
-      } finally {
-        await db.close();
-      }
-    },
-  );
+    } finally {
+      await db.close();
+    }
+  });
 
   test(
     'current-version drift (nullable amount_fen + NULL row) healed by ensure',
@@ -178,17 +195,28 @@ void main() {
             // 模拟漂移：把 write_offs 退回 nullable amount_fen 形态并插入 NULL 行。
             await _recreateWriteOffsLegacy(db, withAmountFenColumn: true);
             await _insertProject(db, id: 'project:a');
-            await _insertWriteOffRaw(db, id: 'w1', amount: 88.0, amountFen: null);
+            await _insertWriteOffRaw(
+              db,
+              id: 'w1',
+              amount: 88.0,
+              amountFen: null,
+            );
           },
         ),
       );
       try {
-        expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isFalse);
+        expect(
+          await _isNotNull(db, 'project_write_offs', 'amount_fen'),
+          isFalse,
+        );
         expect(await _nullFenCount(db), 1);
 
         await DbMigrations.ensureProjectWriteOffAmountFenNotNull(db);
 
-        expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isTrue);
+        expect(
+          await _isNotNull(db, 'project_write_offs', 'amount_fen'),
+          isTrue,
+        );
         expect(await _nullFenCount(db), 0);
         expect(
           (await db.query('project_write_offs')).single['amount_fen'],
@@ -222,10 +250,7 @@ void main() {
       await DbMigrations.ensureProjectWriteOffAmountFenNotNull(db);
       expect(await _isNotNull(db, 'project_write_offs', 'amount_fen'), isTrue);
       expect(await _rowCount(db, 'project_write_offs'), 1);
-      expect(
-        (await db.query('project_write_offs')).single['amount_fen'],
-        5000,
-      );
+      expect((await db.query('project_write_offs')).single['amount_fen'], 5000);
     } finally {
       await db.close();
     }
@@ -311,7 +336,6 @@ Map<String, Object?> _writeOffRow({
   final row = <String, Object?>{
     'id': id,
     'project_id': projectId,
-    'amount': amount,
     'reason': 'rounding',
     'note': null,
     'write_off_date': '2026-05-18',

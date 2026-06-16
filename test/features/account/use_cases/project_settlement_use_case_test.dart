@@ -2348,18 +2348,19 @@ Future<int> _writeOffCount(Database db) async {
 
 Future<double> _writeOffSum(Database db) async {
   final rows = await db.rawQuery(
-    'SELECT COALESCE(SUM(amount), 0) AS total FROM ${SqfliteProjectWriteOffRepository.table}',
+    'SELECT COALESCE(SUM(amount_fen), 0) AS total '
+    'FROM ${SqfliteProjectWriteOffRepository.table}',
   );
-  return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+  return ((rows.single['total'] as num?)?.toDouble() ?? 0.0) / 100.0;
 }
 
 Future<double> _writeOffSumByProjectId(Database db, String projectId) async {
   final rows = await db.rawQuery(
-    'SELECT COALESCE(SUM(amount), 0) AS total '
+    'SELECT COALESCE(SUM(amount_fen), 0) AS total '
     'FROM ${SqfliteProjectWriteOffRepository.table} WHERE project_id = ?',
     [projectId],
   );
-  return (rows.single['total'] as num?)?.toDouble() ?? 0.0;
+  return ((rows.single['total'] as num?)?.toDouble() ?? 0.0) / 100.0;
 }
 
 Future<List<ProjectWriteOff>> _writeOffRows(Database db) async {

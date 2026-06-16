@@ -77,7 +77,7 @@ class BackupRestoreTables {
     'project_write_offs': [
       'id',
       'project_id',
-      'amount',
+      'amount_fen',
       'reason',
       'write_off_date',
       'created_at',
