@@ -37,11 +37,13 @@ class Migration037 {
         'amount_fen',
         'INTEGER',
       );
-      await db.execute('''
-        UPDATE maintenance_records
-        SET amount_fen = CAST(ROUND(COALESCE(amount, 0) * 100.0) AS INTEGER)
-        WHERE amount_fen IS NULL;
-      ''');
+      if (await _columnExists(db, 'maintenance_records', 'amount')) {
+        await db.execute('''
+          UPDATE maintenance_records
+          SET amount_fen = CAST(ROUND(COALESCE(amount, 0) * 100.0) AS INTEGER)
+          WHERE amount_fen IS NULL;
+        ''');
+      }
     }
   }
 }

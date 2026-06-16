@@ -11,11 +11,8 @@ class MaintenanceRecord {
   /// 事项，例如：换机油 / 年检 / 维修
   final String item;
 
-  /// 金额（元）。A3 起读路径以 amount_fen 为权威；REAL 保留到 A4 删除。
-  final double amount;
-
-  /// 金额（分）。A2d 后 DB 中 NOT NULL；测试/legacy 构造可为 null。
-  final int? amountFen;
+  /// 金额（分）。A4 起为唯一存储权威。
+  final int amountFen;
 
   /// 备注（可空）
   final String? note;
@@ -25,12 +22,14 @@ class MaintenanceRecord {
     required this.deviceId,
     required this.ymd,
     required this.item,
-    required this.amount,
-    this.amountFen,
+    required double amount,
+    int? amountFen,
     this.note,
-  });
+  }) : amountFen = amountFen ?? (amount * 100).round();
 
-  int get effectiveAmountFen => amountFen ?? (amount * 100).round();
+  double get amount => amountFen / 100.0;
+
+  int get effectiveAmountFen => amountFen;
 
   double get effectiveAmount => effectiveAmountFen / 100.0;
 
@@ -43,16 +42,13 @@ class MaintenanceRecord {
     int? amountFen,
     String? note,
   }) {
-    final nextAmount = amount ?? this.amount;
     return MaintenanceRecord(
       id: id ?? this.id,
       deviceId: deviceId ?? this.deviceId,
       ymd: ymd ?? this.ymd,
       item: item ?? this.item,
-      amount: nextAmount,
-      amountFen:
-          amountFen ??
-          (amount == null ? this.amountFen : (nextAmount * 100).round()),
+      amount: amount ?? this.amount,
+      amountFen: amountFen ?? (amount == null ? this.amountFen : null),
       note: note ?? this.note,
     );
   }
@@ -65,21 +61,23 @@ class MaintenanceRecord {
       'device_id': deviceId,
       'ymd': ymd,
       'item': item,
-      'amount': amount,
-      // A1 双写：fen 影子列恒从权威 amount 派生，与迁移回填口径同源。
-      'amount_fen': (amount * 100).round(),
+      'amount_fen': amountFen,
       'note': note,
     };
   }
 
   factory MaintenanceRecord.fromMap(Map<String, dynamic> map) {
+    final rawFen = map['amount_fen'] as num?;
+    if (rawFen == null) {
+      throw StateError('maintenance_records.amount_fen is required');
+    }
     return MaintenanceRecord(
       id: map['id'] as int?,
       deviceId: map['device_id'] as int?,
       ymd: map['ymd'] as int,
       item: map['item'] as String,
-      amount: (map['amount'] as num).toDouble(),
-      amountFen: (map['amount_fen'] as num?)?.toInt(),
+      amount: rawFen.toInt() / 100.0,
+      amountFen: rawFen.toInt(),
       note: map['note'] as String?,
     );
   }

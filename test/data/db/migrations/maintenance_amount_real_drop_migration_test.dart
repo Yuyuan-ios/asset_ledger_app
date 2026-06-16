@@ -10,7 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../test_setup.dart';
 
-/// Track A / A2d：maintenance_records.amount_fen 提升为 NOT NULL。
+/// Track A / A4-2：maintenance_records.amount REAL 删除，amount_fen 成为唯一存储权威。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -20,7 +20,7 @@ void main() {
 
   setUp(() async {
     tmpDir = await Directory.systemTemp.createTemp(
-      'maintenance_amount_fen_nn_',
+      'maintenance_amount_real_drop_',
     );
     dbPath = p.join(tmpDir.path, 'asset_ledger.db');
   });
@@ -31,7 +31,7 @@ void main() {
     }
   });
 
-  test('fresh schema enforces amount_fen NOT NULL', () async {
+  test('fresh schema has amount_fen only', () async {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
@@ -40,75 +40,74 @@ void main() {
       ),
     );
     try {
-      expect(await _isNotNull(db, 'maintenance_records', 'amount_fen'), isTrue);
       expect(await _columnExists(db, 'maintenance_records', 'amount'), isFalse);
+      expect(await _isNotNull(db, 'maintenance_records', 'amount_fen'), isTrue);
 
-      await expectLater(
-        db.insert(
-          'maintenance_records',
-          _maintenanceRow(amount: 12.34)..remove('amount_fen'),
-        ),
-        throwsA(isA<DatabaseException>()),
+      await db.insert(
+        'maintenance_records',
+        _a4MaintenanceRow(amountFen: 12345),
       );
+      final row = (await db.query('maintenance_records')).single;
+      expect(MaintenanceRecord.fromMap(row).amount, 123.45);
     } finally {
       await db.close();
     }
   });
 
   test(
-    'legacy v40 nullable amount_fen is rebuilt, backfilled, and keeps rows',
+    'legacy rows are rebuilt without amount and preserve/backfill fen',
     () async {
-      final legacy = await databaseFactoryFfi.openDatabase(
+      final db = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
-          version: 40,
+          version: 42,
           onCreate: (db, _) async {
-            await _createV40MaintenanceRecords(db);
+            await _createLegacyMaintenanceRecords(db);
             await db.insert(
               'maintenance_records',
-              _maintenanceRow(id: 1, amount: 50.0),
+              _legacyMaintenanceRow(id: 1, amount: 50.0),
             );
             await db.insert(
               'maintenance_records',
-              _maintenanceRow(id: 2, amount: 1234.56),
+              _legacyMaintenanceRow(id: 2, amount: 1234.56),
             );
             await db.insert(
               'maintenance_records',
-              _maintenanceRow(id: 3, amount: 100.0, amountFen: 1),
+              _legacyMaintenanceRow(id: 3, amount: 0.1),
+            );
+            await db.insert(
+              'maintenance_records',
+              _legacyMaintenanceRow(id: 4, amount: 100.0, amountFen: 1),
             );
           },
         ),
       );
-      expect(
-        await _isNotNull(legacy, 'maintenance_records', 'amount_fen'),
-        isFalse,
-      );
-      await legacy.close();
-
-      final upgraded = await databaseFactoryFfi.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: AppDatabase.schemaVersion,
-          onUpgrade: DbMigrations.apply,
-          onOpen: DbMigrations.ensureMaintenanceAmountFenNotNull,
-        ),
-      );
       try {
         expect(
-          await _isNotNull(upgraded, 'maintenance_records', 'amount_fen'),
+          await _columnExists(db, 'maintenance_records', 'amount'),
           isTrue,
         );
 
-        final rows = await upgraded.query('maintenance_records', orderBy: 'id');
-        expect(rows, hasLength(3));
+        await DbMigrations.ensureMaintenanceAmountRealDropped(db);
+
+        expect(
+          await _columnExists(db, 'maintenance_records', 'amount'),
+          isFalse,
+        );
+        expect(
+          await _isNotNull(db, 'maintenance_records', 'amount_fen'),
+          isTrue,
+        );
+        final rows = await db.query('maintenance_records', orderBy: 'id');
+        expect(rows, hasLength(4));
         expect(rows[0]['amount_fen'], 5000);
         expect(rows[1]['amount_fen'], 123456);
-        expect(rows[2]['amount_fen'], 1, reason: '既有非 NULL fen 不应被重建覆盖');
+        expect(rows[2]['amount_fen'], 10);
+        expect(rows[3]['amount_fen'], 1);
         expect(rows[0]['note'], '定期保养');
-
-        expect(MaintenanceRecord.fromMap(rows.first).amountFen, 5000);
+        expect(MaintenanceRecord.fromMap(rows[1]).amount, 1234.56);
       } finally {
-        await upgraded.close();
+        await db.close();
       }
     },
   );
@@ -117,25 +116,24 @@ void main() {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 40,
+        version: 42,
         onCreate: (db, _) async {
-          await _createV40MaintenanceRecords(db);
+          await _createLegacyMaintenanceRecords(db);
           await db.insert(
             'maintenance_records',
-            _maintenanceRow(id: 1000, amount: 1.0),
+            _legacyMaintenanceRow(id: 1000, amount: 1.0),
           );
           await db.delete('maintenance_records', where: 'id = 1000');
           await db.insert(
             'maintenance_records',
-            _maintenanceRow(id: 1, amount: 2.0),
+            _legacyMaintenanceRow(id: 1, amount: 2.0),
           );
         },
       ),
     );
-
-    await DbMigrations.ensureMaintenanceAmountFenNotNull(db);
-
     try {
+      await DbMigrations.ensureMaintenanceAmountRealDropped(db);
+
       final seqRows = await db.rawQuery(
         "SELECT name, seq FROM sqlite_sequence "
         "WHERE name LIKE 'maintenance_records%';",
@@ -146,7 +144,7 @@ void main() {
 
       final newId = await db.insert(
         'maintenance_records',
-        _maintenanceRow(amount: 3.0, amountFen: 300),
+        _a4MaintenanceRow(amountFen: 300),
       );
       expect(newId, greaterThan(1000));
     } finally {
@@ -158,32 +156,32 @@ void main() {
     final db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 40,
+        version: 42,
         onCreate: (db, _) async {
-          await _createV40MaintenanceRecords(db);
+          await _createLegacyMaintenanceRecords(db);
           await db.insert(
             'maintenance_records',
-            _maintenanceRow(id: 1, amount: 88.88),
+            _legacyMaintenanceRow(id: 1, amount: 88.88),
           );
         },
       ),
     );
     try {
-      await DbMigrations.ensureMaintenanceAmountFenNotNull(db);
+      await DbMigrations.ensureMaintenanceAmountRealDropped(db);
       final afterFirst = await db.query('maintenance_records');
 
-      await DbMigrations.ensureMaintenanceAmountFenNotNull(db);
+      await DbMigrations.ensureMaintenanceAmountRealDropped(db);
       final afterSecond = await db.query('maintenance_records');
 
       expect(afterSecond, afterFirst);
-      expect(await _isNotNull(db, 'maintenance_records', 'amount_fen'), isTrue);
+      expect(await _columnExists(db, 'maintenance_records', 'amount'), isFalse);
     } finally {
       await db.close();
     }
   });
 }
 
-Future<void> _createV40MaintenanceRecords(DatabaseExecutor db) async {
+Future<void> _createLegacyMaintenanceRecords(DatabaseExecutor db) async {
   await db.execute('''
     CREATE TABLE maintenance_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -197,7 +195,7 @@ Future<void> _createV40MaintenanceRecords(DatabaseExecutor db) async {
   ''');
 }
 
-Map<String, Object?> _maintenanceRow({
+Map<String, Object?> _legacyMaintenanceRow({
   int? id,
   required double amount,
   int? amountFen,
@@ -208,6 +206,17 @@ Map<String, Object?> _maintenanceRow({
     'ymd': 20260601,
     'item': '换机油',
     'amount': amount,
+    'amount_fen': amountFen,
+    'note': '定期保养',
+  };
+}
+
+Map<String, Object?> _a4MaintenanceRow({int? id, required int amountFen}) {
+  return {
+    'id': id,
+    'device_id': 7,
+    'ymd': 20260601,
+    'item': '换机油',
     'amount_fen': amountFen,
     'note': '定期保养',
   };

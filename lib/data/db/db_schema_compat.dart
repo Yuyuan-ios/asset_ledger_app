@@ -134,12 +134,14 @@ class DbSchemaCompat {
     await DbMigrations.ensureProjectDeviceRateFenNotNull(db);
     // v40（Track A / A2c）：fuel_logs.cost_fen 收紧为 NOT NULL。
     await DbMigrations.ensureFuelCostFenNotNull(db);
-    // v41（Track A / A2d）：maintenance_records.amount_fen 收紧为 NOT NULL；
-    // amount REAL 兼容列与 AUTOINCREMENT 高水位保留。
+    // v41（Track A / A2d）：maintenance_records.amount_fen 收紧为 NOT NULL。
     await DbMigrations.ensureMaintenanceAmountFenNotNull(db);
     // v42（Track A / A4-1）：fuel_logs.cost REAL 删除；cost_fen 为唯一
     // 存储权威，AUTOINCREMENT 高水位保留。
     await DbMigrations.ensureFuelCostRealDropped(db);
+    // v43（Track A / A4-2）：maintenance_records.amount REAL 删除；
+    // amount_fen 为唯一存储权威，AUTOINCREMENT 高水位保留。
+    await DbMigrations.ensureMaintenanceAmountRealDropped(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

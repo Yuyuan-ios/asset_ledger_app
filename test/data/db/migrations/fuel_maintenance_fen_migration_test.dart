@@ -106,6 +106,10 @@ void main() {
         expect(await _rowCount(db, 'maintenance_records'), 2);
 
         expect(await _columnExists(db, 'fuel_logs', 'cost'), isFalse);
+        expect(
+          await _columnExists(db, 'maintenance_records', 'amount'),
+          isFalse,
+        );
         expect((await _row(db, 'fuel_logs', 1))['cost_fen'], 20000);
         // 浮点敏感值精确。
         expect((await _row(db, 'fuel_logs', 2))['cost_fen'], 10); // 0.1

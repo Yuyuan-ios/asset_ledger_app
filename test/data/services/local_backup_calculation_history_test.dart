@@ -497,20 +497,34 @@ void main() {
     expect(exportedFuel['cost_fen'], 12345);
   });
 
-  test('restore accepts old backups without maintenance amount_fen', () async {
-    final db = await _openCurrentInMemoryDb();
-    final legacyMaintenance = _maintenanceMap(id: 1, amount: 234.56)
-      ..remove('amount_fen');
+  test(
+    'restore round-trips legacy maintenance amount into amount_fen only',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      final legacyMaintenance = _maintenanceMap(id: 1, amount: 234.56)
+        ..remove('amount_fen');
 
-    final result = await _restoreService().restoreFromDecodedJson(
-      _backupJson(schemaVersion: 40, maintenanceRecords: [legacyMaintenance]),
-    );
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(schemaVersion: 40, maintenanceRecords: [legacyMaintenance]),
+      );
 
-    expect(result.success, isTrue);
-    final row = (await db.query('maintenance_records')).single;
-    expect(row['amount'], 234.56);
-    expect(row['amount_fen'], 23456);
-  });
+      expect(result.success, isTrue);
+      final row = (await db.query('maintenance_records')).single;
+      expect(row.containsKey('amount'), isFalse);
+      expect(row['amount_fen'], 23456);
+
+      final export = await LocalBackupExportService.exportJsonBackup();
+      expect(export.success, isTrue);
+      final rawJson = await File(export.filePath!).readAsString();
+      final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final exportedMaintenance =
+          (data['maintenance_records'] as List<dynamic>).single
+              as Map<String, dynamic>;
+      expect(exportedMaintenance.containsKey('amount'), isFalse);
+      expect(exportedMaintenance['amount_fen'], 23456);
+    },
+  );
 
   test(
     'restore accepts old backups without project rate breaking flag',

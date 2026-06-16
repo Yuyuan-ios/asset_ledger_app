@@ -313,9 +313,10 @@ class _BackupRestoreValidator {
         normalized.remove('cost');
         break;
       case 'maintenance_records':
-        // Track A / A2d：旧备份缺 amount_fen 时按 REAL amount 回填，避免恢复撞
-        // 当前 schema 的 NOT NULL 约束；已有非 NULL 不覆盖。
+        // Track A / A4-2：旧备份缺 amount_fen 时按 legacy REAL amount 回填；
+        // 插入新 schema 前移除已删除的 REAL amount 列。
         normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
+        normalized.remove('amount');
         break;
       case 'project_device_rates':
         if (allowLegacyProjectIdentity) {
@@ -621,7 +622,6 @@ class _BackupRestoreValidator {
     }
     if (!_isInt(row['ymd'])) return 'invalid_maintenance_records_ymd';
     if (!_isString(row['item'])) return 'invalid_maintenance_records_item';
-    if (!_isNumber(row['amount'])) return 'invalid_maintenance_records_amount';
     if (!_isInt(row['amount_fen'])) {
       return 'invalid_maintenance_records_amount_fen';
     }
