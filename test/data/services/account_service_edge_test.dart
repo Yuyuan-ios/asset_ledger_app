@@ -26,7 +26,7 @@ void main() {
         final money = AccountService.calcMoney(
           agg: agg,
           devices: [],
-          rates: const [],
+          rates: [],
           payments: const [],
         );
 
@@ -51,7 +51,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'Alice||Yard A',
               deviceId: 1,
@@ -100,7 +100,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
         );
 
         expect(info.minRate, isNull);
@@ -134,7 +134,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [
             AccountPayment(
               id: 1,
@@ -292,7 +292,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [
+        rates: [
           ProjectDeviceRate(
             projectId: 'project:first',
             projectKey: 'Alpha||Same Site',
@@ -374,7 +374,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'P||S',
               deviceId: 1,

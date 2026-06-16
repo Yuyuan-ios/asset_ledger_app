@@ -155,12 +155,14 @@ void main() {
         expect((secondSiteRate['project_id'] as String).isNotEmpty, isTrue);
         expect(secondSiteRate['device_id'], 1);
         expect(secondSiteRate['is_breaking'], 0);
-        expect(secondSiteRate['rate'], 510.0);
+        expect(secondSiteRate.containsKey('rate'), isFalse);
+        expect(secondSiteRate['rate_fen'], 51000);
         expect(thirdSiteRate['project_id'], isA<String>());
         expect((thirdSiteRate['project_id'] as String).isNotEmpty, isTrue);
         expect(thirdSiteRate['device_id'], 2);
         expect(thirdSiteRate['is_breaking'], 0);
-        expect(thirdSiteRate['rate'], 610.0);
+        expect(thirdSiteRate.containsKey('rate'), isFalse);
+        expect(thirdSiteRate['rate_fen'], 61000);
         expect(await _primaryKeyColumns(db, 'project_device_rates'), [
           'project_id',
           'device_id',
@@ -254,7 +256,8 @@ void main() {
       expect(repairedRate['project_key'], '王五||老工地');
       expect(repairedRate['device_id'], 7);
       expect(repairedRate['is_breaking'], 0);
-      expect(repairedRate['rate'], 699.0);
+      expect(repairedRate.containsKey('rate'), isFalse);
+      expect(repairedRate['rate_fen'], 69900);
       expect(await _primaryKeyColumns(db, 'project_device_rates'), [
         'project_id',
         'device_id',
@@ -397,7 +400,6 @@ void main() {
           'project_key': '甲方||一号工地',
           'device_id': 1,
           'is_breaking': 0,
-          'rate': 380.0,
           'rate_fen': 38000,
         }),
         throwsA(isA<DatabaseException>()),
@@ -408,7 +410,6 @@ void main() {
         'project_key': '甲方||一号工地',
         'device_id': 1,
         'is_breaking': 0,
-        'rate': 380.0,
         'rate_fen': 38000,
       });
 

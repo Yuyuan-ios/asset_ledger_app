@@ -103,25 +103,25 @@ void main() {
         final baseMoney = AccountService.calcMoney(
           agg: baseProject,
           devices: devices,
-          rates: const [],
+          rates: [],
           payments: const [],
         );
         final displayMoney = AccountService.calcMoney(
           agg: displayProject,
           devices: devices,
-          rates: const [],
+          rates: [],
           payments: const [],
         );
         final baseMoneyFen = AccountService.calcMoneyFen(
           agg: baseProject,
           devices: devices,
-          rates: const [],
+          rates: [],
           payments: const [],
         );
         final displayMoneyFen = AccountService.calcMoneyFen(
           agg: displayProject,
           devices: devices,
-          rates: const [],
+          rates: [],
           payments: const [],
         );
 
@@ -253,7 +253,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'Alice||Yard A',
               deviceId: 2,
@@ -313,7 +313,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'Alice||Yard A',
               deviceId: 2,
@@ -352,7 +352,7 @@ void main() {
         final money = AccountService.calcMoney(
           agg: agg,
           devices: [],
-          rates: const [],
+          rates: [],
           payments: const [
             AccountPayment(
               id: 1,
@@ -417,7 +417,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'Alpha||Site X',
               deviceId: 1,
@@ -477,7 +477,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'Alpha||Site X',
               deviceId: 1,
@@ -533,7 +533,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
         );
 
         expect(info.isMultiMode, isTrue);
@@ -569,7 +569,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
         );
 
         expect(info.isMultiMode, isFalse);
@@ -678,7 +678,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [
+          rates: [
             // Project A override
             ProjectDeviceRate(
               projectKey: 'A||X',
@@ -755,7 +755,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
         );
 
         expect(totals[1], 27000);

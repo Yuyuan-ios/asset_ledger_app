@@ -88,7 +88,7 @@ class BackupRestoreTables {
       'project_key',
       'device_id',
       'is_breaking',
-      'rate',
+      'rate_fen',
     ],
     'timing_calculation_history': [
       'id',

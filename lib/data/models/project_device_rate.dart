@@ -16,24 +16,19 @@ class ProjectDeviceRate {
   final String projectKey;
   final int deviceId;
   final bool isBreaking;
-  final double rate;
+  final int rateFen;
 
-  /// 存储的 rate_fen（v35，nullable）。null 表示 legacy 行，由 [rateFen]
-  /// getter 派生回退。仅 [fromMap] 设置。
-  final int? _rateFen;
-
-  const ProjectDeviceRate({
+  ProjectDeviceRate({
     this.projectId = '',
     required this.projectKey,
     required this.deviceId,
     this.isBreaking = false,
-    required this.rate,
+    required double rate,
     int? rateFen,
-  }) : _rateFen = rateFen;
+  }) : rateFen = rateFen ?? (rate * 100).round();
 
-  /// 覆盖单价的整数分（fen 主存读优先口径,v35）。优先返回存储值，
-  /// legacy 行由 REAL [rate] 派生 round(×100) 回退。
-  int get rateFen => _rateFen ?? (rate * 100).round();
+  /// 覆盖单价的派生 yuan 视图；存储权威是 [rateFen]。
+  double get rate => rateFen / 100.0;
 
   double get effectiveRate => rateFen / 100.0;
 
@@ -43,20 +38,22 @@ class ProjectDeviceRate {
       'project_key': projectKey,
       'device_id': deviceId,
       'is_breaking': isBreaking ? 1 : 0,
-      'rate': rate,
-      // v35：fen 镜像与 REAL 双写;REAL 仍是读口径,切换留待 S1 收口。
       'rate_fen': rateFen,
     };
   }
 
   static ProjectDeviceRate fromMap(Map<String, Object?> m) {
+    final rawRateFen = m['rate_fen'];
+    if (rawRateFen == null) {
+      throw StateError('project_device_rates.rate_fen is required');
+    }
     return ProjectDeviceRate(
       projectId: (m['project_id'] as String?) ?? '',
       projectKey: (m['project_key'] as String?) ?? '',
       deviceId: (m['device_id'] as int?) ?? 0,
       isBreaking: ((m['is_breaking'] as int?) ?? 0) == 1,
-      rate: (m['rate'] as num?)?.toDouble() ?? 0.0,
-      rateFen: (m['rate_fen'] as num?)?.toInt(),
+      rate: 0,
+      rateFen: (rawRateFen as num).toInt(),
     );
   }
 

@@ -24,7 +24,7 @@ void main() {
         hours: 1.0,
         devices: [_device()],
         rates: [
-          const ProjectDeviceRate(
+          ProjectDeviceRate(
             projectId: 'project:uuid',
             projectKey: 'legacy-unused',
             deviceId: 1,
@@ -53,7 +53,7 @@ void main() {
           hours: 1.0,
           devices: [_device()],
           rates: [
-            const ProjectDeviceRate(
+            ProjectDeviceRate(
               projectId: 'project:other',
               projectKey: 'legacy-unused',
               deviceId: 1,
@@ -90,7 +90,7 @@ void main() {
           hours: 1.0,
           devices: [_device()],
           rates: [
-            const ProjectDeviceRate(
+            ProjectDeviceRate(
               projectId: 'project:settled',
               projectKey: 'legacy-unused',
               deviceId: 1,

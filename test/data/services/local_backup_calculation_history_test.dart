@@ -562,7 +562,9 @@ void main() {
     'restore accepts old backups without project rate breaking flag',
     () async {
       final db = await _openCurrentInMemoryDb();
-      final legacyRate = _projectRateMap()..remove('is_breaking');
+      final legacyRate = _projectRateMap(includeLegacyRate: true)
+        ..remove('is_breaking')
+        ..remove('rate_fen');
 
       final result = await _restoreService().restoreFromDecodedJson(
         _backupJson(schemaVersion: 7, projectDeviceRates: [legacyRate]),
@@ -573,6 +575,32 @@ void main() {
       expect(rate['is_breaking'], 0);
     },
   );
+
+  test('restore round-trips legacy project rate into rate_fen only', () async {
+    final db = await _openCurrentInMemoryDb();
+    final legacyRate = _projectRateMap(rate: 123.45, includeLegacyRate: true)
+      ..remove('rate_fen');
+
+    final result = await _restoreService().restoreFromDecodedJson(
+      _backupJson(schemaVersion: 34, projectDeviceRates: [legacyRate]),
+    );
+
+    expect(result.success, isTrue);
+    final rate = (await db.query('project_device_rates')).single;
+    expect(rate.containsKey('rate'), isFalse);
+    expect(rate['rate_fen'], 12345);
+
+    final export = await LocalBackupExportService.exportJsonBackup();
+    expect(export.success, isTrue);
+    final rawJson = await File(export.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final exportedRate =
+        (data['project_device_rates'] as List<dynamic>).single
+            as Map<String, dynamic>;
+    expect(exportedRate.containsKey('rate'), isFalse);
+    expect(exportedRate['rate_fen'], 12345);
+  });
 
   test('restore accepts old backups without timing contact and site', () async {
     final db = await _openCurrentInMemoryDb();
@@ -1080,13 +1108,14 @@ Map<String, Object?> _projectRateMap({
   int isBreaking = 0,
   double rate = 120.0,
   bool includeProjectId = false,
+  bool includeLegacyRate = false,
 }) {
   return {
     if (includeProjectId) 'project_id': _projectIdForKey(projectKey),
     'project_key': projectKey,
     'device_id': deviceId,
     'is_breaking': isBreaking,
-    'rate': rate,
+    if (includeLegacyRate) 'rate': rate,
     'rate_fen': (rate * 100).round(),
   };
 }

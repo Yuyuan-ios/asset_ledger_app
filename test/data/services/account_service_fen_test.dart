@@ -35,7 +35,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [],
       );
 
@@ -70,7 +70,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [
+        rates: [
           ProjectDeviceRate(
             projectKey: 'Alpha||Site X',
             deviceId: 1,
@@ -115,7 +115,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [
           AccountPayment(
             id: 1,
@@ -167,7 +167,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [],
         writeOffs: [
           ProjectWriteOff(
@@ -226,7 +226,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [],
       );
 

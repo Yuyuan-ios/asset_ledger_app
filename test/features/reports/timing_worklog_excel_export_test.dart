@@ -137,7 +137,7 @@ void main() {
         ),
       ],
       devices: [hitachi],
-      rates: const [
+      rates: [
         ProjectDeviceRate(
           projectId: 'project-a',
           projectKey: '张三||工地',

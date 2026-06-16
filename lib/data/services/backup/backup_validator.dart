@@ -328,8 +328,10 @@ class _BackupRestoreValidator {
           );
         }
         normalized['is_breaking'] ??= 0;
-        // v35：旧备份缺 rate_fen 时按 REAL rate 回填。
+        // Track A / A4-4：旧备份缺 rate_fen 时按 legacy REAL rate 回填；
+        // 插入新 schema 前移除已删除的 REAL rate 列。
         normalized['rate_fen'] ??= _fenFromYuan(normalized['rate']);
+        normalized.remove('rate');
         break;
       case 'project_write_offs':
         normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
@@ -686,8 +688,7 @@ class _BackupRestoreValidator {
     if (!_isBooleanInt(row['is_breaking'])) {
       return 'invalid_project_device_rates_is_breaking';
     }
-    if (!_isNumber(row['rate'])) return 'invalid_project_device_rates_rate';
-    if (!_isNullableInt(row['rate_fen'])) {
+    if (!_isInt(row['rate_fen'])) {
       return 'invalid_project_device_rates_rate_fen';
     }
     return null;

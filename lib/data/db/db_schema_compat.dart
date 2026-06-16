@@ -36,22 +36,27 @@ class DbSchemaCompat {
       );
     }
 
-    // project_device_rates 兜底：必须含 is_breaking 且主键为 3 列
+    // project_device_rates 兜底：legacy project_key 主键形态必须含
+    // is_breaking 且主键为 3 列。已升级到 project_id 主键的新形态不走此
+    // 旧修复，避免 A4 fen-only schema 被 legacy rate REAL 假设误伤。
     final rateCols = await db.rawQuery(
       'PRAGMA table_info(project_device_rates);',
     );
+    final hasProjectId = rateCols.any((row) => row['name'] == 'project_id');
     final hasIsBreaking = rateCols.any((row) => row['name'] == 'is_breaking');
     final pkCols = rateCols
         .where((row) => ((row['pk'] as int?) ?? 0) > 0)
         .map((row) => row['name'] as String)
         .toList();
-    final has3Key =
+    final hasLegacy3Key =
         pkCols.length == 3 &&
         pkCols.contains('project_key') &&
         pkCols.contains('device_id') &&
         pkCols.contains('is_breaking');
 
-    if (!hasIsBreaking || !has3Key) {
+    if (rateCols.isNotEmpty &&
+        !hasProjectId &&
+        (!hasIsBreaking || !hasLegacy3Key)) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS project_device_rates_v8_fix (
           project_key TEXT NOT NULL,
@@ -135,6 +140,9 @@ class DbSchemaCompat {
     // v44（Track A / A4-3）：devices.default_unit_price /
     // breaking_unit_price REAL 删除；fen 为唯一存储权威，AUTOINCREMENT 高水位保留。
     await DbMigrations.ensureDeviceUnitPriceRealsDropped(db);
+    // v45（Track A / A4-4）：project_device_rates.rate REAL 删除；
+    // rate_fen 为唯一存储权威，复合主键与 projects FK RESTRICT 保留。
+    await DbMigrations.ensureProjectDeviceRateRealDropped(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

@@ -53,33 +53,35 @@ void main() {
     );
   }
 
-  test('consistent data: fen rate path equals the legacy yuan-rate formula',
-      () {
-    const hoursValues = <double>[0.1, 0.5, 7.5, 239.0, 12.5];
-    const rate = 380.55;
+  test(
+    'consistent data: fen rate path equals the legacy yuan-rate formula',
+    () {
+      const hoursValues = <double>[0.1, 0.5, 7.5, 239.0, 12.5];
+      const rate = 380.55;
 
-    final records = [
-      for (var i = 0; i < hoursValues.length; i++)
-        hoursRecord(id: i + 1, hours: hoursValues[i]),
-    ];
-    final agg = AccountService.buildProjects(
-      timingRecords: records,
-    )[projectId]!;
+      final records = [
+        for (var i = 0; i < hoursValues.length; i++)
+          hoursRecord(id: i + 1, hours: hoursValues[i]),
+      ];
+      final agg = AccountService.buildProjects(
+        timingRecords: records,
+      )[projectId]!;
 
-    final money = AccountService.calcMoneyFen(
-      agg: agg,
-      devices: [device(id: 1, defaultPrice: rate)],
-      rates: const [],
-      payments: const [],
-    );
+      final money = AccountService.calcMoneyFen(
+        agg: agg,
+        devices: [device(id: 1, defaultPrice: rate)],
+        rates: const [],
+        payments: const [],
+      );
 
-    // 旧公式:逐设备 hours 聚合 × UnitPrice.fromYuanPerHour(rate)。
-    final legacyFen = AmountPolicy.calculateAmount(
-      hours: WorkHours.fromHours(agg.normalHoursByDevice[1]!),
-      unitPrice: UnitPrice.fromYuanPerHour(rate),
-    ).fen;
-    expect(money.receivableFen, legacyFen);
-  });
+      // 旧公式:逐设备 hours 聚合 × UnitPrice.fromYuanPerHour(rate)。
+      final legacyFen = AmountPolicy.calculateAmount(
+        hours: WorkHours.fromHours(agg.normalHoursByDevice[1]!),
+        unitPrice: UnitPrice.fromYuanPerHour(rate),
+      ).fen;
+      expect(money.receivableFen, legacyFen);
+    },
+  );
 
   test('stored fen rate wins over dirty REAL unit prices', () {
     final agg = AccountService.buildProjects(
@@ -153,11 +155,7 @@ void main() {
       device(id: 2, defaultPrice: 99.99, breakingPrice: 120.01),
     ];
     final rates = [
-      const ProjectDeviceRate(
-        projectKey: 'Alice||Yard A',
-        deviceId: 1,
-        rate: 400.5,
-      ),
+      ProjectDeviceRate(projectKey: 'Alice||Yard A', deviceId: 1, rate: 400.5),
     ];
 
     for (final isBreaking in const [false, true]) {

@@ -13,7 +13,7 @@ void main() {
         final result = useCase.execute(
           timingRecords: const [],
           devices: const [],
-          rates: const [],
+          rates: [],
           payments: const [],
         );
 
@@ -61,7 +61,7 @@ void main() {
             ),
           ],
           devices: const [],
-          rates: const [
+          rates: [
             ProjectDeviceRate(
               projectKey: 'Alice||Yard A',
               deviceId: 12,

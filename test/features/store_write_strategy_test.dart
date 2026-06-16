@@ -233,7 +233,7 @@ void main() {
       () async {
         final repository = _CountingProjectRateRepository(
           seed: [
-            const ProjectDeviceRate(
+            ProjectDeviceRate(
               projectKey: '张三||工地A',
               deviceId: 1,
               isBreaking: false,
@@ -247,7 +247,7 @@ void main() {
         expect(repository.listAllCalls, 1);
 
         await store.upsert(
-          const ProjectDeviceRate(
+          ProjectDeviceRate(
             projectKey: '张三||工地A',
             deviceId: 2,
             isBreaking: true,
@@ -268,7 +268,7 @@ void main() {
         );
 
         await store.upsert(
-          const ProjectDeviceRate(
+          ProjectDeviceRate(
             projectKey: '张三||工地A',
             deviceId: 1,
             isBreaking: false,

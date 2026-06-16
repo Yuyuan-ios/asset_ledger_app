@@ -99,7 +99,7 @@ void main() {
             allDevices: devices,
             allPayments: const [],
             allWriteOffs: writeOffs,
-            allRates: const [
+            allRates: [
               ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
               ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
               ProjectDeviceRate(projectKey: xiantanKey, deviceId: 2, rate: 180),

@@ -69,7 +69,7 @@ void main() {
     ),
   ];
 
-  const rates = [
+  final rates = [
     ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
     ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
     ProjectDeviceRate(projectKey: xiantanKey, deviceId: 2, rate: 180),
@@ -227,7 +227,7 @@ void main() {
     test('derives project override rates from rateFen', () {
       final vm = builderFor(
         projects: [normalProject()],
-        allRates: const [
+        allRates: [
           ProjectDeviceRate(
             projectKey: shangyiKey,
             deviceId: 1,

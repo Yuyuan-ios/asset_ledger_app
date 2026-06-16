@@ -90,7 +90,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [
+        rates: [
           ProjectDeviceRate(projectKey: '李洋||万达', deviceId: 2, rate: 150),
         ],
         payments: const [
@@ -180,7 +180,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [],
         settledProjectIds: {settledId},
       );
@@ -217,7 +217,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [
           AccountPayment(
             id: 1,
@@ -262,7 +262,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [],
         );
 
@@ -300,7 +300,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [],
       );
 
@@ -338,7 +338,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [
           AccountPayment(
             id: 1,
@@ -405,7 +405,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [
             AccountPayment(
               id: 1,
@@ -479,7 +479,7 @@ void main() {
             baseMeterHours: 0,
           ),
         ],
-        rates: const [],
+        rates: [],
         payments: const [],
         writeOffs: [
           ProjectWriteOff(
@@ -538,7 +538,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [
             AccountPayment(
               id: 1,
@@ -618,7 +618,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [
             AccountPayment(
               id: 1,
@@ -712,7 +712,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [
             AccountPayment(
               id: 1,
@@ -828,7 +828,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [],
           activeMergeGroups: const [
             AccountProjectMergeGroupWithMembers(
@@ -910,7 +910,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [],
+          rates: [],
           payments: const [],
           activeMergeGroups: const [
             AccountProjectMergeGroupWithMembers(

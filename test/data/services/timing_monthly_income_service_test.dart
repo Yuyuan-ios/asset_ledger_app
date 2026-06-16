@@ -1689,7 +1689,7 @@ void main() {
           hours: 12.6,
           income: 9999,
         );
-        const rate = ProjectDeviceRate(
+        final rate = ProjectDeviceRate(
           projectId: projectId,
           projectKey: 'A||X',
           deviceId: 1,
@@ -1707,7 +1707,7 @@ void main() {
               baseMeterHours: 0,
             ),
           ],
-          rates: const [rate],
+          rates: [rate],
           targetYear: 2026,
           targetMonth: 5,
           asOfDate: DateTime(2026, 5, 31),
