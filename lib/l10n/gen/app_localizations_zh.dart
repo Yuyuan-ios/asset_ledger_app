@@ -25,4 +25,29 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tabDevice => '设备';
+
+  @override
+  String get timingCalculatorExpressionPlaceholder => '工时计算式';
+
+  @override
+  String get timingCalculatorNoResult => '未计算';
+
+  @override
+  String timingCalculatorResult(String value) {
+    return '结果 $value h';
+  }
+
+  @override
+  String get timingCalculatorApplyButton => '填入';
+
+  @override
+  String get timingCalculationHistoryEmpty => '暂无计算记录';
+
+  @override
+  String timingCalculationHistoryMeta(String date, int count) {
+    return '$date | 票据 $count 张';
+  }
+
+  @override
+  String get timingCalculationAppliedBadge => '已填入工时';
 }

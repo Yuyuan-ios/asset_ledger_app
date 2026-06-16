@@ -133,6 +133,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'设备'**
   String get tabDevice;
+
+  /// 计时模块:工时计算器显示区的空表达式占位
+  ///
+  /// In zh, this message translates to:
+  /// **'工时计算式'**
+  String get timingCalculatorExpressionPlaceholder;
+
+  /// 计时模块:工时计算器尚未产生结果时的状态文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未计算'**
+  String get timingCalculatorNoResult;
+
+  /// 计时模块:工时计算器结果显示
+  ///
+  /// In zh, this message translates to:
+  /// **'结果 {value} h'**
+  String timingCalculatorResult(String value);
+
+  /// 计时模块:工时计算器等号键下方的应用结果按钮文案
+  ///
+  /// In zh, this message translates to:
+  /// **'填入'**
+  String get timingCalculatorApplyButton;
+
+  /// 计时模块:工时计算器历史列表为空态
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无计算记录'**
+  String get timingCalculationHistoryEmpty;
+
+  /// 计时模块:工时计算器历史记录时间与票据数量
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} | 票据 {count} 张'**
+  String timingCalculationHistoryMeta(String date, int count);
+
+  /// 计时模块:工时计算器历史记录已应用到工时输入的标记
+  ///
+  /// In zh, this message translates to:
+  /// **'已填入工时'**
+  String get timingCalculationAppliedBadge;
 }
 
 class _AppLocalizationsDelegate

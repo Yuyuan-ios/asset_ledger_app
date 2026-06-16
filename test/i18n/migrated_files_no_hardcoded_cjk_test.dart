@@ -8,6 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// 这是渐进式清单:每完成一个文件/模块的 key 化,加入 [migratedFiles]。
 /// 反向锁定已完成的成果,防止后续提交往已迁移文件里重新硬编码中文。
 const List<String> migratedFiles = <String>[
+  'lib/features/timing/calculator/view/calculation_history_list.dart',
+  'lib/features/timing/calculator/view/calculator_keypad.dart',
+  'lib/features/timing/calculator/view/work_hour_calculator_sheet.dart',
   'lib/patterns/timing/tab_bar_pattern.dart',
 ];
 
@@ -38,11 +41,9 @@ void main() {
         expect(
           match,
           isNull,
-          reason: '$path 代码中仍有硬编码中文(应走 AppLocalizations)：'
-              '"${match == null ? '' : code.substring(
-                  (match.start - 20).clamp(0, code.length),
-                  (match.start + 20).clamp(0, code.length),
-                )}"',
+          reason:
+              '$path 代码中仍有硬编码中文(应走 AppLocalizations)：'
+              '"${match == null ? '' : code.substring((match.start - 20).clamp(0, code.length), (match.start + 20).clamp(0, code.length))}"',
         );
       });
     }

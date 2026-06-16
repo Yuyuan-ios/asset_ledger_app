@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 // [新增] 满足 no_textstyle_in_migrated_modules：用 AppTypography 替代 TextStyle 构造
 import '../../../../core/foundation/typography.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../domain/entities/timing_entities.dart';
 
@@ -137,15 +138,16 @@ class _CalculatorDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final expression = store.displayExpression.isEmpty
-        ? '工时计算式'
+        ? l10n.timingCalculatorExpressionPlaceholder
         : store.displayExpression;
     final result = store.lastResult;
     final primaryText = store.hasError
         ? store.errorMessage ?? ''
         : result == null
-        ? '未计算'
-        : '结果 ${result.toStringAsFixed(1)} h';
+        ? l10n.timingCalculatorNoResult
+        : l10n.timingCalculatorResult(result.toStringAsFixed(1));
 
     return Container(
       width: double.infinity,

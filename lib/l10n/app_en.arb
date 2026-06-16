@@ -5,5 +5,12 @@
   "tabEnergy": "Energy",
   "tabAccount": "Accounts",
   "tabMaintenance": "Service",
-  "tabDevice": "Devices"
+  "tabDevice": "Devices",
+  "timingCalculatorExpressionPlaceholder": "Work hour expression",
+  "timingCalculatorNoResult": "Not calculated",
+  "timingCalculatorResult": "Result {value} h",
+  "timingCalculatorApplyButton": "Apply",
+  "timingCalculationHistoryEmpty": "No calculation records",
+  "timingCalculationHistoryMeta": "{date} | {count, plural, =1{1 ticket} other{{count} tickets}}",
+  "timingCalculationAppliedBadge": "Applied to hours"
 }

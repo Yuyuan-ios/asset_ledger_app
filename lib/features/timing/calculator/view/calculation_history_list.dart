@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 // [新增] 引入语义化排版令牌；项目 lint(no_textstyle_in_migrated_modules)
 // 禁止 timing/ 等已迁移模块直接调用 TextStyle 构造器。
 import '../../../../core/foundation/typography.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/timing_entities.dart';
 
 import '../model/staged_timing_calculation_history.dart';
@@ -30,11 +31,12 @@ class CalculationHistoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final items = _historyItems();
     if (items.isEmpty) {
       return Center(
         child: Text(
-          '暂无计算记录',
+          l10n.timingCalculationHistoryEmpty,
           style: AppTypography.body(
             context,
             fontSize: 13,
@@ -104,6 +106,7 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final expression = history.expression.split('+').join(' + ');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -116,7 +119,10 @@ class _HistoryTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_formatDate(history.createdAt)} | 票据 ${history.ticketCount} 张',
+            l10n.timingCalculationHistoryMeta(
+              _formatDate(history.createdAt),
+              history.ticketCount,
+            ),
             style: AppTypography.caption(
               context,
               fontSize: 12,
@@ -166,6 +172,7 @@ class _AppliedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
@@ -174,7 +181,7 @@ class _AppliedBadge extends StatelessWidget {
         border: Border.all(color: _appliedBorder),
       ),
       child: Text(
-        '已填入工时',
+        l10n.timingCalculationAppliedBadge,
         style: AppTypography.caption(
           context,
           fontSize: 12,

@@ -25,4 +25,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tabDevice => 'Devices';
+
+  @override
+  String get timingCalculatorExpressionPlaceholder => 'Work hour expression';
+
+  @override
+  String get timingCalculatorNoResult => 'Not calculated';
+
+  @override
+  String timingCalculatorResult(String value) {
+    return 'Result $value h';
+  }
+
+  @override
+  String get timingCalculatorApplyButton => 'Apply';
+
+  @override
+  String get timingCalculationHistoryEmpty => 'No calculation records';
+
+  @override
+  String timingCalculationHistoryMeta(String date, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tickets',
+      one: '1 ticket',
+    );
+    return '$date | $_temp0';
+  }
+
+  @override
+  String get timingCalculationAppliedBadge => 'Applied to hours';
 }

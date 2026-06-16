@@ -5,9 +5,11 @@ import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/timing/domain/services/timing_entry_template.dart';
 import 'package:asset_ledger/components/pickers/app_date_picker_dialog.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_detail_content_pattern.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -32,6 +34,14 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh'), Locale('en')],
         home: Scaffold(
           body: TimingDetailContent(
             key: key,
@@ -114,7 +124,14 @@ void main() {
   }
 
   Future<void> tapCalculatorTextKey(WidgetTester tester, String label) async {
-    await tester.tap(find.widgetWithText(OutlinedButton, label).last);
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, label).hitTestable().last,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapCalculatorEqualKey(WidgetTester tester) async {
+    await tester.tap(find.widgetWithText(FilledButton, '=').hitTestable().last);
     await tester.pumpAndSettle();
   }
 
@@ -724,8 +741,7 @@ void main() {
     await tapCalculatorTextKey(tester, '8');
     await tapCalculatorTextKey(tester, '+');
     await tapCalculatorTextKey(tester, '8');
-    await tester.tap(find.widgetWithText(FilledButton, '=').last);
-    await tester.pumpAndSettle();
+    await tapCalculatorEqualKey(tester);
 
     expect(
       find.textContaining('8 + 8 = 16.0 h', findRichText: true),
@@ -784,8 +800,7 @@ void main() {
     await tapCalculatorTextKey(tester, '8');
     await tapCalculatorTextKey(tester, '+');
     await tapCalculatorTextKey(tester, '8');
-    await tester.tap(find.widgetWithText(FilledButton, '=').last);
-    await tester.pumpAndSettle();
+    await tapCalculatorEqualKey(tester);
 
     expect(find.textContaining('[本次]'), findsNothing);
     expect(
@@ -828,8 +843,7 @@ void main() {
     await tapCalculatorTextKey(tester, '8');
     await tapCalculatorTextKey(tester, '+');
     await tapCalculatorTextKey(tester, '8');
-    await tester.tap(find.widgetWithText(FilledButton, '=').last);
-    await tester.pumpAndSettle();
+    await tapCalculatorEqualKey(tester);
     await closeCalculatorSheet(tester);
 
     await tester.tap(find.text('租金(台班)'));

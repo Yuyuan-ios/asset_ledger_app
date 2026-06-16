@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 // [新增] 满足 no_textstyle_in_migrated_modules：用 AppTypography.actionText
 // 代替按键的 textStyle 直接 TextStyle 构造。
 import '../../../../core/foundation/typography.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 
 const _keyHeight = 62.0;
 const _keyRadius = 20.0;
@@ -198,6 +199,7 @@ class _EqualKey extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
       height: _keyHeight,
       child: DecoratedBox(
@@ -243,7 +245,7 @@ class _EqualKey extends StatelessWidget {
                 ),
               ),
               Text(
-                '填入',
+                l10n.timingCalculatorApplyButton,
                 style: AppTypography.actionText(
                   context,
                   fontSize: 12,

@@ -1,12 +1,15 @@
 import 'package:asset_ledger/features/timing/calculator/model/staged_timing_calculation_history.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/timing/calculator/view/work_hour_calculator_sheet.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Future<void> pumpSheet(
     WidgetTester tester, {
+    Locale locale = const Locale('zh'),
     List<TimingCalculationHistory> existingHistories = const [],
     ValueChanged<List<StagedTimingCalculationHistory>>? onHistoriesChanged,
   }) async {
@@ -17,6 +20,14 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh'), Locale('en')],
         home: Scaffold(
           body: WorkHourCalculatorSheet(
             initialHours: null,
@@ -60,6 +71,9 @@ void main() {
     );
 
     expect(find.textContaining('[已保存]'), findsNothing);
+    expect(find.text('未计算'), findsOneWidget);
+    expect(find.text('工时计算式'), findsOneWidget);
+    expect(find.text('填入'), findsOneWidget);
     expect(find.text('2026.05.13 18:20 | 票据 3 张'), findsOneWidget);
     expect(
       find.textContaining('8 + 8.2 + 7.8 = 24.0 h', findRichText: true),
@@ -90,6 +104,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('[本次]'), findsNothing);
+    expect(find.text('结果 16.0 h'), findsOneWidget);
     expect(find.text('已填入工时'), findsOneWidget);
     expect(
       find.textContaining('8 + 8 = 16.0 h', findRichText: true),
@@ -111,5 +126,24 @@ void main() {
       findsOneWidget,
     );
     expect(latestStagedHistories, hasLength(2));
+  });
+
+  testWidgets('renders localized en calculator labels', (
+    WidgetTester tester,
+  ) async {
+    await pumpSheet(tester, locale: const Locale('en'));
+
+    expect(find.text('Not calculated'), findsOneWidget);
+    expect(find.text('Work hour expression'), findsOneWidget);
+    expect(find.text('Apply'), findsOneWidget);
+
+    await tapTextKey(tester, '8');
+    await tapTextKey(tester, '+');
+    await tapTextKey(tester, '8');
+    await tester.tap(find.widgetWithText(FilledButton, '=').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Result 16.0 h'), findsOneWidget);
+    expect(find.text('Applied to hours'), findsOneWidget);
   });
 }

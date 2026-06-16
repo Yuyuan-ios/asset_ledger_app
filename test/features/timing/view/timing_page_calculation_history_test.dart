@@ -40,9 +40,11 @@ import 'package:asset_ledger/features/timing/use_cases/save_timing_record_alloca
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -1080,8 +1082,7 @@ void main() {
       await tester.pumpAndSettle();
       await _tapCalculatorTextKey(tester, '2');
       await _tapCalculatorTextKey(tester, '0');
-      await tester.tap(find.widgetWithText(FilledButton, '=').last);
-      await tester.pumpAndSettle();
+      await _tapCalculatorEqualKey(tester);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
@@ -1155,6 +1156,14 @@ Future<void> _pumpTimingPage(
 
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('zh'), Locale('en')],
       home: MultiProvider(
         providers: [
           ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
@@ -1236,7 +1245,14 @@ Future<void> _switchToRecentRecords(WidgetTester tester) async {
 }
 
 Future<void> _tapCalculatorTextKey(WidgetTester tester, String label) async {
-  await tester.tap(find.widgetWithText(OutlinedButton, label).last);
+  await tester.tap(
+    find.widgetWithText(OutlinedButton, label).hitTestable().last,
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapCalculatorEqualKey(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(FilledButton, '=').hitTestable().last);
   await tester.pumpAndSettle();
 }
 

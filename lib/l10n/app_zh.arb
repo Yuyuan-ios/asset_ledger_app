@@ -23,5 +23,49 @@
   "tabDevice": "设备",
   "@tabDevice": {
     "description": "底部导航:设备管理入口"
+  },
+  "timingCalculatorExpressionPlaceholder": "工时计算式",
+  "@timingCalculatorExpressionPlaceholder": {
+    "description": "计时模块:工时计算器显示区的空表达式占位"
+  },
+  "timingCalculatorNoResult": "未计算",
+  "@timingCalculatorNoResult": {
+    "description": "计时模块:工时计算器尚未产生结果时的状态文案"
+  },
+  "timingCalculatorResult": "结果 {value} h",
+  "@timingCalculatorResult": {
+    "description": "计时模块:工时计算器结果显示",
+    "placeholders": {
+      "value": {
+        "type": "String",
+        "example": "16.0"
+      }
+    }
+  },
+  "timingCalculatorApplyButton": "填入",
+  "@timingCalculatorApplyButton": {
+    "description": "计时模块:工时计算器等号键下方的应用结果按钮文案"
+  },
+  "timingCalculationHistoryEmpty": "暂无计算记录",
+  "@timingCalculationHistoryEmpty": {
+    "description": "计时模块:工时计算器历史列表为空态"
+  },
+  "timingCalculationHistoryMeta": "{date} | 票据 {count} 张",
+  "@timingCalculationHistoryMeta": {
+    "description": "计时模块:工时计算器历史记录时间与票据数量",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "2026.05.13 18:20"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "timingCalculationAppliedBadge": "已填入工时",
+  "@timingCalculationAppliedBadge": {
+    "description": "计时模块:工时计算器历史记录已应用到工时输入的标记"
   }
 }
