@@ -361,7 +361,9 @@ class _TimingTwoOptionSegmentItem extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (selected)
+              // 有图标的分段(如属具挖斗/破碎)靠图标+高亮表达选中,不再叠 ✓;
+              // 纯文字分段(如工时/租金)保留 ✓ 标记选中。
+              if (selected && icon == null)
                 Padding(
                   padding: EdgeInsets.only(right: checkRightGap),
                   child: Text('✓', style: checkStyle),
