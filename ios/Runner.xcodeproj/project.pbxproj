@@ -327,23 +327,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		7DDEE7588B7D413BB0D62DEA /* Sign Native Asset Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Sign Native Asset Frameworks";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -z \"${FRAMEWORKS_FOLDER_PATH+x}\" ]; then\n  exit 0\nfi\n\nif [ \"${CODE_SIGNING_ALLOWED:-NO}\" = \"NO\" ] || [ \"${CODE_SIGNING_REQUIRED:-YES}\" = \"NO\" ] || [ -z \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  exit 0\nfi\n\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nif [ ! -d \"$frameworks_dir\" ]; then\n  exit 0\nfi\n\nfind \"$frameworks_dir\" -maxdepth 1 -type d -name \"*.framework\" | while read framework; do\n  signature_info=\"$(/usr/bin/codesign -dv --verbose=2 \"$framework\" 2>&1 || true)\"\n  needs_resign=false\n  if echo \"$signature_info\" | /usr/bin/grep -q \"Signature=adhoc\"; then\n    needs_resign=true\n  fi\n  if echo \"$signature_info\" | /usr/bin/grep -q \"code object is not signed\"; then\n    needs_resign=true\n  fi\n  if [ \"$needs_resign\" != \"true\" ]; then\n    continue\n  fi\n\n  echo \"Code Signing native asset framework $(basename \"$framework\") with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\"\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${OTHER_CODE_SIGN_FLAGS:-} --preserve-metadata=identifier,entitlements \"$framework\"\ndone\n";
+			shellScript = "BUILT_PRODUCTS_DIR=\"${PODS_CONFIGURATION_BUILD_DIR}\" \"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		77DF1A27CF5E0F801F479F81 /* [CP] Check Pods Manifest.lock */ = {
@@ -366,6 +350,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7DDEE7588B7D413BB0D62DEA /* Sign Native Asset Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Sign Native Asset Frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -z \"${FRAMEWORKS_FOLDER_PATH+x}\" ]; then\n  exit 0\nfi\n\nif [ \"${CODE_SIGNING_ALLOWED:-NO}\" = \"NO\" ] || [ \"${CODE_SIGNING_REQUIRED:-YES}\" = \"NO\" ] || [ -z \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  exit 0\nfi\n\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nif [ ! -d \"$frameworks_dir\" ]; then\n  exit 0\nfi\n\nfind \"$frameworks_dir\" -maxdepth 1 -type d -name \"*.framework\" | while read framework; do\n  signature_info=\"$(/usr/bin/codesign -dv --verbose=2 \"$framework\" 2>&1 || true)\"\n  needs_resign=false\n  if echo \"$signature_info\" | /usr/bin/grep -q \"Signature=adhoc\"; then\n    needs_resign=true\n  fi\n  if echo \"$signature_info\" | /usr/bin/grep -q \"code object is not signed\"; then\n    needs_resign=true\n  fi\n  if [ \"$needs_resign\" != \"true\" ]; then\n    continue\n  fi\n\n  echo \"Code Signing native asset framework $(basename \"$framework\") with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\"\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" ${OTHER_CODE_SIGN_FLAGS:-} --preserve-metadata=identifier,entitlements \"$framework\"\ndone\n";
 			showEnvVarsInLog = 0;
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
@@ -497,6 +497,10 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 5XC2V4BF6A;
 				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PODS_CONFIGURATION_BUILD_DIR)",
+				);
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Fleet Ledger";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -525,6 +529,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PODS_CONFIGURATION_BUILD_DIR)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.assetLedger.RunnerTests;
@@ -543,6 +551,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PODS_CONFIGURATION_BUILD_DIR)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.assetLedger.RunnerTests;
@@ -559,6 +571,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PODS_CONFIGURATION_BUILD_DIR)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.assetLedger.RunnerTests;
@@ -694,6 +710,10 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 5XC2V4BF6A;
 				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PODS_CONFIGURATION_BUILD_DIR)",
+				);
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Fleet Ledger";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -725,6 +745,10 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 5XC2V4BF6A;
 				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PODS_CONFIGURATION_BUILD_DIR)",
+				);
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Fleet Ledger";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
