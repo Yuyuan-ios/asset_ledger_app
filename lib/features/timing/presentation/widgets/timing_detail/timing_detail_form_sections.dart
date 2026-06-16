@@ -135,6 +135,8 @@ extension TimingDetailFormSections on TimingDetailContentState {
     required void Function(int index) onTap,
     required String leftText,
     required String rightText,
+    Widget? leftIcon,
+    Widget? rightIcon,
     double? width,
     double? height,
     double? inset,
@@ -149,6 +151,8 @@ extension TimingDetailFormSections on TimingDetailContentState {
       onTap: onTap,
       leftText: leftText,
       rightText: rightText,
+      leftIcon: leftIcon,
+      rightIcon: rightIcon,
       width: width,
       height: height,
       inset: inset,
@@ -171,11 +175,24 @@ extension TimingDetailFormSections on TimingDetailContentState {
 
   Widget _buildAttachmentSelector({bool compact = false}) {
     final l10n = AppLocalizations.of(context);
+    final iconHeight = compact ? 16.0 : 18.0;
     return _buildTwoOptionSegment(
       selectedIndex: _attachmentMode == AttachmentMode.digging ? 0 : 1,
       onTap: _selectAttachmentIndex,
       leftText: l10n.timingAttachmentDigging,
       rightText: l10n.timingAttachmentBreaking,
+      leftIcon: _buildAttachmentGlyph(
+        asset: _kAttachmentBucketAsset,
+        // 挖斗 SVG 填满画布、破碎锤四周留白：挖斗按系数缩小，使两者在
+        // toggle 内可见大小对齐（最终系数可运行 app 后微调 _kAttachmentBucketScale）。
+        height: iconHeight * _kAttachmentBucketScale,
+        semanticLabel: l10n.timingAttachmentDigging,
+      ),
+      rightIcon: _buildAttachmentGlyph(
+        asset: _kAttachmentBreakerAsset,
+        height: iconHeight,
+        semanticLabel: l10n.timingAttachmentBreaking,
+      ),
       width: compact ? 148 : null,
       height: compact ? SheetTokens.fieldHeight : null,
       inset: compact ? 2 : null,
@@ -188,12 +205,38 @@ extension TimingDetailFormSections on TimingDetailContentState {
   }
 }
 
+const String _kAttachmentBucketAsset =
+    'assets/icons/timing/attachment_bucket.svg';
+const String _kAttachmentBreakerAsset =
+    'assets/icons/timing/attachment_breaker.svg';
+
+/// 挖斗图标填满 512 画布、破碎锤四周留白；用此系数把挖斗等比缩小，
+/// 使两者在分段控件里的可见尺寸对齐（运行 app 后可微调）。
+const double _kAttachmentBucketScale = 0.82;
+
+/// 渲染属具 SVG 图标：随 [SheetColors.textPrimary] 着色（线稿跟随文字色），
+/// 带无障碍语义标签。
+Widget _buildAttachmentGlyph({
+  required String asset,
+  required double height,
+  required String semanticLabel,
+}) {
+  return SvgPicture.asset(
+    asset,
+    height: height,
+    colorFilter: ColorFilter.mode(SheetColors.textPrimary, BlendMode.srcIn),
+    semanticsLabel: semanticLabel,
+  );
+}
+
 class _TimingTwoOptionSegment extends StatelessWidget {
   const _TimingTwoOptionSegment({
     required this.selectedIndex,
     required this.onTap,
     required this.leftText,
     required this.rightText,
+    this.leftIcon,
+    this.rightIcon,
     this.width,
     this.height,
     this.inset,
@@ -208,6 +251,8 @@ class _TimingTwoOptionSegment extends StatelessWidget {
   final void Function(int index) onTap;
   final String leftText;
   final String rightText;
+  final Widget? leftIcon;
+  final Widget? rightIcon;
   final double? width;
   final double? height;
   final double? inset;
@@ -252,6 +297,7 @@ class _TimingTwoOptionSegment extends StatelessWidget {
           _TimingTwoOptionSegmentItem(
             selected: selectedIndex == 0,
             text: leftText,
+            icon: leftIcon,
             radius: resolvedRadius,
             height: resolvedItemHeight,
             checkRightGap: resolvedCheckRightGap,
@@ -262,6 +308,7 @@ class _TimingTwoOptionSegment extends StatelessWidget {
           _TimingTwoOptionSegmentItem(
             selected: selectedIndex == 1,
             text: rightText,
+            icon: rightIcon,
             radius: resolvedRadius,
             height: resolvedItemHeight,
             checkRightGap: resolvedCheckRightGap,
@@ -285,10 +332,12 @@ class _TimingTwoOptionSegmentItem extends StatelessWidget {
     required this.checkStyle,
     required this.textStyle,
     required this.onTap,
+    this.icon,
   });
 
   final bool selected;
   final String text;
+  final Widget? icon;
   final double radius;
   final double height;
   final double checkRightGap;
@@ -317,6 +366,8 @@ class _TimingTwoOptionSegmentItem extends StatelessWidget {
                   padding: EdgeInsets.only(right: checkRightGap),
                   child: Text('✓', style: checkStyle),
                 ),
+              if (icon != null)
+                Padding(padding: const EdgeInsets.only(right: 4), child: icon),
               Flexible(
                 child: Text(
                   text,
