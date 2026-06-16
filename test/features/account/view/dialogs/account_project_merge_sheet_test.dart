@@ -1,6 +1,8 @@
 import 'package:asset_ledger/features/account/view/dialogs/account_project_merge_sheet.dart';
 import 'package:asset_ledger/features/account/view/dialogs/account_project_merge_sheet_data.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -28,7 +30,7 @@ void main() {
       await tester.tap(find.text('李杰 · 新村'));
       await tester.tap(find.text('李杰 · 高桥'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('确认'));
+      await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
 
       expect(submitted?.contact, '李杰');
@@ -60,7 +62,7 @@ void main() {
       await tester.tap(find.text('李杰 · 新村'));
       await tester.tap(find.text('李杰 · 高桥'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('确认'));
+      await tester.tap(find.text('确定'));
       await tester.pump();
 
       expect(find.text('合并项目'), findsOneWidget);
@@ -93,6 +95,14 @@ class _SheetHarness extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Builder(
           builder: (context) {

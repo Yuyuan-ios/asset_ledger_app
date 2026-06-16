@@ -907,6 +907,687 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'例如：含工时/含配件'**
   String get maintenanceNoteHint;
+
+  /// 账户模块:通用取消按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get accountCancelAction;
+
+  /// 账户模块:通用确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get accountConfirmAction;
+
+  /// 账户模块:通用删除按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get accountDeleteAction;
+
+  /// 账户模块:项目列表标题
+  ///
+  /// In zh, this message translates to:
+  /// **'项目'**
+  String get accountProjectTitleLabel;
+
+  /// 账户模块:项目列表切换到普通显示的 tooltip
+  ///
+  /// In zh, this message translates to:
+  /// **'普通显示'**
+  String get accountDensityNormalTooltip;
+
+  /// 账户模块:项目列表切换到紧凑显示的 tooltip
+  ///
+  /// In zh, this message translates to:
+  /// **'紧凑显示'**
+  String get accountDensityCompactTooltip;
+
+  /// 账户模块:打开项目筛选入口
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get accountFilterAction;
+
+  /// 账户模块:清除项目筛选入口
+  ///
+  /// In zh, this message translates to:
+  /// **'取消筛选'**
+  String get accountClearFilterAction;
+
+  /// 账户模块:打开项目合并入口
+  ///
+  /// In zh, this message translates to:
+  /// **'合并'**
+  String get accountMergeAction;
+
+  /// 账户模块:总览卡标题
+  ///
+  /// In zh, this message translates to:
+  /// **'总    览'**
+  String get accountOverviewTitle;
+
+  /// 账户模块:总览卡无设备数据提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无设备数据'**
+  String get accountNoDeviceData;
+
+  /// 账户模块:总览卡总应收标签
+  ///
+  /// In zh, this message translates to:
+  /// **'总应收'**
+  String get accountTotalReceivableLabel;
+
+  /// 账户模块:总览卡已收标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已收'**
+  String get accountReceivedLabel;
+
+  /// 账户模块:总览卡剩余标签
+  ///
+  /// In zh, this message translates to:
+  /// **'剩余'**
+  String get accountRemainingLabel;
+
+  /// 账户模块:总览卡回款比例标签
+  ///
+  /// In zh, this message translates to:
+  /// **'回款'**
+  String get accountReceiptRatioLabel;
+
+  /// 账户模块:总览卡净收款 tooltip
+  ///
+  /// In zh, this message translates to:
+  /// **'已收款扣除燃油、维保和已支付外协项目款后的金额。'**
+  String get accountNetReceivedTooltip;
+
+  /// 账户模块:总览卡净收款标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已收(净)'**
+  String get accountNetReceivedLabel;
+
+  /// 账户模块:项目不存在或被清理时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'项目不存在或已被清理'**
+  String get accountProjectMissing;
+
+  /// 账户模块:我方项目列表为空提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无项目（计时页有记录后将自动出现）'**
+  String get accountOwnedProjectsEmpty;
+
+  /// 账户模块:结清项目卡片图标语义标签
+  ///
+  /// In zh, this message translates to:
+  /// **'结清图标'**
+  String get accountSettledIconLabel;
+
+  /// 账户模块:导出工时表按钮 tooltip 和语义标签
+  ///
+  /// In zh, this message translates to:
+  /// **'导出工时表'**
+  String get accountExportWorklogTooltip;
+
+  /// 账户模块:外协项目卡片应付指标标签
+  ///
+  /// In zh, this message translates to:
+  /// **'外协应付'**
+  String get accountExternalPayableLabel;
+
+  /// 账户模块:外协项目卡片应收指标标签
+  ///
+  /// In zh, this message translates to:
+  /// **'应收项目款'**
+  String get accountExternalReceivableLabel;
+
+  /// 账户模块:外协项目卡片待设置值
+  ///
+  /// In zh, this message translates to:
+  /// **'待设置'**
+  String get accountPendingSetup;
+
+  /// 账户模块:外协项目卡片毛利指标标签
+  ///
+  /// In zh, this message translates to:
+  /// **'毛利'**
+  String get accountGrossProfitLabel;
+
+  /// 账户模块:外协项目卡片待计算值
+  ///
+  /// In zh, this message translates to:
+  /// **'待计算'**
+  String get accountPendingCalculation;
+
+  /// 账户模块:外协项目头像文字
+  ///
+  /// In zh, this message translates to:
+  /// **'协'**
+  String get accountExternalWorkAvatarLabel;
+
+  /// 账户模块:外协项目列表标题
+  ///
+  /// In zh, this message translates to:
+  /// **'外协项目'**
+  String get accountExternalProjectsTitle;
+
+  /// 账户模块:外协项目列表为空提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无外协项目（未关联外协包导入后将自动出现）'**
+  String get accountExternalProjectsEmpty;
+
+  /// 账户模块:项目详情 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'项目详情'**
+  String get accountProjectDetailTitle;
+
+  /// 账户模块:关闭项目详情按钮 tooltip
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get accountCloseTooltip;
+
+  /// 账户模块:项目详情本地设备分组标签
+  ///
+  /// In zh, this message translates to:
+  /// **'本地设备'**
+  String get accountLocalDeviceLabel;
+
+  /// 账户模块:项目详情外协设备分组标签
+  ///
+  /// In zh, this message translates to:
+  /// **'外协设备'**
+  String get accountExternalDeviceLabel;
+
+  /// 账户模块:项目详情批量修改单价按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'批量修改'**
+  String get accountBatchEditAction;
+
+  /// 账户模块:项目详情解除合并按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'解除合并'**
+  String get accountDissolveMergeAction;
+
+  /// 账户模块:项目详情收款记录标题
+  ///
+  /// In zh, this message translates to:
+  /// **'收款记录'**
+  String get accountPaymentsTitle;
+
+  /// 账户模块:项目详情无收款记录提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无收款记录'**
+  String get accountNoPayments;
+
+  /// 账户模块:项目详情修改单价按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'修改'**
+  String get accountEditAction;
+
+  /// 账户模块:项目详情外协设备缺失提示
+  ///
+  /// In zh, this message translates to:
+  /// **'设备未填写'**
+  String get accountEquipmentMissing;
+
+  /// 账户模块:项目详情外协设备记录数量标签
+  ///
+  /// In zh, this message translates to:
+  /// **'{base}·{count}条记录'**
+  String accountRecordCountLabel(String base, int count);
+
+  /// 账户模块:项目详情新增收款按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'+ 新增收款'**
+  String get accountAddPaymentAction;
+
+  /// 账户模块:项目详情项目总额摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'项目总额 {amount}'**
+  String accountProjectTotalSummary(String amount);
+
+  /// 账户模块:项目详情已结清状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已结清'**
+  String get accountSettledStatus;
+
+  /// 账户模块:项目详情已结清且可撤销按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'已结清，点此撤销'**
+  String get accountSettledRevokeAction;
+
+  /// 账户模块:项目详情已收比例文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已收 {percent}%'**
+  String accountReceivedPercent(String percent);
+
+  /// 账户模块:项目详情待收金额文案
+  ///
+  /// In zh, this message translates to:
+  /// **'待收 {amount}'**
+  String accountPendingReceivable(String amount);
+
+  /// 账户模块:项目详情结清按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'结清'**
+  String get accountSettleAction;
+
+  /// 账户模块:项目详情设备单价分组标签
+  ///
+  /// In zh, this message translates to:
+  /// **'设备单价'**
+  String get accountRateSectionLabel;
+
+  /// 账户模块:项目详情破碎设备行名称
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} · 破碎'**
+  String accountBreakingDeviceLabel(String name);
+
+  /// 账户模块:项目详情收款备注行
+  ///
+  /// In zh, this message translates to:
+  /// **'备注：{remark}'**
+  String accountPaymentRemarkLine(String remark);
+
+  /// 账户模块:合并收款保存成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'保存成功'**
+  String get accountMergedPaymentSaveSuccess;
+
+  /// 账户模块:保存失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：{reason}'**
+  String accountSaveFailureWithReason(String reason);
+
+  /// 账户模块:已保存 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get accountSaved;
+
+  /// 账户模块:删除合并收款确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'删除收款？'**
+  String get accountMergedPaymentDeleteTitle;
+
+  /// 账户模块:删除合并收款确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除这笔合并收款及其分摊记录：\n{date}  {amount}\n\n此操作不会删除计时记录。'**
+  String accountMergedPaymentDeleteContent(String date, String amount);
+
+  /// 账户模块:删除成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除'**
+  String get accountDeleted;
+
+  /// 账户模块:删除失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'删除失败：{reason}'**
+  String accountDeleteFailureWithReason(String reason);
+
+  /// 账户模块:解除合并成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已解除合并'**
+  String get accountDissolveMergeSuccess;
+
+  /// 账户模块:删除普通收款确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除？'**
+  String get accountDeleteConfirmTitle;
+
+  /// 账户模块:删除普通收款确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'日期：{date}\n金额：{amount}'**
+  String accountPaymentDeleteConfirmContent(String date, String amount);
+
+  /// 账户模块:撤销核销成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销核销，待收已恢复'**
+  String get accountWriteOffRevoked;
+
+  /// 账户模块:撤销核销失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销核销失败：{reason}'**
+  String accountRevokeWriteOffFailure(String reason);
+
+  /// 账户模块:项目核销记录异常 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目核销记录异常，请先检查核销记录。'**
+  String get accountWriteOffInvalid;
+
+  /// 账户模块:撤销结清状态成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销结清状态'**
+  String get accountSettlementRevoked;
+
+  /// 账户模块:撤销结清状态失败 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销结清状态失败：{reason}'**
+  String accountRevokeSettlementFailure(String reason);
+
+  /// 账户模块:合并项目成员异常 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'合并项目成员异常，请刷新后重试。'**
+  String get accountMergedMemberInvalid;
+
+  /// 账户模块:合并项目成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已合并'**
+  String get accountMergeSuccess;
+
+  /// 账户模块:分享项目按钮 tooltip
+  ///
+  /// In zh, this message translates to:
+  /// **'分享项目'**
+  String get accountShareProjectTooltip;
+
+  /// 账户模块:分享项目输入为空错误
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入分享人姓名或包名'**
+  String get accountShareNameRequired;
+
+  /// 账户模块:分享项目弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'分享项目'**
+  String get accountShareProjectTitle;
+
+  /// 账户模块:分享项目分享人输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'分享人姓名（自己）'**
+  String get accountShareNameLabel;
+
+  /// 账户模块:分享项目分享人输入框占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：老王、张三等'**
+  String get accountShareNameHint;
+
+  /// 账户模块:分享项目弹窗说明
+  ///
+  /// In zh, this message translates to:
+  /// **'对方导入后，会在“外协项目”中看到这个名称。'**
+  String get accountShareNameHelp;
+
+  /// 账户模块:生成分享包按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'生成分享包'**
+  String get accountGenerateSharePackageAction;
+
+  /// 账户模块:结清弹窗项目已结清错误
+  ///
+  /// In zh, this message translates to:
+  /// **'项目已结清，不能重复结清'**
+  String get accountSettlementAlreadySettled;
+
+  /// 账户模块:结清弹窗输入不合法错误
+  ///
+  /// In zh, this message translates to:
+  /// **'输入不合法'**
+  String get accountInputInvalid;
+
+  /// 账户模块:结清弹窗通用保存失败错误
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败，请稍后重试'**
+  String get accountSaveFailureGeneric;
+
+  /// 账户模块:结清弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'结清项目'**
+  String get accountSettlementDialogTitle;
+
+  /// 账户模块:结清弹窗核销金额标签
+  ///
+  /// In zh, this message translates to:
+  /// **'核销金额'**
+  String get accountWriteOffAmountLabel;
+
+  /// 账户模块:结清弹窗核销原因输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'核销/减免原因（可填）'**
+  String get accountWriteOffReasonLabel;
+
+  /// 账户模块:结清弹窗说明
+  ///
+  /// In zh, this message translates to:
+  /// **'确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。'**
+  String get accountSettlementHelper;
+
+  /// 账户模块:结清弹窗确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确认结清'**
+  String get accountConfirmSettlementAction;
+
+  /// 账户模块:批量改单价弹窗设备数量
+  ///
+  /// In zh, this message translates to:
+  /// **'设备数：{count} 台'**
+  String accountDeviceCountLine(int count);
+
+  /// 账户模块:批量改单价弹窗挖斗单价输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'挖斗统一单价（整数）'**
+  String get accountDiggingBatchRateLabel;
+
+  /// 账户模块:批量改单价弹窗破碎单价输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'破碎统一单价（整数）'**
+  String get accountBreakingBatchRateLabel;
+
+  /// 账户模块:批量改单价弹窗说明
+  ///
+  /// In zh, this message translates to:
+  /// **'保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。'**
+  String get accountBatchRateHelper;
+
+  /// 账户模块:单台改单价输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'单价'**
+  String get accountSingleRateLabel;
+
+  /// 账户模块:单台改单价弹窗说明
+  ///
+  /// In zh, this message translates to:
+  /// **'提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。'**
+  String get accountSingleRateHelper;
+
+  /// 账户模块:批量改单价弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'批量修改单价：{project}'**
+  String accountBatchRateTitle(String project);
+
+  /// 账户模块:编辑破碎单价弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑破碎单价：{project}'**
+  String accountBreakingRateTitle(String project);
+
+  /// 账户模块:编辑单价弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑单价：{project}'**
+  String accountSingleRateTitle(String project);
+
+  /// 账户模块:单价更新成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已更新'**
+  String get accountUpdated;
+
+  /// 账户模块:项目筛选 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选项目'**
+  String get accountFilterSheetTitle;
+
+  /// 账户模块:项目筛选关键词输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词（联系人 / 工地）'**
+  String get accountFilterKeywordLabel;
+
+  /// 账户模块:项目筛选关键词输入框占位
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：王涛 / 修文 / 地铁站'**
+  String get accountFilterKeywordHint;
+
+  /// 账户模块:项目筛选清空按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get accountClearAction;
+
+  /// 账户模块:新增收款弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'新增收款'**
+  String get accountPaymentCreateTitle;
+
+  /// 账户模块:编辑收款弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑收款'**
+  String get accountPaymentEditTitle;
+
+  /// 账户模块:收款弹窗项目名称行
+  ///
+  /// In zh, this message translates to:
+  /// **'项目：{project}'**
+  String accountProjectLine(String project);
+
+  /// 账户模块:收款弹窗金额输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'金额（整数）'**
+  String get accountPaymentAmountIntegerLabel;
+
+  /// 账户模块:收款弹窗备注输入框标签
+  ///
+  /// In zh, this message translates to:
+  /// **'备注（可填）'**
+  String get accountNoteOptionalLabel;
+
+  /// 账户模块:收款弹窗应收已收提示
+  ///
+  /// In zh, this message translates to:
+  /// **'应收：{receivable}，已收：{received}'**
+  String accountPaymentReceivableReceivedLine(
+    String receivable,
+    String received,
+  );
+
+  /// 账户模块:项目合并失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'合并失败：{reason}'**
+  String accountMergeFailureWithReason(String reason);
+
+  /// 账户模块:项目合并 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'合并项目'**
+  String get accountMergeSheetTitle;
+
+  /// 账户模块:项目合并提交中按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'合并中'**
+  String get accountMergingAction;
+
+  /// 账户模块:项目合并无可合并项目提示
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可合并项目'**
+  String get accountNoMergeableProjects;
+
+  /// 账户模块:项目合并未合并分组标题
+  ///
+  /// In zh, this message translates to:
+  /// **'未合并'**
+  String get accountUnmergedSection;
+
+  /// 账户模块:项目合并已合并分组标题
+  ///
+  /// In zh, this message translates to:
+  /// **'已合并'**
+  String get accountMergedSection;
+
+  /// 账户模块:解除合并确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'解除合并？'**
+  String get accountDissolveConfirmTitle;
+
+  /// 账户模块:解除合并确认弹窗正文开头
+  ///
+  /// In zh, this message translates to:
+  /// **'解除后将恢复为普通项目：'**
+  String get accountDissolveIntro;
+
+  /// 账户模块:解除合并确认弹窗说明
+  ///
+  /// In zh, this message translates to:
+  /// **'原始计时记录不会删除。\n设备、工时、单价不会改变。'**
+  String get accountDissolveHelp;
+
+  /// 账户模块:解除合并提交中按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'解除中'**
+  String get accountDissolvingAction;
+
+  /// 账户模块:解除合并失败提示
+  ///
+  /// In zh, this message translates to:
+  /// **'解除合并失败：{reason}'**
+  String accountDissolveFailureWithReason(String reason);
 }
 
 class _AppLocalizationsDelegate

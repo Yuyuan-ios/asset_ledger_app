@@ -10,10 +10,12 @@ import 'package:asset_ledger/features/account/model/account_project_payment_disp
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/account/account_project_detail_sheet_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/account_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -90,6 +92,14 @@ void main() {
     Set<String>? settledProjectIds,
   }) {
     return MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SingleChildScrollView(
           child: AccountProjectDetailSheet(

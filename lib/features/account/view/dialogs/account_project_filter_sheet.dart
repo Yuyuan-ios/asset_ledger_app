@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../components/fields/app_auto_suggest_field.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../../tokens/mapper/bottom_sheet_tokens.dart';
 
@@ -80,6 +81,7 @@ class _AccountProjectFilterSheetState extends State<AccountProjectFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     List<String> buildSuggestions(String keyword) {
       final query = keyword.trim();
       if (query.isEmpty) return widget.suggestions;
@@ -89,9 +91,11 @@ class _AccountProjectFilterSheetState extends State<AccountProjectFilterSheet> {
     }
 
     return AppBottomSheetShell(
-      title: '筛选项目',
+      title: l10n.accountFilterSheetTitle,
       scrollable: false,
       contentPadding: EdgeInsets.zero,
+      cancelText: l10n.accountCancelAction,
+      confirmText: l10n.accountConfirmAction,
       onCancel: () => _close(const AccountProjectFilterResult.cancel()),
       onConfirm: () => _close(AccountProjectFilterResult.ok(_controller.text)),
       child: Column(
@@ -103,8 +107,8 @@ class _AccountProjectFilterSheetState extends State<AccountProjectFilterSheet> {
               children: [
                 AutoSuggestField(
                   controller: _controller,
-                  label: '关键词（联系人 / 工地）',
-                  hint: '例如：王涛 / 修文 / 地铁站',
+                  label: l10n.accountFilterKeywordLabel,
+                  hint: l10n.accountFilterKeywordHint,
                   suggestionsBuilder: buildSuggestions,
                   onSelected: (value) => _controller.text = value,
                 ),
@@ -114,7 +118,7 @@ class _AccountProjectFilterSheetState extends State<AccountProjectFilterSheet> {
                   child: TextButton(
                     onPressed: () =>
                         _close(const AccountProjectFilterResult.clear()),
-                    child: const Text('清空'),
+                    child: Text(l10n.accountClearAction),
                   ),
                 ),
               ],

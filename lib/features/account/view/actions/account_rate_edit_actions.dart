@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/utils/interaction_feedback.dart';
 import '../../../../core/utils/store_feedback.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../model/account_view_model.dart';
 import '../../model/project_title_formatter.dart';
@@ -61,12 +62,13 @@ class AccountRateEditActions {
                 first.effectiveDefaultUnitPrice)
             .round();
 
+    final l10n = AppLocalizations.of(context);
     final projectTitle = ProjectTitleFormatter.normalize(project.displayName);
     final newRate = await showDialog<AccountBatchRateUpdate>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AccountRateBatchDialog(
-        title: '批量修改单价：$projectTitle',
+        title: l10n.accountBatchRateTitle(projectTitle),
         deviceCount: usedDevices.length,
         initialDiggingRateInt: initDigging,
         initialBreakingRateInt: initBreaking,
@@ -148,6 +150,7 @@ class AccountRateEditActions {
       return;
     }
     final device = hit.first;
+    final l10n = AppLocalizations.of(context);
 
     double? currentOverride;
     final projectId = project.effectiveProjectId;
@@ -171,8 +174,12 @@ class AccountRateEditActions {
       context: context,
       barrierDismissible: false,
       builder: (_) => AccountRateSingleDialog(
-        title: isBreaking ? '编辑破碎单价：$projectTitle' : '编辑单价：$projectTitle',
-        deviceName: isBreaking ? '${device.name} · 破碎' : device.name,
+        title: isBreaking
+            ? l10n.accountBreakingRateTitle(projectTitle)
+            : l10n.accountSingleRateTitle(projectTitle),
+        deviceName: isBreaking
+            ? l10n.accountBreakingDeviceLabel(device.name)
+            : device.name,
         initialRateInt: current,
       ),
     );
@@ -205,7 +212,7 @@ class AccountRateEditActions {
       final feedback = storeActionFeedback(
         rateStore,
         action: '保存',
-        successMessage: '已更新',
+        successMessage: l10n.accountUpdated,
       );
       toast(feedback.message);
     });

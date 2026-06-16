@@ -39,6 +39,7 @@ import 'dialogs/project_share_export_dialog.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../components/feedback/store_error_banner.dart';
+import '../../../l10n/gen/app_localizations.dart';
 
 // ------------------------------ Stores ------------------------------
 import '../../../features/account/state/account_payment_store.dart';
@@ -83,6 +84,8 @@ class _AccountPageState extends State<AccountPage>
   var _projectAreaSection = _AccountProjectAreaSection.projects;
 
   late final TabController _projectAreaTabController;
+
+  AppLocalizations get _l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -263,7 +266,7 @@ class _AccountPageState extends State<AccountPage>
         return item;
       }
     }
-    throw StateError('项目不存在或已被清理');
+    throw StateError(_l10n.accountProjectMissing);
   }
 
   Future<void> _openMergedPaymentEditor(AccountProjectVM project) async {
@@ -300,10 +303,14 @@ class _AccountPageState extends State<AccountPage>
           accountStore: accountStore,
         );
         if (!mounted) return;
-        _toast('保存成功');
+        _toast(_l10n.accountMergedPaymentSaveSuccess);
       } catch (error) {
         if (!mounted) return;
-        _toast('保存失败：${controller.friendlyMergedPaymentError(error)}');
+        _toast(
+          _l10n.accountSaveFailureWithReason(
+            controller.friendlyMergedPaymentError(error),
+          ),
+        );
       }
     });
   }
@@ -359,10 +366,14 @@ class _AccountPageState extends State<AccountPage>
           accountStore: accountStore,
         );
         if (!mounted) return;
-        _toast('已保存');
+        _toast(_l10n.accountSaved);
       } catch (error) {
         if (!mounted) return;
-        _toast('保存失败：${controller.friendlyMergedPaymentError(error)}');
+        _toast(
+          _l10n.accountSaveFailureWithReason(
+            controller.friendlyMergedPaymentError(error),
+          ),
+        );
       }
     });
   }
@@ -376,12 +387,13 @@ class _AccountPageState extends State<AccountPage>
 
     final ok = await showAppConfirmDialog(
       context: context,
-      title: '删除收款？',
-      content:
-          '将删除这笔合并收款及其分摊记录：\n'
-          '${FormatUtils.date(paymentItem.ymd)}  ${FormatUtils.money(paymentItem.amount)}\n\n'
-          '此操作不会删除计时记录。',
-      confirmText: '删除',
+      title: _l10n.accountMergedPaymentDeleteTitle,
+      content: _l10n.accountMergedPaymentDeleteContent(
+        FormatUtils.date(paymentItem.ymd),
+        FormatUtils.money(paymentItem.amount),
+      ),
+      cancelText: _l10n.accountCancelAction,
+      confirmText: _l10n.accountDeleteAction,
     );
 
     if (!mounted || ok != true) return;
@@ -397,10 +409,14 @@ class _AccountPageState extends State<AccountPage>
         accountStore: accountStore,
       );
       if (!mounted) return;
-      _toast('已删除');
+      _toast(_l10n.accountDeleted);
     } catch (error) {
       if (!mounted) return;
-      _toast('删除失败：${controller.friendlyMergedPaymentError(error)}');
+      _toast(
+        _l10n.accountDeleteFailureWithReason(
+          controller.friendlyMergedPaymentError(error),
+        ),
+      );
     }
   }
 
@@ -464,7 +480,7 @@ class _AccountPageState extends State<AccountPage>
 
     if (!mounted || dissolved != true) return;
     sheetNavigator.maybePop();
-    _toast('已解除合并');
+    _toast(_l10n.accountDissolveMergeSuccess);
   }
 
   // =====================================================================
@@ -475,10 +491,13 @@ class _AccountPageState extends State<AccountPage>
 
     final ok = await showAppConfirmDialog(
       context: context,
-      title: '确认删除？',
-      content:
-          '日期：${FormatUtils.date(p.ymd)}\n金额：${FormatUtils.money(p.amount)}',
-      confirmText: '删除',
+      title: _l10n.accountDeleteConfirmTitle,
+      content: _l10n.accountPaymentDeleteConfirmContent(
+        FormatUtils.date(p.ymd),
+        FormatUtils.money(p.amount),
+      ),
+      cancelText: _l10n.accountCancelAction,
+      confirmText: _l10n.accountDeleteAction,
     );
 
     if (ok != true) return;
@@ -505,11 +524,13 @@ class _AccountPageState extends State<AccountPage>
       );
 
       if (!mounted) return;
-      _toast('已撤销核销，待收已恢复');
+      _toast(_l10n.accountWriteOffRevoked);
     } catch (error) {
       if (!mounted) return;
       _toast(
-        '撤销核销失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+        _l10n.accountRevokeWriteOffFailure(
+          context.read<AccountActionController>().friendlyWriteOffError(error),
+        ),
       );
     }
   }
@@ -530,7 +551,7 @@ class _AccountPageState extends State<AccountPage>
         .toList(growable: false);
 
     if (writeOffs.length > 1) {
-      _toast('该项目核销记录异常，请先检查核销记录。');
+      _toast(_l10n.accountWriteOffInvalid);
       return;
     }
     if (writeOffs.length == 1) {
@@ -540,7 +561,7 @@ class _AccountPageState extends State<AccountPage>
 
     final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
     if (!isSettled) {
-      _toast('该项目核销记录异常，请先检查核销记录。');
+      _toast(_l10n.accountWriteOffInvalid);
       return;
     }
 
@@ -555,11 +576,13 @@ class _AccountPageState extends State<AccountPage>
       );
 
       if (!mounted) return;
-      _toast('已撤销结清状态');
+      _toast(_l10n.accountSettlementRevoked);
     } catch (error) {
       if (!mounted) return;
       _toast(
-        '撤销结清状态失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+        _l10n.accountRevokeSettlementFailure(
+          context.read<AccountActionController>().friendlyWriteOffError(error),
+        ),
       );
     }
   }
@@ -570,7 +593,7 @@ class _AccountPageState extends State<AccountPage>
         latestProject.memberProjectIds.map((id) => id.trim()).toSet()
           ..removeWhere((id) => id.isEmpty);
     if (projectIds.isEmpty) {
-      _toast('合并项目成员异常，请刷新后重试。');
+      _toast(_l10n.accountMergedMemberInvalid);
       return;
     }
 
@@ -592,13 +615,13 @@ class _AccountPageState extends State<AccountPage>
           accountStore: accountStore,
         );
         if (!mounted) return;
-        _toast('已撤销核销，待收已恢复');
+        _toast(_l10n.accountWriteOffRevoked);
         return;
       }
 
       final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
       if (!isSettled) {
-        _toast('该项目核销记录异常，请先检查核销记录。');
+        _toast(_l10n.accountWriteOffInvalid);
         return;
       }
 
@@ -612,11 +635,13 @@ class _AccountPageState extends State<AccountPage>
       );
 
       if (!mounted) return;
-      _toast('已撤销结清状态');
+      _toast(_l10n.accountSettlementRevoked);
     } catch (error) {
       if (!mounted) return;
       _toast(
-        '撤销结清状态失败：${context.read<AccountActionController>().friendlyWriteOffError(error)}',
+        _l10n.accountRevokeSettlementFailure(
+          context.read<AccountActionController>().friendlyWriteOffError(error),
+        ),
       );
     }
   }
@@ -724,7 +749,7 @@ class _AccountPageState extends State<AccountPage>
     );
 
     if (!mounted || result == null) return;
-    _toast('已合并');
+    _toast(_l10n.accountMergeSuccess);
   }
 
   // =====================================================================
@@ -738,7 +763,7 @@ class _AccountPageState extends State<AccountPage>
   void _openProjectDetail(AccountProjectVM project) {
     openEditorSheet<void>(
       context: context,
-      title: '项目详情',
+      title: _l10n.accountProjectDetailTitle,
       scrollable: true,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailContentInset,
@@ -748,7 +773,7 @@ class _AccountPageState extends State<AccountPage>
       titleTrailingBuilder: (_) =>
           ProjectDetailShareButton(onPressed: () => _openProjectShare(project)),
       headerTrailingBuilder: (headerContext) => IconButton(
-        tooltip: '关闭',
+        tooltip: _l10n.accountCloseTooltip,
         icon: const Icon(Icons.close),
         onPressed: () => Navigator.of(headerContext).maybePop(),
       ),
@@ -826,7 +851,7 @@ class _AccountPageState extends State<AccountPage>
     try {
       latestProject = _latestProjectForSettlement(project);
     } catch (_) {
-      _toast('项目不存在或已被清理');
+      _toast(_l10n.accountProjectMissing);
       return;
     }
 
@@ -927,7 +952,7 @@ class _AccountPageState extends State<AccountPage>
         );
       case _AccountProjectAreaSection.externalWork:
         return AccountProjectPinnedHeader(
-          titleLabel: '外协项目',
+          titleLabel: _l10n.accountExternalProjectsTitle,
           projectCount: viewData.filteredExternalWorkProjects.length,
           trailing: const SizedBox.shrink(),
         );
@@ -1070,7 +1095,7 @@ class _AccountPageState extends State<AccountPage>
                                   viewData.filteredExternalWorkProjects,
                               isCompact: _isCompactProjectList,
                               onTap: _openProjectDetail,
-                              emptyText: '暂无外协项目（未关联外协包导入后将自动出现）',
+                              emptyText: _l10n.accountExternalProjectsEmpty,
                             ),
                           ),
                         ],

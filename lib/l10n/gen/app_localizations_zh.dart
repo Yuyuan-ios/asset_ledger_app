@@ -445,4 +445,387 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maintenanceNoteHint => '例如：含工时/含配件';
+
+  @override
+  String get accountCancelAction => '取消';
+
+  @override
+  String get accountConfirmAction => '确定';
+
+  @override
+  String get accountDeleteAction => '删除';
+
+  @override
+  String get accountProjectTitleLabel => '项目';
+
+  @override
+  String get accountDensityNormalTooltip => '普通显示';
+
+  @override
+  String get accountDensityCompactTooltip => '紧凑显示';
+
+  @override
+  String get accountFilterAction => '筛选';
+
+  @override
+  String get accountClearFilterAction => '取消筛选';
+
+  @override
+  String get accountMergeAction => '合并';
+
+  @override
+  String get accountOverviewTitle => '总    览';
+
+  @override
+  String get accountNoDeviceData => '暂无设备数据';
+
+  @override
+  String get accountTotalReceivableLabel => '总应收';
+
+  @override
+  String get accountReceivedLabel => '已收';
+
+  @override
+  String get accountRemainingLabel => '剩余';
+
+  @override
+  String get accountReceiptRatioLabel => '回款';
+
+  @override
+  String get accountNetReceivedTooltip => '已收款扣除燃油、维保和已支付外协项目款后的金额。';
+
+  @override
+  String get accountNetReceivedLabel => '已收(净)';
+
+  @override
+  String get accountProjectMissing => '项目不存在或已被清理';
+
+  @override
+  String get accountOwnedProjectsEmpty => '暂无项目（计时页有记录后将自动出现）';
+
+  @override
+  String get accountSettledIconLabel => '结清图标';
+
+  @override
+  String get accountExportWorklogTooltip => '导出工时表';
+
+  @override
+  String get accountExternalPayableLabel => '外协应付';
+
+  @override
+  String get accountExternalReceivableLabel => '应收项目款';
+
+  @override
+  String get accountPendingSetup => '待设置';
+
+  @override
+  String get accountGrossProfitLabel => '毛利';
+
+  @override
+  String get accountPendingCalculation => '待计算';
+
+  @override
+  String get accountExternalWorkAvatarLabel => '协';
+
+  @override
+  String get accountExternalProjectsTitle => '外协项目';
+
+  @override
+  String get accountExternalProjectsEmpty => '暂无外协项目（未关联外协包导入后将自动出现）';
+
+  @override
+  String get accountProjectDetailTitle => '项目详情';
+
+  @override
+  String get accountCloseTooltip => '关闭';
+
+  @override
+  String get accountLocalDeviceLabel => '本地设备';
+
+  @override
+  String get accountExternalDeviceLabel => '外协设备';
+
+  @override
+  String get accountBatchEditAction => '批量修改';
+
+  @override
+  String get accountDissolveMergeAction => '解除合并';
+
+  @override
+  String get accountPaymentsTitle => '收款记录';
+
+  @override
+  String get accountNoPayments => '暂无收款记录';
+
+  @override
+  String get accountEditAction => '修改';
+
+  @override
+  String get accountEquipmentMissing => '设备未填写';
+
+  @override
+  String accountRecordCountLabel(String base, int count) {
+    return '$base·$count条记录';
+  }
+
+  @override
+  String get accountAddPaymentAction => '+ 新增收款';
+
+  @override
+  String accountProjectTotalSummary(String amount) {
+    return '项目总额 $amount';
+  }
+
+  @override
+  String get accountSettledStatus => '已结清';
+
+  @override
+  String get accountSettledRevokeAction => '已结清，点此撤销';
+
+  @override
+  String accountReceivedPercent(String percent) {
+    return '已收 $percent%';
+  }
+
+  @override
+  String accountPendingReceivable(String amount) {
+    return '待收 $amount';
+  }
+
+  @override
+  String get accountSettleAction => '结清';
+
+  @override
+  String get accountRateSectionLabel => '设备单价';
+
+  @override
+  String accountBreakingDeviceLabel(String name) {
+    return '$name · 破碎';
+  }
+
+  @override
+  String accountPaymentRemarkLine(String remark) {
+    return '备注：$remark';
+  }
+
+  @override
+  String get accountMergedPaymentSaveSuccess => '保存成功';
+
+  @override
+  String accountSaveFailureWithReason(String reason) {
+    return '保存失败：$reason';
+  }
+
+  @override
+  String get accountSaved => '已保存';
+
+  @override
+  String get accountMergedPaymentDeleteTitle => '删除收款？';
+
+  @override
+  String accountMergedPaymentDeleteContent(String date, String amount) {
+    return '将删除这笔合并收款及其分摊记录：\n$date  $amount\n\n此操作不会删除计时记录。';
+  }
+
+  @override
+  String get accountDeleted => '已删除';
+
+  @override
+  String accountDeleteFailureWithReason(String reason) {
+    return '删除失败：$reason';
+  }
+
+  @override
+  String get accountDissolveMergeSuccess => '已解除合并';
+
+  @override
+  String get accountDeleteConfirmTitle => '确认删除？';
+
+  @override
+  String accountPaymentDeleteConfirmContent(String date, String amount) {
+    return '日期：$date\n金额：$amount';
+  }
+
+  @override
+  String get accountWriteOffRevoked => '已撤销核销，待收已恢复';
+
+  @override
+  String accountRevokeWriteOffFailure(String reason) {
+    return '撤销核销失败：$reason';
+  }
+
+  @override
+  String get accountWriteOffInvalid => '该项目核销记录异常，请先检查核销记录。';
+
+  @override
+  String get accountSettlementRevoked => '已撤销结清状态';
+
+  @override
+  String accountRevokeSettlementFailure(String reason) {
+    return '撤销结清状态失败：$reason';
+  }
+
+  @override
+  String get accountMergedMemberInvalid => '合并项目成员异常，请刷新后重试。';
+
+  @override
+  String get accountMergeSuccess => '已合并';
+
+  @override
+  String get accountShareProjectTooltip => '分享项目';
+
+  @override
+  String get accountShareNameRequired => '请输入分享人姓名或包名';
+
+  @override
+  String get accountShareProjectTitle => '分享项目';
+
+  @override
+  String get accountShareNameLabel => '分享人姓名（自己）';
+
+  @override
+  String get accountShareNameHint => '例如：老王、张三等';
+
+  @override
+  String get accountShareNameHelp => '对方导入后，会在“外协项目”中看到这个名称。';
+
+  @override
+  String get accountGenerateSharePackageAction => '生成分享包';
+
+  @override
+  String get accountSettlementAlreadySettled => '项目已结清，不能重复结清';
+
+  @override
+  String get accountInputInvalid => '输入不合法';
+
+  @override
+  String get accountSaveFailureGeneric => '保存失败，请稍后重试';
+
+  @override
+  String get accountSettlementDialogTitle => '结清项目';
+
+  @override
+  String get accountWriteOffAmountLabel => '核销金额';
+
+  @override
+  String get accountWriteOffReasonLabel => '核销/减免原因（可填）';
+
+  @override
+  String get accountSettlementHelper => '确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。';
+
+  @override
+  String get accountConfirmSettlementAction => '确认结清';
+
+  @override
+  String accountDeviceCountLine(int count) {
+    return '设备数：$count 台';
+  }
+
+  @override
+  String get accountDiggingBatchRateLabel => '挖斗统一单价（整数）';
+
+  @override
+  String get accountBreakingBatchRateLabel => '破碎统一单价（整数）';
+
+  @override
+  String get accountBatchRateHelper =>
+      '保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。';
+
+  @override
+  String get accountSingleRateLabel => '单价';
+
+  @override
+  String get accountSingleRateHelper => '提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。';
+
+  @override
+  String accountBatchRateTitle(String project) {
+    return '批量修改单价：$project';
+  }
+
+  @override
+  String accountBreakingRateTitle(String project) {
+    return '编辑破碎单价：$project';
+  }
+
+  @override
+  String accountSingleRateTitle(String project) {
+    return '编辑单价：$project';
+  }
+
+  @override
+  String get accountUpdated => '已更新';
+
+  @override
+  String get accountFilterSheetTitle => '筛选项目';
+
+  @override
+  String get accountFilterKeywordLabel => '关键词（联系人 / 工地）';
+
+  @override
+  String get accountFilterKeywordHint => '例如：王涛 / 修文 / 地铁站';
+
+  @override
+  String get accountClearAction => '清空';
+
+  @override
+  String get accountPaymentCreateTitle => '新增收款';
+
+  @override
+  String get accountPaymentEditTitle => '编辑收款';
+
+  @override
+  String accountProjectLine(String project) {
+    return '项目：$project';
+  }
+
+  @override
+  String get accountPaymentAmountIntegerLabel => '金额（整数）';
+
+  @override
+  String get accountNoteOptionalLabel => '备注（可填）';
+
+  @override
+  String accountPaymentReceivableReceivedLine(
+    String receivable,
+    String received,
+  ) {
+    return '应收：$receivable，已收：$received';
+  }
+
+  @override
+  String accountMergeFailureWithReason(String reason) {
+    return '合并失败：$reason';
+  }
+
+  @override
+  String get accountMergeSheetTitle => '合并项目';
+
+  @override
+  String get accountMergingAction => '合并中';
+
+  @override
+  String get accountNoMergeableProjects => '暂无可合并项目';
+
+  @override
+  String get accountUnmergedSection => '未合并';
+
+  @override
+  String get accountMergedSection => '已合并';
+
+  @override
+  String get accountDissolveConfirmTitle => '解除合并？';
+
+  @override
+  String get accountDissolveIntro => '解除后将恢复为普通项目：';
+
+  @override
+  String get accountDissolveHelp => '原始计时记录不会删除。\n设备、工时、单价不会改变。';
+
+  @override
+  String get accountDissolvingAction => '解除中';
+
+  @override
+  String accountDissolveFailureWithReason(String reason) {
+    return '解除合并失败：$reason';
+  }
 }

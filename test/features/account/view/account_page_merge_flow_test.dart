@@ -30,7 +30,9 @@ import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/data/models/timing_calculation_history.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -75,7 +77,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
 
@@ -85,7 +87,7 @@ void main() {
       await tester.tap(find.byType(Checkbox).at(0));
       await tester.tap(find.byType(Checkbox).at(1));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('确认'));
+      await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
 
       expect(mergeRepository.createdContact, '李杰');
@@ -139,7 +141,7 @@ void main() {
             create: (_) => AccountFilterStore(),
           ),
         ],
-        child: const MaterialApp(home: AccountPage()),
+        child: _localizedAccountApp(),
       ),
     );
 
@@ -220,7 +222,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
 
@@ -284,7 +286,7 @@ void main() {
             create: (_) => AccountFilterStore(),
           ),
         ],
-        child: const MaterialApp(home: AccountPage()),
+        child: _localizedAccountApp(),
       ),
     );
 
@@ -361,7 +363,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
 
@@ -416,7 +418,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
 
@@ -510,7 +512,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
 
@@ -608,7 +610,7 @@ void main() {
             create: (_) => AccountFilterStore(),
           ),
         ],
-        child: const MaterialApp(home: AccountPage()),
+        child: _localizedAccountApp(),
       ),
     );
 
@@ -708,7 +710,7 @@ void main() {
             create: (_) => AccountFilterStore(),
           ),
         ],
-        child: const MaterialApp(home: AccountPage()),
+        child: _localizedAccountApp(),
       ),
     );
 
@@ -740,6 +742,20 @@ Finder _textFieldByLabel(String label) {
   return find.byWidgetPredicate((widget) {
     return widget is TextField && widget.decoration?.labelText == label;
   });
+}
+
+Widget _localizedAccountApp() {
+  return const MaterialApp(
+    locale: Locale('zh'),
+    localizationsDelegates: [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: AccountPage(),
+  );
 }
 
 Provider<AccountActionController> _accountActionControllerProvider(

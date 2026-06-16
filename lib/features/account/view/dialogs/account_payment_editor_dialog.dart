@@ -6,6 +6,7 @@ import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/text_field_utils.dart';
 import '../../../../components/fields/app_date_field.dart';
 import '../../../../components/pickers/app_date_picker_dialog.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../domain/services/account_payment_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
@@ -103,6 +104,7 @@ class _AccountPaymentEditorDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final project = widget.project;
     final editing = widget.editing;
     final titleStyle = AppTypography.sectionTitle(
@@ -122,14 +124,21 @@ class _AccountPaymentEditorDialogState
     );
 
     return AlertDialog(
-      title: Text(editing == null ? '新增收款' : '编辑收款', style: titleStyle),
+      title: Text(
+        editing == null
+            ? l10n.accountPaymentCreateTitle
+            : l10n.accountPaymentEditTitle,
+        style: titleStyle,
+      ),
       content: SingleChildScrollView(
         child: Column(
           children: [
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '项目：${ProjectTitleFormatter.normalize(project.displayName)}',
+                l10n.accountProjectLine(
+                  ProjectTitleFormatter.normalize(project.displayName),
+                ),
                 style: labelStyle,
               ),
             ),
@@ -140,8 +149,8 @@ class _AccountPaymentEditorDialogState
               controller: _amountController,
               keyboardType: TextInputType.number,
               onTap: () => selectAllIfZeroLike(_amountController),
-              decoration: const InputDecoration(
-                labelText: '金额（整数）',
+              decoration: InputDecoration(
+                labelText: l10n.accountPaymentAmountIntegerLabel,
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -149,8 +158,8 @@ class _AccountPaymentEditorDialogState
             const SizedBox(height: SpaceTokens.sectionGap),
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: '备注（可填）',
+              decoration: InputDecoration(
+                labelText: l10n.accountNoteOptionalLabel,
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -159,8 +168,10 @@ class _AccountPaymentEditorDialogState
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '应收：${FormatUtils.money(_receivable)}'
-                '，已收：${FormatUtils.money(_received(excludePaymentId: editing?.id))}',
+                l10n.accountPaymentReceivableReceivedLine(
+                  FormatUtils.money(_receivable),
+                  FormatUtils.money(_received(excludePaymentId: editing?.id)),
+                ),
                 style: helperStyle,
               ),
             ),
@@ -188,7 +199,7 @@ class _AccountPaymentEditorDialogState
           style: TextButton.styleFrom(
             foregroundColor: AppColors.brand.withValues(alpha: 0.8),
           ),
-          child: const Text('取消'),
+          child: Text(l10n.accountCancelAction),
         ),
         FilledButton(
           onPressed: () {
@@ -247,7 +258,7 @@ class _AccountPaymentEditorDialogState
               ),
             );
           },
-          child: const Text('确定'),
+          child: Text(l10n.accountConfirmAction),
         ),
       ],
     );

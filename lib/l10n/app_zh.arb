@@ -631,5 +631,593 @@
   "maintenanceNoteHint": "例如：含工时/含配件",
   "@maintenanceNoteHint": {
     "description": "维保模块:维保录入表单备注字段占位"
+  },
+  "accountCancelAction": "取消",
+  "@accountCancelAction": {
+    "description": "账户模块:通用取消按钮"
+  },
+  "accountConfirmAction": "确定",
+  "@accountConfirmAction": {
+    "description": "账户模块:通用确认按钮"
+  },
+  "accountDeleteAction": "删除",
+  "@accountDeleteAction": {
+    "description": "账户模块:通用删除按钮"
+  },
+  "accountProjectTitleLabel": "项目",
+  "@accountProjectTitleLabel": {
+    "description": "账户模块:项目列表标题"
+  },
+  "accountDensityNormalTooltip": "普通显示",
+  "@accountDensityNormalTooltip": {
+    "description": "账户模块:项目列表切换到普通显示的 tooltip"
+  },
+  "accountDensityCompactTooltip": "紧凑显示",
+  "@accountDensityCompactTooltip": {
+    "description": "账户模块:项目列表切换到紧凑显示的 tooltip"
+  },
+  "accountFilterAction": "筛选",
+  "@accountFilterAction": {
+    "description": "账户模块:打开项目筛选入口"
+  },
+  "accountClearFilterAction": "取消筛选",
+  "@accountClearFilterAction": {
+    "description": "账户模块:清除项目筛选入口"
+  },
+  "accountMergeAction": "合并",
+  "@accountMergeAction": {
+    "description": "账户模块:打开项目合并入口"
+  },
+  "accountOverviewTitle": "总    览",
+  "@accountOverviewTitle": {
+    "description": "账户模块:总览卡标题"
+  },
+  "accountNoDeviceData": "暂无设备数据",
+  "@accountNoDeviceData": {
+    "description": "账户模块:总览卡无设备数据提示"
+  },
+  "accountTotalReceivableLabel": "总应收",
+  "@accountTotalReceivableLabel": {
+    "description": "账户模块:总览卡总应收标签"
+  },
+  "accountReceivedLabel": "已收",
+  "@accountReceivedLabel": {
+    "description": "账户模块:总览卡已收标签"
+  },
+  "accountRemainingLabel": "剩余",
+  "@accountRemainingLabel": {
+    "description": "账户模块:总览卡剩余标签"
+  },
+  "accountReceiptRatioLabel": "回款",
+  "@accountReceiptRatioLabel": {
+    "description": "账户模块:总览卡回款比例标签"
+  },
+  "accountNetReceivedTooltip": "已收款扣除燃油、维保和已支付外协项目款后的金额。",
+  "@accountNetReceivedTooltip": {
+    "description": "账户模块:总览卡净收款 tooltip"
+  },
+  "accountNetReceivedLabel": "已收(净)",
+  "@accountNetReceivedLabel": {
+    "description": "账户模块:总览卡净收款标签"
+  },
+  "accountProjectMissing": "项目不存在或已被清理",
+  "@accountProjectMissing": {
+    "description": "账户模块:项目不存在或被清理时的提示"
+  },
+  "accountOwnedProjectsEmpty": "暂无项目（计时页有记录后将自动出现）",
+  "@accountOwnedProjectsEmpty": {
+    "description": "账户模块:我方项目列表为空提示"
+  },
+  "accountSettledIconLabel": "结清图标",
+  "@accountSettledIconLabel": {
+    "description": "账户模块:结清项目卡片图标语义标签"
+  },
+  "accountExportWorklogTooltip": "导出工时表",
+  "@accountExportWorklogTooltip": {
+    "description": "账户模块:导出工时表按钮 tooltip 和语义标签"
+  },
+  "accountExternalPayableLabel": "外协应付",
+  "@accountExternalPayableLabel": {
+    "description": "账户模块:外协项目卡片应付指标标签"
+  },
+  "accountExternalReceivableLabel": "应收项目款",
+  "@accountExternalReceivableLabel": {
+    "description": "账户模块:外协项目卡片应收指标标签"
+  },
+  "accountPendingSetup": "待设置",
+  "@accountPendingSetup": {
+    "description": "账户模块:外协项目卡片待设置值"
+  },
+  "accountGrossProfitLabel": "毛利",
+  "@accountGrossProfitLabel": {
+    "description": "账户模块:外协项目卡片毛利指标标签"
+  },
+  "accountPendingCalculation": "待计算",
+  "@accountPendingCalculation": {
+    "description": "账户模块:外协项目卡片待计算值"
+  },
+  "accountExternalWorkAvatarLabel": "协",
+  "@accountExternalWorkAvatarLabel": {
+    "description": "账户模块:外协项目头像文字"
+  },
+  "accountExternalProjectsTitle": "外协项目",
+  "@accountExternalProjectsTitle": {
+    "description": "账户模块:外协项目列表标题"
+  },
+  "accountExternalProjectsEmpty": "暂无外协项目（未关联外协包导入后将自动出现）",
+  "@accountExternalProjectsEmpty": {
+    "description": "账户模块:外协项目列表为空提示"
+  },
+  "accountProjectDetailTitle": "项目详情",
+  "@accountProjectDetailTitle": {
+    "description": "账户模块:项目详情 sheet 标题"
+  },
+  "accountCloseTooltip": "关闭",
+  "@accountCloseTooltip": {
+    "description": "账户模块:关闭项目详情按钮 tooltip"
+  },
+  "accountLocalDeviceLabel": "本地设备",
+  "@accountLocalDeviceLabel": {
+    "description": "账户模块:项目详情本地设备分组标签"
+  },
+  "accountExternalDeviceLabel": "外协设备",
+  "@accountExternalDeviceLabel": {
+    "description": "账户模块:项目详情外协设备分组标签"
+  },
+  "accountBatchEditAction": "批量修改",
+  "@accountBatchEditAction": {
+    "description": "账户模块:项目详情批量修改单价按钮"
+  },
+  "accountDissolveMergeAction": "解除合并",
+  "@accountDissolveMergeAction": {
+    "description": "账户模块:项目详情解除合并按钮"
+  },
+  "accountPaymentsTitle": "收款记录",
+  "@accountPaymentsTitle": {
+    "description": "账户模块:项目详情收款记录标题"
+  },
+  "accountNoPayments": "暂无收款记录",
+  "@accountNoPayments": {
+    "description": "账户模块:项目详情无收款记录提示"
+  },
+  "accountEditAction": "修改",
+  "@accountEditAction": {
+    "description": "账户模块:项目详情修改单价按钮"
+  },
+  "accountEquipmentMissing": "设备未填写",
+  "@accountEquipmentMissing": {
+    "description": "账户模块:项目详情外协设备缺失提示"
+  },
+  "accountRecordCountLabel": "{base}·{count}条记录",
+  "@accountRecordCountLabel": {
+    "description": "账户模块:项目详情外协设备记录数量标签",
+    "placeholders": {
+      "base": {
+        "type": "String",
+        "example": "设备未填写"
+      },
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "accountAddPaymentAction": "+ 新增收款",
+  "@accountAddPaymentAction": {
+    "description": "账户模块:项目详情新增收款按钮"
+  },
+  "accountProjectTotalSummary": "项目总额 {amount}",
+  "@accountProjectTotalSummary": {
+    "description": "账户模块:项目详情项目总额摘要",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "¥1000"
+      }
+    }
+  },
+  "accountSettledStatus": "已结清",
+  "@accountSettledStatus": {
+    "description": "账户模块:项目详情已结清状态"
+  },
+  "accountSettledRevokeAction": "已结清，点此撤销",
+  "@accountSettledRevokeAction": {
+    "description": "账户模块:项目详情已结清且可撤销按钮"
+  },
+  "accountReceivedPercent": "已收 {percent}%",
+  "@accountReceivedPercent": {
+    "description": "账户模块:项目详情已收比例文案",
+    "placeholders": {
+      "percent": {
+        "type": "String",
+        "example": "58.5"
+      }
+    }
+  },
+  "accountPendingReceivable": "待收 {amount}",
+  "@accountPendingReceivable": {
+    "description": "账户模块:项目详情待收金额文案",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "¥200"
+      }
+    }
+  },
+  "accountSettleAction": "结清",
+  "@accountSettleAction": {
+    "description": "账户模块:项目详情结清按钮"
+  },
+  "accountRateSectionLabel": "设备单价",
+  "@accountRateSectionLabel": {
+    "description": "账户模块:项目详情设备单价分组标签"
+  },
+  "accountBreakingDeviceLabel": "{name} · 破碎",
+  "@accountBreakingDeviceLabel": {
+    "description": "账户模块:项目详情破碎设备行名称",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "SANY 1#"
+      }
+    }
+  },
+  "accountPaymentRemarkLine": "备注：{remark}",
+  "@accountPaymentRemarkLine": {
+    "description": "账户模块:项目详情收款备注行",
+    "placeholders": {
+      "remark": {
+        "type": "String",
+        "example": "现金"
+      }
+    }
+  },
+  "accountMergedPaymentSaveSuccess": "保存成功",
+  "@accountMergedPaymentSaveSuccess": {
+    "description": "账户模块:合并收款保存成功 toast"
+  },
+  "accountSaveFailureWithReason": "保存失败：{reason}",
+  "@accountSaveFailureWithReason": {
+    "description": "账户模块:保存失败 toast",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "超出剩余应收"
+      }
+    }
+  },
+  "accountSaved": "已保存",
+  "@accountSaved": {
+    "description": "账户模块:已保存 toast"
+  },
+  "accountMergedPaymentDeleteTitle": "删除收款？",
+  "@accountMergedPaymentDeleteTitle": {
+    "description": "账户模块:删除合并收款确认标题"
+  },
+  "accountMergedPaymentDeleteContent": "将删除这笔合并收款及其分摊记录：\n{date}  {amount}\n\n此操作不会删除计时记录。",
+  "@accountMergedPaymentDeleteContent": {
+    "description": "账户模块:删除合并收款确认正文",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "2026.06.16"
+      },
+      "amount": {
+        "type": "String",
+        "example": "¥100"
+      }
+    }
+  },
+  "accountDeleted": "已删除",
+  "@accountDeleted": {
+    "description": "账户模块:删除成功 toast"
+  },
+  "accountDeleteFailureWithReason": "删除失败：{reason}",
+  "@accountDeleteFailureWithReason": {
+    "description": "账户模块:删除失败 toast",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "记录不存在"
+      }
+    }
+  },
+  "accountDissolveMergeSuccess": "已解除合并",
+  "@accountDissolveMergeSuccess": {
+    "description": "账户模块:解除合并成功 toast"
+  },
+  "accountDeleteConfirmTitle": "确认删除？",
+  "@accountDeleteConfirmTitle": {
+    "description": "账户模块:删除普通收款确认标题"
+  },
+  "accountPaymentDeleteConfirmContent": "日期：{date}\n金额：{amount}",
+  "@accountPaymentDeleteConfirmContent": {
+    "description": "账户模块:删除普通收款确认正文",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "2026.06.16"
+      },
+      "amount": {
+        "type": "String",
+        "example": "¥100"
+      }
+    }
+  },
+  "accountWriteOffRevoked": "已撤销核销，待收已恢复",
+  "@accountWriteOffRevoked": {
+    "description": "账户模块:撤销核销成功 toast"
+  },
+  "accountRevokeWriteOffFailure": "撤销核销失败：{reason}",
+  "@accountRevokeWriteOffFailure": {
+    "description": "账户模块:撤销核销失败 toast",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "记录不存在"
+      }
+    }
+  },
+  "accountWriteOffInvalid": "该项目核销记录异常，请先检查核销记录。",
+  "@accountWriteOffInvalid": {
+    "description": "账户模块:项目核销记录异常 toast"
+  },
+  "accountSettlementRevoked": "已撤销结清状态",
+  "@accountSettlementRevoked": {
+    "description": "账户模块:撤销结清状态成功 toast"
+  },
+  "accountRevokeSettlementFailure": "撤销结清状态失败：{reason}",
+  "@accountRevokeSettlementFailure": {
+    "description": "账户模块:撤销结清状态失败 toast",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "记录不存在"
+      }
+    }
+  },
+  "accountMergedMemberInvalid": "合并项目成员异常，请刷新后重试。",
+  "@accountMergedMemberInvalid": {
+    "description": "账户模块:合并项目成员异常 toast"
+  },
+  "accountMergeSuccess": "已合并",
+  "@accountMergeSuccess": {
+    "description": "账户模块:合并项目成功 toast"
+  },
+  "accountShareProjectTooltip": "分享项目",
+  "@accountShareProjectTooltip": {
+    "description": "账户模块:分享项目按钮 tooltip"
+  },
+  "accountShareNameRequired": "请输入分享人姓名或包名",
+  "@accountShareNameRequired": {
+    "description": "账户模块:分享项目输入为空错误"
+  },
+  "accountShareProjectTitle": "分享项目",
+  "@accountShareProjectTitle": {
+    "description": "账户模块:分享项目弹窗标题"
+  },
+  "accountShareNameLabel": "分享人姓名（自己）",
+  "@accountShareNameLabel": {
+    "description": "账户模块:分享项目分享人输入框标签"
+  },
+  "accountShareNameHint": "例如：老王、张三等",
+  "@accountShareNameHint": {
+    "description": "账户模块:分享项目分享人输入框占位"
+  },
+  "accountShareNameHelp": "对方导入后，会在“外协项目”中看到这个名称。",
+  "@accountShareNameHelp": {
+    "description": "账户模块:分享项目弹窗说明"
+  },
+  "accountGenerateSharePackageAction": "生成分享包",
+  "@accountGenerateSharePackageAction": {
+    "description": "账户模块:生成分享包按钮"
+  },
+  "accountSettlementAlreadySettled": "项目已结清，不能重复结清",
+  "@accountSettlementAlreadySettled": {
+    "description": "账户模块:结清弹窗项目已结清错误"
+  },
+  "accountInputInvalid": "输入不合法",
+  "@accountInputInvalid": {
+    "description": "账户模块:结清弹窗输入不合法错误"
+  },
+  "accountSaveFailureGeneric": "保存失败，请稍后重试",
+  "@accountSaveFailureGeneric": {
+    "description": "账户模块:结清弹窗通用保存失败错误"
+  },
+  "accountSettlementDialogTitle": "结清项目",
+  "@accountSettlementDialogTitle": {
+    "description": "账户模块:结清弹窗标题"
+  },
+  "accountWriteOffAmountLabel": "核销金额",
+  "@accountWriteOffAmountLabel": {
+    "description": "账户模块:结清弹窗核销金额标签"
+  },
+  "accountWriteOffReasonLabel": "核销/减免原因（可填）",
+  "@accountWriteOffReasonLabel": {
+    "description": "账户模块:结清弹窗核销原因输入框标签"
+  },
+  "accountSettlementHelper": "确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。",
+  "@accountSettlementHelper": {
+    "description": "账户模块:结清弹窗说明"
+  },
+  "accountConfirmSettlementAction": "确认结清",
+  "@accountConfirmSettlementAction": {
+    "description": "账户模块:结清弹窗确认按钮"
+  },
+  "accountDeviceCountLine": "设备数：{count} 台",
+  "@accountDeviceCountLine": {
+    "description": "账户模块:批量改单价弹窗设备数量",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "accountDiggingBatchRateLabel": "挖斗统一单价（整数）",
+  "@accountDiggingBatchRateLabel": {
+    "description": "账户模块:批量改单价弹窗挖斗单价输入框标签"
+  },
+  "accountBreakingBatchRateLabel": "破碎统一单价（整数）",
+  "@accountBreakingBatchRateLabel": {
+    "description": "账户模块:批量改单价弹窗破碎单价输入框标签"
+  },
+  "accountBatchRateHelper": "保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。",
+  "@accountBatchRateHelper": {
+    "description": "账户模块:批量改单价弹窗说明"
+  },
+  "accountSingleRateLabel": "单价",
+  "@accountSingleRateLabel": {
+    "description": "账户模块:单台改单价输入框标签"
+  },
+  "accountSingleRateHelper": "提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。",
+  "@accountSingleRateHelper": {
+    "description": "账户模块:单台改单价弹窗说明"
+  },
+  "accountBatchRateTitle": "批量修改单价：{project}",
+  "@accountBatchRateTitle": {
+    "description": "账户模块:批量改单价弹窗标题",
+    "placeholders": {
+      "project": {
+        "type": "String",
+        "example": "王涛 · 一号工地"
+      }
+    }
+  },
+  "accountBreakingRateTitle": "编辑破碎单价：{project}",
+  "@accountBreakingRateTitle": {
+    "description": "账户模块:编辑破碎单价弹窗标题",
+    "placeholders": {
+      "project": {
+        "type": "String",
+        "example": "王涛 · 一号工地"
+      }
+    }
+  },
+  "accountSingleRateTitle": "编辑单价：{project}",
+  "@accountSingleRateTitle": {
+    "description": "账户模块:编辑单价弹窗标题",
+    "placeholders": {
+      "project": {
+        "type": "String",
+        "example": "王涛 · 一号工地"
+      }
+    }
+  },
+  "accountUpdated": "已更新",
+  "@accountUpdated": {
+    "description": "账户模块:单价更新成功 toast"
+  },
+  "accountFilterSheetTitle": "筛选项目",
+  "@accountFilterSheetTitle": {
+    "description": "账户模块:项目筛选 sheet 标题"
+  },
+  "accountFilterKeywordLabel": "关键词（联系人 / 工地）",
+  "@accountFilterKeywordLabel": {
+    "description": "账户模块:项目筛选关键词输入框标签"
+  },
+  "accountFilterKeywordHint": "例如：王涛 / 修文 / 地铁站",
+  "@accountFilterKeywordHint": {
+    "description": "账户模块:项目筛选关键词输入框占位"
+  },
+  "accountClearAction": "清空",
+  "@accountClearAction": {
+    "description": "账户模块:项目筛选清空按钮"
+  },
+  "accountPaymentCreateTitle": "新增收款",
+  "@accountPaymentCreateTitle": {
+    "description": "账户模块:新增收款弹窗标题"
+  },
+  "accountPaymentEditTitle": "编辑收款",
+  "@accountPaymentEditTitle": {
+    "description": "账户模块:编辑收款弹窗标题"
+  },
+  "accountProjectLine": "项目：{project}",
+  "@accountProjectLine": {
+    "description": "账户模块:收款弹窗项目名称行",
+    "placeholders": {
+      "project": {
+        "type": "String",
+        "example": "王涛 · 一号工地"
+      }
+    }
+  },
+  "accountPaymentAmountIntegerLabel": "金额（整数）",
+  "@accountPaymentAmountIntegerLabel": {
+    "description": "账户模块:收款弹窗金额输入框标签"
+  },
+  "accountNoteOptionalLabel": "备注（可填）",
+  "@accountNoteOptionalLabel": {
+    "description": "账户模块:收款弹窗备注输入框标签"
+  },
+  "accountPaymentReceivableReceivedLine": "应收：{receivable}，已收：{received}",
+  "@accountPaymentReceivableReceivedLine": {
+    "description": "账户模块:收款弹窗应收已收提示",
+    "placeholders": {
+      "receivable": {
+        "type": "String",
+        "example": "¥1000"
+      },
+      "received": {
+        "type": "String",
+        "example": "¥200"
+      }
+    }
+  },
+  "accountMergeFailureWithReason": "合并失败：{reason}",
+  "@accountMergeFailureWithReason": {
+    "description": "账户模块:项目合并失败提示",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "项目已属于其他合并组"
+      }
+    }
+  },
+  "accountMergeSheetTitle": "合并项目",
+  "@accountMergeSheetTitle": {
+    "description": "账户模块:项目合并 sheet 标题"
+  },
+  "accountMergingAction": "合并中",
+  "@accountMergingAction": {
+    "description": "账户模块:项目合并提交中按钮"
+  },
+  "accountNoMergeableProjects": "暂无可合并项目",
+  "@accountNoMergeableProjects": {
+    "description": "账户模块:项目合并无可合并项目提示"
+  },
+  "accountUnmergedSection": "未合并",
+  "@accountUnmergedSection": {
+    "description": "账户模块:项目合并未合并分组标题"
+  },
+  "accountMergedSection": "已合并",
+  "@accountMergedSection": {
+    "description": "账户模块:项目合并已合并分组标题"
+  },
+  "accountDissolveConfirmTitle": "解除合并？",
+  "@accountDissolveConfirmTitle": {
+    "description": "账户模块:解除合并确认弹窗标题"
+  },
+  "accountDissolveIntro": "解除后将恢复为普通项目：",
+  "@accountDissolveIntro": {
+    "description": "账户模块:解除合并确认弹窗正文开头"
+  },
+  "accountDissolveHelp": "原始计时记录不会删除。\n设备、工时、单价不会改变。",
+  "@accountDissolveHelp": {
+    "description": "账户模块:解除合并确认弹窗说明"
+  },
+  "accountDissolvingAction": "解除中",
+  "@accountDissolvingAction": {
+    "description": "账户模块:解除合并提交中按钮"
+  },
+  "accountDissolveFailureWithReason": "解除合并失败：{reason}",
+  "@accountDissolveFailureWithReason": {
+    "description": "账户模块:解除合并失败提示",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "权限不足"
+      }
+    }
   }
 }

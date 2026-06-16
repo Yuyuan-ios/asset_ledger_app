@@ -2,7 +2,9 @@ import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
 import 'package:asset_ledger/features/account/view/dialogs/project_settlement_dialog.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -10,7 +12,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: ProjectSettlementDialog(
             project: _project(),
@@ -43,7 +45,7 @@ void main() {
     ProjectSettlementDialogInput? savedInput;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: ProjectSettlementDialog(
             project: _project(),
@@ -69,7 +71,7 @@ void main() {
     ProjectSettlementDialogInput? savedInput;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: ProjectSettlementDialog(
             project: _project(),
@@ -91,6 +93,20 @@ void main() {
     expect(savedInput?.writeOffReason, ProjectWriteOffReason.settlement);
     expect(savedInput?.note, '协商减免尾款');
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }
 
 AccountProjectVM _project() {

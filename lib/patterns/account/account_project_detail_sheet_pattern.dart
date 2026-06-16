@@ -8,6 +8,7 @@ import '../../data/models/timing_record.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'account_project_detail_sheet_vm.dart';
 import 'project_account_detail_content_pattern.dart';
@@ -112,6 +113,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final vm = AccountProjectDetailSheetVmBuilder(
       computed: computed,
       timingRecords: timingRecords,
@@ -123,9 +125,9 @@ class AccountProjectDetailSheet extends StatelessWidget {
     ).build(projectId: projectId, projectKey: projectKey);
 
     if (vm == null) {
-      return const Padding(
-        padding: EdgeInsets.all(SpaceTokens.pagePadding),
-        child: Text('项目不存在或已被清理'),
+      return Padding(
+        padding: const EdgeInsets.all(SpaceTokens.pagePadding),
+        child: Text(l10n.accountProjectMissing),
       );
     }
 
@@ -154,7 +156,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
         externalWorkRows: vm.externalWorkRows,
         showBatchAction:
             project.mergeGroupId != null && onDissolveMergeGroup != null,
-        batchActionText: '解除合并',
+        batchActionText: l10n.accountDissolveMergeAction,
         showPaymentActions:
             onEditMergedPaymentBatch != null ||
             onDeleteMergedPaymentBatch != null,

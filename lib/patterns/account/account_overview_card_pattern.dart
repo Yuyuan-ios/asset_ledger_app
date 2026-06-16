@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../layout/phone_page_layout.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
@@ -37,6 +38,7 @@ class AccountOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final items = _buildItems(vm.deviceReceivables);
     final titleStyle = AppTypography.sectionTitle(
       context,
@@ -102,7 +104,9 @@ class AccountOverviewCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(child: Text('总    览', style: titleStyle)),
+                  Center(
+                    child: Text(l10n.accountOverviewTitle, style: titleStyle),
+                  ),
                   const Divider(
                     height: AccountTokens.overviewDividerThickness,
                     thickness: AccountTokens.overviewDividerThickness,
@@ -164,6 +168,7 @@ class _OverviewDeviceReceivableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final emptyStyle = AppTypography.caption(
       context,
       fontSize: 12,
@@ -205,7 +210,7 @@ class _OverviewDeviceReceivableSection extends StatelessWidget {
               AccountTokens.overviewRightPaddingBottom,
             ),
             child: items.isEmpty
-                ? Text('暂无设备数据', style: emptyStyle)
+                ? Text(l10n.accountNoDeviceData, style: emptyStyle)
                 : _OverviewLegendList(items: items),
           ),
         ),
@@ -250,6 +255,7 @@ class _OverviewPaymentSummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final summaryStyle = AppTypography.body(
       context,
       fontSize: AccountTokens.overviewLegendValueSize,
@@ -292,25 +298,25 @@ class _OverviewPaymentSummarySection extends StatelessWidget {
               children: [
                 const SizedBox(height: AccountTokens.overviewSummaryTopPadding),
                 _OverviewSummaryRow(
-                  label: '总应收',
+                  label: l10n.accountTotalReceivableLabel,
                   value: FormatUtils.money(vm.totalReceivable),
                   style: summaryStyle,
                 ),
                 const SizedBox(height: SpaceTokens.sm),
                 _OverviewSummaryRow(
-                  label: '已收',
+                  label: l10n.accountReceivedLabel,
                   value: FormatUtils.money(vm.totalReceived),
                   style: summaryStyle,
                 ),
                 const SizedBox(height: SpaceTokens.sm),
                 _OverviewSummaryRow(
-                  label: '剩余',
+                  label: l10n.accountRemainingLabel,
                   value: FormatUtils.money(vm.totalRemaining),
                   style: summaryStyle,
                 ),
                 const SizedBox(height: SpaceTokens.sm),
                 _OverviewSummaryRow(
-                  label: '回款',
+                  label: l10n.accountReceiptRatioLabel,
                   value: FormatUtils.percent1(vm.totalRatio),
                   style: summaryStyle,
                 ),
@@ -338,8 +344,22 @@ class _OverviewSummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text(label, style: style)),
-        Text(value, style: style),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: style,
+          ),
+        ),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: style,
+        ),
       ],
     );
   }
@@ -423,6 +443,7 @@ class _OverviewDonut extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final labelStyle = AppTypography.caption(
       context,
       fontSize: 10,
@@ -438,11 +459,15 @@ class _OverviewDonut extends StatelessWidget {
           child: CustomPaint(painter: _OverviewDonutPainter(items: items)),
         ),
         Tooltip(
-          message: '已收款扣除燃油、维保和已支付外协项目款后的金额。',
+          message: l10n.accountNetReceivedTooltip,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('已收(净)', maxLines: 1, style: labelStyle),
+              Text(
+                l10n.accountNetReceivedLabel,
+                maxLines: 1,
+                style: labelStyle,
+              ),
               const SizedBox(height: 3),
               SizedBox(
                 width:

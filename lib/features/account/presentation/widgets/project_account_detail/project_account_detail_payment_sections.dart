@@ -2,6 +2,7 @@ part of '../../../../../patterns/account/project_account_detail_content_pattern.
 
 extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
   Widget _buildPaymentCard({
+    required AppLocalizations l10n,
     required AccountProjectPaymentDisplayVM item,
     required TextStyle? dateStyle,
     required TextStyle? remarkStyle,
@@ -94,7 +95,7 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
                           const SizedBox(width: AppSpace.md),
                           Expanded(
                             child: Text(
-                              '备注：$remarkText',
+                              l10n.accountPaymentRemarkLine(remarkText),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               softWrap: false,

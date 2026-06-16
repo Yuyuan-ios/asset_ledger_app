@@ -1,7 +1,9 @@
 import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/features/account/view/dialogs/account_payment_editor_dialog.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -33,7 +35,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: AccountPaymentEditorDialog(
             project: project,
@@ -78,7 +80,7 @@ void main() {
 
     AccountPayment? result;
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Builder(
           builder: (context) {
             return TextButton(
@@ -141,7 +143,7 @@ void main() {
 
     AccountPayment? result;
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Builder(
           builder: (context) {
             return TextButton(
@@ -171,4 +173,18 @@ void main() {
     expect(result!.projectId, 'project:stable');
     expect(result!.id, 1);
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

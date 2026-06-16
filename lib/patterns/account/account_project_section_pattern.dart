@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../features/account/model/account_view_model.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import 'account_project_list_pattern.dart';
@@ -9,14 +10,14 @@ import 'account_project_list_pattern.dart';
 class AccountProjectPinnedHeader extends StatelessWidget {
   const AccountProjectPinnedHeader({
     super.key,
-    this.titleLabel = '项目',
+    this.titleLabel,
     required this.projectCount,
     required this.trailing,
     this.isCompactProjectList = false,
     this.onToggleCompactProjectList,
   });
 
-  final String titleLabel;
+  final String? titleLabel;
   final int projectCount;
   final Widget trailing;
   final bool isCompactProjectList;
@@ -24,6 +25,8 @@ class AccountProjectPinnedHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final resolvedTitleLabel = titleLabel ?? l10n.accountProjectTitleLabel;
     return ColoredBox(
       color: AppColors.scaffoldBg,
       child: Container(
@@ -47,7 +50,7 @@ class AccountProjectPinnedHeader extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '$titleLabel($projectCount)',
+                      '$resolvedTitleLabel($projectCount)',
                       style: AppTypography.sectionTitle(
                         context,
                         fontSize: AccountTokens.projectTitleFontSize,
@@ -81,8 +84,11 @@ class _ProjectDensityToggleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Tooltip(
-      message: isCompact ? '普通显示' : '紧凑显示',
+      message: isCompact
+          ? l10n.accountDensityNormalTooltip
+          : l10n.accountDensityCompactTooltip,
       child: SizedBox(
         width: 22,
         height: 28,
@@ -136,6 +142,7 @@ class AccountProjectFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final filterColor = AppColors.brand.withValues(alpha: 0.8);
     final filterTextStyle = AppTypography.actionText(
       context,
@@ -156,7 +163,12 @@ class AccountProjectFilterButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(hasActiveFilter ? '取消筛选' : '筛选', style: filterTextStyle),
+          Text(
+            hasActiveFilter
+                ? l10n.accountClearFilterAction
+                : l10n.accountFilterAction,
+            style: filterTextStyle,
+          ),
           const SizedBox(width: 0),
           Icon(
             Icons.filter_alt_outlined,
@@ -177,6 +189,7 @@ class AccountProjectMergeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final color = AppColors.brand.withValues(alpha: 0.8);
     final textStyle = AppTypography.actionText(
       context,
@@ -197,7 +210,7 @@ class AccountProjectMergeButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('合并', style: textStyle),
+          Text(l10n.accountMergeAction, style: textStyle),
           const SizedBox(width: 0),
           Icon(
             Icons.call_merge_outlined,

@@ -2,6 +2,7 @@ part of '../../../../../patterns/account/project_account_detail_content_pattern.
 
 extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   Widget _buildProjectCard({
+    required AppLocalizations l10n,
     required List<ProjectAccountDetailRateRow> rows,
     required List<AccountProjectExternalWorkDetailRow> externalWorkRows,
     required bool isMergedProject,
@@ -17,7 +18,8 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     for (var index = 0; index < rows.length; index++) {
       final row = rows[index];
       final rawLabel = row.label.trim();
-      final isNewSiteBlock = rawLabel.isNotEmpty && rawLabel != '设备单价';
+      final isNewSiteBlock =
+          rawLabel.isNotEmpty && rawLabel != l10n.accountRateSectionLabel;
       if (isNewSiteBlock) {
         lastSiteLabel = rawLabel;
       }
@@ -37,6 +39,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       children.add(
         _buildProjectDetailRow(
           row: row,
+          l10n: l10n,
           headerSiteName: headerSite,
           showHeader: showHeader,
           showDivider: !isLastLocalRow,
@@ -59,6 +62,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       children.add(
         _buildExternalWorkSection(
           row: externalRow,
+          l10n: l10n,
           showTopDivider: needsTopDivider,
           siteStyle: siteStyle,
           rowTextStyle: rowTextStyle,
@@ -112,7 +116,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                 ),
                 if (showBatchAction) ...[
                   const SizedBox(width: AppSpace.sm),
-                  _buildProjectActionPill(actionStyle: actionStyle),
+                  _buildProjectActionPill(actionStyle: actionStyle, l10n: l10n),
                 ],
               ],
             ),
@@ -128,6 +132,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
   Widget _buildProjectDetailRow({
     required ProjectAccountDetailRateRow row,
+    required AppLocalizations l10n,
     required String? headerSiteName,
     required bool showHeader,
     required bool showDivider,
@@ -156,7 +161,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                 foregroundColor: AccountTokens.projectDetailActionColor,
               ),
               child: Text(
-                '修改',
+                l10n.accountEditAction,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -172,7 +177,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         if (showHeader) ...[
           _buildDeviceSectionHeader(
             siteName: headerSiteName,
-            label: _localDeviceLabel,
+            label: l10n.accountLocalDeviceLabel,
             labelIcon: Icons.settings_outlined,
             siteStyle: siteStyle,
           ),
@@ -228,6 +233,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
   Widget _buildExternalWorkSection({
     required AccountProjectExternalWorkDetailRow row,
+    required AppLocalizations l10n,
     required bool showTopDivider,
     required TextStyle? siteStyle,
     required TextStyle? rowTextStyle,
@@ -241,13 +247,13 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           const Divider(height: 1, color: TimingColors.cardBorder),
           const SizedBox(height: 6),
         ],
-        _buildExternalWorkHeader(row: row, siteStyle: siteStyle),
+        _buildExternalWorkHeader(row: row, siteStyle: siteStyle, l10n: l10n),
         const SizedBox(height: AppSpace.xs),
         Row(
           children: [
             Expanded(
               child: Text(
-                _externalWorkRowLabel(row),
+                _externalWorkRowLabel(row, l10n),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -275,6 +281,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   Widget _buildExternalWorkHeader({
     required AccountProjectExternalWorkDetailRow row,
     required TextStyle? siteStyle,
+    required AppLocalizations l10n,
   }) {
     final iconColor = AccountTokens.projectDetailActionColor;
     return Row(
@@ -282,7 +289,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         Icon(Icons.settings_outlined, size: 18, color: iconColor),
         const SizedBox(width: 6),
         Text(
-          _externalDeviceLabel,
+          l10n.accountExternalDeviceLabel,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -303,13 +310,19 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     );
   }
 
-  String _externalWorkRowLabel(AccountProjectExternalWorkDetailRow row) {
+  String _externalWorkRowLabel(
+    AccountProjectExternalWorkDetailRow row,
+    AppLocalizations l10n,
+  ) {
     final summary = row.equipmentSummary.trim();
-    final base = summary.isEmpty ? '设备未填写' : summary;
-    return '$base·${row.recordCount}条记录';
+    final base = summary.isEmpty ? l10n.accountEquipmentMissing : summary;
+    return l10n.accountRecordCountLabel(base, row.recordCount);
   }
 
-  Widget _buildAddPaymentPillButton({required TextStyle actionStyle}) {
+  Widget _buildAddPaymentPillButton({
+    required TextStyle actionStyle,
+    required AppLocalizations l10n,
+  }) {
     final pillStyle = actionStyle.copyWith(
       color: _addPaymentPillText,
       fontSize: 14,
@@ -327,7 +340,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           border: Border.all(color: _addPaymentPillBorder),
         ),
         child: Text(
-          '+ 新增收款',
+          l10n.accountAddPaymentAction,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -337,8 +350,14 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     );
   }
 
-  Widget _buildProjectActionPill({required TextStyle actionStyle}) {
-    if (batchActionText == _batchEditActionText) {
+  Widget _buildProjectActionPill({
+    required TextStyle actionStyle,
+    required AppLocalizations l10n,
+  }) {
+    final resolvedBatchActionText = batchActionText.isEmpty
+        ? l10n.accountBatchEditAction
+        : batchActionText;
+    if (batchActionText.isEmpty) {
       final batchPillStyle = actionStyle.copyWith(
         color: AppColors.brandOutlineAction,
         fontSize: 14,
@@ -354,7 +373,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           textStyle: batchPillStyle,
         ),
         child: Text(
-          batchActionText,
+          resolvedBatchActionText,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -380,7 +399,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           border: Border.all(color: _projectActionPillBorder),
         ),
         child: Text(
-          batchActionText,
+          resolvedBatchActionText,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -436,7 +455,10 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         visuallySettled &&
         hasUniqueWriteOffForRevoke &&
         onRevokeWriteOff != null;
-    final settledSummary = '项目总额 ${FormatUtils.money(receivable)}';
+    final l10n = AppLocalizations.of(context);
+    final settledSummary = l10n.accountProjectTotalSummary(
+      FormatUtils.money(receivable),
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -498,7 +520,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                   ),
                   const SizedBox(width: AppSpace.md),
                   Text(
-                    '已结清',
+                    l10n.accountSettledStatus,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
@@ -511,7 +533,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
               Align(
                 alignment: Alignment.centerRight,
                 child: ProjectAccountSettlementPill(
-                  label: canRevokeSettlement ? '已结清，点此撤销' : '已结清',
+                  label: canRevokeSettlement
+                      ? l10n.accountSettledRevokeAction
+                      : l10n.accountSettledStatus,
                   enabled: canRevokeSettlement,
                   onTap: canRevokeSettlement ? onRevokeWriteOff : null,
                 ),
@@ -521,7 +545,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                 children: [
                   Expanded(
                     child: Text(
-                      '已收 ${(ratio * 100).toStringAsFixed(1)}%',
+                      l10n.accountReceivedPercent(
+                        (ratio * 100).toStringAsFixed(1),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
@@ -531,7 +557,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                   const SizedBox(width: AppSpace.md),
                   Expanded(
                     child: Text(
-                      '待收 ${FormatUtils.money(displayRemaining)}',
+                      l10n.accountPendingReceivable(
+                        FormatUtils.money(displayRemaining),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
@@ -575,7 +603,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      '项目总额 ${FormatUtils.money(receivable)}',
+                      l10n.accountProjectTotalSummary(
+                        FormatUtils.money(receivable),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
@@ -607,7 +637,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         child: Text(
-          '结清',
+          AppLocalizations.of(context).accountSettleAction,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -756,6 +786,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
   List<ProjectAccountDetailRateRow> _buildDeviceDetailRows({
     required List<Device> devices,
+    required AppLocalizations l10n,
   }) {
     final rows = <ProjectAccountDetailRateRow>[];
     for (final d in devices) {
@@ -775,7 +806,7 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         rows.add(
           ProjectAccountDetailRateRow(
             projectKey: '',
-            label: rows.isEmpty ? '设备单价' : '',
+            label: rows.isEmpty ? l10n.accountRateSectionLabel : '',
             deviceId: id,
             deviceLabel: d.name,
             hours: normalHours,
@@ -790,9 +821,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         rows.add(
           ProjectAccountDetailRateRow(
             projectKey: '',
-            label: rows.isEmpty ? '设备单价' : '',
+            label: rows.isEmpty ? l10n.accountRateSectionLabel : '',
             deviceId: id,
-            deviceLabel: '${d.name} · 破碎',
+            deviceLabel: l10n.accountBreakingDeviceLabel(d.name),
             hours: breakingHours,
             rate: breakingRate,
             showEdit: true,

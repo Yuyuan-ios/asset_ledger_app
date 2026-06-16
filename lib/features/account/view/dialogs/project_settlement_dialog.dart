@@ -6,6 +6,7 @@ import '../../domain/entities/account_entities.dart';
 import '../../domain/services/project_finance_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/use_cases/project_settlement_use_case.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 
@@ -71,8 +72,9 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
 
   Future<void> _save() async {
     if (_saving) return;
+    final l10n = AppLocalizations.of(context);
     if (ProjectFinanceCalculator.yuanToFen(_remaining) <= 0) {
-      _showError('项目已结清，不能重复结清');
+      _showError(l10n.accountSettlementAlreadySettled);
       return;
     }
 
@@ -103,15 +105,17 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
   }
 
   String _friendlyError(Object error) {
+    final l10n = AppLocalizations.of(context);
     if (error is StateError) return error.message;
     if (error is ArgumentError) {
-      return error.message?.toString() ?? '输入不合法';
+      return error.message?.toString() ?? l10n.accountInputInvalid;
     }
-    return '保存失败，请稍后重试';
+    return l10n.accountSaveFailureGeneric;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.sectionTitle(
       context,
       fontSize: AccountTokens.projectDetailSectionTitleSize,
@@ -134,7 +138,7 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
     );
 
     return AlertDialog(
-      title: Text('结清项目', style: titleStyle),
+      title: Text(l10n.accountSettlementDialogTitle, style: titleStyle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -142,7 +146,12 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
           children: [
             Row(
               children: [
-                Expanded(child: Text('核销金额', style: labelStyle)),
+                Expanded(
+                  child: Text(
+                    l10n.accountWriteOffAmountLabel,
+                    style: labelStyle,
+                  ),
+                ),
                 Text(FormatUtils.money(_remaining), style: valueStyle),
               ],
             ),
@@ -151,14 +160,14 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
               controller: _reasonController,
               enabled: !_saving,
               maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: '核销/减免原因（可填）',
+              decoration: InputDecoration(
+                labelText: l10n.accountWriteOffReasonLabel,
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),
             const SizedBox(height: SpaceTokens.sectionGap),
-            Text('确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。', style: helperStyle),
+            Text(l10n.accountSettlementHelper, style: helperStyle),
             if (_errorMessage != null) ...[
               const SizedBox(height: 10),
               Text(
@@ -180,7 +189,7 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
           style: TextButton.styleFrom(
             foregroundColor: AppColors.brand.withValues(alpha: 0.8),
           ),
-          child: const Text('取消'),
+          child: Text(l10n.accountCancelAction),
         ),
         FilledButton(
           onPressed: _saving ? null : _save,
@@ -190,7 +199,7 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('确认结清'),
+              : Text(l10n.accountConfirmSettlementAction),
         ),
       ],
     );

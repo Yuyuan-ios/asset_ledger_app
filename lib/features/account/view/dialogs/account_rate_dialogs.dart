@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/text_field_utils.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 
@@ -62,6 +63,7 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.sectionTitle(
       context,
       fontSize: AccountTokens.projectDetailSectionTitleSize,
@@ -80,14 +82,17 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('设备数：${widget.deviceCount} 台', style: bodyStyle),
+          Text(
+            l10n.accountDeviceCountLine(widget.deviceCount),
+            style: bodyStyle,
+          ),
           const SizedBox(height: 10),
           TextField(
             controller: _diggingController,
             keyboardType: TextInputType.number,
             onTap: () => selectAllIfZeroLike(_diggingController),
-            decoration: const InputDecoration(
-              labelText: '挖斗统一单价（整数）',
+            decoration: InputDecoration(
+              labelText: l10n.accountDiggingBatchRateLabel,
               isDense: true,
               border: OutlineInputBorder(),
             ),
@@ -97,18 +102,14 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
             controller: _breakingController,
             keyboardType: TextInputType.number,
             onTap: () => selectAllIfZeroLike(_breakingController),
-            decoration: const InputDecoration(
-              labelText: '破碎统一单价（整数）',
+            decoration: InputDecoration(
+              labelText: l10n.accountBreakingBatchRateLabel,
               isDense: true,
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            '保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n'
-            '若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。',
-            style: helperStyle,
-          ),
+          Text(l10n.accountBatchRateHelper, style: helperStyle),
         ],
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -118,7 +119,7 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
           style: TextButton.styleFrom(
             foregroundColor: AppColors.brand.withValues(alpha: 0.8),
           ),
-          child: const Text('取消'),
+          child: Text(l10n.accountCancelAction),
         ),
         FilledButton(
           onPressed: () {
@@ -133,7 +134,7 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
               ),
             );
           },
-          child: const Text('确定'),
+          child: Text(l10n.accountConfirmAction),
         ),
       ],
     );
@@ -179,6 +180,7 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.sectionTitle(
       context,
       fontSize: AccountTokens.projectDetailSectionTitleSize,
@@ -213,8 +215,8 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
                   controller: _controller,
                   keyboardType: TextInputType.number,
                   onTap: () => selectAllIfZeroLike(_controller),
-                  decoration: const InputDecoration(
-                    labelText: '单价',
+                  decoration: InputDecoration(
+                    labelText: l10n.accountSingleRateLabel,
                     isDense: true,
                     border: OutlineInputBorder(),
                   ),
@@ -223,7 +225,7 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
             ],
           ),
           const SizedBox(height: 10),
-          Text('提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。', style: helperStyle),
+          Text(l10n.accountSingleRateHelper, style: helperStyle),
         ],
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -233,7 +235,7 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
           style: TextButton.styleFrom(
             foregroundColor: AppColors.brand.withValues(alpha: 0.8),
           ),
-          child: const Text('取消'),
+          child: Text(l10n.accountCancelAction),
         ),
         FilledButton(
           onPressed: () {
@@ -241,7 +243,7 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
             if (valueInt == null || valueInt <= 0) return;
             _close(valueInt.toDouble());
           },
-          child: const Text('确定'),
+          child: Text(l10n.accountConfirmAction),
         ),
       ],
     );

@@ -1,5 +1,7 @@
 import 'package:asset_ledger/features/account/view/dialogs/project_share_export_dialog.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -8,7 +10,7 @@ void main() {
   ) async {
     var shared = false;
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: ProjectDetailShareButton(onPressed: () => shared = true),
         ),
@@ -27,7 +29,7 @@ void main() {
   ) async {
     String? captured = 'unset';
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedApp(
         home: Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
@@ -63,4 +65,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(captured, isNull);
   });
+}
+
+Widget _localizedApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

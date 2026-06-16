@@ -4,6 +4,7 @@ import '../../components/avatars/linked_external_work_badge.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 import 'account_project_card_vm.dart';
@@ -57,7 +58,7 @@ class AccountProjectList extends StatelessWidget {
     this.isCompact = false,
     this.onExportWorklog,
     this.canExportWorklog,
-    this.emptyText = '暂无项目（计时页有记录后将自动出现）',
+    this.emptyText,
   });
 
   final List<AccountProjectVM> projects;
@@ -66,7 +67,7 @@ class AccountProjectList extends StatelessWidget {
   final bool isCompact;
   final ValueChanged<AccountProjectVM>? onExportWorklog;
   final bool Function(AccountProjectVM project)? canExportWorklog;
-  final String emptyText;
+  final String? emptyText;
 
   _PriceBadgeStyle _priceBadgeStyle(AccountProjectPriceBadgeKind kind) {
     switch (kind) {
@@ -121,7 +122,12 @@ class AccountProjectList extends StatelessWidget {
     );
   }
 
-  Widget _settlementStatus(AccountProjectCardVm vm, TextStyle? style) {
+  Widget _settlementStatus(
+    BuildContext context,
+    AccountProjectCardVm vm,
+    TextStyle? style,
+  ) {
+    final l10n = AppLocalizations.of(context);
     final text = vm.settlementStatusText;
     if (!vm.isSettled) {
       return Text(
@@ -143,7 +149,7 @@ class AccountProjectList extends StatelessWidget {
           key: _settledCelebrationIconKey,
           width: 18,
           height: 18,
-          semanticLabel: '结清图标',
+          semanticLabel: l10n.accountSettledIconLabel,
         ),
         const SizedBox(width: 4),
         Text(
@@ -164,12 +170,13 @@ class AccountProjectList extends StatelessWidget {
   }
 
   Widget _worklogExportButton(BuildContext context, AccountProjectVM project) {
+    final l10n = AppLocalizations.of(context);
     final color = AppColors.textPrimary.withValues(alpha: 0.42);
     return SizedBox.square(
       dimension: _worklogExportButtonSize,
       child: IconButton(
         key: _accountProjectWorklogExportButtonKey,
-        tooltip: '导出工时表',
+        tooltip: l10n.accountExportWorklogTooltip,
         alignment: Alignment.centerRight,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints.tightFor(
@@ -180,10 +187,10 @@ class AccountProjectList extends StatelessWidget {
           foregroundColor: color,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        icon: const Icon(
+        icon: Icon(
           Icons.file_upload_outlined,
           size: 17,
-          semanticLabel: '导出工时表',
+          semanticLabel: l10n.accountExportWorklogTooltip,
         ),
         onPressed: () => onExportWorklog?.call(project),
       ),
@@ -217,6 +224,7 @@ class AccountProjectList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final emptyStyle = AppTypography.bodySecondary(
       context,
       fontSize: 16,
@@ -264,7 +272,12 @@ class AccountProjectList extends StatelessWidget {
           top: _accountProjectEmptyTopPadding,
           bottom: _accountProjectEmptyBottomPadding,
         ),
-        child: Center(child: Text(emptyText, style: emptyStyle)),
+        child: Center(
+          child: Text(
+            emptyText ?? l10n.accountOwnedProjectsEmpty,
+            style: emptyStyle,
+          ),
+        ),
       );
     }
 
@@ -452,7 +465,7 @@ class AccountProjectList extends StatelessWidget {
                               child: _receivedText(vm, resolvedStatusStyle),
                             ),
                             const SizedBox(width: 8),
-                            _settlementStatus(vm, resolvedStatusStyle),
+                            _settlementStatus(context, vm, resolvedStatusStyle),
                           ],
                         ),
                         const SizedBox(
@@ -519,6 +532,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.sectionTitle(
       context,
       fontSize: AccountTokens.projectCardTitleFontSize,
@@ -621,7 +635,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _ExternalWorkMetric(
-                    label: '外协应付',
+                    label: l10n.accountExternalPayableLabel,
                     value: FormatUtils.money(project.payable),
                     valueStyle: metricValueStyle,
                     labelStyle: metricLabelStyle,
@@ -630,8 +644,8 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ExternalWorkMetric(
-                    label: '应收项目款',
-                    value: '待设置',
+                    label: l10n.accountExternalReceivableLabel,
+                    value: l10n.accountPendingSetup,
                     valueStyle: pendingValueStyle,
                     labelStyle: metricLabelStyle,
                   ),
@@ -639,8 +653,8 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ExternalWorkMetric(
-                    label: '毛利',
-                    value: '待计算',
+                    label: l10n.accountGrossProfitLabel,
+                    value: l10n.accountPendingCalculation,
                     valueStyle: pendingValueStyle,
                     labelStyle: metricLabelStyle,
                     alignEnd: true,
@@ -710,6 +724,7 @@ class _ExternalWorkAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final size = isCompact ? 30.0 : 34.0;
     final textStyle = AppTypography.sectionTitle(
       context,
@@ -733,7 +748,7 @@ class _ExternalWorkAvatar extends StatelessWidget {
               shape: BoxShape.circle,
               color: _externalWorkBadgeBg,
             ),
-            child: Text('协', style: textStyle),
+            child: Text(l10n.accountExternalWorkAvatarLabel, style: textStyle),
           ),
           if (linked)
             Positioned(

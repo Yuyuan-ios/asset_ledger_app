@@ -13,6 +13,7 @@ import '../../features/account/domain/services/external_work_detail_rows.dart';
 import '../../features/account/model/account_project_payment_display_vm.dart';
 import '../../features/account/model/project_title_formatter.dart';
 import '../../features/account/presentation/widgets/project_account_detail/project_account_settlement_pill.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 
@@ -26,9 +27,6 @@ const _projectActionPillBackground = Color(0xFFF5F2EE);
 const _projectActionPillBorder = Color(0xFFD8C8B8);
 const _projectActionPillText = Color(0xFF7A5A3A);
 const _moneyEpsilon = 0.000001;
-const _localDeviceLabel = '本地设备';
-const _externalDeviceLabel = '外协设备';
-const _batchEditActionText = '批量修改';
 
 class ProjectAccountDetailRateRow {
   final String projectKey;
@@ -142,7 +140,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.detailRows,
     this.externalWorkRows = const [],
     this.showBatchAction = true,
-    this.batchActionText = _batchEditActionText,
+    this.batchActionText = '',
     this.showPaymentActions = true,
     this.showRawPaymentActions = true,
     this.showAddPayment = true,
@@ -153,6 +151,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final received = (receivable - remaining - writeOff).clamp(0.0, receivable);
     final ratio = receivable <= 0
         ? 0.0
@@ -254,7 +253,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
       color: TimingColors.chartIncome,
     );
     final visibleDetailRows =
-        detailRows ?? _buildDeviceDetailRows(devices: devices);
+        detailRows ?? _buildDeviceDetailRows(devices: devices, l10n: l10n);
     final visiblePaymentItems =
         paymentDisplayItems ?? _paymentItemsFromPayments(payments);
 
@@ -262,6 +261,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildProjectCard(
+          l10n: l10n,
           rows: visibleDetailRows,
           externalWorkRows: externalWorkRows,
           isMergedProject: detailRows != null,
@@ -294,7 +294,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '收款记录',
+                  l10n.accountPaymentsTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
@@ -303,7 +303,10 @@ class ProjectAccountDetailContent extends StatelessWidget {
               ),
               if (showAddPayment) const SizedBox(width: 12),
               if (showAddPayment)
-                _buildAddPaymentPillButton(actionStyle: resolvedActionStyle),
+                _buildAddPaymentPillButton(
+                  actionStyle: resolvedActionStyle,
+                  l10n: l10n,
+                ),
             ],
           ),
         ),
@@ -313,11 +316,14 @@ class ProjectAccountDetailContent extends StatelessWidget {
         if (visiblePaymentItems.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
-            child: Center(child: Text('暂无收款记录', style: emptyStyle)),
+            child: Center(
+              child: Text(l10n.accountNoPayments, style: emptyStyle),
+            ),
           )
         else
           ...visiblePaymentItems.map(
             (item) => _buildPaymentCard(
+              l10n: l10n,
               item: item,
               dateStyle: paymentDateStyle,
               remarkStyle: paymentRemarkStyle,

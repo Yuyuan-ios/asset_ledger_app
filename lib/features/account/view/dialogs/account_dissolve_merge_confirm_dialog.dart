@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../model/account_view_model.dart';
 import '../../model/project_title_formatter.dart';
 
@@ -26,21 +27,22 @@ class _DissolveMergeConfirmDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final projects = widget.project.memberProjectKeys.map((key) {
       return ProjectTitleFormatter.fromProjectKey(key);
     }).toList();
 
     return AlertDialog(
-      title: const Text('解除合并？'),
+      title: Text(l10n.accountDissolveConfirmTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('解除后将恢复为普通项目：'),
+          Text(l10n.accountDissolveIntro),
           const SizedBox(height: 8),
           for (final project in projects) Text(project),
           const SizedBox(height: 12),
-          const Text('原始计时记录不会删除。\n设备、工时、单价不会改变。'),
+          Text(l10n.accountDissolveHelp),
         ],
       ),
       actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -49,11 +51,15 @@ class _DissolveMergeConfirmDialogState
           onPressed: _submitting
               ? null
               : () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
+          child: Text(l10n.accountCancelAction),
         ),
         FilledButton(
           onPressed: _submitting ? null : _confirm,
-          child: Text(_submitting ? '解除中' : '解除合并'),
+          child: Text(
+            _submitting
+                ? l10n.accountDissolvingAction
+                : l10n.accountDissolveMergeAction,
+          ),
         ),
       ],
     );
@@ -73,7 +79,11 @@ class _DissolveMergeConfirmDialogState
       setState(() {
         _submitting = false;
       });
-      widget.onError('解除合并失败：$error');
+      widget.onError(
+        AppLocalizations.of(
+          context,
+        ).accountDissolveFailureWithReason(error.toString()),
+      );
     }
   }
 }

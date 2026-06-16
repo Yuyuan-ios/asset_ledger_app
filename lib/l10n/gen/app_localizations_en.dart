@@ -475,4 +475,413 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maintenanceNoteHint => 'Example: includes labor / parts';
+
+  @override
+  String get accountCancelAction => 'Cancel';
+
+  @override
+  String get accountConfirmAction => 'Done';
+
+  @override
+  String get accountDeleteAction => 'Delete';
+
+  @override
+  String get accountProjectTitleLabel => 'Projects';
+
+  @override
+  String get accountDensityNormalTooltip => 'Comfortable view';
+
+  @override
+  String get accountDensityCompactTooltip => 'Compact view';
+
+  @override
+  String get accountFilterAction => 'Filter';
+
+  @override
+  String get accountClearFilterAction => 'Clear filter';
+
+  @override
+  String get accountMergeAction => 'Merge';
+
+  @override
+  String get accountOverviewTitle => 'Overview';
+
+  @override
+  String get accountNoDeviceData => 'No device data';
+
+  @override
+  String get accountTotalReceivableLabel => 'Receivable';
+
+  @override
+  String get accountReceivedLabel => 'Received';
+
+  @override
+  String get accountRemainingLabel => 'Remaining';
+
+  @override
+  String get accountReceiptRatioLabel => 'Collection';
+
+  @override
+  String get accountNetReceivedTooltip =>
+      'Received cash after deducting fuel, service, and paid external work project costs.';
+
+  @override
+  String get accountNetReceivedLabel => 'Net received';
+
+  @override
+  String get accountProjectMissing => 'Project does not exist or was removed';
+
+  @override
+  String get accountOwnedProjectsEmpty =>
+      'No projects yet. Timing records will create them automatically';
+
+  @override
+  String get accountSettledIconLabel => 'Settled icon';
+
+  @override
+  String get accountExportWorklogTooltip => 'Export worklog';
+
+  @override
+  String get accountExternalPayableLabel => 'External payable';
+
+  @override
+  String get accountExternalReceivableLabel => 'Project receivable';
+
+  @override
+  String get accountPendingSetup => 'Not set';
+
+  @override
+  String get accountGrossProfitLabel => 'Gross profit';
+
+  @override
+  String get accountPendingCalculation => 'Pending';
+
+  @override
+  String get accountExternalWorkAvatarLabel => 'EXT';
+
+  @override
+  String get accountExternalProjectsTitle => 'External projects';
+
+  @override
+  String get accountExternalProjectsEmpty =>
+      'No external projects yet. Unlinked external work imports will appear here';
+
+  @override
+  String get accountProjectDetailTitle => 'Project details';
+
+  @override
+  String get accountCloseTooltip => 'Close';
+
+  @override
+  String get accountLocalDeviceLabel => 'Local devices';
+
+  @override
+  String get accountExternalDeviceLabel => 'External devices';
+
+  @override
+  String get accountBatchEditAction => 'Batch edit';
+
+  @override
+  String get accountDissolveMergeAction => 'Dissolve merge';
+
+  @override
+  String get accountPaymentsTitle => 'Payments';
+
+  @override
+  String get accountNoPayments => 'No payment records';
+
+  @override
+  String get accountEditAction => 'Edit';
+
+  @override
+  String get accountEquipmentMissing => 'No equipment';
+
+  @override
+  String accountRecordCountLabel(String base, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records',
+      one: '1 record',
+    );
+    return '$base · $_temp0';
+  }
+
+  @override
+  String get accountAddPaymentAction => '+ Add payment';
+
+  @override
+  String accountProjectTotalSummary(String amount) {
+    return 'Project total $amount';
+  }
+
+  @override
+  String get accountSettledStatus => 'Settled';
+
+  @override
+  String get accountSettledRevokeAction => 'Settled, tap to revoke';
+
+  @override
+  String accountReceivedPercent(String percent) {
+    return 'Received $percent%';
+  }
+
+  @override
+  String accountPendingReceivable(String amount) {
+    return 'Pending $amount';
+  }
+
+  @override
+  String get accountSettleAction => 'Settle';
+
+  @override
+  String get accountRateSectionLabel => 'Device rates';
+
+  @override
+  String accountBreakingDeviceLabel(String name) {
+    return '$name · breaker';
+  }
+
+  @override
+  String accountPaymentRemarkLine(String remark) {
+    return 'Note: $remark';
+  }
+
+  @override
+  String get accountMergedPaymentSaveSuccess => 'Saved';
+
+  @override
+  String accountSaveFailureWithReason(String reason) {
+    return 'Save failed: $reason';
+  }
+
+  @override
+  String get accountSaved => 'Saved';
+
+  @override
+  String get accountMergedPaymentDeleteTitle => 'Delete payment?';
+
+  @override
+  String accountMergedPaymentDeleteContent(String date, String amount) {
+    return 'This will delete the merged payment and its allocations:\n$date  $amount\n\nTiming records will not be deleted.';
+  }
+
+  @override
+  String get accountDeleted => 'Deleted';
+
+  @override
+  String accountDeleteFailureWithReason(String reason) {
+    return 'Delete failed: $reason';
+  }
+
+  @override
+  String get accountDissolveMergeSuccess => 'Merge dissolved';
+
+  @override
+  String get accountDeleteConfirmTitle => 'Delete?';
+
+  @override
+  String accountPaymentDeleteConfirmContent(String date, String amount) {
+    return 'Date: $date\nAmount: $amount';
+  }
+
+  @override
+  String get accountWriteOffRevoked =>
+      'Write-off revoked. Pending amount restored';
+
+  @override
+  String accountRevokeWriteOffFailure(String reason) {
+    return 'Failed to revoke write-off: $reason';
+  }
+
+  @override
+  String get accountWriteOffInvalid =>
+      'This project\'s write-off record is inconsistent. Check write-off records first.';
+
+  @override
+  String get accountSettlementRevoked => 'Settlement status revoked';
+
+  @override
+  String accountRevokeSettlementFailure(String reason) {
+    return 'Failed to revoke settlement status: $reason';
+  }
+
+  @override
+  String get accountMergedMemberInvalid =>
+      'Merged project members are inconsistent. Refresh and try again.';
+
+  @override
+  String get accountMergeSuccess => 'Merged';
+
+  @override
+  String get accountShareProjectTooltip => 'Share project';
+
+  @override
+  String get accountShareNameRequired =>
+      'Enter the sender name or package name';
+
+  @override
+  String get accountShareProjectTitle => 'Share project';
+
+  @override
+  String get accountShareNameLabel => 'Sender name (you)';
+
+  @override
+  String get accountShareNameHint => 'Example: Wang, Zhang';
+
+  @override
+  String get accountShareNameHelp =>
+      'The recipient will see this name under External projects after import.';
+
+  @override
+  String get accountGenerateSharePackageAction => 'Generate package';
+
+  @override
+  String get accountSettlementAlreadySettled => 'Project is already settled';
+
+  @override
+  String get accountInputInvalid => 'Invalid input';
+
+  @override
+  String get accountSaveFailureGeneric => 'Save failed. Try again later';
+
+  @override
+  String get accountSettlementDialogTitle => 'Settle project';
+
+  @override
+  String get accountWriteOffAmountLabel => 'Write-off amount';
+
+  @override
+  String get accountWriteOffReasonLabel =>
+      'Write-off/reduction reason (optional)';
+
+  @override
+  String get accountSettlementHelper =>
+      'After confirmation, this pending amount is treated as a write-off. It will no longer count as pending or received.';
+
+  @override
+  String get accountConfirmSettlementAction => 'Confirm settlement';
+
+  @override
+  String accountDeviceCountLine(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count devices',
+      one: '1 device',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get accountDiggingBatchRateLabel => 'Bucket rate (integer)';
+
+  @override
+  String get accountBreakingBatchRateLabel => 'Breaker rate (integer)';
+
+  @override
+  String get accountBatchRateHelper =>
+      'After saving, all devices in this project will update bucket/breaker rates separately. If a rate matches the device default, the override record is cleared.';
+
+  @override
+  String get accountSingleRateLabel => 'Rate';
+
+  @override
+  String get accountSingleRateHelper =>
+      'Tip: changing back to the device default rate clears the override record.';
+
+  @override
+  String accountBatchRateTitle(String project) {
+    return 'Batch edit rates: $project';
+  }
+
+  @override
+  String accountBreakingRateTitle(String project) {
+    return 'Edit breaker rate: $project';
+  }
+
+  @override
+  String accountSingleRateTitle(String project) {
+    return 'Edit rate: $project';
+  }
+
+  @override
+  String get accountUpdated => 'Updated';
+
+  @override
+  String get accountFilterSheetTitle => 'Filter projects';
+
+  @override
+  String get accountFilterKeywordLabel => 'Keyword (contact / site)';
+
+  @override
+  String get accountFilterKeywordHint =>
+      'Example: Wang / Xiuwen / metro station';
+
+  @override
+  String get accountClearAction => 'Clear';
+
+  @override
+  String get accountPaymentCreateTitle => 'Add payment';
+
+  @override
+  String get accountPaymentEditTitle => 'Edit payment';
+
+  @override
+  String accountProjectLine(String project) {
+    return 'Project: $project';
+  }
+
+  @override
+  String get accountPaymentAmountIntegerLabel => 'Amount (integer)';
+
+  @override
+  String get accountNoteOptionalLabel => 'Notes (optional)';
+
+  @override
+  String accountPaymentReceivableReceivedLine(
+    String receivable,
+    String received,
+  ) {
+    return 'Receivable: $receivable, received: $received';
+  }
+
+  @override
+  String accountMergeFailureWithReason(String reason) {
+    return 'Merge failed: $reason';
+  }
+
+  @override
+  String get accountMergeSheetTitle => 'Merge projects';
+
+  @override
+  String get accountMergingAction => 'Merging';
+
+  @override
+  String get accountNoMergeableProjects => 'No mergeable projects';
+
+  @override
+  String get accountUnmergedSection => 'Unmerged';
+
+  @override
+  String get accountMergedSection => 'Merged';
+
+  @override
+  String get accountDissolveConfirmTitle => 'Dissolve merge?';
+
+  @override
+  String get accountDissolveIntro =>
+      'After dissolving, these will return to normal projects:';
+
+  @override
+  String get accountDissolveHelp =>
+      'Original timing records will not be deleted.\nDevices, hours, and rates will not change.';
+
+  @override
+  String get accountDissolvingAction => 'Dissolving';
+
+  @override
+  String accountDissolveFailureWithReason(String reason) {
+    return 'Dissolve merge failed: $reason';
+  }
 }

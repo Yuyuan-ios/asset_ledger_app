@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/gen/app_localizations.dart';
+
 class ProjectDetailShareButton extends StatelessWidget {
   const ProjectDetailShareButton({super.key, required this.onPressed});
 
@@ -9,11 +11,12 @@ class ProjectDetailShareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SizedBox.square(
       dimension: 38,
       child: IconButton(
         key: const Key('project-detail-share-button'),
-        tooltip: '分享项目',
+        tooltip: l10n.accountShareProjectTooltip,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints.tightFor(width: 38, height: 38),
         style: IconButton.styleFrom(
@@ -62,7 +65,9 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
   void _submit() {
     final value = _controller.text.trim();
     if (value.isEmpty) {
-      setState(() => _error = '请输入分享人姓名或包名');
+      setState(
+        () => _error = AppLocalizations.of(context).accountShareNameRequired,
+      );
       return;
     }
     Navigator.of(context).pop(value);
@@ -70,8 +75,9 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('分享项目'),
+      title: Text(l10n.accountShareProjectTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,8 +87,8 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
             autofocus: true,
             maxLength: _shareNameMaxLength,
             decoration: InputDecoration(
-              labelText: '分享人姓名（自己）',
-              hintText: '例如：老王、张三等',
+              labelText: l10n.accountShareNameLabel,
+              hintText: l10n.accountShareNameHint,
               errorText: _error,
             ),
             onChanged: (_) {
@@ -92,7 +98,7 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '对方导入后，会在“外协项目”中看到这个名称。',
+            l10n.accountShareNameHelp,
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -101,9 +107,12 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(l10n.accountCancelAction),
         ),
-        FilledButton(onPressed: _submit, child: const Text('生成分享包')),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(l10n.accountGenerateSharePackageAction),
+        ),
       ],
     );
   }

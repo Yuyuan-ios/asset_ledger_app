@@ -1,8 +1,10 @@
 import 'package:asset_ledger/features/account/model/account_view_model.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/account/account_project_list_pattern.dart';
 import 'package:asset_ledger/patterns/account/account_project_section_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -12,7 +14,7 @@ void main() {
     const emptyText = '暂无外协项目（未关联外协包导入后将自动出现）';
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [],
@@ -50,7 +52,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(projects: const [project], onTap: (_) {}),
         ),
@@ -88,7 +90,7 @@ void main() {
       var openedDetail = false;
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedMaterialApp(
           home: Scaffold(
             body: AccountProjectList(
               projects: const [project],
@@ -148,7 +150,7 @@ void main() {
       AccountProjectVM? exported;
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedMaterialApp(
           home: Scaffold(
             body: AccountProjectList(
               projects: const [project],
@@ -194,7 +196,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [project],
@@ -231,7 +233,7 @@ void main() {
     AccountProjectVM? exported;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [project],
@@ -274,7 +276,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedMaterialApp(
           home: Scaffold(
             body: AccountProjectList(projects: const [project], onTap: (_) {}),
           ),
@@ -310,7 +312,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(projects: const [project], onTap: (_) {}),
         ),
@@ -345,7 +347,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(projects: const [project], onTap: (_) {}),
         ),
@@ -382,7 +384,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(projects: const [project], onTap: (_) {}),
         ),
@@ -423,7 +425,7 @@ void main() {
       AccountProjectVM? tapped;
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedMaterialApp(
           home: Scaffold(
             body: AccountProjectList(
               projects: const [project],
@@ -474,7 +476,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedMaterialApp(
           home: Scaffold(
             body: AccountProjectList(
               projects: const [project],
@@ -518,7 +520,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(projects: const [project], onTap: (_) {}),
         ),
@@ -585,7 +587,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [cashSettled, writeOffSettled, pending],
@@ -645,7 +647,7 @@ void main() {
     String? tappedProjectKey;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 240,
@@ -720,7 +722,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [singleProject, multiProject, rentProject],
@@ -785,7 +787,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [project, rentProject],
@@ -828,7 +830,7 @@ void main() {
     AccountProjectVM? exported;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [project],
@@ -907,7 +909,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [cashSettled, writeOffSettled, pending],
@@ -953,7 +955,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [],
@@ -1001,7 +1003,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 320,
@@ -1046,7 +1048,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        _localizedMaterialApp(
           home: Scaffold(
             body: SizedBox(
               width: 260,
@@ -1111,7 +1113,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectList(
             projects: const [project],
@@ -1152,7 +1154,7 @@ void main() {
     var trailingTapCount = 0;
 
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectPinnedHeader(
             projectCount: 5,
@@ -1190,7 +1192,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: AccountProjectPinnedHeader(
             projectCount: 5,
@@ -1210,7 +1212,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      _localizedMaterialApp(
         home: Scaffold(
           body: Row(
             children: [
@@ -1244,6 +1246,20 @@ void main() {
     expect(filterIcon.size, 16);
     expect(filterIcon.weight, 700);
   });
+}
+
+Widget _localizedMaterialApp({required Widget home}) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }
 
 void _noop() {}

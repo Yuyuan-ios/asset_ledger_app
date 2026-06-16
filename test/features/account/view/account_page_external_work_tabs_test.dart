@@ -20,7 +20,9 @@ import 'package:asset_ledger/features/account/view/account_page.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -64,7 +66,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
       await tester.pumpAndSettle();
@@ -155,7 +157,7 @@ void main() {
             create: (_) => AccountFilterStore(),
           ),
         ],
-        child: const MaterialApp(home: AccountPage()),
+        child: _localizedAccountApp(),
       ),
     );
     await tester.pumpAndSettle();
@@ -210,7 +212,7 @@ void main() {
               create: (_) => AccountFilterStore(),
             ),
           ],
-          child: const MaterialApp(home: AccountPage()),
+          child: _localizedAccountApp(),
         ),
       );
       await tester.pumpAndSettle();
@@ -222,6 +224,20 @@ void main() {
       expect(find.text('项目总额 ¥1000'), findsOneWidget);
       expect(find.text('项目总额 ¥1900'), findsNothing);
     },
+  );
+}
+
+Widget _localizedAccountApp() {
+  return const MaterialApp(
+    locale: Locale('zh'),
+    localizationsDelegates: [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: AccountPage(),
   );
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/foundation/typography.dart';
+import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/bottom_sheet_tokens.dart';
@@ -89,7 +90,11 @@ class _AccountProjectMergeSheetState extends State<AccountProjectMergeSheet> {
       Navigator.of(context).pop(result);
     } catch (error) {
       if (!mounted) return;
-      widget.onError('合并失败：${_messageForError(error)}');
+      widget.onError(
+        AppLocalizations.of(
+          context,
+        ).accountMergeFailureWithReason(_messageForError(error)),
+      );
       setState(() => _submitting = false);
     }
   }
@@ -104,11 +109,12 @@ class _AccountProjectMergeSheetState extends State<AccountProjectMergeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AnimatedBuilder(
       animation: _store,
       builder: (context, _) {
         return AppBottomSheetShell(
-          title: '合并项目',
+          title: l10n.accountMergeSheetTitle,
           scrollable: true,
           contentPadding: const EdgeInsets.fromLTRB(
             BottomSheetTokens.outerHPadding,
@@ -118,7 +124,10 @@ class _AccountProjectMergeSheetState extends State<AccountProjectMergeSheet> {
           ),
           onCancel: () => Navigator.of(context).pop(),
           onConfirm: _store.canConfirm && !_submitting ? _confirm : null,
-          confirmText: _submitting ? '合并中' : '确认',
+          cancelText: l10n.accountCancelAction,
+          confirmText: _submitting
+              ? l10n.accountMergingAction
+              : l10n.accountConfirmAction,
           child: widget.groups.isEmpty
               ? const _MergeSheetEmptyState()
               : Column(
@@ -146,11 +155,12 @@ class _MergeSheetEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Center(
         child: Text(
-          '暂无可合并项目',
+          l10n.accountNoMergeableProjects,
           style: AppTypography.bodySecondary(
             context,
             fontSize: 14,
@@ -189,7 +199,9 @@ class _MergeContactGroupView extends StatelessWidget {
           Text(group.contact, style: titleStyle),
           const SizedBox(height: 10),
           if (group.unmergedItems.isNotEmpty) ...[
-            const _MergeSheetSectionLabel('未合并'),
+            _MergeSheetSectionLabel(
+              AppLocalizations.of(context).accountUnmergedSection,
+            ),
             const SizedBox(height: 4),
             for (final item in group.unmergedItems)
               _MergeProjectRow(
@@ -200,7 +212,9 @@ class _MergeContactGroupView extends StatelessWidget {
           ],
           if (group.mergedItems.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const _MergeSheetSectionLabel('已合并'),
+            _MergeSheetSectionLabel(
+              AppLocalizations.of(context).accountMergedSection,
+            ),
             const SizedBox(height: 4),
             for (final item in group.mergedItems)
               _MergeProjectRow(item: item, selected: true, onTap: null),
