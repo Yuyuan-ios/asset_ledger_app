@@ -19,5 +19,10 @@
   "timingExternalWorkProjectsTitle": "External work",
   "timingAllDevicesFilter": "All devices",
   "timingExternalWorkImportAction": "Import",
-  "timingExternalWorkLinkAction": "Link"
+  "timingExternalWorkLinkAction": "Link",
+  "timingRecentRecordCount": "{count, plural, =1{1 record} other{{count} records}}",
+  "timingRecentAggregateSummary": "Error {error}, total {total}",
+  "timingRecentAggregateExpanded": "expanded",
+  "timingRecentAggregateCollapsed": "grouped",
+  "timingRecentBreakingBadge": "Breaker"
 }

@@ -77,4 +77,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timingExternalWorkLinkAction => 'Link';
+
+  @override
+  String timingRecentRecordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records',
+      one: '1 record',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timingRecentAggregateSummary(String error, String total) {
+    return 'Error $error, total $total';
+  }
+
+  @override
+  String get timingRecentAggregateExpanded => 'expanded';
+
+  @override
+  String get timingRecentAggregateCollapsed => 'grouped';
+
+  @override
+  String get timingRecentBreakingBadge => 'Breaker';
 }

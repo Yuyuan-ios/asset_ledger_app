@@ -77,9 +77,11 @@ List<Widget> _buildTimingRecordRows({
         device: deviceById[aggregate.deviceId],
         deviceIndexText: deviceIndexById[aggregate.deviceId] ?? '?',
         subtitleEmphasis: deviceIndexById[aggregate.deviceId] ?? '?',
-        subtitleSecondary: ' ${aggregate.records.length}条记录',
-        bottomRightOverride:
-            '误差 ${FormatUtils.meter(aggregate.meterError)}，累计 ${FormatUtils.hours(aggregate.totalHours)}',
+        subtitleRecordCount: aggregate.records.length,
+        aggregateSummary: _AggregateRecordSummary(
+          meterError: aggregate.meterError,
+          totalHours: aggregate.totalHours,
+        ),
         onTap: () => onToggleAggregate(aggregate.key),
       ),
       if (expanded)
@@ -94,9 +96,6 @@ List<Widget> _buildTimingRecordRows({
                 ? deviceIndexById[record.deviceId] ?? '?'
                 : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',
             subtitleEmphasized: false,
-            bottomRightOverride: record.isBreaking
-                ? '破碎 ${FormatUtils.hours(record.hours)}'
-                : FormatUtils.hours(record.hours),
             onTap: onTapRecord == null ? null : () => onTapRecord(record),
           ),
         ),
@@ -179,6 +178,7 @@ class _SliverDateGroupHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final aggregate = aggregateSection;
+    final l10n = AppLocalizations.of(context);
 
     return ColoredBox(
       color: AppColors.scaffoldBg,
@@ -192,7 +192,7 @@ class _SliverDateGroupHeader extends StatelessWidget {
             child: Text(
               aggregate == null
                   ? headerOverride ?? FormatUtils.date(ymd)
-                  : '${FormatUtils.date(ymd)} (${aggregateExpanded ? '已展开' : '已聚合'})',
+                  : '${FormatUtils.date(ymd)} (${aggregateExpanded ? l10n.timingRecentAggregateExpanded : l10n.timingRecentAggregateCollapsed})',
               style: textTheme.bodySmall?.copyWith(
                 fontSize: TimingTokens.dateHeaderFontSize,
                 color: AppColors.textPrimary,

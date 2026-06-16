@@ -217,6 +217,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'关联'**
   String get timingExternalWorkLinkAction;
+
+  /// 计时模块:最近记录聚合行的记录数量
+  ///
+  /// In zh, this message translates to:
+  /// **'{count}条记录'**
+  String timingRecentRecordCount(int count);
+
+  /// 计时模块:最近记录聚合行的码表误差与累计工时
+  ///
+  /// In zh, this message translates to:
+  /// **'误差 {error}，累计 {total}'**
+  String timingRecentAggregateSummary(String error, String total);
+
+  /// 计时模块:最近记录日期标题中表示聚合记录已展开的状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已展开'**
+  String get timingRecentAggregateExpanded;
+
+  /// 计时模块:最近记录日期标题中表示多条记录已聚合的状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已聚合'**
+  String get timingRecentAggregateCollapsed;
+
+  /// 计时模块:最近记录行中表示破碎模式的短标签
+  ///
+  /// In zh, this message translates to:
+  /// **'破碎'**
+  String get timingRecentBreakingBadge;
 }
 
 class _AppLocalizationsDelegate

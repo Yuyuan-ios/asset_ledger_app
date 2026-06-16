@@ -9,6 +9,7 @@ import '../../components/avatars/app_device_avatar.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../../components/layout/pinned_header_delegate.dart';
 import '../../features/account/model/project_title_formatter.dart';
+import '../../l10n/gen/app_localizations.dart';
 
 part 'timing_recent_records_slivers.dart';
 
@@ -418,6 +419,16 @@ class _AggregateRecordSection {
   final double meterError;
 }
 
+class _AggregateRecordSummary {
+  const _AggregateRecordSummary({
+    required this.meterError,
+    required this.totalHours,
+  });
+
+  final double meterError;
+  final double totalHours;
+}
+
 class _DateGroup extends StatelessWidget {
   final int ymd;
   final List<TimingRecord> items;
@@ -520,8 +531,10 @@ class _RecordRow extends StatelessWidget {
   final String? subtitleOverride;
   final String? subtitleEmphasis;
   final String? subtitleSecondary;
+  final int? subtitleRecordCount;
   final bool subtitleEmphasized;
   final String? bottomRightOverride;
+  final _AggregateRecordSummary? aggregateSummary;
   final VoidCallback? onTap;
 
   const _RecordRow({
@@ -533,8 +546,10 @@ class _RecordRow extends StatelessWidget {
     this.subtitleOverride,
     this.subtitleEmphasis,
     this.subtitleSecondary,
+    this.subtitleRecordCount,
     this.subtitleEmphasized = true,
     this.bottomRightOverride,
+    this.aggregateSummary,
     this.onTap,
   });
 
@@ -562,6 +577,21 @@ class _RecordRow extends StatelessWidget {
       color: AppColors.textPrimary,
       height: 1,
     );
+    final subtitleRecordCount = this.subtitleRecordCount;
+    final subtitleSecondary =
+        this.subtitleSecondary ??
+        (subtitleRecordCount == null
+            ? null
+            : ' ${AppLocalizations.of(context).timingRecentRecordCount(subtitleRecordCount)}');
+    final aggregateSummary = this.aggregateSummary;
+    final bottomRightOverride =
+        this.bottomRightOverride ??
+        (aggregateSummary == null
+            ? null
+            : AppLocalizations.of(context).timingRecentAggregateSummary(
+                FormatUtils.meter(aggregateSummary.meterError),
+                FormatUtils.hours(aggregateSummary.totalHours),
+              ));
     final content = Material(
       color: SheetColors.background,
       child: InkWell(
@@ -686,10 +716,15 @@ class _RecordRow extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (bottomRightOverride != null)
-                          Text(bottomRightOverride!, style: valueStyle)
+                          Text(bottomRightOverride, style: valueStyle)
                         else ...[
                           if (record.isBreaking) ...[
-                            Text('破碎', style: valueStyle),
+                            Text(
+                              AppLocalizations.of(
+                                context,
+                              ).timingRecentBreakingBadge,
+                              style: valueStyle,
+                            ),
                             const SizedBox(
                               width: TimingTokens.recordHoursIncomeGap,
                             ),

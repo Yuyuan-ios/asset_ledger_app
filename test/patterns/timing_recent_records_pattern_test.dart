@@ -1,8 +1,10 @@
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/timing/recent_records_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -196,18 +198,14 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: CustomScrollView(
-            slivers: buildTimingRecentRecordSlivers(
-              records: records,
-              deviceById: {1: _device},
-              deviceIndexById: const {1: '1#'},
-              locallyRemovedKeys: const <String>{},
-              expandedAggregateKeys: const <String>{},
-              onToggleAggregate: (_) {},
-            ),
-          ),
+      _localizedSliverHost(
+        buildTimingRecentRecordSlivers(
+          records: records,
+          deviceById: {1: _device},
+          deviceIndexById: const {1: '1#'},
+          locallyRemovedKeys: const <String>{},
+          expandedAggregateKeys: const <String>{},
+          onToggleAggregate: (_) {},
         ),
       ),
     );
@@ -217,6 +215,64 @@ void main() {
     expect(find.text('王强·五里山'), findsNothing);
     expect(find.textContaining('工时调整', findRichText: true), findsNothing);
     expect(find.text('误差 0.0，累计 16.0 h'), findsOneWidget);
+  });
+
+  testWidgets('sliver aggregate labels localize in English', (
+    WidgetTester tester,
+  ) async {
+    final records = [
+      TimingRecord(
+        id: 30,
+        deviceId: 1,
+        startDate: 20260503,
+        contact: 'Wang',
+        site: 'Site A',
+        type: TimingType.hours,
+        startMeter: 300,
+        endMeter: 308,
+        hours: 8,
+        income: 1440,
+        isBreaking: true,
+      ),
+      TimingRecord(
+        id: 31,
+        deviceId: 1,
+        startDate: 20260503,
+        contact: 'Wang',
+        site: 'Site A',
+        type: TimingType.hours,
+        startMeter: 308,
+        endMeter: 316,
+        hours: 8,
+        income: 1440,
+      ),
+    ];
+    final aggregateKeys = timingRecentAggregateKeys(records, const <String>{});
+
+    await tester.pumpWidget(
+      _localizedSliverHost(
+        buildTimingRecentRecordSlivers(
+          records: records,
+          deviceById: {1: _device},
+          deviceIndexById: const {1: '1#'},
+          locallyRemovedKeys: const <String>{},
+          expandedAggregateKeys: aggregateKeys,
+          onToggleAggregate: (_) {},
+        ),
+        locale: const Locale('en'),
+      ),
+    );
+
+    expect(find.text('2026.05.03 (expanded)'), findsOneWidget);
+    expect(
+      find.textContaining('2 records', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('Error 0.0, total 16.0 h'), findsOneWidget);
+    expect(find.text('Breaker'), findsOneWidget);
+    expect(find.textContaining('条记录', findRichText: true), findsNothing);
+    expect(find.textContaining('误差'), findsNothing);
+    expect(find.text('破碎'), findsNothing);
   });
 
   testWidgets('hides zero hours for rent recent record and keeps amount', (
@@ -633,6 +689,23 @@ final _secondDevice = Device(
   defaultUnitPrice: 120,
   baseMeterHours: 2000,
 );
+
+Widget _localizedSliverHost(
+  List<Widget> slivers, {
+  Locale locale = const Locale('zh'),
+}) {
+  return MaterialApp(
+    locale: locale,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(body: CustomScrollView(slivers: slivers)),
+  );
+}
 
 Future<void> _pumpSectionRecentRecords(
   WidgetTester tester, {

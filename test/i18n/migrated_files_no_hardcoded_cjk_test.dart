@@ -13,6 +13,7 @@ const List<String> migratedFiles = <String>[
   'lib/features/timing/calculator/view/work_hour_calculator_sheet.dart',
   'lib/features/timing/presentation/widgets/timing_detail/timing_detail_form_sections.dart',
   'lib/patterns/timing/tab_bar_pattern.dart',
+  'lib/patterns/timing/timing_recent_records_slivers.dart',
   'lib/patterns/timing/timing_home_pattern.dart',
 ];
 

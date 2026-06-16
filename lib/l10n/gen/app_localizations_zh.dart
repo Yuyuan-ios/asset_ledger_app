@@ -71,4 +71,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get timingExternalWorkLinkAction => '关联';
+
+  @override
+  String timingRecentRecordCount(int count) {
+    return '$count条记录';
+  }
+
+  @override
+  String timingRecentAggregateSummary(String error, String total) {
+    return '误差 $error，累计 $total';
+  }
+
+  @override
+  String get timingRecentAggregateExpanded => '已展开';
+
+  @override
+  String get timingRecentAggregateCollapsed => '已聚合';
+
+  @override
+  String get timingRecentBreakingBadge => '破碎';
 }
