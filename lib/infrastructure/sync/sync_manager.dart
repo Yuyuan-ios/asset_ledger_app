@@ -1,8 +1,14 @@
+import '../../data/db/database.dart';
 import '../cloud/api_client.dart';
+import 'conflict_resolver.dart';
+import 'entity_sync_meta.dart';
+import 'remote_change.dart';
+import 'remote_change_applier.dart';
 import 'sync_live_readiness_gate.dart';
 import 'sync_outbox_entry.dart';
 import 'sync_repositories.dart';
 import 'sync_state_repository.dart';
+import 'sync_status.dart';
 
 /// R5.21 抛出的 push gate 阻断异常。
 ///
@@ -89,6 +95,51 @@ class SyncPushResult {
       'wouldFold: $wouldFold)';
 }
 
+class SyncPullConflict {
+  const SyncPullConflict({required this.change, required this.reason});
+
+  final RemoteChange change;
+  final String reason;
+}
+
+class SyncPullResult {
+  const SyncPullResult({
+    this.applied = 0,
+    this.conflicts = const [],
+    this.skippedOwn = 0,
+    this.skippedUnsupported = 0,
+    this.skippedDuplicate = 0,
+    this.failed = 0,
+    this.error,
+    this.nextCursor = 0,
+  });
+
+  final int applied;
+  final List<SyncPullConflict> conflicts;
+  final int skippedOwn;
+  final int skippedUnsupported;
+  final int skippedDuplicate;
+  final int failed;
+  final String? error;
+  final int nextCursor;
+
+  int get processed =>
+      applied +
+      conflicts.length +
+      skippedOwn +
+      skippedUnsupported +
+      skippedDuplicate;
+
+  bool get isSuccess => failed == 0 && error == null;
+
+  @override
+  String toString() =>
+      'SyncPullResult(applied: $applied, conflicts: ${conflicts.length}, '
+      'skippedOwn: $skippedOwn, skippedUnsupported: $skippedUnsupported, '
+      'skippedDuplicate: $skippedDuplicate, failed: $failed, '
+      'nextCursor: $nextCursor)';
+}
+
 class SyncManager {
   SyncManager({
     required SyncOutboxPushRepository outboxRepository,
@@ -96,25 +147,173 @@ class SyncManager {
     SyncStateRepository syncStateRepository = const LocalSyncStateRepository(),
     EntitySyncMetaAckRepository metaRepository =
         const LocalEntitySyncMetaRepository(),
+    EntitySyncMetaRepository pullMetaRepository =
+        const LocalEntitySyncMetaRepository(),
+    RemoteChangeApplier remoteChangeApplier =
+        const TimingRecordRemoteChangeApplier(),
+    ConflictResolver conflictResolver = const ConflictResolver(),
     SyncLiveReadinessGate liveReadinessGate =
         const DefaultSyncLiveReadinessGate(),
+    String? localDeviceId,
     DateTime Function()? now,
   }) : _outboxRepository = outboxRepository,
        _apiClient = apiClient,
        _syncStateRepository = syncStateRepository,
        _metaRepository = metaRepository,
+       _pullMetaRepository = pullMetaRepository,
+       _remoteChangeApplier = remoteChangeApplier,
+       _conflictResolver = conflictResolver,
        _liveReadinessGate = liveReadinessGate,
+       _localDeviceId = localDeviceId,
        _now = now ?? DateTime.now;
 
   final SyncOutboxPushRepository _outboxRepository;
   final CloudApiClient _apiClient;
   final SyncStateRepository _syncStateRepository;
   final EntitySyncMetaAckRepository _metaRepository;
+  final EntitySyncMetaRepository _pullMetaRepository;
+  final RemoteChangeApplier _remoteChangeApplier;
+  final ConflictResolver _conflictResolver;
   final SyncLiveReadinessGate _liveReadinessGate;
+  final String? _localDeviceId;
   final DateTime Function() _now;
 
   /// 指数退避（秒）：第 1 次失败 60s、第 2 次 5min、第 3 次及以后 30min。
   static const List<int> _backoffSeconds = [60, 300, 1800];
+
+  Future<SyncPullResult> pullPending({int limit = 50}) async {
+    final cursor = await _syncStateRepository.readPullCursor();
+    final response = await _apiClient.send(
+      ApiRequest(
+        method: 'GET',
+        path: '/sync/changes?since=$cursor&limit=$limit',
+      ),
+    );
+    if (!response.isSuccess) {
+      final err = response.error;
+      return SyncPullResult(
+        failed: 1,
+        error: err == null
+            ? 'http_${response.statusCode}'
+            : '${err.code}: ${err.message}',
+        nextCursor: cursor,
+      );
+    }
+
+    final decoded = RemoteChangesResponse.parse(response.bodyJson);
+    var applied = 0;
+    var skippedOwn = 0;
+    var skippedUnsupported = 0;
+    var skippedDuplicate = 0;
+    var processedCursor = cursor;
+    final conflicts = <SyncPullConflict>[];
+
+    for (final change in decoded.changes) {
+      if (change.serverSeq <= processedCursor) {
+        skippedDuplicate += 1;
+        continue;
+      }
+      final nextCursor = change.serverSeq;
+      final localDeviceId = _localDeviceId;
+
+      if (localDeviceId != null &&
+          change.originDeviceId != null &&
+          change.originDeviceId == localDeviceId) {
+        await _syncStateRepository.writePullCursor(nextCursor, now: _now());
+        processedCursor = nextCursor;
+        skippedOwn += 1;
+        continue;
+      }
+
+      if (change.entityType != TimingRecordRemoteChangeApplier.entityType) {
+        await _syncStateRepository.writePullCursor(nextCursor, now: _now());
+        processedCursor = nextCursor;
+        skippedUnsupported += 1;
+        continue;
+      }
+
+      final remoteMeta = _remoteMeta(change);
+      final localMeta =
+          await _pullMetaRepository.find(
+            entityType: change.entityType,
+            localId: change.entityId,
+          ) ??
+          _emptyLocalMeta(change);
+      final decision = _conflictResolver.resolve(
+        local: localMeta,
+        remote: remoteMeta,
+      );
+
+      if (decision.status == SyncStatus.synced) {
+        final alreadyApplied =
+            localMeta.payloadHash == change.payloadHash &&
+            localMeta.version >= change.newVersion;
+        await AppDatabase.inTransaction<void>((txn) async {
+          if (!alreadyApplied) {
+            await _remoteChangeApplier.applyWithExecutor(
+              txn,
+              change,
+              now: _now(),
+            );
+          }
+          await _syncStateRepository.writePullCursorWithExecutor(
+            txn,
+            nextCursor,
+            now: _now(),
+          );
+        });
+        processedCursor = nextCursor;
+        if (alreadyApplied) {
+          skippedDuplicate += 1;
+        } else {
+          applied += 1;
+        }
+        continue;
+      }
+
+      await _syncStateRepository.writePullCursor(nextCursor, now: _now());
+      processedCursor = nextCursor;
+      conflicts.add(
+        SyncPullConflict(
+          change: change,
+          reason: decision.reason ?? decision.status.name,
+        ),
+      );
+    }
+
+    return SyncPullResult(
+      applied: applied,
+      conflicts: List.unmodifiable(conflicts),
+      skippedOwn: skippedOwn,
+      skippedUnsupported: skippedUnsupported,
+      skippedDuplicate: skippedDuplicate,
+      nextCursor: processedCursor,
+    );
+  }
+
+  EntitySyncMeta _remoteMeta(RemoteChange change) {
+    return EntitySyncMeta(
+      entityType: change.entityType,
+      localId: change.entityId,
+      serverId: change.entityId,
+      syncStatus: SyncStatus.synced,
+      version: change.newVersion,
+      source: 'cloud_sync',
+      deletedAt: change.deleted ? _now().toUtc().toIso8601String() : null,
+      payloadHash: change.payloadHash,
+    );
+  }
+
+  EntitySyncMeta _emptyLocalMeta(RemoteChange change) {
+    return EntitySyncMeta(
+      entityType: change.entityType,
+      localId: change.entityId,
+      serverId: change.entityId,
+      syncStatus: SyncStatus.synced,
+      version: 0,
+      source: 'owner_app',
+    );
+  }
 
   Future<SyncPushResult> pushPending({
     int limit = 50,

@@ -366,6 +366,11 @@ const Map<String, String> _registeredTimingRecordWriteFiles = {
   // must reach it through the covered save/delete coordinators above.
   'lib/data/repositories/timing_repository.dart': 'low-level repository CRUD',
 
+  // Track B / B2 remote pull apply is intentionally direct: remote changes must
+  // not go through save/delete-with-impact or enqueue sync_outbox again.
+  'lib/infrastructure/sync/remote_change_applier.dart':
+      'remote pull direct apply without outbox backflow',
+
   // Legacy/fallback store writes remain deferred. Production save/delete flows
   // are guarded above through provider wiring and use-case orchestration.
   'lib/features/timing/state/timing_store.dart':

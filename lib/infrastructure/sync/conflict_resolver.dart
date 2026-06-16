@@ -15,6 +15,9 @@ class ConflictResolver {
     required EntitySyncMeta local,
     required EntitySyncMeta remote,
   }) {
+    if (remote.payloadHash == local.payloadHash) {
+      return const ConflictDecision(status: SyncStatus.synced);
+    }
     if (local.deletedAt != null && remote.deletedAt == null) {
       return const ConflictDecision(
         status: SyncStatus.conflict,
@@ -28,7 +31,8 @@ class ConflictResolver {
         reason: 'remote_newer_local_dirty',
       );
     }
-    if (remote.payloadHash == local.payloadHash) {
+    if (remote.version > local.version &&
+        local.syncStatus == SyncStatus.synced) {
       return const ConflictDecision(status: SyncStatus.synced);
     }
     return const ConflictDecision(
