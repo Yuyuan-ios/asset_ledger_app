@@ -1,5 +1,7 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -13,6 +15,15 @@ import '../models/timing_worklog_report.dart';
 import '../presentation/report_file_presenter.dart';
 import '../../timing/state/timing_external_work_store.dart';
 import 'build_timing_worklog_report_use_case.dart';
+
+typedef ExportTimingWorklogFailureReporter =
+    void Function({
+      required String stage,
+      required Object error,
+      required StackTrace stackTrace,
+      required int recordCount,
+      required int externalRecordCount,
+    });
 
 class ExportTimingWorklogExcelOutcome {
   const ExportTimingWorklogExcelOutcome._({
@@ -187,15 +198,19 @@ class ExportTimingWorklogExcelUseCase {
     Future<Directory> Function() directoryResolver =
         _defaultReportDirectoryResolver,
     ReportFilePresenter presenter = const SystemReportFilePresenter(),
+    ExportTimingWorklogFailureReporter failureReporter =
+        _defaultFailureReporter,
   }) : _reportBuilder = reportBuilder,
        _writer = writer,
        _directoryResolver = directoryResolver,
-       _presenter = presenter;
+       _presenter = presenter,
+       _failureReporter = failureReporter;
 
   final BuildTimingWorklogReportUseCase _reportBuilder;
   final TimingWorklogExcelWriter _writer;
   final Future<Directory> Function() _directoryResolver;
   final ReportFilePresenter _presenter;
+  final ExportTimingWorklogFailureReporter _failureReporter;
 
   Future<ExportTimingWorklogExcelOutcome> execute({
     required TimingWorklogExportScope scope,
@@ -211,6 +226,7 @@ class ExportTimingWorklogExcelUseCase {
     if (scopedRecords.isEmpty && scopedExternalWorkItems.isEmpty) {
       return ExportTimingWorklogExcelOutcome.failure('该项目暂无可导出的工时记录');
     }
+    var stage = 'build_report';
     try {
       final report = _reportBuilder.execute(
         records: scopedRecords,
@@ -221,16 +237,21 @@ class ExportTimingWorklogExcelUseCase {
       if (report.isEmpty) {
         return ExportTimingWorklogExcelOutcome.failure('该项目暂无可导出的工时记录');
       }
+      stage = 'write_xlsx';
       final bytes = _writer.write(report);
+      stage = 'resolve_directory';
       final directory = await _directoryResolver();
+      stage = 'create_directory';
       if (!await directory.exists()) {
         await directory.create(recursive: true);
       }
+      stage = 'resolve_file_name';
       final fileName = await _resolveFileName(
         directory,
         report,
         scope.fileNamePart,
       );
+      stage = 'write_file';
       final file = File(p.join(directory.path, fileName));
       await file.writeAsBytes(bytes, flush: true);
 
@@ -238,8 +259,8 @@ class ExportTimingWorklogExcelUseCase {
         await _presenter.share(
           filePath: file.path,
           fileName: fileName,
-          text: '项目对账明细已生成，请查看附件 Excel 文件。',
-          subject: '项目对账明细',
+          text: '挖机工时打卡汇总已生成，请查看附件 Excel 文件。',
+          subject: '挖机工时打卡汇总',
         );
       } catch (_) {
         return ExportTimingWorklogExcelOutcome.failure('分享面板打开失败，工时表已保留，可稍后重试');
@@ -248,7 +269,14 @@ class ExportTimingWorklogExcelUseCase {
         fileName: fileName,
         filePath: file.path,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _failureReporter(
+        stage: stage,
+        error: error,
+        stackTrace: stackTrace,
+        recordCount: scopedRecords.length,
+        externalRecordCount: scopedExternalWorkItems.length,
+      );
       return ExportTimingWorklogExcelOutcome.failure('生成工时表失败');
     }
   }
@@ -260,7 +288,7 @@ class ExportTimingWorklogExcelUseCase {
   ) async {
     final dateRange =
         '${_compactDate(report.startDate)}-${_compactDate(report.endDate)}';
-    final stem = '项目对账明细_${fileNamePart}_$dateRange';
+    final stem = '挖机工时打卡汇总_${fileNamePart}_$dateRange';
     var candidate = '$stem.xlsx';
     var seq = 1;
     while (await File(p.join(directory.path, candidate)).exists()) {
@@ -274,6 +302,42 @@ class ExportTimingWorklogExcelUseCase {
 }
 
 Future<Directory> _defaultReportDirectoryResolver() async {
+  final iosDocumentsDir = _iosDocumentsDirectoryFromHome();
+  if (iosDocumentsDir != null) {
+    return Directory(p.join(iosDocumentsDir.path, 'report_exports'));
+  }
   final documentsDir = await getApplicationDocumentsDirectory();
   return Directory(p.join(documentsDir.path, 'report_exports'));
+}
+
+Directory? _iosDocumentsDirectoryFromHome() {
+  if (!Platform.isIOS) return null;
+  final home = Platform.environment['HOME']?.trim();
+  if (home == null || home.isEmpty) return null;
+  return Directory(p.join(home, 'Documents'));
+}
+
+void _defaultFailureReporter({
+  required String stage,
+  required Object error,
+  required StackTrace stackTrace,
+  required int recordCount,
+  required int externalRecordCount,
+}) {
+  developer.log(
+    'Timing worklog export failed at $stage '
+    '(records=$recordCount, external=$externalRecordCount)',
+    name: 'fleet.reports.worklog_export',
+    error: error,
+    stackTrace: stackTrace,
+  );
+  debugPrint(
+    'Timing worklog export failed at $stage '
+    '(records=$recordCount, external=$externalRecordCount, '
+    'error=${error.runtimeType}: $error)',
+  );
+  debugPrintStack(
+    label: 'Timing worklog export failure stack',
+    stackTrace: stackTrace,
+  );
 }

@@ -40,6 +40,15 @@ class _FakePresenter implements ReportFilePresenter {
   }
 }
 
+class _ThrowingTimingWorklogExcelWriter extends TimingWorklogExcelWriter {
+  const _ThrowingTimingWorklogExcelWriter();
+
+  @override
+  List<int> write(TimingWorklogReport report) {
+    throw StateError('writer exploded');
+  }
+}
+
 void main() {
   final hitachi = Device(
     id: 1,
@@ -146,9 +155,6 @@ void main() {
         ),
       ],
     );
-    final sheet = _sheetXml(report);
-    final cells = _cells(sheet);
-
     expect(report.totalHours, 2.5);
     expect(report.totalAmountFen, 44000);
     expect(report.unitTotals.map((total) => total.unit), [
@@ -157,16 +163,6 @@ void main() {
     ]);
     expect(report.rows.last.unit, MeasureUnit.trip);
     expect(report.rows.last.amountFen, 24000);
-    expect(cells['J4'], '2.5');
-    expect(cells['K4'], '小时');
-    expect(cells['L4'], '80');
-    expect(cells['M4'], '200');
-    expect(cells['H5'], '');
-    expect(cells['J5'], '3');
-    expect(cells['K5'], '趟');
-    expect(cells['M5'], '240');
-    expect(cells['J24'], '2.5小时、3趟');
-    expect(cells['M24'], '440');
   });
 
   test(
@@ -203,51 +199,61 @@ void main() {
     },
   );
 
-  test('excel writer builds the fixed template header structure', () {
-    final report = const BuildTimingWorklogReportUseCase().execute(
-      records: [_record],
-      devices: [hitachi],
-    );
-    final sheet = _sheetXml(report);
-    final cells = _cells(sheet);
+  test(
+    'excel writer builds the legacy punch-card template header structure',
+    () {
+      final report = const BuildTimingWorklogReportUseCase().execute(
+        records: [_record],
+        devices: [hitachi],
+      );
+      final sheet = _sheetXml(report);
+      final cells = _cells(sheet);
 
-    expect(cells['A1'], '项目对账明细');
-    expect(cells['E2'], '施工地点');
-    expect(cells['F2'], '项目名称');
-    expect(cells['H2'], '码表');
-    expect(cells['H3'], '起');
-    expect(cells['I3'], '止');
-    expect(cells['J2'], '数量');
-    expect(cells['K2'], '单位');
-    expect(cells['L2'], '单价（元/单位）');
-    expect(cells['M2'], '金额（元）');
-    expect(cells['N2'], '来源');
-    expect(cells['O2'], '负责人');
-    expect(cells['P2'], '备注');
-    expect(sheet, contains('<mergeCell ref="H2:I2"/>'));
-    expect(sheet, contains(TimingWorklogExcelWriter.invoiceText));
-    expect(sheet, contains(TimingWorklogExcelWriter.basisText));
-  });
+      expect(cells['A1'], '挖机工时打卡汇总');
+      expect(cells['C2'], '机型');
+      expect(cells['D2'], '驾驶员');
+      expect(cells['E2'], '施工地点');
+      expect(cells['E3'], '地点');
+      expect(cells['F3'], '项目名称');
+      expect(cells['G2'], '工作内容');
+      expect(cells['H2'], '上午');
+      expect(cells['I2'], '中午');
+      expect(cells['J2'], '中午');
+      expect(cells['K2'], '下午');
+      expect(cells['L2'], '合计时间（时）');
+      expect(cells['L3'], '上午');
+      expect(cells['M3'], '下午');
+      expect(cells['N3'], '全天');
+      expect(cells['O2'], '负责人');
+      expect(cells['P2'], '备注');
+      expect(sheet, contains('<mergeCell ref="E2:F2"/>'));
+      expect(sheet, contains('<mergeCell ref="L2:N2"/>'));
+    },
+  );
 
-  test('excel writer maps meter quantity unit price and amount columns', () {
-    final report = const BuildTimingWorklogReportUseCase().execute(
-      records: [_record],
-      devices: [hitachi],
-    );
-    final cells = _cells(_sheetXml(report));
+  test(
+    'excel writer maps legacy date machine meter and total-hour columns',
+    () {
+      final report = const BuildTimingWorklogReportUseCase().execute(
+        records: [_record],
+        devices: [hitachi],
+      );
+      final cells = _cells(_sheetXml(report));
 
-    expect(cells['C4'], '日立150');
-    expect(cells['D4'], '张三');
-    expect(cells['E4'], '工地');
-    expect(cells['F4'], '张三 · 工地');
-    expect(cells['H4'], '100.5');
-    expect(cells['I4'], '108');
-    expect(cells['J4'], '7.5');
-    expect(cells['K4'], '小时');
-    expect(cells['L4'], '100');
-    expect(cells['M4'], '750');
-    expect(cells['N4'], '本机');
-  });
+      expect(cells['C4'], '日立150');
+      expect(cells['D4'], '');
+      expect(cells['E4'], '');
+      expect(cells['F4'], '');
+      expect(cells['G4'], '');
+      expect(cells['H4'], '');
+      expect(cells['I4'], '');
+      expect(cells['J4'], '');
+      expect(cells['K4'], '');
+      expect(cells['L4'], '100.5');
+      expect(cells['M4'], '108');
+      expect(cells['N4'], '7.5');
+    },
+  );
 
   test(
     'excel writer keeps signatures headers page breaks and totals on every page',
@@ -281,31 +287,22 @@ void main() {
       final cells = _cells(sheet);
 
       expect(writer.paginate(report), hasLength(2));
-      expect(cells['J2'], '数量');
-      expect(cells['J29'], '数量');
+      expect(cells['C2'], '机型');
+      expect(cells['C27'], '机型');
       expect(
         TimingWorklogExcelWriter.signatureText.allMatches(sheet),
         hasLength(2),
       );
-      expect(
-        TimingWorklogExcelWriter.invoiceText.allMatches(sheet),
-        hasLength(2),
-      );
-      expect(
-        TimingWorklogExcelWriter.basisText.allMatches(sheet),
-        hasLength(2),
-      );
-      expect(cells['J24'], '20小时');
-      expect(cells['M24'], '2000');
-      expect(cells['J51'], '21小时');
-      expect(cells['M51'], '2100');
+      expect(cells['N24'], '20');
+      expect(cells['N49'], '21');
       expect(sheet, contains('<rowBreaks count="1" manualBreakCount="1">'));
       expect(
         sheet,
         contains('<pageSetup paperSize="9" orientation="landscape"'),
       );
+      expect(workbook, contains('<sheet name="工时打卡汇总"'));
       expect(workbook, contains('_xlnm.Print_Area'));
-      expect(workbook, contains('\$A\$1:\$P\$54'));
+      expect(workbook, contains("'工时打卡汇总'!\$A\$1:\$P\$50"));
     },
   );
 
@@ -329,7 +326,7 @@ void main() {
 
     expect(outcome.ok, isTrue);
     expect(presenter.calls, 1);
-    expect(presenter.fileName, '项目对账明细_李洋_天眉乐_20260526-20260526.xlsx');
+    expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260526-20260526.xlsx');
     expect(await File(presenter.filePath!).exists(), isTrue);
   });
 
@@ -411,20 +408,15 @@ void main() {
       final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
 
       expect(outcome.ok, isTrue);
-      expect(presenter.fileName, '项目对账明细_李洋_天眉乐_20260521-20260521.xlsx');
+      expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260521-20260521.xlsx');
       expect(cells['A4'], '1');
       expect(cells['B4'], '2026.05.21');
       expect(cells['C4'], '日立150');
-      expect(cells['H4'], '10');
-      expect(cells['I4'], '12');
-      expect(cells['J4'], '2');
-      expect(cells['K4'], '小时');
-      expect(cells['L4'], '100');
-      expect(cells['M4'], '200');
-      expect(cells['N4'], '本机');
+      expect(cells['L4'], '10');
+      expect(cells['M4'], '12');
+      expect(cells['N4'], '2');
       expect(cells['B5'], '');
-      expect(cells['J24'], '2小时');
-      expect(cells['M24'], '200');
+      expect(cells['N24'], '2');
     },
   );
 
@@ -482,14 +474,13 @@ void main() {
     final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
 
     expect(outcome.ok, isTrue);
-    expect(presenter.fileName, '项目对账明细_设备1_5月_20260521-20260521.xlsx');
+    expect(presenter.fileName, '挖机工时打卡汇总_设备1_5月_20260521-20260521.xlsx');
     expect(cells['A4'], '1');
     expect(cells['B4'], '2026.05.21');
     expect(cells['C4'], '日立150');
-    expect(cells['J4'], '2');
+    expect(cells['N4'], '2');
     expect(cells['B5'], '');
-    expect(cells['J24'], '2小时');
-    expect(cells['M24'], '200');
+    expect(cells['N24'], '2');
   });
 
   test('export use case expands merged project to member projects', () async {
@@ -556,23 +547,20 @@ void main() {
     final cells = _cells(_sheetXmlFromFile(presenter.filePath!));
 
     expect(outcome.ok, isTrue);
-    expect(presenter.fileName, '项目对账明细_李杰_合并2项目_20260312-20260601.xlsx');
+    expect(presenter.fileName, '挖机工时打卡汇总_李杰_合并2项目_20260312-20260601.xlsx');
     expect(cells['B4'], '2026.03.12');
+    expect(cells['N4'], '2');
     expect(cells['B5'], '2026.03.13');
     expect(cells['C5'], '小松200');
-    expect(cells['H5'], '');
-    expect(cells['I5'], '');
-    expect(cells['J5'], '1.5');
-    expect(cells['N5'], '外协');
+    expect(cells['L5'], '');
+    expect(cells['M5'], '');
+    expect(cells['N5'], '1.5');
     expect(cells['B6'], '2026.05.30');
-    expect(cells['J6'], '2.5');
-    expect(cells['N6'], '外协');
+    expect(cells['N6'], '2.5');
     expect(cells['B7'], '2026.06.01');
-    expect(cells['J7'], '4');
-    expect(cells['N7'], '本机');
+    expect(cells['N7'], '4');
     expect(cells['B8'], '');
-    expect(cells['J24'], '10小时');
-    expect(cells['M24'], '602');
+    expect(cells['N24'], '10');
   });
 
   test(
@@ -610,17 +598,13 @@ void main() {
 
       expect(outcome.ok, isTrue);
       expect(presenter.calls, 1);
-      expect(presenter.fileName, '项目对账明细_李洋_天眉乐_20260528-20260528.xlsx');
+      expect(presenter.fileName, '挖机工时打卡汇总_李洋_天眉乐_20260528-20260528.xlsx');
       expect(cells['B4'], '2026.05.28');
       expect(cells['C4'], '神钢75');
-      expect(cells['H4'], '');
-      expect(cells['I4'], '');
-      expect(cells['J4'], '3.5');
-      expect(cells['K4'], '小时');
-      expect(cells['M4'], '1');
-      expect(cells['N4'], '外协');
-      expect(cells['J24'], '3.5小时');
-      expect(cells['M24'], '1');
+      expect(cells['L4'], '');
+      expect(cells['M4'], '');
+      expect(cells['N4'], '3.5');
+      expect(cells['N24'], '3.5');
     },
   );
 
@@ -686,6 +670,48 @@ void main() {
     expect(result.ok, isFalse);
     expect(result.message, '分享面板打开失败，工时表已保留，可稍后重试');
     expect(dir.listSync().whereType<File>().single.path, endsWith('.xlsx'));
+  });
+
+  test('export use case reports generation failure diagnostics', () async {
+    String? reportedStage;
+    Object? reportedError;
+    StackTrace? reportedStackTrace;
+    int? reportedRecordCount;
+    int? reportedExternalRecordCount;
+    final useCase = ExportTimingWorklogExcelUseCase(
+      writer: const _ThrowingTimingWorklogExcelWriter(),
+      failureReporter:
+          ({
+            required String stage,
+            required Object error,
+            required StackTrace stackTrace,
+            required int recordCount,
+            required int externalRecordCount,
+          }) {
+            reportedStage = stage;
+            reportedError = error;
+            reportedStackTrace = stackTrace;
+            reportedRecordCount = recordCount;
+            reportedExternalRecordCount = externalRecordCount;
+          },
+    );
+
+    final result = await useCase.execute(
+      scope: TimingWorklogExportScope.singleProject(
+        projectId: 'project-a',
+        fileNamePart: '李洋 · 天眉乐',
+      ),
+      records: [_record],
+      devices: [hitachi],
+    );
+
+    expect(result.ok, isFalse);
+    expect(result.message, '生成工时表失败');
+    expect(reportedStage, 'write_xlsx');
+    expect(reportedError, isA<StateError>());
+    expect(reportedStackTrace, isNotNull);
+    expect(reportedRecordCount, 1);
+    expect(reportedExternalRecordCount, 0);
   });
 }
 

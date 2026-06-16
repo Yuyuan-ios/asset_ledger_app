@@ -12,7 +12,7 @@ import '../models/timing_worklog_report.dart';
 class BuildTimingWorklogReportUseCase {
   const BuildTimingWorklogReportUseCase();
 
-  static const String title = '项目对账明细';
+  static const String title = '挖机工时打卡汇总';
 
   TimingWorklogReport execute({
     required List<TimingRecord> records,
