@@ -50,4 +50,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get timingCalculationAppliedBadge => '已填入工时';
+
+  @override
+  String get timingAttachmentDigging => '挖斗';
+
+  @override
+  String get timingAttachmentBreaking => '破碎';
 }

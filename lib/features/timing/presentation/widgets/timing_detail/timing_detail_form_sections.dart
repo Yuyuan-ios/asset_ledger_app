@@ -170,11 +170,12 @@ extension TimingDetailFormSections on TimingDetailContentState {
   }
 
   Widget _buildAttachmentSelector({bool compact = false}) {
+    final l10n = AppLocalizations.of(context);
     return _buildTwoOptionSegment(
       selectedIndex: _attachmentMode == AttachmentMode.digging ? 0 : 1,
       onTap: _selectAttachmentIndex,
-      leftText: '挖斗',
-      rightText: '破碎',
+      leftText: l10n.timingAttachmentDigging,
+      rightText: l10n.timingAttachmentBreaking,
       width: compact ? 148 : null,
       height: compact ? SheetTokens.fieldHeight : null,
       inset: compact ? 2 : null,
@@ -316,7 +317,14 @@ class _TimingTwoOptionSegmentItem extends StatelessWidget {
                   padding: EdgeInsets.only(right: checkRightGap),
                   child: Text('✓', style: checkStyle),
                 ),
-              Text(text, style: textStyle),
+              Flexible(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle,
+                ),
+              ),
             ],
           ),
         ),

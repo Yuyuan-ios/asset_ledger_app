@@ -12,5 +12,7 @@
   "timingCalculatorApplyButton": "Apply",
   "timingCalculationHistoryEmpty": "No calculation records",
   "timingCalculationHistoryMeta": "{date} | {count, plural, =1{1 ticket} other{{count} tickets}}",
-  "timingCalculationAppliedBadge": "Applied to hours"
+  "timingCalculationAppliedBadge": "Applied to hours",
+  "timingAttachmentDigging": "Bucket",
+  "timingAttachmentBreaking": "Breaker"
 }

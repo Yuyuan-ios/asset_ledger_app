@@ -22,6 +22,7 @@ import '../../core/utils/interaction_feedback.dart';
 import '../../core/utils/format_utils.dart';
 import '../../core/utils/text_field_utils.dart';
 import '../../components/fields/app_auto_suggest_field.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../patterns/device/device_picker_pattern.dart';
 import '../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../components/fields/app_date_field.dart';

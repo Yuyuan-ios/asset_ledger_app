@@ -175,6 +175,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已填入工时'**
   String get timingCalculationAppliedBadge;
+
+  /// 计时模块:计时录入页附件模式选择器的普通挖斗选项
+  ///
+  /// In zh, this message translates to:
+  /// **'挖斗'**
+  String get timingAttachmentDigging;
+
+  /// 计时模块:计时录入页附件模式选择器的破碎锤选项
+  ///
+  /// In zh, this message translates to:
+  /// **'破碎'**
+  String get timingAttachmentBreaking;
 }
 
 class _AppLocalizationsDelegate

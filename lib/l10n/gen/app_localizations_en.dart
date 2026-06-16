@@ -56,4 +56,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timingCalculationAppliedBadge => 'Applied to hours';
+
+  @override
+  String get timingAttachmentDigging => 'Bucket';
+
+  @override
+  String get timingAttachmentBreaking => 'Breaker';
 }

@@ -67,5 +67,13 @@
   "timingCalculationAppliedBadge": "已填入工时",
   "@timingCalculationAppliedBadge": {
     "description": "计时模块:工时计算器历史记录已应用到工时输入的标记"
+  },
+  "timingAttachmentDigging": "挖斗",
+  "@timingAttachmentDigging": {
+    "description": "计时模块:计时录入页附件模式选择器的普通挖斗选项"
+  },
+  "timingAttachmentBreaking": "破碎",
+  "@timingAttachmentBreaking": {
+    "description": "计时模块:计时录入页附件模式选择器的破碎锤选项"
   }
 }

@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Future<void> pumpTimingDetail(
     WidgetTester tester, {
+    Locale locale = const Locale('zh'),
     GlobalKey<TimingDetailContentState>? key,
     TimingRecord? editing,
     List<TimingRecord> records = const [],
@@ -34,7 +35,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        locale: const Locale('zh'),
+        locale: locale,
         localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
@@ -194,9 +195,25 @@ void main() {
         devices: [buildDevice(id: 1, breakingUnitPrice: 180)],
       );
 
+      expect(find.text('挖斗'), findsOneWidget);
       expect(find.text('破碎'), findsOneWidget);
     },
   );
+
+  testWidgets('renders localized en attachment selector labels', (
+    WidgetTester tester,
+  ) async {
+    await pumpTimingDetail(
+      tester,
+      locale: const Locale('en'),
+      devices: [buildDevice(id: 1, breakingUnitPrice: 180)],
+    );
+
+    expect(find.text('Bucket'), findsOneWidget);
+    expect(find.text('Breaker'), findsOneWidget);
+    expect(find.text('挖斗'), findsNothing);
+    expect(find.text('破碎'), findsNothing);
+  });
 
   testWidgets(
     'keeps breaking selector visible for editing legacy breaking records',
