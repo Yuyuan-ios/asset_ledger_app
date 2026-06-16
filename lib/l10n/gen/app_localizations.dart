@@ -391,6 +391,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'解除关联失败，请重试'**
   String get timingExternalWorkUnlinkFailure;
+
+  /// 计时模块:计时首页收入/支出图表的年份标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{year}年'**
+  String timingChartYearLabel(int year);
+
+  /// 计时模块:计时首页图表收入柱图例
+  ///
+  /// In zh, this message translates to:
+  /// **'收入'**
+  String get timingChartIncomeLegend;
+
+  /// 计时模块:计时首页图表净收入值标签
+  ///
+  /// In zh, this message translates to:
+  /// **'净入'**
+  String get timingChartNetIncomeValueLabel;
+
+  /// 计时模块:计时首页图表支出图例和值标签
+  ///
+  /// In zh, this message translates to:
+  /// **'支出'**
+  String get timingChartExpenseLabel;
 }
 
 class _AppLocalizationsDelegate

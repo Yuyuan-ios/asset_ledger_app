@@ -192,4 +192,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timingExternalWorkUnlinkFailure => 'Unlink failed. Try again';
+
+  @override
+  String timingChartYearLabel(int year) {
+    return '$year';
+  }
+
+  @override
+  String get timingChartIncomeLegend => 'Income';
+
+  @override
+  String get timingChartNetIncomeValueLabel => 'Net';
+
+  @override
+  String get timingChartExpenseLabel => 'Expense';
 }

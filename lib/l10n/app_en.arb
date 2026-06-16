@@ -48,5 +48,9 @@
   "timingExternalWorkUnlinkConfirmTitle": "Unlink",
   "timingExternalWorkUnlinkConfirmContent": "After unlinking, this external work package will remain as an independent external project. External work records will not be deleted. Continue?",
   "timingExternalWorkUnlinkSuccess": "Unlinked. External work records kept",
-  "timingExternalWorkUnlinkFailure": "Unlink failed. Try again"
+  "timingExternalWorkUnlinkFailure": "Unlink failed. Try again",
+  "timingChartYearLabel": "{year}",
+  "timingChartIncomeLegend": "Income",
+  "timingChartNetIncomeValueLabel": "Net",
+  "timingChartExpenseLabel": "Expense"
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../features/timing/model/timing_chart_data.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../layout/phone_page_layout.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
@@ -23,6 +24,7 @@ class CardMainChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final arrowStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.chartArrowFontSize,
@@ -96,7 +98,10 @@ class CardMainChart extends StatelessWidget {
                             onTap: canGoPrevYear ? onPrevYear : null,
                             child: Text('<', style: arrowStyle),
                           ),
-                          Text('${data.year}年', style: yearStyle),
+                          Text(
+                            l10n.timingChartYearLabel(data.year),
+                            style: yearStyle,
+                          ),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: canGoNextYear ? onNextYear : null,
@@ -183,18 +188,19 @@ class CardMainChart extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   _Legend(
-                                    label: '收入',
+                                    label: l10n.timingChartIncomeLegend,
                                     swatchColor: TimingColors.chartIncome,
-                                    valueLabel: '净入',
+                                    valueLabel:
+                                        l10n.timingChartNetIncomeValueLabel,
                                     value: data.netIncomeText,
                                   ),
                                   const SizedBox(
                                     width: TimingTokens.chartLegendGap,
                                   ),
                                   _Legend(
-                                    label: '支出',
+                                    label: l10n.timingChartExpenseLabel,
                                     swatchColor: TimingColors.expense,
-                                    valueLabel: '支出',
+                                    valueLabel: l10n.timingChartExpenseLabel,
                                     value: data.totalExpenseText,
                                   ),
                                 ],

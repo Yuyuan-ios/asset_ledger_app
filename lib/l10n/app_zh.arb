@@ -245,5 +245,27 @@
   "timingExternalWorkUnlinkFailure": "解除关联失败，请重试",
   "@timingExternalWorkUnlinkFailure": {
     "description": "计时模块:外协包解除关联失败 toast"
+  },
+  "timingChartYearLabel": "{year}年",
+  "@timingChartYearLabel": {
+    "description": "计时模块:计时首页收入/支出图表的年份标题",
+    "placeholders": {
+      "year": {
+        "type": "int",
+        "example": "2026"
+      }
+    }
+  },
+  "timingChartIncomeLegend": "收入",
+  "@timingChartIncomeLegend": {
+    "description": "计时模块:计时首页图表收入柱图例"
+  },
+  "timingChartNetIncomeValueLabel": "净入",
+  "@timingChartNetIncomeValueLabel": {
+    "description": "计时模块:计时首页图表净收入值标签"
+  },
+  "timingChartExpenseLabel": "支出",
+  "@timingChartExpenseLabel": {
+    "description": "计时模块:计时首页图表支出图例和值标签"
   }
 }

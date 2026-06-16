@@ -171,4 +171,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get timingExternalWorkUnlinkFailure => '解除关联失败，请重试';
+
+  @override
+  String timingChartYearLabel(int year) {
+    return '$year年';
+  }
+
+  @override
+  String get timingChartIncomeLegend => '收入';
+
+  @override
+  String get timingChartNetIncomeValueLabel => '净入';
+
+  @override
+  String get timingChartExpenseLabel => '支出';
 }
