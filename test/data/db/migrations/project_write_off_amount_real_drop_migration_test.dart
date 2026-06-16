@@ -328,7 +328,7 @@ Future<bool> _hasAmountFenCheck(DatabaseExecutor db) async {
     limit: 1,
   );
   final sql = rows.single['sql'] as String;
-  return sql.contains('CHECK (amount_fen >= 0)');
+  return sql.contains('CHECK (amount_fen > 0)');
 }
 
 Future<bool> _indexExists(DatabaseExecutor db, String index) async {

@@ -7,8 +7,8 @@ part of '../db_migrations.dart';
 /// CAST(ROUND(COALESCE(amount, 0) * 100.0) AS INTEGER) 兜底。
 ///
 /// 本表带 projects FK；重建需临时关闭 foreign_keys，重建后先执行
-/// foreign_key_check，再恢复 foreign_keys。原 CHECK(amount > 0) 的金额约束
-/// 转移到 CHECK(amount_fen >= 0)，保持整数分列约束口径。
+/// foreign_key_check，再恢复 foreign_keys。原 CHECK(amount > 0) 的「严格正」金额
+/// 约束忠实转移到 CHECK(amount_fen > 0)，不放松为非负。
 class Migration046 {
   static Future<void> apply(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 46) {
@@ -40,7 +40,7 @@ class Migration046 {
         CREATE TABLE project_write_offs_v46 (
           id TEXT PRIMARY KEY,
           project_id TEXT NOT NULL,
-          amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
+          amount_fen INTEGER NOT NULL CHECK (amount_fen > 0),
           reason TEXT NOT NULL,
           note TEXT,
           write_off_date TEXT NOT NULL,

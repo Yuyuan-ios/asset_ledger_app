@@ -32,7 +32,7 @@ class AccountSchema {
       CREATE TABLE project_write_offs (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
-        amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
+        amount_fen INTEGER NOT NULL CHECK (amount_fen > 0),
         reason TEXT NOT NULL,
         note TEXT,
         write_off_date TEXT NOT NULL,

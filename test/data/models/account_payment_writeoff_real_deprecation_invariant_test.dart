@@ -116,7 +116,7 @@ void main() {
           expect(block.contains('amount REAL'), isFalse);
           expect(
             block.contains(
-              'amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0)',
+              'amount_fen INTEGER NOT NULL CHECK (amount_fen > 0)',
             ),
             isTrue,
           );
