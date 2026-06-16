@@ -19,6 +19,7 @@ class AccountOverviewVm {
   final double totalRemaining;
   final double? totalRatio;
   final double netCashReceived;
+  final int externalCustomerReceivableFen;
   final List<AccountDeviceReceivable> deviceReceivables;
 
   const AccountOverviewVm({
@@ -27,6 +28,7 @@ class AccountOverviewVm {
     required this.totalRemaining,
     required this.totalRatio,
     required this.netCashReceived,
+    this.externalCustomerReceivableFen = 0,
     required this.deviceReceivables,
   });
 }
@@ -262,6 +264,12 @@ class _OverviewPaymentSummarySection extends StatelessWidget {
       height: 1,
       color: Colors.black,
     );
+    final externalHintStyle = AppTypography.caption(
+      context,
+      fontSize: 11,
+      height: 1,
+      color: Colors.black.withValues(alpha: 0.54),
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,6 +310,18 @@ class _OverviewPaymentSummarySection extends StatelessWidget {
                   value: FormatUtils.money(vm.totalReceivable),
                   style: summaryStyle,
                 ),
+                if (vm.externalCustomerReceivableFen > 0) ...[
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '其中:外协应收 ${FormatUtils.money(vm.externalCustomerReceivableFen / 100)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: externalHintStyle,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: SpaceTokens.sm),
                 _OverviewSummaryRow(
                   label: l10n.accountReceivedLabel,

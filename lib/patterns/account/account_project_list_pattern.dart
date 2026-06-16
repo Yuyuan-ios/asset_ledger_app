@@ -645,8 +645,8 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 Expanded(
                   child: _ExternalWorkMetric(
                     label: l10n.accountExternalReceivableLabel,
-                    value: l10n.accountPendingSetup,
-                    valueStyle: pendingValueStyle,
+                    value: FormatUtils.money(project.receivable),
+                    valueStyle: metricValueStyle,
                     labelStyle: metricLabelStyle,
                   ),
                 ),

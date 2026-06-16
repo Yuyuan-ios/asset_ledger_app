@@ -19,7 +19,9 @@ import '../../timing/state/timing_store.dart';
 /// - 计算口径与旧 `AccountPage.build` 保持一致。
 class AccountPageViewData {
   const AccountPageViewData({
+    required this.localComputed,
     required this.computed,
+    required this.externalReceivableRollup,
     required this.filteredProjects,
     required this.filteredExternalWorkProjects,
     required this.projectSuggestions,
@@ -29,7 +31,9 @@ class AccountPageViewData {
     required this.error,
   });
 
+  final AccountComputed localComputed;
   final AccountComputed computed;
+  final ExternalWorkReceivableRollup externalReceivableRollup;
   final List<AccountProjectVM> filteredProjects;
   final List<AccountExternalWorkProjectVM> filteredExternalWorkProjects;
   final List<String> projectSuggestions;
@@ -54,20 +58,25 @@ AccountPageViewData buildAccountPageViewData({
   final devices = deviceStore.allDevices;
   final payments = paymentStore.records;
   final rates = rateStore.rates;
+  final summaryYear = DateTime.now().year;
 
-  final rawComputed = accountStore.compute(
+  final localComputed = accountStore.compute(
     timingRecords: timing,
     devices: devices,
     rates: rates,
     payments: payments,
-    summaryYear: DateTime.now().year,
+    summaryYear: summaryYear,
   );
   final externalItems = externalWorkStore?.items ?? const [];
-  // 外协设备应收联动：把已关联外协包的设备应收并入对应本地项目卡片，并把
-  // 全部外协设备应收（每包只计一次）并入账户页总览总应收；同时把分享包
-  // 携带的来源项目累计实收款计入总览已收。
-  final rollup = rollupExternalWorkReceivable(externalItems);
-  final computed = augmentComputedWithExternalWork(rawComputed, rollup);
+  // 外协联动口径：
+  // - 本地项目卡、核销、设备/月度/图表统计继续使用 local-only metrics。
+  // - 外协客户侧应收进入账户总览 combined totals。
+  // - 外协应付仍作为成本在外协卡片独立展示，不能并入总应收或已收。
+  final rollup = rollupExternalWorkReceivable(
+    externalItems,
+    summaryYear: summaryYear,
+  );
+  final computed = augmentComputedWithExternalWork(localComputed, rollup);
   final now = DateTime.now();
   final nowYmd = now.year * 10000 + now.month * 100 + now.day;
   final fuelExpense = fuelStore?.currentYearSummary(nowYmd: nowYmd).cost ?? 0;
@@ -116,7 +125,9 @@ AccountPageViewData buildAccountPageViewData({
   ], action: '读取');
 
   return AccountPageViewData(
+    localComputed: localComputed,
     computed: computed,
+    externalReceivableRollup: rollup,
     filteredProjects: filteredProjects,
     filteredExternalWorkProjects: filteredExternalWorkProjects,
     projectSuggestions: projectSuggestions,
@@ -168,11 +179,28 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
         .firstWhere((id) => id.isNotEmpty, orElse: () => '');
     final linked = linkedProjectId.isNotEmpty;
 
-    final payableFen = batchItems.fold<int>(
+    var payableFen = 0;
+    var receivableFen = 0;
+    for (final item in batchItems) {
+      final amounts = externalWorkRecordReceivableAmounts(item.record);
+      payableFen += amounts.externalPayableFen;
+      receivableFen += amounts.externalCustomerReceivableFen;
+    }
+    if (payableFen <= 0 && receivableFen <= 0) continue;
+
+    final receivedFen = batchItems.fold<int>(0, (max, item) {
+      final recordReceivedFen = item.record.projectReceivedFen;
+      return recordReceivedFen > max ? recordReceivedFen : max;
+    });
+    final remainingFen = receivableFen - receivedFen;
+    final externalRemainingFen = remainingFen > 0 ? remainingFen : 0;
+    final profitFen = receivableFen - payableFen;
+
+    final externalPayableFen = batchItems.fold<int>(
       0,
       (sum, item) => sum + item.record.amountFen,
     );
-    if (payableFen <= 0) continue;
+    assert(externalPayableFen == payableFen);
 
     final first = batchItems.first;
     final batch = first.batch;
@@ -191,6 +219,9 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
         siteSummary: siteSummary,
         minYmd: _minWorkDate(batchItems),
         payableFen: payableFen,
+        receivableFen: receivableFen,
+        remainingFen: externalRemainingFen,
+        profitFen: profitFen,
         recordCount: batchItems.length,
         linked: linked,
         linkedProjectId: linked ? linkedProjectId : null,
@@ -206,103 +237,18 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
   return projects;
 }
 
-/// 外协设备应收汇总（账户页联动用）。
-class ExternalWorkReceivableRollup {
-  const ExternalWorkReceivableRollup({
-    required this.totalReceivableFen,
-    required this.totalReceivedFen,
-    required this.totalPaidExternalWorkFen,
-    required this.receivableFenByProjectId,
-    required this.hoursByProjectId,
-  });
-
-  const ExternalWorkReceivableRollup.empty()
-    : totalReceivableFen = 0,
-      totalReceivedFen = 0,
-      totalPaidExternalWorkFen = 0,
-      receivableFenByProjectId = const {},
-      hoursByProjectId = const {};
-
-  /// 所有活跃外协包的设备应收之和（每个 importBatch 只计一次），用于总览。
-  final int totalReceivableFen;
-
-  /// 所有活跃外协包携带的来源项目累计实收款之和（每个 importBatch 只计一次），用于总览。
-  final int totalReceivedFen;
-
-  /// 已支付外协项目款。当前没有持久化数据源，保持 0，不能用应付金额冒充。
-  final int totalPaidExternalWorkFen;
-
-  /// 已关联外协包按 linkedProjectId 汇总的设备应收（分），用于并入项目卡片。
-  final Map<String, int> receivableFenByProjectId;
-
-  /// 已关联外协包按 linkedProjectId 汇总的工时，用于项目卡片"总共"展示。
-  final Map<String, double> hoursByProjectId;
-}
-
-/// 按 importBatch 汇总外协设备应收：总额（每包一次）+ 已关联项目维度分摊。
-ExternalWorkReceivableRollup rollupExternalWorkReceivable(
-  List<TimingExternalWorkRecordItem> items,
-) {
-  final byBatch = <String, List<TimingExternalWorkRecordItem>>{};
-  for (final item in items) {
-    if (item.record.status.name != 'active') continue;
-    if (item.batch?.status.name != 'active') continue;
-    final batchId = item.record.importBatchId.trim();
-    if (batchId.isEmpty) continue;
-    byBatch.putIfAbsent(batchId, () => []).add(item);
-  }
-
-  var totalFen = 0;
-  var totalReceivedFen = 0;
-  final byProject = <String, int>{};
-  final byHoursProject = <String, double>{};
-  for (final batchItems in byBatch.values) {
-    final batchReceivableFen = batchItems.fold<int>(
-      0,
-      (sum, item) => sum + externalWorkRecordReceivableFen(item.record),
-    );
-    final batchReceivedFen = batchItems.fold<int>(0, (max, item) {
-      final receivedFen = item.record.projectReceivedFen;
-      return receivedFen > max ? receivedFen : max;
-    });
-    final batchHours = batchItems.fold<double>(
-      0,
-      (sum, item) => sum + item.record.hoursMilli / 1000,
-    );
-    totalFen += batchReceivableFen;
-    totalReceivedFen += batchReceivedFen;
-
-    final linkedProjectId = batchItems
-        .map((item) => item.record.linkedProjectId?.trim() ?? '')
-        .firstWhere((id) => id.isNotEmpty, orElse: () => '');
-    if (linkedProjectId.isEmpty) continue;
-    byProject[linkedProjectId] =
-        (byProject[linkedProjectId] ?? 0) + batchReceivableFen;
-    byHoursProject[linkedProjectId] =
-        (byHoursProject[linkedProjectId] ?? 0) + batchHours;
-  }
-
-  return ExternalWorkReceivableRollup(
-    totalReceivableFen: totalFen,
-    totalReceivedFen: totalReceivedFen,
-    totalPaidExternalWorkFen: 0,
-    receivableFenByProjectId: Map.unmodifiable(byProject),
-    hoursByProjectId: Map.unmodifiable(byHoursProject),
-  );
-}
-
-/// 给账户页计算结果附加外协的**展示信息**（链条徽标、外协工时）。
+/// 给账户页计算结果附加外协展示信息，并生成总览 combined totals。
 ///
-/// §6.4/§6.5 隔离红线：外协是外部事实层，不得污染我方收入/应收统计——
-/// 本地项目卡片的应收/待收/比例与总览 totals **一律不并入**外协设备应收
-/// （「账户页可混排自己项目与项目外协，但总应收第一版不混入外协金额」）。
-/// 外协金额由账户页的外协独立分区（AccountExternalWorkProjectVM 列表）
-/// 单独展示与对账。
+/// 本地项目卡片的应收/待收/比例仍保持 local-only；总览 totals 额外纳入
+/// 外协客户侧应收与项目方已收款。外协应付成本不并入总应收或已收。
 AccountComputed augmentComputedWithExternalWork(
   AccountComputed computed,
   ExternalWorkReceivableRollup rollup,
 ) {
-  if (rollup.receivableFenByProjectId.isEmpty &&
+  if (rollup.externalCustomerReceivableFen == 0 &&
+      rollup.externalReceivedFen == 0 &&
+      rollup.externalRemainingFen == 0 &&
+      rollup.receivableFenByProjectId.isEmpty &&
       rollup.hoursByProjectId.isEmpty) {
     return computed;
   }
@@ -314,15 +260,32 @@ AccountComputed augmentComputedWithExternalWork(
 
   return AccountComputed(
     projects: augmentedProjects,
-    totalReceivable: computed.totalReceivable,
-    totalReceived: computed.totalReceived,
+    totalReceivable:
+        computed.totalReceivable + rollup.externalCustomerReceivableFen / 100,
+    totalReceived: computed.totalReceived + rollup.externalReceivedFen / 100,
     totalWriteOff: computed.totalWriteOff,
-    totalRemaining: computed.totalRemaining,
-    totalRatio: computed.totalRatio,
+    totalRemaining: computed.totalRemaining + rollup.externalRemainingFen / 100,
+    totalRatio: _combinedRatio(
+      localReceivable: computed.totalReceivable,
+      localReceived: computed.totalReceived,
+      externalReceivableFen: rollup.externalCustomerReceivableFen,
+      externalReceivedFen: rollup.externalReceivedFen,
+    ),
     settlementRate: computed.settlementRate,
     deviceReceivables: computed.deviceReceivables,
     moneyFenByProjectId: computed.moneyFenByProjectId,
   );
+}
+
+double? _combinedRatio({
+  required double localReceivable,
+  required double localReceived,
+  required int externalReceivableFen,
+  required int externalReceivedFen,
+}) {
+  final combinedReceivable = localReceivable + externalReceivableFen / 100;
+  if (combinedReceivable <= 0) return null;
+  return (localReceived + externalReceivedFen / 100) / combinedReceivable;
 }
 
 /// 仅附加展示信息：外协工时 + 链条徽标。我方 receivable/remaining/ratio

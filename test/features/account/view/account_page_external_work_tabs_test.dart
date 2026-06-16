@@ -78,10 +78,10 @@ void main() {
       expect(find.text('余远 · 鲜滩、尚义').hitTestable(), findsNothing);
       expect(find.text('王强 · 已关联工地'), findsNothing);
       expect(find.text('总应收'), findsOneWidget);
-      // §6.4/§6.5 隔离红线：总览总应收只含本地设备应收 ¥1000,
-      // 外协设备应收一律不混入(外协金额在外协独立分区单独展示)。
+      // 本地项目卡仍 local-only；总览纳入外协客户侧应收。
       expect(find.text('¥1000'), findsWidgets);
-      expect(find.text('¥14518'), findsNothing);
+      expect(find.text('¥14518'), findsNWidgets(2));
+      expect(find.text('其中:外协应收 ¥13518'), findsOneWidget);
 
       await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
       await tester.pumpAndSettle();
@@ -96,8 +96,8 @@ void main() {
       expect(find.text('外协应付'), findsNWidgets(2));
       expect(find.text('应收项目款'), findsNWidgets(2));
       expect(find.text('客户应收'), findsNothing);
-      expect(find.text('¥12618').hitTestable(), findsOneWidget);
-      expect(find.text('待设置'), findsNWidgets(2));
+      expect(find.text('¥12618').hitTestable(), findsNWidgets(2));
+      expect(find.text('待设置'), findsNothing);
       expect(find.text('待计算'), findsNWidgets(2));
       // 仅已关联外协卡片显示链条角标。
       expect(

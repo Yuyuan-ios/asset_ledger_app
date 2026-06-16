@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../application/controllers/account_action_controller.dart';
 import '../domain/entities/account_entities.dart';
 import '../domain/entities/project_settlement_result.dart';
+import '../domain/services/external_work_receivable.dart';
 import '../../../features/account/model/account_project_payment_display_vm.dart';
 import '../../../features/account/model/account_view_model.dart';
 
@@ -1043,6 +1044,9 @@ class _AccountPageState extends State<AccountPage>
                                     viewData.computed.totalRemaining,
                                 totalRatio: viewData.computed.totalRatio,
                                 netCashReceived: viewData.netCashReceived,
+                                externalCustomerReceivableFen: viewData
+                                    .externalReceivableRollup
+                                    .externalCustomerReceivableFen,
                                 deviceReceivables:
                                     viewData.computed.deviceReceivables,
                               ),

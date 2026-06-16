@@ -65,18 +65,18 @@ class ComputeTimingChartFinanceUseCase {
       final projectId = writeOff.projectId.trim();
       if (!annualProjectIds.contains(projectId)) return sum;
       if (!range.containsDateText(writeOff.writeOffDate)) return sum;
-      return sum + _yuanToFen(writeOff.amount);
+      return sum + writeOff.amountFen;
     });
 
     final annualOriginalFen = projects.values.fold<int>(0, (sum, agg) {
-      final money = AccountService.calcMoney(
+      final money = AccountService.calcMoneyFen(
         agg: agg,
         devices: devices,
         rates: rates,
         payments: const [],
         writeOffs: const [],
       );
-      return sum + _yuanToFen(money.receivable);
+      return sum + money.receivableFen;
     });
 
     final receivableFen = annualOriginalFen > annualWriteOffFen
@@ -85,7 +85,5 @@ class ComputeTimingChartFinanceUseCase {
     return _fenToYuan(receivableFen);
   }
 }
-
-int _yuanToFen(num value) => (value * 100).round();
 
 double _fenToYuan(int value) => value / 100.0;

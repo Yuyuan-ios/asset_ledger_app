@@ -19,14 +19,21 @@ void main() {
 
       expect(record.amountFen, 30000); // 应付：1.5h × ¥200
       expect(externalWorkRecordReceivableFen(record), 45000); // 应收：1.5h × ¥300
+      final amounts = externalWorkRecordReceivableAmounts(record);
+      expect(amounts.externalCustomerReceivableFen, 45000);
+      expect(amounts.externalPayableFen, 30000);
+      expect(amounts.externalProfitFen, 15000);
     });
 
-    test('record without source unit price falls back to payable amount', () {
-      final record = _imported(id: 'r1', batchId: 'b1', amountFen: 90000);
+    test(
+      'record without source unit price falls back to imported source amount',
+      () {
+        final record = _imported(id: 'r1', batchId: 'b1', amountFen: 90000);
 
-      expect(record.sourceUnitPriceFen, isNull);
-      expect(externalWorkRecordReceivableFen(record), 90000);
-    });
+        expect(record.sourceUnitPriceFen, isNull);
+        expect(externalWorkRecordReceivableFen(record), 90000);
+      },
+    );
   });
 
   group('rollupExternalWorkReceivable', () {
@@ -54,6 +61,10 @@ void main() {
       final rollup = rollupExternalWorkReceivable(items);
 
       expect(rollup.totalReceivableFen, 180000);
+      expect(rollup.externalCustomerReceivableFen, 180000);
+      expect(rollup.externalPayableFen, 180000);
+      expect(rollup.externalRemainingFen, 180000);
+      expect(rollup.externalProfitFen, 0);
       expect(rollup.receivableFenByProjectId, {'project:a': 150000});
       expect(rollup.hoursByProjectId, {'project:a': 2.0});
     });
@@ -90,6 +101,7 @@ void main() {
 
       expect(rollup.totalReceivableFen, 180000);
       expect(rollup.totalReceivedFen, 70000);
+      expect(rollup.externalRemainingFen, 110000);
       expect(rollup.totalPaidExternalWorkFen, 0);
     });
 
@@ -128,62 +140,94 @@ void main() {
       expect(rollup.totalReceivableFen, 90000);
       expect(rollup.totalReceivedFen, 50000);
     });
-  });
 
-  group('augmentComputedWithExternalWork', () {
-    test('linked external work marks the card but never mixes receivable', () {
-      final computed = _computed(
-        [
-          _project(id: 'project:a', displayName: '李洋 · 天眉乐', receivable: 1000),
-          _project(id: 'project:b', receivable: 500),
-        ],
-        totalReceivable: 1500,
-        totalRemaining: 1500,
-      );
-
+    test('summaryYear filters external work by workDate year', () {
       final rollup = rollupExternalWorkReceivable([
         _item(
           _imported(
-            id: 'a',
-            batchId: 'b1',
+            id: 'current',
+            batchId: 'b-current',
             amountFen: 90000,
-            linkedProjectId: 'project:a',
+            workDate: 20260518,
           ),
         ),
         _item(
           _imported(
-            id: 'b',
-            batchId: 'b2',
+            id: 'old',
+            batchId: 'b-old',
             amountFen: 60000,
-            linkedProjectId: 'project:a',
+            workDate: 20250518,
           ),
         ),
-        _item(_imported(id: 'c', batchId: 'b3', amountFen: 30000)),
-      ]);
+      ], summaryYear: 2026);
 
-      final augmented = augmentComputedWithExternalWork(computed, rollup);
-      final projectA = augmented.projects.firstWhere(
-        (p) => p.effectiveProjectId == 'project:a',
-      );
-      final projectB = augmented.projects.firstWhere(
-        (p) => p.effectiveProjectId == 'project:b',
-      );
-
-      // §6.4/§6.5 隔离红线：关联外协只标记徽标与工时展示,我方应收不混入。
-      expect(projectA.receivable, 1000);
-      expect(projectA.externalWorkHours, 2.0);
-      expect(projectA.displayName, '李洋 · 天眉乐');
-      expect(projectA.hasLinkedExternalWork, isTrue);
-      // 未关联外协包不影响项目卡片。
-      expect(projectB.receivable, 500);
-      expect(projectB.displayName, isNot(contains('关联')));
-      expect(projectB.hasLinkedExternalWork, isFalse);
-      // 总览总应收/待收不混入任何外协设备应收。
-      expect(augmented.totalReceivable, 1500);
-      expect(augmented.totalRemaining, 1500);
+      expect(rollup.externalCustomerReceivableFen, 90000);
+      expect(rollup.externalPayableFen, 90000);
     });
+  });
 
-    test('independent external packages never touch overview totals', () {
+  group('augmentComputedWithExternalWork', () {
+    test(
+      'linked external work marks card and enters overview combined totals',
+      () {
+        final computed = _computed(
+          [
+            _project(
+              id: 'project:a',
+              displayName: '李洋 · 天眉乐',
+              receivable: 1000,
+            ),
+            _project(id: 'project:b', receivable: 500),
+          ],
+          totalReceivable: 1500,
+          totalRemaining: 1500,
+        );
+
+        final rollup = rollupExternalWorkReceivable([
+          _item(
+            _imported(
+              id: 'a',
+              batchId: 'b1',
+              amountFen: 90000,
+              linkedProjectId: 'project:a',
+            ),
+          ),
+          _item(
+            _imported(
+              id: 'b',
+              batchId: 'b2',
+              amountFen: 60000,
+              linkedProjectId: 'project:a',
+            ),
+          ),
+          _item(_imported(id: 'c', batchId: 'b3', amountFen: 30000)),
+        ]);
+
+        final augmented = augmentComputedWithExternalWork(computed, rollup);
+        final projectA = augmented.projects.firstWhere(
+          (p) => p.effectiveProjectId == 'project:a',
+        );
+        final projectB = augmented.projects.firstWhere(
+          (p) => p.effectiveProjectId == 'project:b',
+        );
+
+        // §6.4/§6.5 隔离红线：关联外协只标记徽标与工时展示,我方应收不混入。
+        expect(projectA.receivable, 1000);
+        expect(projectA.externalWorkHours, 2.0);
+        expect(projectA.displayName, '李洋 · 天眉乐');
+        expect(projectA.hasLinkedExternalWork, isTrue);
+        // 未关联外协包不影响项目卡片。
+        expect(projectB.receivable, 500);
+        expect(projectB.displayName, isNot(contains('关联')));
+        expect(projectB.hasLinkedExternalWork, isFalse);
+        // 总览使用 combined 口径：本地 ¥1500 + 外协客户侧应收 ¥1800。
+        expect(augmented.totalReceivable, 3300);
+        expect(augmented.totalReceived, 0);
+        expect(augmented.totalRemaining, 3300);
+      },
+    );
+
+    test('independent external packages enter overview combined totals', () {
       final computed = _computed(
         [_project(id: 'project:a', receivable: 1000, received: 300)],
         totalReceivable: 1000,
@@ -205,11 +249,12 @@ void main() {
 
       final augmented = augmentComputedWithExternalWork(computed, rollup);
 
-      // 隔离红线：外协导入前后,总览四个数字一律不变。
-      expect(augmented.totalReceivable, 1000);
-      expect(augmented.totalReceived, 300);
-      expect(augmented.totalRemaining, 700);
-      expect(augmented.totalRatio, 0.3);
+      // 外协不污染本地项目卡，但会进入总览 combined totals。
+      expect(augmented.projects.single.receivable, 1000);
+      expect(augmented.totalReceivable, 2000);
+      expect(augmented.totalReceived, 700);
+      expect(augmented.totalRemaining, 1300);
+      expect(augmented.totalRatio, 0.35);
     });
 
     test('keeps explicit settled state when adding linked external work', () {
@@ -245,15 +290,15 @@ void main() {
       final augmented = augmentComputedWithExternalWork(computed, rollup);
       final project = augmented.projects.single;
 
-      // 隔离红线：外协关联不改我方结清状态与财务数字。
+      // 隔离红线：外协关联不改我方项目卡结清状态与财务数字。
       expect(project.isSettled, isTrue);
       expect(project.isSettledForDisplay, isTrue);
       expect(project.hasLinkedExternalWork, isTrue);
       expect(project.receivable, 1458);
       expect(project.remaining, 0);
       expect(project.ratio, 1);
-      expect(augmented.totalReceivable, 1458);
-      expect(augmented.totalRemaining, 0);
+      expect(augmented.totalReceivable, 2358);
+      expect(augmented.totalRemaining, 900);
     });
 
     test('linked external work keeps display-only settlement intact', () {
@@ -291,7 +336,7 @@ void main() {
       final augmented = augmentComputedWithExternalWork(computed, rollup);
       final project = augmented.projects.single;
 
-      // 隔离红线：外协金额不影响我方"已收齐"展示口径。
+      // 隔离红线：外协金额不影响我方项目卡"已收齐"展示口径。
       expect(project.isSettled, isFalse);
       expect(project.isSettledForDisplay, isTrue);
       expect(project.hasLinkedExternalWork, isTrue);
@@ -549,6 +594,7 @@ ExternalWorkRecord _imported({
   required int amountFen,
   int projectReceivedFen = 0,
   String? linkedProjectId,
+  int workDate = 20260518,
   ExternalWorkRecordStatus status = ExternalWorkRecordStatus.active,
 }) {
   return ExternalWorkRecord.imported(
@@ -561,7 +607,7 @@ ExternalWorkRecord _imported({
     collaboratorName: '王师傅',
     contactSnapshot: '甲方',
     siteSnapshot: '一号工地',
-    workDate: 20260518,
+    workDate: workDate,
     hoursMilli: 1000,
     amountFen: amountFen,
     projectReceivedFen: projectReceivedFen,

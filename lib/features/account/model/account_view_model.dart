@@ -12,6 +12,9 @@ class AccountExternalWorkProjectVM {
   final String siteSummary;
   final int minYmd;
   final int payableFen;
+  final int receivableFen;
+  final int remainingFen;
+  final int profitFen;
   final int paidFen;
   final int recordCount;
 
@@ -28,6 +31,9 @@ class AccountExternalWorkProjectVM {
     required this.siteSummary,
     required this.minYmd,
     required this.payableFen,
+    this.receivableFen = 0,
+    this.remainingFen = 0,
+    this.profitFen = 0,
     this.paidFen = 0,
     required this.recordCount,
     this.linked = false,
@@ -35,6 +41,9 @@ class AccountExternalWorkProjectVM {
   });
 
   double get payable => payableFen / 100;
+  double get receivable => receivableFen / 100;
+  double get remaining => remainingFen / 100;
+  double get profit => profitFen / 100;
 
   double get payablePaidRatio {
     if (payableFen <= 0) return 1;

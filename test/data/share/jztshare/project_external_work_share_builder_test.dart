@@ -394,6 +394,55 @@ void main() {
     );
 
     test(
+      'project override recalculates stale default income as customer receivable',
+      () {
+        final deviceX = Device(
+          id: 7,
+          name: '挖机 7#',
+          brand: 'CAT',
+          defaultUnitPrice: 180.0,
+          baseMeterHours: 0.0,
+          equipmentType: EquipmentType.excavator,
+        );
+        final staleDefaultRecord = TimingRecord(
+          id: 720,
+          deviceId: 7,
+          startDate: 20240301,
+          contact: '王总',
+          site: '工地B',
+          type: TimingType.hours,
+          startMeter: 0.0,
+          endMeter: 7.0,
+          hours: 7.0,
+          // 旧收入仍是设备默认价 180 × 7 = 1260。
+          income: 1260.0,
+          incomeFen: 126000,
+        );
+        final customerRate = ProjectDeviceRate(
+          projectId: staleDefaultRecord.effectiveProjectId,
+          projectKey: staleDefaultRecord.legacyProjectKey,
+          deviceId: 7,
+          rate: 200.0,
+        );
+
+        final p = builder.build(
+          shareId: 'stale-default-income',
+          senderName: '李工',
+          sourceInstallationUuid: 'install',
+          records: [staleDefaultRecord],
+          deviceMap: {7: deviceX},
+          calcHistoryMap: const {},
+          projectDeviceRates: [customerRate],
+        );
+
+        final rec = p.records.single;
+        expect(rec.sourceUnitPriceFen, 20000);
+        expect(rec.incomeFen, 140000);
+        expect(rec.incomeFen, isNot(126000));
+      },
+    );
+
+    test(
       'no project rate override → uses device default and confirms via policy '
       '(180 yuan/h, 7h → 1260 → 18000 fen)',
       () {
