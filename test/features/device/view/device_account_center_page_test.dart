@@ -367,6 +367,95 @@ void main() {
 
     expect(cloudBackupOpened, isTrue);
   });
+
+  testWidgets('account center hides conflict review when sync is unavailable', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+    var conflictReviewOpened = false;
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: AccountCenterPage(
+          loginSession: const PhoneLoginSession(
+            loggedIn: true,
+            privacyAccepted: true,
+            phoneNumber: '13800138000',
+            authToken: 'token',
+          ),
+          subscriptionListenable: subscription,
+          onOpenPhoneLogin: () async =>
+              const PhoneLoginSession.unauthenticated(),
+          onOpenUpgradePage: () {},
+          onRestorePurchases: () async {},
+          onOpenLocalBackup: () {},
+          onOpenLocalRestore: () {},
+          onOpenSyncInfo: () {},
+          onOpenCloudBackup: () {},
+          onOpenSyncConflictReview: () {
+            conflictReviewOpened = true;
+          },
+        ),
+      ),
+    );
+
+    expect(find.text('同步冲突复核'), findsNothing);
+    expect(conflictReviewOpened, isFalse);
+  });
+
+  testWidgets('account center opens conflict review when sync is available', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+    var conflictReviewOpened = false;
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: AccountCenterPage(
+          loginSession: const PhoneLoginSession(
+            loggedIn: true,
+            privacyAccepted: true,
+            phoneNumber: '13800138000',
+            authToken: 'token',
+          ),
+          subscriptionListenable: subscription,
+          onOpenPhoneLogin: () async =>
+              const PhoneLoginSession.unauthenticated(),
+          onOpenUpgradePage: () {},
+          onRestorePurchases: () async {},
+          onOpenLocalBackup: () {},
+          onOpenLocalRestore: () {},
+          onOpenSyncInfo: () {},
+          onOpenCloudBackup: () {},
+          onOpenSyncConflictReview: () {
+            conflictReviewOpened = true;
+          },
+          syncConflictReviewAvailable: true,
+        ),
+      ),
+    );
+
+    expect(find.text('同步冲突复核'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('同步冲突复核'));
+    await tester.pump();
+    await tester.tap(find.text('同步冲突复核'));
+    await tester.pump();
+
+    expect(conflictReviewOpened, isTrue);
+  });
 }
 
 Widget _localizedApp({required Widget home}) {

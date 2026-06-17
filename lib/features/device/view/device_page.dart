@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/sync_runtime.dart';
 import '../../../app/phone_login_gate.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../infrastructure/cloud/cloud_backup_gateway.dart';
@@ -32,6 +33,7 @@ import 'device_page_sections.dart';
 import 'device_account_center_page.dart';
 import 'device_account_status.dart';
 import 'device_backup_widgets.dart';
+import '../../sync/sync_conflict_review_page.dart';
 
 // =====================================================================
 // ============================== 二、DevicePage：设备页入口 ==============================
@@ -234,6 +236,7 @@ class _DevicePageState extends State<DevicePage> {
   }
 
   Future<void> _openAccountCenter() async {
+    final syncRuntime = context.read<SyncRuntime?>();
     await Navigator.of(context).push<void>(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(
@@ -253,6 +256,8 @@ class _DevicePageState extends State<DevicePage> {
               onOpenLocalRestore: _openLocalRestorePreview,
               onOpenSyncInfo: _openSyncInfoPlaceholder,
               onOpenCloudBackup: _openCloudBackup,
+              onOpenSyncConflictReview: _openSyncConflictReview,
+              syncConflictReviewAvailable: syncRuntime?.isAvailable ?? false,
               cloudBackupAvailable: _cloudBackupController.isAvailable,
               cloudBackupUnavailableMessage:
                   _cloudBackupController.unavailableMessage,
@@ -271,6 +276,12 @@ class _DevicePageState extends State<DevicePage> {
     );
     if (!mounted) return;
     await _loadLoginSession();
+  }
+
+  Future<void> _openSyncConflictReview() async {
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const SyncConflictReviewPage()),
+    );
   }
 
   Future<void> _openCloudBackup() async {

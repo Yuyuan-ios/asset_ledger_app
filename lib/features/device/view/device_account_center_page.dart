@@ -22,6 +22,8 @@ class AccountCenterPage extends StatefulWidget {
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
     required this.onOpenCloudBackup,
+    this.onOpenSyncConflictReview,
+    this.syncConflictReviewAvailable = false,
     this.cloudBackupAvailable = true,
     this.cloudBackupUnavailableMessage,
   });
@@ -35,6 +37,8 @@ class AccountCenterPage extends StatefulWidget {
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenCloudBackup;
+  final VoidCallback? onOpenSyncConflictReview;
+  final bool syncConflictReviewAvailable;
   final bool cloudBackupAvailable;
   final String? cloudBackupUnavailableMessage;
 
@@ -106,6 +110,9 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
                       onOpenLocalRestore: widget.onOpenLocalRestore,
                       onOpenSyncInfo: widget.onOpenSyncInfo,
                       onOpenCloudBackup: widget.onOpenCloudBackup,
+                      onOpenSyncConflictReview: widget.onOpenSyncConflictReview,
+                      syncConflictReviewAvailable:
+                          widget.syncConflictReviewAvailable,
                       cloudBackupAvailable: widget.cloudBackupAvailable,
                       cloudBackupUnavailableMessage:
                           widget.cloudBackupUnavailableMessage ??
@@ -133,6 +140,8 @@ class _AccountCenterContent extends StatelessWidget {
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
     required this.onOpenCloudBackup,
+    required this.onOpenSyncConflictReview,
+    required this.syncConflictReviewAvailable,
     required this.cloudBackupAvailable,
     required this.cloudBackupUnavailableMessage,
   });
@@ -146,6 +155,8 @@ class _AccountCenterContent extends StatelessWidget {
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenCloudBackup;
+  final VoidCallback? onOpenSyncConflictReview;
+  final bool syncConflictReviewAvailable;
   final bool cloudBackupAvailable;
   final String cloudBackupUnavailableMessage;
 
@@ -232,6 +243,13 @@ class _AccountCenterContent extends StatelessWidget {
               leading: const _AccountCenterIcon(Icons.cloud_outlined),
               onTap: onOpenSyncInfo,
             ),
+            if (syncConflictReviewAvailable && onOpenSyncConflictReview != null)
+              DeviceActionCard(
+                title: l10n.syncConflictReviewTitle,
+                leading: const _AccountCenterIcon(Icons.sync_problem_outlined),
+                trailingIcon: Icons.chevron_right,
+                onTap: onOpenSyncConflictReview!,
+              ),
           ],
         ),
       ],
