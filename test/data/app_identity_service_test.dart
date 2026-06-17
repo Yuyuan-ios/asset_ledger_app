@@ -51,6 +51,15 @@ void main() {
       );
     });
 
+    test('currentDeviceId reuses the persisted app identity', () {
+      final service = AppIdentityService.instance;
+      expect(
+        service.currentDeviceId,
+        service.currentActorContext().actorId,
+        reason: 'sync device registration must reuse app_identity',
+      );
+    });
+
     test('ActorContext structure aligns with core model', () {
       final ctx = AppIdentityService.instance.currentActorContext();
       // Verify it's a valid ActorContext that can be used in preview flow

@@ -28,6 +28,11 @@ class AppIdentityService {
   /// 路径下为首次构造时生成的 in-memory UUID。
   final String _ownerId;
 
+  /// Track B sync 使用的本机 device_id。
+  ///
+  /// 设备注册沿用既有 app_identity 持久化 ID，不另造第二套本机身份。
+  String get currentDeviceId => _ownerId;
+
   /// 应用启动时调用，幂等：首次会读 [store]；缺失时生成新 UUID 并 write。
   /// 已有持久化值的实例会直接复用，不重写。
   ///
