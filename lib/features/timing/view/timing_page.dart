@@ -39,6 +39,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../device/application/device_meter_resolver.dart';
 import '../../account/model/account_view_model.dart';
 import '../../account/model/project_title_formatter.dart';
+import '../../device/application/device_editor_initial_device_resolver.dart';
 
 class TimingPage extends StatefulWidget {
   const TimingPage({
@@ -399,11 +400,17 @@ class _TimingPageState extends State<TimingPage> {
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
 
+    final initialDeviceContext = resolveDeviceEditorInitialDeviceContext(
+      isEditing: editing != null,
+      editingDeviceId: editing?.deviceId,
+      timingRecords: timingStore.records,
+      activeDevices: deviceStore.activeDevices,
+    );
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),
-      selectedId: editing?.deviceId,
+      selectedId: initialDeviceContext.deviceId,
     );
 
     await openEditorSheet<void>(
@@ -429,6 +436,9 @@ class _TimingPageState extends State<TimingPage> {
           allDevices: deviceStore.allDevices,
           deviceById: editorContext.deviceById,
           deviceItems: editorContext.deviceItems,
+          initialDeviceId: initialDeviceContext.deviceId,
+          initialContact: initialDeviceContext.sourceTimingRecord?.contact,
+          initialSite: initialDeviceContext.sourceTimingRecord?.site,
           projectRates: rateStore.rates,
           existingCalculationHistories: existingCalculationHistories,
           contactSuggestions: (query) =>

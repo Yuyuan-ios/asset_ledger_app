@@ -22,6 +22,7 @@ import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/fuel/fuel_supplier_filter_pattern.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../device/application/device_editor_initial_device_resolver.dart';
 import '../../device/application/device_meter_resolver.dart';
 import 'fuel_page_view_data.dart';
 
@@ -64,11 +65,17 @@ class _FuelPageState extends State<FuelPage> {
     final fuelStore = context.read<FuelStore>();
     final formKey = GlobalKey<FuelDetailContentState>();
     final l10n = AppLocalizations.of(context);
+    final initialDeviceContext = resolveDeviceEditorInitialDeviceContext(
+      isEditing: editing != null,
+      editingDeviceId: editing?.deviceId,
+      timingRecords: timingStore.records,
+      activeDevices: deviceStore.activeDevices,
+    );
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),
-      selectedId: editing?.deviceId,
+      selectedId: initialDeviceContext.deviceId,
     );
 
     await openEditorSheet<void>(

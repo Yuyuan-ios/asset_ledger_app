@@ -36,6 +36,7 @@ import '../../../features/device/state/device_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../timing/state/timing_store.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
+import '../../device/application/device_editor_initial_device_resolver.dart';
 import '../../device/application/device_meter_resolver.dart';
 import 'maintenance_page_view_data.dart';
 import 'maintenance_records_section.dart';
@@ -81,12 +82,17 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final maintenanceStore = context.read<MaintenanceStore>();
     final formKey = GlobalKey<MaintenanceDetailContentState>();
     final l10n = AppLocalizations.of(context);
-    final initialDeviceId = editing?.deviceId ?? _latestTimingDeviceId();
+    final initialDeviceContext = resolveDeviceEditorInitialDeviceContext(
+      isEditing: editing != null,
+      editingDeviceId: editing?.deviceId,
+      timingRecords: timingStore.records,
+      activeDevices: deviceStore.activeDevices,
+    );
     final editorContext = buildDeviceEditorContext(
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),
-      selectedId: initialDeviceId,
+      selectedId: initialDeviceContext.deviceId,
     );
     List<String> itemSuggestions(String query) {
       final normalized = query.trim();
@@ -120,7 +126,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
           child: MaintenanceDetailContent(
             key: formKey,
             editing: editing,
-            initialDeviceId: initialDeviceId,
+            initialDeviceId: initialDeviceContext.deviceId,
             deviceById: editorContext.deviceById,
             deviceItems: editorContext.deviceItems,
             itemSuggestions: itemSuggestions,
@@ -152,12 +158,6 @@ class _MaintenancePageState extends State<MaintenancePage> {
         );
       },
     );
-  }
-
-  int? _latestTimingDeviceId() {
-    final records = context.read<TimingStore>().records;
-    if (records.isEmpty) return null;
-    return records.first.deviceId;
   }
 
   // =====================================================================

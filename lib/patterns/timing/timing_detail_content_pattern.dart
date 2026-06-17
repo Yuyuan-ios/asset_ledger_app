@@ -81,6 +81,9 @@ class TimingDetailContent extends StatefulWidget {
     required this.allDevices,
     required this.deviceById,
     required this.deviceItems,
+    this.initialDeviceId,
+    this.initialContact,
+    this.initialSite,
     required this.projectRates,
     required this.contactSuggestions,
     required this.siteSuggestions,
@@ -100,6 +103,9 @@ class TimingDetailContent extends StatefulWidget {
   final List<Device> allDevices;
   final Map<int, Device> deviceById;
   final List<DevicePickerItemVm> deviceItems;
+  final int? initialDeviceId;
+  final String? initialContact;
+  final String? initialSite;
   final List<ProjectDeviceRate> projectRates;
   final List<String> Function(String) contactSuggestions;
   final List<String> Function(String) siteSuggestions;
@@ -208,30 +214,40 @@ class TimingDetailContentState extends State<TimingDetailContent> {
   void _applyDefaultDeviceForCreate() {
     if (widget.editing != null || _selectedDeviceId != null) return;
 
-    final activeDevices = widget.activeDevices.where((d) => d.id != null);
-    if (activeDevices.isEmpty) return;
-
-    int? defaultDeviceId;
-    for (final r in widget.records) {
-      final d = widget.deviceById[r.deviceId];
-      if (d != null && d.isActive) {
-        defaultDeviceId = r.deviceId;
-        break;
-      }
-    }
-
-    defaultDeviceId ??= activeDevices.first.id;
+    final defaultDeviceId =
+        widget.initialDeviceId ?? _fallbackActiveDeviceIdForCreate();
     if (defaultDeviceId == null) return;
 
     final device = widget.deviceById[defaultDeviceId];
     if (device == null || !device.isActive) return;
 
     _selectedDeviceId = defaultDeviceId;
+    _applyInitialTextDefaultsForCreate();
 
     final currentMeter = widget.resolveCurrentMeter(defaultDeviceId);
     _setStart(currentMeter);
     _setEnd(currentMeter);
     _hoursCtrl.text = '0.0';
+  }
+
+  int? _fallbackActiveDeviceIdForCreate() {
+    for (final device in widget.activeDevices) {
+      final id = device.id;
+      if (id != null) return id;
+    }
+    return null;
+  }
+
+  void _applyInitialTextDefaultsForCreate() {
+    final contact = widget.initialContact;
+    if (contact != null && contact.isNotEmpty) {
+      _contactCtrl.text = contact;
+    }
+
+    final site = widget.initialSite;
+    if (site != null && site.isNotEmpty) {
+      _siteCtrl.text = site;
+    }
   }
 
   @override

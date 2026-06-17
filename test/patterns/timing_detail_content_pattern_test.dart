@@ -20,6 +20,9 @@ void main() {
     TimingRecord? editing,
     List<TimingRecord> records = const [],
     required List<Device> devices,
+    int? initialDeviceId,
+    String? initialContact,
+    String? initialSite,
     List<TimingCalculationHistory> existingCalculationHistories = const [],
     TimingEntryTemplateResolver? resolveEntryTemplate,
     TimingDetailSubmitHandler? onSubmit,
@@ -52,6 +55,9 @@ void main() {
             allDevices: devices,
             deviceById: deviceById,
             deviceItems: deviceItems,
+            initialDeviceId: initialDeviceId,
+            initialContact: initialContact,
+            initialSite: initialSite,
             projectRates: const <ProjectDeviceRate>[],
             existingCalculationHistories: existingCalculationHistories,
             contactSuggestions: (_) => const <String>[],
@@ -230,6 +236,52 @@ void main() {
     expect(uiCopy, contains('结束工作时间'));
     expect(find.byTooltip('工时计算依据'), findsOneWidget);
   });
+
+  testWidgets(
+    'new timing record defaults contact and site from initial context',
+    (WidgetTester tester) async {
+      final key = GlobalKey<TimingDetailContentState>();
+      TimingRecord? submittedRecord;
+
+      await pumpTimingDetail(
+        tester,
+        key: key,
+        devices: [buildDevice(id: 1), buildDevice(id: 2)],
+        initialDeviceId: 2,
+        initialContact: '李洋',
+        initialSite: '五里山',
+        onSubmit: (record, _) async {
+          submittedRecord = record;
+        },
+      );
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.decoration?.labelText == '联系人' &&
+              widget.controller?.text == '李洋',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.decoration?.labelText == '使用地址/工地' &&
+              widget.controller?.text == '五里山',
+        ),
+        findsOneWidget,
+      );
+
+      await key.currentState!.submit();
+      await tester.pumpAndSettle();
+
+      expect(submittedRecord?.deviceId, 2);
+      expect(submittedRecord?.contact, '李洋');
+      expect(submittedRecord?.site, '五里山');
+    },
+  );
 
   testWidgets('renders localized en entry display labels', (
     WidgetTester tester,
