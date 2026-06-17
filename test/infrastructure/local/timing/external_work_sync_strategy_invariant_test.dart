@@ -555,7 +555,7 @@ void main() {
         'deleteAcknowledged(entry.id)',
         '_outboxRepository.markFailed(',
         '_backoffSeconds = [60, 300, 1800]',
-        "path: '/sync/outbox'",
+        "path: '/sync/changes'",
       ]);
       _expectInOrder(syncManager, const [
         'final gateReason = await _syncStateRepository.readPushGate()',

@@ -25,7 +25,7 @@ import '../../test_setup.dart';
 ///
 /// 用**真实生产写路径**（LocalAccountPaymentWriteUseCase.create）产生 outbox +
 /// entity_sync_meta(pendingUpload)，再经 SyncManager.pushPending(live) 打到一个
-/// 功能性假云（FakeCloudApiClient），证明:云收到 POST /sync/outbox payload →
+/// 功能性假云（FakeCloudApiClient），证明:云收到 POST /sync/changes payload →
 /// ack → outbox 删行 → meta pendingUpload→synced；幂等；retryable failure 不误标
 /// synced 且行保留待重试；fake-cloud conflict 不覆盖本地权威账。
 ///
@@ -117,23 +117,37 @@ void main() {
       expect(result.pushed, 1);
       expect(result.failed, 0);
 
-      // 假云恰好收到 1 个 POST /sync/outbox，payload 逐字段正确。
+      // 假云恰好收到 1 个 POST /sync/changes，payload 逐字段正确。
       expect(client.receivedRequests, hasLength(1));
       final req = client.receivedRequests.single;
       expect(req.method, 'POST');
-      expect(req.path, '/sync/outbox');
+      expect(req.path, '/sync/changes');
       expect(req.headers['x-payload-hash'], payloadHash);
       final body = jsonDecode(req.bodyJson!) as Map<String, Object?>;
-      expect(body['entity_type'], 'account_payment');
-      expect(body['operation'], 'create');
-      final record = body['record'] as Map<String, Object?>;
+      final changes = body['changes'] as List<Object?>;
+      final change = changes.single as Map<String, Object?>;
+      expect(change['entity_type'], 'account_payment');
+      expect(change['op'], 'create');
+      expect(change['base_version'], 0);
+      expect(change.containsKey('account'), isFalse);
+      expect(change.containsKey('account_id'), isFalse);
+      final payload = change['payload'] as Map<String, Object?>;
+      final record = payload['record'] as Map<String, Object?>;
       expect(record['amount_fen'], 50000);
 
-      // ack：outbox 删行、meta pendingUpload->synced + last_synced_at。
+      // ack：outbox 删行、meta pendingUpload->synced + last_synced_at，
+      // 并采用服务端 accepted.new_version / server_seq。
       expect(await db.query('sync_outbox'), isEmpty);
       final metaAfter = (await db.query('entity_sync_meta')).single;
       expect(metaAfter['sync_status'], SyncStatus.synced.name);
+      expect(metaAfter['version'], 1);
       expect(metaAfter['last_synced_at'], isNotNull);
+      final cursorRows = await db.query(
+        'sync_state',
+        where: 'scope = ?',
+        whereArgs: const [SyncStateRepository.kPullCursorScope],
+      );
+      expect(cursorRows.single['pull_cursor'], 1);
 
       // 幂等：再推无新请求、状态不变。
       final client2 = FakeCloudApiClient();
@@ -204,7 +218,11 @@ void main() {
 
     final conflictClient = FakeCloudApiClient()
       ..respondDefault(
-        fakeCloudConflict(message: 'remote version has different payload'),
+        _pushConflictResponse(
+          entityType: 'account_payment',
+          entityId: id.toString(),
+          serverVersion: 2,
+        ),
       );
     final result = await managerWith(
       conflictClient,
@@ -218,7 +236,7 @@ void main() {
     expect(outboxAfter['entity_type'], 'account_payment');
     expect(outboxAfter['entity_id'], id.toString());
     expect(outboxAfter['status'], SyncOutboxStatus.pending.name);
-    expect(outboxAfter['last_error'].toString(), contains('conflict'));
+    expect(outboxAfter['last_error'].toString(), contains('push_conflict'));
     expect(outboxAfter['next_retry_at'], isNotNull);
 
     final metaAfter = (await db.query('entity_sync_meta')).single;
@@ -558,5 +576,25 @@ ApiResponse _pullResponse(
   return ApiResponse(
     statusCode: 200,
     bodyJson: jsonEncode({'changes': changes, 'next_cursor': nextCursor}),
+  );
+}
+
+ApiResponse _pushConflictResponse({
+  required String entityType,
+  required String entityId,
+  required int serverVersion,
+}) {
+  return ApiResponse(
+    statusCode: 200,
+    bodyJson: jsonEncode({
+      'accepted': const [],
+      'conflicts': [
+        {
+          'entity_type': entityType,
+          'entity_id': entityId,
+          'server_version': serverVersion,
+        },
+      ],
+    }),
   );
 }

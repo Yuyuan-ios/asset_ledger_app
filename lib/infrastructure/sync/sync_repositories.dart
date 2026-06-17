@@ -246,6 +246,7 @@ abstract class EntitySyncMetaAckRepository {
     required String localId,
     required String operation,
     required String syncedAtIso,
+    int? newVersion,
   });
 }
 
@@ -360,6 +361,7 @@ class LocalEntitySyncMetaRepository
     required String localId,
     required String operation,
     required String syncedAtIso,
+    int? newVersion,
   }) async {
     // Map the pushed operation to the pending status it should clear. Delete is
     // intentionally a no-op (deferred deleted-entity meta lifecycle).
@@ -377,11 +379,16 @@ class LocalEntitySyncMetaRepository
     if (clearsFrom == null) return 0;
 
     final db = await AppDatabase.database;
+    final values = <String, Object?>{
+      'sync_status': SyncStatus.synced.name,
+      'last_synced_at': syncedAtIso,
+      'version': ?newVersion,
+    };
     // Only flip an existing row that is still in the expected pending state;
     // never fabricate a meta row and never touch synced/conflict/failed states.
     return db.update(
       _table,
-      {'sync_status': SyncStatus.synced.name, 'last_synced_at': syncedAtIso},
+      values,
       where: 'entity_type = ? AND local_id = ? AND sync_status = ?',
       whereArgs: [entityType, localId, clearsFrom.name],
     );

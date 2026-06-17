@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 
 /// R5.28 test-only functional fake cloud.
@@ -35,7 +37,37 @@ class FakeCloudApiClient implements CloudApiClient {
     if (_scriptedResponses.isNotEmpty) {
       return _scriptedResponses.removeAt(0);
     }
+    if (_defaultResponse.isSuccess &&
+        _defaultResponse.bodyJson == null &&
+        request.method == 'POST' &&
+        request.path == '/sync/changes') {
+      return _acceptedSyncChangesResponse(request);
+    }
     return _defaultResponse;
+  }
+
+  ApiResponse _acceptedSyncChangesResponse(ApiRequest request) {
+    final decoded = jsonDecode(request.bodyJson ?? '{}');
+    if (decoded is! Map || decoded['changes'] is! List) {
+      return _defaultResponse;
+    }
+    final changes = decoded['changes'] as List;
+    final accepted = <Map<String, Object?>>[];
+    for (var i = 0; i < changes.length; i += 1) {
+      final change = changes[i];
+      if (change is! Map) continue;
+      final baseVersion = change['base_version'];
+      accepted.add({
+        'entity_type': change['entity_type'],
+        'entity_id': change['entity_id'],
+        'server_seq': receivedRequests.length + i,
+        'new_version': baseVersion is num ? baseVersion.toInt() + 1 : 1,
+      });
+    }
+    return ApiResponse(
+      statusCode: 200,
+      bodyJson: jsonEncode({'accepted': accepted, 'conflicts': const []}),
+    );
   }
 }
 

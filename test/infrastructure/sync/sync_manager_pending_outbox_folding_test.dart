@@ -801,7 +801,7 @@ class _ProgrammableClient implements CloudApiClient {
 
   @override
   Future<ApiResponse> send(ApiRequest request) async {
-    final mark = (jsonDecode(request.bodyJson!) as Map)['mark'] as String;
+    final mark = _markFromPushRequest(request);
     sentMarks.add(mark);
     if (_failAll || _failMarks.contains(mark)) {
       return const ApiResponse(
@@ -811,4 +811,12 @@ class _ProgrammableClient implements CloudApiClient {
     }
     return const ApiResponse(statusCode: 200);
   }
+}
+
+String _markFromPushRequest(ApiRequest request) {
+  final decoded = jsonDecode(request.bodyJson!) as Map;
+  final changes = decoded['changes'] as List;
+  final change = changes.single as Map;
+  final payload = change['payload'] as Map;
+  return payload['mark'] as String;
 }

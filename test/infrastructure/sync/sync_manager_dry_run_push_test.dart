@@ -504,7 +504,7 @@ class _RecordingClient implements CloudApiClient {
 
   @override
   Future<ApiResponse> send(ApiRequest request) async {
-    final mark = (jsonDecode(request.bodyJson!) as Map)['mark'] as String;
+    final mark = _markFromPushRequest(request);
     sentMarks.add(mark);
     if (failAll) {
       return const ApiResponse(
@@ -514,6 +514,14 @@ class _RecordingClient implements CloudApiClient {
     }
     return const ApiResponse(statusCode: 200);
   }
+}
+
+String _markFromPushRequest(ApiRequest request) {
+  final decoded = jsonDecode(request.bodyJson!) as Map;
+  final changes = decoded['changes'] as List;
+  final change = changes.single as Map;
+  final payload = change['payload'] as Map;
+  return payload['mark'] as String;
 }
 
 class _FailingOutboxPushRepository implements SyncOutboxPushRepository {

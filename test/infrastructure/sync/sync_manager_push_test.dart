@@ -39,7 +39,7 @@ void main() {
     await AppDatabase.resetForTest();
   });
 
-  SyncManager managerWith(_ProgrammableClient client) {
+  SyncManager managerWith(CloudApiClient client) {
     return SyncManager(
       outboxRepository: LocalSyncOutboxRepository(now: () => fixedNow),
       apiClient: client,
@@ -126,6 +126,44 @@ void main() {
         expect(result2.pushed, 0);
       },
     );
+
+    test('sends entity_sync_meta.version as base_version and applies accepted '
+        'new_version plus server_seq cursor', () async {
+      final db = await AppDatabase.database;
+      await _insertOutbox(
+        db,
+        mark: 'V',
+        entityType: 'timing_record',
+        entityId: '7',
+        operation: 'update',
+        createdAt: '2026-06-01T00:00:01.000Z',
+      );
+      await _insertMeta(
+        db,
+        entityType: 'timing_record',
+        localId: '7',
+        status: 'pendingUpdate',
+        version: 5,
+      );
+
+      final client = _VersionAckClient(serverSeq: 9, newVersion: 6);
+      final result = await managerWith(client).pushPending();
+
+      expect(result.pushed, 1);
+      expect(result.failed, 0);
+      expect(client.sentMarks, <String>['V']);
+      expect(client.sentBaseVersions, <int>[5]);
+      expect(await _outboxCount(db), 0);
+      final metaRows = await db.query('entity_sync_meta');
+      expect(metaRows.single['sync_status'], 'synced');
+      expect(metaRows.single['version'], 6);
+      final cursorRows = await db.query(
+        'sync_state',
+        where: 'scope = ?',
+        whereArgs: const [SyncStateRepository.kPullCursorScope],
+      );
+      expect(cursorRows.single['pull_cursor'], 9);
+    });
   });
 
   group('sync_manager_push_failure_bumps_retry_backoff', () {
@@ -485,12 +523,13 @@ Future<void> _insertMeta(
   required String entityType,
   required String localId,
   required String status,
+  int version = 0,
 }) async {
   await db.insert('entity_sync_meta', {
     'entity_type': entityType,
     'local_id': localId,
     'sync_status': status,
-    'version': 0,
+    'version': version,
     'source': 'owner_app',
   });
 }
@@ -552,7 +591,7 @@ class _ProgrammableClient implements CloudApiClient {
 
   @override
   Future<ApiResponse> send(ApiRequest request) async {
-    final mark = (jsonDecode(request.bodyJson!) as Map)['mark'] as String;
+    final mark = _markFromPushRequest(request);
     sentMarks.add(mark);
     final fail = _failAll || _failMarks.contains(mark);
     if (fail) {
@@ -562,5 +601,46 @@ class _ProgrammableClient implements CloudApiClient {
       );
     }
     return const ApiResponse(statusCode: 200);
+  }
+}
+
+String _markFromPushRequest(ApiRequest request) {
+  final decoded = jsonDecode(request.bodyJson!) as Map;
+  final changes = decoded['changes'] as List;
+  final change = changes.single as Map;
+  final payload = change['payload'] as Map;
+  return payload['mark'] as String;
+}
+
+class _VersionAckClient implements CloudApiClient {
+  _VersionAckClient({required this.serverSeq, required this.newVersion});
+
+  final int serverSeq;
+  final int newVersion;
+  final List<String> sentMarks = [];
+  final List<int> sentBaseVersions = [];
+
+  @override
+  Future<ApiResponse> send(ApiRequest request) async {
+    final decoded = jsonDecode(request.bodyJson!) as Map;
+    final changes = decoded['changes'] as List;
+    final change = changes.single as Map;
+    final payload = change['payload'] as Map;
+    sentMarks.add(payload['mark'] as String);
+    sentBaseVersions.add((change['base_version'] as num).toInt());
+    return ApiResponse(
+      statusCode: 200,
+      bodyJson: jsonEncode({
+        'accepted': [
+          {
+            'entity_type': change['entity_type'],
+            'entity_id': change['entity_id'],
+            'server_seq': serverSeq,
+            'new_version': newVersion,
+          },
+        ],
+        'conflicts': const [],
+      }),
+    );
   }
 }
