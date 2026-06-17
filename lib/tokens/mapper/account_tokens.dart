@@ -13,10 +13,10 @@ class AccountTokens {
   // ===== 账户页：总览卡片 =====
   static const double overviewCardHeight = 300; // 总览卡片高度
   static const double overviewCardRadius = 12; // 总览卡片圆角
-  static const double overviewCardBorderWidth = 1; // 总览卡片边框宽度
-  static const double overviewCardShadowBlur = 4; // 总览卡片阴影模糊
-  static const double overviewCardShadowOffsetX = 2; // 总览卡片阴影右移
-  static const double overviewCardShadowOffsetY = 1; // 总览卡片阴影下移
+  static const double overviewCardBorderWidth = 0; // 总览卡片边框宽度
+  static const double overviewCardShadowBlur = 0; // 总览卡片阴影模糊
+  static const double overviewCardShadowOffsetX = 0; // 总览卡片阴影右移
+  static const double overviewCardShadowOffsetY = 0; // 总览卡片阴影下移
   static const double overviewCardShadowOpacity = 0.3; // 总览卡片阴影透明度
   static const double overviewCardPaddingLeft = 12; // 总览卡片左内边距
   static const double overviewCardPaddingTop = 0; // 总览卡片上内边距
@@ -88,7 +88,7 @@ class AccountTokens {
   // ===== 账户页：项目卡片 =====
   static const double projectCardMinHeight = 104; // 项目卡片最小高度（继续轻微收缩底部留白）
   static const double projectCardRadius = 6; // 项目卡片圆角
-  static const double projectCardBorderWidth = 1; // 项目卡片描边
+  static const double projectCardBorderWidth = 0; // 项目卡片描边
   static const double projectCardBottomMargin = 8; // 项目卡片之间的垂直间距
   static const double projectCardPaddingHorizontal = 8; // 项目卡片左右内边距
   static const double projectCardPaddingTop = 10; // 项目卡片顶部内边距
@@ -118,9 +118,9 @@ class AccountTokens {
   static const double projectCardProgressHeight = 8; // 进度条高度
   static const double projectCardProgressFillHeight = 6; // 进度条有效高度
   static const double projectCardProgressRadius = 2; // 进度条圆角
-  static const double projectCardShadowBlur = 4; // 项目卡片阴影模糊
-  static const double projectCardShadowOffsetX = 2; // 项目卡片阴影右移
-  static const double projectCardShadowOffsetY = 2; // 项目卡片阴影下移
+  static const double projectCardShadowBlur = 0; // 项目卡片阴影模糊
+  static const double projectCardShadowOffsetX = 0; // 项目卡片阴影右移
+  static const double projectCardShadowOffsetY = 0; // 项目卡片阴影下移
   static const double projectCardShadowOpacity = 0.3; // 项目卡片阴影透明度
   static const Color projectCardBorderColor = Color(0x4D000000); // 30% 黑色描边
   static const Color projectCardChipColor = Color(0x33999999); // 20% 灰底
