@@ -13,8 +13,11 @@ import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
+import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
+import 'package:asset_ledger/data/repositories/fuel_repository.dart';
+import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
@@ -647,7 +650,10 @@ DeleteTimingRecordWithImpactUseCase _useCase({
     timingRepository: SqfliteTimingRepository(),
     paymentRepository: SqfliteAccountPaymentRepository(),
     mergeRepository: SqfliteAccountProjectMergeRepository(),
+    deviceRepository: SqfliteDeviceRepository(),
     externalWorkRecordRepository: SqfliteExternalWorkRecordRepository(),
+    fuelRepository: SqfliteFuelRepository(),
+    maintenanceRepository: SqfliteMaintenanceRepository(),
     writeOffRepository: SqfliteProjectWriteOffRepository(),
     projectRepository: SqfliteProjectRepository(),
     syncOutboxRepository: syncOutboxRepository,

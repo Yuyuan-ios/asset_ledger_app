@@ -1107,7 +1107,7 @@ class _AccountPageState extends State<AccountPage>
                                     .externalReceivableRollup
                                     .externalCustomerReceivableFen,
                                 deviceReceivables:
-                                    viewData.computed.deviceReceivables,
+                                    viewData.overviewDeviceReceivables,
                               ),
                             ),
                           ),

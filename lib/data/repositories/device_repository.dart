@@ -93,8 +93,14 @@ class SqfliteDeviceRepository implements DeviceRepository {
   @override
   Future<Device?> getByIdOrNull(int id) async {
     final db = await AppDatabase.database;
+    return findByIdWithExecutor(db, id);
+  }
 
-    final rows = await db.query(
+  Future<Device?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    int id,
+  ) async {
+    final rows = await executor.query(
       _table,
       where: 'id = ?',
       whereArgs: [id],

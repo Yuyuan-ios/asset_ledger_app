@@ -6,7 +6,10 @@ import '../../../data/models/project.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/account_payment_repository.dart';
 import '../../../data/repositories/account_project_merge_repository.dart';
+import '../../../data/repositories/device_repository.dart';
 import '../../../data/repositories/external_work_record_repository.dart';
+import '../../../data/repositories/fuel_repository.dart';
+import '../../../data/repositories/maintenance_repository.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
@@ -29,7 +32,10 @@ class LocalDeleteTimingRecordWithImpactUseCase
     required SqfliteTimingRepository timingRepository,
     required SqfliteAccountPaymentRepository paymentRepository,
     required SqfliteAccountProjectMergeRepository mergeRepository,
+    required SqfliteDeviceRepository deviceRepository,
     required SqfliteExternalWorkRecordRepository externalWorkRecordRepository,
+    required SqfliteFuelRepository fuelRepository,
+    required SqfliteMaintenanceRepository maintenanceRepository,
     required SqfliteProjectWriteOffRepository writeOffRepository,
     required SqfliteProjectRepository projectRepository,
     SyncOutboxRepository? syncOutboxRepository,
@@ -43,7 +49,10 @@ class LocalDeleteTimingRecordWithImpactUseCase
   }) : _timingRepository = timingRepository,
        _paymentRepository = paymentRepository,
        _mergeRepository = mergeRepository,
+       _deviceRepository = deviceRepository,
        _externalWorkRecordRepository = externalWorkRecordRepository,
+       _fuelRepository = fuelRepository,
+       _maintenanceRepository = maintenanceRepository,
        _writeOffRepository = writeOffRepository,
        _projectRepository = projectRepository,
        _projectWriteOffSyncEnqueuer =
@@ -76,7 +85,10 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final SqfliteTimingRepository _timingRepository;
   final SqfliteAccountPaymentRepository _paymentRepository;
   final SqfliteAccountProjectMergeRepository _mergeRepository;
+  final SqfliteDeviceRepository _deviceRepository;
   final SqfliteExternalWorkRecordRepository _externalWorkRecordRepository;
+  final SqfliteFuelRepository _fuelRepository;
+  final SqfliteMaintenanceRepository _maintenanceRepository;
   final SqfliteProjectWriteOffRepository _writeOffRepository;
   final SqfliteProjectRepository _projectRepository;
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
@@ -180,6 +192,11 @@ class LocalDeleteTimingRecordWithImpactUseCase
 
       // 2) 删除计时记录本身。
       await _timingRepository.deleteByIdWithExecutor(txn, recordId);
+      final inactiveDeviceCleanup =
+          await _cleanupInactiveDeviceRegistrationDependents(
+            txn,
+            deviceId: record.deviceId,
+          );
 
       // 3) 撤销结清：删除核销 + 已结清恢复为进行中（收款不动）。
       final actor = _actorProvider?.call();
@@ -300,8 +317,39 @@ class LocalDeleteTimingRecordWithImpactUseCase
         mergeMemberRemoved: mergeMemberRemoved,
         mergeGroupDissolved: mergeGroupDissolved,
         externalWorkUnlinked: externalWorkUnlinked,
+        clearedInactiveDeviceFuelRecords: inactiveDeviceCleanup.fuelRecordCount,
+        clearedInactiveDeviceMaintenanceRecords:
+            inactiveDeviceCleanup.maintenanceRecordCount,
       );
     });
+  }
+
+  Future<_InactiveDeviceCleanupResult>
+  _cleanupInactiveDeviceRegistrationDependents(
+    DatabaseExecutor txn, {
+    required int deviceId,
+  }) async {
+    final remainingTimingCount = await _timingRepository
+        .countByDeviceIdWithExecutor(txn, deviceId);
+    if (remainingTimingCount > 0) {
+      return _InactiveDeviceCleanupResult.none;
+    }
+
+    final device = await _deviceRepository.findByIdWithExecutor(txn, deviceId);
+    if (device == null || device.isActive) {
+      return _InactiveDeviceCleanupResult.none;
+    }
+
+    final deletedFuel = await _fuelRepository.deleteByDeviceIdWithExecutor(
+      txn,
+      deviceId,
+    );
+    final deletedMaintenance = await _maintenanceRepository
+        .deleteByDeviceIdWithExecutor(txn, deviceId);
+    return _InactiveDeviceCleanupResult(
+      fuelRecordCount: deletedFuel,
+      maintenanceRecordCount: deletedMaintenance,
+    );
   }
 
   Future<void> _enqueueProjectUpdate(
@@ -390,4 +438,19 @@ class LocalDeleteTimingRecordWithImpactUseCase
     }
     return false;
   }
+}
+
+class _InactiveDeviceCleanupResult {
+  const _InactiveDeviceCleanupResult({
+    required this.fuelRecordCount,
+    required this.maintenanceRecordCount,
+  });
+
+  static const none = _InactiveDeviceCleanupResult(
+    fuelRecordCount: 0,
+    maintenanceRecordCount: 0,
+  );
+
+  final int fuelRecordCount;
+  final int maintenanceRecordCount;
 }

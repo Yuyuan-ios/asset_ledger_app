@@ -319,6 +319,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final viewData = buildMaintenancePageViewData(
       maintenanceStore: store,
       deviceStore: deviceStore,
+      inactiveDeviceIndexLabel: l10n.deviceInactiveIndexLabel,
     );
 
     final recordsContent = MaintenanceRecordsContent(

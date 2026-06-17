@@ -43,6 +43,24 @@ class DeviceLabel {
     return out;
   }
 
+  static String displayName(Device device, {required String inactiveLabel}) {
+    if (device.isActive) return device.name;
+    return replaceIndexLabel(device.name, inactiveLabel);
+  }
+
+  static Map<int, String> displayNameMapById(
+    Iterable<Device> devices, {
+    required String inactiveLabel,
+  }) {
+    final out = <int, String>{};
+    for (final device in devices) {
+      final id = device.id;
+      if (id == null) continue;
+      out[id] = displayName(device, inactiveLabel: inactiveLabel);
+    }
+    return out;
+  }
+
   static int? indexFromDisplayName(String name) {
     final match = RegExp(r'(\d+)\s*#').firstMatch(name);
     if (match == null) return null;

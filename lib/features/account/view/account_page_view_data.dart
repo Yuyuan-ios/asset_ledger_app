@@ -10,6 +10,7 @@ import '../state/project_rate_store.dart';
 import '../../device/state/device_store.dart';
 import '../../fuel/state/fuel_store.dart';
 import '../../maintenance/state/maintenance_store.dart';
+import '../../device/domain/entities/device.dart';
 import '../../timing/state/timing_external_work_store.dart';
 import '../../timing/state/timing_store.dart';
 
@@ -22,6 +23,7 @@ class AccountPageViewData {
   const AccountPageViewData({
     required this.localComputed,
     required this.computed,
+    required this.overviewDeviceReceivables,
     required this.externalReceivableRollup,
     required this.filteredProjects,
     required this.filteredExternalWorkProjects,
@@ -34,6 +36,7 @@ class AccountPageViewData {
 
   final AccountComputed localComputed;
   final AccountComputed computed;
+  final List<AccountDeviceReceivable> overviewDeviceReceivables;
   final ExternalWorkReceivableRollup externalReceivableRollup;
   final List<AccountProjectVM> filteredProjects;
   final List<AccountExternalWorkProjectVM> filteredExternalWorkProjects;
@@ -78,6 +81,10 @@ AccountPageViewData buildAccountPageViewData({
     summaryYear: summaryYear,
   );
   final computed = augmentComputedWithExternalWork(localComputed, rollup);
+  final overviewDeviceReceivables = visibleAccountOverviewDeviceReceivables(
+    deviceReceivables: computed.deviceReceivables,
+    devices: devices,
+  );
   final now = DateTime.now();
   final nowYmd = now.year * 10000 + now.month * 100 + now.day;
   final fuelExpense = fuelStore?.currentYearSummary(nowYmd: nowYmd).cost ?? 0;
@@ -128,6 +135,7 @@ AccountPageViewData buildAccountPageViewData({
   return AccountPageViewData(
     localComputed: localComputed,
     computed: computed,
+    overviewDeviceReceivables: overviewDeviceReceivables,
     externalReceivableRollup: rollup,
     filteredProjects: filteredProjects,
     filteredExternalWorkProjects: filteredExternalWorkProjects,
@@ -137,6 +145,22 @@ AccountPageViewData buildAccountPageViewData({
     hasActiveFilter: hasActiveFilter,
     error: error,
   );
+}
+
+List<AccountDeviceReceivable> visibleAccountOverviewDeviceReceivables({
+  required List<AccountDeviceReceivable> deviceReceivables,
+  required Iterable<Device> devices,
+}) {
+  final inactiveIds = <int>{};
+  for (final device in devices) {
+    final id = device.id;
+    if (id == null || device.isActive) continue;
+    inactiveIds.add(id);
+  }
+  if (inactiveIds.isEmpty) return deviceReceivables;
+  return deviceReceivables
+      .where((item) => !inactiveIds.contains(item.deviceId))
+      .toList(growable: false);
 }
 
 double calculateNetCashReceived({

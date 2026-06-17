@@ -685,10 +685,14 @@ class _TimingPageState extends State<TimingPage> {
     final timingStore = context.read<TimingStore>();
     final accountStore = context.read<AccountStore>();
     final externalWorkStore = context.read<TimingExternalWorkStore>();
+    final fuelStore = context.read<FuelStore>();
+    final maintenanceStore = context.read<MaintenanceStore>();
     await Future.wait([
       timingStore.loadAll(),
       accountStore.loadAll(),
       externalWorkStore.loadAll(),
+      fuelStore.loadAll(),
+      maintenanceStore.loadAll(),
     ]);
   }
 

@@ -3,16 +3,22 @@ import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/account_payment.dart';
 import 'package:asset_ledger/data/models/account_project_merge_group.dart';
 import 'package:asset_ledger/data/models/account_project_merge_member.dart';
+import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
+import 'package:asset_ledger/data/models/fuel_log.dart';
+import 'package:asset_ledger/data/models/maintenance_record.dart';
 import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_key.dart';
 import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
+import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
+import 'package:asset_ledger/data/repositories/fuel_repository.dart';
+import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
@@ -134,6 +140,79 @@ void main() {
       expect(await SqfliteTimingRepository().findById(recordId), isNull);
     });
 
+    test(
+      'clears fuel and maintenance when inactive device loses its last timing',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final deviceId = await _insertDevice(db, isActive: false);
+        await _insertProject(db, id: 'project:a');
+        final recordId = await _insertTiming(
+          projectId: 'project:a',
+          deviceId: deviceId,
+        );
+        await _insertFuelLog(deviceId);
+        await _insertMaintenanceRecord(deviceId);
+
+        final outcome = await _useCase().executeDeleteWithImpact(recordId);
+
+        expect(outcome.inactiveDeviceDataCleared, isTrue);
+        expect(outcome.clearedInactiveDeviceFuelRecords, 1);
+        expect(outcome.clearedInactiveDeviceMaintenanceRecords, 1);
+        expect(await SqfliteTimingRepository().findById(recordId), isNull);
+        expect(await _fuelRowsByDevice(db, deviceId), isEmpty);
+        expect(await _maintenanceRowsByDevice(db, deviceId), isEmpty);
+      },
+    );
+
+    test(
+      'keeps fuel and maintenance for active device with no timing',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final deviceId = await _insertDevice(db);
+        await _insertProject(db, id: 'project:a');
+        final recordId = await _insertTiming(
+          projectId: 'project:a',
+          deviceId: deviceId,
+        );
+        await _insertFuelLog(deviceId);
+        await _insertMaintenanceRecord(deviceId);
+
+        final outcome = await _useCase().executeDeleteWithImpact(recordId);
+
+        expect(outcome.inactiveDeviceDataCleared, isFalse);
+        expect(await _fuelRowsByDevice(db, deviceId), hasLength(1));
+        expect(await _maintenanceRowsByDevice(db, deviceId), hasLength(1));
+      },
+    );
+
+    test(
+      'keeps inactive device fuel and maintenance while timing still remains',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final deviceId = await _insertDevice(db, isActive: false);
+        await _insertProject(db, id: 'project:a');
+        final keepId = await _insertTiming(
+          projectId: 'project:a',
+          deviceId: deviceId,
+          startDate: 20260511,
+        );
+        final deleteId = await _insertTiming(
+          projectId: 'project:a',
+          deviceId: deviceId,
+          startDate: 20260512,
+        );
+        await _insertFuelLog(deviceId);
+        await _insertMaintenanceRecord(deviceId);
+
+        final outcome = await _useCase().executeDeleteWithImpact(deleteId);
+
+        expect(outcome.inactiveDeviceDataCleared, isFalse);
+        expect(await SqfliteTimingRepository().findById(keepId), isNotNull);
+        expect(await _fuelRowsByDevice(db, deviceId), hasLength(1));
+        expect(await _maintenanceRowsByDevice(db, deviceId), hasLength(1));
+      },
+    );
+
     // #4
     test('blocks deleting the last record while payments exist', () async {
       final db = await _openCurrentInMemoryDb();
@@ -251,7 +330,10 @@ void main() {
           timingRepository: SqfliteTimingRepository(),
           paymentRepository: SqfliteAccountPaymentRepository(),
           mergeRepository: SqfliteAccountProjectMergeRepository(),
+          deviceRepository: SqfliteDeviceRepository(),
           externalWorkRecordRepository: _ThrowingExternalWorkRecordRepository(),
+          fuelRepository: SqfliteFuelRepository(),
+          maintenanceRepository: SqfliteMaintenanceRepository(),
           writeOffRepository: SqfliteProjectWriteOffRepository(),
           projectRepository: SqfliteProjectRepository(),
         );
@@ -457,7 +539,10 @@ void main() {
         timingRepository: SqfliteTimingRepository(),
         paymentRepository: SqfliteAccountPaymentRepository(),
         mergeRepository: SqfliteAccountProjectMergeRepository(),
+        deviceRepository: SqfliteDeviceRepository(),
         externalWorkRecordRepository: _ThrowingExternalWorkRecordRepository(),
+        fuelRepository: SqfliteFuelRepository(),
+        maintenanceRepository: SqfliteMaintenanceRepository(),
         writeOffRepository: SqfliteProjectWriteOffRepository(),
         projectRepository: SqfliteProjectRepository(),
       );
@@ -483,7 +568,10 @@ DeleteTimingRecordWithImpactUseCase _useCase() {
     timingRepository: SqfliteTimingRepository(),
     paymentRepository: SqfliteAccountPaymentRepository(),
     mergeRepository: SqfliteAccountProjectMergeRepository(),
+    deviceRepository: SqfliteDeviceRepository(),
     externalWorkRecordRepository: SqfliteExternalWorkRecordRepository(),
+    fuelRepository: SqfliteFuelRepository(),
+    maintenanceRepository: SqfliteMaintenanceRepository(),
     writeOffRepository: SqfliteProjectWriteOffRepository(),
     projectRepository: SqfliteProjectRepository(),
   );
@@ -503,13 +591,14 @@ class _ThrowingExternalWorkRecordRepository
 
 Future<int> _insertTiming({
   required String projectId,
+  int deviceId = 1,
   String contact = '甲方',
   String site = '工地',
   int startDate = 20260510,
 }) {
   return SqfliteTimingRepository().insert(
     TimingRecord(
-      deviceId: 1,
+      deviceId: deviceId,
       startDate: startDate,
       projectId: projectId,
       contact: contact,
@@ -520,6 +609,60 @@ Future<int> _insertTiming({
       hours: 10,
       income: 1000,
     ),
+  );
+}
+
+Future<int> _insertDevice(Database db, {bool isActive = true}) {
+  return db.insert(
+    'devices',
+    Device(
+      name: 'SANY 1#',
+      brand: 'SANY',
+      defaultUnitPrice: 260,
+      baseMeterHours: 0,
+      isActive: isActive,
+    ).toMap()..remove('id'),
+  );
+}
+
+Future<int> _insertFuelLog(int deviceId) {
+  return SqfliteFuelRepository().insert(
+    FuelLog(
+      deviceId: deviceId,
+      date: 20260617,
+      supplier: '罗斌',
+      liters: 120,
+      cost: 900,
+    ),
+  );
+}
+
+Future<int> _insertMaintenanceRecord(int deviceId) {
+  return SqfliteMaintenanceRepository().insert(
+    MaintenanceRecord(
+      deviceId: deviceId,
+      ymd: 20260617,
+      item: '保养',
+      amount: 500,
+    ),
+  );
+}
+
+Future<List<Map<String, Object?>>> _fuelRowsByDevice(
+  Database db,
+  int deviceId,
+) {
+  return db.query('fuel_logs', where: 'device_id = ?', whereArgs: [deviceId]);
+}
+
+Future<List<Map<String, Object?>>> _maintenanceRowsByDevice(
+  Database db,
+  int deviceId,
+) {
+  return db.query(
+    'maintenance_records',
+    where: 'device_id = ?',
+    whereArgs: [deviceId],
   );
 }
 

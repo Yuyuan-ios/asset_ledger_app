@@ -57,8 +57,7 @@ class TimingRecordDeleteImpact {
   final bool willUnlinkExternalWork;
 
   /// 有收款记录且删的是项目最后一条计时：必须阻止删除。
-  bool get isBlockedByPayments =>
-      isLastTimingRecordOfProject && hasPayments;
+  bool get isBlockedByPayments => isLastTimingRecordOfProject && hasPayments;
 
   /// 删除需要撤销结清（删除核销 + 恢复进行中）。
   bool get requiresSettlementRevoke => isSettled || hasWriteOff;
@@ -76,18 +75,27 @@ class TimingRecordDeleteOutcome {
     this.mergeMemberRemoved = false,
     this.mergeGroupDissolved = false,
     this.externalWorkUnlinked = false,
+    this.clearedInactiveDeviceFuelRecords = 0,
+    this.clearedInactiveDeviceMaintenanceRecords = 0,
   });
 
   final bool settlementRevoked;
   final bool mergeMemberRemoved;
   final bool mergeGroupDissolved;
   final bool externalWorkUnlinked;
+  final int clearedInactiveDeviceFuelRecords;
+  final int clearedInactiveDeviceMaintenanceRecords;
+
+  bool get inactiveDeviceDataCleared =>
+      clearedInactiveDeviceFuelRecords > 0 ||
+      clearedInactiveDeviceMaintenanceRecords > 0;
 
   bool get hasCascade =>
       settlementRevoked ||
       mergeMemberRemoved ||
       mergeGroupDissolved ||
-      externalWorkUnlinked;
+      externalWorkUnlinked ||
+      inactiveDeviceDataCleared;
 }
 
 /// 该项目已有收款记录、又删的是最后一条计时时抛出，用于阻止删除并提示先处理收款。

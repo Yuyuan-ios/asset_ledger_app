@@ -162,6 +162,7 @@ class _FuelPageState extends State<FuelPage> {
       deviceStore: deviceStore,
       timingStore: timingStore,
       supplierFilter: _supplierFilter,
+      inactiveDeviceIndexLabel: l10n.deviceInactiveIndexLabel,
     );
     final summaryLabelStyle = AppTypography.body(
       context,
@@ -187,8 +188,8 @@ class _FuelPageState extends State<FuelPage> {
               child: FuelEfficiencySummary(
                 byDevice: viewData.byDevice,
                 deviceNameOf: (id) {
-                  final d = deviceStore.tryFindById(id);
-                  return d?.name ?? l10n.fuelInactiveDeviceFallbackName(id);
+                  return viewData.deviceDisplayNameById[id] ??
+                      l10n.fuelInactiveDeviceFallbackName(id);
                 },
               ),
             ),

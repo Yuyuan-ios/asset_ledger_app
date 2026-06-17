@@ -11,6 +11,8 @@ import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
+import 'package:asset_ledger/data/repositories/fuel_repository.dart';
+import 'package:asset_ledger/data/repositories/maintenance_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
@@ -70,8 +72,9 @@ void main() {
       deviceRepository: SqfliteDeviceRepository(),
       projectRateRepository: SqfliteProjectRateRepository(),
       projectResolver: ProjectResolver(projectRepository: projectRepository),
-      impactService:
-          ProjectSettlementImpactService(projectRepository: projectRepository),
+      impactService: ProjectSettlementImpactService(
+        projectRepository: projectRepository,
+      ),
       actorProvider: actorProvider,
       now: () => DateTime.utc(2026, 5, 26, 12),
     );
@@ -84,7 +87,10 @@ void main() {
       timingRepository: SqfliteTimingRepository(),
       paymentRepository: SqfliteAccountPaymentRepository(),
       mergeRepository: SqfliteAccountProjectMergeRepository(),
+      deviceRepository: SqfliteDeviceRepository(),
       externalWorkRecordRepository: SqfliteExternalWorkRecordRepository(),
+      fuelRepository: SqfliteFuelRepository(),
+      maintenanceRepository: SqfliteMaintenanceRepository(),
       writeOffRepository: SqfliteProjectWriteOffRepository(),
       projectRepository: SqfliteProjectRepository(),
       actorProvider: actorProvider,
@@ -195,14 +201,20 @@ void main() {
         ),
       );
 
-      final payload = (jsonDecode(
-        (await db.query('sync_outbox')).single['payload_json'] as String,
-      ) as Map)
-          .cast<String, Object?>();
+      final payload =
+          (jsonDecode(
+                    (await db.query('sync_outbox')).single['payload_json']
+                        as String,
+                  )
+                  as Map)
+              .cast<String, Object?>();
       final actor = payload['actor'] as Map<String, Object?>;
       expect(actor['type'], 'owner');
-      expect(actor['id'], isNull,
-          reason: 'Legacy/test fallback (no provider) must surface null id.');
+      expect(
+        actor['id'],
+        isNull,
+        reason: 'Legacy/test fallback (no provider) must surface null id.',
+      );
     },
   );
 

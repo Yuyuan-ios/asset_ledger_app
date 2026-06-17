@@ -240,6 +240,9 @@ class _FakeMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> deleteById(int id) async {}
+
+  @override
+  Future<int> deleteByDeviceId(int deviceId) async => 0;
 }
 
 class _BlockingMaintenanceRepository extends _FakeMaintenanceRepository {

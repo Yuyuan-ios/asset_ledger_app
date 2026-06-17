@@ -760,6 +760,13 @@ class _CountingMaintenanceRepository implements MaintenanceRepository {
     _records.removeWhere((item) => item.id == id);
   }
 
+  @override
+  Future<int> deleteByDeviceId(int deviceId) async {
+    final before = _records.length;
+    _records.removeWhere((item) => item.deviceId == deviceId);
+    return before - _records.length;
+  }
+
   void _sort() {
     _records.sort((a, b) {
       final byDate = b.ymd.compareTo(a.ymd);

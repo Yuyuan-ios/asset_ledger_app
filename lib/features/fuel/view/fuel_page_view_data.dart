@@ -18,6 +18,7 @@ class FuelPageViewData {
     required this.byDevice,
     required this.filteredLogs,
     required this.deviceIndexById,
+    required this.deviceDisplayNameById,
   });
 
   final bool loading;
@@ -27,6 +28,7 @@ class FuelPageViewData {
   final Map<int, FuelEfficiencyAgg> byDevice;
   final List<FuelLog> filteredLogs;
   final Map<int, String> deviceIndexById;
+  final Map<int, String> deviceDisplayNameById;
 }
 
 FuelPageViewData buildFuelPageViewData({
@@ -34,6 +36,7 @@ FuelPageViewData buildFuelPageViewData({
   required DeviceStore deviceStore,
   required TimingStore timingStore,
   required String supplierFilter,
+  required String inactiveDeviceIndexLabel,
 }) {
   final loading =
       fuelStore.loading || deviceStore.loading || timingStore.loading;
@@ -60,7 +63,14 @@ FuelPageViewData buildFuelPageViewData({
       : fuelStore.logs
             .where((e) => e.supplier.contains(normalizedSupplierFilter))
             .toList();
-  final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
+  final deviceIndexById = DeviceLabel.indexMapById(
+    deviceStore.allDevices,
+    inactiveLabel: inactiveDeviceIndexLabel,
+  );
+  final deviceDisplayNameById = DeviceLabel.displayNameMapById(
+    deviceStore.allDevices,
+    inactiveLabel: inactiveDeviceIndexLabel,
+  );
 
   return FuelPageViewData(
     loading: loading,
@@ -70,5 +80,6 @@ FuelPageViewData buildFuelPageViewData({
     byDevice: byDevice,
     filteredLogs: filteredLogs,
     deviceIndexById: deviceIndexById,
+    deviceDisplayNameById: deviceDisplayNameById,
   );
 }

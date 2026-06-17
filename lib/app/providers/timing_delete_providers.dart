@@ -4,7 +4,10 @@ import 'package:provider/single_child_widget.dart';
 import '../../core/operations/operation_access_control.dart';
 import '../../data/repositories/account_payment_repository.dart';
 import '../../data/repositories/account_project_merge_repository.dart';
+import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/external_work_record_repository.dart';
+import '../../data/repositories/fuel_repository.dart';
+import '../../data/repositories/maintenance_repository.dart';
 import '../../data/repositories/project_repository.dart';
 import '../../data/repositories/project_write_off_repository.dart';
 import '../../data/repositories/timing_repository.dart';
@@ -17,7 +20,10 @@ import '../../infrastructure/local/timing/local_delete_timing_record_with_impact
 /// so this slice constructs its own instances rather than threading them across
 /// the timing / account / external-work slices.
 class TimingDeleteProviders {
-  TimingDeleteProviders._({required this.deleteUseCase, required this.providers});
+  TimingDeleteProviders._({
+    required this.deleteUseCase,
+    required this.providers,
+  });
 
   final DeleteTimingRecordWithImpactUseCase deleteUseCase;
   final List<SingleChildWidget> providers;
@@ -33,9 +39,12 @@ class TimingDeleteProviders {
       timingRepository: SqfliteTimingRepository(),
       paymentRepository: SqfliteAccountPaymentRepository(),
       mergeRepository: SqfliteAccountProjectMergeRepository(),
+      deviceRepository: SqfliteDeviceRepository(),
       externalWorkRecordRepository: SqfliteExternalWorkRecordRepository(
         actorProvider: actorProvider,
       ),
+      fuelRepository: SqfliteFuelRepository(),
+      maintenanceRepository: SqfliteMaintenanceRepository(),
       writeOffRepository: SqfliteProjectWriteOffRepository(),
       projectRepository: SqfliteProjectRepository(),
       actorProvider: actorProvider,

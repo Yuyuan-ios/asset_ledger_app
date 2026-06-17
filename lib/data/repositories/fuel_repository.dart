@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../db/database.dart';
 import '../models/fuel_log.dart';
 
@@ -69,7 +71,14 @@ class SqfliteFuelRepository implements FuelRepository {
   @override
   Future<int> deleteByDeviceId(int deviceId) async {
     final db = await AppDatabase.database;
-    return await db.delete(
+    return deleteByDeviceIdWithExecutor(db, deviceId);
+  }
+
+  Future<int> deleteByDeviceIdWithExecutor(
+    DatabaseExecutor executor,
+    int deviceId,
+  ) {
+    return executor.delete(
       _table,
       where: 'device_id = ?',
       whereArgs: [deviceId],

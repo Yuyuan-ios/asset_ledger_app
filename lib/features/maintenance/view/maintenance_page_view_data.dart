@@ -1,6 +1,7 @@
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../domain/entities/maintenance_entities.dart';
+import '../../device/domain/services/device_label.dart';
 import '../../device/state/device_store.dart';
 import '../state/maintenance_store.dart';
 
@@ -67,6 +68,7 @@ class MaintenancePageViewData {
 MaintenancePageViewData buildMaintenancePageViewData({
   required MaintenanceStore maintenanceStore,
   required DeviceStore deviceStore,
+  required String inactiveDeviceIndexLabel,
 }) {
   final loading = maintenanceStore.loading || deviceStore.loading;
   final error = firstStoreErrorMessage([
@@ -83,7 +85,12 @@ MaintenancePageViewData buildMaintenancePageViewData({
       .map(
         (id) => MaintenanceDeviceSummaryVM(
           deviceId: id,
-          deviceName: deviceStore.tryFindById(id)?.name ?? '设备$id（已停用/不存在）',
+          deviceName: _deviceDisplayName(
+            deviceStore: deviceStore,
+            deviceId: id,
+            inactiveDeviceIndexLabel: inactiveDeviceIndexLabel,
+            missingFallback: '设备$id（已停用/不存在）',
+          ),
           amount: summaryMap[id] ?? 0.0,
         ),
       )
@@ -103,8 +110,12 @@ MaintenancePageViewData buildMaintenancePageViewData({
   final rows = maintenanceStore.records.map((record) {
     final title = record.deviceId == null
         ? '公共支出'
-        : (deviceStore.tryFindById(record.deviceId!)?.name ??
-              '设备#${record.deviceId}（已停用/不存在）');
+        : _deviceDisplayName(
+            deviceStore: deviceStore,
+            deviceId: record.deviceId!,
+            inactiveDeviceIndexLabel: inactiveDeviceIndexLabel,
+            missingFallback: '设备#${record.deviceId}（已停用/不存在）',
+          );
     final note = record.note?.trim();
     final subtitle = (note == null || note.isEmpty)
         ? record.item
@@ -125,5 +136,19 @@ MaintenancePageViewData buildMaintenancePageViewData({
     isEmpty: rows.isEmpty,
     summary: summary,
     rows: rows,
+  );
+}
+
+String _deviceDisplayName({
+  required DeviceStore deviceStore,
+  required int deviceId,
+  required String inactiveDeviceIndexLabel,
+  required String missingFallback,
+}) {
+  final device = deviceStore.tryFindById(deviceId);
+  if (device == null) return missingFallback;
+  return DeviceLabel.displayName(
+    device,
+    inactiveLabel: inactiveDeviceIndexLabel,
   );
 }

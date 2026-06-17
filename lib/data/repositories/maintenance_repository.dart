@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../db/database.dart';
 import '../models/maintenance_record.dart';
 
@@ -9,6 +11,8 @@ abstract class MaintenanceRepository {
   Future<void> update(MaintenanceRecord record);
 
   Future<void> deleteById(int id);
+
+  Future<int> deleteByDeviceId(int deviceId);
 }
 
 class SqfliteMaintenanceRepository implements MaintenanceRepository {
@@ -59,5 +63,22 @@ class SqfliteMaintenanceRepository implements MaintenanceRepository {
     final db = await AppDatabase.database;
 
     await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+  }
+
+  @override
+  Future<int> deleteByDeviceId(int deviceId) async {
+    final db = await AppDatabase.database;
+    return deleteByDeviceIdWithExecutor(db, deviceId);
+  }
+
+  Future<int> deleteByDeviceIdWithExecutor(
+    DatabaseExecutor executor,
+    int deviceId,
+  ) {
+    return executor.delete(
+      _table,
+      where: 'device_id = ?',
+      whereArgs: [deviceId],
+    );
   }
 }
