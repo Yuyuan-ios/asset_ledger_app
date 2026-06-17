@@ -375,6 +375,57 @@ void main() {
     );
 
     test(
+      'setBatchCustomerUnitPriceFen handles rich imported records without local price',
+      () async {
+        final db = await _openCurrentInMemoryDb();
+        final importRepo = SqfliteExternalImportRepository();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        await importRepo.insertBatch(_batch(id: 'batch-rich'));
+        final imported = ExternalWorkRecord.imported(
+          id: 'external-record-rich',
+          importBatchId: 'batch-rich',
+          sourceShareId: 'share-1',
+          sourceRecordUuid: 'source-rich',
+          sourceInstallationUuid: 'install-1',
+          originFingerprint: 'fingerprint-source-rich',
+          collaboratorName: '王师傅',
+          contactSnapshot: '甲方',
+          siteSnapshot: '一号工地',
+          equipmentBrand: '三一',
+          equipmentModel: '75',
+          equipmentType: 'excavator',
+          workDate: 20260518,
+          hoursMilli: 10000,
+          amountFen: 180000,
+          sourceUnitPriceFen: 18000,
+          localUnitPriceFen: null,
+          createdAt: '2026-05-18T00:00:00.000Z',
+          updatedAt: '2026-05-18T00:00:00.000Z',
+        );
+        await recordRepo.insertRecord(imported);
+
+        final count = await recordRepo.setBatchCustomerUnitPriceFen(
+          importBatchId: 'batch-rich',
+          customerUnitPriceFen: 700000,
+          updatedAt: '2026-05-22T00:00:00.000Z',
+        );
+
+        expect(count, 1);
+        final updated = (await recordRepo.listByBatchId('batch-rich')).single;
+        expect(updated.customerUnitPriceFen, 700000);
+        expect(updated.localUnitPriceFen, isNull);
+        expect(updated.amountFen, 180000);
+        await _expectExternalWorkSyncRows(
+          db,
+          [updated],
+          operation: 'update',
+          syncStatus: SyncStatus.pendingUpdate,
+        );
+        await _expectNoNonExternalWorkSyncRows(db);
+      },
+    );
+
+    test(
       'deleteById enqueues the deleted row snapshot as pending delete',
       () async {
         final db = await _openCurrentInMemoryDb();
@@ -1302,7 +1353,9 @@ Future<void> _expectExternalWorkSyncRows(
     entityType: ExternalWorkSyncEnqueuer.entityType,
     operation: operation,
     syncStatus: syncStatus,
-    recordsById: {for (final record in records) record.id: record.toMap()},
+    recordsById: {
+      for (final record in records) record.id: record.toUncheckedMap(),
+    },
   );
 }
 

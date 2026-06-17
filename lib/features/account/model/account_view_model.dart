@@ -24,6 +24,9 @@ class AccountExternalWorkProjectVM {
   /// 我对项目方设置的客户侧应收单价（分）。null = 未设。包内 hours 记录统一。
   final int? customerUnitPriceFen;
 
+  /// 分享包内来源单价展示文本。只用于账户页外协详情展示，不参与应收计算。
+  final String? sourceUnitPriceText;
+
   /// 该外协包是否已关联到本地项目（已关联仍显示在外协页，头像带链条角标）。
   final bool linked;
 
@@ -44,6 +47,7 @@ class AccountExternalWorkProjectVM {
     required this.recordCount,
     this.totalHoursMilli = 0,
     this.customerUnitPriceFen,
+    this.sourceUnitPriceText,
     this.linked = false,
     this.linkedProjectId,
   });

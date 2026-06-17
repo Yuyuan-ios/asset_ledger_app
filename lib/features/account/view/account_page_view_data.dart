@@ -1,3 +1,4 @@
+import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../domain/services/external_work_receivable.dart';
 import '../model/account_view_model.dart';
@@ -211,6 +212,7 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
     final customerUnitPriceFen = hoursItems
         .map((item) => item.record.customerUnitPriceFen)
         .firstWhere((fen) => fen != null, orElse: () => null);
+    final sourceUnitPriceText = _sourceUnitPriceText(hoursItems);
 
     final first = batchItems.first;
     final batch = first.batch;
@@ -235,6 +237,7 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
         recordCount: batchItems.length,
         totalHoursMilli: totalHoursMilli,
         customerUnitPriceFen: customerUnitPriceFen,
+        sourceUnitPriceText: sourceUnitPriceText,
         linked: linked,
         linkedProjectId: linked ? linkedProjectId : null,
       ),
@@ -375,6 +378,19 @@ String _siteSummary(
 
 String _displaySiteSummary(String value) {
   return value.trim().replaceAll('+', '、').replaceAll('•', '、');
+}
+
+String? _sourceUnitPriceText(
+  Iterable<TimingExternalWorkRecordItem> hoursItems,
+) {
+  final seen = <int>{};
+  final values = <String>[];
+  for (final item in hoursItems) {
+    final price = item.record.sourceUnitPriceFen;
+    if (price == null || !seen.add(price)) continue;
+    values.add('${FormatUtils.money(price / 100)}/h');
+  }
+  return values.isEmpty ? null : values.join(', ');
 }
 
 String _firstNonEmpty(List<String?> values) {

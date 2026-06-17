@@ -1046,6 +1046,18 @@ abstract class AppLocalizations {
   /// **'应收项目款'**
   String get accountExternalReceivableLabel;
 
+  /// 账户模块:外协详情应收项目款标签,附带客户侧应收单价
+  ///
+  /// In zh, this message translates to:
+  /// **'应收项目款(应收单价{rate})'**
+  String accountExternalReceivableWithCustomerRate(String rate);
+
+  /// 账户模块:外协详情应付项目款标签,附带分享包内应付单价
+  ///
+  /// In zh, this message translates to:
+  /// **'应付项目款(应付单价{rate})'**
+  String accountExternalPayableWithSourceRate(String rate);
+
   /// 账户模块:外协项目卡片待设置值
   ///
   /// In zh, this message translates to:

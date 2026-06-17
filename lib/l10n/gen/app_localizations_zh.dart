@@ -516,6 +516,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountExternalReceivableLabel => '应收项目款';
 
   @override
+  String accountExternalReceivableWithCustomerRate(String rate) {
+    return '应收项目款(应收单价$rate)';
+  }
+
+  @override
+  String accountExternalPayableWithSourceRate(String rate) {
+    return '应付项目款(应付单价$rate)';
+  }
+
+  @override
   String get accountPendingSetup => '待设置';
 
   @override

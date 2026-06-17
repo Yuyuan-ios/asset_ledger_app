@@ -548,6 +548,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountExternalReceivableLabel => 'Project receivable';
 
   @override
+  String accountExternalReceivableWithCustomerRate(String rate) {
+    return 'Project receivable (receivable rate $rate)';
+  }
+
+  @override
+  String accountExternalPayableWithSourceRate(String rate) {
+    return 'Project payable (payable rate $rate)';
+  }
+
+  @override
   String get accountPendingSetup => 'Not set';
 
   @override

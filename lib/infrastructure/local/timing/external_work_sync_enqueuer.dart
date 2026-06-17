@@ -110,7 +110,7 @@ class ExternalWorkSyncEnqueuer {
         'entity_id': entityId,
         'operation': operation,
         'actor': syncActorPayload(resolvedActor),
-        'record': record.toMap(),
+        'record': record.toUncheckedMap(),
       },
       transactionGroupId: transactionGroupId,
       localSequence: localSequence,

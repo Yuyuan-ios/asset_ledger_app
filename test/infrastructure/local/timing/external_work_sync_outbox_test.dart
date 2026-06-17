@@ -67,7 +67,7 @@ void main() {
       expect(payload['entity_type'], ExternalWorkSyncEnqueuer.entityType);
       expect(payload['entity_id'], record.id);
       expect(payload['operation'], 'create');
-      expect(payload['record'], record.toMap());
+      expect(payload['record'], record.toUncheckedMap());
       final payloadRecord = payload['record'] as Map<String, Object?>;
       expect(payloadRecord['id'], record.id);
       expect(payloadRecord['import_batch_id'], record.importBatchId);
@@ -130,7 +130,7 @@ void main() {
       final payload =
           jsonDecode(outbox['payload_json'] as String) as Map<String, Object?>;
       expect(payload['operation'], 'update');
-      expect(payload['record'], linked.toMap());
+      expect(payload['record'], linked.toUncheckedMap());
       expect(
         (payload['record'] as Map<String, Object?>)['linked_project_id'],
         'project:linked',
@@ -171,10 +171,61 @@ void main() {
       final payload =
           jsonDecode(outbox['payload_json'] as String) as Map<String, Object?>;
       expect(payload['operation'], 'delete');
-      expect(payload['record'], record.toMap());
+      expect(payload['record'], record.toUncheckedMap());
 
       final meta = (await db.query('entity_sync_meta')).single;
       expect(meta['sync_status'], SyncStatus.pendingDelete.name);
+      expect(meta['payload_hash'], outbox['payload_hash']);
+    },
+  );
+
+  test(
+    'update enqueue preserves rich imported snapshot without local unit price',
+    () async {
+      final db = await AppDatabase.database;
+      final enqueuer = ExternalWorkSyncEnqueuer();
+      final imported = ExternalWorkRecord.imported(
+        id: 'external-record-rich',
+        importBatchId: 'batch-rich',
+        sourceShareId: 'share-rich',
+        sourceRecordUuid: 'source-rich',
+        sourceInstallationUuid: 'install-1',
+        originFingerprint: 'fingerprint-rich',
+        collaboratorName: 'worker',
+        contactSnapshot: 'client',
+        siteSnapshot: 'site',
+        equipmentBrand: 'brand',
+        equipmentModel: 'model',
+        equipmentType: 'excavator',
+        workDate: 20260518,
+        hoursMilli: 10000,
+        amountFen: 180000,
+        sourceUnitPriceFen: 18000,
+        localUnitPriceFen: null,
+        customerUnitPriceFen: 700000,
+        createdAt: '2026-05-18T00:00:00.000Z',
+        updatedAt: '2026-05-18T01:00:00.000Z',
+      );
+      final dbReadSnapshot = ExternalWorkRecord.fromMap(imported.toMap());
+      expect(dbReadSnapshot.amountOverridesPolicy, isFalse);
+      expect(dbReadSnapshot.localUnitPriceFen, isNull);
+
+      await AppDatabase.inTransaction<void>((txn) async {
+        await enqueuer.enqueueUpdate(txn, record: dbReadSnapshot);
+      });
+
+      final outbox = (await db.query('sync_outbox')).single;
+      final payload =
+          jsonDecode(outbox['payload_json'] as String) as Map<String, Object?>;
+      expect(payload['operation'], 'update');
+      expect(payload['record'], dbReadSnapshot.toUncheckedMap());
+      final payloadRecord = payload['record'] as Map<String, Object?>;
+      expect(payloadRecord['local_unit_price_fen'], isNull);
+      expect(payloadRecord['customer_unit_price_fen'], 700000);
+      expect(payloadRecord['amount_fen'], 180000);
+
+      final meta = (await db.query('entity_sync_meta')).single;
+      expect(meta['sync_status'], SyncStatus.pendingUpdate.name);
       expect(meta['payload_hash'], outbox['payload_hash']);
     },
   );

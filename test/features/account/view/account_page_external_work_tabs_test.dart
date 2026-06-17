@@ -98,7 +98,8 @@ void main() {
       expect(find.text('客户应收'), findsNothing);
       expect(find.text('¥12618').hitTestable(), findsNWidgets(2));
       expect(find.text('待设置'), findsNothing);
-      expect(find.text('待计算'), findsNWidgets(2));
+      expect(find.text('待计算'), findsNothing);
+      expect(find.text('¥0').hitTestable(), findsWidgets);
       // 仅已关联外协卡片显示链条角标。
       expect(
         find.byKey(const Key('account-external-work-card-link-badge')),
@@ -115,6 +116,102 @@ void main() {
       expect(find.text('项目(1)'), findsOneWidget);
       expect(find.text('李杰 · 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'external detail updates receivable and profit after editing customer rate',
+    (tester) async {
+      final timingStore = TimingStore(_FakeTimingRepository());
+      final deviceStore = DeviceStore(_FakeDeviceRepository());
+      final paymentStore = AccountPaymentStore(_FakePaymentRepository());
+      final rateStore = ProjectRateStore(_FakeRateRepository());
+      final accountStore = AccountStore();
+      final externalWorkStore = TimingExternalWorkStore(
+        importRepository: _FakeExternalImportRepository(),
+        recordRepository: _FakeExternalWorkRecordRepository(),
+      );
+
+      await Future.wait([
+        timingStore.loadAll(),
+        deviceStore.loadAll(),
+        paymentStore.loadAll(),
+        rateStore.loadAll(),
+        accountStore.loadAll(),
+        externalWorkStore.loadAll(),
+      ]);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+            ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+            ChangeNotifierProvider<AccountPaymentStore>.value(
+              value: paymentStore,
+            ),
+            ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+            ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+            ChangeNotifierProvider<TimingExternalWorkStore>.value(
+              value: externalWorkStore,
+            ),
+            ChangeNotifierProvider<AccountFilterStore>(
+              create: (_) => AccountFilterStore(),
+            ),
+          ],
+          child: _localizedAccountApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('余远 · 鲜滩、尚义').hitTestable());
+      await tester.pumpAndSettle();
+
+      expect(find.text('外协详情'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('external-detail-summary-card')),
+          matching: find.text('应收项目款'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('单价待设置'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('external-detail-summary-card')),
+          matching: find.text('¥12618'),
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.text('¥0'), findsWidgets);
+
+      await tester.tap(
+        find.byKey(const Key('external-detail-edit-customer-rate')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('external-customer-rate-input')),
+        '7000',
+      );
+      await tester.tap(find.byKey(const Key('external-customer-rate-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('单价¥7000'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('external-detail-summary-card')),
+          matching: find.text('¥14000'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('external-detail-summary-card')),
+          matching: find.text('¥1382'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 

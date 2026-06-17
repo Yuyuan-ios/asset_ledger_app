@@ -780,12 +780,10 @@ class _AccountPageState extends State<AccountPage>
         icon: const Icon(Icons.close),
         onPressed: () => Navigator.of(headerContext).maybePop(),
       ),
-      childBuilder: (sheetContext) => Consumer<TimingExternalWorkStore?>(
+      childBuilder: (sheetContext) => Consumer<TimingExternalWorkStore>(
         builder: (context, externalWorkStore, _) {
           // 用最新 store 重算 VM，使改价后弹窗即时刷新。
-          final items =
-              externalWorkStore?.items ??
-              const <TimingExternalWorkRecordItem>[];
+          final items = externalWorkStore.items;
           var vm = project;
           for (final candidate in buildAccountExternalWorkProjects(items)) {
             if (candidate.importBatchId == project.importBatchId) {

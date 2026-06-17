@@ -951,7 +951,8 @@ void main() {
       siteSummary: '鲜滩、尚义',
       minYmd: 20260502,
       payableFen: 1261800,
-      receivableFen: 1400000,
+      receivableFen: 1261800,
+      profitFen: 0,
       recordCount: 2,
     );
 
@@ -971,13 +972,13 @@ void main() {
     expect(find.text('协'), findsOneWidget);
     expect(find.text('余远 · 鲜滩、尚义'), findsOneWidget);
     expect(find.text('外协应付'), findsOneWidget);
-    expect(find.text('¥12618'), findsOneWidget);
+    expect(find.text('¥12618'), findsNWidgets(2));
     expect(find.text('应收项目款'), findsOneWidget);
     expect(find.text('客户应收'), findsNothing);
-    expect(find.text('¥14000'), findsOneWidget);
     expect(find.text('毛利'), findsOneWidget);
+    expect(find.text('¥0'), findsOneWidget);
     expect(find.text('待设置'), findsNothing);
-    expect(find.text('待计算'), findsOneWidget);
+    expect(find.text('待计算'), findsNothing);
 
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsOneWidget);
     expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);

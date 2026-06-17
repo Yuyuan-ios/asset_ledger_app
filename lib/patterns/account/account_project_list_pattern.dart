@@ -571,11 +571,6 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       height: 1,
       color: _externalWorkValueText,
     );
-    final pendingValueStyle = metricValueStyle?.copyWith(
-      color: Colors.black.withValues(alpha: 0.62),
-      fontWeight: FontWeight.w500,
-    );
-
     final Widget card = Container(
       key: Key('account-external-work-card-${project.importBatchId}'),
       margin: const EdgeInsets.only(
@@ -664,12 +659,8 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 Expanded(
                   child: _ExternalWorkMetric(
                     label: l10n.accountGrossProfitLabel,
-                    value: project.hasCustomerUnitPrice
-                        ? FormatUtils.money(project.profit)
-                        : l10n.accountPendingCalculation,
-                    valueStyle: project.hasCustomerUnitPrice
-                        ? metricValueStyle
-                        : pendingValueStyle,
+                    value: FormatUtils.money(project.profit),
+                    valueStyle: metricValueStyle,
                     labelStyle: metricLabelStyle,
                     alignEnd: true,
                   ),

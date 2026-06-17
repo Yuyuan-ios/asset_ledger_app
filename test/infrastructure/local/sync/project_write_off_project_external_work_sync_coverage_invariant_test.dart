@@ -181,7 +181,7 @@ void main() {
         "'payload_schema_version': kSyncPayloadSchemaVersion",
         "'actor': syncActorPayload(resolvedActor)",
         'updatedBy: resolvedActor.actorId',
-        "'record': record.toMap()",
+        "'record': record.toUncheckedMap()",
         'payloadHash: entry.payloadHash',
       ]);
       _expectAllContains(importer, const [

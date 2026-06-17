@@ -158,6 +158,8 @@
   "accountExportWorklogTooltip": "Export worklog",
   "accountExternalPayableLabel": "External payable",
   "accountExternalReceivableLabel": "Project receivable",
+  "accountExternalReceivableWithCustomerRate": "Project receivable (receivable rate {rate})",
+  "accountExternalPayableWithSourceRate": "Project payable (payable rate {rate})",
   "accountPendingSetup": "Not set",
   "accountGrossProfitLabel": "Gross profit",
   "accountPendingCalculation": "Pending",

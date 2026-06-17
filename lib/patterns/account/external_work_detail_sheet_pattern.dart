@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../core/foundation/spacing.dart';
+import '../../core/foundation/typography.dart';
 import '../../core/money/amount_policy.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../../tokens/mapper/account_tokens.dart';
+import '../../tokens/mapper/color_tokens.dart';
+
+const _addPayablePillBackground = AccountTokens.projectCardProgressFill;
+const _addPayablePillBorder = AppColors.textPrimary;
+const _addPayablePillText = SheetColors.actionOn;
 
 /// 改应收单价对话框的结果。
 /// - null 结果（弹窗 pop null）表示取消，不写库。
@@ -32,16 +40,78 @@ class ExternalWorkDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final hasCustomer = project.hasCustomerUnitPrice;
-    final muted = Colors.black.withValues(alpha: 0.55);
+    final fallbackStyle = DefaultTextStyle.of(context).style;
+    final titleStyle = AppTypography.sectionTitle(
+      context,
+      fontSize: AccountTokens.projectCardTitleFontSize,
+      fontWeight: FontWeight.w600,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final rowMetricStyle = AppTypography.body(
+      context,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final mutedStyle = AppTypography.body(
+      context,
+      fontSize: AccountTokens.projectCardStatusFontSize,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      color: SheetColors.textDim,
+    );
+    final primaryLabelStyle =
+        mutedStyle?.copyWith(color: SheetColors.textPrimary) ??
+        fallbackStyle.copyWith(
+          fontSize: AccountTokens.projectCardStatusFontSize,
+          fontWeight: FontWeight.w400,
+          color: SheetColors.textPrimary,
+        );
+    final amountStyle = AppTypography.body(
+      context,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final actionStyle =
+        AppTypography.actionText(
+          context,
+          fontSize: AccountTokens.projectDetailActionSize,
+          fontWeight: FontWeight.w400,
+          height: 1,
+          color: AccountTokens.projectDetailActionColor,
+        ) ??
+        fallbackStyle.copyWith(
+          fontSize: AccountTokens.projectDetailActionSize,
+          fontWeight: FontWeight.w400,
+          color: AccountTokens.projectDetailActionColor,
+        );
+    final sectionTitleStyle = AppTypography.body(
+      context,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: SheetColors.textPrimary,
+    );
+    final emptyStyle = AppTypography.caption(
+      context,
+      color: Colors.grey.shade600,
+    );
 
-    final customerRateText = hasCustomer
-        ? FormatUtils.money(project.customerUnitPriceFen! / 100)
-        : l10n.accountPendingSetup;
-    final profitText = hasCustomer
-        ? FormatUtils.money(project.profit)
-        : l10n.accountPendingCalculation;
+    final sourceUnitPriceText = project.sourceUnitPriceText;
+    final customerRateText =
+        _unitPriceText(project.customerUnitPriceFen) ??
+        _compactRateText(sourceUnitPriceText) ??
+        l10n.accountPendingSetup;
+    final payableRateText = sourceUnitPriceText ?? l10n.accountPendingSetup;
+    final receivableRateLabel = _rateLabel(l10n, customerRateText);
+    final payableLabel = l10n.accountExternalPayableWithSourceRate(
+      payableRateText,
+    );
+    final profitText = FormatUtils.money(project.profit);
     final paidRatio = project.payablePaidRatio;
     final paidPercent = (paidRatio * 100).round();
     final unpaidFen = (project.payableFen - project.paidFen).clamp(
@@ -56,6 +126,7 @@ class ExternalWorkDetailSheet extends StatelessWidget {
         const SizedBox(height: 4),
         // ============ 顶部信息卡：可改应收单价 ============
         _Card(
+          key: const Key('external-detail-summary-card'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -66,138 +137,203 @@ class ExternalWorkDetailSheet extends StatelessWidget {
                       project.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: titleStyle,
                     ),
                   ),
+                  const SizedBox(width: AppSpace.sm),
                   Text(
                     l10n.accountExternalHoursSummary(
                       _hours(project.totalHours),
                     ),
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    style: rowMetricStyle?.copyWith(color: SheetColors.textDim),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              // 应收单价 + 修改
+              const SizedBox(height: AccountTokens.projectCardSectionGap),
+              // 应收项目款 + 修改
               Row(
                 children: [
-                  Flexible(
-                    child: Text(
-                      l10n.accountExternalCustomerRateLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            l10n.accountExternalReceivableLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: primaryLabelStyle,
+                          ),
+                        ),
+                        const SizedBox(width: 18),
+                        Flexible(
+                          child: Text(
+                            receivableRateLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            style: primaryLabelStyle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 48,
+                          height: 36,
+                          child: TextButton(
+                            key: const Key(
+                              'external-detail-edit-customer-rate',
+                            ),
+                            onPressed: onEditCustomerRate,
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(48, 36),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor:
+                                  AccountTokens.projectDetailActionColor,
+                            ),
+                            child: Text(
+                              l10n.accountEditAction,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: actionStyle,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Text(
-                    customerRateText,
-                    key: const Key('external-detail-customer-rate'),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    key: const Key('external-detail-edit-customer-rate'),
-                    onPressed: onEditCustomerRate,
-                    child: Text(l10n.accountEditAction),
+                    FormatUtils.money(project.receivable),
+                    key: const Key('external-detail-customer-receivable'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    textAlign: TextAlign.right,
+                    style: rowMetricStyle,
                   ),
                 ],
               ),
-              const Divider(height: 8),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpace.xs),
+              Divider(height: 8, color: AppColors.divider),
+              const SizedBox(height: AppSpace.sm),
               _Metric(
-                label: l10n.accountExternalReceivableLabel,
-                value: FormatUtils.money(project.receivable),
+                label: payableLabel,
+                value: FormatUtils.money(project.payable),
+                labelStyle: mutedStyle,
+                valueStyle: rowMetricStyle,
               ),
-              const SizedBox(height: 8),
-              _Metric(label: l10n.accountGrossProfitLabel, value: profitText),
+              const SizedBox(height: AppSpace.sm),
+              _Metric(
+                label: l10n.accountGrossProfitLabel,
+                value: profitText,
+                labelStyle: mutedStyle,
+                valueStyle: rowMetricStyle,
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AccountTokens.projectCardBottomMargin),
         // ============ 应付进度卡（替换收款进度）============
         _Card(
+          key: const Key('external-detail-progress-card'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _PayableProgressBar(paidRatio: paidRatio),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpace.sm),
               Row(
                 children: [
-                  Text(
-                    l10n.accountExternalPaidPercent(paidPercent),
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-                  ),
-                  const Spacer(),
-                  Text(
-                    l10n.accountExternalUnpaidAmount(
-                      FormatUtils.money(unpaidFen / 100),
+                  Expanded(
+                    child: Text(
+                      l10n.accountExternalPaidPercent(paidPercent),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: mutedStyle,
                     ),
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                  ),
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    child: Text(
+                      l10n.accountExternalUnpaidAmount(
+                        FormatUtils.money(unpaidFen / 100),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      textAlign: TextAlign.right,
+                      style: mutedStyle,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpace.xs),
               Row(
                 children: [
-                  Text(
-                    FormatUtils.money(project.paidFen / 100),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      FormatUtils.money(project.paidFen / 100),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: amountStyle,
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    l10n.accountExternalPayableTotalSummary(
-                      FormatUtils.money(project.payable),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      l10n.accountExternalPayableTotalSummary(
+                        FormatUtils.money(project.payable),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      textAlign: TextAlign.right,
+                      style: mutedStyle,
                     ),
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                   ),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpace.md),
         // ============ 支付记录（本轮占位）============
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
+          ),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      l10n.accountExternalPaymentRecordsTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: null,
-                    child: Text(l10n.accountExternalAddPayableAction),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    l10n.accountExternalPaymentsEmpty,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-                  ),
+              Expanded(
+                child: Text(
+                  l10n.accountExternalPaymentRecordsTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: sectionTitleStyle,
                 ),
               ),
+              const SizedBox(width: 12),
+              _AddPayablePillButton(
+                actionStyle: actionStyle,
+                label: l10n.accountExternalAddPayableAction,
+              ),
             ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
+          child: Center(
+            child: Text(l10n.accountExternalPaymentsEmpty, style: emptyStyle),
           ),
         ),
         const SizedBox(height: 8),
@@ -209,36 +345,128 @@ class ExternalWorkDetailSheet extends StatelessWidget {
     if (hours == hours.roundToDouble()) return hours.toStringAsFixed(0);
     return hours.toStringAsFixed(1);
   }
+
+  static String? _unitPriceText(int? fen) {
+    if (fen == null) return null;
+    return FormatUtils.money(fen / 100);
+  }
+
+  static String? _compactRateText(String? rateText) {
+    if (rateText == null) return null;
+    return rateText.replaceAll('/h', '');
+  }
+
+  static String _rateLabel(AppLocalizations l10n, String rateText) {
+    final label = l10n.accountSingleRateLabel;
+    if (l10n.localeName.startsWith('zh')) return '$label$rateText';
+    return '$label $rateText';
+  }
+}
+
+class _AddPayablePillButton extends StatelessWidget {
+  const _AddPayablePillButton({required this.actionStyle, required this.label});
+
+  final TextStyle actionStyle;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final pillStyle = actionStyle.copyWith(
+      color: _addPayablePillText,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    );
+
+    return InkWell(
+      onTap: null,
+      borderRadius: BorderRadius.circular(999),
+      child: Opacity(
+        opacity: 0.46,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: _addPayablePillBackground,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: _addPayablePillBorder),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: pillStyle,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.child});
+  const _Card({super.key, required this.child});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
       ),
-      child: child,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AccountTokens.projectCardPaddingHorizontal,
+          vertical: AccountTokens.projectCardPaddingTop,
+        ),
+        decoration: const BoxDecoration(
+          color: SheetColors.background,
+          borderRadius: BorderRadius.all(
+            Radius.circular(AccountTokens.projectCardRadius),
+          ),
+          border: Border.fromBorderSide(
+            BorderSide(
+              color: AccountTokens.projectCardBorderColor,
+              width: AccountTokens.projectCardBorderWidth,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Color.fromRGBO(
+                0,
+                0,
+                0,
+                AccountTokens.projectCardShadowOpacity,
+              ),
+              blurRadius: AccountTokens.projectCardShadowBlur,
+              offset: Offset(
+                AccountTokens.projectCardShadowOffsetX,
+                AccountTokens.projectCardShadowOffsetY,
+              ),
+            ),
+          ],
+        ),
+        child: child,
+      ),
     );
   }
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value});
+  const _Metric({
+    required this.label,
+    required this.value,
+    required this.labelStyle,
+    required this.valueStyle,
+  });
 
   final String label;
   final String value;
+  final TextStyle? labelStyle;
+  final TextStyle? valueStyle;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         Expanded(
@@ -246,17 +474,18 @@ class _Metric extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.black.withValues(alpha: 0.55),
-            ),
+            softWrap: false,
+            style: labelStyle,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpace.sm),
         Text(
           value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          textAlign: TextAlign.right,
+          style: valueStyle,
         ),
       ],
     );
@@ -271,28 +500,37 @@ class _PayableProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = paidRatio.clamp(0.0, 1.0).toDouble();
-    final radius = BorderRadius.circular(4);
     return SizedBox(
-      height: 8,
-      child: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFE74C3C),
-              borderRadius: radius,
-            ),
-          ),
-          FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: ratio,
-            child: Container(
+      height: AccountTokens.projectCardProgressHeight,
+      width: double.infinity,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Stack(
+          children: [
+            Container(
+              height: AccountTokens.projectCardProgressFillHeight,
               decoration: BoxDecoration(
-                color: const Color(0xFF27AE60),
-                borderRadius: radius,
+                color: AccountTokens.overviewPieRemaining,
+                borderRadius: BorderRadius.circular(
+                  AccountTokens.projectCardProgressRadius,
+                ),
               ),
             ),
-          ),
-        ],
+            FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: ratio,
+              child: Container(
+                height: AccountTokens.projectCardProgressFillHeight,
+                decoration: BoxDecoration(
+                  color: AccountTokens.projectCardProgressFill,
+                  borderRadius: BorderRadius.circular(
+                    AccountTokens.projectCardProgressRadius,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

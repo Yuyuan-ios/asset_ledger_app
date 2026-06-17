@@ -29,6 +29,7 @@ void main() {
             site: '鲜滩',
             workDate: 20260503,
             amountFen: 61800,
+            sourceUnitPriceFen: 18000,
           ),
         ),
         _item(
@@ -39,6 +40,7 @@ void main() {
             site: '尚义',
             workDate: 20260501,
             amountFen: 1200000,
+            sourceUnitPriceFen: 20000,
           ),
         ),
         _item(
@@ -85,6 +87,7 @@ void main() {
       expect(unlinked.payableFen, 1261800);
       expect(unlinked.payable, 12618);
       expect(unlinked.recordCount, 2);
+      expect(unlinked.sourceUnitPriceText, '¥180/h, ¥200/h');
       expect(unlinked.linked, isFalse);
       expect(unlinked.linkedProjectId, isNull);
 
@@ -137,6 +140,7 @@ ExternalWorkRecord _record({
   required String site,
   required int workDate,
   required int amountFen,
+  int? sourceUnitPriceFen,
   String? linkedProjectId,
 }) {
   return ExternalWorkRecord.imported(
@@ -151,6 +155,7 @@ ExternalWorkRecord _record({
     siteSnapshot: site,
     workDate: workDate,
     hoursMilli: 1000,
+    sourceUnitPriceFen: sourceUnitPriceFen,
     amountFen: amountFen,
     linkedProjectId: linkedProjectId,
     createdAt: '2026-05-24T00:00:00.000',
