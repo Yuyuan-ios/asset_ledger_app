@@ -4,20 +4,25 @@ import '../../../timing/state/timing_external_work_store.dart';
 
 /// 单条外协记录的客户侧应收（分）。
 ///
-/// 重要：当前数据模型没有“我对项目方设置的客户侧单价”字段。三个金额字段都
-/// 在成本侧——
-/// - sourceUnitPriceFen 是来源方（外协朋友）原始成本单价（只读事实）；
-/// - localUnitPriceFen 是接收方本地复核的外协应付/结算单价；
-/// - amountFen 由应付单价算出，是外协应付成本总额。
-/// 客户结算/项目收入单价不在记录上（见 ExternalWorkRecord 字段注释）。
+/// 应收 = 我对项目方设置的客户侧应收单价 × 工时：
+/// - hours 记录且 `customerUnitPriceFen` 已设：hours × customerUnitPriceFen。
+/// - 未设客户单价（null）/ rent / 台班：回退到外协应付金额 `amountFen` 作占位
+///   （未加价时应收暂等于应付、毛利为 0）。这不是把应付当“成本”，而是此包尚无
+///   独立客户侧定价。
 ///
-/// 因此客户侧应收按“成本下限”入账：externalCustomerReceivable = amountFen，
-/// 即“客户至少应付”的下限，不含我方加价（markup）。真正的 markup/利润需要
-/// 后续为外协记录新增客户侧单价字段后才能表达。
-///
-/// 切勿用 sourceUnitPriceFen × hours 充当客户应收：那是成本单价，且当
-/// localUnitPriceFen 缺省时恒等于 amountFen，会把成本伪装成收入、利润恒为 0。
+/// 边界：
+/// - 切勿用 `sourceUnitPriceFen`：那是来源方（协作方）原始单价，属应付侧事实。
+/// - 外协应付（externalPayableFen = amountFen）= 应付给协作方的款项，分享人侧
+///   已定、不可改；客户单价只影响应收与毛利，绝不回写 amountFen。
 int externalWorkRecordReceivableFen(ExternalWorkRecord record) {
+  final customerPrice = record.customerUnitPriceFen;
+  if (record.recordKind == ExternalWorkRecordKind.hours &&
+      customerPrice != null) {
+    return ExternalWorkRecord.calculateAmountFen(
+      hoursMilli: record.hoursMilli,
+      unitPriceFen: customerPrice,
+    );
+  }
   return record.amountFen;
 }
 
@@ -80,7 +85,7 @@ class ExternalWorkReceivableRollup {
   /// 外协客户侧应收之和（每个 importBatch 只计一次）。
   final int externalCustomerReceivableFen;
 
-  /// 外协应付成本总额。
+  /// 外协应付总额（应付给协作方的款项，分享人侧已定、不可改）。
   final int externalPayableFen;
 
   /// 我方已收的外协项目款。当前恒为 0：projectReceivedFen 是来源方累计实收
@@ -90,8 +95,9 @@ class ExternalWorkReceivableRollup {
   /// 外协客户侧剩余应收，按总额截断到不小于 0。
   final int externalRemainingFen;
 
-  /// 外协利润（externalCustomerReceivableFen - externalPayableFen），允许为
-  /// 负数；当前成本下限口径下应收=应付，故恒为 0，待新增客户侧单价后才非零。
+  /// 外协毛利（externalCustomerReceivableFen - externalPayableFen，应付=付给
+  /// 协作方的款项），允许为负；未设客户单价时应收=应付故为 0，设了客户单价后
+  /// 为真实毛利。
   final int externalProfitFen;
 
   /// 已支付外协项目款。当前没有持久化数据源，保持 0，不能用应付金额冒充。

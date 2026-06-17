@@ -43,6 +43,7 @@ part 'migrations/migration_047.dart';
 part 'migrations/migration_048.dart';
 part 'migrations/migration_049.dart';
 part 'migrations/migration_050.dart';
+part 'migrations/migration_051.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -193,6 +194,10 @@ class DbMigrations {
 
   static Future<void> ensureSyncConflictsSchema(Database db) {
     return Migration050.ensureSyncConflictsSchema(db);
+  }
+
+  static Future<void> ensureExternalWorkCustomerPriceColumn(Database db) {
+    return Migration051.ensureExternalWorkCustomerPriceColumn(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

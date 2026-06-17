@@ -322,6 +322,58 @@ void main() {
       },
     );
 
+    test('setBatchCustomerUnitPriceFen sets customer price, keeps amountFen, '
+        'enqueues update sync', () async {
+      final db = await _openCurrentInMemoryDb();
+      final recordRepo = SqfliteExternalWorkRecordRepository();
+      await _insertBatchRecords();
+
+      final count = await recordRepo.setBatchCustomerUnitPriceFen(
+        importBatchId: 'batch-1',
+        customerUnitPriceFen: 50000,
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      );
+
+      expect(count, 2);
+      final records = await recordRepo.listByBatchId('batch-1');
+      for (final record in records) {
+        expect(record.customerUnitPriceFen, 50000);
+        // 应付固定：改客户单价不改 amountFen（1.5h × ¥300 = 45000）。
+        expect(record.amountFen, 45000);
+      }
+      await _expectExternalWorkSyncRows(
+        db,
+        records,
+        operation: 'update',
+        syncStatus: SyncStatus.pendingUpdate,
+      );
+      await _expectNoNonExternalWorkSyncRows(db);
+    });
+
+    test(
+      'setBatchCustomerUnitPriceFen null clears the customer price',
+      () async {
+        await _openCurrentInMemoryDb();
+        final recordRepo = SqfliteExternalWorkRecordRepository();
+        await _insertBatchRecords();
+        await recordRepo.setBatchCustomerUnitPriceFen(
+          importBatchId: 'batch-1',
+          customerUnitPriceFen: 50000,
+          updatedAt: '2026-05-22T00:00:00.000Z',
+        );
+
+        final cleared = await recordRepo.setBatchCustomerUnitPriceFen(
+          importBatchId: 'batch-1',
+          customerUnitPriceFen: null,
+          updatedAt: '2026-05-23T00:00:00.000Z',
+        );
+
+        expect(cleared, 2);
+        final records = await recordRepo.listByBatchId('batch-1');
+        expect(records.every((r) => r.customerUnitPriceFen == null), isTrue);
+      },
+    );
+
     test(
       'deleteById enqueues the deleted row snapshot as pending delete',
       () async {

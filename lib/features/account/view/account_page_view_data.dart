@@ -237,8 +237,9 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
 /// 给账户页计算结果附加外协展示信息，并生成总览 combined totals。
 ///
 /// 本地项目卡片的应收/待收/比例仍保持 local-only；总览 totals 额外纳入
-/// 外协客户侧应收（成本下限口径 = amountFen）。外协应付成本不并入总应收；
-/// 外协已收恒 0（projectReceivedFen 是来源方口径，见 gate #4），故不动已收。
+/// 外协客户侧应收（客户单价×工时，未设则回退到应付金额）。外协应付（付给
+/// 协作方的款项）不并入总应收；外协已收恒 0（projectReceivedFen 是来源方口径，
+/// 见 gate #4），故不动已收。
 AccountComputed augmentComputedWithExternalWork(
   AccountComputed computed,
   ExternalWorkReceivableRollup rollup,

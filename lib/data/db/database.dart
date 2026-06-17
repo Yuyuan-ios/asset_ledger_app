@@ -148,10 +148,12 @@ class AppDatabase {
   //        last_pull_cursor TEXT 兼容列，不改 push gate 行为。
   // - v50：新增 sync_conflicts（Track B / B3）；持久化 pull 冲突队列，
   //        以 (entity_type, entity_id, remote_server_seq) 防重复。
+  // - v51：external_work_records 新增 customer_unit_price_fen（nullable）；
+  //        我对项目方设置的客户侧应收单价，additive，旧库 onOpen 补列。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 50;
+  static const int _dbVersion = 51;
 
   static int get schemaVersion => _dbVersion;
 

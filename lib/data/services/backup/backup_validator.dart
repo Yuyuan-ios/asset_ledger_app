@@ -364,6 +364,7 @@ class _BackupRestoreValidator {
         normalized.putIfAbsent('equipment_type', () => null);
         normalized.putIfAbsent('source_unit_price_fen', () => null);
         normalized.putIfAbsent('local_unit_price_fen', () => null);
+        normalized.putIfAbsent('customer_unit_price_fen', () => null);
         normalized['project_received_fen'] ??= 0;
         normalized.putIfAbsent('linked_project_id', () => null);
         normalized['record_kind'] ??= 'hours';

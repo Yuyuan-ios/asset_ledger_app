@@ -52,6 +52,8 @@ class ExternalWorkSchema {
           CHECK (source_unit_price_fen IS NULL OR source_unit_price_fen >= 0),
         local_unit_price_fen INTEGER
           CHECK (local_unit_price_fen IS NULL OR local_unit_price_fen >= 0),
+        customer_unit_price_fen INTEGER
+          CHECK (customer_unit_price_fen IS NULL OR customer_unit_price_fen >= 0),
         amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
         project_received_fen INTEGER NOT NULL DEFAULT 0
           CHECK (project_received_fen >= 0),

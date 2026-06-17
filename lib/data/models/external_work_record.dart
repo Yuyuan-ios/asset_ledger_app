@@ -39,6 +39,7 @@ class ExternalWorkRecord {
     required this.hoursMilli,
     required this.sourceUnitPriceFen,
     required this.localUnitPriceFen,
+    this.customerUnitPriceFen,
     required this.amountFen,
     this.projectReceivedFen = 0,
     this.linkedProjectId,
@@ -67,6 +68,7 @@ class ExternalWorkRecord {
     required int hoursMilli,
     required int sourceUnitPriceFen,
     int? localUnitPriceFen,
+    int? customerUnitPriceFen,
     int projectReceivedFen = 0,
     String? linkedProjectId,
     ExternalWorkRecordKind recordKind = ExternalWorkRecordKind.hours,
@@ -97,6 +99,7 @@ class ExternalWorkRecord {
       hoursMilli: hoursMilli,
       sourceUnitPriceFen: sourceUnitPriceFen,
       localUnitPriceFen: localPriceFen,
+      customerUnitPriceFen: customerUnitPriceFen,
       amountFen: amountFen,
       projectReceivedFen: projectReceivedFen,
       linkedProjectId: linkedProjectId,
@@ -129,6 +132,7 @@ class ExternalWorkRecord {
     required int amountFen,
     int? sourceUnitPriceFen,
     int? localUnitPriceFen,
+    int? customerUnitPriceFen,
     int projectReceivedFen = 0,
     ExternalWorkRecordKind recordKind = ExternalWorkRecordKind.hours,
     String? linkedProjectId,
@@ -154,6 +158,7 @@ class ExternalWorkRecord {
       hoursMilli: hoursMilli,
       sourceUnitPriceFen: sourceUnitPriceFen,
       localUnitPriceFen: localUnitPriceFen,
+      customerUnitPriceFen: customerUnitPriceFen,
       amountFen: amountFen,
       projectReceivedFen: projectReceivedFen,
       linkedProjectId: linkedProjectId,
@@ -194,6 +199,13 @@ class ExternalWorkRecord {
   /// 不在这里，仍走接收方自己的项目/设备单价。
   /// 注意：计时页详情**不**展示这个字段，避免把"接收方复核值"伪装为"来源"。
   final int? localUnitPriceFen;
+
+  /// 我对项目方/客户设置的客户侧应收单价（分）。null = 未设客户单价。
+  /// 与应付侧 source/local/amount 解耦：外协应付（amountFen）= 应付给协作方的
+  /// 款项，在分享人侧已定、不可改；此列只决定账户页外协客户侧应收（应收 =
+  /// customer_unit_price_fen × 工时，未设则回退到应付金额）。账户页外协详情
+  /// "修改单价"写这里。
+  final int? customerUnitPriceFen;
   final int amountFen;
 
   /// 来源项目在导出时的累计实收款（分）。旧分享包 / 本地旧库默认为 0。
@@ -228,6 +240,7 @@ class ExternalWorkRecord {
     int? hoursMilli,
     Object? sourceUnitPriceFen = _sentinel,
     Object? localUnitPriceFen = _sentinel,
+    Object? customerUnitPriceFen = _sentinel,
     int? amountFen,
     int? projectReceivedFen,
     Object? linkedProjectId = _sentinel,
@@ -266,6 +279,9 @@ class ExternalWorkRecord {
       localUnitPriceFen: identical(localUnitPriceFen, _sentinel)
           ? this.localUnitPriceFen
           : localUnitPriceFen as int?,
+      customerUnitPriceFen: identical(customerUnitPriceFen, _sentinel)
+          ? this.customerUnitPriceFen
+          : customerUnitPriceFen as int?,
       amountFen: amountFen ?? this.amountFen,
       projectReceivedFen: projectReceivedFen ?? this.projectReceivedFen,
       linkedProjectId: identical(linkedProjectId, _sentinel)
@@ -304,6 +320,7 @@ class ExternalWorkRecord {
       'hours_milli': hoursMilli,
       'source_unit_price_fen': sourceUnitPriceFen,
       'local_unit_price_fen': localUnitPriceFen,
+      'customer_unit_price_fen': customerUnitPriceFen,
       'amount_fen': amountFen,
       'project_received_fen': projectReceivedFen,
       'linked_project_id': linkedProjectId,
@@ -339,6 +356,10 @@ class ExternalWorkRecord {
       localUnitPriceFen: _optionalNonNegativeIntCell(
         map,
         'local_unit_price_fen',
+      ),
+      customerUnitPriceFen: _optionalNonNegativeIntCell(
+        map,
+        'customer_unit_price_fen',
       ),
       amountFen: reader.requiredNonNegativeInt('amount_fen'),
       projectReceivedFen:

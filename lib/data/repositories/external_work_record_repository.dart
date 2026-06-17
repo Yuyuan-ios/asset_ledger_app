@@ -66,6 +66,17 @@ abstract class ExternalWorkRecordRepository {
     Object? note = _sentinel,
     required String updatedAt,
   });
+
+  /// 设置整个 importBatch 内 hours 记录的客户侧应收单价（分）。
+  ///
+  /// 只写 `customer_unit_price_fen`，**不动 amountFen**（外协应付在分享人侧已定、
+  /// 不可改）。null = 清除客户单价（应收回退到应付金额）。批内记录共享一个
+  /// sync group 入 outbox（参照 [linkBatchToProject]）。返回受影响行数。
+  Future<int> setBatchCustomerUnitPriceFen({
+    required String importBatchId,
+    required int? customerUnitPriceFen,
+    required String updatedAt,
+  });
 }
 
 class SqfliteExternalWorkRecordRepository
@@ -563,6 +574,46 @@ class SqfliteExternalWorkRecordRepository
     }
 
     return db.update(table, values, where: 'id = ?', whereArgs: [normalized]);
+  }
+
+  @override
+  Future<int> setBatchCustomerUnitPriceFen({
+    required String importBatchId,
+    required int? customerUnitPriceFen,
+    required String updatedAt,
+  }) async {
+    final normalizedBatchId = importBatchId.trim();
+    if (normalizedBatchId.isEmpty) return 0;
+    if (customerUnitPriceFen != null && customerUnitPriceFen < 0) {
+      throw ArgumentError.value(
+        customerUnitPriceFen,
+        'customerUnitPriceFen',
+        '客户应收单价不能为负',
+      );
+    }
+    return AppDatabase.inTransaction<int>((txn) async {
+      // 客户单价只对 hours 记录有意义（应收 = 单价 × 工时）；rent 记录不写。
+      // 批内改动共享一个 sync group，逐条 update 入 outbox。
+      final group = SyncTransactionGroup.create();
+      final count = await txn.update(
+        table,
+        {
+          'customer_unit_price_fen': customerUnitPriceFen,
+          'updated_at': updatedAt,
+        },
+        where: 'import_batch_id = ? AND record_kind = ?',
+        whereArgs: [normalizedBatchId, ExternalWorkRecordKind.hours.name],
+      );
+      if (count > 0) {
+        await _enqueueBatchUpdates(
+          txn,
+          batchId: normalizedBatchId,
+          group: group,
+          actor: _actorProvider?.call(),
+        );
+      }
+      return count;
+    });
   }
 
   static Future<void> insertRecordWithExecutor(

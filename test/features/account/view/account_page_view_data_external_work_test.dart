@@ -8,24 +8,42 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('externalWorkRecordReceivableFen', () {
-    test('receivable uses amountFen cost floor, never source unit price', () {
-      // 回归红线：source≠local 时，若误用 sourceUnitPriceFen×hours 会得 ¥450，
-      // 把成本伪装成收入。数据模型无客户侧单价，客户应收按成本下限=amountFen。
+    test('receivable falls back to amountFen when no customer price set', () {
+      // source≠local 且未设客户单价：应收回退到应付金额（amountFen），毛利 0。
+      // 红线：绝不用 sourceUnitPriceFen×hours（=¥450）冒充应收。
       final record = _record(
         id: 'r1',
         batchId: 'b1',
-        sourceUnitPriceFen: 30000, // 来源方成本单价 ¥300（只读事实）
+        sourceUnitPriceFen: 30000, // 来源方原始单价 ¥300（应付侧事实）
         localUnitPriceFen: 20000, // 本地复核应付单价 ¥200
       );
 
       expect(record.amountFen, 30000); // 应付：1.5h × ¥200
-      // 应收 = amountFen，绝不是 1.5h × ¥300 = 45000。
+      // 未设客户单价 → 应收 = amountFen（¥300），不是 1.5h × ¥300 = ¥450。
       expect(externalWorkRecordReceivableFen(record), 30000);
       final amounts = externalWorkRecordReceivableAmounts(record);
       expect(amounts.externalCustomerReceivableFen, 30000);
       expect(amounts.externalPayableFen, 30000);
       expect(amounts.externalProfitFen, 0);
       expect(amounts.externalReceivedFen, 0);
+    });
+
+    test('receivable uses customer unit price when set (markup)', () {
+      // 客户单价 ¥300/h、应付 ¥200/h、1.5h → 应收 450、应付 300、毛利 150。
+      final record = _record(
+        id: 'r1',
+        batchId: 'b1',
+        sourceUnitPriceFen: 20000,
+        localUnitPriceFen: 20000,
+        customerUnitPriceFen: 30000,
+      );
+
+      expect(record.amountFen, 30000); // 应付固定：1.5h × ¥200
+      expect(externalWorkRecordReceivableFen(record), 45000); // 1.5h × ¥300
+      final amounts = externalWorkRecordReceivableAmounts(record);
+      expect(amounts.externalCustomerReceivableFen, 45000);
+      expect(amounts.externalPayableFen, 30000);
+      expect(amounts.externalProfitFen, 15000); // 毛利 = 应收 − 应付
     });
 
     test(
@@ -70,6 +88,26 @@ void main() {
       expect(rollup.externalProfitFen, 0);
       expect(rollup.receivableFenByProjectId, {'project:a': 150000});
       expect(rollup.hoursByProjectId, {'project:a': 2.0});
+    });
+
+    test('rollup applies customer unit price for markup and profit', () {
+      final rollup = rollupExternalWorkReceivable([
+        _item(
+          _record(
+            id: 'a',
+            batchId: 'b1',
+            sourceUnitPriceFen: 20000,
+            localUnitPriceFen: 20000,
+            customerUnitPriceFen: 30000,
+          ),
+        ),
+      ]);
+
+      // 1.5h：应收 45000、应付 30000、毛利 15000、已收 0。
+      expect(rollup.externalCustomerReceivableFen, 45000);
+      expect(rollup.externalPayableFen, 30000);
+      expect(rollup.externalProfitFen, 15000);
+      expect(rollup.externalReceivedFen, 0);
     });
 
     test('excludes projectReceivedFen (source-side) from our received', () {
@@ -574,6 +612,7 @@ ExternalWorkRecord _record({
   required String batchId,
   required int sourceUnitPriceFen,
   int? localUnitPriceFen,
+  int? customerUnitPriceFen,
 }) {
   return ExternalWorkRecord.create(
     id: id,
@@ -589,6 +628,7 @@ ExternalWorkRecord _record({
     hoursMilli: 1500,
     sourceUnitPriceFen: sourceUnitPriceFen,
     localUnitPriceFen: localUnitPriceFen,
+    customerUnitPriceFen: customerUnitPriceFen,
     createdAt: '2026-05-18T00:00:00.000Z',
     updatedAt: '2026-05-18T00:00:00.000Z',
   );

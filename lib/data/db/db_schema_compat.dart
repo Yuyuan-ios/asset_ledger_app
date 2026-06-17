@@ -159,6 +159,9 @@ class DbSchemaCompat {
     // v50（Track B / B3）：sync_conflicts 是本地冲突复核队列，
     // 用 onOpen 兜底历史库结构漂移。
     await DbMigrations.ensureSyncConflictsSchema(db);
+    // v51：external_work_records.customer_unit_price_fen 是 additive 列
+    // （客户侧应收单价，nullable），用 onOpen 兜底历史库。
+    await DbMigrations.ensureExternalWorkCustomerPriceColumn(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {
