@@ -313,11 +313,12 @@ class _OverviewPaymentSummarySection extends StatelessWidget {
                 if (vm.externalCustomerReceivableFen > 0) ...[
                   const SizedBox(height: 4),
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment.centerRight,
                     child: Text(
                       '其中:外协应收 ${FormatUtils.money(vm.externalCustomerReceivableFen / 100)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
                       style: externalHintStyle,
                     ),
                   ),

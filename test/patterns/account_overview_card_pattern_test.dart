@@ -82,6 +82,10 @@ void main() {
     expect(find.text('其中:外协应收 ¥2000'), findsOneWidget);
     expect(find.textContaining('其中：'), findsNothing);
     expect(find.textContaining('其中: 外协应收'), findsNothing);
+
+    final totalValueRight = tester.getTopRight(find.text('¥3000')).dx;
+    final externalHintRight = tester.getTopRight(find.text('其中:外协应收 ¥2000')).dx;
+    expect((externalHintRight - totalValueRight).abs(), lessThan(1));
   });
 
   testWidgets(
