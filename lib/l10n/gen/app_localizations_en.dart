@@ -567,6 +567,50 @@ class AppLocalizationsEn extends AppLocalizations {
       'No external projects yet. Unlinked external work imports will appear here';
 
   @override
+  String get accountExternalWorkDetailTitle => 'External work details';
+
+  @override
+  String accountExternalHoursSummary(String hours) {
+    return 'Hours $hours h';
+  }
+
+  @override
+  String get accountExternalCustomerRateLabel => 'Receivable rate';
+
+  @override
+  String accountExternalPayableTotalSummary(String amount) {
+    return 'Payable total $amount';
+  }
+
+  @override
+  String accountExternalPaidPercent(int percent) {
+    return 'Paid $percent%';
+  }
+
+  @override
+  String accountExternalUnpaidAmount(String amount) {
+    return 'Unpaid $amount';
+  }
+
+  @override
+  String get accountExternalPaymentRecordsTitle => 'Payment records';
+
+  @override
+  String get accountExternalAddPayableAction => '+ Add payment';
+
+  @override
+  String get accountExternalPaymentsEmpty => 'Payment records coming soon';
+
+  @override
+  String get accountExternalCustomerRateEditTitle => 'Set receivable rate';
+
+  @override
+  String get accountExternalCustomerRateInputHint => 'Receivable rate (yuan)';
+
+  @override
+  String get accountExternalCustomerRateInvalid => 'Enter a valid amount';
+
+  @override
   String get accountProjectDetailTitle => 'Project details';
 
   @override

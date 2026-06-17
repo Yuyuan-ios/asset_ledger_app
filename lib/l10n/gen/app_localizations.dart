@@ -1082,6 +1082,78 @@ abstract class AppLocalizations {
   /// **'暂无外协项目（未关联外协包导入后将自动出现）'**
   String get accountExternalProjectsEmpty;
 
+  /// 账户模块:外协详情 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'外协详情'**
+  String get accountExternalWorkDetailTitle;
+
+  /// 账户模块:外协详情包内总工时
+  ///
+  /// In zh, this message translates to:
+  /// **'工时 {hours} h'**
+  String accountExternalHoursSummary(String hours);
+
+  /// 账户模块:外协详情客户侧应收单价标签
+  ///
+  /// In zh, this message translates to:
+  /// **'应收单价'**
+  String get accountExternalCustomerRateLabel;
+
+  /// 账户模块:外协详情应付总额
+  ///
+  /// In zh, this message translates to:
+  /// **'应付总额 {amount}'**
+  String accountExternalPayableTotalSummary(String amount);
+
+  /// 账户模块:外协详情应付进度已付百分比
+  ///
+  /// In zh, this message translates to:
+  /// **'已付 {percent}%'**
+  String accountExternalPaidPercent(int percent);
+
+  /// 账户模块:外协详情应付进度待付金额
+  ///
+  /// In zh, this message translates to:
+  /// **'待付 {amount}'**
+  String accountExternalUnpaidAmount(String amount);
+
+  /// 账户模块:外协详情支付记录区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'支付记录'**
+  String get accountExternalPaymentRecordsTitle;
+
+  /// 账户模块:外协详情新增应付按钮（本轮占位）
+  ///
+  /// In zh, this message translates to:
+  /// **'+ 新增应付'**
+  String get accountExternalAddPayableAction;
+
+  /// 账户模块:外协详情支付记录占位提示
+  ///
+  /// In zh, this message translates to:
+  /// **'支付记录即将上线'**
+  String get accountExternalPaymentsEmpty;
+
+  /// 账户模块:外协应收单价编辑对话框标题
+  ///
+  /// In zh, this message translates to:
+  /// **'设置应收单价'**
+  String get accountExternalCustomerRateEditTitle;
+
+  /// 账户模块:外协应收单价输入框占位
+  ///
+  /// In zh, this message translates to:
+  /// **'应收单价（元）'**
+  String get accountExternalCustomerRateInputHint;
+
+  /// 账户模块:外协应收单价输入校验错误
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效金额'**
+  String get accountExternalCustomerRateInvalid;
+
   /// 账户模块:项目详情 sheet 标题
   ///
   /// In zh, this message translates to:

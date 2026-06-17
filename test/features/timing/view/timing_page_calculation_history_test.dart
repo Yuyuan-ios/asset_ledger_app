@@ -1836,6 +1836,15 @@ class _FakeExternalWorkRecordRepository
   }) async {
     return 0;
   }
+
+  @override
+  Future<int> setBatchCustomerUnitPriceFen({
+    required String importBatchId,
+    required int? customerUnitPriceFen,
+    required String updatedAt,
+  }) async {
+    return 0;
+  }
 }
 
 const _externalSentinel = Object();

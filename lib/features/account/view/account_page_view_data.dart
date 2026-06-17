@@ -199,6 +199,19 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
     );
     assert(externalPayableFen == payableFen);
 
+    // hours 记录的总工时与客户侧应收单价（同包统一；取首条 hours 记录）。
+    // 用 recordKind.name 字符串比较，避免 presentation 层直接 import data 模型。
+    final hoursItems = batchItems
+        .where((item) => item.record.recordKind.name == 'hours')
+        .toList(growable: false);
+    final totalHoursMilli = hoursItems.fold<int>(
+      0,
+      (sum, item) => sum + item.record.hoursMilli,
+    );
+    final customerUnitPriceFen = hoursItems
+        .map((item) => item.record.customerUnitPriceFen)
+        .firstWhere((fen) => fen != null, orElse: () => null);
+
     final first = batchItems.first;
     final batch = first.batch;
     final sourceDisplayName = _firstNonEmpty([
@@ -220,6 +233,8 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
         remainingFen: externalRemainingFen,
         profitFen: profitFen,
         recordCount: batchItems.length,
+        totalHoursMilli: totalHoursMilli,
+        customerUnitPriceFen: customerUnitPriceFen,
         linked: linked,
         linkedProjectId: linked ? linkedProjectId : null,
       ),

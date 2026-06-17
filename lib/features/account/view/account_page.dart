@@ -34,6 +34,7 @@ import '../../../patterns/account/account_overview_card_pattern.dart';
 import '../../../patterns/account/account_project_detail_sheet_pattern.dart';
 import '../../../patterns/account/account_project_list_pattern.dart';
 import '../../../patterns/account/account_project_section_pattern.dart';
+import '../../../patterns/account/external_work_detail_sheet_pattern.dart';
 import '../use_cases/project_share_export_use_case.dart';
 import '../../../features/reports/use_cases/export_timing_worklog_excel_use_case.dart';
 import 'dialogs/project_share_export_dialog.dart';
@@ -761,6 +762,66 @@ class _AccountPageState extends State<AccountPage>
   // - 这里用 sheetCtx.watch(...)：保证详情里“保存/删除/改单价”后自动刷新 UI
   // - “新增收款”由详情内容区触发，并限定在当前项目范围内
   //
+  // =====================================================================
+  // ============================== 外协详情弹窗 ==============================
+  // =====================================================================
+  void _openExternalWorkDetail(AccountExternalWorkProjectVM project) {
+    openEditorSheet<void>(
+      context: context,
+      title: _l10n.accountExternalWorkDetailTitle,
+      scrollable: true,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AccountTokens.projectDetailContentInset,
+      ),
+      footerEnabled: false,
+      onConfirm: () => Navigator.of(context).maybePop(),
+      headerTrailingBuilder: (headerContext) => IconButton(
+        tooltip: _l10n.accountCloseTooltip,
+        icon: const Icon(Icons.close),
+        onPressed: () => Navigator.of(headerContext).maybePop(),
+      ),
+      childBuilder: (sheetContext) => Consumer<TimingExternalWorkStore?>(
+        builder: (context, externalWorkStore, _) {
+          // 用最新 store 重算 VM，使改价后弹窗即时刷新。
+          final items =
+              externalWorkStore?.items ??
+              const <TimingExternalWorkRecordItem>[];
+          var vm = project;
+          for (final candidate in buildAccountExternalWorkProjects(items)) {
+            if (candidate.importBatchId == project.importBatchId) {
+              vm = candidate;
+              break;
+            }
+          }
+          return ExternalWorkDetailSheet(
+            project: vm,
+            onEditCustomerRate: () => _openExternalCustomerRateEditor(vm),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openExternalCustomerRateEditor(
+    AccountExternalWorkProjectVM project,
+  ) async {
+    final externalWorkStore = context.read<TimingExternalWorkStore?>();
+    if (externalWorkStore == null) return;
+    final result = await showDialog<ExternalCustomerRateResult>(
+      context: context,
+      builder: (_) =>
+          ExternalCustomerRateDialog(initialFen: project.customerUnitPriceFen),
+    );
+    if (result == null || !mounted) return;
+    await externalWorkStore.setBatchCustomerUnitPriceFen(
+      project.importBatchId,
+      result.fen,
+    );
+    if (!mounted) return;
+    final feedback = storeActionFeedback(externalWorkStore, action: '保存');
+    if (!feedback.isSuccess) _toast(feedback.message);
+  }
+
   void _openProjectDetail(AccountProjectVM project) {
     openEditorSheet<void>(
       context: context,
@@ -1099,6 +1160,7 @@ class _AccountPageState extends State<AccountPage>
                                   viewData.filteredExternalWorkProjects,
                               isCompact: _isCompactProjectList,
                               onTap: _openProjectDetail,
+                              onExternalTap: _openExternalWorkDetail,
                               emptyText: _l10n.accountExternalProjectsEmpty,
                             ),
                           ),

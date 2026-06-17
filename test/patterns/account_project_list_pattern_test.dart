@@ -990,6 +990,72 @@ void main() {
     expect(progressWidthFactors.single, 1.0);
   });
 
+  testWidgets(
+    'external work card shows real gross profit when customer rate set',
+    (tester) async {
+      const externalProject = AccountExternalWorkProjectVM(
+        importBatchId: 'external-markup',
+        displayName: '余远 · 五里山',
+        sourceDisplayName: '余远',
+        siteSummary: '五里山',
+        minYmd: 20260617,
+        payableFen: 180000,
+        receivableFen: 200000,
+        profitFen: 20000,
+        customerUnitPriceFen: 20000,
+        recordCount: 1,
+      );
+
+      await tester.pumpWidget(
+        _localizedMaterialApp(
+          home: Scaffold(
+            body: AccountProjectList(
+              projects: const [],
+              externalWorkProjects: const [externalProject],
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      // 设了客户单价 → 毛利显真实值 ¥200，不再"待计算"。
+      expect(find.text('待计算'), findsNothing);
+      expect(find.text('¥200'), findsOneWidget);
+    },
+  );
+
+  testWidgets('tapping external work card fires onExternalTap', (tester) async {
+    const externalProject = AccountExternalWorkProjectVM(
+      importBatchId: 'external-tap',
+      displayName: '余远 · 五里山',
+      sourceDisplayName: '余远',
+      siteSummary: '五里山',
+      minYmd: 20260617,
+      payableFen: 180000,
+      receivableFen: 180000,
+      recordCount: 1,
+    );
+
+    AccountExternalWorkProjectVM? tapped;
+    await tester.pumpWidget(
+      _localizedMaterialApp(
+        home: Scaffold(
+          body: AccountProjectList(
+            projects: const [],
+            externalWorkProjects: const [externalProject],
+            onTap: (_) {},
+            onExternalTap: (p) => tapped = p,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const Key('account-external-work-card-external-tap')),
+    );
+    expect(tapped?.importBatchId, 'external-tap');
+  });
+
   testWidgets('external work payable progress shrinks red bar from the right', (
     tester,
   ) async {

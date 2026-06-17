@@ -534,6 +534,50 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountExternalProjectsEmpty => '暂无外协项目（未关联外协包导入后将自动出现）';
 
   @override
+  String get accountExternalWorkDetailTitle => '外协详情';
+
+  @override
+  String accountExternalHoursSummary(String hours) {
+    return '工时 $hours h';
+  }
+
+  @override
+  String get accountExternalCustomerRateLabel => '应收单价';
+
+  @override
+  String accountExternalPayableTotalSummary(String amount) {
+    return '应付总额 $amount';
+  }
+
+  @override
+  String accountExternalPaidPercent(int percent) {
+    return '已付 $percent%';
+  }
+
+  @override
+  String accountExternalUnpaidAmount(String amount) {
+    return '待付 $amount';
+  }
+
+  @override
+  String get accountExternalPaymentRecordsTitle => '支付记录';
+
+  @override
+  String get accountExternalAddPayableAction => '+ 新增应付';
+
+  @override
+  String get accountExternalPaymentsEmpty => '支付记录即将上线';
+
+  @override
+  String get accountExternalCustomerRateEditTitle => '设置应收单价';
+
+  @override
+  String get accountExternalCustomerRateInputHint => '应收单价（元）';
+
+  @override
+  String get accountExternalCustomerRateInvalid => '请输入有效金额';
+
+  @override
   String get accountProjectDetailTitle => '项目详情';
 
   @override

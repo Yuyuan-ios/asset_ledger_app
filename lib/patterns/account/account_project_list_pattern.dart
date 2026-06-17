@@ -55,6 +55,7 @@ class AccountProjectList extends StatelessWidget {
     required this.projects,
     required this.onTap,
     this.externalWorkProjects = const [],
+    this.onExternalTap,
     this.isCompact = false,
     this.onExportWorklog,
     this.canExportWorklog,
@@ -64,6 +65,9 @@ class AccountProjectList extends StatelessWidget {
   final List<AccountProjectVM> projects;
   final List<AccountExternalWorkProjectVM> externalWorkProjects;
   final ValueChanged<AccountProjectVM> onTap;
+
+  /// 点击外协卡片回调（打开外协详情弹窗）。null 时外协卡不可点。
+  final ValueChanged<AccountExternalWorkProjectVM>? onExternalTap;
   final bool isCompact;
   final ValueChanged<AccountProjectVM>? onExportWorklog;
   final bool Function(AccountProjectVM project)? canExportWorklog;
@@ -515,7 +519,11 @@ class AccountProjectList extends StatelessWidget {
           ),
         ],
         for (final project in externalWorkProjects)
-          _ExternalWorkProjectCard(project: project, isCompact: isCompact),
+          _ExternalWorkProjectCard(
+            project: project,
+            isCompact: isCompact,
+            onTap: onExternalTap == null ? null : () => onExternalTap!(project),
+          ),
       ],
     );
   }
@@ -525,10 +533,12 @@ class _ExternalWorkProjectCard extends StatelessWidget {
   const _ExternalWorkProjectCard({
     required this.project,
     required this.isCompact,
+    this.onTap,
   });
 
   final AccountExternalWorkProjectVM project;
   final bool isCompact;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +576,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       fontWeight: FontWeight.w500,
     );
 
-    return Container(
+    final Widget card = Container(
       key: Key('account-external-work-card-${project.importBatchId}'),
       margin: const EdgeInsets.only(
         bottom: AccountTokens.projectCardBottomMargin,
@@ -654,8 +664,12 @@ class _ExternalWorkProjectCard extends StatelessWidget {
                 Expanded(
                   child: _ExternalWorkMetric(
                     label: l10n.accountGrossProfitLabel,
-                    value: l10n.accountPendingCalculation,
-                    valueStyle: pendingValueStyle,
+                    value: project.hasCustomerUnitPrice
+                        ? FormatUtils.money(project.profit)
+                        : l10n.accountPendingCalculation,
+                    valueStyle: project.hasCustomerUnitPrice
+                        ? metricValueStyle
+                        : pendingValueStyle,
                     labelStyle: metricLabelStyle,
                     alignEnd: true,
                   ),
@@ -668,6 +682,16 @@ class _ExternalWorkProjectCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+
+    if (onTap == null) return card;
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
+        child: card,
       ),
     );
   }

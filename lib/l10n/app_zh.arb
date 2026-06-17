@@ -748,6 +748,74 @@
   "@accountExternalProjectsEmpty": {
     "description": "账户模块:外协项目列表为空提示"
   },
+  "accountExternalWorkDetailTitle": "外协详情",
+  "@accountExternalWorkDetailTitle": {
+    "description": "账户模块:外协详情 sheet 标题"
+  },
+  "accountExternalHoursSummary": "工时 {hours} h",
+  "@accountExternalHoursSummary": {
+    "description": "账户模块:外协详情包内总工时",
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "accountExternalCustomerRateLabel": "应收单价",
+  "@accountExternalCustomerRateLabel": {
+    "description": "账户模块:外协详情客户侧应收单价标签"
+  },
+  "accountExternalPayableTotalSummary": "应付总额 {amount}",
+  "@accountExternalPayableTotalSummary": {
+    "description": "账户模块:外协详情应付总额",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "accountExternalPaidPercent": "已付 {percent}%",
+  "@accountExternalPaidPercent": {
+    "description": "账户模块:外协详情应付进度已付百分比",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "accountExternalUnpaidAmount": "待付 {amount}",
+  "@accountExternalUnpaidAmount": {
+    "description": "账户模块:外协详情应付进度待付金额",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "accountExternalPaymentRecordsTitle": "支付记录",
+  "@accountExternalPaymentRecordsTitle": {
+    "description": "账户模块:外协详情支付记录区标题"
+  },
+  "accountExternalAddPayableAction": "+ 新增应付",
+  "@accountExternalAddPayableAction": {
+    "description": "账户模块:外协详情新增应付按钮（本轮占位）"
+  },
+  "accountExternalPaymentsEmpty": "支付记录即将上线",
+  "@accountExternalPaymentsEmpty": {
+    "description": "账户模块:外协详情支付记录占位提示"
+  },
+  "accountExternalCustomerRateEditTitle": "设置应收单价",
+  "@accountExternalCustomerRateEditTitle": {
+    "description": "账户模块:外协应收单价编辑对话框标题"
+  },
+  "accountExternalCustomerRateInputHint": "应收单价（元）",
+  "@accountExternalCustomerRateInputHint": {
+    "description": "账户模块:外协应收单价输入框占位"
+  },
+  "accountExternalCustomerRateInvalid": "请输入有效金额",
+  "@accountExternalCustomerRateInvalid": {
+    "description": "账户模块:外协应收单价输入校验错误"
+  },
   "accountProjectDetailTitle": "项目详情",
   "@accountProjectDetailTitle": {
     "description": "账户模块:项目详情 sheet 标题"

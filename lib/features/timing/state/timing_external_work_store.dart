@@ -122,6 +122,51 @@ class TimingExternalWorkStore extends BaseStore {
         .toList(growable: false);
   }
 
+  /// 设置整个外协包 hours 记录的客户侧应收单价（分），null 清除。
+  /// 只改应收侧，不动应付（amountFen 由分享人侧确定、不可改）。事务化写库后
+  /// 就地更新内存态（同包 hours 记录统一）。
+  Future<void> setBatchCustomerUnitPriceFen(
+    String batchId,
+    int? customerUnitPriceFen,
+  ) async {
+    final normalizedBatch = batchId.trim();
+    if (normalizedBatch.isEmpty) return;
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
+    await writeAndPatchLocalState<int>(
+      write: () => _recordRepository.setBatchCustomerUnitPriceFen(
+        importBatchId: normalizedBatch,
+        customerUnitPriceFen: customerUnitPriceFen,
+        updatedAt: updatedAt,
+      ),
+      patch: (_) {
+        _items = _patchBatchCustomerPrice(
+          normalizedBatch,
+          customerUnitPriceFen,
+        );
+      },
+    );
+  }
+
+  List<TimingExternalWorkRecordItem> _patchBatchCustomerPrice(
+    String batchId,
+    int? customerUnitPriceFen,
+  ) {
+    return _items
+        .map((item) {
+          if (item.record.importBatchId != batchId) return item;
+          if (item.record.recordKind != ExternalWorkRecordKind.hours) {
+            return item;
+          }
+          return TimingExternalWorkRecordItem(
+            record: item.record.copyWith(
+              customerUnitPriceFen: customerUnitPriceFen,
+            ),
+            batch: item.batch,
+          );
+        })
+        .toList(growable: false);
+  }
+
   Future<void> deleteByBatchId(String batchId) async {
     final normalized = batchId.trim();
     if (normalized.isEmpty) return;

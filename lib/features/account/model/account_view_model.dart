@@ -18,6 +18,12 @@ class AccountExternalWorkProjectVM {
   final int paidFen;
   final int recordCount;
 
+  /// 包内 hours 记录总工时（毫工时）。详情弹窗展示与改价预填用。
+  final int totalHoursMilli;
+
+  /// 我对项目方设置的客户侧应收单价（分）。null = 未设。包内 hours 记录统一。
+  final int? customerUnitPriceFen;
+
   /// 该外协包是否已关联到本地项目（已关联仍显示在外协页，头像带链条角标）。
   final bool linked;
 
@@ -36,6 +42,8 @@ class AccountExternalWorkProjectVM {
     this.profitFen = 0,
     this.paidFen = 0,
     required this.recordCount,
+    this.totalHoursMilli = 0,
+    this.customerUnitPriceFen,
     this.linked = false,
     this.linkedProjectId,
   });
@@ -44,6 +52,12 @@ class AccountExternalWorkProjectVM {
   double get receivable => receivableFen / 100;
   double get remaining => remainingFen / 100;
   double get profit => profitFen / 100;
+
+  /// 是否已设客户侧应收单价（决定外协卡"毛利"显真实值还是"待计算"）。
+  bool get hasCustomerUnitPrice => customerUnitPriceFen != null;
+
+  /// 包内 hours 总工时（小时）。
+  double get totalHours => totalHoursMilli / 1000;
 
   double get payablePaidRatio {
     if (payableFen <= 0) return 1;
