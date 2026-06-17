@@ -1,14 +1,22 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/services/backup/cloud_backup_service.dart';
+import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/cloud/cloud_backup_cipher.dart';
 import 'package:asset_ledger/infrastructure/cloud/cloud_backup_gateway.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_state_repository.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../../support/fake_cloud_api_client.dart';
 import '../../../test_setup.dart';
 
 /// 云端备份端到端：导出 → 包络上传 → 清库 → 下载校验 → 事务化恢复。
@@ -91,6 +99,17 @@ void main() {
     });
   }
 
+  SyncManager managerWith(FakeCloudApiClient client) {
+    return SyncManager(
+      outboxRepository: const LocalSyncOutboxRepository(),
+      apiClient: client,
+      syncStateRepository: const LocalSyncStateRepository(),
+      metaRepository: const LocalEntitySyncMetaRepository(),
+      liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
+      now: () => DateTime.utc(2026, 6, 17, 12),
+    );
+  }
+
   test('upload then restore round-trips business data', () async {
     final db = await openDb();
     await seedBusinessData(db);
@@ -127,6 +146,148 @@ void main() {
     final metadata = await service.listRemote();
     expect(metadata.single.backupId, upload.backupId);
   });
+
+  test('upload stamps current pull cursor watermark into envelope', () async {
+    final db = await openDb();
+    await seedBusinessData(db);
+    await const LocalSyncStateRepository().writePullCursor(42);
+
+    final gateway = _InMemoryCloudBackupGateway();
+    final service = CloudBackupService(gateway: gateway);
+
+    final upload = await service.uploadCurrent();
+    expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
+
+    final stored = gateway.envelopes[upload.backupId]!;
+    expect(stored.syncCursorWatermark, 42);
+    expect(stored.toJson()['sync_cursor_watermark'], 42);
+    expect(
+      CloudBackupService.payloadSha256(stored.payloadJson),
+      stored.payloadSha256,
+      reason: 'watermark is header metadata, not part of the payload hash',
+    );
+  });
+
+  test(
+    'upload stamps zero watermark when pull cursor has never been used',
+    () async {
+      final db = await openDb();
+      await seedBusinessData(db);
+
+      final gateway = _InMemoryCloudBackupGateway();
+      final service = CloudBackupService(gateway: gateway);
+
+      final upload = await service.uploadCurrent();
+      expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
+
+      expect(gateway.envelopes[upload.backupId]!.syncCursorWatermark, 0);
+    },
+  );
+
+  test(
+    'restore adopts watermark before pullPending applies only newer changes',
+    () async {
+      final db = await openDb();
+      await seedBusinessData(db);
+      await const LocalSyncStateRepository().writePullCursor(10);
+
+      final gateway = _InMemoryCloudBackupGateway();
+      final upload = await CloudBackupService(gateway: gateway).uploadCurrent();
+      expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
+
+      await AppDatabase.resetForTest();
+      final restoredDb = await openDb();
+
+      final restore = await CloudBackupService(
+        gateway: gateway,
+      ).restoreFromCloud(upload.backupId!);
+      expect(restore.success, isTrue, reason: restore.message);
+      expect(await const LocalSyncStateRepository().readPullCursor(), 10);
+      expect(await restoredDb.query('entity_sync_meta'), isEmpty);
+
+      final client = FakeCloudApiClient()
+        ..enqueueResponse(
+          _pullResponse([
+            _remoteTimingChange(
+              serverSeq: 9,
+              entityId: 1,
+              baseVersion: 0,
+              newVersion: 1,
+              incomeFen: 99999,
+            ),
+            _remoteTimingChange(
+              serverSeq: 11,
+              entityId: 1,
+              baseVersion: 1,
+              newVersion: 2,
+              incomeFen: 12345,
+            ),
+          ], nextCursor: 11),
+        );
+
+      final pull = await managerWith(client).pullPending(limit: 10);
+
+      expect(
+        client.receivedRequests.single.path,
+        '/sync/changes?since=10&limit=10',
+      );
+      expect(pull.skippedDuplicate, 1);
+      expect(pull.applied, 1);
+      expect(await const LocalSyncStateRepository().readPullCursor(), 11);
+      final rows = await restoredDb.query('timing_records');
+      expect(rows, hasLength(1));
+      expect(rows.single['income_fen'], 12345);
+    },
+  );
+
+  test(
+    'legacy envelope without watermark keeps cursor zero before full replay',
+    () async {
+      final db = await openDb();
+      await seedBusinessData(db);
+      await const LocalSyncStateRepository().writePullCursor(7);
+
+      final gateway = _InMemoryCloudBackupGateway();
+      final upload = await CloudBackupService(gateway: gateway).uploadCurrent();
+      expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
+      final stored = gateway.envelopes[upload.backupId]!;
+      gateway.envelopes['legacy'] = _legacyEnvelopeWithoutWatermark(stored);
+
+      await AppDatabase.resetForTest();
+      final restoredDb = await openDb();
+
+      final restore = await CloudBackupService(
+        gateway: gateway,
+      ).restoreFromCloud('legacy');
+      expect(restore.success, isTrue, reason: restore.message);
+      expect(await const LocalSyncStateRepository().readPullCursor(), 0);
+
+      final client = FakeCloudApiClient()
+        ..enqueueResponse(
+          _pullResponse([
+            _remoteTimingChange(
+              serverSeq: 1,
+              entityId: 1,
+              baseVersion: 0,
+              newVersion: 1,
+              incomeFen: 54321,
+            ),
+          ], nextCursor: 1),
+        );
+
+      final pull = await managerWith(client).pullPending(limit: 10);
+
+      expect(
+        client.receivedRequests.single.path,
+        '/sync/changes?since=0&limit=10',
+      );
+      expect(pull.applied, 1);
+      expect(await const LocalSyncStateRepository().readPullCursor(), 1);
+      final rows = await restoredDb.query('timing_records');
+      expect(rows, hasLength(1));
+      expect(rows.single['income_fen'], 54321);
+    },
+  );
 
   test('tampered payload is rejected and database stays untouched', () async {
     final db = await openDb();
@@ -311,6 +472,75 @@ void main() {
       },
     );
   });
+}
+
+CloudBackupEnvelope _legacyEnvelopeWithoutWatermark(
+  CloudBackupEnvelope source,
+) {
+  return CloudBackupEnvelope(
+    formatVersion: source.formatVersion,
+    createdAtIso: source.createdAtIso,
+    dbSchemaVersion: source.dbSchemaVersion,
+    payloadSha256: source.payloadSha256,
+    payloadBytes: source.payloadBytes,
+    payloadJson: source.payloadJson,
+    payloadEncoding: source.payloadEncoding,
+    encryption: source.encryption,
+  );
+}
+
+Map<String, Object?> _remoteTimingChange({
+  required int serverSeq,
+  required int entityId,
+  required int baseVersion,
+  required int newVersion,
+  required int incomeFen,
+}) {
+  final payloadJson = jsonEncode({
+    'payload_schema_version': 1,
+    'entity_type': 'timing_record',
+    'entity_id': entityId.toString(),
+    'operation': 'update',
+    'record': {
+      'id': entityId,
+      'project_id': 'project:cloud',
+      'device_id': 1,
+      'start_date': 20260601,
+      'allocation_cutoff_date': null,
+      'display_end_date': null,
+      'contact': '甲方',
+      'site': '云端工地',
+      'type': 'hours',
+      'start_meter': 0.0,
+      'end_meter': 7.5,
+      'hours': 7.5,
+      'income_fen': incomeFen,
+      'unit': 'HOUR',
+      'quantity_scaled': 7500,
+      'exclude_from_fuel_eff': 0,
+      'is_breaking': 0,
+    },
+  });
+  return {
+    'server_seq': serverSeq,
+    'entity_type': 'timing_record',
+    'entity_id': entityId.toString(),
+    'base_version': baseVersion,
+    'new_version': newVersion,
+    'payload_json': payloadJson,
+    'payload_hash': sha256.convert(utf8.encode(payloadJson)).toString(),
+    'deleted': false,
+  };
+}
+
+ApiResponse _pullResponse(
+  List<Map<String, Object?>> changes, {
+  required int nextCursor,
+}) {
+  return ApiResponse(
+    statusCode: 200,
+    bodyJson: jsonEncode({'changes': changes, 'next_cursor': nextCursor}),
+  );
 }
 
 class _FixedKeyProvider implements CloudBackupKeyProvider {

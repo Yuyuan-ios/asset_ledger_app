@@ -89,6 +89,33 @@ void main() {
       expect(client.receivedRequests.single.path, '/v1/backups/b%201%2Fx');
     });
 
+    test('decodeEnvelope reads optional sync cursor watermark', () {
+      final withWatermark = envelope().toJson();
+      withWatermark['sync_cursor_watermark'] = 42;
+      expect(
+        HttpCloudBackupGateway.decodeEnvelope(
+          withWatermark,
+        ).syncCursorWatermark,
+        42,
+      );
+
+      expect(
+        HttpCloudBackupGateway.decodeEnvelope(
+          envelope().toJson(),
+        ).syncCursorWatermark,
+        isNull,
+      );
+
+      final invalidWatermark = envelope().toJson();
+      invalidWatermark['sync_cursor_watermark'] = -1;
+      expect(
+        HttpCloudBackupGateway.decodeEnvelope(
+          invalidWatermark,
+        ).syncCursorWatermark,
+        isNull,
+      );
+    });
+
     test('decodeEnvelope rejects unsupported version, missing fields, '
         'and oversized payloads', () {
       expect(

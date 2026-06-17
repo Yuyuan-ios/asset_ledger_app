@@ -84,6 +84,7 @@ class CloudBackupEnvelope {
     required this.payloadJson,
     this.payloadEncoding = encodingPlaintext,
     this.encryption,
+    this.syncCursorWatermark,
   });
 
   static const int supportedFormatVersion = 1;
@@ -98,6 +99,7 @@ class CloudBackupEnvelope {
   final int formatVersion;
   final String createdAtIso;
   final int dbSchemaVersion;
+  final int? syncCursorWatermark;
 
   /// 对**线上传输体**（[payloadJson]）的 sha256：明文时即明文哈希，密文时即
   /// 密文 base64 的哈希。传输级完整性，网关 decode 不受加密影响。
@@ -122,6 +124,8 @@ class CloudBackupEnvelope {
       'format_version': formatVersion,
       'created_at': createdAtIso,
       'db_schema_version': dbSchemaVersion,
+      if (syncCursorWatermark != null)
+        'sync_cursor_watermark': syncCursorWatermark,
       'payload_sha256': payloadSha256,
       'payload_bytes': payloadBytes,
       'payload_encoding': payloadEncoding,
@@ -316,12 +320,25 @@ class HttpCloudBackupGateway implements CloudBackupGateway {
       formatVersion: formatVersion,
       createdAtIso: createdAt,
       dbSchemaVersion: dbSchemaVersion,
+      syncCursorWatermark: _optionalNonNegativeInt(
+        body['sync_cursor_watermark'],
+      ),
       payloadSha256: payloadSha256,
       payloadBytes: payloadBytes,
       payloadJson: payloadJson,
       payloadEncoding: payloadEncoding,
       encryption: encryption,
     );
+  }
+
+  static int? _optionalNonNegativeInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value >= 0 ? value : null;
+    if (value is num && value % 1 == 0) {
+      final intValue = value.toInt();
+      return intValue >= 0 ? intValue : null;
+    }
+    return null;
   }
 
   Map<String, Object?> _requireSuccess(ApiResponse response, String action) {

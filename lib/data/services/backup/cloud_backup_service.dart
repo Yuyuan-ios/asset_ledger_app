@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 
 import '../../../infrastructure/cloud/cloud_backup_cipher.dart';
 import '../../../infrastructure/cloud/cloud_backup_gateway.dart';
+import '../../../infrastructure/sync/sync_state_repository.dart';
 import '../../db/database.dart';
 import '../../models/backup_restore_result.dart';
 import '../local_backup_export_service.dart';
@@ -43,6 +44,7 @@ class CloudBackupService {
     DateTime Function()? now,
     CloudBackupKeyProvider? keyProvider,
     bool requireEncryption = false,
+    SyncStateRepository syncStateRepository = const LocalSyncStateRepository(),
   }) : _gateway = gateway,
        _exportBackup =
            exportBackup ?? LocalBackupExportService.exportJsonBackup,
@@ -51,7 +53,8 @@ class CloudBackupService {
            currentDbSchemaVersion ?? AppDatabase.schemaVersion,
        _now = now ?? DateTime.now,
        _keyProvider = keyProvider,
-       _requireEncryption = requireEncryption;
+       _requireEncryption = requireEncryption,
+       _syncStateRepository = syncStateRepository;
 
   final CloudBackupGateway _gateway;
   final Future<LocalBackupExportResult> Function() _exportBackup;
@@ -64,6 +67,7 @@ class CloudBackupService {
 
   /// 生产口径:要求加密但密钥不可用时**拒绝上传明文**(不静默降级)。
   final bool _requireEncryption;
+  final SyncStateRepository _syncStateRepository;
 
   /// 导出当前全库并上传。失败返回带码结果,不抛异常(供 UI 友好提示)。
   Future<CloudBackupUploadResult> uploadCurrent() async {
@@ -85,6 +89,7 @@ class CloudBackupService {
         errorMessage: '备份内容超出云端上限',
       );
     }
+    final syncCursorWatermark = await _syncStateRepository.readPullCursor();
 
     // 账号绑定客户端加密:有密钥则上传前加密(OSS 只存密文);密钥不可用时,
     // 生产口径拒绝上传明文,dev/未配置加密则明文(向后兼容)。
@@ -111,6 +116,7 @@ class CloudBackupService {
         payloadBytes: utf8.encode(encrypted.cipherTextBase64).length,
         payloadJson: encrypted.cipherTextBase64,
         payloadEncoding: CloudBackupEnvelope.encodingAesGcm,
+        syncCursorWatermark: syncCursorWatermark,
         encryption: CloudBackupEncryptionMeta(
           algo: CloudBackupCipher.algoName,
           kdf: CloudBackupCipher.kdfName,
@@ -135,6 +141,7 @@ class CloudBackupService {
         payloadSha256: payloadSha256(plaintextJson),
         payloadBytes: utf8.encode(plaintextJson).length,
         payloadJson: plaintextJson,
+        syncCursorWatermark: syncCursorWatermark,
       );
     }
     try {
@@ -219,7 +226,22 @@ class CloudBackupService {
       plaintextJson = envelope.payloadJson;
     }
 
-    return _restoreService.restoreFromJsonString(plaintextJson);
+    final result = await _restoreService.restoreFromJsonString(plaintextJson);
+    if (!result.success) return result;
+
+    final syncCursorWatermark = envelope.syncCursorWatermark;
+    if (syncCursorWatermark == null) return result;
+
+    try {
+      await _syncStateRepository.writePullCursor(syncCursorWatermark);
+    } catch (_) {
+      return BackupRestoreResult.failure(
+        message: '云端备份已恢复，但同步游标写入失败，请稍后重试恢复或重新同步。',
+        errorCode: 'sync_cursor_watermark_write_failed',
+        autoBackupPath: result.autoBackupPath,
+      );
+    }
+    return result;
   }
 
   /// payload 的 sha256(对备份 JSON 原文 UTF-8 字节,十六进制小写)。
