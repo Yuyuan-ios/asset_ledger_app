@@ -188,12 +188,9 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
     }
     if (payableFen <= 0 && receivableFen <= 0) continue;
 
-    final receivedFen = batchItems.fold<int>(0, (max, item) {
-      final recordReceivedFen = item.record.projectReceivedFen;
-      return recordReceivedFen > max ? recordReceivedFen : max;
-    });
-    final remainingFen = receivableFen - receivedFen;
-    final externalRemainingFen = remainingFen > 0 ? remainingFen : 0;
+    // projectReceivedFen 是来源方累计实收口径，不计入我方已收（见 gate #4），
+    // 故外协包“应收剩余” = 应收全额。
+    final externalRemainingFen = receivableFen > 0 ? receivableFen : 0;
     final profitFen = receivableFen - payableFen;
 
     final externalPayableFen = batchItems.fold<int>(
@@ -240,7 +237,8 @@ List<AccountExternalWorkProjectVM> buildAccountExternalWorkProjects(
 /// 给账户页计算结果附加外协展示信息，并生成总览 combined totals。
 ///
 /// 本地项目卡片的应收/待收/比例仍保持 local-only；总览 totals 额外纳入
-/// 外协客户侧应收与项目方已收款。外协应付成本不并入总应收或已收。
+/// 外协客户侧应收（成本下限口径 = amountFen）。外协应付成本不并入总应收；
+/// 外协已收恒 0（projectReceivedFen 是来源方口径，见 gate #4），故不动已收。
 AccountComputed augmentComputedWithExternalWork(
   AccountComputed computed,
   ExternalWorkReceivableRollup rollup,

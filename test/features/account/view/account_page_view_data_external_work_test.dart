@@ -8,21 +8,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('externalWorkRecordReceivableFen', () {
-    test('hours record with source unit price uses hours x source price', () {
+    test('receivable uses amountFen cost floor, never source unit price', () {
+      // 回归红线：source≠local 时，若误用 sourceUnitPriceFen×hours 会得 ¥450，
+      // 把成本伪装成收入。数据模型无客户侧单价，客户应收按成本下限=amountFen。
       final record = _record(
         id: 'r1',
         batchId: 'b1',
-        // 1.5h × ¥300/h = ¥450（与应付 amountFen 解耦）。
-        sourceUnitPriceFen: 30000,
-        localUnitPriceFen: 20000,
+        sourceUnitPriceFen: 30000, // 来源方成本单价 ¥300（只读事实）
+        localUnitPriceFen: 20000, // 本地复核应付单价 ¥200
       );
 
       expect(record.amountFen, 30000); // 应付：1.5h × ¥200
-      expect(externalWorkRecordReceivableFen(record), 45000); // 应收：1.5h × ¥300
+      // 应收 = amountFen，绝不是 1.5h × ¥300 = 45000。
+      expect(externalWorkRecordReceivableFen(record), 30000);
       final amounts = externalWorkRecordReceivableAmounts(record);
-      expect(amounts.externalCustomerReceivableFen, 45000);
+      expect(amounts.externalCustomerReceivableFen, 30000);
       expect(amounts.externalPayableFen, 30000);
-      expect(amounts.externalProfitFen, 15000);
+      expect(amounts.externalProfitFen, 0);
+      expect(amounts.externalReceivedFen, 0);
     });
 
     test(
@@ -69,7 +72,9 @@ void main() {
       expect(rollup.hoursByProjectId, {'project:a': 2.0});
     });
 
-    test('counts project received once per batch', () {
+    test('excludes projectReceivedFen (source-side) from our received', () {
+      // projectReceivedFen 是来源方累计实收口径，不是项目方付给我，恒不计入
+      // 我方已收；故 received=0、剩余=应收全额。
       final items = [
         _item(
           _imported(
@@ -100,8 +105,8 @@ void main() {
       final rollup = rollupExternalWorkReceivable(items);
 
       expect(rollup.totalReceivableFen, 180000);
-      expect(rollup.totalReceivedFen, 70000);
-      expect(rollup.externalRemainingFen, 110000);
+      expect(rollup.totalReceivedFen, 0);
+      expect(rollup.externalRemainingFen, 180000);
       expect(rollup.totalPaidExternalWorkFen, 0);
     });
 
@@ -138,7 +143,7 @@ void main() {
       final rollup = rollupExternalWorkReceivable(items);
 
       expect(rollup.totalReceivableFen, 90000);
-      expect(rollup.totalReceivedFen, 50000);
+      expect(rollup.totalReceivedFen, 0);
     });
 
     test('summaryYear filters external work by workDate year', () {
@@ -249,12 +254,13 @@ void main() {
 
       final augmented = augmentComputedWithExternalWork(computed, rollup);
 
-      // 外协不污染本地项目卡，但会进入总览 combined totals。
+      // 外协不污染本地项目卡，但会进入总览 combined totals。外协已收恒 0
+      // （projectReceivedFen 是来源方口径），故只加应收与剩余。
       expect(augmented.projects.single.receivable, 1000);
       expect(augmented.totalReceivable, 2000);
-      expect(augmented.totalReceived, 700);
-      expect(augmented.totalRemaining, 1300);
-      expect(augmented.totalRatio, 0.35);
+      expect(augmented.totalReceived, 300);
+      expect(augmented.totalRemaining, 1700);
+      expect(augmented.totalRatio, 0.15);
     });
 
     test('keeps explicit settled state when adding linked external work', () {
