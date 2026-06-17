@@ -50,6 +50,46 @@ void main() {
     expect(find.textContaining('条记录', findRichText: true), findsNothing);
   });
 
+  testWidgets('renders inactive device index label on timing recent records', (
+    WidgetTester tester,
+  ) async {
+    final device = Device(
+      id: 1,
+      name: 'SANY 1#',
+      brand: 'SANY',
+      defaultUnitPrice: 120,
+      baseMeterHours: 2000,
+      isActive: false,
+    );
+    final record = TimingRecord(
+      id: 1,
+      deviceId: 1,
+      startDate: 20260317,
+      contact: '赵六',
+      site: '尚义',
+      type: TimingType.hours,
+      startMeter: 2096,
+      endMeter: 2105,
+      hours: 9,
+      income: 1080,
+    );
+
+    await tester.pumpWidget(
+      _localizedApp(
+        Scaffold(
+          body: SectionRecentRecords(
+            records: [record],
+            deviceById: {1: device},
+            deviceIndexById: const {1: '已停用'},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('已停用'), findsOneWidget);
+    expect(find.text('1#'), findsNothing);
+  });
+
   testWidgets('shows aggregate record count and keeps children expandable', (
     WidgetTester tester,
   ) async {
@@ -269,10 +309,61 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Error 0.0, total 16.0 h'), findsOneWidget);
-    expect(find.text('Breaker'), findsOneWidget);
+    expect(find.text('Breaker 8.0 h'), findsOneWidget);
     expect(find.textContaining('条记录', findRichText: true), findsNothing);
     expect(find.textContaining('误差'), findsNothing);
     expect(find.text('破碎'), findsNothing);
+  });
+
+  testWidgets('sliver aggregate and breaking child use single-space hour gap', (
+    WidgetTester tester,
+  ) async {
+    final records = [
+      TimingRecord(
+        id: 40,
+        deviceId: 1,
+        startDate: 20260504,
+        contact: '李洋',
+        site: '鲜滩',
+        type: TimingType.hours,
+        startMeter: 5000,
+        endMeter: 5060,
+        hours: 60,
+        income: 10800,
+        isBreaking: true,
+      ),
+      TimingRecord(
+        id: 41,
+        deviceId: 1,
+        startDate: 20260504,
+        contact: '李洋',
+        site: '鲜滩',
+        type: TimingType.hours,
+        startMeter: 5060,
+        endMeter: 5065,
+        hours: 5,
+        income: 900,
+      ),
+    ];
+    final aggregateKeys = timingRecentAggregateKeys(records, const <String>{});
+
+    await tester.pumpWidget(
+      _localizedSliverHost(
+        buildTimingRecentRecordSlivers(
+          records: records,
+          deviceById: {1: _device},
+          deviceIndexById: const {1: '1#'},
+          locallyRemovedKeys: const <String>{},
+          expandedAggregateKeys: aggregateKeys,
+          onToggleAggregate: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('误差 0.0，累计 65.0 h'), findsOneWidget);
+    expect(find.text('破碎 60.0 h'), findsOneWidget);
+    expect(find.textContaining('累计  65.0 h'), findsNothing);
+    expect(find.textContaining('破碎  60.0 h'), findsNothing);
   });
 
   testWidgets('hides zero hours for rent recent record and keeps amount', (

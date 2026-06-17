@@ -94,7 +94,10 @@ List<Widget> _buildTimingRecordRows({
             titleOverride: _recordDateRangeText(record),
             subtitleOverride: deviceById[record.deviceId] == null
                 ? deviceIndexById[record.deviceId] ?? '?'
-                : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',
+                : _recordDeviceSubtitle(
+                    deviceById[record.deviceId],
+                    deviceIndexById[record.deviceId] ?? '?',
+                  ),
             subtitleEmphasized: false,
             onTap: onTapRecord == null ? null : () => onTapRecord(record),
           ),
@@ -112,6 +115,13 @@ List<Widget> _buildTimingRecordRows({
         ),
       )
       .toList();
+}
+
+String _recordDeviceSubtitle(Device? device, String deviceIndexText) {
+  final brand = device?.brand.trim() ?? '';
+  if (brand.isEmpty) return deviceIndexText;
+  final separator = deviceIndexText.endsWith('#') ? '' : ' ';
+  return '$brand$separator$deviceIndexText';
 }
 
 const double _recordGroupRadius = 8;

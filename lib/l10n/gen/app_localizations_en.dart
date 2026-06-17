@@ -1460,6 +1460,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceLedgerSectionTitle => 'Device operations';
 
   @override
+  String get deviceInactiveIndexLabel => 'Inactive';
+
+  @override
   String get deviceLedgerPaidFull => 'Paid in full';
 
   @override

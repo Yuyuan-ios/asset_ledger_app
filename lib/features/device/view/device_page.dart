@@ -984,10 +984,11 @@ class _DevicePageState extends State<DevicePage> {
     final paymentStore = context.watch<AccountPaymentStore>();
     final rateStore = context.watch<ProjectRateStore>();
     final accountStore = context.watch<AccountStore>();
-    final devices = store.activeDevices;
+    final activeDevices = store.activeDevices;
+    final allDevices = store.allDevices;
     final businessLedgers = _deviceBusinessLedgerUseCase.execute(
       timingRecords: timingStore.records,
-      devices: devices,
+      devices: allDevices,
       rates: rateStore.rates,
       payments: paymentStore.records,
       writeOffs: accountStore.writeOffs,
@@ -1024,7 +1025,7 @@ class _DevicePageState extends State<DevicePage> {
                   ],
                   ...buildDevicePageSections(
                     l10n: l10n,
-                    devices: devices,
+                    devices: activeDevices,
                     handlers: DevicePageSectionHandlers(
                       onOpenUpgradePage: _openUpgradePage,
                       onOpenAccountCenter: _openAccountCenter,

@@ -55,6 +55,7 @@ class DeviceBusinessLedger {
     required this.incomeFen,
     required this.unitTotals,
     required this.projects,
+    this.deviceIsActive = true,
   });
 
   final int deviceId;
@@ -62,6 +63,7 @@ class DeviceBusinessLedger {
   final int incomeFen;
   final List<DeviceBusinessUnitTotal> unitTotals;
   final List<DeviceBusinessProjectHistory> projects;
+  final bool deviceIsActive;
 }
 
 class DeviceBusinessLedgerUseCase {
@@ -122,6 +124,7 @@ class DeviceBusinessLedgerUseCase {
         DeviceBusinessLedger(
           deviceId: device.id!,
           deviceName: device.name,
+          deviceIsActive: device.isActive,
           incomeFen: incomeFenByDevice[device.id!] ?? 0,
           unitTotals: _unitTotalsForDevice(
             records: summaryRecords,

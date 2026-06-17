@@ -1362,6 +1362,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceLedgerSectionTitle => '设备经营';
 
   @override
+  String get deviceInactiveIndexLabel => '已停用';
+
+  @override
   String get deviceLedgerPaidFull => '已收齐';
 
   @override

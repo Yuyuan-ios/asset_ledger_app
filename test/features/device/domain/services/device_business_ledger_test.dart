@@ -207,6 +207,50 @@ void main() {
       expect(ledger.projects.single.projectName, '新项目 · B');
     });
 
+    test('keeps inactive devices when they still have historical records', () {
+      final devices = [
+        Device(
+          id: 1,
+          name: 'SANY 1#',
+          brand: 'SANY',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+          isActive: false,
+        ),
+      ];
+      final timingRecords = [
+        TimingRecord(
+          id: 1,
+          deviceId: 1,
+          startDate: 20260103,
+          contact: '李洋',
+          site: '万达',
+          type: TimingType.hours,
+          startMeter: 100,
+          endMeter: 102,
+          hours: 2,
+          income: 0,
+          unit: MeasureUnit.hour,
+          quantityScaled: 2000,
+        ),
+      ];
+
+      const useCase = DeviceBusinessLedgerUseCase();
+      final ledger = useCase
+          .execute(
+            timingRecords: timingRecords,
+            devices: devices,
+            rates: [],
+            payments: [],
+          )
+          .single;
+
+      expect(ledger.deviceName, 'SANY 1#');
+      expect(ledger.deviceIsActive, isFalse);
+      expect(ledger.incomeFen, 20000);
+      expect(ledger.projects.single.projectName, '李洋 · 万达');
+    });
+
     test(
       'merged account project name does not pass through member worker names',
       () {

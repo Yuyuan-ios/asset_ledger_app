@@ -837,7 +837,10 @@ class _TimingPageState extends State<TimingPage> {
       externalWorkStore,
     ], action: '读取');
     final deviceById = buildDeviceByIdMap(deviceStore.allDevices);
-    final deviceIndexById = DeviceLabel.indexMapById(deviceStore.allDevices);
+    final deviceIndexById = DeviceLabel.indexMapById(
+      deviceStore.allDevices,
+      inactiveLabel: AppLocalizations.of(context).deviceInactiveIndexLabel,
+    );
     final rateStore = context.watch<ProjectRateStore>();
     final chartData = _buildChartData(
       records: timingStore.records,

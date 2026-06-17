@@ -2551,6 +2551,12 @@ abstract class AppLocalizations {
   /// **'设备经营'**
   String get deviceLedgerSectionTitle;
 
+  /// 设备模块:设备停用后替代原编号显示的短标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用'**
+  String get deviceInactiveIndexLabel;
+
   /// 设备模块:设备经营已收齐状态
   ///
   /// In zh, this message translates to:

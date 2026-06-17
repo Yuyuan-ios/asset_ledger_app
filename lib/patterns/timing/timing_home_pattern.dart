@@ -175,10 +175,16 @@ class _TimingHomePatternState extends State<TimingHomePattern>
 
   String _deviceFilterLabel(int deviceId) {
     final device = widget.deviceById[deviceId];
+    final index = widget.deviceIndexById[deviceId]?.trim() ?? '?';
+    if (device != null && !device.isActive) {
+      final brand = device.brand.trim();
+      if (brand.isEmpty) return index;
+      return '$brand $index';
+    }
+
     final name = device?.name.trim() ?? '';
     if (name.isNotEmpty) return name;
 
-    final index = widget.deviceIndexById[deviceId]?.trim() ?? '?';
     final brand = device?.brand.trim() ?? '';
     if (brand.isEmpty) return index;
     return '$brand $index';

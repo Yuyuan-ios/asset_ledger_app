@@ -6,6 +6,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../tokens/mapper/device_tokens.dart';
+import '../domain/services/device_label.dart';
 import '../domain/services/device_business_ledger.dart';
 
 class DeviceBusinessLedgerSection extends StatelessWidget {
@@ -30,11 +31,19 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
       children: [
         for (final ledger in visible)
           DeviceActionCard(
-            title: ledger.deviceName,
+            title: _titleFor(l10n, ledger),
             subtitle: _subtitleFor(l10n, ledger),
             onTap: () {},
           ),
       ],
+    );
+  }
+
+  String _titleFor(AppLocalizations l10n, DeviceBusinessLedger ledger) {
+    if (ledger.deviceIsActive) return ledger.deviceName;
+    return DeviceLabel.replaceIndexLabel(
+      ledger.deviceName,
+      l10n.deviceInactiveIndexLabel,
     );
   }
 

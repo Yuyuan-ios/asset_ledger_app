@@ -130,6 +130,56 @@ void main() {
     expect(find.textContaining('1 项 · 待收 ¥450'), findsOneWidget);
   });
 
+  testWidgets('device business ledger marks inactive device title', (
+    WidgetTester tester,
+  ) async {
+    final l10n = lookupAppLocalizations(const Locale('zh'));
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Scaffold(
+          body: ListView(
+            children: buildDevicePageSections(
+              l10n: l10n,
+              devices: <Device>[],
+              handlers: DevicePageSectionHandlers(
+                onOpenUpgradePage: () {},
+                onOpenAccountCenter: () {},
+                accountCenterSubtitle:
+                    l10n.deviceAccountCenterLoggedOutSubtitle,
+                onOpenAddDeviceFlow: () {},
+                onOpenRateApp: () {},
+                onOpenTermsPage: () {},
+                onOpenPrivacyPage: () {},
+                onOpenContact: () {},
+                onDeviceTap: (_) {},
+                onDeviceLongPress: (_) {},
+                businessLedgers: const [
+                  DeviceBusinessLedger(
+                    deviceId: 1,
+                    deviceName: 'SANY 1#',
+                    deviceIsActive: false,
+                    incomeFen: 155000,
+                    unitTotals: [
+                      DeviceBusinessUnitTotal(
+                        unit: MeasureUnit.hour,
+                        quantityScaled: 2500,
+                      ),
+                    ],
+                    projects: [],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('SANY 已停用'), findsOneWidget);
+    expect(find.text('SANY 1#'), findsNothing);
+  });
+
   testWidgets(
     'account center shows login and purchase entries when logged out',
     (WidgetTester tester) async {

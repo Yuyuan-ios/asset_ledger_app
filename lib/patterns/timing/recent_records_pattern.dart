@@ -488,9 +488,9 @@ class _DateGroup extends StatelessWidget {
             subtitleEmphasis: deviceIndexById[aggregate.deviceId] ?? '?',
             subtitleSecondary:
                 ' ${l10n.timingRecentRecordCount(aggregate.records.length)}',
-            bottomRightOverride: l10n.timingRecentAggregateSummary(
-              FormatUtils.meter(aggregate.meterError),
-              FormatUtils.hours(aggregate.totalHours),
+            aggregateSummary: _AggregateRecordSummary(
+              meterError: aggregate.meterError,
+              totalHours: aggregate.totalHours,
             ),
             onTap: onToggleAggregate,
           ),
@@ -504,11 +504,11 @@ class _DateGroup extends StatelessWidget {
                 titleOverride: _recordDateRangeText(record),
                 subtitleOverride: deviceById[record.deviceId] == null
                     ? deviceIndexById[record.deviceId] ?? '?'
-                    : '${deviceById[record.deviceId]!.brand}${deviceIndexById[record.deviceId] ?? '?'}',
+                    : _recordDeviceSubtitle(
+                        deviceById[record.deviceId],
+                        deviceIndexById[record.deviceId] ?? '?',
+                      ),
                 subtitleEmphasized: false,
-                bottomRightOverride: record.isBreaking
-                    ? '${l10n.timingRecentBreakingBadge} ${FormatUtils.hours(record.hours)}'
-                    : FormatUtils.hours(record.hours),
                 onTap: onTapRecord == null ? null : () => onTapRecord!(record),
               ),
             ),
@@ -537,7 +537,6 @@ class _RecordRow extends StatelessWidget {
   final String? subtitleSecondary;
   final int? subtitleRecordCount;
   final bool subtitleEmphasized;
-  final String? bottomRightOverride;
   final _AggregateRecordSummary? aggregateSummary;
   final VoidCallback? onTap;
 
@@ -552,7 +551,6 @@ class _RecordRow extends StatelessWidget {
     this.subtitleSecondary,
     this.subtitleRecordCount,
     this.subtitleEmphasized = true,
-    this.bottomRightOverride,
     this.aggregateSummary,
     this.onTap,
   });
@@ -560,6 +558,7 @@ class _RecordRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     final titleStyle = textTheme.bodyMedium?.copyWith(
       fontSize: TimingTokens.recordTitleFontSize,
       color: AppColors.textPrimary,
@@ -586,16 +585,8 @@ class _RecordRow extends StatelessWidget {
         this.subtitleSecondary ??
         (subtitleRecordCount == null
             ? null
-            : ' ${AppLocalizations.of(context).timingRecentRecordCount(subtitleRecordCount)}');
+            : ' ${l10n.timingRecentRecordCount(subtitleRecordCount)}');
     final aggregateSummary = this.aggregateSummary;
-    final bottomRightOverride =
-        this.bottomRightOverride ??
-        (aggregateSummary == null
-            ? null
-            : AppLocalizations.of(context).timingRecentAggregateSummary(
-                FormatUtils.meter(aggregateSummary.meterError),
-                FormatUtils.hours(aggregateSummary.totalHours),
-              ));
     final content = Material(
       color: SheetColors.background,
       child: InkWell(
@@ -719,14 +710,31 @@ class _RecordRow extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (bottomRightOverride != null)
-                          Text(bottomRightOverride, style: valueStyle)
+                        if (aggregateSummary != null)
+                          _AlignedHoursMeta(
+                            label: _aggregateSummaryLabel(
+                              l10n,
+                              aggregateSummary,
+                            ),
+                            hoursText: FormatUtils.hours(
+                              aggregateSummary.totalHours,
+                            ),
+                            style: valueStyle,
+                          )
+                        else if (record.type != TimingType.rent)
+                          _AlignedHoursMeta(
+                            label: record.isBreaking
+                                ? l10n.timingRecentBreakingBadge
+                                : null,
+                            hoursText: shouldShowDurationForTimingRecord(record)
+                                ? FormatUtils.hours(record.hours)
+                                : null,
+                            style: valueStyle,
+                          )
                         else ...[
                           if (record.isBreaking) ...[
                             Text(
-                              AppLocalizations.of(
-                                context,
-                              ).timingRecentBreakingBadge,
+                              l10n.timingRecentBreakingBadge,
                               style: valueStyle,
                             ),
                             const SizedBox(
@@ -761,5 +769,43 @@ class _RecordRow extends StatelessWidget {
     );
 
     return content;
+  }
+
+  static String _aggregateSummaryLabel(
+    AppLocalizations l10n,
+    _AggregateRecordSummary summary,
+  ) {
+    return l10n
+        .timingRecentAggregateSummary(FormatUtils.meter(summary.meterError), '')
+        .trimRight();
+  }
+}
+
+class _AlignedHoursMeta extends StatelessWidget {
+  const _AlignedHoursMeta({
+    required this.label,
+    required this.hoursText,
+    required this.style,
+  });
+
+  final String? label;
+  final String? hoursText;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelText = label;
+    final hours = hoursText;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (labelText != null && labelText.isNotEmpty && hours != null)
+          Text('$labelText $hours', style: style)
+        else if (labelText != null && labelText.isNotEmpty)
+          Text(labelText, style: style)
+        else if (hours != null)
+          Text(hours, style: style),
+      ],
+    );
   }
 }

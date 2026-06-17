@@ -9,12 +9,36 @@ class DeviceLabel {
     return '$idx#';
   }
 
-  static Map<int, String> indexMapById(Iterable<Device> devices) {
+  static String replaceIndexLabel(String deviceName, String indexLabel) {
+    final name = deviceName.trim();
+    final label = indexLabel.trim();
+    if (label.isEmpty) return name;
+
+    final match = RegExp(r'(\d+)\s*#').firstMatch(name);
+    if (match == null) {
+      return name.isEmpty ? label : '$name $label';
+    }
+
+    final prefix = name.substring(0, match.start).trimRight();
+    final suffix = name.substring(match.end).trimLeft();
+    return [
+      if (prefix.isNotEmpty) prefix,
+      label,
+      if (suffix.isNotEmpty) suffix,
+    ].join(' ');
+  }
+
+  static Map<int, String> indexMapById(
+    Iterable<Device> devices, {
+    String? inactiveLabel,
+  }) {
     final out = <int, String>{};
     for (final device in devices) {
       final id = device.id;
       if (id == null) continue;
-      out[id] = indexOnly(device.name);
+      out[id] = !device.isActive && inactiveLabel != null
+          ? inactiveLabel
+          : indexOnly(device.name);
     }
     return out;
   }
