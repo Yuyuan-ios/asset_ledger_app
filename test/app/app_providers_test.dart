@@ -27,6 +27,7 @@ import 'package:asset_ledger/features/timing/state/timing_external_work_store.da
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
+import 'package:asset_ledger/app/sync_runtime.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -60,6 +61,7 @@ void main() {
       late ExternalWorkImportConfirmer externalWorkImportConfirmer;
       late TimingExternalWorkStore timingExternalWorkStore;
       late CloudBackupController cloudBackupController;
+      late SyncRuntime syncRuntime;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
       late FuelStore fuelStore;
@@ -111,6 +113,7 @@ void main() {
                 timingExternalWorkStore = context
                     .read<TimingExternalWorkStore>();
                 cloudBackupController = context.read<CloudBackupController>();
+                syncRuntime = context.read<SyncRuntime>();
                 deviceStore = context.read<DeviceStore>();
                 timingStore = context.read<TimingStore>();
                 fuelStore = context.read<FuelStore>();
@@ -173,6 +176,8 @@ void main() {
         identical(cloudBackupController, bundle.cloudBackupController),
         isTrue,
       );
+      expect(identical(syncRuntime, bundle.syncRuntime), isTrue);
+      expect(syncRuntime.isUnavailable, isTrue);
     },
   );
 }

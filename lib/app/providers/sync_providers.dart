@@ -1,0 +1,94 @@
+import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
+
+import '../../infrastructure/cloud/api_client.dart';
+import '../../infrastructure/cloud/http_cloud_api_client.dart';
+import '../../infrastructure/sync/sync_device_registration.dart';
+import '../../infrastructure/sync/sync_live_readiness_gate.dart';
+import '../../infrastructure/sync/sync_manager.dart';
+import '../../infrastructure/sync/sync_repositories.dart';
+import '../../infrastructure/sync/sync_state_repository.dart';
+import '../identity/app_identity_service.dart';
+import '../phone_login_store.dart';
+import '../sync_runtime.dart';
+import '../sync_transport_config.dart';
+
+typedef SyncCloudApiClientFactory =
+    CloudApiClient Function({
+      required String baseUrl,
+      required Future<String?> Function() accessTokenProvider,
+    });
+
+class SyncProviders {
+  SyncProviders._({required this.runtime, required this.providers});
+
+  final SyncRuntime runtime;
+  final List<SingleChildWidget> providers;
+
+  factory SyncProviders.build({
+    SyncTransportEndpointConfig? endpointConfig,
+    PhoneLoginStore phoneLoginStore = const SharedPreferencesPhoneLoginStore(),
+    SyncCloudApiClientFactory cloudApiClientFactory = _createHttpCloudApiClient,
+    SyncDeviceRegistrationStore registrationStore =
+        const SharedPreferencesSyncDeviceRegistrationStore(),
+    String Function()? deviceIdProvider,
+  }) {
+    final config = endpointConfig ?? SyncTransportConfig.current;
+    if (!config.isAvailable) {
+      final runtime = SyncRuntime.unavailable(
+        config.disabledMessage ?? '同步服务暂未配置',
+      );
+      return SyncProviders._(
+        runtime: runtime,
+        providers: [Provider<SyncRuntime>.value(value: runtime)],
+      );
+    }
+
+    final currentDeviceId =
+        deviceIdProvider ?? () => AppIdentityService.instance.currentDeviceId;
+    final deviceId = currentDeviceId().trim();
+    final cloudClient = cloudApiClientFactory(
+      baseUrl: config.baseUrl!,
+      accessTokenProvider: () async {
+        final session = await phoneLoginStore.read();
+        return session.isAuthenticated ? session.authToken : null;
+      },
+    );
+    final syncManager = SyncManager(
+      outboxRepository: const LocalSyncOutboxRepository(),
+      apiClient: cloudClient,
+      syncStateRepository: const LocalSyncStateRepository(),
+      liveReadinessGate: const DefaultSyncLiveReadinessGate(),
+      localDeviceId: deviceId.isEmpty ? null : deviceId,
+    );
+    final deviceRegistrar = SyncDeviceRegistrar(
+      apiClient: cloudClient,
+      registrationStore: registrationStore,
+      deviceIdProvider: () => deviceId,
+    );
+    final runtime = SyncRuntime.available(
+      baseUrl: config.baseUrl!,
+      syncManager: syncManager,
+      deviceRegistrar: deviceRegistrar,
+    );
+
+    return SyncProviders._(
+      runtime: runtime,
+      providers: [
+        Provider<SyncRuntime>.value(value: runtime),
+        Provider<SyncManager>.value(value: syncManager),
+        Provider<SyncDeviceRegistrar>.value(value: deviceRegistrar),
+      ],
+    );
+  }
+
+  static CloudApiClient _createHttpCloudApiClient({
+    required String baseUrl,
+    required Future<String?> Function() accessTokenProvider,
+  }) {
+    return HttpCloudApiClient(
+      baseUrl: baseUrl,
+      accessTokenProvider: accessTokenProvider,
+    );
+  }
+}

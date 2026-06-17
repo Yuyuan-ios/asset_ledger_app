@@ -9,11 +9,13 @@ import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
 import '../features/timing/state/timing_external_work_store.dart';
 import '../features/timing/state/timing_store.dart';
+import 'sync_runtime.dart';
 import 'providers/account_merge_providers.dart';
 import 'providers/device_fleet_providers.dart';
 import 'providers/external_work_providers.dart';
 import 'providers/identity_providers.dart';
 import 'providers/project_providers.dart';
+import 'providers/sync_providers.dart';
 import 'providers/timing_delete_providers.dart';
 import 'providers/timing_providers.dart';
 import 'providers/timing_save_providers.dart';
@@ -25,6 +27,7 @@ class AppProviders {
   static AppProviderBundle build() {
     final deviceFleet = DeviceFleetProviders.build();
     final identity = IdentityProviders.build();
+    final sync = SyncProviders.build();
     final project = ProjectProviders.build();
     final timing = TimingProviders.build(
       projectResolver: project.projectResolver,
@@ -54,6 +57,7 @@ class AppProviders {
       fuelStore: deviceFleet.fuelStore,
       maintenanceStore: deviceFleet.maintenanceStore,
       cloudBackupController: deviceFleet.cloudBackupController,
+      syncRuntime: sync.runtime,
       paymentStore: accountMerge.paymentStore,
       projectRateStore: accountMerge.projectRateStore,
       accountStore: accountMerge.accountStore,
@@ -61,6 +65,7 @@ class AppProviders {
       providers: [
         ...deviceFleet.providers,
         ...identity.providers,
+        ...sync.providers,
         ...project.providers,
         ...timing.providers,
         ...accountMerge.providers,
@@ -78,6 +83,7 @@ class AppProviderBundle {
   final FuelStore fuelStore;
   final MaintenanceStore maintenanceStore;
   final CloudBackupController cloudBackupController;
+  final SyncRuntime syncRuntime;
   final AccountPaymentStore paymentStore;
   final ProjectRateStore projectRateStore;
   final AccountStore accountStore;
@@ -90,6 +96,7 @@ class AppProviderBundle {
     required this.fuelStore,
     required this.maintenanceStore,
     required this.cloudBackupController,
+    required this.syncRuntime,
     required this.paymentStore,
     required this.projectRateStore,
     required this.accountStore,
