@@ -381,10 +381,9 @@ void main() {
     });
   });
 
-  group('sync_manager_pushPending_has_no_production_caller', () {
+  group('sync_manager_pushPending_production_caller_lock', () {
     test(
-      'lib/ does not call SyncManager.pushPending anywhere (only the '
-      'declaration in sync_manager.dart); wiring it is a deliberate change',
+      'lib/ only calls SyncManager.pushPending from the gated production caller',
       () {
         final libDir = Directory('${Directory.current.path}/lib');
         final callers = <String>[];
@@ -400,12 +399,21 @@ void main() {
         }
         expect(
           callers,
-          isEmpty,
+          ['lib/app/sync_production_caller.dart'],
           reason:
-              'SyncManager.pushPending has no production caller; the return '
-              'type SyncPushResult is therefore safe. If you wire it into a '
-              'scheduler/UI, update this lock and the caller together.\n'
+              'SyncManager.pushPending must remain behind the B6.4 '
+              'config/readiness-gated production caller.\n'
               '${callers.join('\n')}',
+        );
+        final callerSource = File(
+          '${Directory.current.path}/lib/app/sync_production_caller.dart',
+        ).readAsStringSync();
+        expect(callerSource, contains('_liveReadinessGate.check()'));
+        expect(
+          callerSource.indexOf('_liveReadinessGate.check()'),
+          lessThan(
+            callerSource.indexOf('pushPending(mode: SyncPushMode.live)'),
+          ),
         );
       },
     );

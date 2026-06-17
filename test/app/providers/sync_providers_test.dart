@@ -1,7 +1,9 @@
 import 'package:asset_ledger/app/phone_login_store.dart';
 import 'package:asset_ledger/app/providers/sync_providers.dart';
+import 'package:asset_ledger/app/sync_production_caller.dart';
 import 'package:asset_ledger/app/sync_runtime.dart';
 import 'package:asset_ledger/app/sync_transport_config.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_device_registration.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
 import 'package:flutter/widgets.dart';
@@ -35,8 +37,10 @@ void main() {
     expect(providers.runtime.isUnavailable, isTrue);
     expect(providers.runtime.syncManager, isNull);
     expect(providers.runtime.deviceRegistrar, isNull);
+    expect(providers.caller, isA<SyncProductionCaller>());
 
     late SyncRuntime runtime;
+    late SyncProductionCaller caller;
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
@@ -45,6 +49,7 @@ void main() {
           child: Builder(
             builder: (context) {
               runtime = context.read<SyncRuntime>();
+              caller = context.read<SyncProductionCaller>();
               return const SizedBox.shrink();
             },
           ),
@@ -53,6 +58,7 @@ void main() {
     );
 
     expect(identical(runtime, providers.runtime), isTrue);
+    expect(identical(caller, providers.caller), isTrue);
     expect(runtime.isUnavailable, isTrue);
   });
 
@@ -83,6 +89,7 @@ void main() {
             return client;
           },
       registrationStore: InMemorySyncDeviceRegistrationStore(),
+      liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
       deviceIdProvider: () => 'device-1',
     );
 
@@ -90,6 +97,7 @@ void main() {
     expect(providers.runtime.baseUrl, 'https://sync.example.com');
     expect(providers.runtime.syncManager, isA<SyncManager>());
     expect(providers.runtime.deviceRegistrar, isA<SyncDeviceRegistrar>());
+    expect(providers.caller, isA<SyncProductionCaller>());
     expect(capturedBaseUrl, 'https://sync.example.com');
     expect(await capturedTokenProvider(), 'token-1');
 

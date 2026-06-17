@@ -10,6 +10,7 @@ import '../../infrastructure/sync/sync_repositories.dart';
 import '../../infrastructure/sync/sync_state_repository.dart';
 import '../identity/app_identity_service.dart';
 import '../phone_login_store.dart';
+import '../sync_production_caller.dart';
 import '../sync_runtime.dart';
 import '../sync_transport_config.dart';
 
@@ -20,9 +21,14 @@ typedef SyncCloudApiClientFactory =
     });
 
 class SyncProviders {
-  SyncProviders._({required this.runtime, required this.providers});
+  SyncProviders._({
+    required this.runtime,
+    required this.caller,
+    required this.providers,
+  });
 
   final SyncRuntime runtime;
+  final SyncProductionCaller caller;
   final List<SingleChildWidget> providers;
 
   factory SyncProviders.build({
@@ -31,6 +37,8 @@ class SyncProviders {
     SyncCloudApiClientFactory cloudApiClientFactory = _createHttpCloudApiClient,
     SyncDeviceRegistrationStore registrationStore =
         const SharedPreferencesSyncDeviceRegistrationStore(),
+    SyncLiveReadinessGate liveReadinessGate =
+        const DefaultSyncLiveReadinessGate(),
     String Function()? deviceIdProvider,
   }) {
     final config = endpointConfig ?? SyncTransportConfig.current;
@@ -38,9 +46,17 @@ class SyncProviders {
       final runtime = SyncRuntime.unavailable(
         config.disabledMessage ?? '同步服务暂未配置',
       );
+      final caller = SyncProductionCaller(
+        runtime: runtime,
+        liveReadinessGate: liveReadinessGate,
+      );
       return SyncProviders._(
         runtime: runtime,
-        providers: [Provider<SyncRuntime>.value(value: runtime)],
+        caller: caller,
+        providers: [
+          Provider<SyncRuntime>.value(value: runtime),
+          Provider<SyncProductionCaller>.value(value: caller),
+        ],
       );
     }
 
@@ -58,7 +74,7 @@ class SyncProviders {
       outboxRepository: const LocalSyncOutboxRepository(),
       apiClient: cloudClient,
       syncStateRepository: const LocalSyncStateRepository(),
-      liveReadinessGate: const DefaultSyncLiveReadinessGate(),
+      liveReadinessGate: liveReadinessGate,
       localDeviceId: deviceId.isEmpty ? null : deviceId,
     );
     final deviceRegistrar = SyncDeviceRegistrar(
@@ -71,11 +87,17 @@ class SyncProviders {
       syncManager: syncManager,
       deviceRegistrar: deviceRegistrar,
     );
+    final caller = SyncProductionCaller(
+      runtime: runtime,
+      liveReadinessGate: liveReadinessGate,
+    );
 
     return SyncProviders._(
       runtime: runtime,
+      caller: caller,
       providers: [
         Provider<SyncRuntime>.value(value: runtime),
+        Provider<SyncProductionCaller>.value(value: caller),
         Provider<SyncManager>.value(value: syncManager),
         Provider<SyncDeviceRegistrar>.value(value: deviceRegistrar),
       ],

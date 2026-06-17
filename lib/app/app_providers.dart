@@ -9,6 +9,7 @@ import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
 import '../features/timing/state/timing_external_work_store.dart';
 import '../features/timing/state/timing_store.dart';
+import 'sync_production_caller.dart';
 import 'sync_runtime.dart';
 import 'providers/account_merge_providers.dart';
 import 'providers/device_fleet_providers.dart';
@@ -58,6 +59,7 @@ class AppProviders {
       maintenanceStore: deviceFleet.maintenanceStore,
       cloudBackupController: deviceFleet.cloudBackupController,
       syncRuntime: sync.runtime,
+      syncProductionCaller: sync.caller,
       paymentStore: accountMerge.paymentStore,
       projectRateStore: accountMerge.projectRateStore,
       accountStore: accountMerge.accountStore,
@@ -84,6 +86,7 @@ class AppProviderBundle {
   final MaintenanceStore maintenanceStore;
   final CloudBackupController cloudBackupController;
   final SyncRuntime syncRuntime;
+  final SyncProductionCaller syncProductionCaller;
   final AccountPaymentStore paymentStore;
   final ProjectRateStore projectRateStore;
   final AccountStore accountStore;
@@ -97,6 +100,7 @@ class AppProviderBundle {
     required this.maintenanceStore,
     required this.cloudBackupController,
     required this.syncRuntime,
+    required this.syncProductionCaller,
     required this.paymentStore,
     required this.projectRateStore,
     required this.accountStore,
