@@ -94,6 +94,32 @@ void main() {
     expect(uiCopy, contains('Type a keyword to filter (optional)'));
   });
 
+  testWidgets('renders fuel efficiency total timing text', (tester) async {
+    final agg = FuelEfficiencyAgg(deviceId: 1)
+      ..totalLiters = 40
+      ..totalCost = 400
+      ..totalHours = 10
+      ..totalTimingHours = 13.5;
+
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: SizedBox(
+          height: 120,
+          child: FuelEfficiencySummary(
+            byDevice: {1: agg},
+            deviceNameOf: (_) => 'SANY 1#',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('SANY 1#'), findsOneWidget);
+    expect(find.text('13.5 h'), findsOneWidget);
+    expect(find.text('4.0 L/h'), findsOneWidget);
+    expect(find.text('40.0 ¥/h'), findsOneWidget);
+  });
+
   testWidgets('renders fuel delete dialog strings in English', (tester) async {
     await tester.pumpWidget(
       _localizedApp(

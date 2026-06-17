@@ -13,7 +13,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/foundation/spacing.dart';
 import '../../../core/foundation/typography.dart';
 
 import '../domain/entities/maintenance_entities.dart';
@@ -22,6 +21,8 @@ import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../../../tokens/mapper/account_tokens.dart';
+import '../../../tokens/mapper/fuel_tokens.dart';
 
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -203,18 +204,18 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.body(
       context,
-      fontSize: 14,
+      fontSize: FuelTokens.summaryCardTitleSize,
       fontWeight: FontWeight.w800,
       color: Colors.black,
     );
     final nameStyle = AppTypography.body(
       context,
-      fontSize: 13,
+      fontSize: FuelTokens.summaryCardNameSize,
       color: Colors.black,
     );
     final valueStyle = AppTypography.caption(
       context,
-      fontSize: 12,
+      fontSize: FuelTokens.summaryCardMetricSize,
       fontWeight: FontWeight.w700,
       color: Colors.black,
     );
@@ -235,6 +236,46 @@ class _MaintenancePageState extends State<MaintenancePage> {
       color: TimingColors.textSecondary,
     );
 
+    Widget buildDeviceSummaryRow({
+      required MaintenanceDeviceSummaryVM deviceSummary,
+      required Color markerColor,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(
+          left: FuelTokens.summaryCardTitleSize,
+          bottom: FuelTokens.summaryCardRowBottomGap,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: markerColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      deviceSummary.deviceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: nameStyle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(FormatUtils.money(deviceSummary.amount), style: valueStyle),
+          ],
+        ),
+      );
+    }
+
     if (!summary.hasData) {
       return FuelSummaryCard(
         child: Align(
@@ -249,28 +290,15 @@ class _MaintenancePageState extends State<MaintenancePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(l10n.maintenanceSummaryTitle, style: titleStyle),
-          const SizedBox(height: 10),
+          const SizedBox(height: FuelTokens.summaryCardItemGap),
 
           // 设备分摊
-          for (final deviceSummary in summary.deviceSummaries)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.sm),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      deviceSummary.deviceName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: nameStyle,
-                    ),
-                  ),
-                  Text(
-                    FormatUtils.money(deviceSummary.amount),
-                    style: valueStyle,
-                  ),
-                ],
-              ),
+          for (var i = 0; i < summary.deviceSummaries.length; i++)
+            buildDeviceSummaryRow(
+              deviceSummary: summary.deviceSummaries[i],
+              markerColor:
+                  AccountTokens.overviewChartPalette[i %
+                      AccountTokens.overviewChartPalette.length],
             ),
 
           // 公共支出

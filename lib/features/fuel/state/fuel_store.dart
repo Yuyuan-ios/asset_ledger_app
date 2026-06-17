@@ -28,6 +28,7 @@ import '../../../core/utils/base_store.dart';
 // ✅ 效率口径（All time，按设备聚合）：
 // - litersPerHour = 总升数 / 总工时小时
 // - costPerHour   = 总金额 / 总工时小时
+// - totalTimingHours = 展示用总计时，包含租金/台班模式录入的 hours
 //
 // ✅ 计时分母规则（你已确认 + 本次新增）：
 // - TimingType.rent：不计入燃油效率（忽略其 hours）
@@ -172,12 +173,13 @@ class FuelStore extends BaseStore {
       agg.totalCost += f.effectiveCost;
     }
 
-    // 7.2 聚合：工时（只计入“参与燃油效率”的工时）
+    // 7.2 聚合：展示总计时 + 效率分母
     for (final t in timingRecords) {
-      if (!_countsTowardFuelEfficiency(t)) continue;
-
       final id = t.deviceId;
       final agg = m.putIfAbsent(id, () => FuelEfficiencyAgg(deviceId: id));
+      agg.totalTimingHours += t.hours;
+
+      if (!_countsTowardFuelEfficiency(t)) continue;
       agg.totalHours += t.hours;
     }
 
@@ -203,6 +205,7 @@ class FuelStore extends BaseStore {
       total.totalLiters += a.totalLiters;
       total.totalCost += a.totalCost;
       total.totalHours += a.totalHours;
+      total.totalTimingHours += a.totalTimingHours;
     }
     return total;
   }

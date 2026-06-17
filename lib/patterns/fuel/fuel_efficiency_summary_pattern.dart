@@ -66,6 +66,7 @@ class FuelEfficiencySummary extends StatelessWidget {
       final agg = byDevice[id]!;
       final name = deviceNameOf(id);
       final markerColor = colorById[id] ?? Colors.grey;
+      final totalTimingText = FormatUtils.hours(agg.totalTimingHours);
       final litersText = fmtRate(agg.litersPerHour, suffix: 'L/h');
       final costText = fmtRate(agg.costPerHour, suffix: '¥/h');
       return Padding(
@@ -101,6 +102,15 @@ class FuelEfficiencySummary extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                SizedBox(
+                  width: FuelTokens.summaryHoursColumnWidth,
+                  child: Text(
+                    totalTimingText,
+                    textAlign: TextAlign.right,
+                    style: metricStyle,
+                  ),
+                ),
+                const SizedBox(width: FuelTokens.summaryMetricColumnGap),
                 SizedBox(
                   width: FuelTokens.summaryLitersColumnWidth,
                   child: Text(

@@ -32,6 +32,7 @@ class FuelTokens {
   static const double summaryCardRowBottomGap = 8; // 汇总卡片条目间距
   static const double summaryCardNameSize = 13; // 设备名称字号
   static const double summaryCardMetricSize = 12; // 指标字号
+  static const double summaryHoursColumnWidth = 58; // 右侧总计时列固定宽度（右对齐）
   static const double summaryLitersColumnWidth = 60; // 右侧 L/h 列固定宽度（右对齐）
   static const double summaryCostColumnWidth = 70; // 右侧 ¥/h 列固定宽度（右对齐）
   static const double summaryMetricColumnGap = 0; // 右侧两列之间的固定间距

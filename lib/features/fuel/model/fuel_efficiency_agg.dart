@@ -8,7 +8,12 @@ class FuelEfficiencyAgg {
 
   double totalLiters = 0.0;
   double totalCost = 0.0;
+
+  /// 燃油效率分母：仅包含参与燃油效率统计的工时。
   double totalHours = 0.0;
+
+  /// 展示用总计时：包含设备所有计时记录填入的 hours，包括租金/台班模式。
+  double totalTimingHours = 0.0;
 
   FuelEfficiencyAgg({required this.deviceId});
 
