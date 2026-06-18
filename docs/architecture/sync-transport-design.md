@@ -1,8 +1,8 @@
 # Track B 同步传输 — 设计 / 协议文档 v1.0
 
-> 状态：协议定稿，未动工。Track A（money-fen 收口 A1-A5）已完成并在 dev，
-> `SyncLiveReadinessGate` 现仅剩唯一硬阻断 `real-cloud-transport-not-configured`
-> —— 本 Track 做完即可由 B7 退休它、开 live 同步。
+> 状态：B1–B7 代码侧已完成并在 dev；live 路径由传输配置驱动，
+> 未设置 `FLEET_LEDGER_SYNC_BASE_URL` 时保持 dormant。仅剩运维：部署 ECS、
+> smoke、设置 `FLEET_LEDGER_SYNC_BASE_URL` 后开 live 同步。
 
 ## 0. 现状地基（已有 / 缺）
 - **已有**：`enqueue`（本地写→`sync_outbox`）已接生产；`SyncManager.pushPending`
@@ -93,12 +93,23 @@ backup envelope 增加 `sync_cursor_watermark` 字段（备份设备**自己 sta
 - **B5** bootstrap（backup watermark + 恢复后增量）。
 - **B6** 生产 caller / 后台同步调度；单实体 `timing_record` 门控；dry-run→live；
   配 `FLEET_LEDGER_SYNC_BASE_URL`。
-- **B7** 部署后端到 ECS + smoke + **翻 readiness gate 退休 `real-cloud-transport-not-configured`**。
+- **B7** 代码侧前置已完成并在 dev；仅剩运维：部署后端到 ECS、smoke、设置
+  `FLEET_LEDGER_SYNC_BASE_URL`，由传输配置退休 `real-cloud-transport-not-configured`。
 
 ## 10. 安全 / 测试
 账号隔离（account 来自 token）；大陆 ECS/SQLite 数据本地化；日志不含 token/payload。
 端到端 fake-cloud loop（扩 pull+conflict）+ 后端单测 + 冲突矩阵测试。
 
-## 11. 留待 B1 实现时敲定（不阻塞定稿）
-- 变更日志 tombstone 保留期与压缩策略。
-- push 批次的事务组（transaction_group）原子性边界（整组成功 or 整组拒绝）。
+## 11. 审计后已定策略（不改后端行为）
+- 变更日志 tombstone：**永久保留、不做压缩**。单实体低量下存储成本可忽略；
+  日后量级显著增长时再单独复审。
+- push 批次事务组（transaction_group）：**保持逐条接受/冲突语义**。整组原子性
+  随「多实体同步」延后，本期单实体同步非目标。
+
+以上两项为审计后拍板的保守口径，仅落文档，不改变现有后端行为。
+
+## 12. Backlog
+- 云备份服务端硬化延后：
+  (1) 备份包络 header 纳入完整性签名；
+  (2) 备份/同步 API 服务端 Pro entitlement 校验（需先定校验来源：商店 receipt
+  验证或 token entitlement claim）。属云备份线，非 sync 上线必需。
