@@ -327,7 +327,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			shellScript = "BUILT_PRODUCTS_DIR=\"${PODS_CONFIGURATION_BUILD_DIR}\" \"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		77DF1A27CF5E0F801F479F81 /* [CP] Check Pods Manifest.lock */ = {
