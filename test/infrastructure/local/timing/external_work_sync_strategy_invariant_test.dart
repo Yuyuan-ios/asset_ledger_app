@@ -523,11 +523,11 @@ void main() {
         'warnings',
         'delete-meta-lifecycle-deferred',
         'terminal-failed-admin-reset-deferred',
-        'persistent-telemetry-deferred',
         'bool get isReady => hardBlockers.isEmpty',
         'List<String> get missingPrerequisites => hardBlockers',
         'String get blockedReason',
       ]);
+      expect(liveReadiness, isNot(contains('persistent-telemetry-deferred')));
       // R5.22-B: SyncManager now orders the pending rows by transaction group
       // and local sequence, acks (deletes) successes, and bumps retry/backoff
       // on failures.

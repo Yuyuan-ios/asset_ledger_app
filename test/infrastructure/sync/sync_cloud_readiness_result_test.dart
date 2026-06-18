@@ -42,8 +42,11 @@ void main() {
           containsAll(<String>[
             'delete-meta-lifecycle-deferred',
             'terminal-failed-admin-reset-deferred',
-            'persistent-telemetry-deferred',
           ]),
+        );
+        expect(
+          result.warnings,
+          isNot(contains('persistent-telemetry-deferred')),
         );
         expect(
           result.missingPrerequisites,

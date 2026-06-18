@@ -18,6 +18,7 @@ import hashlib
 import hmac
 import http.server
 import json
+import logging
 import os
 import sqlite3
 import time
@@ -33,6 +34,8 @@ MAX_BATCH_CHANGES = 100
 DEFAULT_PULL_LIMIT = 100
 MAX_PULL_LIMIT = 500
 VALID_OPERATIONS = {"create", "update", "delete"}
+
+LOGGER = logging.getLogger("fleet_ledger.cloud_sync")
 
 
 class HttpError(Exception):
@@ -663,14 +666,62 @@ class SyncApp:
         return self.authenticator.authenticate(handler.headers.get("authorization"))
 
     def push_changes(self, account_id: str, body: Mapping[str, Any]) -> Dict[str, Any]:
-        changes = parse_changes_body(body)
-        return self.store.push_changes(account_id, changes)
+        started = time.monotonic()
+        accepted = 0
+        conflicts = 0
+        status = "ok"
+        try:
+            changes = parse_changes_body(body)
+            result = self.store.push_changes(account_id, changes)
+            accepted = len(result["accepted"])
+            conflicts = len(result["conflicts"])
+            return result
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            log_sync_event(
+                {
+                    "account_id": account_id,
+                    "op": "push",
+                    "accepted": accepted,
+                    "conflicts": conflicts,
+                    "duration_ms": duration_ms_since(started),
+                    "status": status,
+                }
+            )
 
     def pull_changes(self, account_id: str, query: Mapping[str, List[str]]) -> Dict[str, Any]:
-        since = parse_query_int(query, "since", 0, minimum=0)
-        limit = parse_query_int(query, "limit", self.default_pull_limit, minimum=1)
-        limit = min(limit, self.max_pull_limit)
-        return self.store.pull_changes(account_id, since, limit)
+        started = time.monotonic()
+        since = 0
+        next_cursor = 0
+        returned = 0
+        status = "ok"
+        try:
+            since = parse_query_int(query, "since", 0, minimum=0)
+            next_cursor = since
+            limit = parse_query_int(query, "limit", self.default_pull_limit, minimum=1)
+            limit = min(limit, self.max_pull_limit)
+            result = self.store.pull_changes(account_id, since, limit)
+            returned = len(result["changes"])
+            next_cursor = int(result["next_cursor"])
+            return result
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            log_sync_event(
+                {
+                    "account_id": account_id,
+                    "op": "pull",
+                    "applied": 0,
+                    "returned": returned,
+                    "since": since,
+                    "next_cursor": next_cursor,
+                    "duration_ms": duration_ms_since(started),
+                    "status": status,
+                }
+            )
 
     def register_device(self, account_id: str, body: Mapping[str, Any]) -> Dict[str, str]:
         device_id = require_text(body.get("device_id"), "device_id", max_length=128)
@@ -757,6 +808,14 @@ def parse_query_int(query: Mapping[str, List[str]], key: str, default: int, *, m
     if value < minimum:
         raise HttpError(400, "invalid_query", f"{key} must be >= {minimum}")
     return value
+
+
+def duration_ms_since(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
+
+
+def log_sync_event(fields: Mapping[str, Any]) -> None:
+    LOGGER.info("sync_event %s", json.dumps(fields, sort_keys=True, separators=(",", ":")))
 
 
 def utc_now_iso() -> str:

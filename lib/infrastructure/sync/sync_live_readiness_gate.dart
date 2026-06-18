@@ -36,7 +36,6 @@ class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate {
   static const List<String> warnings = [
     'delete-meta-lifecycle-deferred',
     'terminal-failed-admin-reset-deferred',
-    'persistent-telemetry-deferred',
   ];
 
   @override

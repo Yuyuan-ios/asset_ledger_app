@@ -8,6 +8,7 @@ import '../../infrastructure/sync/sync_live_readiness_gate.dart';
 import '../../infrastructure/sync/sync_manager.dart';
 import '../../infrastructure/sync/sync_repositories.dart';
 import '../../infrastructure/sync/sync_state_repository.dart';
+import '../../infrastructure/sync/sync_telemetry.dart';
 import '../identity/app_identity_service.dart';
 import '../phone_login_store.dart';
 import '../sync_production_caller.dart';
@@ -37,6 +38,8 @@ class SyncProviders {
     SyncCloudApiClientFactory cloudApiClientFactory = _createHttpCloudApiClient,
     SyncDeviceRegistrationStore registrationStore =
         const SharedPreferencesSyncDeviceRegistrationStore(),
+    SyncTelemetryStore telemetryStore =
+        const SharedPreferencesSyncTelemetryStore(),
     SyncLiveReadinessGate? liveReadinessGate,
     String Function()? deviceIdProvider,
   }) {
@@ -51,6 +54,7 @@ class SyncProviders {
       final caller = SyncProductionCaller(
         runtime: runtime,
         liveReadinessGate: gate,
+        telemetryStore: telemetryStore,
       );
       return SyncProviders._(
         runtime: runtime,
@@ -58,6 +62,7 @@ class SyncProviders {
         providers: [
           Provider<SyncRuntime>.value(value: runtime),
           Provider<SyncProductionCaller>.value(value: caller),
+          Provider<SyncTelemetryStore>.value(value: telemetryStore),
         ],
       );
     }
@@ -92,6 +97,7 @@ class SyncProviders {
     final caller = SyncProductionCaller(
       runtime: runtime,
       liveReadinessGate: gate,
+      telemetryStore: telemetryStore,
     );
 
     return SyncProviders._(
@@ -102,6 +108,7 @@ class SyncProviders {
         Provider<SyncProductionCaller>.value(value: caller),
         Provider<SyncManager>.value(value: syncManager),
         Provider<SyncDeviceRegistrar>.value(value: deviceRegistrar),
+        Provider<SyncTelemetryStore>.value(value: telemetryStore),
       ],
     );
   }

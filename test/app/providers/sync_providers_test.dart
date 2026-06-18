@@ -14,6 +14,7 @@ import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../support/fake_cloud_api_client.dart';
@@ -24,6 +25,7 @@ void main() {
   configureTestDatabase();
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     await AppDatabase.resetForTest();
     AppDatabase.debugInitDbOverride = () {
       return openDatabase(
