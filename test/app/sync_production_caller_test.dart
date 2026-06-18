@@ -10,6 +10,7 @@ import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_state_repository.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_telemetry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -19,6 +20,7 @@ import '../test_setup.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
+  final fixedTelemetryNow = DateTime.utc(2026, 6, 2, 3, 4, 5);
 
   setUp(() async {
     await AppDatabase.resetForTest();
@@ -39,24 +41,40 @@ void main() {
   });
 
   test('unavailable runtime returns no-op result without network', () async {
+    final telemetryStore = _RecordingTelemetryStore();
     final caller = SyncProductionCaller(
       runtime: const SyncRuntime.unavailable('sync unavailable'),
       liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
+      telemetryStore: telemetryStore,
+      now: () => fixedTelemetryNow,
     );
 
     final result = await caller.runOnce();
 
     expect(result.status, SyncProductionCallStatus.unavailable);
     expect(result.reason, 'sync unavailable');
+    final telemetry = telemetryStore.writes.single;
+    expect(telemetry.trigger, SyncProductionTrigger.manual.name);
+    expect(telemetry.status, SyncTelemetryStatus.unavailable);
+    expect(telemetry.reason, 'sync unavailable');
+    expect(telemetry.error, isNull);
+    expect(telemetry.pullApplied, 0);
+    expect(telemetry.pullConflicts, 0);
+    expect(telemetry.pushPushed, 0);
+    expect(telemetry.pushFailed, 0);
+    expect(telemetry.timestamp, fixedTelemetryNow.toIso8601String());
   });
 
   test('readiness block short-circuits before registration or pull', () async {
     final client = FakeCloudApiClient();
+    final telemetryStore = _RecordingTelemetryStore();
     final caller = SyncProductionCaller(
       runtime: _runtimeWith(client),
       liveReadinessGate: StaticSyncLiveReadinessGate.blockedForTest(
         hardBlockers: const ['real-cloud-transport-not-configured'],
       ),
+      telemetryStore: telemetryStore,
+      now: () => fixedTelemetryNow,
     );
 
     final result = await caller.runOnce();
@@ -64,6 +82,16 @@ void main() {
     expect(result.status, SyncProductionCallStatus.blocked);
     expect(result.reason, contains('real-cloud-transport-not-configured'));
     expect(client.receivedRequests, isEmpty);
+    final telemetry = telemetryStore.writes.single;
+    expect(telemetry.trigger, SyncProductionTrigger.manual.name);
+    expect(telemetry.status, SyncTelemetryStatus.blocked);
+    expect(telemetry.reason, contains('real-cloud-transport-not-configured'));
+    expect(telemetry.error, isNull);
+    expect(telemetry.pullApplied, 0);
+    expect(telemetry.pullConflicts, 0);
+    expect(telemetry.pushPushed, 0);
+    expect(telemetry.pushFailed, 0);
+    expect(telemetry.timestamp, fixedTelemetryNow.toIso8601String());
   });
 
   test('ready caller registers device then pulls and live pushes', () async {
@@ -75,9 +103,12 @@ void main() {
           bodyJson: jsonEncode({'changes': const [], 'next_cursor': 0}),
         ),
       );
+    final telemetryStore = _RecordingTelemetryStore();
     final caller = SyncProductionCaller(
       runtime: _runtimeWith(client),
       liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
+      telemetryStore: telemetryStore,
+      now: () => fixedTelemetryNow,
     );
 
     final result = await caller.runOnce(
@@ -91,7 +122,29 @@ void main() {
       '/sync/devices',
       '/sync/changes?since=0&limit=50',
     ]);
+    final telemetry = telemetryStore.writes.single;
+    expect(telemetry.trigger, SyncProductionTrigger.foregroundResume.name);
+    expect(telemetry.status, SyncTelemetryStatus.completed);
+    expect(telemetry.reason, isNull);
+    expect(telemetry.error, isNull);
+    expect(telemetry.pullApplied, 0);
+    expect(telemetry.pullConflicts, 0);
+    expect(telemetry.pushPushed, 0);
+    expect(telemetry.pushFailed, 0);
+    expect(telemetry.timestamp, fixedTelemetryNow.toIso8601String());
   });
+}
+
+class _RecordingTelemetryStore implements SyncTelemetryStore {
+  final List<SyncTelemetry> writes = <SyncTelemetry>[];
+
+  @override
+  Future<SyncTelemetry?> read() async => writes.isEmpty ? null : writes.last;
+
+  @override
+  Future<void> write(SyncTelemetry telemetry) async {
+    writes.add(telemetry);
+  }
 }
 
 SyncRuntime _runtimeWith(CloudApiClient client) {

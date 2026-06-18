@@ -193,6 +193,53 @@ class SyncBackendTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual([item["payload_hash"] for item in account_a_pull["changes"]], [change["payload_hash"]])
 
+    def test_push_logs_counts_without_payload_or_token(self):
+        payload = payload_body("secret-push-payload")
+        change = make_change(mark="ignored", payload=payload)
+
+        with self.assertLogs("fleet_ledger.cloud_sync", level="INFO") as logs:
+            status, body = self.request("POST", "/sync/changes", token="token-a", body={"changes": [change]})
+
+        self.assertEqual(status, 200)
+        self.assertEqual(len(body["accepted"]), 1)
+        output = "\n".join(logs.output)
+        self.assertIn('"account_id":"account-a"', output)
+        self.assertIn('"op":"push"', output)
+        self.assertIn('"accepted":1', output)
+        self.assertIn('"conflicts":0', output)
+        self.assertIn('"duration_ms":', output)
+        self.assertIn('"status":"ok"', output)
+        self.assertNotIn("token-a", output)
+        self.assertNotIn("payload_json", output)
+        self.assertNotIn(payload, output)
+        self.assertNotIn("secret-push-payload", output)
+
+    def test_pull_logs_counts_without_payload_or_token(self):
+        payload = payload_body("secret-pull-payload")
+        change = make_change(mark="ignored", payload=payload)
+        status, body = self.request("POST", "/sync/changes", token="token-a", body={"changes": [change]})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["accepted"][0]["server_seq"], 1)
+
+        with self.assertLogs("fleet_ledger.cloud_sync", level="INFO") as logs:
+            status, body = self.request("GET", "/sync/changes?since=0", token="token-a")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(len(body["changes"]), 1)
+        output = "\n".join(logs.output)
+        self.assertIn('"account_id":"account-a"', output)
+        self.assertIn('"op":"pull"', output)
+        self.assertIn('"applied":0', output)
+        self.assertIn('"returned":1', output)
+        self.assertIn('"since":0', output)
+        self.assertIn('"next_cursor":1', output)
+        self.assertIn('"duration_ms":', output)
+        self.assertIn('"status":"ok"', output)
+        self.assertNotIn("token-a", output)
+        self.assertNotIn("payload_json", output)
+        self.assertNotIn(payload, output)
+        self.assertNotIn("secret-pull-payload", output)
+
     def test_device_registration_upserts_per_account(self):
         status, first = self.request(
             "POST",
