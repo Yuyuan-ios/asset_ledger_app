@@ -37,18 +37,20 @@ class SyncProviders {
     SyncCloudApiClientFactory cloudApiClientFactory = _createHttpCloudApiClient,
     SyncDeviceRegistrationStore registrationStore =
         const SharedPreferencesSyncDeviceRegistrationStore(),
-    SyncLiveReadinessGate liveReadinessGate =
-        const DefaultSyncLiveReadinessGate(),
+    SyncLiveReadinessGate? liveReadinessGate,
     String Function()? deviceIdProvider,
   }) {
     final config = endpointConfig ?? SyncTransportConfig.current;
+    final gate =
+        liveReadinessGate ??
+        DefaultSyncLiveReadinessGate(transportConfigured: config.isAvailable);
     if (!config.isAvailable) {
       final runtime = SyncRuntime.unavailable(
         config.disabledMessage ?? '同步服务暂未配置',
       );
       final caller = SyncProductionCaller(
         runtime: runtime,
-        liveReadinessGate: liveReadinessGate,
+        liveReadinessGate: gate,
       );
       return SyncProviders._(
         runtime: runtime,
@@ -74,7 +76,7 @@ class SyncProviders {
       outboxRepository: const LocalSyncOutboxRepository(),
       apiClient: cloudClient,
       syncStateRepository: const LocalSyncStateRepository(),
-      liveReadinessGate: liveReadinessGate,
+      liveReadinessGate: gate,
       localDeviceId: deviceId.isEmpty ? null : deviceId,
     );
     final deviceRegistrar = SyncDeviceRegistrar(
@@ -89,7 +91,7 @@ class SyncProviders {
     );
     final caller = SyncProductionCaller(
       runtime: runtime,
-      liveReadinessGate: liveReadinessGate,
+      liveReadinessGate: gate,
     );
 
     return SyncProviders._(

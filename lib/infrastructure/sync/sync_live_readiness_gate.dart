@@ -5,7 +5,14 @@ abstract class SyncLiveReadinessGate {
 }
 
 class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate {
-  const DefaultSyncLiveReadinessGate();
+  const DefaultSyncLiveReadinessGate({this.transportConfigured = false});
+
+  final bool transportConfigured;
+
+  static const String realCloudTransportNotConfigured =
+      'real-cloud-transport-not-configured';
+
+  static const String realCloudTransportReady = 'real-cloud-transport-ready';
 
   static const List<String> completedPrerequisites = [
     'restore-push-gate-ready',
@@ -24,9 +31,7 @@ class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate {
     'money-fen-primary-storage-ready',
   ];
 
-  static const List<String> hardBlockers = [
-    'real-cloud-transport-not-configured',
-  ];
+  static const List<String> hardBlockers = [realCloudTransportNotConfigured];
 
   static const List<String> warnings = [
     'delete-meta-lifecycle-deferred',
@@ -36,9 +41,11 @@ class DefaultSyncLiveReadinessGate implements SyncLiveReadinessGate {
 
   @override
   Future<SyncCloudReadinessResult> check() async {
-    return const SyncCloudReadinessResult(
-      completedPrerequisites: completedPrerequisites,
-      hardBlockers: hardBlockers,
+    return SyncCloudReadinessResult(
+      completedPrerequisites: transportConfigured
+          ? <String>[...completedPrerequisites, realCloudTransportReady]
+          : completedPrerequisites,
+      hardBlockers: transportConfigured ? const [] : hardBlockers,
       warnings: warnings,
     );
   }

@@ -9,7 +9,7 @@ void main() {
       () async {
         final result = await const DefaultSyncLiveReadinessGate().check();
 
-        // 仍未 ready：唯一硬阻断是真实云传输未配置（Track B 未做）。
+        // 仍未 ready：未配置 URL 时，唯一硬阻断是真实云传输未配置。
         expect(result.isReady, isFalse);
         expect(result.isNotReady, isTrue);
         expect(
@@ -58,6 +58,25 @@ void main() {
           result.blockedReason,
           contains('real-cloud-transport-not-configured'),
         );
+      },
+    );
+
+    test(
+      'configured transport retires the real cloud transport hard blocker',
+      () async {
+        final result = await const DefaultSyncLiveReadinessGate(
+          transportConfigured: true,
+        ).check();
+
+        expect(result.isReady, isTrue);
+        expect(result.isNotReady, isFalse);
+        expect(result.hardBlockers, isEmpty);
+        expect(result.missingPrerequisites, isEmpty);
+        expect(
+          result.completedPrerequisites,
+          contains('real-cloud-transport-ready'),
+        );
+        expect(result.blockedReason, 'cloud-live-readiness-ready');
       },
     );
 
