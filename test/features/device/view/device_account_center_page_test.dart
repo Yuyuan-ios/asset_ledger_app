@@ -49,6 +49,60 @@ void main() {
     expect(find.text('未登录 · 登录后可备份与同步'), findsOneWidget);
   });
 
+  testWidgets('device page account status sits beside title before arrow', (
+    WidgetTester tester,
+  ) async {
+    final l10n = lookupAppLocalizations(const Locale('zh'));
+    final subtitle = l10n.deviceAccountCenterLoggedInTailSubtitle(
+      '9190',
+      l10n.deviceEntitlementFree,
+    );
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Scaffold(
+          body: ListView(
+            children: buildDevicePageSections(
+              l10n: l10n,
+              devices: <Device>[],
+              handlers: DevicePageSectionHandlers(
+                onOpenUpgradePage: () {},
+                onOpenAccountCenter: () {},
+                accountCenterSubtitle: subtitle,
+                onOpenAddDeviceFlow: () {},
+                onOpenRateApp: () {},
+                onOpenTermsPage: () {},
+                onOpenPrivacyPage: () {},
+                onOpenContact: () {},
+                onDeviceTap: (_) {},
+                onDeviceLongPress: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final title = find.text('账户中心');
+    final status = find.text('已登录 · 尾号 9190 · 免费版');
+    final accountChevron = find.byIcon(Icons.chevron_right).first;
+
+    expect(title, findsOneWidget);
+    expect(status, findsOneWidget);
+    expect(
+      tester.getCenter(status).dx,
+      greaterThan(tester.getCenter(title).dx),
+    );
+    expect(
+      (tester.getCenter(status).dy - tester.getCenter(title).dy).abs(),
+      lessThan(1),
+    );
+    expect(
+      tester.getTopRight(status).dx,
+      lessThan(tester.getTopLeft(accountChevron).dx),
+    );
+  });
+
   testWidgets('device page sections show business ledger summaries', (
     WidgetTester tester,
   ) async {

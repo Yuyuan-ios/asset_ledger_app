@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/foundation/typography.dart';
 import '../domain/entities/device.dart';
 import '../domain/services/device_business_ledger.dart';
 import '../domain/services/device_label.dart';
 import '../../../l10n/gen/app_localizations.dart';
-import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
 import '../../../patterns/device/device_management_section_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
@@ -109,12 +109,86 @@ Widget _buildAccountSyncSection(
   return DeviceSectionGroup(
     title: l10n.deviceAccountSyncSectionTitle,
     children: [
-      DeviceActionCard(
+      _AccountCenterActionCard(
         title: l10n.deviceAccountCenterTitle,
-        subtitle: handlers.accountCenterSubtitle,
+        statusText: handlers.accountCenterSubtitle,
         onTap: handlers.onOpenAccountCenter,
-        trailingIcon: Icons.chevron_right,
       ),
     ],
   );
+}
+
+class _AccountCenterActionCard extends StatelessWidget {
+  const _AccountCenterActionCard({
+    required this.title,
+    required this.statusText,
+    required this.onTap,
+  });
+
+  final String title;
+  final String statusText;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedStatus = statusText.trim();
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(DeviceActionCardTokens.radius),
+      child: Container(
+        height: DeviceActionCardTokens.height,
+        decoration: BoxDecoration(
+          color: DeviceTokens.actionCardBackgroundColor,
+          borderRadius: BorderRadius.circular(DeviceActionCardTokens.radius),
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DeviceActionCardTokens.horizontalPadding,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.body(
+                  context,
+                  fontSize: DeviceActionCardTokens.titleFontSize,
+                  fontWeight: DeviceActionCardTokens.titleFontWeight,
+                  color: DeviceTokens.actionCardTitleColor,
+                ),
+              ),
+            ),
+            if (trimmedStatus.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  trimmedStatus,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: AppTypography.caption(
+                    context,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: DeviceTokens.actionCardTitleColor.withValues(
+                      alpha: 0.56,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right,
+              size: DeviceActionCardTokens.trailingIconSize,
+              color: DeviceTokens.actionCardTrailingIconColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
