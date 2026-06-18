@@ -217,11 +217,7 @@ class _AccountCenterContent extends StatelessWidget {
           children: [
             DeviceActionCard(
               title: l10n.deviceCloudBackupTitle,
-              subtitle: cloudBackupAvailable
-                  ? loginSession.isAuthenticated
-                        ? l10n.deviceCloudBackupAuthedSubtitle
-                        : l10n.deviceCloudBackupLoginSubtitle
-                  : cloudBackupUnavailableMessage,
+              subtitle: _cloudBackupSubtitle(l10n),
               leading: const _AccountCenterIcon(Icons.cloud_upload_outlined),
               onTap: onOpenCloudBackup,
             ),
@@ -254,6 +250,17 @@ class _AccountCenterContent extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _cloudBackupSubtitle(AppLocalizations l10n) {
+    if (!cloudBackupAvailable) return cloudBackupUnavailableMessage;
+    if (!loginSession.isAuthenticated) {
+      return l10n.deviceCloudBackupLoginSubtitle;
+    }
+    if (!subscription.allowsProFeatures) {
+      return l10n.deviceCloudBackupProSubtitle;
+    }
+    return l10n.deviceCloudBackupAuthedSubtitle;
   }
 }
 

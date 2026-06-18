@@ -7,6 +7,7 @@ import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/fuel_repository.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/services/backup/cloud_backup_service.dart';
+import '../../data/services/subscription_service.dart';
 import '../../infrastructure/cloud/http_cloud_backup_key_provider.dart';
 import '../../features/device/application/controllers/cloud_backup_controller.dart';
 import '../../features/device/application/controllers/local_backup_controller.dart';
@@ -62,6 +63,7 @@ class DeviceFleetProviders {
         availability: CloudBackupAvailability.available(
           usesBusinessApiFallback: cloudBackupEndpoint.usesBusinessApiFallback,
         ),
+        allowsCloudBackup: () => SubscriptionService.allowsProFeatures,
         service: CloudBackupService(
           gateway: HttpCloudBackupGateway(cloudClient),
           // 账号绑定客户端加密(OSS 只存密文）:密钥由后端

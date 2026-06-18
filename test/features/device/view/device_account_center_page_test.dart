@@ -320,6 +320,44 @@ void main() {
     expect(find.textContaining('13800138000'), findsNothing);
   });
 
+  testWidgets('account center marks cloud backup as Pro-only for free users', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: AccountCenterPage(
+          loginSession: const PhoneLoginSession(
+            loggedIn: true,
+            privacyAccepted: true,
+            phoneNumber: '13800138000',
+            authToken: 'token',
+          ),
+          subscriptionListenable: subscription,
+          onOpenPhoneLogin: () async =>
+              const PhoneLoginSession.unauthenticated(),
+          onOpenUpgradePage: () {},
+          onRestorePurchases: () async {},
+          onOpenLocalBackup: () {},
+          onOpenLocalRestore: () {},
+          onOpenSyncInfo: () {},
+          onOpenCloudBackup: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('云端备份'), findsOneWidget);
+    expect(find.text('Pro 订阅可用，升级后可保存与恢复云端备份'), findsOneWidget);
+    expect(find.text('上传当前数据或从云端恢复'), findsNothing);
+  });
+
   testWidgets('account center shows cloud backup unavailable state', (
     WidgetTester tester,
   ) async {

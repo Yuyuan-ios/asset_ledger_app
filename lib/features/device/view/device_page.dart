@@ -24,6 +24,7 @@ import '../../../features/timing/state/timing_store.dart';
 import '../../../patterns/device/device_page_header_search_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../components/feedback/app_toast.dart';
+import '../../../components/feedback/pro_gate.dart';
 import '../../../components/feedback/store_error_banner.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/core_tokens.dart';
@@ -309,6 +310,9 @@ class _DevicePageState extends State<DevicePage> {
       }
     }
 
+    final canUseCloudBackup = await _ensureCloudBackupEntitlement();
+    if (!canUseCloudBackup || !mounted) return;
+
     final action = await _chooseCloudBackupAction();
     if (action == null || !mounted) return;
     switch (action) {
@@ -319,6 +323,20 @@ class _DevicePageState extends State<DevicePage> {
         await _restoreCloudBackup();
         break;
     }
+  }
+
+  Future<bool> _ensureCloudBackupEntitlement() {
+    return requireProFeature(
+      context,
+      title: _l10n.deviceCloudBackupProTitle,
+      message: _l10n.deviceCloudBackupProMessage,
+      isAllowed: _subscriptionController.snapshot.allowsProFeatures,
+      isAllowedAfterUpgrade: () =>
+          _subscriptionController.snapshot.allowsProFeatures,
+      openUpgrade: (_) => _openUpgradePage(),
+      confirmText: _l10n.deviceUpgradeNowTitle,
+      cancelText: _l10n.deviceCancelAction,
+    );
   }
 
   Future<_CloudBackupAction?> _chooseCloudBackupAction() {

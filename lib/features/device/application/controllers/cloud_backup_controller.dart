@@ -2,6 +2,11 @@ import '../../../../data/models/backup_restore_result.dart';
 import '../../../../data/services/backup/cloud_backup_service.dart';
 import '../../../../infrastructure/cloud/cloud_backup_gateway.dart';
 
+const _cloudBackupRequiresProCode = 'cloud_backup_requires_pro';
+const _defaultEntitlementRequiredMessage = '云端备份是 Pro 功能，请升级后再使用。';
+
+bool _allowCloudBackupByDefault() => true;
+
 class CloudBackupListResult {
   const CloudBackupListResult({
     required this.success,
@@ -35,13 +40,21 @@ class CloudBackupController {
   const CloudBackupController({
     required CloudBackupService service,
     this.availability = const CloudBackupAvailability.available(),
-  }) : _service = service;
+    bool Function() allowsCloudBackup = _allowCloudBackupByDefault,
+    String entitlementRequiredMessage = _defaultEntitlementRequiredMessage,
+  }) : _service = service,
+       _allowsCloudBackup = allowsCloudBackup,
+       _entitlementRequiredMessage = entitlementRequiredMessage;
 
   CloudBackupController.unavailable(String message)
     : _service = null,
-      availability = CloudBackupAvailability.unavailable(message);
+      availability = CloudBackupAvailability.unavailable(message),
+      _allowsCloudBackup = _allowCloudBackupByDefault,
+      _entitlementRequiredMessage = _defaultEntitlementRequiredMessage;
 
   final CloudBackupService? _service;
+  final bool Function() _allowsCloudBackup;
+  final String _entitlementRequiredMessage;
   final CloudBackupAvailability availability;
 
   bool get isAvailable => availability.isAvailable;
@@ -59,6 +72,15 @@ class CloudBackupController {
         ),
       );
     }
+    if (!_allowsCloudBackup()) {
+      return Future.value(
+        CloudBackupUploadResult(
+          success: false,
+          errorCode: _cloudBackupRequiresProCode,
+          errorMessage: _entitlementRequiredMessage,
+        ),
+      );
+    }
     return service.uploadCurrent();
   }
 
@@ -69,6 +91,13 @@ class CloudBackupController {
         success: false,
         errorCode: 'cloud_backup_not_configured',
         errorMessage: unavailableMessage,
+      );
+    }
+    if (!_allowsCloudBackup()) {
+      return CloudBackupListResult(
+        success: false,
+        errorCode: _cloudBackupRequiresProCode,
+        errorMessage: _entitlementRequiredMessage,
       );
     }
     try {
@@ -92,6 +121,14 @@ class CloudBackupController {
         BackupRestoreResult.failure(
           message: unavailableMessage,
           errorCode: 'cloud_backup_not_configured',
+        ),
+      );
+    }
+    if (!_allowsCloudBackup()) {
+      return Future.value(
+        BackupRestoreResult.failure(
+          message: _entitlementRequiredMessage,
+          errorCode: _cloudBackupRequiresProCode,
         ),
       );
     }

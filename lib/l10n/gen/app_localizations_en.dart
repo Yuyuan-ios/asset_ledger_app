@@ -1186,6 +1186,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Log in to save and restore cloud backups';
 
   @override
+  String get deviceCloudBackupProSubtitle =>
+      'Available with Pro. Upgrade to save and restore cloud backups';
+
+  @override
+  String get deviceCloudBackupProTitle => 'Pro required';
+
+  @override
+  String get deviceCloudBackupProMessage =>
+      'Cloud backup is a Pro feature. Upgrade to upload current data and restore from cloud.';
+
+  @override
   String get deviceManualBackupTitle => 'Manual local backup';
 
   @override

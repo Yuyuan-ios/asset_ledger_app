@@ -2106,6 +2106,24 @@ abstract class AppLocalizations {
   /// **'登录后可保存与恢复云端备份'**
   String get deviceCloudBackupLoginSubtitle;
 
+  /// 设备模块:免费版云端备份说明
+  ///
+  /// In zh, this message translates to:
+  /// **'Pro 订阅可用，升级后可保存与恢复云端备份'**
+  String get deviceCloudBackupProSubtitle;
+
+  /// 设备模块:云端备份升级提示标题
+  ///
+  /// In zh, this message translates to:
+  /// **'需要升级 Pro'**
+  String get deviceCloudBackupProTitle;
+
+  /// 设备模块:云端备份升级提示正文
+  ///
+  /// In zh, this message translates to:
+  /// **'云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。'**
+  String get deviceCloudBackupProMessage;
+
   /// 设备模块:手动本地备份标题
   ///
   /// In zh, this message translates to:

@@ -1652,6 +1652,18 @@
   "@deviceCloudBackupLoginSubtitle": {
     "description": "设备模块:未登录云端备份说明"
   },
+  "deviceCloudBackupProSubtitle": "Pro 订阅可用，升级后可保存与恢复云端备份",
+  "@deviceCloudBackupProSubtitle": {
+    "description": "设备模块:免费版云端备份说明"
+  },
+  "deviceCloudBackupProTitle": "需要升级 Pro",
+  "@deviceCloudBackupProTitle": {
+    "description": "设备模块:云端备份升级提示标题"
+  },
+  "deviceCloudBackupProMessage": "云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。",
+  "@deviceCloudBackupProMessage": {
+    "description": "设备模块:云端备份升级提示正文"
+  },
   "deviceManualBackupTitle": "手动本地备份",
   "@deviceManualBackupTitle": {
     "description": "设备模块:手动本地备份标题"

@@ -23,6 +23,28 @@ void main() {
     },
   );
 
+  test('pro entitlement gate fails closed before calling a gateway', () async {
+    final controller = CloudBackupController(
+      service: CloudBackupService(gateway: _FailingGateway()),
+      allowsCloudBackup: () => false,
+      entitlementRequiredMessage: '需要 Pro',
+    );
+
+    final upload = await controller.uploadCurrent();
+    final list = await controller.listRemote();
+    final restore = await controller.restoreFromCloud('backup-1');
+
+    expect(upload.success, isFalse);
+    expect(upload.errorCode, 'cloud_backup_requires_pro');
+    expect(upload.errorMessage, '需要 Pro');
+    expect(list.success, isFalse);
+    expect(list.errorCode, 'cloud_backup_requires_pro');
+    expect(list.errorMessage, '需要 Pro');
+    expect(restore.success, isFalse);
+    expect(restore.errorCode, 'cloud_backup_requires_pro');
+    expect(restore.message, '需要 Pro');
+  });
+
   test('listRemote maps gateway failures to result objects', () async {
     final controller = CloudBackupController(
       service: CloudBackupService(gateway: _FailingGateway()),
