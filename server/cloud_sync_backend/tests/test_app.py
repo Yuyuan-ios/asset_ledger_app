@@ -2,10 +2,12 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import os
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 from app import (
     AppConfig,
@@ -14,6 +16,8 @@ from app import (
     SyncApp,
     SyncStore,
     base64url_encode,
+    configure_logging,
+    main,
 )
 
 
@@ -76,6 +80,30 @@ class SyncBackendTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body, {"ok": True})
 
+    def test_configure_logging_emits_info_messages_to_journald(self):
+        with mock.patch("logging.basicConfig") as basic_config:
+            configure_logging()
+
+        basic_config.assert_called_once_with(level=logging.INFO, format="%(message)s")
+
+    def test_main_configures_logging_before_serving(self):
+        calls = []
+
+        class FakeServer:
+            server_address = ("127.0.0.1", 8009)
+
+            def serve_forever(self):
+                calls.append("serve")
+
+        with (
+            mock.patch("app.configure_logging", side_effect=lambda: calls.append("logging")),
+            mock.patch("app.build_server_from_env", side_effect=lambda: calls.append("build") or FakeServer()),
+            mock.patch("sys.stdout", new=io.StringIO()),
+        ):
+            main()
+
+        self.assertEqual(calls, ["logging", "build", "serve"])
+
     def test_rejects_missing_and_wrong_auth(self):
         status, body = self.request("GET", "/sync/changes?since=0")
         self.assertEqual(status, 401)
@@ -111,6 +139,29 @@ class SyncBackendTestCase(unittest.TestCase):
         head = self.store.get_head("account-a", "timing_record", "timer-1")
         self.assertIsNotNone(head)
         self.assertEqual(head["version"], 2)
+
+    def test_push_accepts_client_payload_object_field(self):
+        payload = {"record": {"id": 7, "value": "from-client"}}
+        payload_json = json.dumps(payload, separators=(",", ":"))
+        change = {
+            "entity_type": "timing_record",
+            "entity_id": "7",
+            "op": "create",
+            "base_version": 0,
+            "payload": payload,
+            "payload_hash": payload_hash(payload_json),
+        }
+
+        status, body = self.request("POST", "/sync/changes", token="token-a", body={"changes": [change]})
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["conflicts"], [])
+        self.assertEqual(body["accepted"][0]["new_version"], 1)
+
+        status, pulled = self.request("GET", "/sync/changes?since=0", token="token-a")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(pulled["changes"][0]["payload_json"]), payload)
 
     def test_conflict_when_base_version_is_stale_does_not_overwrite(self):
         original = make_change(mark="original")

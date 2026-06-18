@@ -17,12 +17,17 @@ from typing import Any, Dict, Optional, Tuple
 
 
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+SMOKE_ENTITY_TYPE = "smoke_probe"
+SMOKE_ENTITY_ID = "smoke-probe-record"
 
 
 def make_change(entity_id: str, op: str, base_version: int, mark: str) -> Dict[str, Any]:
     payload_json = json.dumps({"record": {"id": entity_id, "mark": mark}}, separators=(",", ":"))
     return {
-        "entity_type": "timing_record",
+        # Keep smoke data out of production client entity streams. The Flutter
+        # client applies timing_record payloads strictly and skips unknown
+        # entity types after advancing the cursor.
+        "entity_type": SMOKE_ENTITY_TYPE,
         "entity_id": entity_id,
         "op": op,
         "base_version": base_version,
@@ -95,7 +100,7 @@ def main() -> int:
         return 0
     require(args.token, "--token is required unless --auth-only is set")
 
-    entity_id = "smoke-timing-record"
+    entity_id = SMOKE_ENTITY_ID
     first_change = make_change(entity_id, "create", 0, "first")
     status, body = request(
         args.base_url,

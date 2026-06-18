@@ -38,6 +38,10 @@ VALID_OPERATIONS = {"create", "update", "delete"}
 LOGGER = logging.getLogger("fleet_ledger.cloud_sync")
 
 
+def configure_logging() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+
 class HttpError(Exception):
     def __init__(self, status: int, code: str, message: str):
         super().__init__(message)
@@ -750,7 +754,8 @@ def parse_change(raw: Mapping[str, Any], index: int, default_device_id: Any = No
     if operation not in VALID_OPERATIONS:
         raise HttpError(400, "invalid_change", f"changes[{index}].op is invalid")
     base_version = require_int(raw.get("base_version"), f"changes[{index}].base_version", minimum=0)
-    payload_json = normalize_payload_json(raw.get("payload_json"), f"changes[{index}].payload_json")
+    payload_field = "payload_json" if "payload_json" in raw else "payload"
+    payload_json = normalize_payload_json(raw.get(payload_field), f"changes[{index}].{payload_field}")
     payload_hash = require_text(raw.get("payload_hash"), f"changes[{index}].payload_hash", max_length=256)
     origin_device_id = raw.get("origin_device_id", default_device_id)
     if origin_device_id is not None:
@@ -883,6 +888,7 @@ def build_server_from_env() -> SyncHttpServer:
 
 
 def main() -> None:
+    configure_logging()
     server = build_server_from_env()
     host, port = server.server_address
     print(f"FleetLedger cloud sync backend listening on {host}:{port}", flush=True)
