@@ -19,6 +19,7 @@ import '../../../features/timing/model/timing_chart_data.dart';
 import '../../../features/timing/operations/save_timing_record_operation_command.dart';
 import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../features/timing/state/timing_store.dart';
+import '../../../features/app_update/application/update_prompt_coordinator.dart';
 import '../../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
 import '../../../features/external_work/import_preview/view/external_work_import_preview_page.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
@@ -64,6 +65,7 @@ class _TimingPageState extends State<TimingPage> {
   late int _targetMonth;
   var _recordsSection = TimingRecordsSection.recent;
   var _externalWorkLoadRequested = false;
+  var _versionCheckRequested = false;
 
   int get _maxChartYear => DateTime.now().year;
 
@@ -75,6 +77,15 @@ class _TimingPageState extends State<TimingPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_versionCheckRequested) {
+      _versionCheckRequested = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final coordinator = context.read<UpdatePromptCoordinator?>();
+        if (coordinator == null) return;
+        unawaited(coordinator.onTimingPageEntered(context));
+      });
+    }
     if (_externalWorkLoadRequested) return;
     _externalWorkLoadRequested = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {

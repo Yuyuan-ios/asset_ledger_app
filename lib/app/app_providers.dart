@@ -12,6 +12,7 @@ import '../features/timing/state/timing_store.dart';
 import 'sync_production_caller.dart';
 import 'sync_runtime.dart';
 import 'providers/account_merge_providers.dart';
+import 'providers/app_update_providers.dart';
 import 'providers/device_fleet_providers.dart';
 import 'providers/external_work_providers.dart';
 import 'providers/identity_providers.dart';
@@ -51,6 +52,7 @@ class AppProviders {
       projectResolver: project.projectResolver,
       actorContext: identity.actorContext,
     );
+    final appUpdate = AppUpdateProviders.build();
 
     return AppProviderBundle(
       deviceStore: deviceFleet.deviceStore,
@@ -74,6 +76,7 @@ class AppProviders {
         ...externalWork.providers,
         ...timingDelete.providers,
         ...timingSave.providers,
+        ...appUpdate.providers,
       ],
     );
   }
