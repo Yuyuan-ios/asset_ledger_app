@@ -30,14 +30,24 @@ class LocalBackupRestoreService {
   final LocalBackupImportPreviewService _previewService;
   final Future<LocalBackupExportResult> Function()? _exportBackup;
 
-  Future<BackupRestoreResult> restoreFromJsonString(String rawJson) {
-    return _restoreService.restoreFromJsonString(rawJson);
+  Future<BackupRestoreResult> restoreFromJsonString(
+    String rawJson, {
+    int? pullCursorWatermark,
+  }) {
+    return _restoreService.restoreFromJsonString(
+      rawJson,
+      pullCursorWatermark: pullCursorWatermark,
+    );
   }
 
   Future<BackupRestoreResult> restoreFromDecodedJson(
-    Map<String, dynamic> backupJson,
-  ) {
-    return _restoreService.restoreFromDecodedJson(backupJson);
+    Map<String, dynamic> backupJson, {
+    int? pullCursorWatermark,
+  }) {
+    return _restoreService.restoreFromDecodedJson(
+      backupJson,
+      pullCursorWatermark: pullCursorWatermark,
+    );
   }
 
   LocalRestoreService get _restoreService {

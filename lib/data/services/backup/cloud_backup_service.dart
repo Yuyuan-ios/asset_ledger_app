@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 
 import '../../../infrastructure/cloud/cloud_backup_cipher.dart';
 import '../../../infrastructure/cloud/cloud_backup_gateway.dart';
+import '../../../infrastructure/sync/sync_conflict_repository.dart';
 import '../../../infrastructure/sync/sync_state_repository.dart';
 import '../../db/database.dart';
 import '../../models/backup_restore_result.dart';
@@ -45,6 +46,8 @@ class CloudBackupService {
     CloudBackupKeyProvider? keyProvider,
     bool requireEncryption = false,
     SyncStateRepository syncStateRepository = const LocalSyncStateRepository(),
+    SyncConflictRepository syncConflictRepository =
+        const LocalSyncConflictRepository(),
   }) : _gateway = gateway,
        _exportBackup =
            exportBackup ?? LocalBackupExportService.exportJsonBackup,
@@ -54,7 +57,8 @@ class CloudBackupService {
        _now = now ?? DateTime.now,
        _keyProvider = keyProvider,
        _requireEncryption = requireEncryption,
-       _syncStateRepository = syncStateRepository;
+       _syncStateRepository = syncStateRepository,
+       _syncConflictRepository = syncConflictRepository;
 
   final CloudBackupGateway _gateway;
   final Future<LocalBackupExportResult> Function() _exportBackup;
@@ -68,6 +72,7 @@ class CloudBackupService {
   /// 生产口径:要求加密但密钥不可用时**拒绝上传明文**(不静默降级)。
   final bool _requireEncryption;
   final SyncStateRepository _syncStateRepository;
+  final SyncConflictRepository _syncConflictRepository;
 
   /// 导出当前全库并上传。失败返回带码结果,不抛异常(供 UI 友好提示)。
   Future<CloudBackupUploadResult> uploadCurrent() async {
@@ -89,7 +94,7 @@ class CloudBackupService {
         errorMessage: '备份内容超出云端上限',
       );
     }
-    final syncCursorWatermark = await _syncStateRepository.readPullCursor();
+    final syncCursorWatermark = await _resolveUploadWatermark();
 
     // 账号绑定客户端加密:有密钥则上传前加密(OSS 只存密文);密钥不可用时,
     // 生产口径拒绝上传明文,dev/未配置加密则明文(向后兼容)。
@@ -226,22 +231,31 @@ class CloudBackupService {
       plaintextJson = envelope.payloadJson;
     }
 
-    final result = await _restoreService.restoreFromJsonString(plaintextJson);
-    if (!result.success) return result;
+    // bootstrap：watermark 随业务恢复在 LocalRestoreService 的同一事务里写入
+    // pull 游标(见 restoreFromDecodedJson),全有或全无,杜绝「内容已恢复但
+    // 游标未写」的崩溃窗口。旧包络无 watermark(null)→ 不写 → 游标保持 0,
+    // 下次 pull 从 0 全量重放(合成 v0 meta 幂等覆盖,安全)。
+    return _restoreService.restoreFromJsonString(
+      plaintextJson,
+      pullCursorWatermark: envelope.syncCursorWatermark,
+    );
+  }
 
-    final syncCursorWatermark = envelope.syncCursorWatermark;
-    if (syncCursorWatermark == null) return result;
-
-    try {
-      await _syncStateRepository.writePullCursor(syncCursorWatermark);
-    } catch (_) {
-      return BackupRestoreResult.failure(
-        message: '云端备份已恢复，但同步游标写入失败，请稍后重试恢复或重新同步。',
-        errorCode: 'sync_cursor_watermark_write_failed',
-        autoBackupPath: result.autoBackupPath,
-      );
+  /// 上传 watermark = 当前 pull 游标,但收敛到「最早未决冲突之前」。
+  ///
+  /// pull 游标会越过 parked 冲突(冲突分支也推进游标),但这些冲突的远端变更
+  /// 并未落入快照、且 restore 会清空 sync_conflicts。若 watermark 越过它们,
+  /// 恢复方会以为已处理而永不重拉 → 静默丢失待审改动。故 watermark 必须停在
+  /// 最早未决冲突之前,让恢复方重新拉取并重建冲突。
+  Future<int> _resolveUploadWatermark() async {
+    final cursor = await _syncStateRepository.readPullCursor();
+    final earliestConflict = await _syncConflictRepository
+        .earliestPendingServerSeq();
+    if (earliestConflict == null || earliestConflict - 1 >= cursor) {
+      return cursor;
     }
-    return result;
+    final clamped = earliestConflict - 1;
+    return clamped < 0 ? 0 : clamped;
   }
 
   /// payload 的 sha256(对备份 JSON 原文 UTF-8 字节,十六进制小写)。

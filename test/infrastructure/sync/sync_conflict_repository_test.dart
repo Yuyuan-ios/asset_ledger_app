@@ -79,6 +79,35 @@ void main() {
     },
   );
 
+  test('earliestPendingServerSeq returns the smallest pending seq', () async {
+    final repository = LocalSyncConflictRepository(now: () => fixedNow);
+    expect(await repository.earliestPendingServerSeq(), isNull);
+
+    await repository.insertIfAbsent(
+      SyncConflict.fromRemoteChange(
+        change: _change(serverSeq: 20),
+        reason: 'remote_newer_local_dirty',
+        detectedAt: fixedNow,
+      ),
+    );
+    await repository.insertIfAbsent(
+      SyncConflict.fromRemoteChange(
+        change: _change(serverSeq: 8, entityId: '102'),
+        reason: 'remote_newer_local_dirty',
+        detectedAt: fixedNow,
+      ),
+    );
+
+    expect(await repository.earliestPendingServerSeq(), 8);
+
+    // 解决最早一条后,游标应回退到下一条未决冲突。
+    await repository.markResolved(
+      id: 'timing_record:102:8',
+      resolution: SyncConflictResolution.remote,
+    );
+    expect(await repository.earliestPendingServerSeq(), 20);
+  });
+
   test('markResolved removes conflict from pending list', () async {
     final repository = LocalSyncConflictRepository(now: () => fixedNow);
     final conflict = SyncConflict.fromRemoteChange(

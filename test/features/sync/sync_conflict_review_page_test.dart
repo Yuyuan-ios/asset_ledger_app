@@ -128,6 +128,14 @@ class _FakeConflictRepository implements SyncConflictRepository {
   Future<List<SyncConflict>> listPending({int limit = 50}) async => conflicts;
 
   @override
+  Future<int?> earliestPendingServerSeq() async {
+    if (conflicts.isEmpty) return null;
+    return conflicts
+        .map((conflict) => conflict.remoteServerSeq)
+        .reduce((a, b) => a < b ? a : b);
+  }
+
+  @override
   Future<int> markResolved({
     required String id,
     required SyncConflictResolution resolution,

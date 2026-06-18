@@ -144,6 +144,14 @@ abstract class SyncConflictRepository {
 
   Future<List<SyncConflict>> listPending({int limit = 50});
 
+  /// 最早一条未解决冲突的 remote_server_seq；无未决冲突时返回 null。
+  ///
+  /// 用于云备份 watermark 收敛：parked 冲突对应的 server_seq 虽已被 pull 游标
+  /// 越过，但其变更并未落入快照（被搁置待人工裁决），且 restore 会清空
+  /// sync_conflicts。watermark 必须停在最早未决冲突之前，恢复方才会重新拉取
+  /// 并重建这些冲突，避免静默丢失待审改动。
+  Future<int?> earliestPendingServerSeq();
+
   Future<int> markResolved({
     required String id,
     required SyncConflictResolution resolution,
@@ -196,6 +204,20 @@ class LocalSyncConflictRepository implements SyncConflictRepository {
       limit: limit,
     );
     return rows.map(SyncConflict.fromMap).toList(growable: false);
+  }
+
+  @override
+  Future<int?> earliestPendingServerSeq() async {
+    final db = await AppDatabase.database;
+    final rows = await db.query(
+      _table,
+      columns: const ['MIN(remote_server_seq) AS min_seq'],
+      where: 'status = ?',
+      whereArgs: [SyncConflictStatus.pending.name],
+    );
+    // MIN(...) 在空集上返回单行 NULL；只有 num 才视为有效 seq。
+    final value = rows.isEmpty ? null : rows.single['min_seq'];
+    return value is num ? value.toInt() : null;
   }
 
   @override

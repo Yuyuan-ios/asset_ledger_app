@@ -7,6 +7,8 @@ import 'package:asset_ledger/data/services/backup/cloud_backup_service.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/cloud/cloud_backup_cipher.dart';
 import 'package:asset_ledger/infrastructure/cloud/cloud_backup_gateway.dart';
+import 'package:asset_ledger/infrastructure/sync/remote_change.dart';
+import 'package:asset_ledger/infrastructure/sync/sync_conflict_repository.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_manager.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_repositories.dart';
@@ -181,6 +183,39 @@ void main() {
       expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
 
       expect(gateway.envelopes[upload.backupId]!.syncCursorWatermark, 0);
+    },
+  );
+
+  test(
+    'upload clamps watermark to just before the earliest pending conflict',
+    () async {
+      final db = await openDb();
+      await seedBusinessData(db);
+      // 游标已越过 seq=15 的未决冲突(冲突分支也推进游标)。
+      await const LocalSyncStateRepository().writePullCursor(20);
+      await const LocalSyncConflictRepository().insertIfAbsent(
+        SyncConflict.fromRemoteChange(
+          change: const RemoteChange(
+            serverSeq: 15,
+            entityType: 'timing_record',
+            entityId: '1',
+            baseVersion: 1,
+            newVersion: 2,
+            payloadJson: '{}',
+            payloadHash: 'hash',
+            deleted: false,
+          ),
+          reason: 'payload_hash_mismatch',
+          detectedAt: DateTime.utc(2026, 6, 17),
+        ),
+      );
+
+      final gateway = _InMemoryCloudBackupGateway();
+      final upload = await CloudBackupService(gateway: gateway).uploadCurrent();
+      expect(upload.success, isTrue, reason: upload.errorMessage ?? '');
+
+      // watermark 收敛到 14,恢复方会从 14 之后重拉并重建 seq=15 的冲突。
+      expect(gateway.envelopes[upload.backupId]!.syncCursorWatermark, 14);
     },
   );
 

@@ -13,7 +13,10 @@ class LocalRestoreService {
   final Future<LocalBackupExportResult> Function()? _exportBackup;
   final SyncStateRepository _syncStateRepository;
 
-  Future<BackupRestoreResult> restoreFromJsonString(String rawJson) async {
+  Future<BackupRestoreResult> restoreFromJsonString(
+    String rawJson, {
+    int? pullCursorWatermark,
+  }) async {
     try {
       final decoded = jsonDecode(rawJson);
       if (decoded is! Map<String, dynamic>) {
@@ -22,7 +25,10 @@ class LocalRestoreService {
           errorCode: 'invalid_root',
         );
       }
-      return restoreFromDecodedJson(decoded);
+      return restoreFromDecodedJson(
+        decoded,
+        pullCursorWatermark: pullCursorWatermark,
+      );
     } on FormatException {
       return BackupRestoreResult.failure(
         message: '备份文件不是有效的 JSON，请重新选择',
@@ -37,8 +43,9 @@ class LocalRestoreService {
   }
 
   Future<BackupRestoreResult> restoreFromDecodedJson(
-    Map<String, dynamic> backupJson,
-  ) async {
+    Map<String, dynamic> backupJson, {
+    int? pullCursorWatermark,
+  }) async {
     final validation = _BackupRestoreValidator.validate(
       backupJson,
       previewService: _previewService,
@@ -86,6 +93,17 @@ class LocalRestoreService {
         await txn.delete('entity_sync_meta');
         await txn.delete('sync_conflicts');
         await _syncStateRepository.markPushGateRestorePendingWithExecutor(txn);
+
+        // 云端 bootstrap：把备份包络携带的 pull 游标 watermark 与业务恢复放在
+        // 同一事务里整体提交，避免「内容已恢复但游标未写」的崩溃窗口导致
+        // 后续 pull 漏拉（老设备恢复旧备份场景下会静默丢档）。本地备份不带
+        // watermark（传 null），行为不变。
+        if (pullCursorWatermark != null) {
+          await _syncStateRepository.writePullCursorWithExecutor(
+            txn,
+            pullCursorWatermark,
+          );
+        }
       });
 
       return BackupRestoreResult.success(
