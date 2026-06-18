@@ -1,0 +1,49 @@
+# FleetLedger version-policy static delivery.
+#
+# Include this location in the existing HTTPS server block that already serves
+# sync/backup under the same host. The public URL stays on the main API domain:
+#   https://<host>/app/version-policy.json
+#
+# This is static nginx delivery only. Do not proxy this path to sync/backup,
+# do not attach application middleware here, and do not apply any future 426
+# version gate to version-policy.json itself. The policy must remain reachable
+# even when sync/backup application logic is unhealthy.
+
+location = /app/version-policy.json {
+    alias /opt/fleet-ledger-version-policy/version-policy.json;
+    default_type application/json;
+
+    # Short edge/client cache; clients still keep their own 6-12h app cache.
+    add_header Cache-Control "max-age=300, must-revalidate" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}
+
+# Example placement in an existing server block:
+#
+# server {
+#     listen 443 ssl http2;
+#     server_name api.example.com;
+#
+#     ssl_certificate     /etc/nginx/certs/api.example.com.pem;
+#     ssl_certificate_key /etc/nginx/certs/api.example.com.key;
+#
+#     include /etc/nginx/snippets/fleet-ledger-version-policy.conf;
+#
+#     location /v1/backups {
+#         proxy_pass http://127.0.0.1:8008;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto https;
+#     }
+#
+#     location /v1/sync {
+#         proxy_pass http://127.0.0.1:8007;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto https;
+#     }
+# }

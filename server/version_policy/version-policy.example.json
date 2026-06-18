@@ -1,0 +1,25 @@
+{
+  "ios": {
+    "latestVersion": "1.4.0",
+    "minSupportedVersion": "1.0.0",
+    "updateUrl": "itms-apps://apps.apple.com/app/idXXXXXXXX",
+    "title": "发现新版本",
+    "content": "更新以获得更稳定的体验。"
+  },
+  "android": {
+    "latestVersion": "1.4.0",
+    "minSupportedVersion": "1.0.0",
+    "updateUrl": "https://example.com/download",
+    "channelUrls": {
+      "xiaomi": "mimarket://details?id=com.example.fleetledger",
+      "huawei": "appmarket://details?id=com.example.fleetledger",
+      "oppo": "oppomarket://details?packagename=com.example.fleetledger",
+      "vivo": "vivomarket://details?id=com.example.fleetledger",
+      "tencent": "market://details?id=com.example.fleetledger",
+      "official": "https://example.com/download",
+      "play": "https://play.google.com/store/apps/details?id=com.example.fleetledger"
+    },
+    "title": "发现新版本",
+    "content": "更新以获得更稳定的体验。"
+  }
+}
