@@ -789,6 +789,14 @@ def require_int(value: Any, name: str, *, minimum: int) -> int:
 
 
 def normalize_payload_json(value: Any, name: str) -> str:
+    # INVARIANT: payload_hash is the client's hash over the exact bytes the
+    # client serialized. The server stores payload_hash verbatim (push_changes
+    # never recomputes it), and clients do not re-verify the hash against pulled
+    # payload_json. So the dict/list branch below MAY emit different bytes
+    # (sort_keys re-serialization) than the client hashed -- that is safe ONLY
+    # while no side recomputes the hash over payload_json. Before adding any such
+    # verification, make client and server serialization byte-identical, or have
+    # the client send payload_json as the exact string it hashed.
     if isinstance(value, str):
         if not value:
             raise HttpError(400, "invalid_request", f"{name} is required")
