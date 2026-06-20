@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'app_navigator.dart';
 import 'inbound_share_file_gate.dart';
 import 'phone_login_gate.dart';
 import 'router.dart';
@@ -13,6 +14,7 @@ class AssetLedgerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: AppNavigator.key,
       // i18n 阶段 A:文案 key 化经 AppLocalizations(lib/l10n/*.arb,zh 为
       // 第一语言包)。title 用 onGenerateTitle 取 key,作为链路试点。
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,

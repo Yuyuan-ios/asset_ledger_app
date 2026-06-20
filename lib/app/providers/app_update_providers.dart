@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
@@ -9,13 +6,13 @@ import '../../features/app_update/application/update_delivery.dart';
 import '../../features/app_update/application/update_prompt_coordinator.dart';
 import '../../features/app_update/domain/version_check_service.dart';
 import '../../features/app_update/domain/version_gate_decision.dart';
-import '../../features/app_update/domain/version_policy.dart';
 import '../../features/app_update/domain/version_policy_cache.dart';
 import '../../features/app_update/domain/version_policy_source.dart';
 import '../../features/app_update/infrastructure/http_version_policy_source.dart';
 import '../../features/app_update/infrastructure/prefs_version_policy_cache.dart';
 import '../../features/app_update/presentation/forced_update_blocker.dart';
 import '../../features/app_update/presentation/optional_update_prompt.dart';
+import '../app_runtime_metadata.dart';
 import '../version_policy_config.dart';
 
 typedef VersionPolicySourceFactory =
@@ -37,10 +34,7 @@ class AppUpdateProviders {
     VersionPolicyCacheFactory cacheFactory = _createPreferencesPolicyCache,
     CurrentVersionProvider? currentVersionProvider,
     String? platform,
-    String channel = const String.fromEnvironment(
-      'APP_CHANNEL',
-      defaultValue: VersionPolicy.channelOfficial,
-    ),
+    String channel = AppRuntimeMetadata.channel,
     UpdateDeliveryFactory deliveryFactory = _createUpdateDelivery,
     UpdatePromptPresenter? showPrompt,
     ForcedUpdatePresenter? showForcedBlocker,
@@ -54,8 +48,8 @@ class AppUpdateProviders {
         source: sourceFactory(uri: config.uri!),
         cache: cacheFactory(),
         currentVersionProvider:
-            currentVersionProvider ?? _packageInfoVersionProvider,
-        platform: platform ?? _currentPlatform(),
+            currentVersionProvider ?? AppRuntimeMetadata.currentVersion,
+        platform: platform ?? AppRuntimeMetadata.platform,
         channel: channel,
       );
       final delivery = deliveryFactory(channel: channel);
@@ -88,17 +82,6 @@ class AppUpdateProviders {
 
   static UpdateDelivery _createUpdateDelivery({required String channel}) {
     return UpdateDelivery(channel: channel, inAppUpdateLauncher: null);
-  }
-
-  static Future<String> _packageInfoVersionProvider() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    return packageInfo.version;
-  }
-
-  static String _currentPlatform() {
-    return Platform.isIOS
-        ? VersionPolicy.platformIos
-        : VersionPolicy.platformAndroid;
   }
 
   static Future<void> _showOptionalPrompt(

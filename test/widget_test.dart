@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asset_ledger/app/app.dart';
+import 'package:asset_ledger/app/app_navigator.dart';
 import 'package:asset_ledger/app/inbound_share_file_gate.dart';
 import 'package:asset_ledger/app/phone_login_gate.dart';
 import 'package:asset_ledger/app/router.dart';
@@ -24,6 +25,7 @@ void main() {
     );
 
     // i18n 阶段 A:标题经 onGenerateTitle 走 AppLocalizations key。
+    expect(app.navigatorKey, same(AppNavigator.key));
     expect(app.onGenerateTitle, isNotNull);
     expect(app.localizationsDelegates, contains(AppLocalizations.delegate));
     expect(app.debugShowCheckedModeBanner, isFalse);

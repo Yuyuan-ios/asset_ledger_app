@@ -2,12 +2,14 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../../app/cloud_backup_config.dart';
+import '../../app/app_runtime_metadata.dart';
 import '../../app/phone_login_store.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/fuel_repository.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/services/backup/cloud_backup_service.dart';
 import '../../data/services/subscription_service.dart';
+import '../../features/app_update/domain/version_gate_decision.dart';
 import '../../infrastructure/cloud/http_cloud_backup_key_provider.dart';
 import '../../features/device/application/controllers/cloud_backup_controller.dart';
 import '../../features/device/application/controllers/local_backup_controller.dart';
@@ -16,8 +18,18 @@ import '../../features/device/state/device_store.dart';
 import '../../features/fuel/state/fuel_store.dart';
 import '../../features/maintenance/state/maintenance_store.dart';
 import '../../infrastructure/cloud/cloud_backup_gateway.dart';
+import '../../infrastructure/cloud/api_client.dart';
 import '../../infrastructure/cloud/http_cloud_api_client.dart';
 import '../../infrastructure/local/backup/local_backup_repository_adapter.dart';
+
+typedef DeviceFleetCloudApiClientFactory =
+    CloudApiClient Function({
+      required String baseUrl,
+      required Future<String?> Function() accessTokenProvider,
+      Future<String?> Function()? appVersionProvider,
+      String? platform,
+      void Function(VersionGateDecision decision)? onUpgradeRequired,
+    });
 
 /// Device / fuel / maintenance composition slice.
 class DeviceFleetProviders {
@@ -37,7 +49,12 @@ class DeviceFleetProviders {
   final CloudBackupController cloudBackupController;
   final List<SingleChildWidget> providers;
 
-  factory DeviceFleetProviders.build() {
+  factory DeviceFleetProviders.build({
+    CloudBackupEndpointConfig? endpointConfig,
+    DeviceFleetCloudApiClientFactory cloudApiClientFactory =
+        _createHttpCloudApiClient,
+    void Function(VersionGateDecision decision)? onUpgradeRequired,
+  }) {
     final deviceRepository = SqfliteDeviceRepository();
     final fuelRepository = SqfliteFuelRepository();
     final maintenanceRepository = SqfliteMaintenanceRepository();
@@ -48,16 +65,19 @@ class DeviceFleetProviders {
     final fuelStore = FuelStore(fuelRepository);
     final maintenanceStore = MaintenanceStore(maintenanceRepository);
     const localBackupController = LocalBackupController(localBackupRepository);
-    final cloudBackupEndpoint = CloudBackupConfig.current;
+    final cloudBackupEndpoint = endpointConfig ?? CloudBackupConfig.current;
     final CloudBackupController cloudBackupController;
     if (cloudBackupEndpoint.isAvailable) {
       // 备份传输与账号密钥下发共用同一鉴权客户端(同 baseUrl + Bearer)。
-      final cloudClient = HttpCloudApiClient(
+      final cloudClient = cloudApiClientFactory(
         baseUrl: cloudBackupEndpoint.baseUrl!,
         accessTokenProvider: () async {
           final session = await phoneLoginStore.read();
           return session.isAuthenticated ? session.authToken : null;
         },
+        appVersionProvider: AppRuntimeMetadata.cloudApiVersionHeader,
+        platform: AppRuntimeMetadata.platform,
+        onUpgradeRequired: onUpgradeRequired,
       );
       cloudBackupController = CloudBackupController(
         availability: CloudBackupAvailability.available(
@@ -97,6 +117,22 @@ class DeviceFleetProviders {
         ChangeNotifierProvider<FuelStore>.value(value: fuelStore),
         ChangeNotifierProvider<MaintenanceStore>.value(value: maintenanceStore),
       ],
+    );
+  }
+
+  static CloudApiClient _createHttpCloudApiClient({
+    required String baseUrl,
+    required Future<String?> Function() accessTokenProvider,
+    Future<String?> Function()? appVersionProvider,
+    String? platform,
+    void Function(VersionGateDecision decision)? onUpgradeRequired,
+  }) {
+    return HttpCloudApiClient(
+      baseUrl: baseUrl,
+      accessTokenProvider: accessTokenProvider,
+      appVersionProvider: appVersionProvider,
+      platform: platform,
+      onUpgradeRequired: onUpgradeRequired,
     );
   }
 }

@@ -9,8 +9,10 @@ import '../../infrastructure/sync/sync_manager.dart';
 import '../../infrastructure/sync/sync_repositories.dart';
 import '../../infrastructure/sync/sync_state_repository.dart';
 import '../../infrastructure/sync/sync_telemetry.dart';
+import '../../features/app_update/domain/version_gate_decision.dart';
 import '../identity/app_identity_service.dart';
 import '../phone_login_store.dart';
+import '../app_runtime_metadata.dart';
 import '../sync_production_caller.dart';
 import '../sync_runtime.dart';
 import '../sync_transport_config.dart';
@@ -19,6 +21,9 @@ typedef SyncCloudApiClientFactory =
     CloudApiClient Function({
       required String baseUrl,
       required Future<String?> Function() accessTokenProvider,
+      Future<String?> Function()? appVersionProvider,
+      String? platform,
+      void Function(VersionGateDecision decision)? onUpgradeRequired,
     });
 
 class SyncProviders {
@@ -42,6 +47,7 @@ class SyncProviders {
         const SharedPreferencesSyncTelemetryStore(),
     SyncLiveReadinessGate? liveReadinessGate,
     String Function()? deviceIdProvider,
+    void Function(VersionGateDecision decision)? onUpgradeRequired,
   }) {
     final config = endpointConfig ?? SyncTransportConfig.current;
     final gate =
@@ -76,6 +82,9 @@ class SyncProviders {
         final session = await phoneLoginStore.read();
         return session.isAuthenticated ? session.authToken : null;
       },
+      appVersionProvider: AppRuntimeMetadata.cloudApiVersionHeader,
+      platform: AppRuntimeMetadata.platform,
+      onUpgradeRequired: onUpgradeRequired,
     );
     final syncManager = SyncManager(
       outboxRepository: const LocalSyncOutboxRepository(),
@@ -116,10 +125,16 @@ class SyncProviders {
   static CloudApiClient _createHttpCloudApiClient({
     required String baseUrl,
     required Future<String?> Function() accessTokenProvider,
+    Future<String?> Function()? appVersionProvider,
+    String? platform,
+    void Function(VersionGateDecision decision)? onUpgradeRequired,
   }) {
     return HttpCloudApiClient(
       baseUrl: baseUrl,
       accessTokenProvider: accessTokenProvider,
+      appVersionProvider: appVersionProvider,
+      platform: platform,
+      onUpgradeRequired: onUpgradeRequired,
     );
   }
 }

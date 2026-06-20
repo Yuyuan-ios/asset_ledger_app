@@ -17,6 +17,7 @@ import 'package:asset_ledger/data/services/project_resolver.dart';
 import 'package:asset_ledger/features/account/domain/repositories/project_settlement_repository.dart';
 import 'package:asset_ledger/features/account/state/account_store.dart';
 import 'package:asset_ledger/features/account/use_cases/project_settlement_use_case.dart';
+import 'package:asset_ledger/features/app_update/application/forced_update_controller.dart';
 import 'package:asset_ledger/features/app_update/application/update_prompt_coordinator.dart';
 import 'package:asset_ledger/features/device/application/controllers/cloud_backup_controller.dart';
 import 'package:asset_ledger/features/device/state/device_store.dart';
@@ -65,6 +66,7 @@ void main() {
       late CloudBackupController cloudBackupController;
       late SyncRuntime syncRuntime;
       late SyncProductionCaller syncProductionCaller;
+      late ForcedUpdateController forcedUpdateController;
       late UpdatePromptCoordinator updatePromptCoordinator;
       late DeviceStore deviceStore;
       late TimingStore timingStore;
@@ -119,6 +121,7 @@ void main() {
                 cloudBackupController = context.read<CloudBackupController>();
                 syncRuntime = context.read<SyncRuntime>();
                 syncProductionCaller = context.read<SyncProductionCaller>();
+                forcedUpdateController = context.read<ForcedUpdateController>();
                 updatePromptCoordinator = context
                     .read<UpdatePromptCoordinator>();
                 deviceStore = context.read<DeviceStore>();
@@ -188,6 +191,7 @@ void main() {
         identical(syncProductionCaller, bundle.syncProductionCaller),
         isTrue,
       );
+      expect(forcedUpdateController, isA<ForcedUpdateController>());
       expect(updatePromptCoordinator, isA<UpdatePromptCoordinator>());
       expect(syncRuntime.isUnavailable, isTrue);
     },

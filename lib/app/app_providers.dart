@@ -1,14 +1,20 @@
+import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../features/account/state/account_payment_store.dart';
 import '../features/account/state/account_store.dart';
 import '../features/account/state/project_rate_store.dart';
+import '../features/app_update/application/forced_update_controller.dart';
+import '../features/app_update/application/update_delivery.dart';
 import '../features/device/application/controllers/cloud_backup_controller.dart';
 import '../features/device/state/device_store.dart';
 import '../features/fuel/state/fuel_store.dart';
 import '../features/maintenance/state/maintenance_store.dart';
 import '../features/timing/state/timing_external_work_store.dart';
 import '../features/timing/state/timing_store.dart';
+import '../features/app_update/presentation/forced_update_blocker.dart';
+import 'app_navigator.dart';
+import 'app_runtime_metadata.dart';
 import 'sync_production_caller.dart';
 import 'sync_runtime.dart';
 import 'providers/account_merge_providers.dart';
@@ -27,9 +33,27 @@ import 'providers/timing_save_providers.dart';
 /// this root only composes them.
 class AppProviders {
   static AppProviderBundle build() {
-    final deviceFleet = DeviceFleetProviders.build();
+    final forcedUpdateDelivery = UpdateDelivery(
+      channel: AppRuntimeMetadata.channel,
+      inAppUpdateLauncher: null,
+    );
+    final forcedUpdateController = ForcedUpdateController(
+      navigatorKey: AppNavigator.key,
+      showForcedBlocker: (context, decision) {
+        return showForcedUpdateBlocker(
+          context: context,
+          decision: decision,
+          delivery: forcedUpdateDelivery,
+        );
+      },
+    );
+    final deviceFleet = DeviceFleetProviders.build(
+      onUpgradeRequired: forcedUpdateController.signalUpgradeRequired,
+    );
     final identity = IdentityProviders.build();
-    final sync = SyncProviders.build();
+    final sync = SyncProviders.build(
+      onUpgradeRequired: forcedUpdateController.signalUpgradeRequired,
+    );
     final project = ProjectProviders.build();
     final timing = TimingProviders.build(
       projectResolver: project.projectResolver,
@@ -67,6 +91,7 @@ class AppProviders {
       accountStore: accountMerge.accountStore,
       timingExternalWorkStore: externalWork.timingExternalWorkStore,
       providers: [
+        Provider<ForcedUpdateController>.value(value: forcedUpdateController),
         ...deviceFleet.providers,
         ...identity.providers,
         ...sync.providers,
