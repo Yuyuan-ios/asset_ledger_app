@@ -35,7 +35,7 @@ void main() {
       expect(find.byType(Stack), findsNothing);
     });
 
-    test('renders surplus tail as a separate rounded pill', () {
+    test('renders surplus state as square rect segments', () {
       final result = calculateLifecyclePayback(
         const LifecyclePaybackInput(
           initialCostFen: 250000,
@@ -56,20 +56,17 @@ void main() {
       expect(layout.residualSegment, isNotNull);
       expect(layout.tailSegment, isNotNull);
       expect(layout.hasProfitTail, isTrue);
-      expect(layout.tailIsPill, isTrue);
-      expect(layout.tailRadius, 18);
-      expect(layout.profitGap, 6);
-      expect(layout.profitGapRect, isNotNull);
+      expect(layout.paybackDivider, isNotNull);
       expect(layout.residualGapDivider, isNull);
-      expect(layout.costContainer.right, closeTo(251.2, 0.0001));
+      expect(layout.netSegment!.right, closeTo(240.3574, 0.0001));
       expect(
         layout.residualSegment!.right,
-        closeTo(layout.costContainer.right, 0.0001),
+        closeTo(layout.tailSegment!.left, 0.0001),
       );
-      expect(layout.profitGapRect!.left, closeTo(251.2, 0.0001));
-      expect(layout.profitGapRect!.right, closeTo(257.2, 0.0001));
-      expect(layout.tailSegment!.left, closeTo(257.2, 0.0001));
+      expect(layout.tailSegment!.left, closeTo(256, 0.0001));
       expect(layout.tailSegment!.right, closeTo(320, 0.0001));
+      expect(layout.paybackDivider!.left, closeTo(255, 0.0001));
+      expect(layout.paybackDivider!.width, 2);
     });
 
     test('keeps residual square before the unpaid gap', () {
@@ -89,13 +86,12 @@ void main() {
       expect(result.isPaidBack, isFalse);
       expect(layout.tailSegment, isNull);
       expect(layout.hasProfitTail, isFalse);
-      expect(layout.tailIsPill, isFalse);
-      expect(layout.profitGap, 0);
       expect(layout.netSegment!.right, closeTo(128, 0.0001));
       expect(layout.residualSegment!.left, closeTo(128, 0.0001));
       expect(layout.residualSegment!.right, closeTo(192, 0.0001));
       expect(layout.netResidualDivider, isNotNull);
       expect(layout.residualGapDivider, isNotNull);
+      expect(layout.paybackDivider, isNull);
     });
 
     test(
@@ -117,14 +113,13 @@ void main() {
         expect(result.resultText, '已回本，暂无盈余');
         expect(layout.tailSegment, isNull);
         expect(layout.hasProfitTail, isFalse);
-        expect(layout.tailIsPill, isFalse);
-        expect(layout.profitGap, 0);
         expect(
           layout.residualSegment!.right,
           closeTo(layout.track.right, 0.0001),
         );
         expect(layout.netResidualDivider, isNotNull);
         expect(layout.residualGapDivider, isNull);
+        expect(layout.paybackDivider, isNull);
       },
     );
 
@@ -144,16 +139,14 @@ void main() {
 
       expect(result.tailIsCapped, isTrue);
       expect(layout.hasProfitTail, isTrue);
-      expect(layout.tailIsPill, isTrue);
-      expect(layout.profitGap, 6);
-      expect(layout.netSegment!.right, closeTo(251.2, 0.0001));
+      expect(layout.netSegment!.right, closeTo(256, 0.0001));
       expect(layout.residualSegment, isNull);
-      expect(layout.profitGapRect!.width, 6);
-      expect(layout.tailSegment!.left, closeTo(257.2, 0.0001));
+      expect(layout.tailSegment!.left, closeTo(256, 0.0001));
       expect(layout.tailSegment!.right, closeTo(320, 0.0001));
+      expect(layout.paybackDivider, isNotNull);
     });
 
-    test('keeps a minimum visible profit pill for tiny surplus', () {
+    test('uses ratio-based square tail width for tiny surplus', () {
       final result = calculateLifecyclePayback(
         const LifecyclePaybackInput(
           initialCostFen: 250000,
@@ -170,10 +163,9 @@ void main() {
       expect(result.isPaidBack, isTrue);
       expect(result.lifeCycleProfitFen, 1000);
       expect(layout.hasProfitTail, isTrue);
-      expect(layout.tailSegment!.width, 22);
-      expect(layout.tailRadius, 18);
-      expect(layout.profitGap, 6);
-      expect(layout.costContainer.right + layout.profitGap + 22, 320);
+      expect(layout.tailSegment!.width, closeTo(1.275, 0.001));
+      expect(layout.tailSegment!.right, 320);
+      expect(layout.paybackDivider, isNotNull);
     });
 
     test('leaves only the track for unset costs', () {
@@ -196,8 +188,7 @@ void main() {
       expect(layout.residualSegment, isNull);
       expect(layout.tailSegment, isNull);
       expect(layout.hasProfitTail, isFalse);
-      expect(layout.tailIsPill, isFalse);
-      expect(layout.profitGap, 0);
+      expect(layout.paybackDivider, isNull);
     });
   });
 }
