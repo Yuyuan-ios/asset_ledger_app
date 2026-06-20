@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/foundation/typography.dart';
+import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
 
 const Color _iosGreen = Color(0xFF34C759);
@@ -8,12 +9,15 @@ const Color _iosTeal = Color(0xFF30B0C7);
 const Color _iosOrange = Color(0xFFFF9500);
 const Color _iosText = Color(0xFF1C1C1E);
 const Color _iosSecondaryText = Color(0xFF8E8E93);
-const Color _iosTertiaryText = Color(0xFFAEAEB2);
 const Color _iosBodyText = Color(0xFF3A3A3C);
 const Color _iosFill = Color(0xFFF2F2F7);
 const Color _iosGap = Color(0xFFE5E5EA);
 const Color _iosGapDark = Color(0xFFD1D1D6);
 const Color _iosProfitTail = Color(0xFF1C6B30);
+
+Color _businessLedgerMutedText() {
+  return DeviceTokens.actionCardTitleColor.withValues(alpha: 0.56);
+}
 
 class LifecyclePaybackCard extends StatelessWidget {
   const LifecyclePaybackCard({
@@ -54,13 +58,15 @@ class LifecyclePaybackCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(DeviceActionCardTokens.radius),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              color: DeviceActionCardTokens.backgroundColor,
+              borderRadius: BorderRadius.circular(
+                DeviceActionCardTokens.radius,
+              ),
               border: Border.all(color: _iosGap, width: 0.5),
             ),
             child: Column(
@@ -105,7 +111,7 @@ class LifecyclePaybackCard extends StatelessWidget {
                       context,
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
-                      color: _iosTertiaryText,
+                      color: _businessLedgerMutedText(),
                     ),
                   ),
                 ],
@@ -299,7 +305,7 @@ class _MetaRow extends StatelessWidget {
             context,
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: _iosSecondaryText,
+            color: _businessLedgerMutedText(),
           ),
         ),
       ],
@@ -450,7 +456,7 @@ class _Footer extends StatelessWidget {
                 context,
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
-                color: _iosSecondaryText,
+                color: _businessLedgerMutedText(),
               ),
             ),
           ),
