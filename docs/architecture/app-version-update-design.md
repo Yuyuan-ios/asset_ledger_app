@@ -119,7 +119,8 @@ flowchart TD
   + 错误体（含 updateUrl/文案）。App 把该码映射到强制更新页。
 - **不拦截** `version-policy.json` 自身与登录/版本检查相关端点（避免鸡生蛋）。
 - 拦截只在调这些 API 时才发生，故与"策略下发可用性"无耦合。
-- **分层口径**：426 是 **HTTP 传输层**信号，在 `HttpCloudApiClient` 解析业务 `ApiResponse` **之前**短路拦截（不混进业务错误码体系），直接抛一个专用异常 → 路由到强制更新页。错误体（updateUrl/文案）按需解析，缺失则用客户端内置兜底文案。
+- **分层口径**：426 是 **HTTP 传输层**信号，在 `HttpCloudApiClient` 解析业务 `ApiResponse` **之前**短路处理（不混进业务错误码体系，用独立 `upgrade_required` 码）。**映射机制**：因 sync caller 会把异常吞成 `failed` 结果、且传输层无 `BuildContext`/无全局 navigatorKey，故**不靠抛异常路由**，改为：426 → 触发注入的 `onUpgradeRequired(decision)` sink → `ForcedUpdateController` 经**全局 navigatorKey** push 强制页（去重,复用 V4 forced blocker + V5 渠道投递）。错误体（updateUrl/文案）按需解析,缺失用内置兜底文案。
+- **实施拆片**：**V6a** 客户端=头注入 + 426 检测/映射(transport sink + navigatorKey + ForcedUpdateController);**V6b** 服务端=sync/backup 中间件(读头比 min → 426,放行 policy/登录/版本端点)。注:V6b 落地前客户端不会真收到 426,V6a 的映射路径靠单测模拟 426 验证。
 
 ## 7. 故障域 / 稳定性
 - 策略下发 = 静态文件 + nginx：即便 brand-new 的 sync 服务抖动，版本检查照常 → App 启动不受其拖累。满足「复用稳定就复用、有隐患就独立」：**复用部署基础设施，隔离应用逻辑故障域**。
@@ -137,7 +138,8 @@ flowchart TD
 - **V3** 普通档 UI：非阻断「发现新版本/稍后再说」浮层；接计时页入口触发。
 - **V4** 强制档 UI：扩展 V3 协调器，在计时页（默认首屏）入口对 forced 决策 push **不可关全屏阻断路由**（PopScope + 仅「立即更新」跳商店/落地页）；**不改 `main.dart`/根 gate**。Play immediate in-app update 留 V5。
 - **V5** Android 双路径更新动作：渠道标识读取 + Play Services 探测；有 Play → flexible/immediate（Play In-App Updates）；无 Play → 按 `channelUrls`/`updateUrl` 跳商店或落地页（与 iOS 同构）。强制档无 Play 时靠不可关弹窗 + 服务端 426 兜底。
-- **V6** 请求头 `X-App-Version`/`X-Platform` 注入 + 服务端中间件 426 拦截 + App 端 426→强制页映射。
+- **V6a** 客户端：`HttpCloudApiClient` 一处注入 `X-App-Version`/`X-Platform`；426 检测 → `upgrade_required` 短路 + `onUpgradeRequired` sink → `ForcedUpdateController` 经全局 navigatorKey push 强制页（复用 V4/V5）。单测模拟 426。
+- **V6b** 服务端：sync/backup（`server/cloud_sync_backend`、`cloud_backup_backend`）轻量中间件——读头比 `minSupportedVersion(platform)` → `426 Upgrade Required` + 错误体；**放行** `version-policy.json`/登录/版本端点。
 - **V7** i18n（弹窗标题/正文/按钮入 l10n，遵守只抽 UI 串纪律）+ 端到端联调。
 
 ## 10. 留待实施时敲定
