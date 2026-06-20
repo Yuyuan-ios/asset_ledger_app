@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 from app import (
     AppConfig,
@@ -350,9 +351,9 @@ class BackendHttpTestCase(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def request(self, method, path, token=None, body=None, authorization=None):
+    def request(self, method, path, token=None, body=None, authorization=None, headers=None):
         data = b""
-        headers = {}
+        headers = dict(headers or {})
         if body is not None:
             data = json.dumps(body, separators=(",", ":")).encode("utf-8")
             headers["content-type"] = "application/json"
@@ -366,6 +367,140 @@ class BackendHttpTestCase(unittest.TestCase):
 
         BackupRequestHandler._handle(handler, method)
         return handler.status, json.loads(handler.wfile.getvalue().decode("utf-8"))
+
+    def test_healthz_is_unauthenticated_and_bypasses_version_gate(self):
+        with mock.patch("app.VERSION_UPGRADE_GATE.enforce", side_effect=AssertionError("gate should not run")):
+            status, body = self.request("GET", "/healthz")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True})
+
+    def test_version_gate_returns_426_for_outdated_client_before_auth(self):
+        policy_path = self.write_version_policy(min_version="2.0.0")
+
+        with _patched_env(FLEET_BACKUP_VERSION_POLICY_PATH=policy_path):
+            status, body = self.request(
+                "GET",
+                "/v1/backups",
+                headers={
+                    "X-App-Version": "1.4.0+12",
+                    "X-Platform": "android",
+                },
+            )
+
+        self.assertEqual(status, 426)
+        self.assertEqual(
+            body,
+            {
+                "code": "upgrade_required",
+                "updateUrl": "https://example.com/download",
+                "title": "发现新版本",
+                "content": "请更新后继续使用。",
+            },
+        )
+
+    def test_version_gate_allows_current_or_newer_client_to_reach_auth(self):
+        policy_path = self.write_version_policy(min_version="1.4.0")
+
+        with _patched_env(FLEET_BACKUP_VERSION_POLICY_PATH=policy_path):
+            status, body = self.request(
+                "GET",
+                "/v1/backups",
+                headers={
+                    "X-App-Version": "1.4.0-alpha+12",
+                    "X-Platform": "android",
+                },
+            )
+
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+
+    def test_version_gate_fail_opens_when_required_headers_are_missing(self):
+        policy_path = self.write_version_policy(min_version="2.0.0")
+
+        with _patched_env(FLEET_BACKUP_VERSION_POLICY_PATH=policy_path):
+            missing_version_status, missing_version_body = self.request(
+                "GET",
+                "/v1/backups",
+                headers={"X-Platform": "android"},
+            )
+            missing_platform_status, missing_platform_body = self.request(
+                "GET",
+                "/v1/backups",
+                headers={"X-App-Version": "1.0.0"},
+            )
+
+        self.assertEqual(missing_version_status, 401)
+        self.assertEqual(missing_version_body["error"]["code"], "unauthorized")
+        self.assertEqual(missing_platform_status, 401)
+        self.assertEqual(missing_platform_body["error"]["code"], "unauthorized")
+
+    def test_version_gate_fail_opens_when_policy_is_unconfigured_or_missing(self):
+        request_headers = {"X-App-Version": "1.0.0", "X-Platform": "android"}
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            status, body = self.request("GET", "/v1/backups", headers=request_headers)
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+
+        with _patched_env(FLEET_BACKUP_VERSION_POLICY_PATH=f"{self.temp_dir.name}/missing.json"):
+            status, body = self.request("GET", "/v1/backups", headers=request_headers)
+
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+
+    def test_version_gate_fail_opens_on_invalid_semver(self):
+        valid_policy_path = self.write_version_policy(min_version="2.0.0")
+        invalid_policy_path = self.write_version_policy(min_version="not-semver", filename="invalid-policy.json")
+
+        with _patched_env(FLEET_BACKUP_VERSION_POLICY_PATH=valid_policy_path):
+            invalid_current_status, invalid_current_body = self.request(
+                "GET",
+                "/v1/backups",
+                headers={
+                    "X-App-Version": "1.0",
+                    "X-Platform": "android",
+                },
+            )
+        with _patched_env(FLEET_BACKUP_VERSION_POLICY_PATH=invalid_policy_path):
+            invalid_min_status, invalid_min_body = self.request(
+                "GET",
+                "/v1/backups",
+                headers={
+                    "X-App-Version": "1.0.0",
+                    "X-Platform": "android",
+                },
+            )
+
+        self.assertEqual(invalid_current_status, 401)
+        self.assertEqual(invalid_current_body["error"]["code"], "unauthorized")
+        self.assertEqual(invalid_min_status, 401)
+        self.assertEqual(invalid_min_body["error"]["code"], "unauthorized")
+
+    def write_version_policy(self, min_version="2.0.0", filename="version-policy.json"):
+        path = f"{self.temp_dir.name}/{filename}"
+        with open(path, "w", encoding="utf-8") as policy_file:
+            json.dump(
+                {
+                    "android": {
+                        "latestVersion": "2.1.0",
+                        "minSupportedVersion": min_version,
+                        "updateUrl": "https://example.com/download",
+                        "title": "发现新版本",
+                        "content": "请更新后继续使用。",
+                    },
+                    "ios": {
+                        "latestVersion": "2.1.0",
+                        "minSupportedVersion": "1.0.0",
+                        "updateUrl": "itms-apps://apps.apple.com/app/idXXXXXXXX",
+                        "title": "发现新版本",
+                        "content": "请更新后继续使用。",
+                    },
+                },
+                policy_file,
+                separators=(",", ":"),
+            )
+        return path
 
     def test_http_endpoints_require_bearer_token(self):
         status, body = self.request("GET", "/v1/backups")
