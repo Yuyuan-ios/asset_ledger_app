@@ -14,6 +14,9 @@ const Color _iosFill = Color(0xFFF2F2F7);
 const Color _iosGap = Color(0xFFE5E5EA);
 const Color _iosGapDark = Color(0xFFD1D1D6);
 const Color _iosProfitTail = Color(0xFF1C6B30);
+const double _paybackBarHeight = 36;
+const double _paybackBarDividerWidth = 2;
+const double _minVisibleSegmentWidth = 0.5;
 
 Color _businessLedgerMutedText() {
   return DeviceTokens.actionCardTitleColor.withValues(alpha: 0.56);
@@ -147,126 +150,163 @@ class PaybackSegmentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final availableWidth = constraints.maxWidth;
-          if (result.isCostUnset || availableWidth <= 0) {
-            return const _PlaceholderBar();
-          }
-
-          final tailRatio = result.tailRatio;
-          final costWidth = result.isPaidBack && tailRatio > 0
-              ? availableWidth / (1 + tailRatio)
-              : availableWidth;
-          final tailWidth = (availableWidth - costWidth).clamp(
-            0.0,
-            availableWidth,
-          );
-
-          return Row(
-            children: [
-              SizedBox(
-                width: costWidth,
-                child: _CostSegmentContainer(result: result),
-              ),
-              if (tailWidth > 0.5) ...[
-                Container(width: 2, color: Colors.white),
-                Expanded(
-                  child: Container(
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: _iosProfitTail,
-                      borderRadius: BorderRadius.horizontal(
-                        right: Radius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
+      width: double.infinity,
+      height: _paybackBarHeight,
+      child: CustomPaint(painter: _PaybackSegmentPainter(result)),
     );
   }
 }
 
-class _CostSegmentContainer extends StatelessWidget {
-  const _CostSegmentContainer({required this.result});
+class PaybackBarLayout {
+  const PaybackBarLayout({
+    required this.track,
+    this.netSegment,
+    this.residualSegment,
+    this.tailSegment,
+    this.netResidualDivider,
+    this.residualGapDivider,
+    this.paybackDivider,
+  });
+
+  final Rect track;
+  final Rect? netSegment;
+  final Rect? residualSegment;
+  final Rect? tailSegment;
+  final Rect? netResidualDivider;
+  final Rect? residualGapDivider;
+  final Rect? paybackDivider;
+
+  bool get hasProfitTail => tailSegment != null;
+}
+
+PaybackBarLayout calculatePaybackBarLayout({
+  required LifecyclePaybackResult result,
+  required Size size,
+  double dividerWidth = _paybackBarDividerWidth,
+}) {
+  final width = size.width;
+  final height = size.height;
+  final track = Rect.fromLTWH(0, 0, width, height);
+
+  if (width <= 0 || height <= 0 || result.isCostUnset) {
+    return PaybackBarLayout(track: track);
+  }
+
+  final tailRatio = result.tailRatio;
+  final hasTail = result.isPaidBack && tailRatio > 0;
+  final calculatedCostWidth = hasTail ? width / (1 + tailRatio) : width;
+  final calculatedTailWidth = width - calculatedCostWidth;
+  final showTail = calculatedTailWidth > _minVisibleSegmentWidth;
+  final costWidth = (showTail ? calculatedCostWidth : width)
+      .clamp(0.0, width)
+      .toDouble();
+  final tailWidth = showTail ? width - costWidth : 0.0;
+
+  final netWidth = (costWidth * result.netSegmentRatio)
+      .clamp(0.0, costWidth)
+      .toDouble();
+  final residualLeft = netWidth;
+  final residualWidth = (costWidth * result.residualSegmentRatio)
+      .clamp(0.0, costWidth - residualLeft)
+      .toDouble();
+  final gapLeft = netWidth + residualWidth;
+  final gapWidth = (costWidth - gapLeft).clamp(0.0, costWidth).toDouble();
+
+  return PaybackBarLayout(
+    track: track,
+    netSegment: _visibleRect(left: 0, width: netWidth, height: height),
+    residualSegment: _visibleRect(
+      left: residualLeft,
+      width: residualWidth,
+      height: height,
+    ),
+    tailSegment: showTail
+        ? _visibleRect(left: costWidth, width: tailWidth, height: height)
+        : null,
+    netResidualDivider:
+        netWidth > _minVisibleSegmentWidth &&
+            residualWidth > _minVisibleSegmentWidth
+        ? _dividerRect(
+            boundary: netWidth,
+            width: width,
+            height: height,
+            dividerWidth: dividerWidth,
+          )
+        : null,
+    residualGapDivider:
+        residualWidth > _minVisibleSegmentWidth &&
+            gapWidth > _minVisibleSegmentWidth &&
+            result.gapSegmentRatio > 0.001
+        ? _dividerRect(
+            boundary: gapLeft,
+            width: width,
+            height: height,
+            dividerWidth: dividerWidth,
+          )
+        : null,
+    paybackDivider: showTail
+        ? _dividerRect(
+            boundary: costWidth,
+            width: width,
+            height: height,
+            dividerWidth: dividerWidth,
+          )
+        : null,
+  );
+}
+
+Rect? _visibleRect({
+  required double left,
+  required double width,
+  required double height,
+}) {
+  if (width <= _minVisibleSegmentWidth) return null;
+  return Rect.fromLTWH(left, 0, width, height);
+}
+
+Rect _dividerRect({
+  required double boundary,
+  required double width,
+  required double height,
+  required double dividerWidth,
+}) {
+  final effectiveDividerWidth = dividerWidth.clamp(0.0, width).toDouble();
+  final left = (boundary - effectiveDividerWidth / 2)
+      .clamp(0.0, width - effectiveDividerWidth)
+      .toDouble();
+  return Rect.fromLTWH(left, 0, effectiveDividerWidth, height);
+}
+
+class _PaybackSegmentPainter extends CustomPainter {
+  const _PaybackSegmentPainter(this.result);
 
   final LifecyclePaybackResult result;
 
   @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final netWidth = width * result.netSegmentRatio;
-          final residualWidth = width * result.residualSegmentRatio;
-          final residualLeft = netWidth;
-          final gapLeft = netWidth + residualWidth;
-          final hasGap = result.gapSegmentRatio > 0.001;
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
 
-          return Stack(
-            children: [
-              const Positioned.fill(child: ColoredBox(color: _iosGap)),
-              if (netWidth > 0.5)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: netWidth,
-                  child: const ColoredBox(color: _iosGreen),
-                ),
-              if (residualWidth > 0.5)
-                Positioned(
-                  left: residualLeft,
-                  top: 0,
-                  bottom: 0,
-                  width: residualWidth,
-                  child: const ColoredBox(color: _iosTeal),
-                ),
-              if (netWidth > 0.5 && residualWidth > 0.5)
-                _Separator(left: netWidth),
-              if (residualWidth > 0.5 && hasGap) _Separator(left: gapLeft),
-            ],
-          );
-        },
-      ),
-    );
+    canvas.drawRect(Offset.zero & size, Paint()..color = _iosGap);
+    if (result.isCostUnset) return;
+
+    final layout = calculatePaybackBarLayout(result: result, size: size);
+    _drawRect(canvas, layout.netSegment, _iosGreen);
+    _drawRect(canvas, layout.residualSegment, _iosTeal);
+    _drawRect(canvas, layout.tailSegment, _iosProfitTail);
+    _drawRect(canvas, layout.netResidualDivider, Colors.white);
+    _drawRect(canvas, layout.residualGapDivider, Colors.white);
+    _drawRect(canvas, layout.paybackDivider, Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(_PaybackSegmentPainter oldDelegate) {
+    return oldDelegate.result != result;
   }
 }
 
-class _PlaceholderBar extends StatelessWidget {
-  const _PlaceholderBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: const ColoredBox(color: _iosGap, child: SizedBox.expand()),
-    );
-  }
-}
-
-class _Separator extends StatelessWidget {
-  const _Separator({required this.left});
-
-  final double left;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: left - 1,
-      top: 0,
-      bottom: 0,
-      width: 2,
-      child: const ColoredBox(color: Colors.white),
-    );
-  }
+void _drawRect(Canvas canvas, Rect? rect, Color color) {
+  if (rect == null) return;
+  canvas.drawRect(rect, Paint()..color = color);
 }
 
 class _MetaRow extends StatelessWidget {
