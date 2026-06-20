@@ -9,6 +9,7 @@ void main() {
     (WidgetTester tester) async {
       final coldStartFlags = <bool>[];
       var showCalls = 0;
+      var forcedCalls = 0;
       final coordinator = UpdatePromptCoordinator(
         checkVersion: ({required bool isColdStart}) async {
           coldStartFlags.add(isColdStart);
@@ -16,6 +17,9 @@ void main() {
         },
         showPrompt: (context, decision) async {
           showCalls++;
+        },
+        showForcedBlocker: (context, decision) async {
+          forcedCalls++;
         },
       );
       final context = await _pumpContext(tester);
@@ -25,13 +29,19 @@ void main() {
 
       expect(coldStartFlags, [true, false]);
       expect(showCalls, 1);
+      expect(forcedCalls, 0);
     },
   );
 
-  testWidgets('forced decision does not show prompt', (tester) async {
-    var showCalls = 0;
+  testWidgets('forced decision shows blocker once and skips optional prompt', (
+    tester,
+  ) async {
+    final coldStartFlags = <bool>[];
+    var forcedCalls = 0;
+    var optionalCalls = 0;
     final coordinator = UpdatePromptCoordinator(
       checkVersion: ({required bool isColdStart}) async {
+        coldStartFlags.add(isColdStart);
         return const VersionGateDecision.forced(
           updateUrl: 'https://example.com/download',
           title: '发现新版本',
@@ -39,47 +49,64 @@ void main() {
         );
       },
       showPrompt: (context, decision) async {
-        showCalls++;
+        optionalCalls++;
+      },
+      showForcedBlocker: (context, decision) async {
+        forcedCalls++;
       },
     );
+    final context = await _pumpContext(tester);
 
-    await coordinator.onTimingPageEntered(await _pumpContext(tester));
+    await coordinator.onTimingPageEntered(context);
+    await coordinator.onTimingPageEntered(context);
 
-    expect(showCalls, 0);
+    expect(coldStartFlags, [true, false]);
+    expect(forcedCalls, 1);
+    expect(optionalCalls, 0);
   });
 
   testWidgets('none decision does not show prompt', (tester) async {
-    var showCalls = 0;
+    var forcedCalls = 0;
+    var optionalCalls = 0;
     final coordinator = UpdatePromptCoordinator(
       checkVersion: ({required bool isColdStart}) async {
         return const VersionGateDecision.none();
       },
       showPrompt: (context, decision) async {
-        showCalls++;
+        optionalCalls++;
+      },
+      showForcedBlocker: (context, decision) async {
+        forcedCalls++;
       },
     );
 
     await coordinator.onTimingPageEntered(await _pumpContext(tester));
 
-    expect(showCalls, 0);
+    expect(forcedCalls, 0);
+    expect(optionalCalls, 0);
   });
 
   testWidgets('service error is fail-open and does not show prompt', (
     tester,
   ) async {
-    var showCalls = 0;
+    var forcedCalls = 0;
+    var optionalCalls = 0;
     final coordinator = UpdatePromptCoordinator(
       checkVersion: ({required bool isColdStart}) async {
         throw StateError('version check failed');
       },
       showPrompt: (context, decision) async {
-        showCalls++;
+        optionalCalls++;
+      },
+      showForcedBlocker: (context, decision) async {
+        forcedCalls++;
       },
     );
 
     await coordinator.onTimingPageEntered(await _pumpContext(tester));
 
-    expect(showCalls, 0);
+    expect(forcedCalls, 0);
+    expect(optionalCalls, 0);
   });
 
   testWidgets('no-op coordinator does not show prompt', (tester) async {

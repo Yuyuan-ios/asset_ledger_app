@@ -13,6 +13,7 @@ import '../../features/app_update/domain/version_policy_cache.dart';
 import '../../features/app_update/domain/version_policy_source.dart';
 import '../../features/app_update/infrastructure/http_version_policy_source.dart';
 import '../../features/app_update/infrastructure/prefs_version_policy_cache.dart';
+import '../../features/app_update/presentation/forced_update_blocker.dart';
 import '../../features/app_update/presentation/optional_update_prompt.dart';
 import '../version_policy_config.dart';
 
@@ -38,6 +39,7 @@ class AppUpdateProviders {
       defaultValue: VersionPolicy.channelOfficial,
     ),
     UpdatePromptPresenter showPrompt = _showOptionalPrompt,
+    ForcedUpdatePresenter showForcedBlocker = _showForcedBlocker,
   }) {
     final config = endpointConfig ?? VersionPolicyConfig.current;
     final UpdatePromptCoordinator coordinator;
@@ -55,6 +57,7 @@ class AppUpdateProviders {
       coordinator = UpdatePromptCoordinator(
         checkVersion: service.check,
         showPrompt: showPrompt,
+        showForcedBlocker: showForcedBlocker,
       );
     }
 
@@ -88,5 +91,12 @@ class AppUpdateProviders {
     VersionGateDecision decision,
   ) {
     return showOptionalUpdatePrompt(context: context, decision: decision);
+  }
+
+  static Future<void> _showForcedBlocker(
+    BuildContext context,
+    VersionGateDecision decision,
+  ) {
+    return showForcedUpdateBlocker(context: context, decision: decision);
   }
 }

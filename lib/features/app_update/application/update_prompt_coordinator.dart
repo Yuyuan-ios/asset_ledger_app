@@ -8,12 +8,17 @@ typedef VersionCheckRunner =
 typedef UpdatePromptPresenter =
     Future<void> Function(BuildContext context, VersionGateDecision decision);
 
+typedef ForcedUpdatePresenter =
+    Future<void> Function(BuildContext context, VersionGateDecision decision);
+
 class UpdatePromptCoordinator {
   UpdatePromptCoordinator({
     required VersionCheckRunner checkVersion,
     required UpdatePromptPresenter showPrompt,
+    required ForcedUpdatePresenter showForcedBlocker,
   }) : _checkVersion = checkVersion,
-       _showPrompt = showPrompt;
+       _showPrompt = showPrompt,
+       _showForcedBlocker = showForcedBlocker;
 
   factory UpdatePromptCoordinator.noop() {
     return UpdatePromptCoordinator(
@@ -21,13 +26,16 @@ class UpdatePromptCoordinator {
         return const VersionGateDecision.none();
       },
       showPrompt: (context, decision) async {},
+      showForcedBlocker: (context, decision) async {},
     );
   }
 
   final VersionCheckRunner _checkVersion;
   final UpdatePromptPresenter _showPrompt;
+  final ForcedUpdatePresenter _showForcedBlocker;
 
   var _hasCheckedFromTimingPage = false;
+  var _hasShownForcedBlocker = false;
   var _hasShownOptionalPrompt = false;
 
   Future<void> onTimingPageEntered(BuildContext context) async {
@@ -36,6 +44,15 @@ class UpdatePromptCoordinator {
 
     try {
       final decision = await _checkVersion(isColdStart: isColdStart);
+      if (decision.level == VersionGateLevel.forced) {
+        if (_hasShownForcedBlocker) return;
+
+        if (!context.mounted) return;
+        _hasShownForcedBlocker = true;
+        await _showForcedBlocker(context, decision);
+        return;
+      }
+
       if (decision.level != VersionGateLevel.optional) return;
       if (_hasShownOptionalPrompt) return;
 
