@@ -8,11 +8,21 @@ import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/device_label.dart';
 import '../domain/services/device_business_ledger.dart';
+import '../domain/services/lifecycle_payback_calculator.dart';
+import 'lifecycle_payback_card.dart';
 
 class DeviceBusinessLedgerSection extends StatelessWidget {
-  const DeviceBusinessLedgerSection({super.key, required this.ledgers});
+  const DeviceBusinessLedgerSection({
+    super.key,
+    required this.ledgers,
+    this.amountsFor,
+    this.onOpenLifecyclePayback,
+  });
 
   final List<DeviceBusinessLedger> ledgers;
+  final LifecyclePaybackAmounts? Function(DeviceBusinessLedger ledger)?
+  amountsFor;
+  final ValueChanged<DeviceBusinessLedger>? onOpenLifecyclePayback;
 
   @override
   Widget build(BuildContext context) {
@@ -29,12 +39,25 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
         horizontal: DeviceTokens.sectionHorizontalInset,
       ),
       children: [
-        for (final ledger in visible)
+        for (final ledger in visible) ...[
           DeviceActionCard(
             title: _titleFor(l10n, ledger),
             subtitle: _subtitleFor(l10n, ledger),
             onTap: () {},
           ),
+          LifecyclePaybackCard(
+            deviceName: _titleFor(l10n, ledger),
+            operatedHours: _operatedHours(ledger),
+            operationItems: ledger.projects.length,
+            initialCostFen: amountsFor?.call(ledger)?.initialCostFen,
+            netReceivedFen: _netReceivedFen(ledger),
+            estimatedResidualFen: amountsFor
+                ?.call(ledger)
+                ?.estimatedResidualFen,
+            pendingReceivableFen: _pendingReceivableFen(ledger),
+            onTap: () => onOpenLifecyclePayback?.call(ledger),
+          ),
+        ],
       ],
     );
   }
@@ -60,6 +83,30 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
         ? l10n.deviceLedgerPaidFull
         : l10n.deviceLedgerPendingAmount(FormatUtils.money(pendingFen / 100));
     return l10n.deviceLedgerSubtitle(income, work, projectCount, pending);
+  }
+
+  int _netReceivedFen(DeviceBusinessLedger ledger) {
+    final receivedFen = ledger.projects.fold<int>(
+      0,
+      (sum, project) => sum + project.receivedFen,
+    );
+    if (ledger.projects.isNotEmpty || receivedFen != 0) return receivedFen;
+    return ledger.incomeFen;
+  }
+
+  int _pendingReceivableFen(DeviceBusinessLedger ledger) {
+    return ledger.projects.fold<int>(
+      0,
+      (sum, project) =>
+          sum + (project.remainingFen > 0 ? project.remainingFen : 0),
+    );
+  }
+
+  double _operatedHours(DeviceBusinessLedger ledger) {
+    final hourTotal = ledger.unitTotals
+        .where((total) => total.unit == MeasureUnit.hour)
+        .fold<int>(0, (sum, total) => sum + total.quantityScaled);
+    return hourTotal / 1000;
   }
 
   String _unitSummary(

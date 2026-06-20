@@ -29,6 +29,8 @@ import '../../../components/feedback/store_error_banner.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../domain/services/device_business_ledger.dart';
+import '../domain/services/lifecycle_payback_calculator.dart';
+import 'lifecycle_amount_sheet.dart';
 import 'device_page_actions.dart';
 import 'device_page_sections.dart';
 import 'device_account_center_page.dart';
@@ -63,6 +65,10 @@ class _DevicePageState extends State<DevicePage> {
   bool _isExportingBackup = false;
   bool _isCloudBackupBusy = false;
   PhoneLoginSession _loginSession = const PhoneLoginSession.unauthenticated();
+  // TODO: 实验阶段先用设备页本地状态保存，后续接入设备模型字段、
+  // 数据库 migration 与持久化更新。
+  final Map<int, LifecyclePaybackAmounts> _lifecyclePaybackAmountsByDeviceId =
+      {};
 
   LocalBackupController get _localBackupController =>
       context.read<LocalBackupController>();
@@ -189,6 +195,30 @@ class _DevicePageState extends State<DevicePage> {
     await DevicePageActions.openUpgradePage(context);
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _openLifecyclePaybackSheet(DeviceBusinessLedger ledger) async {
+    final current = _lifecyclePaybackAmountsByDeviceId[ledger.deviceId];
+    final result = await showLifecycleAmountSheet(
+      context: context,
+      deviceName: ledger.deviceName,
+      netReceivedFen: _netReceivedFen(ledger),
+      initialCostFen: current?.initialCostFen,
+      estimatedResidualFen: current?.estimatedResidualFen,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _lifecyclePaybackAmountsByDeviceId[ledger.deviceId] = result;
+    });
+  }
+
+  int _netReceivedFen(DeviceBusinessLedger ledger) {
+    final receivedFen = ledger.projects.fold<int>(
+      0,
+      (sum, project) => sum + project.receivedFen,
+    );
+    if (ledger.projects.isNotEmpty || receivedFen != 0) return receivedFen;
+    return ledger.incomeFen;
   }
 
   Future<void> _restorePurchases() async {
@@ -1079,6 +1109,9 @@ class _DevicePageState extends State<DevicePage> {
                         );
                       },
                       businessLedgers: businessLedgers,
+                      lifecyclePaybackAmountsFor: (ledger) =>
+                          _lifecyclePaybackAmountsByDeviceId[ledger.deviceId],
+                      onOpenLifecyclePayback: _openLifecyclePaybackSheet,
                     ),
                   ),
                 ],

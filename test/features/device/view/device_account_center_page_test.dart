@@ -178,10 +178,12 @@ void main() {
     );
 
     expect(find.text('设备经营'), findsOneWidget);
-    expect(find.text('SANY 1#'), findsOneWidget);
+    expect(find.text('SANY 1#'), findsNWidgets(2));
     expect(find.textContaining('收入 ¥1550'), findsOneWidget);
     expect(find.textContaining('2.5小时、3趟'), findsOneWidget);
     expect(find.textContaining('1 项 · 待收 ¥450'), findsOneWidget);
+    expect(find.text('未设置初始投入'), findsOneWidget);
+    expect(find.text('点击设置成本与残值'), findsOneWidget);
   });
 
   testWidgets('device business ledger marks inactive device title', (
@@ -230,7 +232,7 @@ void main() {
       ),
     );
 
-    expect(find.text('SANY 已停用'), findsOneWidget);
+    expect(find.text('SANY 已停用'), findsNWidgets(2));
     expect(find.text('SANY 1#'), findsNothing);
   });
 

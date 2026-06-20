@@ -1,0 +1,477 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../components/buttons/app_primary_button.dart';
+import '../../../core/foundation/typography.dart';
+import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../domain/services/lifecycle_payback_calculator.dart';
+
+const Color _sheetBackground = Color(0xFFF2F2F7);
+const Color _sheetHandle = Color(0xFFD1D1D6);
+const Color _sheetText = Color(0xFF1C1C1E);
+const Color _sheetSecondary = Color(0xFF8E8E93);
+const Color _sheetDivider = Color(0xFFE5E5EA);
+const Color _sheetGreen = Color(0xFF34C759);
+const Color _sheetOrange = Color(0xFFFF9500);
+const Color _sheetAction = Color(0xFF007AFF);
+
+Future<LifecyclePaybackAmounts?> showLifecycleAmountSheet({
+  required BuildContext context,
+  required String deviceName,
+  required int netReceivedFen,
+  required int? initialCostFen,
+  required int? estimatedResidualFen,
+}) {
+  return showAppBottomSheet<LifecyclePaybackAmounts>(
+    context: context,
+    builder: (_) {
+      return LifecycleAmountSheet(
+        deviceName: deviceName,
+        netReceivedFen: netReceivedFen,
+        initialCostFen: initialCostFen,
+        estimatedResidualFen: estimatedResidualFen,
+      );
+    },
+  );
+}
+
+class LifecycleAmountSheet extends StatefulWidget {
+  const LifecycleAmountSheet({
+    super.key,
+    required this.deviceName,
+    required this.netReceivedFen,
+    required this.initialCostFen,
+    required this.estimatedResidualFen,
+  });
+
+  final String deviceName;
+  final int netReceivedFen;
+  final int? initialCostFen;
+  final int? estimatedResidualFen;
+
+  @override
+  State<LifecycleAmountSheet> createState() => _LifecycleAmountSheetState();
+}
+
+class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
+  late final TextEditingController _initialCostController;
+  late final TextEditingController _estimatedResidualController;
+  late int? _initialCostFen;
+  late int? _estimatedResidualFen;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialCostFen = widget.initialCostFen;
+    _estimatedResidualFen = widget.estimatedResidualFen;
+    _initialCostController = TextEditingController(
+      text: _formatInput(widget.initialCostFen),
+    );
+    _estimatedResidualController = TextEditingController(
+      text: _formatInput(widget.estimatedResidualFen),
+    );
+  }
+
+  @override
+  void dispose() {
+    _initialCostController.dispose();
+    _estimatedResidualController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final result = calculateLifecyclePayback(
+      LifecyclePaybackInput(
+        initialCostFen: _initialCostFen,
+        netReceivedFen: widget.netReceivedFen,
+        estimatedResidualFen: _estimatedResidualFen,
+      ),
+    );
+
+    return AppBottomSheetShell(
+      title: '设置设备生命周期金额',
+      initialHeightFactor: 0.7,
+      scrollable: false,
+      footerEnabled: false,
+      backgroundColor: _sheetBackground,
+      handleColor: _sheetHandle,
+      contentPadding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _InputGroup(
+                    initialCostController: _initialCostController,
+                    estimatedResidualController: _estimatedResidualController,
+                    onInitialCostChanged: (value) {
+                      setState(() => _initialCostFen = _parseInputFen(value));
+                    },
+                    onEstimatedResidualChanged: (value) {
+                      setState(() {
+                        _estimatedResidualFen = _parseInputFen(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _PreviewCard(
+                    result: result,
+                    netReceivedFen: widget.netReceivedFen,
+                    initialCostFen: _initialCostFen,
+                    estimatedResidualFen: _estimatedResidualFen,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: AppPrimaryButton(
+                label: '保存并更新卡片',
+                height: 52,
+                borderRadius: 26,
+                backgroundColor: _sheetAction,
+                onPressed: () {
+                  Navigator.of(context).pop(
+                    LifecyclePaybackAmounts(
+                      initialCostFen: _initialCostFen,
+                      estimatedResidualFen: _estimatedResidualFen,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatInput(int? amountFen) {
+    if (amountFen == null || amountFen <= 0) return '';
+    final yuan = amountFen / 100;
+    return _formatNumber(yuan);
+  }
+}
+
+class _InputGroup extends StatelessWidget {
+  const _InputGroup({
+    required this.initialCostController,
+    required this.estimatedResidualController,
+    required this.onInitialCostChanged,
+    required this.onEstimatedResidualChanged,
+  });
+
+  final TextEditingController initialCostController;
+  final TextEditingController estimatedResidualController;
+  final ValueChanged<String> onInitialCostChanged;
+  final ValueChanged<String> onEstimatedResidualChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          _MoneyInputRow(
+            label: '初始投入成本',
+            controller: initialCostController,
+            onChanged: onInitialCostChanged,
+          ),
+          const Padding(
+            padding: EdgeInsets.only(left: 16),
+            child: Divider(height: 1, thickness: 0.5, color: _sheetDivider),
+          ),
+          _MoneyInputRow(
+            label: '预计售出残值',
+            controller: estimatedResidualController,
+            onChanged: onEstimatedResidualChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoneyInputRow extends StatelessWidget {
+  const _MoneyInputRow({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 52),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.body(
+                context,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: _sheetText,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 150,
+            child: TextField(
+              controller: controller,
+              textAlign: TextAlign.right,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: const [_ThousandsMoneyInputFormatter()],
+              onChanged: onChanged,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                prefixText: '¥ ',
+                hintText: '0',
+                isDense: true,
+              ),
+              style: AppTypography.body(
+                context,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: _sheetText,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewCard extends StatelessWidget {
+  const _PreviewCard({
+    required this.result,
+    required this.netReceivedFen,
+    required this.initialCostFen,
+    required this.estimatedResidualFen,
+  });
+
+  final LifecyclePaybackResult result;
+  final int netReceivedFen;
+  final int? initialCostFen;
+  final int? estimatedResidualFen;
+
+  @override
+  Widget build(BuildContext context) {
+    final isProfit = result.lifeCycleProfitFen > 0;
+    final title = result.isCostUnset
+        ? '预计盈余'
+        : isProfit
+        ? '预计盈余'
+        : result.lifeCycleProfitFen < 0
+        ? '还差回本'
+        : '预计盈余';
+    final value = result.isCostUnset
+        ? '¥0'
+        : isProfit
+        ? formatLifecycleMoneyFen(result.lifeCycleProfitFen, explicitPlus: true)
+        : result.lifeCycleProfitFen < 0
+        ? formatLifecycleMoneyFen(result.lifeCycleProfitFen.abs())
+        : '¥0';
+    final valueColor = result.isCostUnset
+        ? _sheetSecondary
+        : isProfit
+        ? _sheetGreen
+        : result.lifeCycleProfitFen < 0
+        ? _sheetOrange
+        : _sheetText;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTypography.caption(
+              context,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: _sheetSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: AppTypography.pageTitle(
+              context,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _FormulaRow(
+            label: '已实收净额',
+            value: formatLifecycleMoneyFen(netReceivedFen),
+          ),
+          _FormulaRow(
+            label: '+ 预计售出残值',
+            value: formatLifecycleMoneyFen(estimatedResidualFen ?? 0),
+          ),
+          _FormulaRow(
+            label: '- 初始投入成本',
+            value: formatLifecycleMoneyFen(initialCostFen ?? 0),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, thickness: 0.5, color: _sheetDivider),
+          ),
+          _FormulaRow(
+            label: '= 生命周期净收益',
+            value: formatLifecycleMoneyFen(
+              result.lifeCycleProfitFen,
+              explicitPlus: result.lifeCycleProfitFen > 0,
+            ),
+            strong: true,
+            valueColor: valueColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FormulaRow extends StatelessWidget {
+  const _FormulaRow({
+    required this.label,
+    required this.value,
+    this.strong = false,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final bool strong;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.caption(
+                context,
+                fontSize: 13,
+                fontWeight: strong ? FontWeight.w600 : FontWeight.w400,
+                color: strong ? _sheetText : _sheetSecondary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: AppTypography.caption(
+              context,
+              fontSize: 13,
+              fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
+              color: valueColor ?? _sheetText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThousandsMoneyInputFormatter extends TextInputFormatter {
+  const _ThousandsMoneyInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = _cleanNumber(newValue.text);
+    if (raw.isEmpty) return const TextEditingValue();
+    final formatted = _formatNumberString(raw);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+int? _parseInputFen(String value) {
+  final cleaned = _cleanNumber(value);
+  if (cleaned.isEmpty) return null;
+  final parsed = double.tryParse(cleaned);
+  if (parsed == null || parsed <= 0) return null;
+  return (parsed * 100).round();
+}
+
+String _cleanNumber(String value) {
+  final buffer = StringBuffer();
+  var hasDot = false;
+  for (final unit in value.codeUnits) {
+    final char = String.fromCharCode(unit);
+    if (char == '.' && !hasDot) {
+      buffer.write(char);
+      hasDot = true;
+      continue;
+    }
+    if (unit >= 48 && unit <= 57) buffer.write(char);
+  }
+  return buffer.toString();
+}
+
+String _formatNumber(num value) {
+  final asDouble = value.toDouble();
+  if (asDouble == asDouble.roundToDouble()) {
+    return _formatNumberString(asDouble.toStringAsFixed(0));
+  }
+  return _formatNumberString(asDouble.toStringAsFixed(2));
+}
+
+String _formatNumberString(String raw) {
+  final parts = raw.split('.');
+  final integerPart = parts.first.isEmpty ? '0' : parts.first;
+  final decimalPart = parts.length > 1 ? parts[1] : null;
+  final grouped = _groupThousands(integerPart);
+  if (decimalPart == null) return grouped;
+  return '$grouped.$decimalPart';
+}
+
+String _groupThousands(String source) {
+  final trimmed = source.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+  final buffer = StringBuffer();
+  for (var i = 0; i < trimmed.length; i++) {
+    if (i > 0 && (trimmed.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(trimmed[i]);
+  }
+  return buffer.toString();
+}

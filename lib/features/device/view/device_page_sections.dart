@@ -4,6 +4,7 @@ import '../../../core/foundation/typography.dart';
 import '../domain/entities/device.dart';
 import '../domain/services/device_business_ledger.dart';
 import '../domain/services/device_label.dart';
+import '../domain/services/lifecycle_payback_calculator.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_action_section_pattern.dart';
 import '../../../patterns/device/device_management_section_pattern.dart';
@@ -25,6 +26,8 @@ class DevicePageSectionHandlers {
     required this.onDeviceTap,
     required this.onDeviceLongPress,
     this.businessLedgers = const [],
+    this.lifecyclePaybackAmountsFor,
+    this.onOpenLifecyclePayback,
   });
 
   final VoidCallback onOpenUpgradePage;
@@ -38,6 +41,9 @@ class DevicePageSectionHandlers {
   final ValueChanged<Device> onDeviceTap;
   final ValueChanged<Device> onDeviceLongPress;
   final List<DeviceBusinessLedger> businessLedgers;
+  final LifecyclePaybackAmounts? Function(DeviceBusinessLedger ledger)?
+  lifecyclePaybackAmountsFor;
+  final ValueChanged<DeviceBusinessLedger>? onOpenLifecyclePayback;
 }
 
 List<Widget> buildDevicePageSections({
@@ -82,7 +88,11 @@ List<Widget> buildDevicePageSections({
         ),
       );
       sections.add(
-        DeviceBusinessLedgerSection(ledgers: handlers.businessLedgers),
+        DeviceBusinessLedgerSection(
+          ledgers: handlers.businessLedgers,
+          amountsFor: handlers.lifecyclePaybackAmountsFor,
+          onOpenLifecyclePayback: handlers.onOpenLifecyclePayback,
+        ),
       );
     }
   }
