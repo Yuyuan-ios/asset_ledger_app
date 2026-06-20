@@ -1,9 +1,11 @@
 import 'package:asset_ledger/app/cloud_backup_config.dart';
 import 'package:asset_ledger/app/providers/device_fleet_providers.dart';
-import 'package:asset_ledger/features/app_update/domain/version_gate_decision.dart';
+import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_cloud_api_client.dart';
+
+typedef _CapturedUpgrade = ({String? updateUrl, String? title, String? content});
 
 void main() {
   test('available cloud backup wires version metadata and upgrade sink', () {
@@ -11,8 +13,8 @@ void main() {
     late Future<String?> Function() capturedAccessTokenProvider;
     Future<String?> Function()? capturedAppVersionProvider;
     String? capturedPlatform;
-    void Function(VersionGateDecision decision)? capturedUpgradeSink;
-    final signaled = <VersionGateDecision>[];
+    UpgradeRequiredCallback? capturedUpgradeSink;
+    final signaled = <_CapturedUpgrade>[];
 
     final providers = DeviceFleetProviders.build(
       endpointConfig: const CloudBackupEndpointConfig.available(
@@ -25,7 +27,7 @@ void main() {
             required Future<String?> Function() accessTokenProvider,
             Future<String?> Function()? appVersionProvider,
             String? platform,
-            void Function(VersionGateDecision decision)? onUpgradeRequired,
+            UpgradeRequiredCallback? onUpgradeRequired,
           }) {
             capturedBaseUrl = baseUrl;
             capturedAccessTokenProvider = accessTokenProvider;
@@ -34,7 +36,9 @@ void main() {
             capturedUpgradeSink = onUpgradeRequired;
             return FakeCloudApiClient();
           },
-      onUpgradeRequired: signaled.add,
+      onUpgradeRequired: ({updateUrl, title, content}) => signaled.add(
+        (updateUrl: updateUrl, title: title, content: content),
+      ),
     );
 
     expect(providers.cloudBackupController.isAvailable, isTrue);
@@ -43,16 +47,17 @@ void main() {
     expect(capturedAppVersionProvider, isNotNull);
     expect(capturedPlatform, anyOf('android', 'ios'));
 
-    final decision = _forcedDecision();
-    capturedUpgradeSink!(decision);
-    expect(signaled, [decision]);
+    capturedUpgradeSink!(
+      updateUrl: 'https://example.com/download',
+      title: '发现新版本',
+      content: '请更新后继续使用。',
+    );
+    expect(signaled, [
+      (
+        updateUrl: 'https://example.com/download',
+        title: '发现新版本',
+        content: '请更新后继续使用。',
+      ),
+    ]);
   });
-}
-
-VersionGateDecision _forcedDecision() {
-  return const VersionGateDecision.forced(
-    updateUrl: 'https://example.com/download',
-    title: '发现新版本',
-    content: '请更新后继续使用。',
-  );
 }

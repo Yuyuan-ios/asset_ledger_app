@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../features/app_update/domain/version_gate_decision.dart';
-import '../../features/app_update/domain/version_policy.dart';
 import 'api_client.dart';
 
 /// 真实 HTTP 的 [CloudApiClient] 实现。
@@ -21,7 +19,7 @@ class HttpCloudApiClient implements CloudApiClient {
     HttpClient? httpClient,
     Future<String?> Function()? appVersionProvider,
     String? platform,
-    void Function(VersionGateDecision decision)? onUpgradeRequired,
+    UpgradeRequiredCallback? onUpgradeRequired,
   }) : _baseUrl = baseUrl.trim(),
        _accessTokenProvider = accessTokenProvider,
        _timeout = timeout,
@@ -44,7 +42,7 @@ class HttpCloudApiClient implements CloudApiClient {
   final HttpClient _httpClient;
   final Future<String?> Function()? _appVersionProvider;
   final String? _platform;
-  final void Function(VersionGateDecision decision)? _onUpgradeRequired;
+  final UpgradeRequiredCallback? _onUpgradeRequired;
 
   Future<String?>? _appVersionResolution;
 
@@ -96,13 +94,12 @@ class HttpCloudApiClient implements CloudApiClient {
           .join()
           .timeout(_timeout);
       if (httpResponse.statusCode == HttpStatus.upgradeRequired) {
-        final decision = _upgradeDecisionFromBody(responseBody);
-        _signalUpgradeRequired(decision);
-        return ApiResponse(
+        _signalUpgradeRequired(responseBody);
+        return const ApiResponse(
           statusCode: HttpStatus.upgradeRequired,
           error: ApiError(
             code: 'upgrade_required',
-            message: decision.content ?? VersionPolicy.fallbackContent,
+            message: 'app upgrade required',
           ),
         );
       }
@@ -154,19 +151,18 @@ class HttpCloudApiClient implements CloudApiClient {
     }
   }
 
-  static VersionGateDecision _upgradeDecisionFromBody(String responseBody) {
+  void _signalUpgradeRequired(String responseBody) {
+    final callback = _onUpgradeRequired;
+    if (callback == null) return;
     final decoded = _decodeJsonObject(responseBody);
-    return VersionGateDecision.forced(
-      updateUrl: _nonEmptyString(decoded?['updateUrl']) ?? '',
-      title: _nonEmptyString(decoded?['title']) ?? VersionPolicy.fallbackTitle,
-      content:
-          _nonEmptyString(decoded?['content']) ?? VersionPolicy.fallbackContent,
-    );
-  }
-
-  void _signalUpgradeRequired(VersionGateDecision decision) {
     try {
-      _onUpgradeRequired?.call(decision);
+      // 透传原始字段(可空),由 composition root 套兜底文案并映射到
+      // app_update 的 VersionGateDecision——传输层不依赖 feature domain。
+      callback(
+        updateUrl: _nonEmptyString(decoded?['updateUrl']),
+        title: _nonEmptyString(decoded?['title']),
+        content: _nonEmptyString(decoded?['content']),
+      );
     } catch (_) {
       // 426 的 transport 映射必须稳定返回 upgrade_required,展示 sink 失败不反向抛出。
     }

@@ -34,6 +34,14 @@ class ApiError {
   final bool retryable;
 }
 
+/// Transport-level signal that the backend returned `426 Upgrade Required`.
+///
+/// Kept neutral (raw body fields, no feature types) so `infrastructure/cloud`
+/// does not depend on `features/app_update`. The composition root maps these
+/// fields into the app-update domain decision.
+typedef UpgradeRequiredCallback =
+    void Function({String? updateUrl, String? title, String? content});
+
 abstract class CloudApiClient {
   Future<ApiResponse> send(ApiRequest request);
 }

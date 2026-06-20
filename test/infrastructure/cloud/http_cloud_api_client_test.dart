@@ -3,11 +3,11 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:asset_ledger/features/app_update/domain/version_gate_decision.dart';
-import 'package:asset_ledger/features/app_update/domain/version_policy.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/cloud/http_cloud_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+typedef _CapturedUpgrade = ({String? updateUrl, String? title, String? content});
 
 void main() {
   test('requires https for non-local endpoints', () {
@@ -155,8 +155,13 @@ void main() {
           'content': '请更新后继续使用。',
         }),
       );
-    final decisions = <VersionGateDecision>[];
-    final client = _client(httpClient, onUpgradeRequired: decisions.add);
+    final upgrades = <_CapturedUpgrade>[];
+    final client = _client(
+      httpClient,
+      onUpgradeRequired: ({updateUrl, title, content}) => upgrades.add(
+        (updateUrl: updateUrl, title: title, content: content),
+      ),
+    );
 
     final response = await client.send(
       const ApiRequest(method: 'GET', path: '/sync/changes'),
@@ -165,32 +170,35 @@ void main() {
     expect(response.statusCode, HttpStatus.upgradeRequired);
     expect(response.bodyJson, isNull);
     expect(response.error?.code, 'upgrade_required');
-    expect(response.error?.message, '请更新后继续使用。');
     expect(response.error?.retryable, isFalse);
-    expect(decisions, hasLength(1));
-    expect(decisions.single.level, VersionGateLevel.forced);
-    expect(decisions.single.updateUrl, 'https://example.com/download');
-    expect(decisions.single.title, '必须更新');
-    expect(decisions.single.content, '请更新后继续使用。');
+    expect(upgrades, hasLength(1));
+    expect(upgrades.single.updateUrl, 'https://example.com/download');
+    expect(upgrades.single.title, '必须更新');
+    expect(upgrades.single.content, '请更新后继续使用。');
   });
 
-  test('uses fallback copy for malformed 426 body', () async {
+  test('passes through raw nulls for malformed 426 body (fallback at root)', () async {
     final httpClient = _FakeHttpClient()
       ..enqueueResponse(
         statusCode: HttpStatus.upgradeRequired,
         body: 'not json',
       );
-    final decisions = <VersionGateDecision>[];
-    final client = _client(httpClient, onUpgradeRequired: decisions.add);
+    final upgrades = <_CapturedUpgrade>[];
+    final client = _client(
+      httpClient,
+      onUpgradeRequired: ({updateUrl, title, content}) => upgrades.add(
+        (updateUrl: updateUrl, title: title, content: content),
+      ),
+    );
 
     final response = await client.send(
       const ApiRequest(method: 'GET', path: '/sync/changes'),
     );
 
     expect(response.error?.code, 'upgrade_required');
-    expect(decisions.single.updateUrl, '');
-    expect(decisions.single.title, VersionPolicy.fallbackTitle);
-    expect(decisions.single.content, VersionPolicy.fallbackContent);
+    expect(upgrades.single.updateUrl, isNull);
+    expect(upgrades.single.title, isNull);
+    expect(upgrades.single.content, isNull);
   });
 }
 
@@ -198,7 +206,7 @@ HttpCloudApiClient _client(
   _FakeHttpClient httpClient, {
   Future<String?> Function()? appVersionProvider,
   String? platform = 'android',
-  void Function(VersionGateDecision decision)? onUpgradeRequired,
+  UpgradeRequiredCallback? onUpgradeRequired,
 }) {
   return HttpCloudApiClient(
     baseUrl: 'http://127.0.0.1:8080',

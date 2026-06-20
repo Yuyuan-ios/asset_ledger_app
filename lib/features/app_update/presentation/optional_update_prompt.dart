@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart' as url_launcher;
 
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../application/update_delivery.dart';
 import '../domain/version_gate_decision.dart';
 import '../domain/version_policy.dart';
-
-typedef UpdateUrlLauncher = Future<bool> Function(Uri uri);
 
 // V7: l10n
 const String _updateNowText = '立即更新';
@@ -27,13 +24,6 @@ Future<void> showOptionalUpdatePrompt({
         onClose: () => Navigator.of(sheetContext).pop(),
       );
     },
-  );
-}
-
-Future<bool> launchExternalUpdateUrl(Uri uri) {
-  return url_launcher.launchUrl(
-    uri,
-    mode: url_launcher.LaunchMode.externalApplication,
   );
 }
 

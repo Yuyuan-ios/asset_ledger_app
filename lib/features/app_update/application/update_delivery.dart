@@ -1,11 +1,26 @@
+import 'package:url_launcher/url_launcher.dart' as url_launcher;
+
 import '../domain/version_gate_decision.dart';
 import '../domain/version_policy.dart';
-import '../presentation/optional_update_prompt.dart';
 
 enum UpdateChannelEnvironment { playStore, directStore }
 
+typedef UpdateUrlLauncher = Future<bool> Function(Uri uri);
+
 typedef InAppUpdateLauncher =
     Future<bool> Function(VersionGateDecision decision);
+
+/// Opens [uri] in an external application (browser / store app).
+///
+/// Lives in the application layer so both the optional prompt and the forced
+/// blocker (presentation) and [UpdateDelivery] depend on it one-directionally,
+/// avoiding the previous presentation↔application import cycle.
+Future<bool> launchExternalUpdateUrl(Uri uri) {
+  return url_launcher.launchUrl(
+    uri,
+    mode: url_launcher.LaunchMode.externalApplication,
+  );
+}
 
 class UpdateDelivery {
   UpdateDelivery({

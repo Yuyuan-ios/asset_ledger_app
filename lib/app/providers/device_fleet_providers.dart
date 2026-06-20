@@ -9,7 +9,6 @@ import '../../data/repositories/fuel_repository.dart';
 import '../../data/repositories/maintenance_repository.dart';
 import '../../data/services/backup/cloud_backup_service.dart';
 import '../../data/services/subscription_service.dart';
-import '../../features/app_update/domain/version_gate_decision.dart';
 import '../../infrastructure/cloud/http_cloud_backup_key_provider.dart';
 import '../../features/device/application/controllers/cloud_backup_controller.dart';
 import '../../features/device/application/controllers/local_backup_controller.dart';
@@ -28,7 +27,7 @@ typedef DeviceFleetCloudApiClientFactory =
       required Future<String?> Function() accessTokenProvider,
       Future<String?> Function()? appVersionProvider,
       String? platform,
-      void Function(VersionGateDecision decision)? onUpgradeRequired,
+      UpgradeRequiredCallback? onUpgradeRequired,
     });
 
 /// Device / fuel / maintenance composition slice.
@@ -53,7 +52,7 @@ class DeviceFleetProviders {
     CloudBackupEndpointConfig? endpointConfig,
     DeviceFleetCloudApiClientFactory cloudApiClientFactory =
         _createHttpCloudApiClient,
-    void Function(VersionGateDecision decision)? onUpgradeRequired,
+    UpgradeRequiredCallback? onUpgradeRequired,
   }) {
     final deviceRepository = SqfliteDeviceRepository();
     final fuelRepository = SqfliteFuelRepository();
@@ -125,7 +124,7 @@ class DeviceFleetProviders {
     required Future<String?> Function() accessTokenProvider,
     Future<String?> Function()? appVersionProvider,
     String? platform,
-    void Function(VersionGateDecision decision)? onUpgradeRequired,
+    UpgradeRequiredCallback? onUpgradeRequired,
   }) {
     return HttpCloudApiClient(
       baseUrl: baseUrl,

@@ -7,7 +7,6 @@ import 'package:asset_ledger/app/sync_runtime.dart';
 import 'package:asset_ledger/app/sync_transport_config.dart';
 import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
-import 'package:asset_ledger/features/app_update/domain/version_gate_decision.dart';
 import 'package:asset_ledger/infrastructure/cloud/api_client.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_device_registration.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_live_readiness_gate.dart';
@@ -20,6 +19,8 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../support/fake_cloud_api_client.dart';
 import '../../test_setup.dart';
+
+typedef _CapturedUpgrade = ({String? updateUrl, String? title, String? content});
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -59,7 +60,7 @@ void main() {
             required Future<String?> Function() accessTokenProvider,
             Future<String?> Function()? appVersionProvider,
             String? platform,
-            void Function(VersionGateDecision decision)? onUpgradeRequired,
+            UpgradeRequiredCallback? onUpgradeRequired,
           }) {
             factoryCalls += 1;
             return FakeCloudApiClient();
@@ -105,8 +106,8 @@ void main() {
     late Future<String?> Function() capturedTokenProvider;
     Future<String?> Function()? capturedAppVersionProvider;
     String? capturedPlatform;
-    void Function(VersionGateDecision decision)? capturedUpgradeSink;
-    final signaled = <VersionGateDecision>[];
+    UpgradeRequiredCallback? capturedUpgradeSink;
+    final signaled = <_CapturedUpgrade>[];
     final client = FakeCloudApiClient();
 
     final providers = SyncProviders.build(
@@ -127,7 +128,7 @@ void main() {
             required Future<String?> Function() accessTokenProvider,
             Future<String?> Function()? appVersionProvider,
             String? platform,
-            void Function(VersionGateDecision decision)? onUpgradeRequired,
+            UpgradeRequiredCallback? onUpgradeRequired,
           }) {
             capturedBaseUrl = baseUrl;
             capturedTokenProvider = accessTokenProvider;
@@ -139,7 +140,9 @@ void main() {
       registrationStore: InMemorySyncDeviceRegistrationStore(),
       liveReadinessGate: const StaticSyncLiveReadinessGate.readyForTest(),
       deviceIdProvider: () => 'device-1',
-      onUpgradeRequired: signaled.add,
+      onUpgradeRequired: ({updateUrl, title, content}) => signaled.add(
+        (updateUrl: updateUrl, title: title, content: content),
+      ),
     );
 
     expect(providers.runtime.isAvailable, isTrue);
@@ -152,9 +155,18 @@ void main() {
     expect(capturedAppVersionProvider, isNotNull);
     expect(capturedPlatform, anyOf('android', 'ios'));
 
-    final decision = _forcedDecision();
-    capturedUpgradeSink!(decision);
-    expect(signaled, [decision]);
+    capturedUpgradeSink!(
+      updateUrl: 'https://example.com/download',
+      title: '发现新版本',
+      content: '请更新后继续使用。',
+    );
+    expect(signaled, [
+      (
+        updateUrl: 'https://example.com/download',
+        title: '发现新版本',
+        content: '请更新后继续使用。',
+      ),
+    ]);
 
     final registration = await providers.runtime.registerDeviceIfNeeded();
     expect(registration.status, SyncDeviceRegistrationStatus.registered);
@@ -193,7 +205,7 @@ void main() {
               required Future<String?> Function() accessTokenProvider,
               Future<String?> Function()? appVersionProvider,
               String? platform,
-              void Function(VersionGateDecision decision)? onUpgradeRequired,
+              UpgradeRequiredCallback? onUpgradeRequired,
             }) {
               return client;
             },
@@ -216,14 +228,6 @@ void main() {
         '/sync/changes?since=0&limit=50',
       ]);
     },
-  );
-}
-
-VersionGateDecision _forcedDecision() {
-  return const VersionGateDecision.forced(
-    updateUrl: 'https://example.com/download',
-    title: '发现新版本',
-    content: '请更新后继续使用。',
   );
 }
 
