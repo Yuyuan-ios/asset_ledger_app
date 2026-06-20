@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../tokens/mapper/core_tokens.dart';
-import '../../tokens/mapper/fuel_tokens.dart';
+import '../../tokens/mapper/summary_card_tokens.dart';
 
 class FuelSummaryCard extends StatelessWidget {
   final Widget child;
@@ -14,14 +14,14 @@ class FuelSummaryCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: height,
-      padding: const EdgeInsets.all(FuelTokens.summaryCardPadding),
+      padding: const EdgeInsets.all(SummaryCardTokens.cardPadding),
       decoration: BoxDecoration(
         color: SheetColors.background,
         border: Border.all(
           color: TimingColors.cardBorder,
-          width: FuelTokens.summaryCardBorderWidth,
+          width: SummaryCardTokens.cardBorderWidth,
         ),
-        borderRadius: BorderRadius.circular(FuelTokens.summaryCardRadius),
+        borderRadius: BorderRadius.circular(SummaryCardTokens.cardRadius),
       ),
       child: child,
     );

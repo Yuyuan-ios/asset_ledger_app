@@ -6,6 +6,7 @@ import '../../core/foundation/typography.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
+import '../../tokens/mapper/summary_card_tokens.dart';
 
 class FuelEfficiencySummary extends StatelessWidget {
   final Map<int, FuelEfficiencyAgg> byDevice;
@@ -22,18 +23,18 @@ class FuelEfficiencySummary extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryCardTitleSize,
+      fontSize: SummaryCardTokens.titleFontSize,
       fontWeight: FontWeight.w800,
       color: Colors.black,
     );
     final nameStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryCardNameSize,
+      fontSize: SummaryCardTokens.rowLabelFontSize,
       color: Colors.black,
     );
     final metricStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryCardMetricSize,
+      fontSize: SummaryCardTokens.rowValueFontSize,
       fontWeight: FontWeight.w400,
       color: Colors.black,
     );
@@ -71,8 +72,8 @@ class FuelEfficiencySummary extends StatelessWidget {
       final costText = fmtRate(agg.costPerHour, suffix: '¥/h');
       return Padding(
         padding: const EdgeInsets.only(
-          left: FuelTokens.efficiencyRowLeftInset,
-          bottom: FuelTokens.summaryCardRowBottomGap,
+          left: SummaryCardTokens.rowLeftInset,
+          bottom: SummaryCardTokens.rowBottomGap,
         ),
         child: Row(
           children: [
@@ -140,7 +141,7 @@ class FuelEfficiencySummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(l10n.fuelEfficiencyTitle, style: titleStyle),
-          const SizedBox(height: FuelTokens.summaryCardItemGap),
+          const SizedBox(height: SummaryCardTokens.titleToContentGap),
           Expanded(
             child: Center(
               child: Text(l10n.fuelEfficiencyEmpty, style: emptyStyle),
@@ -176,7 +177,7 @@ class FuelEfficiencySummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(l10n.fuelEfficiencyTitle, style: titleStyle),
-        const SizedBox(height: FuelTokens.summaryCardItemGap),
+        const SizedBox(height: SummaryCardTokens.titleToContentGap),
         Expanded(child: bodyChild),
       ],
     );

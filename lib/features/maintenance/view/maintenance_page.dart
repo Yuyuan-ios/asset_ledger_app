@@ -22,7 +22,7 @@ import '../../../core/utils/store_feedback.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/account_tokens.dart';
-import '../../../tokens/mapper/fuel_tokens.dart';
+import '../../../tokens/mapper/summary_card_tokens.dart';
 
 import '../../../patterns/fuel/fuel_summary_card_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -204,30 +204,30 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final l10n = AppLocalizations.of(context);
     final titleStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryCardTitleSize,
+      fontSize: SummaryCardTokens.titleFontSize,
       fontWeight: FontWeight.w800,
       color: Colors.black,
     );
     final nameStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryCardNameSize,
+      fontSize: SummaryCardTokens.rowLabelFontSize,
       color: Colors.black,
     );
     final valueStyle = AppTypography.caption(
       context,
-      fontSize: FuelTokens.summaryCardMetricSize,
+      fontSize: SummaryCardTokens.rowValueFontSize,
       fontWeight: FontWeight.w700,
       color: Colors.black,
     );
     final totalLabelStyle = AppTypography.body(
       context,
-      fontSize: 13,
+      fontSize: SummaryCardTokens.totalLabelFontSize,
       fontWeight: FontWeight.w800,
       color: Colors.black,
     );
     final totalStyle = AppTypography.caption(
       context,
-      fontSize: 12,
+      fontSize: SummaryCardTokens.totalValueFontSize,
       fontWeight: FontWeight.w900,
       color: Colors.black,
     );
@@ -242,8 +242,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
     }) {
       return Padding(
         padding: const EdgeInsets.only(
-          left: FuelTokens.summaryCardTitleSize,
-          bottom: FuelTokens.summaryCardRowBottomGap,
+          left: SummaryCardTokens.rowLeftInset,
+          bottom: SummaryCardTokens.rowBottomGap,
         ),
         child: Row(
           children: [
@@ -290,7 +290,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(l10n.maintenanceSummaryTitle, style: titleStyle),
-          const SizedBox(height: FuelTokens.summaryCardItemGap),
+          const SizedBox(height: SummaryCardTokens.titleToContentGap),
 
           // 设备分摊
           for (var i = 0; i < summary.deviceSummaries.length; i++)

@@ -9,6 +9,7 @@ import '../domain/services/fuel_suggestions.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
+import '../../../tokens/mapper/summary_card_tokens.dart';
 import '../../timing/state/timing_store.dart';
 import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -166,49 +167,46 @@ class _FuelPageState extends State<FuelPage> {
     );
     final summaryLabelStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryTotalLabelSize,
+      fontSize: SummaryCardTokens.totalLabelFontSize,
       fontWeight: FontWeight.w800,
       color: Colors.black,
     );
     final summaryValueStyle = AppTypography.body(
       context,
-      fontSize: FuelTokens.summaryTotalValueSize,
+      fontSize: SummaryCardTokens.totalValueFontSize,
       fontWeight: FontWeight.w800,
       color: Colors.black,
     );
 
     final summary = FuelSummaryCard(
       height: FuelTokens.efficiencyCardHeight,
-      child: Padding(
-        padding: const EdgeInsets.all(FuelTokens.summaryInnerPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: FuelEfficiencySummary(
-                byDevice: viewData.byDevice,
-                deviceNameOf: (id) {
-                  return viewData.deviceDisplayNameById[id] ??
-                      l10n.fuelInactiveDeviceFallbackName(id);
-                },
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: FuelEfficiencySummary(
+              byDevice: viewData.byDevice,
+              deviceNameOf: (id) {
+                return viewData.deviceDisplayNameById[id] ??
+                    l10n.fuelInactiveDeviceFallbackName(id);
+              },
             ),
-            const SizedBox(height: FuelTokens.summaryInnerGap),
-            Row(
-              children: [
-                Text(viewData.yearSummaryTitle, style: summaryLabelStyle),
-                const SizedBox(width: FuelTokens.summaryTotalValueLeftGap),
-                Expanded(
-                  child: Text(
-                    '${FormatUtils.liters(viewData.yearSummary.liters)} L / ${FormatUtils.money(viewData.yearSummary.cost)}',
-                    textAlign: TextAlign.right,
-                    style: summaryValueStyle,
-                  ),
+          ),
+          const SizedBox(height: FuelTokens.summaryInnerGap),
+          Row(
+            children: [
+              Text(viewData.yearSummaryTitle, style: summaryLabelStyle),
+              const SizedBox(width: FuelTokens.summaryTotalValueLeftGap),
+              Expanded(
+                child: Text(
+                  '${FormatUtils.liters(viewData.yearSummary.liters)} L / ${FormatUtils.money(viewData.yearSummary.cost)}',
+                  textAlign: TextAlign.right,
+                  style: summaryValueStyle,
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
 
