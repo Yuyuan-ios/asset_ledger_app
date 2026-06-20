@@ -158,27 +158,25 @@ class PaybackSegmentBar extends StatelessWidget {
             availableWidth,
           );
 
-          return Row(
-            children: [
-              SizedBox(
-                width: costWidth,
-                child: _CostSegmentContainer(result: result),
-              ),
-              if (tailWidth > 0.5) ...[
-                Container(width: 2, color: Colors.white),
-                Expanded(
-                  child: Container(
-                    height: 36,
-                    decoration: const BoxDecoration(
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: costWidth,
+                  child: _CostSegmentContainer(result: result),
+                ),
+                if (tailWidth > 0.5) ...[
+                  Container(width: 2, color: Colors.white),
+                  const Expanded(
+                    child: ColoredBox(
                       color: _iosProfitTail,
-                      borderRadius: BorderRadius.horizontal(
-                        right: Radius.circular(10),
-                      ),
+                      child: SizedBox.expand(),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           );
         },
       ),
@@ -193,43 +191,40 @@ class _CostSegmentContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final netWidth = width * result.netSegmentRatio;
-          final residualWidth = width * result.residualSegmentRatio;
-          final residualLeft = netWidth;
-          final gapLeft = netWidth + residualWidth;
-          final hasGap = result.gapSegmentRatio > 0.001;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final netWidth = width * result.netSegmentRatio;
+        final residualWidth = width * result.residualSegmentRatio;
+        final residualLeft = netWidth;
+        final gapLeft = netWidth + residualWidth;
+        final hasGap = result.gapSegmentRatio > 0.001;
 
-          return Stack(
-            children: [
-              const Positioned.fill(child: ColoredBox(color: _iosGap)),
-              if (netWidth > 0.5)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: netWidth,
-                  child: const ColoredBox(color: _iosGreen),
-                ),
-              if (residualWidth > 0.5)
-                Positioned(
-                  left: residualLeft,
-                  top: 0,
-                  bottom: 0,
-                  width: residualWidth,
-                  child: const ColoredBox(color: _iosTeal),
-                ),
-              if (netWidth > 0.5 && residualWidth > 0.5)
-                _Separator(left: netWidth),
-              if (residualWidth > 0.5 && hasGap) _Separator(left: gapLeft),
-            ],
-          );
-        },
-      ),
+        return Stack(
+          children: [
+            const Positioned.fill(child: ColoredBox(color: _iosGap)),
+            if (netWidth > 0.5)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: netWidth,
+                child: const ColoredBox(color: _iosGreen),
+              ),
+            if (residualWidth > 0.5)
+              Positioned(
+                left: residualLeft,
+                top: 0,
+                bottom: 0,
+                width: residualWidth,
+                child: const ColoredBox(color: _iosTeal),
+              ),
+            if (netWidth > 0.5 && residualWidth > 0.5)
+              _Separator(left: netWidth),
+            if (residualWidth > 0.5 && hasGap) _Separator(left: gapLeft),
+          ],
+        );
+      },
     );
   }
 }
