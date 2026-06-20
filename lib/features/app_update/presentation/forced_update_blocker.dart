@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../application/update_delivery.dart';
 import '../domain/version_gate_decision.dart';
 import '../domain/version_policy.dart';
-import 'optional_update_prompt.dart';
 
 // V7: l10n
 const String _updateNowText = '立即更新';
@@ -10,13 +10,13 @@ const String _updateNowText = '立即更新';
 Future<void> showForcedUpdateBlocker({
   required BuildContext context,
   required VersionGateDecision decision,
-  UpdateUrlLauncher launcher = launchExternalUpdateUrl,
+  required UpdateDelivery delivery,
 }) {
   return Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) {
-        return ForcedUpdateBlockerPage(decision: decision, launcher: launcher);
+        return ForcedUpdateBlockerPage(decision: decision, delivery: delivery);
       },
     ),
   );
@@ -26,11 +26,11 @@ class ForcedUpdateBlockerPage extends StatelessWidget {
   const ForcedUpdateBlockerPage({
     super.key,
     required this.decision,
-    required this.launcher,
+    required this.delivery,
   });
 
   final VersionGateDecision decision;
-  final UpdateUrlLauncher launcher;
+  final UpdateDelivery delivery;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +67,7 @@ class ForcedUpdateBlockerPage extends StatelessWidget {
                 ),
                 const Spacer(),
                 FilledButton(
-                  onPressed: () => _handleUpdate(context),
+                  onPressed: _handleUpdate,
                   child: const Text(_updateNowText),
                 ),
               ],
@@ -78,16 +78,8 @@ class ForcedUpdateBlockerPage extends StatelessWidget {
     );
   }
 
-  Future<void> _handleUpdate(BuildContext context) async {
-    final rawUrl = decision.updateUrl?.trim() ?? '';
-    final uri = Uri.tryParse(rawUrl);
-    if (uri == null || !uri.hasScheme) return;
-
-    try {
-      await launcher(uri);
-    } catch (_) {
-      // Store launch failures must not crash the forced-update route.
-    }
+  Future<void> _handleUpdate() async {
+    await delivery.launch(decision);
   }
 
   String? _nonEmpty(String? value) {

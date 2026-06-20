@@ -1,3 +1,4 @@
+import 'package:asset_ledger/features/app_update/application/update_delivery.dart';
 import 'package:asset_ledger/features/app_update/domain/version_gate_decision.dart';
 import 'package:asset_ledger/features/app_update/presentation/optional_update_prompt.dart';
 import 'package:flutter/material.dart';
@@ -22,29 +23,23 @@ void main() {
     expect(find.text('发现新版本'), findsNothing);
   });
 
-  testWidgets('update action launches injected URL and closes prompt', (
+  testWidgets('update action launches injected delivery and closes prompt', (
     tester,
   ) async {
-    final launched = <Uri>[];
-    await _showPrompt(
-      tester,
-      launcher: (uri) async {
-        launched.add(uri);
-        return true;
-      },
-    );
+    final delivery = _SpyUpdateDelivery();
+    await _showPrompt(tester, delivery: delivery);
 
     await tester.tap(find.text('立即更新'));
     await tester.pumpAndSettle();
 
-    expect(launched, [Uri.parse('https://example.com/download')]);
+    expect(delivery.decisions, [_optionalDecision()]);
     expect(find.text('发现新版本'), findsNothing);
   });
 }
 
 Future<void> _showPrompt(
   WidgetTester tester, {
-  UpdateUrlLauncher? launcher,
+  UpdateDelivery? delivery,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -56,7 +51,7 @@ Future<void> _showPrompt(
                 showOptionalUpdatePrompt(
                   context: context,
                   decision: _optionalDecision(),
-                  launcher: launcher ?? (_) async => true,
+                  delivery: delivery ?? _SpyUpdateDelivery(),
                 );
               },
               child: const Text('show'),
@@ -77,4 +72,17 @@ VersionGateDecision _optionalDecision() {
     title: '发现新版本',
     content: '更新以获得更稳定的体验。',
   );
+}
+
+class _SpyUpdateDelivery implements UpdateDelivery {
+  final decisions = <VersionGateDecision>[];
+
+  @override
+  UpdateChannelEnvironment get environment =>
+      UpdateChannelEnvironment.directStore;
+
+  @override
+  Future<void> launch(VersionGateDecision decision) async {
+    decisions.add(decision);
+  }
 }

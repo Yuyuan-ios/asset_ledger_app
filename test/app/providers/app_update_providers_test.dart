@@ -1,7 +1,9 @@
 import 'package:asset_ledger/app/providers/app_update_providers.dart';
 import 'package:asset_ledger/app/version_policy_config.dart';
+import 'package:asset_ledger/features/app_update/application/update_delivery.dart';
 import 'package:asset_ledger/features/app_update/application/update_prompt_coordinator.dart';
 import 'package:asset_ledger/features/app_update/domain/version_policy_cache.dart';
+import 'package:asset_ledger/features/app_update/domain/version_policy.dart';
 import 'package:asset_ledger/features/app_update/domain/version_policy_source.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,10 +72,38 @@ void main() {
     expect(forcedCalls, 0);
   });
 
+  testWidgets('available config creates delivery with injected channel', (
+    WidgetTester tester,
+  ) async {
+    final capturedChannels = <String>[];
+    final appUpdate = AppUpdateProviders.build(
+      endpointConfig: VersionPolicyEndpointConfig.available(
+        uri: Uri.parse('https://example.com/app/version-policy.json'),
+      ),
+      sourceFactory: ({required Uri uri}) =>
+          _StaticVersionPolicySource(_optionalPolicyJson),
+      cacheFactory: _MemoryVersionPolicyCache.new,
+      currentVersionProvider: () async => '1.2.0',
+      platform: 'android',
+      channel: VersionPolicy.channelPlay,
+      deliveryFactory: ({required String channel}) {
+        capturedChannels.add(channel);
+        return UpdateDelivery(channel: channel);
+      },
+      showPrompt: (context, decision) async {},
+      showForcedBlocker: (context, decision) async {},
+    );
+
+    await _pumpCoordinator(tester, appUpdate);
+
+    expect(capturedChannels, [VersionPolicy.channelPlay]);
+  });
+
   testWidgets(
     'unavailable config provides no-op coordinator without creating source',
     (WidgetTester tester) async {
       var sourceFactoryCalls = 0;
+      var deliveryFactoryCalls = 0;
       var optionalCalls = 0;
       var forcedCalls = 0;
       final appUpdate = AppUpdateProviders.build(
@@ -83,6 +113,10 @@ void main() {
         sourceFactory: ({required Uri uri}) {
           sourceFactoryCalls++;
           return _ThrowingVersionPolicySource();
+        },
+        deliveryFactory: ({required String channel}) {
+          deliveryFactoryCalls++;
+          return UpdateDelivery(channel: channel);
         },
         showPrompt: (context, decision) async {
           optionalCalls++;
@@ -97,6 +131,7 @@ void main() {
       await coordinator.onTimingPageEntered(context);
 
       expect(sourceFactoryCalls, 0);
+      expect(deliveryFactoryCalls, 0);
       expect(forcedCalls, 0);
       expect(optionalCalls, 0);
     },

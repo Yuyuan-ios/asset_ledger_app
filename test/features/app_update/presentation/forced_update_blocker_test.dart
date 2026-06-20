@@ -1,6 +1,6 @@
+import 'package:asset_ledger/features/app_update/application/update_delivery.dart';
 import 'package:asset_ledger/features/app_update/domain/version_gate_decision.dart';
 import 'package:asset_ledger/features/app_update/presentation/forced_update_blocker.dart';
-import 'package:asset_ledger/features/app_update/presentation/optional_update_prompt.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,31 +27,30 @@ void main() {
     expect(find.text('发现新版本'), findsOneWidget);
   });
 
-  testWidgets('update action launches injected URL and stays on blocker', (
+  testWidgets('update action launches injected delivery and stays on blocker', (
     tester,
   ) async {
-    final launched = <Uri>[];
-    await _showBlocker(
-      tester,
-      launcher: (uri) async {
-        launched.add(uri);
-        return true;
-      },
-    );
+    final delivery = _SpyUpdateDelivery();
+    await _showBlocker(tester, delivery: delivery);
 
     await tester.tap(find.widgetWithText(FilledButton, '立即更新'));
     await tester.pump();
 
-    expect(launched, [Uri.parse('https://example.com/download')]);
+    expect(delivery.decisions, [_forcedDecision()]);
     expect(find.text('发现新版本'), findsOneWidget);
   });
 
-  testWidgets('launcher error does not crash forced blocker', (tester) async {
+  testWidgets('delivery launcher error does not crash forced blocker', (
+    tester,
+  ) async {
     await _showBlocker(
       tester,
-      launcher: (uri) async {
-        throw StateError('launcher failed');
-      },
+      delivery: UpdateDelivery(
+        channel: 'official',
+        urlLauncher: (uri) async {
+          throw StateError('launcher failed');
+        },
+      ),
     );
 
     await tester.tap(find.widgetWithText(FilledButton, '立即更新'));
@@ -64,7 +63,7 @@ void main() {
 
 Future<void> _showBlocker(
   WidgetTester tester, {
-  UpdateUrlLauncher? launcher,
+  UpdateDelivery? delivery,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -76,7 +75,7 @@ Future<void> _showBlocker(
                 showForcedUpdateBlocker(
                   context: context,
                   decision: _forcedDecision(),
-                  launcher: launcher ?? (_) async => true,
+                  delivery: delivery ?? _SpyUpdateDelivery(),
                 );
               },
               child: const Text('show'),
@@ -97,4 +96,17 @@ VersionGateDecision _forcedDecision() {
     title: '发现新版本',
     content: '请更新后继续使用。',
   );
+}
+
+class _SpyUpdateDelivery implements UpdateDelivery {
+  final decisions = <VersionGateDecision>[];
+
+  @override
+  UpdateChannelEnvironment get environment =>
+      UpdateChannelEnvironment.directStore;
+
+  @override
+  Future<void> launch(VersionGateDecision decision) async {
+    decisions.add(decision);
+  }
 }

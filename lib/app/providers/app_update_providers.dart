@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../../features/app_update/application/update_delivery.dart';
 import '../../features/app_update/application/update_prompt_coordinator.dart';
 import '../../features/app_update/domain/version_check_service.dart';
 import '../../features/app_update/domain/version_gate_decision.dart';
@@ -21,6 +22,8 @@ typedef VersionPolicySourceFactory =
     VersionPolicySource Function({required Uri uri});
 
 typedef VersionPolicyCacheFactory = VersionPolicyCache Function();
+typedef UpdateDeliveryFactory =
+    UpdateDelivery Function({required String channel});
 
 class AppUpdateProviders {
   AppUpdateProviders._({required this.coordinator, required this.providers});
@@ -38,8 +41,9 @@ class AppUpdateProviders {
       'APP_CHANNEL',
       defaultValue: VersionPolicy.channelOfficial,
     ),
-    UpdatePromptPresenter showPrompt = _showOptionalPrompt,
-    ForcedUpdatePresenter showForcedBlocker = _showForcedBlocker,
+    UpdateDeliveryFactory deliveryFactory = _createUpdateDelivery,
+    UpdatePromptPresenter? showPrompt,
+    ForcedUpdatePresenter? showForcedBlocker,
   }) {
     final config = endpointConfig ?? VersionPolicyConfig.current;
     final UpdatePromptCoordinator coordinator;
@@ -54,10 +58,17 @@ class AppUpdateProviders {
         platform: platform ?? _currentPlatform(),
         channel: channel,
       );
+      final delivery = deliveryFactory(channel: channel);
       coordinator = UpdatePromptCoordinator(
         checkVersion: service.check,
-        showPrompt: showPrompt,
-        showForcedBlocker: showForcedBlocker,
+        showPrompt:
+            showPrompt ??
+            (context, decision) =>
+                _showOptionalPrompt(context, decision, delivery),
+        showForcedBlocker:
+            showForcedBlocker ??
+            (context, decision) =>
+                _showForcedBlocker(context, decision, delivery),
       );
     }
 
@@ -75,6 +86,10 @@ class AppUpdateProviders {
     return const SharedPreferencesVersionPolicyCache();
   }
 
+  static UpdateDelivery _createUpdateDelivery({required String channel}) {
+    return UpdateDelivery(channel: channel, inAppUpdateLauncher: null);
+  }
+
   static Future<String> _packageInfoVersionProvider() async {
     final packageInfo = await PackageInfo.fromPlatform();
     return packageInfo.version;
@@ -89,14 +104,24 @@ class AppUpdateProviders {
   static Future<void> _showOptionalPrompt(
     BuildContext context,
     VersionGateDecision decision,
+    UpdateDelivery delivery,
   ) {
-    return showOptionalUpdatePrompt(context: context, decision: decision);
+    return showOptionalUpdatePrompt(
+      context: context,
+      decision: decision,
+      delivery: delivery,
+    );
   }
 
   static Future<void> _showForcedBlocker(
     BuildContext context,
     VersionGateDecision decision,
+    UpdateDelivery delivery,
   ) {
-    return showForcedUpdateBlocker(context: context, decision: decision);
+    return showForcedUpdateBlocker(
+      context: context,
+      decision: decision,
+      delivery: delivery,
+    );
   }
 }
