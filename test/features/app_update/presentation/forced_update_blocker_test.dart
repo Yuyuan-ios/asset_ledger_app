@@ -1,7 +1,9 @@
 import 'package:asset_ledger/features/app_update/application/update_delivery.dart';
 import 'package:asset_ledger/features/app_update/domain/version_gate_decision.dart';
 import 'package:asset_ledger/features/app_update/presentation/forced_update_blocker.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -13,6 +15,32 @@ void main() {
     expect(find.widgetWithText(FilledButton, '立即更新'), findsOneWidget);
     expect(find.text('稍后再说'), findsNothing);
     expect(find.byIcon(Icons.close), findsNothing);
+  });
+
+  testWidgets('renders Chinese fallback copy from l10n', (tester) async {
+    await _showBlocker(
+      tester,
+      decision: _forcedFallbackDecision(),
+      locale: const Locale('zh'),
+    );
+
+    expect(find.text('发现新版本'), findsOneWidget);
+    expect(find.text('更新以获得更稳定的体验。'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '立即更新'), findsOneWidget);
+  });
+
+  testWidgets('renders English fallback copy from l10n', (tester) async {
+    await _showBlocker(
+      tester,
+      decision: _forcedFallbackDecision(),
+      locale: const Locale('en'),
+    );
+
+    expect(find.text('Update available'), findsOneWidget);
+    expect(find.text('Update for a more stable experience.'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Update now'), findsOneWidget);
+    expect(find.text('发现新版本'), findsNothing);
+    expect(find.text('立即更新'), findsNothing);
   });
 
   testWidgets('system back does not dismiss forced blocker', (tester) async {
@@ -63,18 +91,21 @@ void main() {
 
 Future<void> _showBlocker(
   WidgetTester tester, {
+  Locale locale = const Locale('zh'),
+  VersionGateDecision? decision,
   UpdateDelivery? delivery,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
+    _localizedApp(
+      locale: locale,
+      child: Scaffold(
         body: Builder(
           builder: (context) {
             return TextButton(
               onPressed: () {
                 showForcedUpdateBlocker(
                   context: context,
-                  decision: _forcedDecision(),
+                  decision: decision ?? _forcedDecision(),
                   delivery: delivery ?? _SpyUpdateDelivery(),
                 );
               },
@@ -90,11 +121,33 @@ Future<void> _showBlocker(
   await tester.pumpAndSettle();
 }
 
+Widget _localizedApp({required Locale locale, required Widget child}) {
+  return MaterialApp(
+    locale: locale,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: child,
+  );
+}
+
 VersionGateDecision _forcedDecision() {
   return const VersionGateDecision.forced(
     updateUrl: 'https://example.com/download',
     title: '发现新版本',
     content: '请更新后继续使用。',
+  );
+}
+
+VersionGateDecision _forcedFallbackDecision() {
+  return const VersionGateDecision.forced(
+    updateUrl: 'https://example.com/download',
+    title: null,
+    content: null,
   );
 }
 

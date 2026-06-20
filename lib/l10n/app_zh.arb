@@ -24,6 +24,22 @@
   "@tabDevice": {
     "description": "底部导航:设备管理入口"
   },
+  "appUpdateActionUpdateNow": "立即更新",
+  "@appUpdateActionUpdateNow": {
+    "description": "App 版本更新弹窗:立即跳转更新的主按钮文案"
+  },
+  "appUpdateActionLater": "稍后再说",
+  "@appUpdateActionLater": {
+    "description": "App 版本更新普通提示弹窗:暂不更新的取消按钮文案"
+  },
+  "appUpdateFallbackTitle": "发现新版本",
+  "@appUpdateFallbackTitle": {
+    "description": "App 版本更新弹窗:服务端未下发标题时的客户端兜底标题"
+  },
+  "appUpdateFallbackContent": "更新以获得更稳定的体验。",
+  "@appUpdateFallbackContent": {
+    "description": "App 版本更新弹窗:服务端未下发正文时的客户端兜底正文"
+  },
   "timingCalculatorExpressionPlaceholder": "工时计算式",
   "@timingCalculatorExpressionPlaceholder": {
     "description": "计时模块:工时计算器显示区的空表达式占位"

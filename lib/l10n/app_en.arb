@@ -6,6 +6,22 @@
   "tabAccount": "Accounts",
   "tabMaintenance": "Service",
   "tabDevice": "Devices",
+  "appUpdateActionUpdateNow": "Update now",
+  "@appUpdateActionUpdateNow": {
+    "description": "App update dialog: primary action that opens the update flow"
+  },
+  "appUpdateActionLater": "Later",
+  "@appUpdateActionLater": {
+    "description": "Optional app update dialog: cancel action that postpones updating"
+  },
+  "appUpdateFallbackTitle": "Update available",
+  "@appUpdateFallbackTitle": {
+    "description": "App update dialog: client fallback title when the server does not provide one"
+  },
+  "appUpdateFallbackContent": "Update for a more stable experience.",
+  "@appUpdateFallbackContent": {
+    "description": "App update dialog: client fallback body when the server does not provide one"
+  },
   "timingCalculatorExpressionPlaceholder": "Work hour expression",
   "timingCalculatorNoResult": "Not calculated",
   "timingCalculatorResult": "Result {value} h",

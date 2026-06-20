@@ -134,6 +134,30 @@ abstract class AppLocalizations {
   /// **'设备'**
   String get tabDevice;
 
+  /// App 版本更新弹窗:立即跳转更新的主按钮文案
+  ///
+  /// In zh, this message translates to:
+  /// **'立即更新'**
+  String get appUpdateActionUpdateNow;
+
+  /// App 版本更新普通提示弹窗:暂不更新的取消按钮文案
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再说'**
+  String get appUpdateActionLater;
+
+  /// App 版本更新弹窗:服务端未下发标题时的客户端兜底标题
+  ///
+  /// In zh, this message translates to:
+  /// **'发现新版本'**
+  String get appUpdateFallbackTitle;
+
+  /// App 版本更新弹窗:服务端未下发正文时的客户端兜底正文
+  ///
+  /// In zh, this message translates to:
+  /// **'更新以获得更稳定的体验。'**
+  String get appUpdateFallbackContent;
+
   /// 计时模块:工时计算器显示区的空表达式占位
   ///
   /// In zh, this message translates to:

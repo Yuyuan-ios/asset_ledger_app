@@ -24,7 +24,7 @@ void main() {
       );
     });
 
-    test('uses fallback title and content when optional copy is missing', () {
+    test('keeps title and content null when optional copy is missing', () {
       final policy = VersionPolicy.fromJsonString('''
         {
           "ios": {
@@ -36,8 +36,15 @@ void main() {
         ''', platform: VersionPolicy.platformIos);
 
       expect(policy, isNotNull);
-      expect(policy!.title, VersionPolicy.fallbackTitle);
-      expect(policy.content, VersionPolicy.fallbackContent);
+      expect(policy!.title, isNull);
+      expect(policy.content, isNull);
+
+      final details = policy.updateDetailsFor(
+        platform: VersionPolicy.platformIos,
+        channel: VersionPolicy.channelPlay,
+      );
+      expect(details.title, isNull);
+      expect(details.content, isNull);
     });
 
     test('returns null when critical fields are missing', () {

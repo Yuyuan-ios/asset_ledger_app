@@ -19,8 +19,21 @@ void main() {
       expect(decision.level, VersionGateLevel.forced);
       expect(decision.blocksUsage, isTrue);
       expect(decision.updateUrl, 'mimarket://details?id=com.example');
+      expect(decision.title, isNull);
+      expect(decision.content, isNull);
+    });
+
+    test('passes through policy title and content when present', () async {
+      final service = _service(
+        currentVersion: '0.9.9',
+        policyJson: _policyJson(title: '发现新版本', content: '请更新后继续使用。'),
+      );
+
+      final decision = await service.check(isColdStart: true);
+
+      expect(decision.level, VersionGateLevel.forced);
       expect(decision.title, '发现新版本');
-      expect(decision.content, '更新以获得更稳定的体验。');
+      expect(decision.content, '请更新后继续使用。');
     });
 
     test('returns optional at current == min and below latest', () async {
@@ -265,22 +278,32 @@ VersionCheckService _service({
 String _policyJson({
   String latestVersion = '1.4.0',
   String minSupportedVersion = '1.0.0',
+  String? title,
+  String? content,
 }) {
+  final androidPolicy = <String, Object>{
+    'latestVersion': latestVersion,
+    'minSupportedVersion': minSupportedVersion,
+    'updateUrl': 'https://example.com/download',
+    'channelUrls': {
+      VersionPolicy.channelXiaomi: 'mimarket://details?id=com.example',
+      VersionPolicy.channelOfficial: 'https://example.com/download',
+    },
+  };
+  if (title != null) {
+    androidPolicy['title'] = title;
+  }
+  if (content != null) {
+    androidPolicy['content'] = content;
+  }
+
   return jsonEncode({
     VersionPolicy.platformIos: {
       'latestVersion': latestVersion,
       'minSupportedVersion': minSupportedVersion,
       'updateUrl': 'itms-apps://apps.apple.com/app/idXXXXXXXX',
     },
-    VersionPolicy.platformAndroid: {
-      'latestVersion': latestVersion,
-      'minSupportedVersion': minSupportedVersion,
-      'updateUrl': 'https://example.com/download',
-      'channelUrls': {
-        VersionPolicy.channelXiaomi: 'mimarket://details?id=com.example',
-        VersionPolicy.channelOfficial: 'https://example.com/download',
-      },
-    },
+    VersionPolicy.platformAndroid: androidPolicy,
   });
 }
 

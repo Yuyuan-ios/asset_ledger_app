@@ -27,6 +27,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabDevice => 'Devices';
 
   @override
+  String get appUpdateActionUpdateNow => 'Update now';
+
+  @override
+  String get appUpdateActionLater => 'Later';
+
+  @override
+  String get appUpdateFallbackTitle => 'Update available';
+
+  @override
+  String get appUpdateFallbackContent => 'Update for a more stable experience.';
+
+  @override
   String get timingCalculatorExpressionPlaceholder => 'Work hour expression';
 
   @override

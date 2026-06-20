@@ -8,8 +8,8 @@ class VersionPolicy {
     String? title,
     String? content,
     Map<String, String>? channelUrls,
-  }) : title = _nonEmptyString(title) ?? fallbackTitle,
-       content = _nonEmptyString(content) ?? fallbackContent,
+  }) : title = _nonEmptyString(title),
+       content = _nonEmptyString(content),
        channelUrls = Map.unmodifiable(channelUrls ?? const {});
 
   static const String platformIos = 'ios';
@@ -33,15 +33,12 @@ class VersionPolicy {
     channelPlay,
   };
 
-  static const String fallbackTitle = '发现新版本';
-  static const String fallbackContent = '更新以获得更稳定的体验。';
-
   final String latestVersion;
   final String minSupportedVersion;
   final String updateUrl;
   final Map<String, String> channelUrls;
-  final String title;
-  final String content;
+  final String? title;
+  final String? content;
 
   static VersionPolicy? fromJsonString(
     String source, {
@@ -128,6 +125,6 @@ class VersionPolicyUpdateDetails {
   });
 
   final String updateUrl;
-  final String title;
-  final String content;
+  final String? title;
+  final String? content;
 }

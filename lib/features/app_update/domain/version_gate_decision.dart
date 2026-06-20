@@ -12,8 +12,8 @@ class VersionGateDecision {
 
   const VersionGateDecision.optional({
     required String updateUrl,
-    required String title,
-    required String content,
+    required String? title,
+    required String? content,
   }) : this._(
          level: VersionGateLevel.optional,
          updateUrl: updateUrl,
@@ -23,8 +23,8 @@ class VersionGateDecision {
 
   const VersionGateDecision.forced({
     required String updateUrl,
-    required String title,
-    required String content,
+    required String? title,
+    required String? content,
   }) : this._(
          level: VersionGateLevel.forced,
          updateUrl: updateUrl,

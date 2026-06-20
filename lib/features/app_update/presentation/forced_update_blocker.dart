@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/gen/app_localizations.dart';
+import '../../../tokens/mapper/core_tokens.dart';
 import '../application/update_delivery.dart';
 import '../domain/version_gate_decision.dart';
-import '../domain/version_policy.dart';
-
-// V7: l10n
-const String _updateNowText = '立即更新';
 
 Future<void> showForcedUpdateBlocker({
   required BuildContext context,
@@ -34,9 +32,10 @@ class ForcedUpdateBlockerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = _nonEmpty(decision.title) ?? VersionPolicy.fallbackTitle;
+    final l10n = AppLocalizations.of(context);
+    final title = _nonEmpty(decision.title) ?? l10n.appUpdateFallbackTitle;
     final content =
-        _nonEmpty(decision.content) ?? VersionPolicy.fallbackContent;
+        _nonEmpty(decision.content) ?? l10n.appUpdateFallbackContent;
 
     return PopScope(
       canPop: false,
@@ -53,7 +52,7 @@ class ForcedUpdateBlockerPage extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF261F1A),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -62,13 +61,13 @@ class ForcedUpdateBlockerPage extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     height: 1.5,
-                    color: const Color(0xFF4A4038),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const Spacer(),
                 FilledButton(
                   onPressed: _handleUpdate,
-                  child: const Text(_updateNowText),
+                  child: Text(l10n.appUpdateActionUpdateNow),
                 ),
               ],
             ),

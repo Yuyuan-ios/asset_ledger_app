@@ -27,6 +27,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabDevice => '设备';
 
   @override
+  String get appUpdateActionUpdateNow => '立即更新';
+
+  @override
+  String get appUpdateActionLater => '稍后再说';
+
+  @override
+  String get appUpdateFallbackTitle => '发现新版本';
+
+  @override
+  String get appUpdateFallbackContent => '更新以获得更稳定的体验。';
+
+  @override
   String get timingCalculatorExpressionPlaceholder => '工时计算式';
 
   @override

@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../../../tokens/mapper/core_tokens.dart';
 import '../application/update_delivery.dart';
 import '../domain/version_gate_decision.dart';
-import '../domain/version_policy.dart';
-
-// V7: l10n
-const String _updateNowText = '立即更新';
-// V7: l10n
-const String _laterText = '稍后再说';
 
 Future<void> showOptionalUpdatePrompt({
   required BuildContext context,
@@ -41,17 +37,18 @@ class OptionalUpdatePromptSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = _nonEmpty(decision.title) ?? VersionPolicy.fallbackTitle;
+    final l10n = AppLocalizations.of(context);
+    final title = _nonEmpty(decision.title) ?? l10n.appUpdateFallbackTitle;
     final content =
-        _nonEmpty(decision.content) ?? VersionPolicy.fallbackContent;
+        _nonEmpty(decision.content) ?? l10n.appUpdateFallbackContent;
 
     return AppBottomSheetShell(
       title: title,
       scrollable: false,
       initialHeightFactor: 0.36,
       contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-      cancelText: _laterText,
-      confirmText: _updateNowText,
+      cancelText: l10n.appUpdateActionLater,
+      confirmText: l10n.appUpdateActionUpdateNow,
       onCancel: onClose,
       onConfirm: () => _handleUpdate(context),
       child: Align(
@@ -60,7 +57,7 @@ class OptionalUpdatePromptSheet extends StatelessWidget {
           content,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             height: 1.45,
-            color: const Color(0xFF312A25),
+            color: SheetColors.textPrimary,
           ),
         ),
       ),

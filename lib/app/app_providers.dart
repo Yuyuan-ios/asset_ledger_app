@@ -7,7 +7,6 @@ import '../features/account/state/project_rate_store.dart';
 import '../features/app_update/application/forced_update_controller.dart';
 import '../features/app_update/application/update_delivery.dart';
 import '../features/app_update/domain/version_gate_decision.dart';
-import '../features/app_update/domain/version_policy.dart';
 import '../features/device/application/controllers/cloud_backup_controller.dart';
 import '../features/device/state/device_store.dart';
 import '../features/fuel/state/fuel_store.dart';
@@ -50,7 +49,7 @@ class AppProviders {
       },
     );
     // Maps the transport-neutral 426 fields (no feature types in the cloud
-    // layer) into the app-update forced decision, applying fallback copy here.
+    // layer) into the app-update forced decision. UI owns fallback copy.
     void handleUpgradeRequired({
       String? updateUrl,
       String? title,
@@ -59,8 +58,8 @@ class AppProviders {
       forcedUpdateController.signalUpgradeRequired(
         VersionGateDecision.forced(
           updateUrl: updateUrl ?? '',
-          title: title ?? VersionPolicy.fallbackTitle,
-          content: content ?? VersionPolicy.fallbackContent,
+          title: title,
+          content: content,
         ),
       );
     }
@@ -69,9 +68,7 @@ class AppProviders {
       onUpgradeRequired: handleUpgradeRequired,
     );
     final identity = IdentityProviders.build();
-    final sync = SyncProviders.build(
-      onUpgradeRequired: handleUpgradeRequired,
-    );
+    final sync = SyncProviders.build(onUpgradeRequired: handleUpgradeRequired);
     final project = ProjectProviders.build();
     final timing = TimingProviders.build(
       projectResolver: project.projectResolver,
