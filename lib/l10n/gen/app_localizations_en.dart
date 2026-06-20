@@ -323,13 +323,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonCreateFromTopRightHint => 'Tap + at the top right to create';
 
   @override
-  String get fuelPageTitle => 'Fuel';
+  String get fuelPageTitle => 'Energy';
 
   @override
-  String get fuelCreateSheetTitle => 'Add fuel';
+  String get fuelCreateSheetTitle => 'Add energy';
 
   @override
-  String get fuelEditSheetTitle => 'Edit fuel';
+  String get fuelEditSheetTitle => 'Edit energy';
 
   @override
   String get fuelCancelAction => 'Cancel';
@@ -338,7 +338,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fuelConfirmAction => 'Done';
 
   @override
-  String get fuelDeleteConfirmTitle => 'Delete fuel record?';
+  String get fuelDeleteConfirmTitle => 'Delete energy record?';
 
   @override
   String get fuelDeleteConfirmContent => 'This cannot be undone.';
@@ -365,10 +365,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fuelSupplierRequiredLabel => 'Supplier (required)';
 
   @override
-  String get fuelSupplierHint => 'Example: Sinopec / Wang fuel';
+  String get fuelSupplierHint => 'Example: Sinopec / charging station';
 
   @override
-  String get fuelLitersLabel => 'Fuel volume (L)';
+  String get fuelLitersLabel => 'Energy amount (L/kWh)';
 
   @override
   String get fuelLitersHint => 'Example: 120.0';
@@ -380,11 +380,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fuelAmountHint => 'Example: 980.0';
 
   @override
-  String get fuelEfficiencyTitle => 'Fuel efficiency by device';
+  String get fuelEfficiencyTitle => 'Energy efficiency by device';
 
   @override
   String get fuelEfficiencyEmpty =>
-      'No data yet. Add fuel and timing records first';
+      'No data yet. Add energy and timing records first';
 
   @override
   String get fuelSupplierFilterLabel => 'Filter: supplier';
@@ -523,7 +523,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountNetReceivedTooltip =>
-      'Received cash after deducting fuel, service, and paid external work project costs.';
+      'Received cash after deducting energy, service, and paid external work project costs.';
 
   @override
   String get accountNetReceivedLabel => 'Net received';
@@ -1098,7 +1098,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String deviceDeactivateContent(String name) {
-    return 'Device: $name\n\nThis only deactivates the device. Timing, fuel, and income history will not be deleted.\nAfter deactivation:\n• The device is hidden from the default Devices page\n• It can no longer be selected in timing dropdowns\n• Historical records still display by deviceId';
+    return 'Device: $name\n\nThis only deactivates the device. Timing, energy, and income history will not be deleted.\nAfter deactivation:\n• The device is hidden from the default Devices page\n• It can no longer be selected in timing dropdowns\n• Historical records still display by deviceId';
   }
 
   @override
@@ -1386,7 +1386,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceBackupTimingRecordCountLabel => 'Timing records';
 
   @override
-  String get deviceBackupFuelRecordCountLabel => 'Fuel records';
+  String get deviceBackupFuelRecordCountLabel => 'Energy records';
 
   @override
   String get deviceBackupMaintenanceRecordCountLabel => 'Maintenance records';
@@ -1431,7 +1431,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceLocalRestoreConfirmMessage =>
-      'After restore, current local devices, timing, fuel, maintenance, payments, and project settings will be replaced by the selected backup. The app will automatically export a current-data backup first so you can recover it if needed. The current version only supports full replacement restore, not merge restore.';
+      'After restore, current local devices, timing, energy, maintenance, payments, and project settings will be replaced by the selected backup. The app will automatically export a current-data backup first so you can recover it if needed. The current version only supports full replacement restore, not merge restore.';
 
   @override
   String get deviceRestoreSuccessTitle => 'Restore complete';
@@ -1445,7 +1445,7 @@ class AppLocalizationsEn extends AppLocalizations {
     int accountPayments,
     int projectSettings,
   ) {
-    return 'Restored business data:\nDevices: $devices\nTiming records: $timingRecords\nFuel records: $fuelRecords\nMaintenance records: $maintenanceRecords\nPayment records: $accountPayments\nProject settings: $projectSettings\n\nCurrent data was automatically backed up before restore.';
+    return 'Restored business data:\nDevices: $devices\nTiming records: $timingRecords\nEnergy records: $fuelRecords\nMaintenance records: $maintenanceRecords\nPayment records: $accountPayments\nProject settings: $projectSettings\n\nCurrent data was automatically backed up before restore.';
   }
 
   @override
@@ -1666,7 +1666,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get devicePrivacySection1Body =>
-      'Welcome to FleetLedger.\nFleetLedger is a recordkeeping and management tool for construction machinery operations. It helps users manage device work hours, fuel consumption, project income and expenses, maintenance details, and device information.\n\nThis Privacy Policy explains how FleetLedger handles information related to your use of the app in the current version.\n\nThis policy applies to the current FleetLedger app version and related support pages.';
+      'Welcome to FleetLedger.\nFleetLedger is a recordkeeping and management tool for construction machinery operations. It helps users manage device work hours, energy consumption, project income and expenses, maintenance details, and device information.\n\nThis Privacy Policy explains how FleetLedger handles information related to your use of the app in the current version.\n\nThis policy applies to the current FleetLedger app version and related support pages.';
 
   @override
   String get devicePrivacySection2Title =>
@@ -1674,7 +1674,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get devicePrivacySection2Body =>
-      'In the current version, the app mainly involves:\n• Device information, timing records, fuel records, project income and expenses, maintenance details, and other business data you enter;\n• The phone number you enter on the phone login page, and your confirmation status for the Privacy Policy and Terms of Use;\n• Avatar or image files you actively choose and set;\n• Necessary local information created while using the app for local storage, page display, filtering, statistics, and feature decisions.\n\nThe business data above is mainly stored locally on your device. To provide SMS-code phone login, your phone number, verification request, login status, and necessary server responses are sent to the developer-configured account API, with SMS code sending and verification provided by Alibaba Cloud phone verification services. If you actively use cloud backup, the app uploads the current ledger backup to the developer-configured cloud backup service for backup listing and device migration restore. The current version does not integrate advertising SDKs, analytics SDKs, third-party tracking services, or automatic multi-device sync services.';
+      'In the current version, the app mainly involves:\n• Device information, timing records, energy records, project income and expenses, maintenance details, and other business data you enter;\n• The phone number you enter on the phone login page, and your confirmation status for the Privacy Policy and Terms of Use;\n• Avatar or image files you actively choose and set;\n• Necessary local information created while using the app for local storage, page display, filtering, statistics, and feature decisions.\n\nThe business data above is mainly stored locally on your device. To provide SMS-code phone login, your phone number, verification request, login status, and necessary server responses are sent to the developer-configured account API, with SMS code sending and verification provided by Alibaba Cloud phone verification services. If you actively use cloud backup, the app uploads the current ledger backup to the developer-configured cloud backup service for backup listing and device migration restore. The current version does not integrate advertising SDKs, analytics SDKs, third-party tracking services, or automatic multi-device sync services.';
 
   @override
   String get devicePrivacySection3Title => '3. Data sources and purposes';
@@ -1771,7 +1771,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceTermsSection2Body =>
-      'The app is intended for construction machinery operations and is mainly used to record and manage device information, work hours, fuel, project income and expenses, and maintenance details. App results are operational aids only and do not constitute financial, tax, legal, or other professional advice.';
+      'The app is intended for construction machinery operations and is mainly used to record and manage device information, work hours, energy, project income and expenses, and maintenance details. App results are operational aids only and do not constitute financial, tax, legal, or other professional advice.';
 
   @override
   String get deviceTermsSection3Title => '3. User responsibility';
@@ -1785,7 +1785,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceTermsSection4Body =>
-      'In the current version, device information, work hours, fuel, project income and expenses, maintenance details, and other main business data are primarily stored locally. SMS-code phone login is verified through the developer-configured account API and SMS verification service to identify login status.\n\nYou understand and agree that the risk of local business data loss caused by device damage, system errors, accidental deletion, permission changes, uninstalling the app, or other reasons outside the developer\'s control is borne by you. We recommend making backups according to the importance of your business data.';
+      'In the current version, device information, work hours, energy, project income and expenses, maintenance details, and other main business data are primarily stored locally. SMS-code phone login is verified through the developer-configured account API and SMS verification service to identify login status.\n\nYou understand and agree that the risk of local business data loss caused by device damage, system errors, accidental deletion, permission changes, uninstalling the app, or other reasons outside the developer\'s control is borne by you. We recommend making backups according to the importance of your business data.';
 
   @override
   String get deviceTermsSection5Title =>

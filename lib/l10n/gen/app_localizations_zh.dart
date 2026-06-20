@@ -298,13 +298,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonCreateFromTopRightHint => '点击右上角 + 新建';
 
   @override
-  String get fuelPageTitle => '燃油';
+  String get fuelPageTitle => '油电';
 
   @override
-  String get fuelCreateSheetTitle => '新增燃油';
+  String get fuelCreateSheetTitle => '新增油电';
 
   @override
-  String get fuelEditSheetTitle => '编辑燃油';
+  String get fuelEditSheetTitle => '编辑油电';
 
   @override
   String get fuelCancelAction => '取消';
@@ -339,10 +339,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fuelSupplierRequiredLabel => '供应人（必填）';
 
   @override
-  String get fuelSupplierHint => '例如：中石化 / 老王油品';
+  String get fuelSupplierHint => '例如：中石化 / 充电站';
 
   @override
-  String get fuelLitersLabel => '加油量（升）';
+  String get fuelLitersLabel => '油电用量（升/度）';
 
   @override
   String get fuelLitersHint => '例如：120.0';
@@ -354,10 +354,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fuelAmountHint => '例如：980.0';
 
   @override
-  String get fuelEfficiencyTitle => '设备燃油效率';
+  String get fuelEfficiencyTitle => '设备油电效率';
 
   @override
-  String get fuelEfficiencyEmpty => '暂无数据（先录入燃油记录与工时记录）';
+  String get fuelEfficiencyEmpty => '暂无数据（先录入油电记录与工时记录）';
 
   @override
   String get fuelSupplierFilterLabel => '筛选：供应人';
@@ -492,7 +492,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountReceiptRatioLabel => '回款';
 
   @override
-  String get accountNetReceivedTooltip => '已收款扣除燃油、维保和已支付外协项目款后的金额。';
+  String get accountNetReceivedTooltip => '已收款扣除油电、维保和已支付外协项目款后的金额。';
 
   @override
   String get accountNetReceivedLabel => '已收(净)';
@@ -1037,7 +1037,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String deviceDeactivateContent(String name) {
-    return '设备：$name\n\n只会停用设备，不会删除任何计时/燃油/收入历史记录。\n停用后：\n• 设备页默认不再显示\n• 计时页下拉框不可再选\n• 历史记录仍可回显（通过 deviceId 区分新旧设备）';
+    return '设备：$name\n\n只会停用设备，不会删除任何计时/油电/收入历史记录。\n停用后：\n• 设备页默认不再显示\n• 计时页下拉框不可再选\n• 历史记录仍可回显（通过 deviceId 区分新旧设备）';
   }
 
   @override
@@ -1300,7 +1300,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceBackupTimingRecordCountLabel => '计时记录';
 
   @override
-  String get deviceBackupFuelRecordCountLabel => '油费记录';
+  String get deviceBackupFuelRecordCountLabel => '油电记录';
 
   @override
   String get deviceBackupMaintenanceRecordCountLabel => '维修记录';
@@ -1332,7 +1332,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceLocalRestoreConfirmMessage =>
-      '恢复后，当前本机的设备、计时、油费、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。';
+      '恢复后，当前本机的设备、计时、油电、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。';
 
   @override
   String get deviceRestoreSuccessTitle => '恢复完成';
@@ -1346,7 +1346,7 @@ class AppLocalizationsZh extends AppLocalizations {
     int accountPayments,
     int projectSettings,
   ) {
-    return '已恢复以下业务数据：\n设备：$devices\n计时记录：$timingRecords\n油费记录：$fuelRecords\n维修记录：$maintenanceRecords\n收款记录：$accountPayments\n项目相关设置：$projectSettings\n\n恢复前已自动备份当前数据。';
+    return '已恢复以下业务数据：\n设备：$devices\n计时记录：$timingRecords\n油电记录：$fuelRecords\n维修记录：$maintenanceRecords\n收款记录：$accountPayments\n项目相关设置：$projectSettings\n\n恢复前已自动备份当前数据。';
   }
 
   @override
@@ -1550,14 +1550,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get devicePrivacySection1Body =>
-      '欢迎使用 FleetLedger。\nFleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、燃油消耗、项目收支、维保明细及设备信息。\n\n本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。';
+      '欢迎使用 FleetLedger。\nFleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、油电消耗、项目收支、维保明细及设备信息。\n\n本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。';
 
   @override
   String get devicePrivacySection2Title => '2. 当前版本涉及的本地数据类型';
 
   @override
   String get devicePrivacySection2Body =>
-      '在当前版本中，应用涉及的数据主要包括：\n• 你主动录入的设备信息、工时记录、燃油记录、项目收支、维保明细等业务数据；\n• 你在手机号登录页主动输入的手机号，以及你对隐私政策和使用条款的确认状态；\n• 你主动选择并设置的头像或图片文件；\n• 应用在本机运行过程中，为实现本地存储、页面展示、筛选查询、统计展示与功能判断所需的必要本地信息。\n\n上述业务数据在当前版本中主要存储在你的设备本地。为实现手机号验证码登录，你输入的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务提供短信验证码发送与校验能力。如你主动使用云端备份，应用会将当前账本备份上传至开发者配置的云端备份服务，用于后续备份列表展示和换机恢复。当前版本未接入广告 SDK、行为分析 SDK、第三方追踪服务或自动多端同步服务。';
+      '在当前版本中，应用涉及的数据主要包括：\n• 你主动录入的设备信息、工时记录、油电记录、项目收支、维保明细等业务数据；\n• 你在手机号登录页主动输入的手机号，以及你对隐私政策和使用条款的确认状态；\n• 你主动选择并设置的头像或图片文件；\n• 应用在本机运行过程中，为实现本地存储、页面展示、筛选查询、统计展示与功能判断所需的必要本地信息。\n\n上述业务数据在当前版本中主要存储在你的设备本地。为实现手机号验证码登录，你输入的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务提供短信验证码发送与校验能力。如你主动使用云端备份，应用会将当前账本备份上传至开发者配置的云端备份服务，用于后续备份列表展示和换机恢复。当前版本未接入广告 SDK、行为分析 SDK、第三方追踪服务或自动多端同步服务。';
 
   @override
   String get devicePrivacySection3Title => '3. 数据来源与用途说明';
@@ -1651,7 +1651,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceTermsSection2Body =>
-      '本应用面向工程机械经营场景，主要用于设备信息、工时、燃油、项目收支、维保明细等内容的记录与管理。应用展示结果仅作为经营辅助工具，不构成财务、税务、法律或其他专业意见。';
+      '本应用面向工程机械经营场景，主要用于设备信息、工时、油电、项目收支、维保明细等内容的记录与管理。应用展示结果仅作为经营辅助工具，不构成财务、税务、法律或其他专业意见。';
 
   @override
   String get deviceTermsSection3Title => '3. 用户责任';
@@ -1665,7 +1665,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceTermsSection4Body =>
-      '当前版本的设备信息、工时、燃油、项目收支、维保明细等主要业务数据主要采用本地存储方式。手机号验证码登录会通过开发者配置的账号接口和短信验证码服务完成校验，用于识别登录状态。\n\n你理解并同意：因设备损坏、系统异常、误删除、权限变更、卸载应用或其他非开发者可控原因导致的本地业务数据丢失风险，应由你自行承担。建议你根据业务重要程度自行做好备份。';
+      '当前版本的设备信息、工时、油电、项目收支、维保明细等主要业务数据主要采用本地存储方式。手机号验证码登录会通过开发者配置的账号接口和短信验证码服务完成校验，用于识别登录状态。\n\n你理解并同意：因设备损坏、系统异常、误删除、权限变更、卸载应用或其他非开发者可控原因导致的本地业务数据丢失风险，应由你自行承担。建议你根据业务重要程度自行做好备份。';
 
   @override
   String get deviceTermsSection5Title => '5. 权限、平台能力与付费功能';

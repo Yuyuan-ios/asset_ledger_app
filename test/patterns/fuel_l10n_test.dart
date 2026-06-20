@@ -20,8 +20,8 @@ void main() {
 
     final uiCopy = _collectUiCopy(tester);
     expect(uiCopy, contains('供应人（必填）'));
-    expect(uiCopy, contains('例如：中石化 / 老王油品'));
-    expect(uiCopy, contains('加油量（升）'));
+    expect(uiCopy, contains('例如：中石化 / 充电站'));
+    expect(uiCopy, contains('油电用量（升/度）'));
     expect(uiCopy, contains('金额（元）'));
   });
 
@@ -33,8 +33,8 @@ void main() {
 
     final uiCopy = _collectUiCopy(tester);
     expect(uiCopy, contains('Supplier (required)'));
-    expect(uiCopy, contains('Example: Sinopec / Wang fuel'));
-    expect(uiCopy, contains('Fuel volume (L)'));
+    expect(uiCopy, contains('Example: Sinopec / charging station'));
+    expect(uiCopy, contains('Energy amount (L/kWh)'));
     expect(uiCopy, contains('Amount (CNY)'));
     expect(uiCopy, isNot(contains('供应人（必填）')));
   });
@@ -85,9 +85,9 @@ void main() {
     );
 
     final uiCopy = _collectUiCopy(tester);
-    expect(find.text('Fuel efficiency by device'), findsOneWidget);
+    expect(find.text('Energy efficiency by device'), findsOneWidget);
     expect(
-      find.text('No data yet. Add fuel and timing records first'),
+      find.text('No data yet. Add energy and timing records first'),
       findsOneWidget,
     );
     expect(uiCopy, contains('Filter: supplier'));
@@ -147,7 +147,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete fuel record?'), findsOneWidget);
+    expect(find.text('Delete energy record?'), findsOneWidget);
     expect(find.text('This cannot be undone.'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Delete'), findsOneWidget);

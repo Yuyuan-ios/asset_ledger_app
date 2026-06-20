@@ -626,124 +626,124 @@ abstract class AppLocalizations {
   /// **'点击右上角 + 新建'**
   String get commonCreateFromTopRightHint;
 
-  /// 油电模块:燃油页标题
+  /// 油电模块:油电页标题
   ///
   /// In zh, this message translates to:
-  /// **'燃油'**
+  /// **'油电'**
   String get fuelPageTitle;
 
-  /// 油电模块:新增燃油记录底部录入 sheet 标题
+  /// 油电模块:新增油电记录底部录入 sheet 标题
   ///
   /// In zh, this message translates to:
-  /// **'新增燃油'**
+  /// **'新增油电'**
   String get fuelCreateSheetTitle;
 
-  /// 油电模块:编辑燃油记录底部录入 sheet 标题
+  /// 油电模块:编辑油电记录底部录入 sheet 标题
   ///
   /// In zh, this message translates to:
-  /// **'编辑燃油'**
+  /// **'编辑油电'**
   String get fuelEditSheetTitle;
 
-  /// 油电模块:燃油记录弹窗取消按钮
+  /// 油电模块:油电记录弹窗取消按钮
   ///
   /// In zh, this message translates to:
   /// **'取消'**
   String get fuelCancelAction;
 
-  /// 油电模块:燃油记录录入 sheet 确认按钮
+  /// 油电模块:油电记录录入 sheet 确认按钮
   ///
   /// In zh, this message translates to:
   /// **'确定'**
   String get fuelConfirmAction;
 
-  /// 油电模块:删除燃油记录二次确认弹窗标题
+  /// 油电模块:删除油电记录二次确认弹窗标题
   ///
   /// In zh, this message translates to:
   /// **'确认删除？'**
   String get fuelDeleteConfirmTitle;
 
-  /// 油电模块:删除燃油记录二次确认弹窗正文
+  /// 油电模块:删除油电记录二次确认弹窗正文
   ///
   /// In zh, this message translates to:
   /// **'删除后不可恢复。'**
   String get fuelDeleteConfirmContent;
 
-  /// 油电模块:删除燃油记录二次确认弹窗确认按钮
+  /// 油电模块:删除油电记录二次确认弹窗确认按钮
   ///
   /// In zh, this message translates to:
   /// **'删除'**
   String get fuelDeleteConfirmAction;
 
-  /// 油电模块:燃油效率卡片中设备已停用或不存在时的兜底设备名
+  /// 油电模块:油电效率卡片中设备已停用或不存在时的兜底设备名
   ///
   /// In zh, this message translates to:
   /// **'设备{id}（已停用/不存在）'**
   String fuelInactiveDeviceFallbackName(int id);
 
-  /// 油电模块:燃油录入表单设备下拉字段标签
+  /// 油电模块:油电录入表单设备下拉字段标签
   ///
   /// In zh, this message translates to:
   /// **'设备编号'**
   String get fuelDeviceLabel;
 
-  /// 油电模块:燃油录入表单设备下拉字段占位
+  /// 油电模块:油电录入表单设备下拉字段占位
   ///
   /// In zh, this message translates to:
   /// **'请选择设备'**
   String get fuelDeviceHint;
 
-  /// 油电模块:燃油录入表单无在用设备时的设备下拉占位
+  /// 油电模块:油电录入表单无在用设备时的设备下拉占位
   ///
   /// In zh, this message translates to:
   /// **'暂无在用设备，请先去“设备”页新增'**
   String get fuelNoActiveDeviceHint;
 
-  /// 油电模块:燃油录入表单供应人字段标签
+  /// 油电模块:油电录入表单供应人字段标签
   ///
   /// In zh, this message translates to:
   /// **'供应人（必填）'**
   String get fuelSupplierRequiredLabel;
 
-  /// 油电模块:燃油录入表单供应人字段占位
+  /// 油电模块:油电录入表单供应人字段占位
   ///
   /// In zh, this message translates to:
-  /// **'例如：中石化 / 老王油品'**
+  /// **'例如：中石化 / 充电站'**
   String get fuelSupplierHint;
 
-  /// 油电模块:燃油录入表单加油量字段标签
+  /// 油电模块:油电录入表单用量字段标签
   ///
   /// In zh, this message translates to:
-  /// **'加油量（升）'**
+  /// **'油电用量（升/度）'**
   String get fuelLitersLabel;
 
-  /// 油电模块:燃油录入表单加油量字段占位
+  /// 油电模块:油电录入表单用量字段占位
   ///
   /// In zh, this message translates to:
   /// **'例如：120.0'**
   String get fuelLitersHint;
 
-  /// 油电模块:燃油录入表单金额字段标签
+  /// 油电模块:油电录入表单金额字段标签
   ///
   /// In zh, this message translates to:
   /// **'金额（元）'**
   String get fuelAmountYuanLabel;
 
-  /// 油电模块:燃油录入表单金额字段占位
+  /// 油电模块:油电录入表单金额字段占位
   ///
   /// In zh, this message translates to:
   /// **'例如：980.0'**
   String get fuelAmountHint;
 
-  /// 油电模块:燃油效率统计卡片标题
+  /// 油电模块:油电效率统计卡片标题
   ///
   /// In zh, this message translates to:
-  /// **'设备燃油效率'**
+  /// **'设备油电效率'**
   String get fuelEfficiencyTitle;
 
-  /// 油电模块:燃油效率统计卡片为空时的提示
+  /// 油电模块:油电效率统计卡片为空时的提示
   ///
   /// In zh, this message translates to:
-  /// **'暂无数据（先录入燃油记录与工时记录）'**
+  /// **'暂无数据（先录入油电记录与工时记录）'**
   String get fuelEfficiencyEmpty;
 
   /// 油电模块:供应人筛选输入框标签
@@ -1001,7 +1001,7 @@ abstract class AppLocalizations {
   /// 账户模块:总览卡净收款 tooltip
   ///
   /// In zh, this message translates to:
-  /// **'已收款扣除燃油、维保和已支付外协项目款后的金额。'**
+  /// **'已收款扣除油电、维保和已支付外协项目款后的金额。'**
   String get accountNetReceivedTooltip;
 
   /// 账户模块:总览卡净收款标签
@@ -1968,7 +1968,7 @@ abstract class AppLocalizations {
   /// 设备模块:停用设备确认正文
   ///
   /// In zh, this message translates to:
-  /// **'设备：{name}\n\n只会停用设备，不会删除任何计时/燃油/收入历史记录。\n停用后：\n• 设备页默认不再显示\n• 计时页下拉框不可再选\n• 历史记录仍可回显（通过 deviceId 区分新旧设备）'**
+  /// **'设备：{name}\n\n只会停用设备，不会删除任何计时/油电/收入历史记录。\n停用后：\n• 设备页默认不再显示\n• 计时页下拉框不可再选\n• 历史记录仍可回显（通过 deviceId 区分新旧设备）'**
   String deviceDeactivateContent(String name);
 
   /// 设备模块:停用按钮
@@ -2448,10 +2448,10 @@ abstract class AppLocalizations {
   /// **'计时记录'**
   String get deviceBackupTimingRecordCountLabel;
 
-  /// 设备模块:备份油费记录数量标签
+  /// 设备模块:备份油电记录数量标签
   ///
   /// In zh, this message translates to:
-  /// **'油费记录'**
+  /// **'油电记录'**
   String get deviceBackupFuelRecordCountLabel;
 
   /// 设备模块:备份维修记录数量标签
@@ -2505,7 +2505,7 @@ abstract class AppLocalizations {
   /// 设备模块:确认本地恢复正文
   ///
   /// In zh, this message translates to:
-  /// **'恢复后，当前本机的设备、计时、油费、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。'**
+  /// **'恢复后，当前本机的设备、计时、油电、维修、收款和项目相关设置等业务数据将被所选备份替换。恢复前，App 会先自动导出一份当前数据备份，便于必要时找回。当前版本仅支持完整覆盖恢复，不支持合并恢复。'**
   String get deviceLocalRestoreConfirmMessage;
 
   /// 设备模块:恢复成功标题
@@ -2517,7 +2517,7 @@ abstract class AppLocalizations {
   /// 设备模块:恢复成功正文
   ///
   /// In zh, this message translates to:
-  /// **'已恢复以下业务数据：\n设备：{devices}\n计时记录：{timingRecords}\n油费记录：{fuelRecords}\n维修记录：{maintenanceRecords}\n收款记录：{accountPayments}\n项目相关设置：{projectSettings}\n\n恢复前已自动备份当前数据。'**
+  /// **'已恢复以下业务数据：\n设备：{devices}\n计时记录：{timingRecords}\n油电记录：{fuelRecords}\n维修记录：{maintenanceRecords}\n收款记录：{accountPayments}\n项目相关设置：{projectSettings}\n\n恢复前已自动备份当前数据。'**
   String deviceRestoreSuccessMessage(
     int devices,
     int timingRecords,
@@ -2901,7 +2901,7 @@ abstract class AppLocalizations {
   /// 设备模块:隐私政策第1节正文
   ///
   /// In zh, this message translates to:
-  /// **'欢迎使用 FleetLedger。\nFleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、燃油消耗、项目收支、维保明细及设备信息。\n\n本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。'**
+  /// **'欢迎使用 FleetLedger。\nFleetLedger 是一款面向工程机械经营场景的记录与管理工具，帮助用户管理设备工时、油电消耗、项目收支、维保明细及设备信息。\n\n本隐私政策用于说明：在当前版本下，FleetLedger 如何处理与你使用本应用相关的信息。\n\n本政策适用于 FleetLedger 当前提供的应用版本及相关支持页面。'**
   String get devicePrivacySection1Body;
 
   /// 设备模块:隐私政策第2节标题
@@ -2913,7 +2913,7 @@ abstract class AppLocalizations {
   /// 设备模块:隐私政策第2节正文
   ///
   /// In zh, this message translates to:
-  /// **'在当前版本中，应用涉及的数据主要包括：\n• 你主动录入的设备信息、工时记录、燃油记录、项目收支、维保明细等业务数据；\n• 你在手机号登录页主动输入的手机号，以及你对隐私政策和使用条款的确认状态；\n• 你主动选择并设置的头像或图片文件；\n• 应用在本机运行过程中，为实现本地存储、页面展示、筛选查询、统计展示与功能判断所需的必要本地信息。\n\n上述业务数据在当前版本中主要存储在你的设备本地。为实现手机号验证码登录，你输入的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务提供短信验证码发送与校验能力。如你主动使用云端备份，应用会将当前账本备份上传至开发者配置的云端备份服务，用于后续备份列表展示和换机恢复。当前版本未接入广告 SDK、行为分析 SDK、第三方追踪服务或自动多端同步服务。'**
+  /// **'在当前版本中，应用涉及的数据主要包括：\n• 你主动录入的设备信息、工时记录、油电记录、项目收支、维保明细等业务数据；\n• 你在手机号登录页主动输入的手机号，以及你对隐私政策和使用条款的确认状态；\n• 你主动选择并设置的头像或图片文件；\n• 应用在本机运行过程中，为实现本地存储、页面展示、筛选查询、统计展示与功能判断所需的必要本地信息。\n\n上述业务数据在当前版本中主要存储在你的设备本地。为实现手机号验证码登录，你输入的手机号、验证码校验请求、登录状态及必要的服务端响应信息会发送至开发者配置的账号接口，并由阿里云号码认证服务提供短信验证码发送与校验能力。如你主动使用云端备份，应用会将当前账本备份上传至开发者配置的云端备份服务，用于后续备份列表展示和换机恢复。当前版本未接入广告 SDK、行为分析 SDK、第三方追踪服务或自动多端同步服务。'**
   String get devicePrivacySection2Body;
 
   /// 设备模块:隐私政策第3节标题
@@ -3075,7 +3075,7 @@ abstract class AppLocalizations {
   /// 设备模块:使用条款第2节正文
   ///
   /// In zh, this message translates to:
-  /// **'本应用面向工程机械经营场景，主要用于设备信息、工时、燃油、项目收支、维保明细等内容的记录与管理。应用展示结果仅作为经营辅助工具，不构成财务、税务、法律或其他专业意见。'**
+  /// **'本应用面向工程机械经营场景，主要用于设备信息、工时、油电、项目收支、维保明细等内容的记录与管理。应用展示结果仅作为经营辅助工具，不构成财务、税务、法律或其他专业意见。'**
   String get deviceTermsSection2Body;
 
   /// 设备模块:使用条款第3节标题
@@ -3099,7 +3099,7 @@ abstract class AppLocalizations {
   /// 设备模块:使用条款第4节正文
   ///
   /// In zh, this message translates to:
-  /// **'当前版本的设备信息、工时、燃油、项目收支、维保明细等主要业务数据主要采用本地存储方式。手机号验证码登录会通过开发者配置的账号接口和短信验证码服务完成校验，用于识别登录状态。\n\n你理解并同意：因设备损坏、系统异常、误删除、权限变更、卸载应用或其他非开发者可控原因导致的本地业务数据丢失风险，应由你自行承担。建议你根据业务重要程度自行做好备份。'**
+  /// **'当前版本的设备信息、工时、油电、项目收支、维保明细等主要业务数据主要采用本地存储方式。手机号验证码登录会通过开发者配置的账号接口和短信验证码服务完成校验，用于识别登录状态。\n\n你理解并同意：因设备损坏、系统异常、误删除、权限变更、卸载应用或其他非开发者可控原因导致的本地业务数据丢失风险，应由你自行承担。建议你根据业务重要程度自行做好备份。'**
   String get deviceTermsSection4Body;
 
   /// 设备模块:使用条款第5节标题

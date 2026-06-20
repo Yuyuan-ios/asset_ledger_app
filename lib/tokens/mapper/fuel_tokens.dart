@@ -1,11 +1,11 @@
 class FuelTokens {
-  // ===== 燃油页：页面容器（与计时页一致） =====
+  // ===== 油电页：页面容器（与计时页一致） =====
   static const double homeMaxContainerWidthTrigger = 420; // 宽屏触发阈值
   static const double homeFixedContentWidth = 393; // 宽屏固定内容宽度
   static const double homePageHorizontalPadding = 10; // 页面左右内边距
   static const double homeHeaderBottomGap = 4; // 标题区与内容区间距
 
-  // ===== 燃油页：内容区间距 =====
+  // ===== 油电页：内容区间距 =====
   static const double homeContentPadding = 0; // 内容区四周内边距（与计时页首卡对齐）
   static const double homeSectionGap = 12; // 分区之间间距
   static const double homeListBottomGap = 24; // 列表底部留白
@@ -13,11 +13,11 @@ class FuelTokens {
   static const double pinnedFilterHeight = 48; // 吸顶筛选输入框固定高度
   static const double pinnedRecordsHeaderHeight = 87; // 筛选 + 最近记录组合吸顶栏高度
 
-  // ===== 燃油页：反馈提示 =====
+  // ===== 油电页：反馈提示 =====
   static const double homeLoadingBottomGap = 10; // 加载条下方间距
   static const double homeErrorBottomGap = 10; // 错误文案下方间距
 
-  // ===== 燃油页：统计卡片 =====
+  // ===== 油电页：统计卡片 =====
   static const double efficiencyCardHeight = 240; // 设备效率卡高度（对齐计时图表卡）
   static const double summaryInnerGap = 12; // 大卡片内上下子容器间距
   static const double summaryTotalValueLeftGap = 8; // 年度总计标题与数值间距

@@ -13,12 +13,18 @@ void main() {
 
     test('formats inactive creation and filter status messages', () {
       expect(
-        inactiveEntityCreateMessage('该设备', recordLabel: '燃油记录'),
-        '该设备已停用，不能用于新建燃油记录',
+        inactiveEntityCreateMessage('该设备', recordLabel: '油电记录'),
+        '该设备已停用，不能用于新建油电记录',
       );
-      expect(filterStatusMessage(cleared: true, hasActiveFilter: false), '已清空筛选');
+      expect(
+        filterStatusMessage(cleared: true, hasActiveFilter: false),
+        '已清空筛选',
+      );
       expect(filterStatusMessage(cleared: false, hasActiveFilter: true), '已筛选');
-      expect(filterStatusMessage(cleared: false, hasActiveFilter: false), '未筛选');
+      expect(
+        filterStatusMessage(cleared: false, hasActiveFilter: false),
+        '未筛选',
+      );
     });
   });
 }

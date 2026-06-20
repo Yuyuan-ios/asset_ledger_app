@@ -1,9 +1,9 @@
 // ==============================================================================
-// 📁 文件说明：燃油弹窗内容 (fuel_detail_content.dart)
+// 📁 文件说明：油电弹窗内容 (fuel_detail_content.dart)
 //
 // 设计目标：
 // 1) 作为 BottomSheet 的内容区域（配合 AppBottomSheetShell 使用）
-// 2) 负责“新增/编辑燃油”的表单与校验
+// 2) 负责“新增/编辑油电”的表单与校验
 // 3) 不直接操作 Store / 不 pop：统一走回调（与 Account 统一）
 // ==============================================================================
 
@@ -193,7 +193,7 @@ class FuelDetailContentState extends State<FuelDetailContent> {
       return;
     }
     if (widget.editing == null && !device.isActive) {
-      widget.onToast(inactiveEntityCreateMessage('该设备', recordLabel: '燃油记录'));
+      widget.onToast(inactiveEntityCreateMessage('该设备', recordLabel: '油电记录'));
       return;
     }
 
