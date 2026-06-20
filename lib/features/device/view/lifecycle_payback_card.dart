@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/foundation/typography.dart';
@@ -18,6 +20,10 @@ const double _paybackBarHeight = 36;
 const double _paybackBarRadius = 10;
 const double _paybackBarDividerWidth = 2;
 const double _minVisibleSegmentWidth = 0.5;
+const double _profitGap = 6;
+const double _minProfitGap = 4;
+const double _minProfitTailWidth = 22;
+const double _minProfitCostRatio = 0.65;
 
 class LifecyclePaybackCard extends StatelessWidget {
   const LifecyclePaybackCard({
@@ -155,21 +161,31 @@ class PaybackSegmentBar extends StatelessWidget {
 class PaybackBarLayout {
   const PaybackBarLayout({
     required this.track,
+    required this.costContainer,
+    required this.profitGap,
+    required this.tailIsPill,
+    required this.tailRadius,
     this.netSegment,
     this.residualSegment,
     this.tailSegment,
+    this.profitGapRect,
     this.netResidualDivider,
     this.residualGapDivider,
-    this.paybackDivider,
   });
 
   final Rect track;
+  final Rect costContainer;
+  final double profitGap;
+  final bool tailIsPill;
+  final double tailRadius;
   final Rect? netSegment;
   final Rect? residualSegment;
   final Rect? tailSegment;
+  final Rect? profitGapRect;
   final Rect? netResidualDivider;
   final Rect? residualGapDivider;
-  final Rect? paybackDivider;
+
+  bool get hasProfitTail => tailSegment != null && tailIsPill;
 }
 
 PaybackBarLayout calculatePaybackBarLayout({
@@ -182,18 +198,39 @@ PaybackBarLayout calculatePaybackBarLayout({
   final track = Rect.fromLTWH(0, 0, width, height);
 
   if (width <= 0 || height <= 0 || result.isCostUnset) {
-    return PaybackBarLayout(track: track);
+    return PaybackBarLayout(
+      track: track,
+      costContainer: track,
+      profitGap: 0,
+      tailIsPill: false,
+      tailRadius: 0,
+    );
   }
 
   final tailRatio = result.tailRatio;
-  final hasTail = result.isPaidBack && tailRatio > 0;
-  final calculatedCostWidth = hasTail ? width / (1 + tailRatio) : width;
-  final calculatedTailWidth = width - calculatedCostWidth;
-  final showTail = calculatedTailWidth > _minVisibleSegmentWidth;
-  final costWidth = (showTail ? calculatedCostWidth : width)
-      .clamp(0.0, width)
-      .toDouble();
-  final tailWidth = showTail ? width - costWidth : 0.0;
+  final hasProfitTail = result.isPaidBack && tailRatio > 0;
+  final resolvedProfitGap = hasProfitTail ? _resolveProfitGap(width) : 0.0;
+  final barWidth = math.max(0.0, width - resolvedProfitGap);
+  final naturalTailWidth = hasProfitTail
+      ? barWidth * tailRatio / (1 + tailRatio)
+      : 0.0;
+  final minTailWidth = math.min(_minProfitTailWidth, barWidth);
+  final minCostWidth = hasProfitTail
+      ? math.min(
+          width * _minProfitCostRatio,
+          math.max(0.0, barWidth - minTailWidth),
+        )
+      : barWidth;
+  final maxTailWidth = hasProfitTail
+      ? math.max(0.0, barWidth - minCostWidth)
+      : 0.0;
+  final tailWidth = hasProfitTail && maxTailWidth > _minVisibleSegmentWidth
+      ? naturalTailWidth.clamp(minTailWidth, maxTailWidth).toDouble()
+      : 0.0;
+  final showTail = tailWidth > _minVisibleSegmentWidth;
+  final costWidth = showTail ? math.max(0.0, barWidth - tailWidth) : width;
+  final costContainer = Rect.fromLTWH(0, 0, costWidth, height);
+  final tailLeft = costWidth + resolvedProfitGap;
 
   final netWidth = (costWidth * result.netSegmentRatio)
       .clamp(0.0, costWidth)
@@ -207,6 +244,10 @@ PaybackBarLayout calculatePaybackBarLayout({
 
   return PaybackBarLayout(
     track: track,
+    costContainer: costContainer,
+    profitGap: showTail ? resolvedProfitGap : 0,
+    tailIsPill: showTail,
+    tailRadius: showTail ? height / 2 : 0,
     netSegment: _visibleRect(left: 0, width: netWidth, height: height),
     residualSegment: _visibleRect(
       left: residualLeft,
@@ -214,7 +255,10 @@ PaybackBarLayout calculatePaybackBarLayout({
       height: height,
     ),
     tailSegment: showTail
-        ? _visibleRect(left: costWidth, width: tailWidth, height: height)
+        ? _visibleRect(left: tailLeft, width: tailWidth, height: height)
+        : null,
+    profitGapRect: showTail && resolvedProfitGap > 0
+        ? Rect.fromLTWH(costWidth, 0, resolvedProfitGap, height)
         : null,
     netResidualDivider:
         netWidth > _minVisibleSegmentWidth &&
@@ -237,15 +281,15 @@ PaybackBarLayout calculatePaybackBarLayout({
             dividerWidth: dividerWidth,
           )
         : null,
-    paybackDivider: showTail
-        ? _dividerRect(
-            boundary: costWidth,
-            width: width,
-            height: height,
-            dividerWidth: dividerWidth,
-          )
-        : null,
   );
+}
+
+double _resolveProfitGap(double width) {
+  final availableGap =
+      width - (width * _minProfitCostRatio) - _minProfitTailWidth;
+  if (availableGap >= _profitGap) return _profitGap;
+  if (availableGap >= _minProfitGap) return _minProfitGap;
+  return math.max(0.0, availableGap);
 }
 
 Rect? _visibleRect({
@@ -284,19 +328,41 @@ class _PaybackSegmentPainter extends CustomPainter {
       const Radius.circular(_paybackBarRadius),
     );
     final trackPaint = Paint()..color = _iosGap;
-    canvas.drawRRect(outerRRect, trackPaint);
 
-    if (result.isCostUnset) return;
+    if (result.isCostUnset) {
+      canvas.drawRRect(outerRRect, trackPaint);
+      return;
+    }
 
     final layout = calculatePaybackBarLayout(result: result, size: size);
+    if (layout.hasProfitTail) {
+      final costRRect = RRect.fromRectAndRadius(
+        layout.costContainer,
+        const Radius.circular(_paybackBarRadius),
+      );
+      canvas.drawRRect(costRRect, trackPaint);
+      canvas.save();
+      canvas.clipRRect(costRRect);
+      _drawRect(canvas, layout.netSegment, _iosGreen);
+      _drawRect(canvas, layout.residualSegment, _iosTeal);
+      _drawRect(canvas, layout.netResidualDivider, Colors.white);
+      canvas.restore();
+
+      final tailRRect = RRect.fromRectAndRadius(
+        layout.tailSegment!,
+        Radius.circular(layout.tailRadius),
+      );
+      canvas.drawRRect(tailRRect, Paint()..color = _iosProfitTail);
+      return;
+    }
+
+    canvas.drawRRect(outerRRect, trackPaint);
     canvas.save();
     canvas.clipRRect(outerRRect);
     _drawRect(canvas, layout.netSegment, _iosGreen);
     _drawRect(canvas, layout.residualSegment, _iosTeal);
-    _drawRect(canvas, layout.tailSegment, _iosProfitTail);
     _drawRect(canvas, layout.netResidualDivider, Colors.white);
     _drawRect(canvas, layout.residualGapDivider, Colors.white);
-    _drawRect(canvas, layout.paybackDivider, Colors.white);
     canvas.restore();
   }
 
