@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/measure/measure_unit.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../l10n/gen/app_localizations.dart';
-import '../../../patterns/device/device_action_card_pattern.dart';
 import '../../../patterns/device/device_section_group_pattern.dart';
 import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/device_label.dart';
@@ -40,11 +38,6 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
       ),
       children: [
         for (final ledger in visible) ...[
-          DeviceActionCard(
-            title: _titleFor(l10n, ledger),
-            subtitle: _subtitleFor(l10n, ledger),
-            onTap: () {},
-          ),
           LifecyclePaybackCard(
             deviceName: _titleFor(l10n, ledger),
             operatedHours: _operatedHours(ledger),
@@ -70,21 +63,6 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
     );
   }
 
-  String _subtitleFor(AppLocalizations l10n, DeviceBusinessLedger ledger) {
-    final income = FormatUtils.money(ledger.incomeFen / 100);
-    final work = _unitSummary(l10n, ledger.unitTotals);
-    final projectCount = ledger.projects.length;
-    final pendingFen = ledger.projects.fold<int>(
-      0,
-      (sum, project) =>
-          sum + (project.remainingFen > 0 ? project.remainingFen : 0),
-    );
-    final pending = pendingFen <= 0
-        ? l10n.deviceLedgerPaidFull
-        : l10n.deviceLedgerPendingAmount(FormatUtils.money(pendingFen / 100));
-    return l10n.deviceLedgerSubtitle(income, work, projectCount, pending);
-  }
-
   int _netReceivedFen(DeviceBusinessLedger ledger) {
     final receivedFen = ledger.projects.fold<int>(
       0,
@@ -107,54 +85,5 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
         .where((total) => total.unit == MeasureUnit.hour)
         .fold<int>(0, (sum, total) => sum + total.quantityScaled);
     return hourTotal / 1000;
-  }
-
-  String _unitSummary(
-    AppLocalizations l10n,
-    List<DeviceBusinessUnitTotal> totals,
-  ) {
-    if (totals.isEmpty) return l10n.deviceLedgerNoWork;
-    return totals
-        .take(3)
-        .map((total) {
-          return '${_quantityText(total.quantityScaled)}${_unitLabel(l10n, total.unit)}';
-        })
-        .join(l10n.deviceListSeparator);
-  }
-
-  String _quantityText(int quantityScaled) {
-    final value = quantityScaled / 1000;
-    if (quantityScaled % 1000 == 0) return value.toStringAsFixed(0);
-    if (quantityScaled % 100 == 0) return value.toStringAsFixed(1);
-    return value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
-  }
-
-  String _unitLabel(AppLocalizations l10n, MeasureUnit unit) {
-    switch (unit) {
-      case MeasureUnit.hour:
-        return l10n.deviceUnitHour;
-      case MeasureUnit.shift:
-        return l10n.deviceUnitShift;
-      case MeasureUnit.day:
-        return l10n.deviceUnitDay;
-      case MeasureUnit.rent:
-        return l10n.deviceUnitRent;
-      case MeasureUnit.mu:
-        return l10n.deviceUnitMu;
-      case MeasureUnit.acre:
-        return l10n.deviceUnitAcre;
-      case MeasureUnit.hectare:
-        return l10n.deviceUnitHectare;
-      case MeasureUnit.ton:
-        return l10n.deviceUnitTon;
-      case MeasureUnit.cubicMeter:
-        return l10n.deviceUnitCubicMeter;
-      case MeasureUnit.trip:
-        return l10n.deviceUnitTrip;
-      case MeasureUnit.sortie:
-        return l10n.deviceUnitSortie;
-      case MeasureUnit.task:
-        return l10n.deviceUnitTask;
-    }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:asset_ledger/core/measure/measure_unit.dart';
 import 'package:asset_ledger/features/device/domain/services/device_business_ledger.dart';
+import 'package:asset_ledger/features/device/domain/services/lifecycle_payback_calculator.dart';
 import 'package:asset_ledger/features/device/view/device_business_ledger_section.dart';
 import 'package:asset_ledger/features/device/view/device_editor_dialog.dart';
 import 'package:asset_ledger/features/device/view/privacy_page.dart';
@@ -54,7 +55,10 @@ void main() {
                 onChanged: (_) {},
               ),
             ),
-            DeviceBusinessLedgerSection(ledgers: [_ledger()]),
+            DeviceBusinessLedgerSection(
+              ledgers: [_ledger()],
+              amountsFor: (_) => _lifecycleAmounts(),
+            ),
           ],
         ),
       ),
@@ -69,9 +73,41 @@ void main() {
       contains('No active devices. Add one on the Devices page first.'),
     );
     expect(uiCopy, contains('Device operations'));
-    expect(uiCopy, contains('Income ¥1550 · 2.5h, 3trips'));
-    expect(uiCopy, contains('1 project · Pending ¥450'));
+    expect(uiCopy, contains('SANY 1#'));
+    expect(uiCopy, contains('初始投入 ¥2,500'));
+    expect(uiCopy, contains('待收 ¥450'));
+    expect(uiCopy, isNot(contains('Income ¥1550 · 2.5h, 3trips')));
+    expect(uiCopy, isNot(contains('1 project · Pending ¥450')));
     expect(uiCopy, isNot(contains('设备经营')));
+  });
+
+  testWidgets('device business section opens lifecycle payback card', (
+    tester,
+  ) async {
+    int? openedDeviceId;
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: DeviceBusinessLedgerSection(
+          ledgers: [_ledger()],
+          amountsFor: (_) => _lifecycleAmounts(),
+          onOpenLifecyclePayback: (ledger) => openedDeviceId = ledger.deviceId,
+        ),
+      ),
+    );
+
+    final uiCopy = _collectUiCopy(tester);
+    expect(uiCopy, contains('设备经营'));
+    expect(uiCopy, contains('SANY 1#'));
+    expect(uiCopy, contains('初始投入 ¥2,500'));
+    expect(uiCopy, contains('待收 ¥450'));
+    expect(uiCopy, isNot(contains('收入 ¥1550 · 2.5小时, 3次')));
+    expect(uiCopy, isNot(contains('1 项 · 待收 ¥450')));
+
+    await tester.tap(find.text('SANY 1#'));
+    await tester.pump();
+
+    expect(openedDeviceId, 1);
   });
 
   testWidgets('renders device editor strings in English', (tester) async {
@@ -177,6 +213,13 @@ DeviceBusinessLedger _ledger() {
         ],
       ),
     ],
+  );
+}
+
+LifecyclePaybackAmounts _lifecycleAmounts() {
+  return const LifecyclePaybackAmounts(
+    initialCostFen: 250000,
+    estimatedResidualFen: 100000,
   );
 }
 
