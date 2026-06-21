@@ -1010,10 +1010,10 @@ abstract class AppLocalizations {
   /// **'已收'**
   String get accountReceivedLabel;
 
-  /// 账户模块:总览卡剩余标签
+  /// 账户模块:总览卡待收标签
   ///
   /// In zh, this message translates to:
-  /// **'剩余'**
+  /// **'待收'**
   String get accountRemainingLabel;
 
   /// 账户模块:总览卡回款比例标签

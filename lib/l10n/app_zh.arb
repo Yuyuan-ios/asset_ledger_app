@@ -700,9 +700,9 @@
   "@accountReceivedLabel": {
     "description": "账户模块:总览卡已收标签"
   },
-  "accountRemainingLabel": "剩余",
+  "accountRemainingLabel": "待收",
   "@accountRemainingLabel": {
-    "description": "账户模块:总览卡剩余标签"
+    "description": "账户模块:总览卡待收标签"
   },
   "accountReceiptRatioLabel": "回款",
   "@accountReceiptRatioLabel": {

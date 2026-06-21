@@ -28,6 +28,8 @@ void main() {
     expect(uiCopy, contains('总    览'));
     expect(uiCopy, contains('总应收'));
     expect(uiCopy, contains('已收(净)'));
+    expect(uiCopy, contains('待收'));
+    expect(uiCopy, isNot(contains('剩余')));
     expect(uiCopy, contains('暂无项目（计时页有记录后将自动出现）'));
   });
 

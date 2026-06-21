@@ -498,7 +498,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountReceivedLabel => '已收';
 
   @override
-  String get accountRemainingLabel => '剩余';
+  String get accountRemainingLabel => '待收';
 
   @override
   String get accountReceiptRatioLabel => '回款';
