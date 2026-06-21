@@ -65,8 +65,6 @@ class _DevicePageState extends State<DevicePage> {
   bool _isExportingBackup = false;
   bool _isCloudBackupBusy = false;
   PhoneLoginSession _loginSession = const PhoneLoginSession.unauthenticated();
-  // TODO: 实验阶段先用设备页本地状态保存，后续接入设备模型字段、
-  // 数据库 migration 与持久化更新。
   final Map<int, LifecyclePaybackAmounts> _lifecyclePaybackAmountsByDeviceId =
       {};
 
@@ -198,7 +196,10 @@ class _DevicePageState extends State<DevicePage> {
   }
 
   Future<void> _openLifecyclePaybackSheet(DeviceBusinessLedger ledger) async {
-    final current = _lifecyclePaybackAmountsByDeviceId[ledger.deviceId];
+    final store = context.read<DeviceStore>();
+    final current =
+        _lifecyclePaybackAmountsByDeviceId[ledger.deviceId] ??
+        _lifecyclePaybackAmountsFromDevice(store.tryFindById(ledger.deviceId));
     final result = await showLifecycleAmountSheet(
       context: context,
       deviceName: ledger.deviceName,
@@ -207,9 +208,43 @@ class _DevicePageState extends State<DevicePage> {
       estimatedResidualFen: current?.estimatedResidualFen,
     );
     if (!mounted || result == null) return;
+    try {
+      await store.updateLifecyclePaybackAmounts(
+        deviceId: ledger.deviceId,
+        lifecycleInitialCostFen: result.initialCostFen,
+        lifecycleEstimatedResidualFen: result.estimatedResidualFen,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        storeErrorMessage(store, action: '保存') ?? '保存失败：数据未保存，请稍后重试',
+      );
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _lifecyclePaybackAmountsByDeviceId[ledger.deviceId] = result;
     });
+  }
+
+  LifecyclePaybackAmounts? _lifecyclePaybackAmountsFor(
+    DeviceBusinessLedger ledger,
+    Map<int, Device> devicesById,
+  ) {
+    return _lifecyclePaybackAmountsByDeviceId[ledger.deviceId] ??
+        _lifecyclePaybackAmountsFromDevice(devicesById[ledger.deviceId]);
+  }
+
+  LifecyclePaybackAmounts? _lifecyclePaybackAmountsFromDevice(Device? device) {
+    if (device == null) return null;
+    final initialCostFen = device.lifecycleInitialCostFen;
+    final estimatedResidualFen = device.lifecycleEstimatedResidualFen;
+    if (initialCostFen == null && estimatedResidualFen == null) return null;
+    return LifecyclePaybackAmounts(
+      initialCostFen: initialCostFen,
+      estimatedResidualFen: estimatedResidualFen,
+    );
   }
 
   int _netReceivedFen(DeviceBusinessLedger ledger) {
@@ -1045,6 +1080,10 @@ class _DevicePageState extends State<DevicePage> {
     final accountStore = context.watch<AccountStore>();
     final activeDevices = store.activeDevices;
     final allDevices = store.allDevices;
+    final devicesById = {
+      for (final device in allDevices)
+        if (device.id != null) device.id!: device,
+    };
     final businessLedgers = _deviceBusinessLedgerUseCase.execute(
       timingRecords: timingStore.records,
       devices: allDevices,
@@ -1110,7 +1149,7 @@ class _DevicePageState extends State<DevicePage> {
                       },
                       businessLedgers: businessLedgers,
                       lifecyclePaybackAmountsFor: (ledger) =>
-                          _lifecyclePaybackAmountsByDeviceId[ledger.deviceId],
+                          _lifecyclePaybackAmountsFor(ledger, devicesById),
                       onOpenLifecyclePayback: _openLifecyclePaybackSheet,
                     ),
                   ),

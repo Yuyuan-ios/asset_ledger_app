@@ -35,6 +35,22 @@ class DbSchemaCompat {
         "ALTER TABLE devices ADD COLUMN equipment_type TEXT NOT NULL DEFAULT 'excavator';",
       );
     }
+    final hasLifecycleInitialCostFen = deviceCols.any(
+      (row) => row['name'] == 'lifecycle_initial_cost_fen',
+    );
+    if (!hasLifecycleInitialCostFen) {
+      await db.execute(
+        'ALTER TABLE devices ADD COLUMN lifecycle_initial_cost_fen INTEGER;',
+      );
+    }
+    final hasLifecycleEstimatedResidualFen = deviceCols.any(
+      (row) => row['name'] == 'lifecycle_estimated_residual_fen',
+    );
+    if (!hasLifecycleEstimatedResidualFen) {
+      await db.execute(
+        'ALTER TABLE devices ADD COLUMN lifecycle_estimated_residual_fen INTEGER;',
+      );
+    }
 
     // project_device_rates 兜底：legacy project_key 主键形态必须含
     // is_breaking 且主键为 3 列。已升级到 project_id 主键的新形态不走此
@@ -162,6 +178,9 @@ class DbSchemaCompat {
     // v51：external_work_records.customer_unit_price_fen 是 additive 列
     // （客户侧应收单价，nullable），用 onOpen 兜底历史库。
     await DbMigrations.ensureExternalWorkCustomerPriceColumn(db);
+    // v52：devices 生命周期回本金额是 additive nullable 列，只做本地
+    // 持久化，不接入 sync。
+    await DbMigrations.ensureDeviceLifecyclePaybackAmountColumns(db);
   }
 
   static Future<void> _ensureAccountPaymentMergeColumns(Database db) async {

@@ -13,12 +13,15 @@ void main() {
         baseMeterHours: 88,
         isActive: true,
         customAvatarPath: '/tmp/avatar.png',
+        lifecycleInitialCostFen: 1200000,
+        lifecycleEstimatedResidualFen: 180000,
       );
 
       final updated = device.copyWith(
         name: 'SANY 2#',
         defaultUnitPrice: 150,
         isActive: false,
+        lifecycleInitialCostFen: null,
       );
 
       expect(updated.id, 1);
@@ -29,6 +32,8 @@ void main() {
       expect(updated.baseMeterHours, 88);
       expect(updated.isActive, isFalse);
       expect(updated.customAvatarPath, '/tmp/avatar.png');
+      expect(updated.lifecycleInitialCostFen, isNull);
+      expect(updated.lifecycleEstimatedResidualFen, 180000);
     });
 
     test('toMap and fromMap use database field names and defaults', () {
@@ -38,6 +43,8 @@ void main() {
         brand: 'CAT',
         defaultUnitPrice: 99.5,
         baseMeterHours: 10,
+        lifecycleInitialCostFen: 888000,
+        lifecycleEstimatedResidualFen: 120000,
       );
 
       expect(device.toMap(), {
@@ -51,6 +58,8 @@ void main() {
         'is_active': 1,
         'custom_avatar_path': null,
         'equipment_type': 'excavator',
+        'lifecycle_initial_cost_fen': 888000,
+        'lifecycle_estimated_residual_fen': 120000,
       });
 
       final rebuilt = Device.fromMap({
@@ -72,6 +81,23 @@ void main() {
       expect(rebuilt.isActive, isFalse);
       expect(rebuilt.customAvatarPath, isNull);
       expect(rebuilt.equipmentType, EquipmentType.excavator);
+      expect(rebuilt.lifecycleInitialCostFen, isNull);
+      expect(rebuilt.lifecycleEstimatedResidualFen, isNull);
+    });
+
+    test('fromMap reads lifecycle payback amount columns', () {
+      final rebuilt = Device.fromMap({
+        'id': 4,
+        'name': 'SANY 4#',
+        'brand': 'SANY',
+        'default_unit_price_fen': 20000,
+        'base_meter_hours': 0,
+        'lifecycle_initial_cost_fen': 1500000,
+        'lifecycle_estimated_residual_fen': 230000,
+      });
+
+      expect(rebuilt.lifecycleInitialCostFen, 1500000);
+      expect(rebuilt.lifecycleEstimatedResidualFen, 230000);
     });
 
     test('fromMap requires fen authority', () {

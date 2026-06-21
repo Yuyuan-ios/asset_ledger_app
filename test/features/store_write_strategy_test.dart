@@ -177,6 +177,46 @@ void main() {
 
       expect(store.hasLoaded, isTrue);
     });
+
+    test(
+      'persists lifecycle payback amounts through update and reload',
+      () async {
+        final repository = _CountingDeviceRepository();
+        final store = DeviceStore(repository);
+
+        await store.insert(
+          Device(
+            name: '',
+            brand: 'SANY',
+            defaultUnitPrice: 100,
+            baseMeterHours: 0,
+          ),
+        );
+
+        await store.updateLifecyclePaybackAmounts(
+          deviceId: 1,
+          lifecycleInitialCostFen: 1500000,
+          lifecycleEstimatedResidualFen: 230000,
+        );
+
+        expect(repository.updateCalls, 1);
+        var device = store.findById(1)!;
+        expect(device.name, 'SANY 1#');
+        expect(device.lifecycleInitialCostFen, 1500000);
+        expect(device.lifecycleEstimatedResidualFen, 230000);
+
+        await store.updateLifecyclePaybackAmounts(
+          deviceId: 1,
+          lifecycleInitialCostFen: null,
+          lifecycleEstimatedResidualFen: 0,
+        );
+
+        expect(repository.updateCalls, 2);
+        device = store.findById(1)!;
+        expect(device.lifecycleInitialCostFen, isNull);
+        expect(device.lifecycleEstimatedResidualFen, 0);
+      },
+    );
   });
 
   group('AccountPaymentStore write strategy', () {
@@ -548,6 +588,7 @@ class _CountingDeviceRepository implements DeviceRepository {
   final List<Device> _devices = [];
   int listAllCalls = 0;
   int insertCalls = 0;
+  int updateCalls = 0;
   int _nextId = 1;
 
   @override
@@ -581,7 +622,13 @@ class _CountingDeviceRepository implements DeviceRepository {
   }
 
   @override
-  Future<int> update(Device device) async => 1;
+  Future<int> update(Device device) async {
+    updateCalls++;
+    final index = _devices.indexWhere((item) => item.id == device.id);
+    if (index < 0) return 0;
+    _devices[index] = device;
+    return 1;
+  }
 
   @override
   Future<int> setActive(int id, bool active) async => 1;

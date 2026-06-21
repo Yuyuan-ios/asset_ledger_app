@@ -265,6 +265,8 @@ class _BackupRestoreValidator {
         normalized['breaking_unit_price_fen'] ??= _fenFromYuan(
           normalized['breaking_unit_price'],
         );
+        normalized.putIfAbsent('lifecycle_initial_cost_fen', () => null);
+        normalized.putIfAbsent('lifecycle_estimated_residual_fen', () => null);
         normalized.remove('default_unit_price');
         normalized.remove('breaking_unit_price');
         break;
@@ -544,6 +546,12 @@ class _BackupRestoreValidator {
     }
     if (!_isString(row['equipment_type'])) {
       return 'invalid_devices_equipment_type';
+    }
+    if (!_isNullableInt(row['lifecycle_initial_cost_fen'])) {
+      return 'invalid_devices_lifecycle_initial_cost_fen';
+    }
+    if (!_isNullableInt(row['lifecycle_estimated_residual_fen'])) {
+      return 'invalid_devices_lifecycle_estimated_residual_fen';
     }
     return null;
   }

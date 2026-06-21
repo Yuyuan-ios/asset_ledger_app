@@ -14,7 +14,9 @@ class FleetSchema {
         base_meter_hours REAL NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
         custom_avatar_path TEXT,
-        equipment_type TEXT NOT NULL DEFAULT 'excavator'
+        equipment_type TEXT NOT NULL DEFAULT 'excavator',
+        lifecycle_initial_cost_fen INTEGER,
+        lifecycle_estimated_residual_fen INTEGER
       );
     ''');
 

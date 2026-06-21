@@ -473,6 +473,45 @@ void main() {
     expect(device['equipment_type'], 'excavator');
   });
 
+  test(
+    'restore accepts old backups without lifecycle payback amounts',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      final legacyDevice = _deviceMap(id: 1)
+        ..remove('lifecycle_initial_cost_fen')
+        ..remove('lifecycle_estimated_residual_fen');
+
+      final result = await _restoreService().restoreFromDecodedJson(
+        _backupJson(schemaVersion: 51, devices: [legacyDevice]),
+      );
+
+      expect(result.success, isTrue);
+      final device = (await db.query('devices')).single;
+      expect(device['lifecycle_initial_cost_fen'], isNull);
+      expect(device['lifecycle_estimated_residual_fen'], isNull);
+    },
+  );
+
+  test('export includes lifecycle payback amount columns', () async {
+    final db = await _openCurrentInMemoryDb();
+    await db.insert(
+      'devices',
+      _deviceMap(id: 1)
+        ..['lifecycle_initial_cost_fen'] = 1500000
+        ..['lifecycle_estimated_residual_fen'] = 230000,
+    );
+
+    final export = await LocalBackupExportService.exportJsonBackup();
+    expect(export.success, isTrue);
+    final rawJson = await File(export.filePath!).readAsString();
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>;
+    final exportedDevice =
+        (data['devices'] as List<dynamic>).single as Map<String, dynamic>;
+    expect(exportedDevice['lifecycle_initial_cost_fen'], 1500000);
+    expect(exportedDevice['lifecycle_estimated_residual_fen'], 230000);
+  });
+
   test('restore round-trips legacy device unit prices into fen only', () async {
     final db = await _openCurrentInMemoryDb();
     final legacyDevice = _deviceMap(id: 1)
@@ -1128,6 +1167,8 @@ Map<String, Object?> _deviceMap({required int id}) {
     'is_active': 1,
     'custom_avatar_path': null,
     'equipment_type': 'excavator',
+    'lifecycle_initial_cost_fen': null,
+    'lifecycle_estimated_residual_fen': null,
   };
 }
 

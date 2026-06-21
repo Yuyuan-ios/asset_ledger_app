@@ -150,10 +150,13 @@ class AppDatabase {
   //        以 (entity_type, entity_id, remote_server_seq) 防重复。
   // - v51：external_work_records 新增 customer_unit_price_fen（nullable）；
   //        我对项目方设置的客户侧应收单价，additive，旧库 onOpen 补列。
+  // - v52：devices 新增 lifecycle_initial_cost_fen /
+  //        lifecycle_estimated_residual_fen（nullable）；设备生命周期回本
+  //        卡片金额本地持久化，additive，旧库 onOpen 补列。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 51;
+  static const int _dbVersion = 52;
 
   static int get schemaVersion => _dbVersion;
 

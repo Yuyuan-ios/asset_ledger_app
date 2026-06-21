@@ -113,6 +113,31 @@ class DeviceStore extends BaseStore {
     );
   }
 
+  Future<void> updateLifecyclePaybackAmounts({
+    required int deviceId,
+    int? lifecycleInitialCostFen,
+    int? lifecycleEstimatedResidualFen,
+  }) async {
+    await writeAndReload(
+      write: () async {
+        await _ensureLoaded();
+        final device = _findLoadedById(deviceId);
+        if (device == null) {
+          throw ArgumentError.value(deviceId, 'deviceId', '设备不存在');
+        }
+        await _repository.update(
+          _normalizeDevice(
+            device.copyWith(
+              lifecycleInitialCostFen: lifecycleInitialCostFen,
+              lifecycleEstimatedResidualFen: lifecycleEstimatedResidualFen,
+            ),
+          ),
+        );
+      },
+      reload: _reload,
+    );
+  }
+
   Future<void> deactivateById(int id) async {
     await writeAndReload(
       write: () => _repository.setActive(id, false),

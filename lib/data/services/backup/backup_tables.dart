@@ -59,6 +59,8 @@ class BackupRestoreTables {
       'base_meter_hours',
       'is_active',
       'equipment_type',
+      'lifecycle_initial_cost_fen',
+      'lifecycle_estimated_residual_fen',
     ],
     'timing_records': [
       'id',

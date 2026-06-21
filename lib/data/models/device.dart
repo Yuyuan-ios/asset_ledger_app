@@ -67,6 +67,12 @@ class Device {
   // -------------------------------------------------------------------
   final EquipmentType equipmentType;
 
+  // -------------------------------------------------------------------
+  // 1.10 生命周期回本金额（分，可选）
+  // -------------------------------------------------------------------
+  final int? lifecycleInitialCostFen;
+  final int? lifecycleEstimatedResidualFen;
+
   Device({
     this.id,
     required this.name,
@@ -80,6 +86,8 @@ class Device {
     this.isActive = true,
     this.customAvatarPath,
     this.equipmentType = EquipmentType.excavator,
+    this.lifecycleInitialCostFen,
+    this.lifecycleEstimatedResidualFen,
   }) : defaultUnitPriceFen =
            defaultUnitPriceFen ?? (defaultUnitPrice * 100).round(),
        breakingUnitPriceFen =
@@ -114,6 +122,8 @@ class Device {
     bool? isActive,
     String? customAvatarPath,
     EquipmentType? equipmentType,
+    Object? lifecycleInitialCostFen = _sentinel,
+    Object? lifecycleEstimatedResidualFen = _sentinel,
   }) {
     final nextDefaultUnitPriceFen = defaultUnitPrice == null
         ? defaultUnitPriceFen
@@ -138,6 +148,13 @@ class Device {
       isActive: isActive ?? this.isActive,
       customAvatarPath: customAvatarPath ?? this.customAvatarPath,
       equipmentType: equipmentType ?? this.equipmentType,
+      lifecycleInitialCostFen: identical(lifecycleInitialCostFen, _sentinel)
+          ? this.lifecycleInitialCostFen
+          : lifecycleInitialCostFen as int?,
+      lifecycleEstimatedResidualFen:
+          identical(lifecycleEstimatedResidualFen, _sentinel)
+          ? this.lifecycleEstimatedResidualFen
+          : lifecycleEstimatedResidualFen as int?,
     );
   }
 
@@ -156,6 +173,8 @@ class Device {
       'is_active': isActive ? 1 : 0,
       'custom_avatar_path': customAvatarPath,
       'equipment_type': equipmentType.dbValue,
+      'lifecycle_initial_cost_fen': lifecycleInitialCostFen,
+      'lifecycle_estimated_residual_fen': lifecycleEstimatedResidualFen,
     };
   }
 
@@ -165,6 +184,10 @@ class Device {
       throw StateError('devices.default_unit_price_fen is required');
     }
     final rawBreakingFen = map['breaking_unit_price_fen'] as num?;
+    final rawLifecycleInitialCostFen =
+        map['lifecycle_initial_cost_fen'] as num?;
+    final rawLifecycleEstimatedResidualFen =
+        map['lifecycle_estimated_residual_fen'] as num?;
     return Device(
       id: map['id'] as int?,
       name: (map['name'] as String?) ?? '',
@@ -182,6 +205,8 @@ class Device {
       equipmentType: EquipmentTypeX.fromDbValue(
         map['equipment_type'] as String?,
       ),
+      lifecycleInitialCostFen: rawLifecycleInitialCostFen?.toInt(),
+      lifecycleEstimatedResidualFen: rawLifecycleEstimatedResidualFen?.toInt(),
     );
   }
 }
