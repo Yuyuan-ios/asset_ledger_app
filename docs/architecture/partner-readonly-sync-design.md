@@ -42,6 +42,25 @@ sticky 来自覆盖层是 sync 从不触碰的独立存储。也使"快照整库
   合伙在此改 → 写覆盖层 → 有效单价。sheet 显示的单价也要显示**有效**值(覆盖优先)。
 - **唯一硬约束**:所有派生/显示单价的路径都必须走 `buildEffectiveRateFenMap`,不得新开第二条读价路径。
 
+### P3 pull payload / entity_id 契约
+- pull 侧 applier 统一消费 `payload_json` 中的 `record` 对象;除 `project`
+  复用现有 `ProjectSyncEnqueuer` 包装形状外,其余新增实体的 `record` 均为目标表整行列。
+- `project`: `entity_type=project`,`entity_id=projects.id`,record 为
+  `Project.toMap()` 输出。
+- `timing_record`: 既有契约保持不变,`entity_id=timing_records.id`。
+- `project_device_rate`:当前 schema 主键为
+  `(project_id, device_id, is_breaking)`,故 `entity_id` 采用
+  `"<project_id>:<device_id>:<is_breaking>"`;解析时从右侧切出后两段,避免
+  `project_id` 自身包含冒号时误切。record 为 `project_device_rates` 整行列:
+  `project_id/project_key/device_id/is_breaking/rate_fen`。
+- `fuel_log`: `entity_type=fuel_log`,`entity_id=fuel_logs.id`,record 为
+  `fuel_logs` 整行列: `id/device_id/date/supplier/liters/cost_fen`。
+- `maintenance_record`: `entity_type=maintenance_record`,
+  `entity_id=maintenance_records.id`,record 为 `maintenance_records` 整行列:
+  `id/device_id/ymd/item/amount_fen/note`,其中 `device_id` 可为 `null`。
+- tombstone(`deleted=true`)按同一 `entity_id` 删除本地行,并写入
+  `entity_sync_meta.deleted_at/payload_hash/version/synced`。
+
 ## 5. 钱:为什么不复杂
 - **应收**:派生(工时 × 有效单价),合伙本地重算重现。
 - **油费/维保费**:`fuel_logs`/`maintenance_records` 自带金额列、按 device_id 单表 → 同步这两张表即带过去,不用派生。
@@ -77,6 +96,11 @@ sticky 来自覆盖层是 sync 从不触碰的独立存储。也使"快照整库
 
 ## 10. 留待实施时敲定
 - **P1 身份映射(关键依赖)**:授权按"合伙手机号"建,但 token 派生的是 account_id;**phone↔account 映射在外部账号服务**(签 token 的那个),本仓 `cloud_sync_backend` 只验 token 拿 account_id。需定:grant 按 grantee_account_id 存(分享者侧先把手机号换成 account_id),还是按 grantee_phone 存(需服务端能从 partner token 反解手机号)。P1 落地前必须先敲死。
+- **P3a 已敲定**:`project_device_rate` 的后续 enqueuer 必须按当前
+  `project_device_rates(project_id, device_id, is_breaking)` 三列主键产出
+  `entity_id="<project_id>:<device_id>:<is_breaking>"`,不能降级为
+  `project_id/device_id` 二元组,否则普通/破碎两类单价会在
+  `entity_sync_meta.local_id` 上碰撞。
 - 授权撤销的 UI 与即时性(删 grant → 合伙下次 pull 即断)。
 - 合伙端"只读镜像"在 UI 上如何与"他自有数据"区隔呈现。
 - 单价覆盖的存储形态:独立覆盖表(推荐) vs `project_device_rates` 加 `partner_overridden` 标志(更轻但 sync 要特判)。

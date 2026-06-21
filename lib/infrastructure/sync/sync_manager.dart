@@ -152,8 +152,17 @@ class SyncManager {
         const LocalEntitySyncMetaRepository(),
     EntitySyncMetaRepository pullMetaRepository =
         const LocalEntitySyncMetaRepository(),
-    RemoteChangeApplier remoteChangeApplier =
-        const TimingRecordRemoteChangeApplier(),
+    Map<String, RemoteChangeApplier> remoteChangeAppliers =
+        const <String, RemoteChangeApplier>{
+          TimingRecordRemoteChangeApplier.entityType:
+              TimingRecordRemoteChangeApplier(),
+          ProjectRemoteChangeApplier.entityType: ProjectRemoteChangeApplier(),
+          ProjectDeviceRateRemoteChangeApplier.entityType:
+              ProjectDeviceRateRemoteChangeApplier(),
+          FuelLogRemoteChangeApplier.entityType: FuelLogRemoteChangeApplier(),
+          MaintenanceRecordRemoteChangeApplier.entityType:
+              MaintenanceRecordRemoteChangeApplier(),
+        },
     ConflictResolver conflictResolver = const ConflictResolver(),
     SyncConflictRepository syncConflictRepository =
         const LocalSyncConflictRepository(),
@@ -166,7 +175,7 @@ class SyncManager {
        _syncStateRepository = syncStateRepository,
        _metaRepository = metaRepository,
        _pullMetaRepository = pullMetaRepository,
-       _remoteChangeApplier = remoteChangeApplier,
+       _remoteChangeAppliers = Map.unmodifiable(remoteChangeAppliers),
        _conflictResolver = conflictResolver,
        _syncConflictRepository = syncConflictRepository,
        _liveReadinessGate = liveReadinessGate,
@@ -178,7 +187,7 @@ class SyncManager {
   final SyncStateRepository _syncStateRepository;
   final EntitySyncMetaAckRepository _metaRepository;
   final EntitySyncMetaRepository _pullMetaRepository;
-  final RemoteChangeApplier _remoteChangeApplier;
+  final Map<String, RemoteChangeApplier> _remoteChangeAppliers;
   final ConflictResolver _conflictResolver;
   final SyncConflictRepository _syncConflictRepository;
   final SyncLiveReadinessGate _liveReadinessGate;
@@ -232,7 +241,8 @@ class SyncManager {
         continue;
       }
 
-      if (change.entityType != TimingRecordRemoteChangeApplier.entityType) {
+      final remoteChangeApplier = _remoteChangeAppliers[change.entityType];
+      if (remoteChangeApplier == null) {
         await _syncStateRepository.writePullCursor(nextCursor, now: _now());
         processedCursor = nextCursor;
         skippedUnsupported += 1;
@@ -257,7 +267,7 @@ class SyncManager {
             localMeta.version >= change.newVersion;
         await AppDatabase.inTransaction<void>((txn) async {
           if (!alreadyApplied) {
-            await _remoteChangeApplier.applyWithExecutor(
+            await remoteChangeApplier.applyWithExecutor(
               txn,
               change,
               now: _now(),
