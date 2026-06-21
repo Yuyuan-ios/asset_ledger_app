@@ -329,7 +329,8 @@ class _MetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Expanded(
           child: Text(
@@ -345,13 +346,19 @@ class _MetaRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          '已运营：${operatedHours.toStringAsFixed(1)}小时 / $operationItems项',
-          style: AppTypography.caption(
-            context,
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: _businessLedgerMutedText(),
+        Flexible(
+          child: Text(
+            '已运营：${operatedHours.toStringAsFixed(1)}小时 / $operationItems项',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            textAlign: TextAlign.right,
+            style: AppTypography.caption(
+              context,
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: _businessLedgerMutedText(),
+            ),
           ),
         ),
       ],
@@ -385,7 +392,9 @@ class _FinancialRow extends StatelessWidget {
               context,
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: costIsUnset ? LifecyclePaybackTokens.textSecondary : LifecyclePaybackTokens.textBody,
+              color: costIsUnset
+                  ? LifecyclePaybackTokens.textSecondary
+                  : LifecyclePaybackTokens.textBody,
             ),
           ),
         ),
