@@ -8,6 +8,7 @@ const double _paybackBarHeight = LifecyclePaybackTokens.barHeight;
 const double _paybackBarDividerWidth = LifecyclePaybackTokens.barDividerWidth;
 const double _minVisibleSegmentWidth =
     LifecyclePaybackTokens.minVisibleSegmentWidth;
+const double _operationSummaryWidth = 168;
 
 Color _businessLedgerMutedText() {
   return DeviceTokens.actionCardTitleColor.withValues(alpha: 0.56);
@@ -346,13 +347,14 @@ class _MetaRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Flexible(
+        SizedBox(
+          width: _operationSummaryWidth,
           child: Text(
             '已运营：${operatedHours.toStringAsFixed(1)}小时 / $operationItems项',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.left,
             style: AppTypography.caption(
               context,
               fontSize: 13,
