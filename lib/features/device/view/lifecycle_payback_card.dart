@@ -4,19 +4,10 @@ import '../../../core/foundation/typography.dart';
 import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
 
-const Color _iosGreen = Color(0xFF34C759);
-const Color _iosTeal = Color(0xFF30B0C7);
-const Color _iosOrange = Color(0xFFFF9500);
-const Color _iosText = Color(0xFF1C1C1E);
-const Color _iosSecondaryText = Color(0xFF8E8E93);
-const Color _iosBodyText = Color(0xFF3A3A3C);
-const Color _iosFill = Color(0xFFF2F2F7);
-const Color _iosGap = Color(0xFFE5E5EA);
-const Color _iosGapDark = Color(0xFFD1D1D6);
-const Color _iosProfitTail = Color(0xFF1C6B30);
-const double _paybackBarHeight = 36;
-const double _paybackBarDividerWidth = 2;
-const double _minVisibleSegmentWidth = 0.5;
+const double _paybackBarHeight = LifecyclePaybackTokens.barHeight;
+const double _paybackBarDividerWidth = LifecyclePaybackTokens.barDividerWidth;
+const double _minVisibleSegmentWidth =
+    LifecyclePaybackTokens.minVisibleSegmentWidth;
 
 Color _businessLedgerMutedText() {
   return DeviceTokens.actionCardTitleColor.withValues(alpha: 0.56);
@@ -70,7 +61,10 @@ class LifecyclePaybackCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(
                 DeviceActionCardTokens.radius,
               ),
-              border: Border.all(color: _iosGap, width: 0.5),
+              border: Border.all(
+                color: LifecyclePaybackTokens.hairline,
+                width: 0.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,12 +89,16 @@ class LifecyclePaybackCard extends StatelessWidget {
                       context,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: _iosSecondaryText,
+                      color: LifecyclePaybackTokens.textSecondary,
                     ),
                   ),
                 ],
                 const SizedBox(height: 14),
-                const Divider(height: 1, thickness: 0.5, color: _iosGap),
+                const Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: LifecyclePaybackTokens.hairline,
+                ),
                 const SizedBox(height: 12),
                 _Footer(
                   result: result,
@@ -286,16 +284,24 @@ class _PaybackSegmentPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    canvas.drawRect(Offset.zero & size, Paint()..color = _iosGap);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = LifecyclePaybackTokens.barTrack,
+    );
     if (result.isCostUnset) return;
 
+    const dividerColor = LifecyclePaybackTokens.segmentDivider;
     final layout = calculatePaybackBarLayout(result: result, size: size);
-    _drawRect(canvas, layout.netSegment, _iosGreen);
-    _drawRect(canvas, layout.residualSegment, _iosTeal);
-    _drawRect(canvas, layout.tailSegment, _iosProfitTail);
-    _drawRect(canvas, layout.netResidualDivider, Colors.white);
-    _drawRect(canvas, layout.residualGapDivider, Colors.white);
-    _drawRect(canvas, layout.paybackDivider, Colors.white);
+    _drawRect(canvas, layout.netSegment, LifecyclePaybackTokens.netReceived);
+    _drawRect(
+      canvas,
+      layout.residualSegment,
+      LifecyclePaybackTokens.estimatedResidual,
+    );
+    _drawRect(canvas, layout.tailSegment, LifecyclePaybackTokens.surplus);
+    _drawRect(canvas, layout.netResidualDivider, dividerColor);
+    _drawRect(canvas, layout.residualGapDivider, dividerColor);
+    _drawRect(canvas, layout.paybackDivider, dividerColor);
   }
 
   @override
@@ -334,7 +340,7 @@ class _MetaRow extends StatelessWidget {
               context,
               fontSize: 17,
               fontWeight: FontWeight.w600,
-              color: _iosText,
+              color: LifecyclePaybackTokens.textPrimary,
             ),
           ),
         ),
@@ -363,10 +369,10 @@ class _FinancialRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final costIsUnset = result.isCostUnset;
     final statusColor = costIsUnset
-        ? _iosSecondaryText
+        ? LifecyclePaybackTokens.textSecondary
         : result.isPaidBack
-        ? _iosGreen
-        : _iosOrange;
+        ? LifecyclePaybackTokens.surplus
+        : LifecyclePaybackTokens.textBody;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -379,7 +385,7 @@ class _FinancialRow extends StatelessWidget {
               context,
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: costIsUnset ? _iosSecondaryText : _iosBodyText,
+              color: costIsUnset ? LifecyclePaybackTokens.textSecondary : LifecyclePaybackTokens.textBody,
             ),
           ),
         ),
@@ -406,13 +412,21 @@ class _Legend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tailLabel = result.isPaidBack ? '盈余' : '未回本缺口';
-    final tailColor = result.isPaidBack ? _iosProfitTail : _iosGapDark;
+    final tailColor = result.isPaidBack
+        ? LifecyclePaybackTokens.surplus
+        : LifecyclePaybackTokens.gapMuted;
     return Wrap(
       spacing: 12,
       runSpacing: 8,
       children: [
-        const _LegendItem(color: _iosGreen, label: '已实收净额'),
-        const _LegendItem(color: _iosTeal, label: '预计售出残值'),
+        const _LegendItem(
+          color: LifecyclePaybackTokens.netReceived,
+          label: '已实收净额',
+        ),
+        const _LegendItem(
+          color: LifecyclePaybackTokens.estimatedResidual,
+          label: '预计售出残值',
+        ),
         _LegendItem(color: tailColor, label: tailLabel),
       ],
     );
@@ -442,7 +456,7 @@ class _LegendItem extends StatelessWidget {
             context,
             fontSize: 12,
             fontWeight: FontWeight.w400,
-            color: _iosBodyText,
+            color: LifecyclePaybackTokens.textBody,
           ),
         ),
       ],
@@ -459,12 +473,10 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resultColor = result.isCostUnset
-        ? _iosSecondaryText
+        ? LifecyclePaybackTokens.textSecondary
         : result.lifeCycleProfitFen > 0
-        ? _iosGreen
-        : result.lifeCycleProfitFen < 0
-        ? _iosOrange
-        : _iosBodyText;
+        ? LifecyclePaybackTokens.surplus
+        : LifecyclePaybackTokens.textBody;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -487,7 +499,7 @@ class _Footer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _iosFill,
+              color: LifecyclePaybackTokens.pendingReceivable,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -495,8 +507,8 @@ class _Footer extends StatelessWidget {
               style: AppTypography.caption(
                 context,
                 fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: _businessLedgerMutedText(),
+                fontWeight: FontWeight.w500,
+                color: LifecyclePaybackTokens.pendingReceivableOnFill,
               ),
             ),
           ),

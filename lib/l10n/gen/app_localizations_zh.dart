@@ -1386,30 +1386,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceInactiveIndexLabel => '已停用';
 
   @override
-  String get deviceLedgerPaidFull => '已收齐';
-
-  @override
-  String deviceLedgerPendingAmount(String amount) {
-    return '待收 $amount';
-  }
-
-  @override
-  String deviceLedgerSubtitle(
-    String income,
-    String work,
-    int projectCount,
-    String pending,
-  ) {
-    return '收入 $income · $work\n$projectCount 项 · $pending';
-  }
-
-  @override
-  String get deviceLedgerNoWork => '暂无工作量';
-
-  @override
-  String get deviceListSeparator => '、';
-
-  @override
   String get deviceUnitHour => '小时';
 
   @override

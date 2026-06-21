@@ -19,6 +19,37 @@ void main() {
       expect(result.resultText, '设置后可查看回本进度与预计盈余');
     });
 
+    test('treats zero initial cost as unset', () {
+      final result = calculateLifecyclePayback(
+        const LifecyclePaybackInput(
+          initialCostFen: 0,
+          netReceivedFen: 100000,
+          estimatedResidualFen: 50000,
+        ),
+      );
+
+      expect(result.isCostUnset, isTrue);
+      expect(result.isPaidBack, isFalse);
+      expect(result.paybackRate, isNull);
+      expect(result.gapSegmentRatio, 1);
+      expect(result.statusText, '未设置成本');
+    });
+
+    test('treats negative initial cost as unset', () {
+      final result = calculateLifecyclePayback(
+        const LifecyclePaybackInput(
+          initialCostFen: -100000,
+          netReceivedFen: 100000,
+          estimatedResidualFen: 50000,
+        ),
+      );
+
+      expect(result.isCostUnset, isTrue);
+      expect(result.isPaidBack, isFalse);
+      expect(result.paybackRate, isNull);
+      expect(result.lifeCycleProfitFen, 0);
+    });
+
     test('calculates not paid back state', () {
       final result = calculateLifecyclePayback(
         const LifecyclePaybackInput(

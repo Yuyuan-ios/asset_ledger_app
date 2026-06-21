@@ -4,16 +4,8 @@ import 'package:flutter/services.dart';
 import '../../../components/buttons/app_primary_button.dart';
 import '../../../core/foundation/typography.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
-
-const Color _sheetBackground = Color(0xFFF2F2F7);
-const Color _sheetHandle = Color(0xFFD1D1D6);
-const Color _sheetText = Color(0xFF1C1C1E);
-const Color _sheetSecondary = Color(0xFF8E8E93);
-const Color _sheetDivider = Color(0xFFE5E5EA);
-const Color _sheetGreen = Color(0xFF34C759);
-const Color _sheetOrange = Color(0xFFFF9500);
-const Color _sheetAction = Color(0xFF007AFF);
 
 Future<LifecyclePaybackAmounts?> showLifecycleAmountSheet({
   required BuildContext context,
@@ -94,8 +86,8 @@ class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
       initialHeightFactor: 0.7,
       scrollable: false,
       footerEnabled: false,
-      backgroundColor: _sheetBackground,
-      handleColor: _sheetHandle,
+      backgroundColor: LifecyclePaybackTokens.sheetBackground,
+      handleColor: LifecyclePaybackTokens.sheetHandle,
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -135,9 +127,8 @@ class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: AppPrimaryButton(
                 label: '保存并更新卡片',
-                height: 52,
-                borderRadius: 26,
-                backgroundColor: _sheetAction,
+                height: LifecyclePaybackTokens.sheetActionHeight,
+                borderRadius: LifecyclePaybackTokens.sheetActionRadius,
                 onPressed: () {
                   Navigator.of(context).pop(
                     LifecyclePaybackAmounts(
@@ -178,7 +169,7 @@ class _InputGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LifecyclePaybackTokens.sheetSurface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -190,7 +181,7 @@ class _InputGroup extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.only(left: 16),
-            child: Divider(height: 1, thickness: 0.5, color: _sheetDivider),
+            child: Divider(height: 1, thickness: 0.5, color: LifecyclePaybackTokens.sheetDivider),
           ),
           _MoneyInputRow(
             label: '预计售出残值',
@@ -228,7 +219,7 @@ class _MoneyInputRow extends StatelessWidget {
                 context,
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
-                color: _sheetText,
+                color: LifecyclePaybackTokens.textPrimary,
               ),
             ),
           ),
@@ -253,7 +244,7 @@ class _MoneyInputRow extends StatelessWidget {
                 context,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: _sheetText,
+                color: LifecyclePaybackTokens.textPrimary,
               ),
             ),
           ),
@@ -295,18 +286,18 @@ class _PreviewCard extends StatelessWidget {
         ? formatLifecycleMoneyFen(result.lifeCycleProfitFen.abs())
         : '¥0';
     final valueColor = result.isCostUnset
-        ? _sheetSecondary
+        ? LifecyclePaybackTokens.textSecondary
         : isProfit
-        ? _sheetGreen
+        ? LifecyclePaybackTokens.surplus
         : result.lifeCycleProfitFen < 0
-        ? _sheetOrange
-        : _sheetText;
+        ? LifecyclePaybackTokens.textBody
+        : LifecyclePaybackTokens.textPrimary;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: LifecyclePaybackTokens.sheetSurface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -318,7 +309,7 @@ class _PreviewCard extends StatelessWidget {
               context,
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: _sheetSecondary,
+              color: LifecyclePaybackTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -346,7 +337,7 @@ class _PreviewCard extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1, thickness: 0.5, color: _sheetDivider),
+            child: Divider(height: 1, thickness: 0.5, color: LifecyclePaybackTokens.sheetDivider),
           ),
           _FormulaRow(
             label: '= 生命周期净收益',
@@ -389,7 +380,7 @@ class _FormulaRow extends StatelessWidget {
                 context,
                 fontSize: 13,
                 fontWeight: strong ? FontWeight.w600 : FontWeight.w400,
-                color: strong ? _sheetText : _sheetSecondary,
+                color: strong ? LifecyclePaybackTokens.textPrimary : LifecyclePaybackTokens.textSecondary,
               ),
             ),
           ),
@@ -399,7 +390,7 @@ class _FormulaRow extends StatelessWidget {
               context,
               fontSize: 13,
               fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
-              color: valueColor ?? _sheetText,
+              color: valueColor ?? LifecyclePaybackTokens.textPrimary,
             ),
           ),
         ],

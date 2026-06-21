@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 全局颜色（跨模块通用）
 class AppColors {
-  static const Color brand = Color(0xFFE67E22); // 品牌主色
+  static const Color brand = Color(0xFFF2883C); // 品牌主色（对齐 iOS 存储「照片」橙）
   static const Color primaryActionCapsule = Color(0xFFC45A2D); // 主行动胶囊背景
   static const Color scaffoldBg = Color(0xFFF2F2F2); // 页面基础背景色
   static const Color divider = Color(0xFFE6DED8); // 全局分割线颜色

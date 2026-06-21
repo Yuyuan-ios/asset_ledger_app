@@ -2599,41 +2599,6 @@ abstract class AppLocalizations {
   /// **'已停用'**
   String get deviceInactiveIndexLabel;
 
-  /// 设备模块:设备经营已收齐状态
-  ///
-  /// In zh, this message translates to:
-  /// **'已收齐'**
-  String get deviceLedgerPaidFull;
-
-  /// 设备模块:设备经营待收金额
-  ///
-  /// In zh, this message translates to:
-  /// **'待收 {amount}'**
-  String deviceLedgerPendingAmount(String amount);
-
-  /// 设备模块:设备经营卡片副标题
-  ///
-  /// In zh, this message translates to:
-  /// **'收入 {income} · {work}\n{projectCount} 项 · {pending}'**
-  String deviceLedgerSubtitle(
-    String income,
-    String work,
-    int projectCount,
-    String pending,
-  );
-
-  /// 设备模块:设备经营无工作量
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无工作量'**
-  String get deviceLedgerNoWork;
-
-  /// 设备模块:短列表分隔符
-  ///
-  /// In zh, this message translates to:
-  /// **'、'**
-  String get deviceListSeparator;
-
   /// 设备模块:小时单位
   ///
   /// In zh, this message translates to:

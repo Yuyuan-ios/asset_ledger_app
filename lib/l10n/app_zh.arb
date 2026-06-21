@@ -2030,50 +2030,6 @@
   "@deviceInactiveIndexLabel": {
     "description": "设备模块:设备停用后替代原编号显示的短标签"
   },
-  "deviceLedgerPaidFull": "已收齐",
-  "@deviceLedgerPaidFull": {
-    "description": "设备模块:设备经营已收齐状态"
-  },
-  "deviceLedgerPendingAmount": "待收 {amount}",
-  "@deviceLedgerPendingAmount": {
-    "description": "设备模块:设备经营待收金额",
-    "placeholders": {
-      "amount": {
-        "type": "String",
-        "example": "¥1000"
-      }
-    }
-  },
-  "deviceLedgerSubtitle": "收入 {income} · {work}\n{projectCount} 项 · {pending}",
-  "@deviceLedgerSubtitle": {
-    "description": "设备模块:设备经营卡片副标题",
-    "placeholders": {
-      "income": {
-        "type": "String",
-        "example": "¥1000"
-      },
-      "work": {
-        "type": "String",
-        "example": "8小时"
-      },
-      "projectCount": {
-        "type": "int",
-        "example": "2"
-      },
-      "pending": {
-        "type": "String",
-        "example": "待收 ¥100"
-      }
-    }
-  },
-  "deviceLedgerNoWork": "暂无工作量",
-  "@deviceLedgerNoWork": {
-    "description": "设备模块:设备经营无工作量"
-  },
-  "deviceListSeparator": "、",
-  "@deviceListSeparator": {
-    "description": "设备模块:短列表分隔符"
-  },
   "deviceUnitHour": "小时",
   "@deviceUnitHour": {
     "description": "设备模块:小时单位"

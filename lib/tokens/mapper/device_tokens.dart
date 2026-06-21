@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'account_tokens.dart';
+import 'color_tokens.dart';
+
 class DevicePageLayoutTokens {
   const DevicePageLayoutTokens._();
 
@@ -436,4 +439,62 @@ class DeviceLegalTokens {
 
   static const double effectiveFontSize = 13;
   static const double effectiveAlpha = 0.55;
+}
+
+/// 设备生命周期回本卡片与「设置金额」弹窗共用的语义色与尺寸。
+///
+/// 颜色对齐 App 全局口径：已实收净额用账户页收入绿（[TimingColors.chartIncome]），
+/// 盈余用 App 品牌橙（[AppColors.brand]）。未回本/还差是「进行中」状态而非告警，
+/// 用中性深灰（[textBody]）作信息态，不外借告警红。其余中性灰与文字色沿用系统
+/// 分组列表风格。
+class LifecyclePaybackTokens {
+  const LifecyclePaybackTokens._();
+
+  // —— 语义数据色 ——
+  /// 已实收净额：对齐账户页收入绿（饼图/进度条已收色）。
+  static const Color netReceived = TimingColors.chartIncome;
+
+  /// 预计售出残值：青蓝，与已实收绿区分。
+  static const Color estimatedResidual = Color(0xFF30B0C7);
+
+  /// 盈余 / 已回本状态：App 品牌橙（仅正向强调）。
+  static const Color surplus = AppColors.brand;
+
+  // —— 回本条轨道与缺口 ——
+  /// 回本条底/未填充轨道。
+  static const Color barTrack = Color(0xFFE5E5EA);
+
+  /// 「未回本缺口」图例点：深一档灰。
+  static const Color gapMuted = Color(0xFFD1D1D6);
+
+  /// 分段之间的白色分隔线。
+  static const Color segmentDivider = Color(0xFFFFFFFF);
+
+  // —— 文字 ——
+  static const Color textPrimary = Color(0xFF1C1C1E);
+  static const Color textBody = Color(0xFF3A3A3C);
+  static const Color textSecondary = Color(0xFF8E8E93);
+
+  // —— 待收 / 描边 ——
+  /// 待收胶囊实心底：剩余应收红，直接复用账户页总览「剩余未收」色（单一来源）。
+  static const Color pendingReceivable = AccountTokens.overviewPieRemaining;
+
+  /// 待收胶囊实心底上的前景文字（白）。
+  static const Color pendingReceivableOnFill = Color(0xFFFFFFFF);
+
+  /// 卡片描边与卡内分割线。
+  static const Color hairline = Color(0xFFE5E5EA);
+
+  // —— 「设置金额」弹窗 ——
+  static const Color sheetBackground = Color(0xFFF2F2F7);
+  static const Color sheetHandle = Color(0xFFD1D1D6);
+  static const Color sheetSurface = Color(0xFFFFFFFF);
+  static const Color sheetDivider = Color(0xFFE5E5EA);
+
+  // —— 尺寸 ——
+  static const double barHeight = 36;
+  static const double barDividerWidth = 2;
+  static const double minVisibleSegmentWidth = 0.5;
+  static const double sheetActionHeight = 52;
+  static const double sheetActionRadius = 26;
 }

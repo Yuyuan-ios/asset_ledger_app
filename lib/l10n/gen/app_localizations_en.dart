@@ -1486,36 +1486,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceInactiveIndexLabel => 'Inactive';
 
   @override
-  String get deviceLedgerPaidFull => 'Paid in full';
-
-  @override
-  String deviceLedgerPendingAmount(String amount) {
-    return 'Pending $amount';
-  }
-
-  @override
-  String deviceLedgerSubtitle(
-    String income,
-    String work,
-    int projectCount,
-    String pending,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      projectCount,
-      locale: localeName,
-      other: '$projectCount projects',
-      one: '1 project',
-    );
-    return 'Income $income · $work\n$_temp0 · $pending';
-  }
-
-  @override
-  String get deviceLedgerNoWork => 'No work volume';
-
-  @override
-  String get deviceListSeparator => ', ';
-
-  @override
   String get deviceUnitHour => 'h';
 
   @override
