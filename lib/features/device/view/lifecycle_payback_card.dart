@@ -354,7 +354,7 @@ class _MetaRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,
-            textAlign: TextAlign.left,
+            textAlign: TextAlign.right,
             style: AppTypography.caption(
               context,
               fontSize: 13,
