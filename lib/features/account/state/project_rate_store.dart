@@ -2,14 +2,19 @@ import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/project_id.dart';
 import '../../../data/repositories/project_rate_repository.dart';
 import '../../../core/utils/base_store.dart';
+import '../use_cases/project_device_rate_write_use_case.dart';
 
 /// 项目设备单价覆盖的状态管理类
 /// 负责管理“项目×设备”维度的自定义单价配置，包含加载、新增/更新、删除等核心操作
 /// 继承自 BaseStore 以复用异步操作的异常处理、加载状态管理等通用能力
 class ProjectRateStore extends BaseStore {
-  ProjectRateStore(this._repository);
+  ProjectRateStore(
+    this._repository, {
+    ProjectDeviceRateWriteUseCase? writeUseCase,
+  }) : _writeUseCase = writeUseCase;
 
   final ProjectRateRepository _repository;
+  final ProjectDeviceRateWriteUseCase? _writeUseCase;
 
   /// 项目设备单价配置列表（私有变量）
   /// 下划线标记为私有，防止外部直接修改，保证数据的不可变特性
@@ -38,7 +43,12 @@ class ProjectRateStore extends BaseStore {
   Future<void> upsert(ProjectDeviceRate r) async {
     await writeAndPatchLocalState(
       write: () async {
-        await _repository.upsert(r);
+        final writeUseCase = _writeUseCase;
+        if (writeUseCase != null) {
+          await writeUseCase.upsert(r);
+        } else {
+          await _repository.upsert(r);
+        }
         return r;
       },
       patch: (nextRate) {
@@ -72,12 +82,23 @@ class ProjectRateStore extends BaseStore {
         ? projectId!.trim()
         : ProjectId.legacyFromKey(projectKey);
     await writeAndPatchLocalState(
-      write: () => _repository.delete(
-        projectKey,
-        deviceId,
-        projectId: targetProjectId,
-        isBreaking: isBreaking,
-      ),
+      write: () {
+        final writeUseCase = _writeUseCase;
+        if (writeUseCase != null) {
+          return writeUseCase.delete(
+            projectKey,
+            deviceId,
+            projectId: targetProjectId,
+            isBreaking: isBreaking,
+          );
+        }
+        return _repository.delete(
+          projectKey,
+          deviceId,
+          projectId: targetProjectId,
+          isBreaking: isBreaking,
+        );
+      },
       patch: (_) {
         _rates = _rates.where((item) {
           return !(item.effectiveProjectId == targetProjectId &&

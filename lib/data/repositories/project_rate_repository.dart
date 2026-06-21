@@ -41,24 +41,29 @@ class SqfliteProjectRateRepository implements ProjectRateRepository {
 
   @override
   Future<int> upsert(ProjectDeviceRate r) async {
-    return AppDatabase.inTransaction((txn) async {
-      await _ensureProjectWithExecutor(txn, r);
-      return txn.rawInsert(
-        '''
+    return AppDatabase.inTransaction((txn) => upsertWithExecutor(txn, r));
+  }
+
+  Future<int> upsertWithExecutor(
+    DatabaseExecutor executor,
+    ProjectDeviceRate r,
+  ) async {
+    await _ensureProjectWithExecutor(executor, r);
+    return executor.rawInsert(
+      '''
         INSERT OR REPLACE INTO $table (
           project_id, project_key, device_id, is_breaking, rate_fen
         )
         VALUES (?, ?, ?, ?, ?)
       ''',
-        [
-          r.effectiveProjectId,
-          r.projectKey,
-          r.deviceId,
-          r.isBreaking ? 1 : 0,
-          r.rateFen,
-        ],
-      );
-    });
+      [
+        r.effectiveProjectId,
+        r.projectKey,
+        r.deviceId,
+        r.isBreaking ? 1 : 0,
+        r.rateFen,
+      ],
+    );
   }
 
   @override
@@ -69,14 +74,46 @@ class SqfliteProjectRateRepository implements ProjectRateRepository {
     bool isBreaking = false,
   }) async {
     final db = await AppDatabase.database;
-    final targetProjectId = projectId?.trim().isNotEmpty == true
-        ? projectId!.trim()
-        : ProjectId.legacyFromKey(projectKey);
-    return db.delete(
+    return deleteWithExecutor(
+      db,
+      projectKey,
+      deviceId,
+      projectId: projectId,
+      isBreaking: isBreaking,
+    );
+  }
+
+  Future<int> deleteWithExecutor(
+    DatabaseExecutor executor,
+    String projectKey,
+    int deviceId, {
+    String? projectId,
+    bool isBreaking = false,
+  }) {
+    final targetProjectId = _resolveProjectId(projectKey, projectId);
+    return executor.delete(
       table,
       where: 'project_id = ? AND device_id = ? AND is_breaking = ?',
       whereArgs: [targetProjectId, deviceId, isBreaking ? 1 : 0],
     );
+  }
+
+  Future<ProjectDeviceRate?> findWithExecutor(
+    DatabaseExecutor executor, {
+    required String projectKey,
+    required int deviceId,
+    String? projectId,
+    bool isBreaking = false,
+  }) async {
+    final targetProjectId = _resolveProjectId(projectKey, projectId);
+    final rows = await executor.query(
+      table,
+      where: 'project_id = ? AND device_id = ? AND is_breaking = ?',
+      whereArgs: [targetProjectId, deviceId, isBreaking ? 1 : 0],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return ProjectDeviceRate.fromMap(rows.single);
   }
 
   @override
@@ -106,5 +143,11 @@ class SqfliteProjectRateRepository implements ProjectRateRepository {
         legacyProjectKey: rate.projectKey,
       ),
     );
+  }
+
+  static String _resolveProjectId(String projectKey, String? projectId) {
+    return projectId?.trim().isNotEmpty == true
+        ? projectId!.trim()
+        : ProjectId.legacyFromKey(projectKey);
   }
 }

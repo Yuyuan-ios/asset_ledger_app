@@ -85,7 +85,12 @@ void main() {
       'lib/infrastructure/local/account/'
           'local_account_payment_write_use_case.dart',
       'lib/infrastructure/local/account/'
+          'local_project_device_rate_write_use_case.dart',
+      'lib/infrastructure/local/account/'
           'local_project_settlement_repository.dart',
+      'lib/infrastructure/local/fuel/local_fuel_log_write_use_case.dart',
+      'lib/infrastructure/local/maintenance/'
+          'local_maintenance_record_write_use_case.dart',
       'lib/data/repositories/external_work_record_repository.dart',
       'lib/data/share/jztshare/project_external_work_importer.dart',
     ];
@@ -200,6 +205,7 @@ void main() {
   group('composition-root slices thread the persisted owner actor', () {
     const compositionSlices = <String>[
       'lib/app/providers/account_merge_providers.dart',
+      'lib/app/providers/device_fleet_providers.dart',
       'lib/app/providers/external_work_providers.dart',
       'lib/app/providers/timing_delete_providers.dart',
       'lib/app/providers/timing_save_providers.dart',
@@ -235,6 +241,7 @@ void main() {
         final source = _read('lib/app/app_providers.dart');
         for (final slice in const [
           'AccountMergeProviders.build',
+          'DeviceFleetProviders.build',
           'ExternalWorkProviders.build',
           'TimingDeleteProviders.build',
           'TimingSaveProviders.build',
@@ -251,11 +258,12 @@ void main() {
             .length;
         expect(
           passes,
-          greaterThanOrEqualTo(4),
+          greaterThanOrEqualTo(5),
           reason:
               'app_providers must thread identity.actorContext into '
-              'AccountMergeProviders / ExternalWorkProviders / '
-              'TimingDeleteProviders / TimingSaveProviders.',
+              'AccountMergeProviders / DeviceFleetProviders / '
+              'ExternalWorkProviders / TimingDeleteProviders / '
+              'TimingSaveProviders.',
         );
       },
     );

@@ -150,8 +150,8 @@ void main() {
           projectId: 'project:a',
           deviceId: deviceId,
         );
-        await _insertFuelLog(deviceId);
-        await _insertMaintenanceRecord(deviceId);
+        final fuelId = await _insertFuelLog(deviceId);
+        final maintenanceId = await _insertMaintenanceRecord(deviceId);
 
         final outcome = await _useCase().executeDeleteWithImpact(recordId);
 
@@ -161,6 +161,26 @@ void main() {
         expect(await SqfliteTimingRepository().findById(recordId), isNull);
         expect(await _fuelRowsByDevice(db, deviceId), isEmpty);
         expect(await _maintenanceRowsByDevice(db, deviceId), isEmpty);
+        final outboxRows = await db.query(
+          'sync_outbox',
+          orderBy: 'local_sequence ASC',
+        );
+        expect(outboxRows, hasLength(3));
+        expect(outboxRows.map((row) => row['entity_type']), [
+          'fuel_log',
+          'maintenance_record',
+          'timing_record',
+        ]);
+        expect(outboxRows.map((row) => row['entity_id']), [
+          fuelId.toString(),
+          maintenanceId.toString(),
+          recordId.toString(),
+        ]);
+        expect(outboxRows.map((row) => row['operation']).toSet(), {'delete'});
+        expect(
+          outboxRows.map((row) => row['transaction_group_id']).toSet(),
+          hasLength(1),
+        );
       },
     );
 
