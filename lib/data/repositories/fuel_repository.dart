@@ -38,7 +38,11 @@ class SqfliteFuelRepository implements FuelRepository {
   @override
   Future<int> insert(FuelLog log) async {
     final db = await AppDatabase.database;
-    return await db.insert(_table, log.toMap());
+    return insertWithExecutor(db, log);
+  }
+
+  Future<int> insertWithExecutor(DatabaseExecutor executor, FuelLog log) {
+    return executor.insert(_table, log.toMap());
   }
 
   // -------------------------------------------------------------------
@@ -47,7 +51,11 @@ class SqfliteFuelRepository implements FuelRepository {
   @override
   Future<int> update(FuelLog log) async {
     final db = await AppDatabase.database;
-    return await db.update(
+    return updateWithExecutor(db, log);
+  }
+
+  Future<int> updateWithExecutor(DatabaseExecutor executor, FuelLog log) {
+    return executor.update(
       _table,
       log.toMap(),
       where: 'id = ?',
@@ -61,7 +69,11 @@ class SqfliteFuelRepository implements FuelRepository {
   @override
   Future<int> deleteById(int id) async {
     final db = await AppDatabase.database;
-    return await db.delete(_table, where: 'id = ?', whereArgs: [id]);
+    return deleteByIdWithExecutor(db, id);
+  }
+
+  Future<int> deleteByIdWithExecutor(DatabaseExecutor executor, int id) {
+    return executor.delete(_table, where: 'id = ?', whereArgs: [id]);
   }
 
   // -------------------------------------------------------------------
@@ -83,5 +95,32 @@ class SqfliteFuelRepository implements FuelRepository {
       where: 'device_id = ?',
       whereArgs: [deviceId],
     );
+  }
+
+  Future<FuelLog?> findByIdWithExecutor(
+    DatabaseExecutor executor,
+    int id,
+  ) async {
+    final rows = await executor.query(
+      _table,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return FuelLog.fromMap(rows.single);
+  }
+
+  Future<List<FuelLog>> listByDeviceIdWithExecutor(
+    DatabaseExecutor executor,
+    int deviceId,
+  ) async {
+    final rows = await executor.query(
+      _table,
+      where: 'device_id = ?',
+      whereArgs: [deviceId],
+      orderBy: 'date DESC, id DESC',
+    );
+    return rows.map(FuelLog.fromMap).toList(growable: false);
   }
 }

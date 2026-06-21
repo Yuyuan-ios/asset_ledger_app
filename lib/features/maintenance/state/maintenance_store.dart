@@ -6,6 +6,7 @@ import '../../../data/models/maintenance_record.dart';
 import '../../../data/repositories/maintenance_repository.dart';
 import '../../../core/date/gregorian_year_range.dart';
 import '../../../core/utils/base_store.dart';
+import '../use_cases/maintenance_record_write_use_case.dart';
 
 // =====================================================================
 // ============================== 二、MaintenanceStore（维保状态） ==============================
@@ -22,9 +23,13 @@ import '../../../core/utils/base_store.dart';
 // =====================================================================
 
 class MaintenanceStore extends BaseStore {
-  MaintenanceStore(this._repository);
+  MaintenanceStore(
+    this._repository, {
+    MaintenanceRecordWriteUseCase? writeUseCase,
+  }) : _writeUseCase = writeUseCase;
 
   final MaintenanceRepository _repository;
+  final MaintenanceRecordWriteUseCase? _writeUseCase;
 
   // -------------------------------------------------------------------
   // 2.1 核心数据：维保记录
@@ -66,10 +71,17 @@ class MaintenanceStore extends BaseStore {
   Future<void> save(MaintenanceRecord record) async {
     await writeAndPatchLocalState(
       write: () async {
+        final writeUseCase = _writeUseCase;
         if (record.id == null) {
-          return await _repository.insert(record);
+          return writeUseCase != null
+              ? await writeUseCase.create(record)
+              : await _repository.insert(record);
         }
-        await _repository.update(record);
+        if (writeUseCase != null) {
+          await writeUseCase.update(record);
+        } else {
+          await _repository.update(record);
+        }
         return record.id!;
       },
       patch: (recordId) {
@@ -94,7 +106,12 @@ class MaintenanceStore extends BaseStore {
   Future<void> deleteById(int id) async {
     await writeAndPatchLocalState(
       write: () async {
-        await _repository.deleteById(id);
+        final writeUseCase = _writeUseCase;
+        if (writeUseCase != null) {
+          await writeUseCase.deleteById(id);
+        } else {
+          await _repository.deleteById(id);
+        }
         return id;
       },
       patch: (_) {

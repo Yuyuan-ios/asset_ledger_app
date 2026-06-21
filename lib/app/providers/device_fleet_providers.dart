@@ -1,6 +1,7 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../../core/operations/operation_access_control.dart';
 import '../../app/cloud_backup_config.dart';
 import '../../app/app_runtime_metadata.dart';
 import '../../app/phone_login_store.dart';
@@ -20,6 +21,8 @@ import '../../infrastructure/cloud/cloud_backup_gateway.dart';
 import '../../infrastructure/cloud/api_client.dart';
 import '../../infrastructure/cloud/http_cloud_api_client.dart';
 import '../../infrastructure/local/backup/local_backup_repository_adapter.dart';
+import '../../infrastructure/local/fuel/local_fuel_log_write_use_case.dart';
+import '../../infrastructure/local/maintenance/local_maintenance_record_write_use_case.dart';
 
 typedef DeviceFleetCloudApiClientFactory =
     CloudApiClient Function({
@@ -49,11 +52,13 @@ class DeviceFleetProviders {
   final List<SingleChildWidget> providers;
 
   factory DeviceFleetProviders.build({
+    ActorContext? actorContext,
     CloudBackupEndpointConfig? endpointConfig,
     DeviceFleetCloudApiClientFactory cloudApiClientFactory =
         _createHttpCloudApiClient,
     UpgradeRequiredCallback? onUpgradeRequired,
   }) {
+    final actorProvider = actorContext == null ? null : () => actorContext;
     final deviceRepository = SqfliteDeviceRepository();
     final fuelRepository = SqfliteFuelRepository();
     final maintenanceRepository = SqfliteMaintenanceRepository();
@@ -61,8 +66,19 @@ class DeviceFleetProviders {
     const phoneLoginStore = SharedPreferencesPhoneLoginStore();
 
     final deviceStore = DeviceStore(deviceRepository);
-    final fuelStore = FuelStore(fuelRepository);
-    final maintenanceStore = MaintenanceStore(maintenanceRepository);
+    final fuelWriteUseCase = LocalFuelLogWriteUseCase(
+      fuelRepository: fuelRepository,
+      actorProvider: actorProvider,
+    );
+    final fuelStore = FuelStore(fuelRepository, writeUseCase: fuelWriteUseCase);
+    final maintenanceWriteUseCase = LocalMaintenanceRecordWriteUseCase(
+      maintenanceRepository: maintenanceRepository,
+      actorProvider: actorProvider,
+    );
+    final maintenanceStore = MaintenanceStore(
+      maintenanceRepository,
+      writeUseCase: maintenanceWriteUseCase,
+    );
     const localBackupController = LocalBackupController(localBackupRepository);
     final cloudBackupEndpoint = endpointConfig ?? CloudBackupConfig.current;
     final CloudBackupController cloudBackupController;

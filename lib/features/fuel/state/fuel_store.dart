@@ -8,6 +8,7 @@ import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/fuel_repository.dart';
 import '../../../data/services/fuel_stats_service.dart';
 import '../model/fuel_efficiency_agg.dart';
+import '../use_cases/fuel_log_write_use_case.dart';
 
 import '../../../core/utils/base_store.dart';
 
@@ -36,9 +37,11 @@ import '../../../core/utils/base_store.dart';
 // =====================================================================
 
 class FuelStore extends BaseStore {
-  FuelStore(this._repository);
+  FuelStore(this._repository, {FuelLogWriteUseCase? writeUseCase})
+    : _writeUseCase = writeUseCase;
 
   final FuelRepository _repository;
+  final FuelLogWriteUseCase? _writeUseCase;
 
   // -------------------------------------------------------------------
   // 2.1 核心数据：燃油记录（默认 date DESC）
@@ -78,7 +81,12 @@ class FuelStore extends BaseStore {
 
   Future<void> insert(FuelLog log) async {
     await writeAndPatchLocalState(
-      write: () => _repository.insert(log),
+      write: () {
+        final writeUseCase = _writeUseCase;
+        return writeUseCase != null
+            ? writeUseCase.create(log)
+            : _repository.insert(log);
+      },
       patch: (newId) {
         _logs = [..._logs, log.copyWith(id: newId)];
         _sortLogs();
@@ -88,7 +96,14 @@ class FuelStore extends BaseStore {
 
   Future<void> update(FuelLog log) async {
     await writeAndPatchLocalState(
-      write: () => _repository.update(log),
+      write: () async {
+        final writeUseCase = _writeUseCase;
+        if (writeUseCase != null) {
+          await writeUseCase.update(log);
+        } else {
+          await _repository.update(log);
+        }
+      },
       patch: (_) {
         _logs = _logs.map((item) => item.id == log.id ? log : item).toList();
         _sortLogs();
@@ -98,7 +113,14 @@ class FuelStore extends BaseStore {
 
   Future<void> deleteById(int id) async {
     await writeAndPatchLocalState(
-      write: () => _repository.deleteById(id),
+      write: () async {
+        final writeUseCase = _writeUseCase;
+        if (writeUseCase != null) {
+          await writeUseCase.deleteById(id);
+        } else {
+          await _repository.deleteById(id);
+        }
+      },
       patch: (_) {
         _logs = _logs.where((item) => item.id != id).toList();
       },

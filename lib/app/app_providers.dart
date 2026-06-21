@@ -64,10 +64,11 @@ class AppProviders {
       );
     }
 
+    final identity = IdentityProviders.build();
     final deviceFleet = DeviceFleetProviders.build(
+      actorContext: identity.actorContext,
       onUpgradeRequired: handleUpgradeRequired,
     );
-    final identity = IdentityProviders.build();
     final sync = SyncProviders.build(onUpgradeRequired: handleUpgradeRequired);
     final project = ProjectProviders.build();
     final timing = TimingProviders.build(

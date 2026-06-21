@@ -19,6 +19,10 @@ import '../../sync/sync_repositories.dart';
 import '../../sync/sync_transaction_group.dart';
 import '../account/project_sync_enqueuer.dart';
 import '../account/project_write_off_sync_enqueuer.dart';
+import '../fuel/fuel_log_sync_enqueuer.dart';
+import '../fuel/local_fuel_log_write_use_case.dart';
+import '../maintenance/local_maintenance_record_write_use_case.dart';
+import '../maintenance/maintenance_record_sync_enqueuer.dart';
 import 'external_work_sync_enqueuer.dart';
 import 'timing_record_sync_enqueuer.dart';
 
@@ -44,6 +48,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
     ProjectSyncEnqueuer? projectSyncEnqueuer,
     ExternalWorkSyncEnqueuer? externalWorkSyncEnqueuer,
     TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer,
+    FuelLogSyncEnqueuer? fuelLogSyncEnqueuer,
+    MaintenanceRecordSyncEnqueuer? maintenanceRecordSyncEnqueuer,
     SyncActorProvider? actorProvider,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
@@ -51,8 +57,6 @@ class LocalDeleteTimingRecordWithImpactUseCase
        _mergeRepository = mergeRepository,
        _deviceRepository = deviceRepository,
        _externalWorkRecordRepository = externalWorkRecordRepository,
-       _fuelRepository = fuelRepository,
-       _maintenanceRepository = maintenanceRepository,
        _writeOffRepository = writeOffRepository,
        _projectRepository = projectRepository,
        _projectWriteOffSyncEnqueuer =
@@ -79,6 +83,20 @@ class LocalDeleteTimingRecordWithImpactUseCase
              syncOutboxRepository: syncOutboxRepository,
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
+       _fuelLogWriteUseCase = LocalFuelLogWriteUseCase(
+         fuelRepository: fuelRepository,
+         syncOutboxRepository: syncOutboxRepository,
+         entitySyncMetaRepository: entitySyncMetaRepository,
+         syncEnqueuer: fuelLogSyncEnqueuer,
+         actorProvider: actorProvider,
+       ),
+       _maintenanceRecordWriteUseCase = LocalMaintenanceRecordWriteUseCase(
+         maintenanceRepository: maintenanceRepository,
+         syncOutboxRepository: syncOutboxRepository,
+         entitySyncMetaRepository: entitySyncMetaRepository,
+         syncEnqueuer: maintenanceRecordSyncEnqueuer,
+         actorProvider: actorProvider,
+       ),
        _actorProvider = actorProvider,
        _now = now ?? DateTime.now;
 
@@ -87,14 +105,14 @@ class LocalDeleteTimingRecordWithImpactUseCase
   final SqfliteAccountProjectMergeRepository _mergeRepository;
   final SqfliteDeviceRepository _deviceRepository;
   final SqfliteExternalWorkRecordRepository _externalWorkRecordRepository;
-  final SqfliteFuelRepository _fuelRepository;
-  final SqfliteMaintenanceRepository _maintenanceRepository;
   final SqfliteProjectWriteOffRepository _writeOffRepository;
   final SqfliteProjectRepository _projectRepository;
   final ProjectWriteOffSyncEnqueuer _projectWriteOffSyncEnqueuer;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
   final ExternalWorkSyncEnqueuer _externalWorkSyncEnqueuer;
   final TimingRecordSyncEnqueuer _timingRecordSyncEnqueuer;
+  final LocalFuelLogWriteUseCase _fuelLogWriteUseCase;
+  final LocalMaintenanceRecordWriteUseCase _maintenanceRecordWriteUseCase;
   final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
 
@@ -162,8 +180,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
     return AppDatabase.inTransaction((txn) async {
       // R5.22-A：删除计时是一个跨聚合的同事务 cluster（ProjectWriteOff delete +
       // Project status update + ExternalWork unlink update + TimingRecord
-      // delete）。所有 outbox 共享一个 group id，local_sequence 按发生顺序递增：
-      // writeOff delete → project update → external work updates → timing delete。
+      // delete, inactive-device fuel/maintenance deletes）。所有 outbox 共享一个
+      // group id，local_sequence 按发生顺序递增。
       final group = SyncTransactionGroup.create();
       // 1) 事务内重新读取记录与权威状态，避免基于过期分析结果误删。
       final record = await _timingRepository.findByIdWithExecutor(
@@ -192,14 +210,16 @@ class LocalDeleteTimingRecordWithImpactUseCase
 
       // 2) 删除计时记录本身。
       await _timingRepository.deleteByIdWithExecutor(txn, recordId);
+      final actor = _actorProvider?.call();
       final inactiveDeviceCleanup =
           await _cleanupInactiveDeviceRegistrationDependents(
             txn,
             deviceId: record.deviceId,
+            group: group,
+            actor: actor,
           );
 
       // 3) 撤销结清：删除核销 + 已结清恢复为进行中（收款不动）。
-      final actor = _actorProvider?.call();
       final writeOffSnapshots = await _writeOffRepository
           .listByProjectIdWithExecutor(txn, projectId);
       var deletedWriteOffs = 0;
@@ -328,6 +348,8 @@ class LocalDeleteTimingRecordWithImpactUseCase
   _cleanupInactiveDeviceRegistrationDependents(
     DatabaseExecutor txn, {
     required int deviceId,
+    SyncTransactionGroup? group,
+    ActorContext? actor,
   }) async {
     final remainingTimingCount = await _timingRepository
         .countByDeviceIdWithExecutor(txn, deviceId);
@@ -340,12 +362,19 @@ class LocalDeleteTimingRecordWithImpactUseCase
       return _InactiveDeviceCleanupResult.none;
     }
 
-    final deletedFuel = await _fuelRepository.deleteByDeviceIdWithExecutor(
+    final deletedFuel = await _fuelLogWriteUseCase.deleteByDeviceIdWithExecutor(
       txn,
       deviceId,
+      group: group,
+      actor: actor,
     );
-    final deletedMaintenance = await _maintenanceRepository
-        .deleteByDeviceIdWithExecutor(txn, deviceId);
+    final deletedMaintenance = await _maintenanceRecordWriteUseCase
+        .deleteByDeviceIdWithExecutor(
+          txn,
+          deviceId,
+          group: group,
+          actor: actor,
+        );
     return _InactiveDeviceCleanupResult(
       fuelRecordCount: deletedFuel,
       maintenanceRecordCount: deletedMaintenance,
