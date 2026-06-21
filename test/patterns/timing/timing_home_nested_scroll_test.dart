@@ -41,9 +41,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('chart collapses on scroll while the date header stays pinned', (
-    tester,
-  ) async {
+  testWidgets('first date header pins below the records title', (tester) async {
     // 顶部日期组 2024.01.10 做得很高（10 条不同设备的单条记录 → 同日期一组），
     // 第二组 2024.01.05 在下方。滚动量大于首组日期标题的初始偏移，但小于首组
     // 总高度，从而能区分"吸顶"与"随内容滚走"。
@@ -70,6 +68,54 @@ void main() {
     expect(find.text('2024.01.10'), findsOneWidget);
     // 且停在视口顶部附近（远小于初始偏移 ~190）——证明是吸顶而非随内容滚走。
     expect(tester.getTopLeft(find.text('2024.01.10')).dy, lessThan(120));
+    expect(
+      tester.getTopLeft(find.text('2024.01.10')).dy,
+      greaterThan(tester.getBottomLeft(find.text('最近记录(11)')).dy - 0.1),
+    );
+  });
+
+  testWidgets('aggregate first date header pins below the records title', (
+    tester,
+  ) async {
+    final records = <TimingRecord>[
+      for (var i = 0; i < 10; i++) rec(20240110, 1, 'A'),
+      rec(20240105, 99, 'B'),
+    ];
+    await pump(tester, records);
+
+    await tester.drag(
+      find.byKey(const PageStorageKey<String>('timing-recent-tab')),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2024.01.10 (已聚合)'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('2024.01.10 (已聚合)')).dy,
+      greaterThan(tester.getBottomLeft(find.text('最近记录(2)')).dy - 0.1),
+    );
+  });
+
+  testWidgets('later date header replaces the first pinned header', (
+    tester,
+  ) async {
+    final records = <TimingRecord>[
+      for (var i = 0; i < 10; i++) rec(20240110, i, 'A$i'),
+      for (var i = 0; i < 10; i++) rec(20240105, 100 + i, 'B$i'),
+    ];
+    await pump(tester, records);
+
+    await tester.drag(
+      find.byKey(const PageStorageKey<String>('timing-recent-tab')),
+      const Offset(0, -760),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2024.01.05'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('2024.01.05')).dy,
+      greaterThan(tester.getBottomLeft(find.text('最近记录(20)')).dy - 0.1),
+    );
   });
 
   testWidgets('swiping the tab body switches recent <-> external', (
@@ -114,6 +160,7 @@ void main() {
 
 Widget _localizedApp({required Widget home}) {
   return MaterialApp(
+    locale: const Locale('zh'),
     localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,

@@ -315,63 +315,6 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                               height: TimingTokens.homeChartTopGap,
                             ),
                           ),
-                          // 记录标题栏：吸顶。用 OverlapAbsorber 把重叠量交给内层注入。
-                          SliverOverlapAbsorber(
-                            handle:
-                                NestedScrollView.sliverOverlapAbsorberHandleFor(
-                                  context,
-                                ),
-                            sliver: SliverPersistentHeader(
-                              pinned: true,
-                              delegate: PinnedHeaderDelegate(
-                                height: _recordsHeaderHeight,
-                                child: ColoredBox(
-                                  color: AppColors.scaffoldBg,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom:
-                                          TimingTokens.homeRecordsTitleTopGap,
-                                    ),
-                                    child: _RecordsAreaHeader(
-                                      title:
-                                          widget.recordsSection ==
-                                              TimingRecordsSection.recent
-                                          ? _RecordsAreaTitle(
-                                              label:
-                                                  l10n.timingRecentRecordsTitle,
-                                              count: recentTopLevelCount,
-                                            )
-                                          : _RecordsAreaTitle(
-                                              label: l10n
-                                                  .timingExternalWorkProjectsTitle,
-                                              count: externalWorkTopLevelCount,
-                                            ),
-                                      actions:
-                                          widget.recordsSection ==
-                                              TimingRecordsSection.externalWork
-                                          ? _ExternalWorkHeaderActions(
-                                              hasExternalWork:
-                                                  externalWorkTopLevelCount > 0,
-                                              onImport:
-                                                  widget.onImportExternalWork,
-                                              onLink: widget.onLinkExternalWork,
-                                            )
-                                          : _RecentDeviceFilterAction(
-                                              selectedLabel:
-                                                  selectedDeviceLabel,
-                                              onPressed: (anchorContext) {
-                                                _showRecentDeviceFilterMenu(
-                                                  anchorContext,
-                                                  recentDeviceFilterOptions,
-                                                );
-                                              },
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
                         ];
                       },
                       body: TabBarView(
@@ -380,6 +323,21 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                           _RecordsTabBody(
                             storageKey: const PageStorageKey<String>(
                               'timing-recent-tab',
+                            ),
+                            recordsHeader: _RecordsAreaHeader(
+                              title: _RecordsAreaTitle(
+                                label: l10n.timingRecentRecordsTitle,
+                                count: recentTopLevelCount,
+                              ),
+                              actions: _RecentDeviceFilterAction(
+                                selectedLabel: selectedDeviceLabel,
+                                onPressed: (anchorContext) {
+                                  _showRecentDeviceFilterMenu(
+                                    anchorContext,
+                                    recentDeviceFilterOptions,
+                                  );
+                                },
+                              ),
                             ),
                             bottomSpacer: bottomSpacer,
                             slivers: buildTimingRecentRecordSlivers(
@@ -395,6 +353,17 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                           _RecordsTabBody(
                             storageKey: const PageStorageKey<String>(
                               'timing-external-tab',
+                            ),
+                            recordsHeader: _RecordsAreaHeader(
+                              title: _RecordsAreaTitle(
+                                label: l10n.timingExternalWorkProjectsTitle,
+                                count: externalWorkTopLevelCount,
+                              ),
+                              actions: _ExternalWorkHeaderActions(
+                                hasExternalWork: externalWorkTopLevelCount > 0,
+                                onImport: widget.onImportExternalWork,
+                                onLink: widget.onLinkExternalWork,
+                              ),
                             ),
                             bottomSpacer: bottomSpacer,
                             slivers: buildTimingExternalWorkRecordSlivers(
@@ -430,17 +399,18 @@ class _RecentDeviceFilterOption {
 }
 
 /// NestedScrollView 的单个 tab 内容：独立 CustomScrollView。
-/// 顶部用 SliverOverlapInjector 注入外层吸顶胶囊的重叠量，保证首条内容不被
-/// 吸顶标题遮挡；其后原样放入本 tab 的 slivers（含日期吸顶 / 聚合），末尾追加
-/// 底部导航清空高度。PageStorageKey 保留各 tab 纵向滚动位置。
+/// 记录标题和日期标题放在同一个 sliver 队列里，避免内外两层 pinned header
+/// 争用顶部坐标；PageStorageKey 保留各 tab 纵向滚动位置。
 class _RecordsTabBody extends StatelessWidget {
   const _RecordsTabBody({
     required this.storageKey,
+    required this.recordsHeader,
     required this.slivers,
     required this.bottomSpacer,
   });
 
   final Key storageKey;
+  final Widget recordsHeader;
   final List<Widget> slivers;
   final double bottomSpacer;
 
@@ -449,8 +419,20 @@ class _RecordsTabBody extends StatelessWidget {
     return CustomScrollView(
       key: storageKey,
       slivers: [
-        SliverOverlapInjector(
-          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: PinnedHeaderDelegate(
+            height: _TimingHomePatternState._recordsHeaderHeight,
+            child: ColoredBox(
+              color: AppColors.scaffoldBg,
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  bottom: TimingTokens.homeRecordsTitleTopGap,
+                ),
+                child: recordsHeader,
+              ),
+            ),
+          ),
         ),
         ...slivers,
         SliverToBoxAdapter(
