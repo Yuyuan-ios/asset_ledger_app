@@ -213,7 +213,7 @@ class Device {
 
 const _sentinel = Object();
 
-enum EquipmentType { excavator, loader }
+enum EquipmentType { excavator, loader, roller }
 
 extension EquipmentTypeX on EquipmentType {
   String get dbValue {
@@ -222,6 +222,8 @@ extension EquipmentTypeX on EquipmentType {
         return 'excavator';
       case EquipmentType.loader:
         return 'loader';
+      case EquipmentType.roller:
+        return 'roller';
     }
   }
 
@@ -231,6 +233,8 @@ extension EquipmentTypeX on EquipmentType {
         return '挖掘机';
       case EquipmentType.loader:
         return '装载机';
+      case EquipmentType.roller:
+        return '压路机';
     }
   }
 
@@ -238,6 +242,8 @@ extension EquipmentTypeX on EquipmentType {
     switch (raw) {
       case 'loader':
         return EquipmentType.loader;
+      case 'roller':
+        return EquipmentType.roller;
       case 'excavator':
       default:
         return EquipmentType.excavator;

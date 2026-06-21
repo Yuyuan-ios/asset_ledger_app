@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
+import '../../features/device/model/device_type_catalog.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 
@@ -32,9 +33,9 @@ class DeviceEditorBrandRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final equipmentLabel = equipmentType == EquipmentType.loader
-        ? l10n.deviceEquipmentLoader
-        : l10n.deviceEquipmentExcavator;
+    final equipmentLabel = DeviceTypeCatalog.fromEquipmentType(
+      equipmentType,
+    ).name(l10n);
     final resolvedPreview = previewLabel.isEmpty ? '' : '  $previewLabel';
     return Column(
       children: [

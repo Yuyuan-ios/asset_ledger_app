@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/avatars/app_device_avatar.dart';
 import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
+import '../../features/device/model/device_type_catalog.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/device_tokens.dart';
 
@@ -83,9 +84,9 @@ class DeviceManagementGrid extends StatelessWidget {
               final d = visible[index];
               final label = resolveIndexLabel(d);
               final displayIndex = label.trim().isEmpty ? '—' : label.trim();
-              final categoryLabel = d.equipmentType == EquipmentType.loader
-                  ? l10n.deviceEquipmentLoader
-                  : l10n.deviceEquipmentExcavator;
+              final categoryLabel = DeviceTypeCatalog.fromEquipmentType(
+                d.equipmentType,
+              ).name(l10n);
               final displayText = displayIndex == '—'
                   ? categoryLabel
                   : '$displayIndex$categoryLabel';

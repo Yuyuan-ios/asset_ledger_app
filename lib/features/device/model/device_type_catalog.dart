@@ -24,8 +24,12 @@ class DeviceTypeDef {
   /// 所属大类 id（对应 [DeviceTypeCategory.id]）。
   final String categoryId;
 
-  /// 列表/卡片图标（暂用 Material 占位图标，不引第三方 logo）。
+  /// 列表/卡片图标（Material 占位图标）。当 [svgGlyph] 非空时由后者覆盖渲染。
   final IconData icon;
+
+  /// 可选的内联 SVG 图标字符串（如挖掘机的「挖斗」），优先于 [icon] 渲染。
+  /// 走 flutter_svg 内联绘制，不引入第三方图片资源。
+  final String? svgGlyph;
 
   /// 类型显示名（国际化）。
   final L10nText name;
@@ -50,10 +54,22 @@ class DeviceTypeDef {
     required this.availability,
     required this.createFlow,
     this.equipmentType,
+    this.svgGlyph,
   });
 
   bool get isAvailable => availability == DeviceTypeAvailability.available;
 }
+
+/// 挖掘机「挖斗」图标（内联 SVG，描边风格对齐其它 outlined 图标）：
+/// 顶部提梁 + 斗体 + 底部斗齿。颜色由渲染处通过 colorFilter 注入。
+const String kExcavatorBucketSvg =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
+    'fill="none" stroke="#000" stroke-width="1.7" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M8 7.5 C9 4 14 4 15.5 7"/>'
+    '<path d="M5.5 7.5 H15 A2.5 2.5 0 0 1 17.5 10 V12.5 H5.5 Z"/>'
+    '<path d="M7.5 12.5 V15 M10.3 12.5 V15.5 M13.1 12.5 V15.5 M15.9 12.5 V14.8"/>'
+    '</svg>';
 
 /// 设备大类（弹层按大类分组展示）。
 class DeviceTypeCategory {
@@ -81,6 +97,7 @@ final List<DeviceTypeCategory> kDeviceTypeCategories = [
         id: 'excavator',
         categoryId: 'construction',
         icon: Icons.construction_outlined,
+        svgGlyph: kExcavatorBucketSvg,
         name: (l) => l.deviceEquipmentExcavator,
         description: (l) => l.deviceTypeExcavatorDesc,
         availability: DeviceTypeAvailability.available,
@@ -103,8 +120,9 @@ final List<DeviceTypeCategory> kDeviceTypeCategories = [
         icon: Icons.circle_outlined,
         name: (l) => l.deviceTypeRollerName,
         description: (l) => l.deviceTypeRollerDesc,
-        availability: DeviceTypeAvailability.comingSoon,
-        createFlow: DeviceCreateFlow.comingSoon,
+        availability: DeviceTypeAvailability.available,
+        equipmentType: EquipmentType.roller,
+        createFlow: DeviceCreateFlow.engineeringEditor,
       ),
       DeviceTypeDef(
         id: 'handling_vehicle',

@@ -55,28 +55,28 @@ const List<BrandItem> kBrandItems = [
     name: '三一 SANY',
     country: BrandCountry.cn,
     asset: 'assets/brands/sany.png',
-    deviceTypeIds: {'excavator', 'loader'},
+    deviceTypeIds: {'excavator', 'loader', 'roller'},
   ),
   BrandItem(
     value: 'XCMG',
     name: '徐工 XCMG',
     country: BrandCountry.cn,
     asset: 'assets/brands/xcmg.png',
-    deviceTypeIds: {'excavator', 'loader'},
+    deviceTypeIds: {'excavator', 'loader', 'roller'},
   ),
   BrandItem(
     value: 'LiuGong',
     name: '柳工 LiuGong',
     country: BrandCountry.cn,
     asset: 'assets/brands/liugong.png',
-    deviceTypeIds: {'excavator', 'loader'},
+    deviceTypeIds: {'excavator', 'loader', 'roller'},
   ),
   BrandItem(
     value: 'Zoomlion',
     name: '中联 Zoomlion',
     country: BrandCountry.cn,
     asset: 'assets/brands/zoomlion.png',
-    deviceTypeIds: {'excavator', 'loader'},
+    deviceTypeIds: {'excavator', 'loader', 'roller'},
   ),
   BrandItem(
     value: 'Sunward',
@@ -97,7 +97,7 @@ const List<BrandItem> kBrandItems = [
     name: '山推 Shantui',
     country: BrandCountry.cn,
     asset: 'assets/brands/shantui.png',
-    deviceTypeIds: {'excavator', 'loader'},
+    deviceTypeIds: {'excavator', 'loader', 'roller'},
   ),
 
   // 🇯🇵 日本
@@ -157,7 +157,7 @@ const List<BrandItem> kBrandItems = [
     name: 'Caterpillar 卡特 CAT',
     country: BrandCountry.us,
     asset: 'assets/brands/cat.png',
-    deviceTypeIds: {'excavator'},
+    deviceTypeIds: {'excavator', 'roller'},
   ),
   BrandItem(
     value: 'John Deere',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/foundation/app_typography.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -324,7 +325,7 @@ class _DeviceTypeCard extends StatelessWidget {
                   color: AppColors.brand.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(_Dim.typeIconTileRadius),
                 ),
-                child: Icon(type.icon, color: AppColors.brand),
+                child: _TypeGlyph(type: type, size: 24, color: AppColors.brand),
               ),
               const SizedBox(width: SpaceTokens.md),
               Expanded(
@@ -820,7 +821,7 @@ class _TypeRow extends StatelessWidget {
                   color: AppColors.brand.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(SpaceTokens.sm),
                 ),
-                child: Icon(type.icon, size: 22, color: AppColors.brand),
+                child: _TypeGlyph(type: type, size: 22, color: AppColors.brand),
               ),
               const SizedBox(width: SpaceTokens.md),
               Expanded(
@@ -865,5 +866,32 @@ class _TypeRow extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 设备类型图标：优先内联 SVG（如挖掘机挖斗），否则回退 Material 图标。
+class _TypeGlyph extends StatelessWidget {
+  const _TypeGlyph({
+    required this.type,
+    required this.size,
+    required this.color,
+  });
+
+  final DeviceTypeDef type;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final svg = type.svgGlyph;
+    if (svg != null) {
+      return SvgPicture.string(
+        svg,
+        width: size,
+        height: size,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      );
+    }
+    return Icon(type.icon, size: size, color: color);
   }
 }

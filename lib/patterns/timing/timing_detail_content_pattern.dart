@@ -154,7 +154,8 @@ class TimingDetailContentState extends State<TimingDetailContent> {
     if (id == null) return false;
     final device = widget.deviceById[id];
     if (device == null) return false;
-    if (device.equipmentType == EquipmentType.loader) return false;
+    // 破碎模式仅挖掘机支持；装载机 / 压路机等均不支持。
+    if (device.equipmentType != EquipmentType.excavator) return false;
     if ((device.effectiveBreakingUnitPrice ?? 0) > 0) return true;
     final editing = widget.editing;
     return editing != null && editing.deviceId == id && editing.isBreaking;
