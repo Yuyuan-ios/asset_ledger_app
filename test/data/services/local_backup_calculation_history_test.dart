@@ -478,6 +478,15 @@ void main() {
     () async {
       final db = await _openCurrentInMemoryDb();
       final legacyDevice = _deviceMap(id: 1)
+        ..['name'] = 'Legacy SANY 1#'
+        ..['brand'] = 'KOMATSU'
+        ..['model'] = 'PC200'
+        ..['default_unit_price_fen'] = 34567
+        ..['breaking_unit_price_fen'] = 45678
+        ..['base_meter_hours'] = 12.5
+        ..['is_active'] = 0
+        ..['custom_avatar_path'] = '/tmp/legacy-device.png'
+        ..['equipment_type'] = 'loader'
         ..remove('lifecycle_initial_cost_fen')
         ..remove('lifecycle_estimated_residual_fen');
 
@@ -486,31 +495,52 @@ void main() {
       );
 
       expect(result.success, isTrue);
+      expect(result.errorCode, isNull);
       final device = (await db.query('devices')).single;
       expect(device['lifecycle_initial_cost_fen'], isNull);
       expect(device['lifecycle_estimated_residual_fen'], isNull);
+      expect(device['name'], 'Legacy SANY 1#');
+      expect(device['brand'], 'KOMATSU');
+      expect(device['model'], 'PC200');
+      expect(device['default_unit_price_fen'], 34567);
+      expect(device['breaking_unit_price_fen'], 45678);
+      expect(device['base_meter_hours'], 12.5);
+      expect(device['is_active'], 0);
+      expect(device['custom_avatar_path'], '/tmp/legacy-device.png');
+      expect(device['equipment_type'], 'loader');
     },
   );
 
-  test('export includes lifecycle payback amount columns', () async {
-    final db = await _openCurrentInMemoryDb();
-    await db.insert(
-      'devices',
-      _deviceMap(id: 1)
-        ..['lifecycle_initial_cost_fen'] = 1500000
-        ..['lifecycle_estimated_residual_fen'] = 230000,
-    );
+  test(
+    'export and restore round-trips lifecycle payback amount columns',
+    () async {
+      final db = await _openCurrentInMemoryDb();
+      await db.insert(
+        'devices',
+        _deviceMap(id: 1)
+          ..['lifecycle_initial_cost_fen'] = 1500000
+          ..['lifecycle_estimated_residual_fen'] = 230000,
+      );
 
-    final export = await LocalBackupExportService.exportJsonBackup();
-    expect(export.success, isTrue);
-    final rawJson = await File(export.filePath!).readAsString();
-    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
-    final data = decoded['data'] as Map<String, dynamic>;
-    final exportedDevice =
-        (data['devices'] as List<dynamic>).single as Map<String, dynamic>;
-    expect(exportedDevice['lifecycle_initial_cost_fen'], 1500000);
-    expect(exportedDevice['lifecycle_estimated_residual_fen'], 230000);
-  });
+      final export = await LocalBackupExportService.exportJsonBackup();
+      expect(export.success, isTrue);
+      final rawJson = await File(export.filePath!).readAsString();
+      final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>;
+      final exportedDevice =
+          (data['devices'] as List<dynamic>).single as Map<String, dynamic>;
+      expect(exportedDevice['lifecycle_initial_cost_fen'], 1500000);
+      expect(exportedDevice['lifecycle_estimated_residual_fen'], 230000);
+
+      final restore = await _restoreService().restoreFromDecodedJson(decoded);
+
+      expect(restore.success, isTrue);
+      expect(restore.errorCode, isNull);
+      final restoredDevice = (await db.query('devices')).single;
+      expect(restoredDevice['lifecycle_initial_cost_fen'], 1500000);
+      expect(restoredDevice['lifecycle_estimated_residual_fen'], 230000);
+    },
+  );
 
   test('restore round-trips legacy device unit prices into fen only', () async {
     final db = await _openCurrentInMemoryDb();

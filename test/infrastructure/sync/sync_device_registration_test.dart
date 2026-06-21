@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:asset_ledger/app/identity/app_identity_service.dart';
 import 'package:asset_ledger/app/identity/owner_id_store.dart';
+import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/infrastructure/sync/sync_device_registration.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,6 +42,46 @@ void main() {
         expect(body['name'], 'Yu iPhone');
         expect(body.containsKey('account'), isFalse);
         expect(body.containsKey('account_id'), isFalse);
+      },
+    );
+
+    test(
+      'registration payload excludes lifecycle payback local amounts',
+      () async {
+        const initialCostFen = 987654321;
+        const residualFen = 123456789;
+        final localDevice = Device(
+          id: 1,
+          name: 'SANY lifecycle',
+          brand: 'SANY',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+          lifecycleInitialCostFen: initialCostFen,
+          lifecycleEstimatedResidualFen: residualFen,
+        );
+        final client = FakeCloudApiClient();
+        final registrar = SyncDeviceRegistrar(
+          apiClient: client,
+          registrationStore: InMemorySyncDeviceRegistrationStore(),
+          deviceIdProvider: () => 'device-1',
+          nameProvider: () => localDevice.name,
+        );
+
+        final result = await registrar.registerIfNeeded(syncAvailable: true);
+
+        expect(result.status, SyncDeviceRegistrationStatus.registered);
+        final request = client.receivedRequests.single;
+        final body = jsonDecode(request.bodyJson!) as Map<String, Object?>;
+        expect(body.keys, unorderedEquals(['device_id', 'name']));
+        expect(body.containsKey('lifecycle_initial_cost_fen'), isFalse);
+        expect(body.containsKey('lifecycle_estimated_residual_fen'), isFalse);
+        expect(request.bodyJson, isNot(contains('lifecycle_initial_cost_fen')));
+        expect(
+          request.bodyJson,
+          isNot(contains('lifecycle_estimated_residual_fen')),
+        );
+        expect(request.bodyJson, isNot(contains(initialCostFen.toString())));
+        expect(request.bodyJson, isNot(contains(residualFen.toString())));
       },
     );
 

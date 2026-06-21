@@ -113,6 +113,10 @@ class DeviceStore extends BaseStore {
     );
   }
 
+  /// 整体替换设备生命周期回本的两个本地金额字段。
+  ///
+  /// 两个参数均为完整的新状态；调用方必须同时传入初始投入成本和预计
+  /// 售出残值。传入 null 表示明确清空对应字段，而不是保留旧值。
   Future<void> updateLifecyclePaybackAmounts({
     required int deviceId,
     int? lifecycleInitialCostFen,

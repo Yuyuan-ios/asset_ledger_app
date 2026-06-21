@@ -178,8 +178,8 @@ class DbSchemaCompat {
     // v51：external_work_records.customer_unit_price_fen 是 additive 列
     // （客户侧应收单价，nullable），用 onOpen 兜底历史库。
     await DbMigrations.ensureExternalWorkCustomerPriceColumn(db);
-    // v52：devices 生命周期回本金额是 additive nullable 列，只做本地
-    // 持久化，不接入 sync。
+    // v52：devices 生命周期回本金额是设备级本地配置，刻意不纳入跨端
+    // sync；这里仅用 onOpen 兜底历史库结构漂移。
     await DbMigrations.ensureDeviceLifecyclePaybackAmountColumns(db);
   }
 

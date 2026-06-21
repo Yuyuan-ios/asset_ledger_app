@@ -2,6 +2,7 @@ import 'package:asset_ledger/core/measure/measure_unit.dart';
 import 'package:asset_ledger/core/operations/operation_access_control.dart';
 import 'package:asset_ledger/core/operations/operation_actor_scope.dart';
 import 'package:asset_ledger/core/operations/operation_actor_type.dart';
+import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/features/sync/use_cases/partner_device_sync_boundary.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +31,61 @@ void main() {
       expect(snapshot.scopeLimited, isTrue);
       expect(snapshot.warnings, isEmpty);
     });
+
+    test(
+      'authorized device snapshot excludes local lifecycle payback fields',
+      () {
+        const initialCostFen = 987654321;
+        const residualFen = 123456789;
+        final localDevice = Device(
+          id: 2,
+          name: 'SANY lifecycle',
+          brand: 'SANY',
+          model: 'SY215',
+          defaultUnitPrice: 100,
+          baseMeterHours: 0,
+          lifecycleInitialCostFen: initialCostFen,
+          lifecycleEstimatedResidualFen: residualFen,
+        );
+
+        final snapshot = boundary.buildSnapshot(
+          context: _context(
+            actor: _partner(),
+            scope: ActorScope.devices(deviceIds: ['2'], actorId: 'partner-1'),
+            now: now,
+          ),
+          devices: [
+            PartnerDeviceSyncDevice(
+              id: localDevice.id.toString(),
+              displayName: localDevice.name,
+              brandOrModel: localDevice.model,
+            ),
+          ],
+          timingRecords: const [],
+        );
+
+        final deviceMap = snapshot.devices.single.toMap();
+        expect(
+          deviceMap.keys,
+          unorderedEquals([
+            'device_id',
+            'display_name',
+            'brand_or_model',
+            'active',
+          ]),
+        );
+        expect(deviceMap.containsKey('lifecycle_initial_cost_fen'), isFalse);
+        expect(
+          deviceMap.containsKey('lifecycle_estimated_residual_fen'),
+          isFalse,
+        );
+        expect(
+          deviceMap.toString(),
+          isNot(contains(initialCostFen.toString())),
+        );
+        expect(deviceMap.toString(), isNot(contains(residualFen.toString())));
+      },
+    );
 
     test(
       'authorized record snapshot does not carry unrelated project data',
