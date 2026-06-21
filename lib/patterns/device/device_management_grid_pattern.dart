@@ -28,6 +28,13 @@ class DeviceManagementGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final visible = devices.take(DeviceManagementGridTokens.slots).toList();
+    final rowCount = visible.isEmpty
+        ? 1
+        : ((visible.length - 1) ~/ DeviceManagementGridTokens.columns) + 1;
+    final gridItemCount = rowCount * DeviceManagementGridTokens.columns;
+    final gridHeight = rowCount == 1
+        ? DeviceManagementGridTokens.oneRowHeight
+        : DeviceManagementGridTokens.twoRowHeight;
     final baseGridWidth =
         DeviceTokens.pageContentWidth -
         (DeviceTokens.pageHorizontalPadding * 2) -
@@ -44,7 +51,8 @@ class DeviceManagementGrid extends StatelessWidget {
             DeviceManagementGridTokens.crossSpacing + (extraWidth * 0.06);
 
         return Container(
-          height: DeviceManagementGridTokens.height,
+          key: const ValueKey<String>('device-management-grid-card'),
+          height: gridHeight,
           decoration: BoxDecoration(
             color: DeviceTokens.managementGridBackgroundColor,
             border: Border.all(color: DeviceTokens.managementGridBorderColor),
@@ -60,7 +68,7 @@ class DeviceManagementGrid extends StatelessWidget {
               horizontalInset,
               DeviceManagementGridTokens.padBottom,
             ),
-            itemCount: DeviceManagementGridTokens.slots,
+            itemCount: gridItemCount,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: DeviceManagementGridTokens.columns,
               crossAxisSpacing: crossSpacing,

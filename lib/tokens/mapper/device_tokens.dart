@@ -53,12 +53,14 @@ class DeviceActionCardTokens {
 class DeviceManagementGridTokens {
   const DeviceManagementGridTokens._();
 
-  static const double height = 164;
+  static const double oneRowHeight = 88;
+  static const double twoRowHeight = 164;
+  static const double height = twoRowHeight;
   static const int slots = 8;
   static const int columns = 4;
   static const double crossSpacing = 20;
   static const double mainSpacing = 10;
-  static const double aspectRatio = 0.67;
+  static const double aspectRatio = 1.12;
   static const double padLeft = 16;
   static const double padTop = 14;
   static const double padRight = 16;
