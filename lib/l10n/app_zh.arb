@@ -1522,6 +1522,162 @@
   "@deviceBrandCountryKorea": {
     "description": "设备模块:品牌国家韩国"
   },
+  "deviceTypeSelectTitle": "选择设备类型与品牌",
+  "@deviceTypeSelectTitle": {
+    "description": "设备模块:类型+品牌选择页标题"
+  },
+  "deviceTypeMoreChip": "更多",
+  "@deviceTypeMoreChip": {
+    "description": "设备模块:常用类型-更多入口"
+  },
+  "deviceTypeSheetTitle": "选择设备类型",
+  "@deviceTypeSheetTitle": {
+    "description": "设备模块:类型选择弹层标题"
+  },
+  "deviceTypeSearchHint": "搜索设备类型",
+  "@deviceTypeSearchHint": {
+    "description": "设备模块:类型弹层搜索占位"
+  },
+  "deviceTypeSheetEmpty": "未找到相关设备类型",
+  "@deviceTypeSheetEmpty": {
+    "description": "设备模块:类型弹层搜索无结果"
+  },
+  "deviceTypeComingSoonBadge": "敬请期待",
+  "@deviceTypeComingSoonBadge": {
+    "description": "设备模块:类型未上线角标"
+  },
+  "deviceTypeComingSoonCta": "{type} 创建流程即将上线",
+  "@deviceTypeComingSoonCta": {
+    "description": "设备模块:未上线类型底部按钮文案",
+    "placeholders": {
+      "type": { "type": "String" }
+    }
+  },
+  "deviceCreateNextCta": "下一步：创建{type}设备",
+  "@deviceCreateNextCta": {
+    "description": "设备模块:底部主按钮-下一步创建",
+    "placeholders": {
+      "type": { "type": "String" }
+    }
+  },
+  "deviceBrandSectionTitle": "选择品牌头像",
+  "@deviceBrandSectionTitle": {
+    "description": "设备模块:品牌区标题"
+  },
+  "deviceBrandSearchHint": "搜索品牌 / 输入自定义品牌",
+  "@deviceBrandSearchHint": {
+    "description": "设备模块:品牌搜索占位"
+  },
+  "deviceBrandSearchEmptyTitle": "未找到相关品牌",
+  "@deviceBrandSearchEmptyTitle": {
+    "description": "设备模块:品牌搜索无结果"
+  },
+  "deviceBrandEmptyForType": "暂未收录{type}品牌，可使用自定义品牌",
+  "@deviceBrandEmptyForType": {
+    "description": "设备模块:该类型无品牌库空态",
+    "placeholders": {
+      "type": { "type": "String" }
+    }
+  },
+  "deviceBrandUseCustom": "使用自定义品牌",
+  "@deviceBrandUseCustom": {
+    "description": "设备模块:使用自定义品牌按钮"
+  },
+  "deviceBrandResetNotice": "已切换为{type}，品牌已重置",
+  "@deviceBrandResetNotice": {
+    "description": "设备模块:切换类型清空品牌提示",
+    "placeholders": {
+      "type": { "type": "String" }
+    }
+  },
+  "deviceBrandCustomDialogTitle": "自定义品牌",
+  "@deviceBrandCustomDialogTitle": {
+    "description": "设备模块:自定义品牌弹窗标题"
+  },
+  "deviceBrandCustomDialogHint": "输入品牌名称",
+  "@deviceBrandCustomDialogHint": {
+    "description": "设备模块:自定义品牌输入占位"
+  },
+  "deviceBrandCustomConfirm": "确定",
+  "@deviceBrandCustomConfirm": {
+    "description": "设备模块:自定义品牌确定按钮"
+  },
+  "deviceCategoryConstruction": "工程机械",
+  "@deviceCategoryConstruction": {
+    "description": "设备模块:大类-工程机械"
+  },
+  "deviceCategoryAgriculture": "农业设备",
+  "@deviceCategoryAgriculture": {
+    "description": "设备模块:大类-农业设备"
+  },
+  "deviceCategoryUnmanned": "无人设备",
+  "@deviceCategoryUnmanned": {
+    "description": "设备模块:大类-无人设备"
+  },
+  "deviceCategorySmart": "智能设备",
+  "@deviceCategorySmart": {
+    "description": "设备模块:大类-智能设备"
+  },
+  "deviceCategoryOther": "其他",
+  "@deviceCategoryOther": {
+    "description": "设备模块:大类-其他"
+  },
+  "deviceTypeExcavatorDesc": "土方 / 矿山 / 施工",
+  "@deviceTypeExcavatorDesc": {
+    "description": "设备模块:类型描述-挖掘机"
+  },
+  "deviceTypeLoaderDesc": "装载 / 转运 / 施工",
+  "@deviceTypeLoaderDesc": {
+    "description": "设备模块:类型描述-装载机"
+  },
+  "deviceTypeRollerName": "压路机",
+  "@deviceTypeRollerName": {
+    "description": "设备模块:类型名-压路机"
+  },
+  "deviceTypeRollerDesc": "道路 / 压实 / 施工",
+  "@deviceTypeRollerDesc": {
+    "description": "设备模块:类型描述-压路机"
+  },
+  "deviceTypeHandlingVehicleName": "装卸车",
+  "@deviceTypeHandlingVehicleName": {
+    "description": "设备模块:类型名-装卸车"
+  },
+  "deviceTypeHandlingVehicleDesc": "装卸 / 转运 / 搬运",
+  "@deviceTypeHandlingVehicleDesc": {
+    "description": "设备模块:类型描述-装卸车"
+  },
+  "deviceTypeAgriMachineName": "农机",
+  "@deviceTypeAgriMachineName": {
+    "description": "设备模块:类型名-农机"
+  },
+  "deviceTypeAgriMachineDesc": "农田 / 作业 / 农业生产",
+  "@deviceTypeAgriMachineDesc": {
+    "description": "设备模块:类型描述-农机"
+  },
+  "deviceTypeDroneName": "无人机",
+  "@deviceTypeDroneName": {
+    "description": "设备模块:类型名-无人机"
+  },
+  "deviceTypeDroneDesc": "巡检 / 植保 / 测绘",
+  "@deviceTypeDroneDesc": {
+    "description": "设备模块:类型描述-无人机"
+  },
+  "deviceTypeRobotName": "机器人",
+  "@deviceTypeRobotName": {
+    "description": "设备模块:类型名-机器人"
+  },
+  "deviceTypeRobotDesc": "巡检 / 作业 / 交互",
+  "@deviceTypeRobotDesc": {
+    "description": "设备模块:类型描述-机器人"
+  },
+  "deviceTypeCustomName": "自定义设备",
+  "@deviceTypeCustomName": {
+    "description": "设备模块:类型名-自定义设备"
+  },
+  "deviceTypeCustomDesc": "其他类型 / 自定义",
+  "@deviceTypeCustomDesc": {
+    "description": "设备模块:类型描述-自定义设备"
+  },
   "devicePickerLabel": "设备编号",
   "@devicePickerLabel": {
     "description": "设备模块:设备选择器标签"

@@ -1039,6 +1039,122 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceBrandCountryKorea => '韩国';
 
   @override
+  String get deviceTypeSelectTitle => '选择设备类型与品牌';
+
+  @override
+  String get deviceTypeMoreChip => '更多';
+
+  @override
+  String get deviceTypeSheetTitle => '选择设备类型';
+
+  @override
+  String get deviceTypeSearchHint => '搜索设备类型';
+
+  @override
+  String get deviceTypeSheetEmpty => '未找到相关设备类型';
+
+  @override
+  String get deviceTypeComingSoonBadge => '敬请期待';
+
+  @override
+  String deviceTypeComingSoonCta(String type) {
+    return '$type 创建流程即将上线';
+  }
+
+  @override
+  String deviceCreateNextCta(String type) {
+    return '下一步：创建$type设备';
+  }
+
+  @override
+  String get deviceBrandSectionTitle => '选择品牌头像';
+
+  @override
+  String get deviceBrandSearchHint => '搜索品牌 / 输入自定义品牌';
+
+  @override
+  String get deviceBrandSearchEmptyTitle => '未找到相关品牌';
+
+  @override
+  String deviceBrandEmptyForType(String type) {
+    return '暂未收录$type品牌，可使用自定义品牌';
+  }
+
+  @override
+  String get deviceBrandUseCustom => '使用自定义品牌';
+
+  @override
+  String deviceBrandResetNotice(String type) {
+    return '已切换为$type，品牌已重置';
+  }
+
+  @override
+  String get deviceBrandCustomDialogTitle => '自定义品牌';
+
+  @override
+  String get deviceBrandCustomDialogHint => '输入品牌名称';
+
+  @override
+  String get deviceBrandCustomConfirm => '确定';
+
+  @override
+  String get deviceCategoryConstruction => '工程机械';
+
+  @override
+  String get deviceCategoryAgriculture => '农业设备';
+
+  @override
+  String get deviceCategoryUnmanned => '无人设备';
+
+  @override
+  String get deviceCategorySmart => '智能设备';
+
+  @override
+  String get deviceCategoryOther => '其他';
+
+  @override
+  String get deviceTypeExcavatorDesc => '土方 / 矿山 / 施工';
+
+  @override
+  String get deviceTypeLoaderDesc => '装载 / 转运 / 施工';
+
+  @override
+  String get deviceTypeRollerName => '压路机';
+
+  @override
+  String get deviceTypeRollerDesc => '道路 / 压实 / 施工';
+
+  @override
+  String get deviceTypeHandlingVehicleName => '装卸车';
+
+  @override
+  String get deviceTypeHandlingVehicleDesc => '装卸 / 转运 / 搬运';
+
+  @override
+  String get deviceTypeAgriMachineName => '农机';
+
+  @override
+  String get deviceTypeAgriMachineDesc => '农田 / 作业 / 农业生产';
+
+  @override
+  String get deviceTypeDroneName => '无人机';
+
+  @override
+  String get deviceTypeDroneDesc => '巡检 / 植保 / 测绘';
+
+  @override
+  String get deviceTypeRobotName => '机器人';
+
+  @override
+  String get deviceTypeRobotDesc => '巡检 / 作业 / 交互';
+
+  @override
+  String get deviceTypeCustomName => '自定义设备';
+
+  @override
+  String get deviceTypeCustomDesc => '其他类型 / 自定义';
+
+  @override
   String get devicePickerLabel => '设备编号';
 
   @override

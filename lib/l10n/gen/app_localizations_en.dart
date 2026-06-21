@@ -1099,6 +1099,122 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceBrandCountryKorea => 'Korea';
 
   @override
+  String get deviceTypeSelectTitle => 'Select device type & brand';
+
+  @override
+  String get deviceTypeMoreChip => 'More';
+
+  @override
+  String get deviceTypeSheetTitle => 'Select device type';
+
+  @override
+  String get deviceTypeSearchHint => 'Search device type';
+
+  @override
+  String get deviceTypeSheetEmpty => 'No matching device type';
+
+  @override
+  String get deviceTypeComingSoonBadge => 'Coming soon';
+
+  @override
+  String deviceTypeComingSoonCta(String type) {
+    return '$type creation coming soon';
+  }
+
+  @override
+  String deviceCreateNextCta(String type) {
+    return 'Next: create $type';
+  }
+
+  @override
+  String get deviceBrandSectionTitle => 'Select brand';
+
+  @override
+  String get deviceBrandSearchHint => 'Search brand / enter custom';
+
+  @override
+  String get deviceBrandSearchEmptyTitle => 'No matching brand';
+
+  @override
+  String deviceBrandEmptyForType(String type) {
+    return 'No $type brands yet — use a custom brand';
+  }
+
+  @override
+  String get deviceBrandUseCustom => 'Use custom brand';
+
+  @override
+  String deviceBrandResetNotice(String type) {
+    return 'Switched to $type; brand reset';
+  }
+
+  @override
+  String get deviceBrandCustomDialogTitle => 'Custom brand';
+
+  @override
+  String get deviceBrandCustomDialogHint => 'Enter brand name';
+
+  @override
+  String get deviceBrandCustomConfirm => 'OK';
+
+  @override
+  String get deviceCategoryConstruction => 'Construction machinery';
+
+  @override
+  String get deviceCategoryAgriculture => 'Agricultural equipment';
+
+  @override
+  String get deviceCategoryUnmanned => 'Unmanned';
+
+  @override
+  String get deviceCategorySmart => 'Smart devices';
+
+  @override
+  String get deviceCategoryOther => 'Other';
+
+  @override
+  String get deviceTypeExcavatorDesc => 'Earthwork / mining / construction';
+
+  @override
+  String get deviceTypeLoaderDesc => 'Loading / transfer / construction';
+
+  @override
+  String get deviceTypeRollerName => 'Road roller';
+
+  @override
+  String get deviceTypeRollerDesc => 'Road / compaction / construction';
+
+  @override
+  String get deviceTypeHandlingVehicleName => 'Handling vehicle';
+
+  @override
+  String get deviceTypeHandlingVehicleDesc => 'Loading / transfer / handling';
+
+  @override
+  String get deviceTypeAgriMachineName => 'Agricultural machine';
+
+  @override
+  String get deviceTypeAgriMachineDesc => 'Farmland / operation / production';
+
+  @override
+  String get deviceTypeDroneName => 'Drone';
+
+  @override
+  String get deviceTypeDroneDesc => 'Inspection / spraying / mapping';
+
+  @override
+  String get deviceTypeRobotName => 'Robot';
+
+  @override
+  String get deviceTypeRobotDesc => 'Inspection / operation / interaction';
+
+  @override
+  String get deviceTypeCustomName => 'Custom device';
+
+  @override
+  String get deviceTypeCustomDesc => 'Other / custom';
+
+  @override
   String get devicePickerLabel => 'Device ID';
 
   @override

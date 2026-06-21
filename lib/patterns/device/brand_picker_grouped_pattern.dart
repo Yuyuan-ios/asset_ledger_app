@@ -248,15 +248,10 @@ class _BrandGrid extends StatelessWidget {
                   ),
                 ),
 
-                // CircleAvatar：品牌头像
-                // 注意：
-                // - backgroundImage 用 AssetImage
-                // - 若 asset 不存在会报错（所以 pubspec.yaml 必须声明 assets）
-                child: CircleAvatar(
-                  radius: avatarRadius,
-                  backgroundColor: Colors.white,
-                  backgroundImage: AssetImage(item.asset),
-                ),
+                // 品牌头像：
+                // - 有 logo 资源（工程机械）：保持原有 CircleAvatar + AssetImage 样式不变
+                // - 无 logo 资源（无人机 / 机器人）：回退「文字圆形头像」，不引第三方图片
+                child: _BrandFace(item: item, radius: avatarRadius),
               ),
 
               // 品牌显示名：支持两行，超出用省略号
@@ -284,6 +279,64 @@ class _BrandGrid extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// =====================================================================
+/// ============================== 九、品牌头像：_BrandFace ==============================
+/// =====================================================================
+///
+/// - asset 非空：沿用原有 CircleAvatar + AssetImage（工程机械样式不变）
+/// - asset 为空：文字圆形头像（无人机 / 机器人等暂无 logo 的品牌）
+///   取 value 的英文首字母（或词首字母组合），保持白底圆形的简洁观感
+class _BrandFace extends StatelessWidget {
+  final BrandItem item;
+  final double radius;
+
+  const _BrandFace({required this.item, required this.radius});
+
+  String get _initials {
+    final raw = item.value.trim();
+    if (raw.isEmpty) return '?';
+    final words = raw.split(RegExp(r'\s+'));
+    if (words.length >= 2) {
+      return (words[0].characters.first + words[1].characters.first)
+          .toUpperCase();
+    }
+    final take = raw.length >= 2 ? raw.substring(0, 2) : raw;
+    return take.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.asset.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.white,
+        backgroundImage: AssetImage(item.asset),
+      );
+    }
+
+    final primary = Theme.of(context).colorScheme.primary;
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: primary.withValues(alpha: 0.10),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: radius * 0.28),
+          child: Text(
+            _initials,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: primary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

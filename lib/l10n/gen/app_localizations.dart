@@ -1971,6 +1971,222 @@ abstract class AppLocalizations {
   /// **'韩国'**
   String get deviceBrandCountryKorea;
 
+  /// 设备模块:类型+品牌选择页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'选择设备类型与品牌'**
+  String get deviceTypeSelectTitle;
+
+  /// 设备模块:常用类型-更多入口
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get deviceTypeMoreChip;
+
+  /// 设备模块:类型选择弹层标题
+  ///
+  /// In zh, this message translates to:
+  /// **'选择设备类型'**
+  String get deviceTypeSheetTitle;
+
+  /// 设备模块:类型弹层搜索占位
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索设备类型'**
+  String get deviceTypeSearchHint;
+
+  /// 设备模块:类型弹层搜索无结果
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关设备类型'**
+  String get deviceTypeSheetEmpty;
+
+  /// 设备模块:类型未上线角标
+  ///
+  /// In zh, this message translates to:
+  /// **'敬请期待'**
+  String get deviceTypeComingSoonBadge;
+
+  /// 设备模块:未上线类型底部按钮文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{type} 创建流程即将上线'**
+  String deviceTypeComingSoonCta(String type);
+
+  /// 设备模块:底部主按钮-下一步创建
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步：创建{type}设备'**
+  String deviceCreateNextCta(String type);
+
+  /// 设备模块:品牌区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'选择品牌头像'**
+  String get deviceBrandSectionTitle;
+
+  /// 设备模块:品牌搜索占位
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索品牌 / 输入自定义品牌'**
+  String get deviceBrandSearchHint;
+
+  /// 设备模块:品牌搜索无结果
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关品牌'**
+  String get deviceBrandSearchEmptyTitle;
+
+  /// 设备模块:该类型无品牌库空态
+  ///
+  /// In zh, this message translates to:
+  /// **'暂未收录{type}品牌，可使用自定义品牌'**
+  String deviceBrandEmptyForType(String type);
+
+  /// 设备模块:使用自定义品牌按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'使用自定义品牌'**
+  String get deviceBrandUseCustom;
+
+  /// 设备模块:切换类型清空品牌提示
+  ///
+  /// In zh, this message translates to:
+  /// **'已切换为{type}，品牌已重置'**
+  String deviceBrandResetNotice(String type);
+
+  /// 设备模块:自定义品牌弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义品牌'**
+  String get deviceBrandCustomDialogTitle;
+
+  /// 设备模块:自定义品牌输入占位
+  ///
+  /// In zh, this message translates to:
+  /// **'输入品牌名称'**
+  String get deviceBrandCustomDialogHint;
+
+  /// 设备模块:自定义品牌确定按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get deviceBrandCustomConfirm;
+
+  /// 设备模块:大类-工程机械
+  ///
+  /// In zh, this message translates to:
+  /// **'工程机械'**
+  String get deviceCategoryConstruction;
+
+  /// 设备模块:大类-农业设备
+  ///
+  /// In zh, this message translates to:
+  /// **'农业设备'**
+  String get deviceCategoryAgriculture;
+
+  /// 设备模块:大类-无人设备
+  ///
+  /// In zh, this message translates to:
+  /// **'无人设备'**
+  String get deviceCategoryUnmanned;
+
+  /// 设备模块:大类-智能设备
+  ///
+  /// In zh, this message translates to:
+  /// **'智能设备'**
+  String get deviceCategorySmart;
+
+  /// 设备模块:大类-其他
+  ///
+  /// In zh, this message translates to:
+  /// **'其他'**
+  String get deviceCategoryOther;
+
+  /// 设备模块:类型描述-挖掘机
+  ///
+  /// In zh, this message translates to:
+  /// **'土方 / 矿山 / 施工'**
+  String get deviceTypeExcavatorDesc;
+
+  /// 设备模块:类型描述-装载机
+  ///
+  /// In zh, this message translates to:
+  /// **'装载 / 转运 / 施工'**
+  String get deviceTypeLoaderDesc;
+
+  /// 设备模块:类型名-压路机
+  ///
+  /// In zh, this message translates to:
+  /// **'压路机'**
+  String get deviceTypeRollerName;
+
+  /// 设备模块:类型描述-压路机
+  ///
+  /// In zh, this message translates to:
+  /// **'道路 / 压实 / 施工'**
+  String get deviceTypeRollerDesc;
+
+  /// 设备模块:类型名-装卸车
+  ///
+  /// In zh, this message translates to:
+  /// **'装卸车'**
+  String get deviceTypeHandlingVehicleName;
+
+  /// 设备模块:类型描述-装卸车
+  ///
+  /// In zh, this message translates to:
+  /// **'装卸 / 转运 / 搬运'**
+  String get deviceTypeHandlingVehicleDesc;
+
+  /// 设备模块:类型名-农机
+  ///
+  /// In zh, this message translates to:
+  /// **'农机'**
+  String get deviceTypeAgriMachineName;
+
+  /// 设备模块:类型描述-农机
+  ///
+  /// In zh, this message translates to:
+  /// **'农田 / 作业 / 农业生产'**
+  String get deviceTypeAgriMachineDesc;
+
+  /// 设备模块:类型名-无人机
+  ///
+  /// In zh, this message translates to:
+  /// **'无人机'**
+  String get deviceTypeDroneName;
+
+  /// 设备模块:类型描述-无人机
+  ///
+  /// In zh, this message translates to:
+  /// **'巡检 / 植保 / 测绘'**
+  String get deviceTypeDroneDesc;
+
+  /// 设备模块:类型名-机器人
+  ///
+  /// In zh, this message translates to:
+  /// **'机器人'**
+  String get deviceTypeRobotName;
+
+  /// 设备模块:类型描述-机器人
+  ///
+  /// In zh, this message translates to:
+  /// **'巡检 / 作业 / 交互'**
+  String get deviceTypeRobotDesc;
+
+  /// 设备模块:类型名-自定义设备
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义设备'**
+  String get deviceTypeCustomName;
+
+  /// 设备模块:类型描述-自定义设备
+  ///
+  /// In zh, this message translates to:
+  /// **'其他类型 / 自定义'**
+  String get deviceTypeCustomDesc;
+
   /// 设备模块:设备选择器标签
   ///
   /// In zh, this message translates to:
