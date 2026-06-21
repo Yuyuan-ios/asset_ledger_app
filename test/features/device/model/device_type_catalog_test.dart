@@ -170,7 +170,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: SvgPicture.string(
-          kExcavatorBucketSvg,
+          kExcavatorGlyphSvg,
           width: 24,
           height: 24,
           colorFilter: const ColorFilter.mode(Colors.orange, BlendMode.srcIn),

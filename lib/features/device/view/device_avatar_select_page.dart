@@ -32,7 +32,6 @@ class _Dim {
   static const double typeCardRadius = 14;
   static const double typeIconTile = 48;
   static const double typeIconTileRadius = 12;
-  static const double chipRadius = 20;
   static const double ctaHeight = 52;
   static const double ctaRadius = 14;
   static const double sheetHeightFactor = 0.7;
@@ -250,22 +249,9 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
               SpaceTokens.pagePadding,
               SpaceTokens.sm,
               SpaceTokens.pagePadding,
-              0,
+              SpaceTokens.md,
             ),
             child: _DeviceTypeCard(type: _selectedType, onTap: _openTypeSheet),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              SpaceTokens.pagePadding,
-              SpaceTokens.md,
-              SpaceTokens.pagePadding,
-              SpaceTokens.sm,
-            ),
-            child: _QuickTypeChips(
-              selectedId: _selectedType.id,
-              onSelected: _onTypeSelected,
-              onMore: _openTypeSheet,
-            ),
           ),
           const Divider(height: 1, color: AppColors.divider),
           _BrandSectionHeader(
@@ -365,98 +351,6 @@ class _DeviceTypeCard extends StatelessWidget {
               const Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: AppColors.brand,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 常用类型快捷入口（前四个 + 更多）。
-class _QuickTypeChips extends StatelessWidget {
-  const _QuickTypeChips({
-    required this.selectedId,
-    required this.onSelected,
-    required this.onMore,
-  });
-
-  final String selectedId;
-  final ValueChanged<DeviceTypeDef> onSelected;
-  final VoidCallback onMore;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Wrap(
-      spacing: SpaceTokens.sm,
-      runSpacing: SpaceTokens.sm,
-      children: [
-        for (final t in DeviceTypeCatalog.quickEntries)
-          _TypeChip(
-            label: t.name(l10n),
-            selected: t.id == selectedId,
-            onTap: () => onSelected(t),
-          ),
-        _TypeChip(
-          label: l10n.deviceTypeMoreChip,
-          selected: false,
-          icon: Icons.more_horiz_rounded,
-          onTap: onMore,
-        ),
-      ],
-    );
-  }
-}
-
-class _TypeChip extends StatelessWidget {
-  const _TypeChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : AppColors.textPrimary;
-    return Material(
-      color: selected ? AppColors.brand : Colors.white,
-      borderRadius: BorderRadius.circular(_Dim.chipRadius),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(_Dim.chipRadius),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: SpaceTokens.md,
-            vertical: SpaceTokens.sm,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(_Dim.chipRadius),
-            border: Border.all(
-              color: selected ? AppColors.brand : AppColors.divider,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: fg),
-                const SizedBox(width: SpaceTokens.inlineGap),
-              ],
-              Text(
-                label,
-                style: AppTypography.body(
-                  context,
-                  color: fg,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
               ),
             ],
           ),

@@ -60,15 +60,21 @@ class DeviceTypeDef {
   bool get isAvailable => availability == DeviceTypeAvailability.available;
 }
 
-/// 挖掘机「挖斗」图标（内联 SVG，描边风格对齐其它 outlined 图标）：
-/// 顶部提梁 + 斗体 + 底部斗齿。颜色由渲染处通过 colorFilter 注入。
-const String kExcavatorBucketSvg =
+/// 挖掘机图标（内联 SVG，2px 描边对齐其它 Material outlined 图标）：
+/// 履带 + 驾驶室 + 大臂/小臂 + 挖斗，侧视线性风格，简洁统一。
+/// 颜色由渲染处通过 colorFilter 注入。
+const String kExcavatorGlyphSvg =
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-    'fill="none" stroke="#000" stroke-width="1.7" '
+    'fill="none" stroke="#000" stroke-width="2" '
     'stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M8 7.5 C9 4 14 4 15.5 7"/>'
-    '<path d="M5.5 7.5 H15 A2.5 2.5 0 0 1 17.5 10 V12.5 H5.5 Z"/>'
-    '<path d="M7.5 12.5 V15 M10.3 12.5 V15.5 M13.1 12.5 V15.5 M15.9 12.5 V14.8"/>'
+    // 大臂 + 小臂
+    '<path d="M10 13.4 L16.6 8.2 L19.2 13.4"/>'
+    // 挖斗
+    '<path d="M19.2 13.4 L20.2 15 Q19.1 16.4 17.3 15.5"/>'
+    // 驾驶室
+    '<path d="M3.6 17.6 V12.8 A1 1 0 0 1 4.6 11.8 H9.4 A1 1 0 0 1 10.4 12.8 V17.6 Z"/>'
+    // 履带
+    '<path d="M4 17.6 H12.5 A1.5 1.5 0 0 1 12.5 20.6 H4 A1.5 1.5 0 0 1 4 17.6 Z"/>'
     '</svg>';
 
 /// 设备大类（弹层按大类分组展示）。
@@ -97,7 +103,7 @@ final List<DeviceTypeCategory> kDeviceTypeCategories = [
         id: 'excavator',
         categoryId: 'construction',
         icon: Icons.construction_outlined,
-        svgGlyph: kExcavatorBucketSvg,
+        svgGlyph: kExcavatorGlyphSvg,
         name: (l) => l.deviceEquipmentExcavator,
         description: (l) => l.deviceTypeExcavatorDesc,
         availability: DeviceTypeAvailability.available,
