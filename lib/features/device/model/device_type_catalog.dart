@@ -60,21 +60,25 @@ class DeviceTypeDef {
   bool get isAvailable => availability == DeviceTypeAvailability.available;
 }
 
-/// 挖掘机图标（内联 SVG，2px 描边对齐其它 Material outlined 图标）：
-/// 履带 + 驾驶室 + 大臂/小臂 + 挖斗，侧视线性风格，简洁统一。
-/// 颜色由渲染处通过 colorFilter 注入。
+/// 挖掘机图标（内联 SVG，1.5px 细描边对齐其它 Material outlined 图标）：
+/// 左向侧视——大臂/小臂上扬至左上、挖斗垂于左下，右侧驾驶室带车窗、
+/// 底部履带含驱动轮。线性风格，简洁统一，颜色由渲染处通过 colorFilter 注入。
 const String kExcavatorGlyphSvg =
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-    'fill="none" stroke="#000" stroke-width="2" '
+    'fill="none" stroke="#000" stroke-width="1.5" '
     'stroke-linecap="round" stroke-linejoin="round">'
-    // 大臂 + 小臂
-    '<path d="M10 13.4 L16.6 8.2 L19.2 13.4"/>'
-    // 挖斗
-    '<path d="M19.2 13.4 L20.2 15 Q19.1 16.4 17.3 15.5"/>'
-    // 驾驶室
-    '<path d="M3.6 17.6 V12.8 A1 1 0 0 1 4.6 11.8 H9.4 A1 1 0 0 1 10.4 12.8 V17.6 Z"/>'
+    // 大臂 + 小臂（左上）
+    '<path d="M14 13.4 L7.4 8.2 L4.8 13.4"/>'
+    // 挖斗（左下）
+    '<path d="M4.8 13.4 L3.6 15 Q4.8 16.6 6.8 15.6"/>'
+    // 驾驶室（右）
+    '<path d="M20.4 17.4 V12.6 A1 1 0 0 0 19.4 11.6 H14.6 A1 1 0 0 0 13.6 12.6 V17.4 Z"/>'
+    // 车窗
+    '<path d="M15.1 13 H18 V15 H15.1 Z"/>'
     // 履带
-    '<path d="M4 17.6 H12.5 A1.5 1.5 0 0 1 12.5 20.6 H4 A1.5 1.5 0 0 1 4 17.6 Z"/>'
+    '<path d="M20 17.4 H12 A1.6 1.6 0 0 0 12 20.6 H20 A1.6 1.6 0 0 0 20 17.4 Z"/>'
+    // 驱动轮
+    '<circle cx="17.4" cy="19" r="1"/>'
     '</svg>';
 
 /// 设备大类（弹层按大类分组展示）。
