@@ -7,6 +7,7 @@ import '../domain/entities/device.dart';
 import '../model/brand_catalog.dart';
 import '../model/device_type_catalog.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
+import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_avatar_select_view_data.dart';
 
@@ -34,8 +35,6 @@ class _Dim {
   static const double typeIconTileRadius = 12;
   static const double ctaHeight = 52;
   static const double ctaRadius = 14;
-  static const double sheetHeightFactor = 0.7;
-  static const double sheetTopRadius = 20;
   static const double sheetTypeIcon = 40;
 }
 
@@ -139,10 +138,8 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
   }
 
   Future<void> _openTypeSheet() async {
-    final picked = await showModalBottomSheet<DeviceTypeDef>(
+    final picked = await showAppBottomSheet<DeviceTypeDef>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _DeviceTypeSheet(selectedTypeId: _selectedType.id),
     );
     if (picked != null) _onTypeSelected(picked);
@@ -553,7 +550,6 @@ class _DeviceTypeSheetState extends State<_DeviceTypeSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final q = _query.trim().toLowerCase();
-    final height = MediaQuery.of(context).size.height * _Dim.sheetHeightFactor;
 
     final categories = <DeviceTypeCategory>[];
     for (final c in DeviceTypeCatalog.categories) {
@@ -570,41 +566,14 @@ class _DeviceTypeSheetState extends State<_DeviceTypeSheet> {
       }
     }
 
-    return Container(
-      height: height,
-      decoration: const BoxDecoration(
-        color: AppColors.scaffoldBg,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(_Dim.sheetTopRadius),
-        ),
-      ),
+    return AppBottomSheetShell(
+      title: l10n.deviceTypeSheetTitle,
+      scrollable: false,
+      footerEnabled: false,
+      contentPadding: EdgeInsets.zero,
       child: Column(
+        mainAxisSize: MainAxisSize.max,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              SpaceTokens.pagePadding,
-              SpaceTokens.md,
-              SpaceTokens.sm,
-              SpaceTokens.sm,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.deviceTypeSheetTitle,
-                    style: AppTypography.sectionTitle(
-                      context,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: SpaceTokens.pagePadding,
