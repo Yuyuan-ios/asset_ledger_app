@@ -34,13 +34,16 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(find.text('设置设备生命周期金额'), findsOneWidget);
+      expect(find.text('取消'), findsOneWidget);
+      expect(find.text('更新'), findsOneWidget);
+      expect(find.text('保存并更新卡片'), findsNothing);
 
       // First field is initial cost, second is estimated residual.
       await tester.enterText(find.byType(TextField).at(0), '5000');
       await tester.enterText(find.byType(TextField).at(1), '1200');
       await tester.pump();
 
-      await tester.tap(find.text('保存并更新卡片'));
+      await tester.tap(find.text('更新'));
       await tester.pumpAndSettle();
 
       expect(popped, isTrue);
@@ -81,8 +84,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('设置设备生命周期金额'), findsOneWidget);
 
-      // Dismiss the modal sheet by tapping the barrier above it.
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
 
       expect(completed, isTrue);

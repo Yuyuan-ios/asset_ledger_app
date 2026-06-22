@@ -463,11 +463,11 @@ class LifecyclePaybackTokens {
   static const Color surplus = AppColors.brand;
 
   // —— 回本条轨道与缺口 ——
-  /// 回本条底/未填充轨道。
-  static const Color barTrack = Color(0xFFE5E5EA);
+  /// 回本条底/未填充轨道：较系统灰 0xFFE5E5EA 加深一档，让进度条灰更突出。
+  static const Color barTrack = Color(0xFFC7C7CC);
 
-  /// 「未回本缺口」图例点：深一档灰。
-  static const Color gapMuted = Color(0xFFD1D1D6);
+  /// 「未回本缺口」图例点：较加深后的轨道再深一档灰。
+  static const Color gapMuted = Color(0xFFAEAEB2);
 
   /// 分段之间的白色分隔线。
   static const Color segmentDivider = Color(0xFFFFFFFF);
@@ -499,4 +499,8 @@ class LifecyclePaybackTokens {
   static const double minVisibleSegmentWidth = 0.5;
   static const double sheetActionHeight = 52;
   static const double sheetActionRadius = 26;
+  static const double sheetCardRadius = AccountTokens.projectCardRadius;
+  static const double sheetContentHorizontalPadding = 16;
+  static const double sheetContentBottomPadding = 16;
+  static const double sheetCardGap = 14;
 }

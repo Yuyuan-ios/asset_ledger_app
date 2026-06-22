@@ -496,8 +496,8 @@ class _BottomCta extends StatelessWidget {
             onPressed: onPressed,
             style: FilledButton.styleFrom(
               backgroundColor: available
-                  ? AppColors.brand
-                  : AppColors.brand.withValues(alpha: 0.35),
+                  ? AppColors.primaryActionCapsule
+                  : AppColors.primaryActionCapsule.withValues(alpha: 0.35),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(_Dim.ctaRadius),
               ),

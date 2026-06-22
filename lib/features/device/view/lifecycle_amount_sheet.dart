@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../components/buttons/app_primary_button.dart';
 import '../../../core/foundation/typography.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../tokens/mapper/device_tokens.dart';
@@ -83,61 +82,45 @@ class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
 
     return AppBottomSheetShell(
       title: '设置设备生命周期金额',
-      initialHeightFactor: 0.7,
       scrollable: false,
-      footerEnabled: false,
+      cancelText: '取消',
+      confirmText: '更新',
+      onCancel: () => Navigator.of(context).pop(),
+      onConfirm: () {
+        Navigator.of(context).pop(
+          LifecyclePaybackAmounts(
+            initialCostFen: _initialCostFen,
+            estimatedResidualFen: _estimatedResidualFen,
+          ),
+        );
+      },
       backgroundColor: LifecyclePaybackTokens.sheetBackground,
       handleColor: LifecyclePaybackTokens.sheetHandle,
       contentPadding: EdgeInsets.zero,
       child: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _InputGroup(
-                    initialCostController: _initialCostController,
-                    estimatedResidualController: _estimatedResidualController,
-                    onInitialCostChanged: (value) {
-                      setState(() => _initialCostFen = _parseInputFen(value));
-                    },
-                    onEstimatedResidualChanged: (value) {
-                      setState(() {
-                        _estimatedResidualFen = _parseInputFen(value);
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  _PreviewCard(
-                    result: result,
-                    netReceivedFen: widget.netReceivedFen,
-                    initialCostFen: _initialCostFen,
-                    estimatedResidualFen: _estimatedResidualFen,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: AppPrimaryButton(
-                label: '保存并更新卡片',
-                height: LifecyclePaybackTokens.sheetActionHeight,
-                borderRadius: LifecyclePaybackTokens.sheetActionRadius,
-                onPressed: () {
-                  Navigator.of(context).pop(
-                    LifecyclePaybackAmounts(
-                      initialCostFen: _initialCostFen,
-                      estimatedResidualFen: _estimatedResidualFen,
-                    ),
-                  );
-                },
-              ),
+            child: _LifecycleAmountCardSection(
+              children: [
+                _InputGroup(
+                  initialCostController: _initialCostController,
+                  estimatedResidualController: _estimatedResidualController,
+                  onInitialCostChanged: (value) {
+                    setState(() => _initialCostFen = _parseInputFen(value));
+                  },
+                  onEstimatedResidualChanged: (value) {
+                    setState(() {
+                      _estimatedResidualFen = _parseInputFen(value);
+                    });
+                  },
+                ),
+                _PreviewCard(
+                  result: result,
+                  netReceivedFen: widget.netReceivedFen,
+                  initialCostFen: _initialCostFen,
+                  estimatedResidualFen: _estimatedResidualFen,
+                ),
+              ],
             ),
           ),
         ],
@@ -149,6 +132,60 @@ class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
     if (amountFen == null || amountFen <= 0) return '';
     final yuan = amountFen / 100;
     return _formatNumber(yuan);
+  }
+}
+
+class _LifecycleAmountCardSection extends StatelessWidget {
+  const _LifecycleAmountCardSection({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        LifecyclePaybackTokens.sheetContentHorizontalPadding,
+        0,
+        LifecyclePaybackTokens.sheetContentHorizontalPadding,
+        LifecyclePaybackTokens.sheetContentBottomPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            if (index > 0)
+              const SizedBox(height: LifecyclePaybackTokens.sheetCardGap),
+            children[index],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LifecycleAmountCard extends StatelessWidget {
+  const _LifecycleAmountCard({
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: LifecyclePaybackTokens.sheetSurface,
+        borderRadius: BorderRadius.circular(
+          LifecyclePaybackTokens.sheetCardRadius,
+        ),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -167,11 +204,7 @@ class _InputGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: LifecyclePaybackTokens.sheetSurface,
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return _LifecycleAmountCard(
       child: Column(
         children: [
           _MoneyInputRow(
@@ -181,7 +214,11 @@ class _InputGroup extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.only(left: 16),
-            child: Divider(height: 1, thickness: 0.5, color: LifecyclePaybackTokens.sheetDivider),
+            child: Divider(
+              height: 1,
+              thickness: 0.5,
+              color: LifecyclePaybackTokens.sheetDivider,
+            ),
           ),
           _MoneyInputRow(
             label: '预计售出残值',
@@ -293,13 +330,8 @@ class _PreviewCard extends StatelessWidget {
         ? LifecyclePaybackTokens.textBody
         : LifecyclePaybackTokens.textPrimary;
 
-    return Container(
-      width: double.infinity,
+    return _LifecycleAmountCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LifecyclePaybackTokens.sheetSurface,
-        borderRadius: BorderRadius.circular(14),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -337,7 +369,11 @@ class _PreviewCard extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1, thickness: 0.5, color: LifecyclePaybackTokens.sheetDivider),
+            child: Divider(
+              height: 1,
+              thickness: 0.5,
+              color: LifecyclePaybackTokens.sheetDivider,
+            ),
           ),
           _FormulaRow(
             label: '= 生命周期净收益',
@@ -380,7 +416,9 @@ class _FormulaRow extends StatelessWidget {
                 context,
                 fontSize: 13,
                 fontWeight: strong ? FontWeight.w600 : FontWeight.w400,
-                color: strong ? LifecyclePaybackTokens.textPrimary : LifecyclePaybackTokens.textSecondary,
+                color: strong
+                    ? LifecyclePaybackTokens.textPrimary
+                    : LifecyclePaybackTokens.textSecondary,
               ),
             ),
           ),
