@@ -25,6 +25,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import closing
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
 
@@ -451,78 +452,79 @@ class SyncStore:
         return conn
 
     def _init_schema(self) -> None:
-        with self._connect() as conn:
-            conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS sync_changes (
-                  account_id TEXT NOT NULL,
-                  server_seq INTEGER NOT NULL,
-                  entity_type TEXT NOT NULL,
-                  entity_id TEXT NOT NULL,
-                  base_version INTEGER NOT NULL,
-                  new_version INTEGER NOT NULL,
-                  payload_json TEXT NOT NULL,
-                  payload_hash TEXT NOT NULL,
-                  deleted INTEGER NOT NULL,
-                  origin_device_id TEXT,
-                  server_ts TEXT NOT NULL,
-                  PRIMARY KEY(account_id, server_seq)
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("PRAGMA foreign_keys = ON")
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_changes (
+                      account_id TEXT NOT NULL,
+                      server_seq INTEGER NOT NULL,
+                      entity_type TEXT NOT NULL,
+                      entity_id TEXT NOT NULL,
+                      base_version INTEGER NOT NULL,
+                      new_version INTEGER NOT NULL,
+                      payload_json TEXT NOT NULL,
+                      payload_hash TEXT NOT NULL,
+                      deleted INTEGER NOT NULL,
+                      origin_device_id TEXT,
+                      server_ts TEXT NOT NULL,
+                      PRIMARY KEY(account_id, server_seq)
+                    )
+                    """
                 )
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_sync_changes_entity_head
-                ON sync_changes(account_id, entity_type, entity_id, new_version DESC)
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_sync_changes_pull
-                ON sync_changes(account_id, server_seq)
-                """
-            )
-            conn.execute(
-                """
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_changes_idempotency
-                ON sync_changes(account_id, entity_type, entity_id, payload_hash)
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS sync_devices (
-                  account_id TEXT NOT NULL,
-                  device_id TEXT NOT NULL,
-                  name TEXT NOT NULL,
-                  last_seen TEXT NOT NULL,
-                  PRIMARY KEY(account_id, device_id)
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_sync_changes_entity_head
+                    ON sync_changes(account_id, entity_type, entity_id, new_version DESC)
+                    """
                 )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS sync_entity_heads (
-                  account_id TEXT NOT NULL,
-                  entity_type TEXT NOT NULL,
-                  entity_id TEXT NOT NULL,
-                  version INTEGER NOT NULL,
-                  deleted INTEGER NOT NULL,
-                  payload_hash TEXT NOT NULL,
-                  server_seq INTEGER NOT NULL,
-                  updated_at TEXT NOT NULL,
-                  PRIMARY KEY(account_id, entity_type, entity_id),
-                  FOREIGN KEY(account_id, server_seq)
-                    REFERENCES sync_changes(account_id, server_seq)
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_sync_changes_pull
+                    ON sync_changes(account_id, server_seq)
+                    """
                 )
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_sync_entity_heads_account
-                ON sync_entity_heads(account_id, entity_type, entity_id)
-                """
-            )
+                conn.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_changes_idempotency
+                    ON sync_changes(account_id, entity_type, entity_id, payload_hash)
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_devices (
+                      account_id TEXT NOT NULL,
+                      device_id TEXT NOT NULL,
+                      name TEXT NOT NULL,
+                      last_seen TEXT NOT NULL,
+                      PRIMARY KEY(account_id, device_id)
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_entity_heads (
+                      account_id TEXT NOT NULL,
+                      entity_type TEXT NOT NULL,
+                      entity_id TEXT NOT NULL,
+                      version INTEGER NOT NULL,
+                      deleted INTEGER NOT NULL,
+                      payload_hash TEXT NOT NULL,
+                      server_seq INTEGER NOT NULL,
+                      updated_at TEXT NOT NULL,
+                      PRIMARY KEY(account_id, entity_type, entity_id),
+                      FOREIGN KEY(account_id, server_seq)
+                        REFERENCES sync_changes(account_id, server_seq)
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_sync_entity_heads_account
+                    ON sync_entity_heads(account_id, entity_type, entity_id)
+                    """
+                )
 
     def push_changes(self, account_id: str, changes: List[IncomingChange]) -> Dict[str, List[Dict[str, Any]]]:
         accepted: List[Dict[str, Any]] = []
@@ -641,66 +643,71 @@ class SyncStore:
         return {"accepted": accepted, "conflicts": conflicts}
 
     def pull_changes(self, account_id: str, since: int, limit: int) -> Dict[str, Any]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT *
-                FROM sync_changes
-                WHERE account_id = ? AND server_seq > ?
-                ORDER BY server_seq ASC
-                LIMIT ?
-                """,
-                (account_id, since, limit),
-            ).fetchall()
+        with closing(self._connect()) as conn:
+            with conn:
+                rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM sync_changes
+                    WHERE account_id = ? AND server_seq > ?
+                    ORDER BY server_seq ASC
+                    LIMIT ?
+                    """,
+                    (account_id, since, limit),
+                ).fetchall()
         changes = [change_row_to_json(row) for row in rows]
         next_cursor = max((int(row["server_seq"]) for row in rows), default=since)
         return {"changes": changes, "next_cursor": next_cursor}
 
     def register_device(self, account_id: str, device_id: str, name: str) -> Dict[str, str]:
         last_seen = utc_now_iso()
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO sync_devices (account_id, device_id, name, last_seen)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(account_id, device_id) DO UPDATE SET
-                  name = excluded.name,
-                  last_seen = excluded.last_seen
-                """,
-                (account_id, device_id, name, last_seen),
-            )
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO sync_devices (account_id, device_id, name, last_seen)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(account_id, device_id) DO UPDATE SET
+                      name = excluded.name,
+                      last_seen = excluded.last_seen
+                    """,
+                    (account_id, device_id, name, last_seen),
+                )
         return {"device_id": device_id, "name": name, "last_seen": last_seen}
 
     def get_head(self, account_id: str, entity_type: str, entity_id: str) -> Optional[Dict[str, Any]]:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT *
-                FROM sync_entity_heads
-                WHERE account_id = ? AND entity_type = ? AND entity_id = ?
-                """,
-                (account_id, entity_type, entity_id),
-            ).fetchone()
+        with closing(self._connect()) as conn:
+            with conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM sync_entity_heads
+                    WHERE account_id = ? AND entity_type = ? AND entity_id = ?
+                    """,
+                    (account_id, entity_type, entity_id),
+                ).fetchone()
         return dict(row) if row is not None else None
 
     def get_device(self, account_id: str, device_id: str) -> Optional[Dict[str, Any]]:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT *
-                FROM sync_devices
-                WHERE account_id = ? AND device_id = ?
-                """,
-                (account_id, device_id),
-            ).fetchone()
+        with closing(self._connect()) as conn:
+            with conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM sync_devices
+                    WHERE account_id = ? AND device_id = ?
+                    """,
+                    (account_id, device_id),
+                ).fetchone()
         return dict(row) if row is not None else None
 
     def count_changes(self, account_id: str) -> int:
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS count FROM sync_changes WHERE account_id = ?",
-                (account_id,),
-            ).fetchone()
+        with closing(self._connect()) as conn:
+            with conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) AS count FROM sync_changes WHERE account_id = ?",
+                    (account_id,),
+                ).fetchone()
         return int(row["count"])
 
 

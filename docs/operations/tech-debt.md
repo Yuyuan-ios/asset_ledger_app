@@ -89,7 +89,7 @@
 
 ## 后端 sqlite 连接未显式关闭（ResourceWarning）
 
-- 状态：待处理（P0-S6 诊断，未修）
+- 状态：已完成（Debt-0）
 - 来源：P0-S6 严格 ResourceWarning 诊断
 - 影响范围：`server/cloud_sync_backend` / `server/cloud_backup_backend` 资源句柄
 - 证据：两后端 `python3 -W error::ResourceWarning -m unittest discover -s tests` 均报
