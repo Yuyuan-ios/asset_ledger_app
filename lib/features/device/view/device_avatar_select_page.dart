@@ -289,16 +289,15 @@ class _DeviceTypeCard extends StatelessWidget {
     final subtitle = '${category.name(l10n)} · ${type.description(l10n)}';
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(_Dim.typeCardRadius),
-      child: InkWell(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_Dim.typeCardRadius),
+        side: const BorderSide(color: AppColors.divider),
+      ),
+      child: InkWell(
         onTap: onTap,
-        child: Container(
+        child: Padding(
           padding: const EdgeInsets.all(SpaceTokens.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(_Dim.typeCardRadius),
-            border: Border.all(color: AppColors.divider),
-          ),
           child: Row(
             children: [
               Container(
@@ -659,72 +658,80 @@ class _TypeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final category = DeviceTypeCatalog.categoryOf(type);
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(RadiusTokens.card),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(RadiusTokens.card),
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: SpaceTokens.sm),
-          padding: const EdgeInsets.all(SpaceTokens.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(RadiusTokens.card),
-            border: Border.all(
-              color: selected ? AppColors.brand : AppColors.divider,
-              width: selected ? 1.5 : 1,
-            ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SpaceTokens.sm),
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(RadiusTokens.card),
+          side: BorderSide(
+            color: selected ? AppColors.brand : AppColors.divider,
+            width: selected ? 1.5 : 1,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: _Dim.sheetTypeIcon,
-                height: _Dim.sheetTypeIcon,
-                decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(SpaceTokens.sm),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(SpaceTokens.md),
+            child: Row(
+              children: [
+                Container(
+                  width: _Dim.sheetTypeIcon,
+                  height: _Dim.sheetTypeIcon,
+                  decoration: BoxDecoration(
+                    color: AppColors.brand.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(SpaceTokens.sm),
+                  ),
+                  child: _TypeGlyph(
+                    type: type,
+                    size: 22,
+                    color: AppColors.brand,
+                  ),
                 ),
-                child: _TypeGlyph(type: type, size: 22, color: AppColors.brand),
-              ),
-              const SizedBox(width: SpaceTokens.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            type.name(l10n),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.body(
-                              context,
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w600,
+                const SizedBox(width: SpaceTokens.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              type.name(l10n),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.body(
+                                context,
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                        if (!type.isAvailable) ...[
-                          const SizedBox(width: SpaceTokens.sm),
-                          const _ComingSoonBadge(),
+                          if (!type.isAvailable) ...[
+                            const SizedBox(width: SpaceTokens.sm),
+                            const _ComingSoonBadge(),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: SpaceTokens.inlineGap),
-                    Text(
-                      '${category.name(l10n)} · ${type.description(l10n)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.caption(context),
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: SpaceTokens.inlineGap),
+                      Text(
+                        '${category.name(l10n)} · ${type.description(l10n)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption(context),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (selected)
-                const Icon(Icons.check_circle_rounded, color: AppColors.brand),
-            ],
+                if (selected)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.brand,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -60,12 +60,12 @@ class DeviceTypeDef {
   bool get isAvailable => availability == DeviceTypeAvailability.available;
 }
 
-/// 挖掘机图标（内联 SVG，1.5px 细描边对齐其它 Material outlined 图标）：
+/// 挖掘机图标（内联 SVG，0.8px 细描边对齐其它 Material outlined 图标）：
 /// 左向侧视——大臂/小臂上扬至左上、挖斗垂于左下，右侧驾驶室带车窗、
 /// 底部履带含驱动轮。线性风格，简洁统一，颜色由渲染处通过 colorFilter 注入。
 const String kExcavatorGlyphSvg =
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
-    'fill="none" stroke="#000" stroke-width="1.5" '
+    'fill="none" stroke="#000" stroke-width="0.8" '
     'stroke-linecap="round" stroke-linejoin="round">'
     // 大臂 + 小臂（左上）
     '<path d="M14 13.4 L7.4 8.2 L4.8 13.4"/>'
