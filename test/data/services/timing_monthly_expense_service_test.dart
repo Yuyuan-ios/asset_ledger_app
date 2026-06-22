@@ -83,6 +83,28 @@ void main() {
       expect(stats.totalExpense, 150);
     });
 
+    test('uses calendar-day cutoff across the 2026 DST transition', () {
+      final stats = TimingMonthlyExpenseService.computeMonthlyExpense(
+        fuelLogs: [
+          _fuel(id: 1, date: 20260307, cost: 100),
+          _fuel(id: 2, date: 20260308, cost: 200),
+          _fuel(id: 3, date: 20260309, cost: 300),
+        ],
+        maintenanceRecords: [
+          _maintenance(id: 1, ymd: 20260308, amount: 30),
+          _maintenance(id: 2, ymd: 20260309, amount: 40),
+        ],
+        targetYear: 2026,
+        targetMonth: 3,
+        asOfDate: DateTime(2026, 3, 8),
+      );
+
+      expect(stats.monthlyFuel[2], 300);
+      expect(stats.monthlyMaintenance[2], 30);
+      expect(stats.monthlyTotal[2], 330);
+      expect(stats.totalExpense, 330);
+    });
+
     test('skips future records after targetMonth end', () {
       final stats = TimingMonthlyExpenseService.computeMonthlyExpense(
         fuelLogs: [

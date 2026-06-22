@@ -47,7 +47,7 @@ class TimingMonthlyExpenseService {
   }) {
     final month = targetMonth.clamp(1, 12);
     final targetMonthEnd = _monthEnd(targetYear, month);
-    final asOf = _dateOnly(asOfDate ?? DateTime.now());
+    final asOf = _utcDateOnly(asOfDate ?? DateTime.now());
     final cutoffDate = asOf.isBefore(targetMonthEnd) ? asOf : targetMonthEnd;
 
     final monthlyFuel = List<double>.filled(12, 0.0);
@@ -57,7 +57,7 @@ class TimingMonthlyExpenseService {
       final cost = log.effectiveCost;
       if (cost <= 0) continue;
 
-      final recordDate = FormatUtils.dateFromYmd(log.date);
+      final recordDate = _utcDateOnly(FormatUtils.dateFromYmd(log.date));
       if (recordDate.isAfter(cutoffDate)) continue;
       if (recordDate.year != targetYear) continue;
 
@@ -68,7 +68,7 @@ class TimingMonthlyExpenseService {
       final amount = record.effectiveAmount;
       if (amount <= 0) continue;
 
-      final recordDate = FormatUtils.dateFromYmd(record.ymd);
+      final recordDate = _utcDateOnly(FormatUtils.dateFromYmd(record.ymd));
       if (recordDate.isAfter(cutoffDate)) continue;
       if (recordDate.year != targetYear) continue;
 
@@ -96,10 +96,10 @@ class TimingMonthlyExpenseService {
   }
 
   static DateTime _monthEnd(int year, int month) {
-    return DateTime(year, month + 1, 0);
+    return DateTime.utc(year, month + 1, 0);
   }
 
-  static DateTime _dateOnly(DateTime dateTime) {
-    return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  static DateTime _utcDateOnly(DateTime dateTime) {
+    return DateTime.utc(dateTime.year, dateTime.month, dateTime.day);
   }
 }

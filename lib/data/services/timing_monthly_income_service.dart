@@ -54,7 +54,7 @@ class TimingMonthlyIncomeService {
     final month = targetMonth.clamp(1, 12);
     final targetMonthEnd = _monthEnd(targetYear, month);
     // 统计截止日：不晚于目标月份月末，同时不晚于业务日(asOfDate/今天)。
-    final asOf = _dateOnly(asOfDate ?? DateTime.now());
+    final asOf = _utcDateOnly(asOfDate ?? DateTime.now());
     final cutoffDate = asOf.isBefore(targetMonthEnd) ? asOf : targetMonthEnd;
     final statisticsExclusiveCutoff = cutoffDate.add(const Duration(days: 1));
     final monthly = List<double>.filled(12, 0.0);
@@ -64,7 +64,7 @@ class TimingMonthlyIncomeService {
     for (final record in records) {
       final rentIncome = record.incomeFen / 100.0;
       if (record.type != TimingType.rent || rentIncome <= 0) continue;
-      final start = FormatUtils.dateFromYmd(record.startDate);
+      final start = _utcDateOnly(FormatUtils.dateFromYmd(record.startDate));
       if (!start.isAfter(cutoffDate)) {
         final projectId = record.effectiveProjectId;
         _addProjectMonthIncome(
@@ -94,7 +94,7 @@ class TimingMonthlyIncomeService {
           continue;
         }
 
-        final start = FormatUtils.dateFromYmd(current.startDate);
+        final start = _utcDateOnly(FormatUtils.dateFromYmd(current.startDate));
         final rate = _resolveEffectiveRate(
           record: current,
           devices: devices,
@@ -120,7 +120,9 @@ class TimingMonthlyIncomeService {
         }
 
         final nextStart = i + 1 < safeRecords.length
-            ? FormatUtils.dateFromYmd(safeRecords[i + 1].startDate)
+            ? _utcDateOnly(
+                FormatUtils.dateFromYmd(safeRecords[i + 1].startDate),
+              )
             : null;
         final implicitExclusiveCutoff = _resolveImplicitExclusiveCutoff(
           start: start,
@@ -268,7 +270,7 @@ class TimingMonthlyIncomeService {
 
   static DateTime? _tryDateFromYmd(int ymd) {
     try {
-      return FormatUtils.dateFromYmd(ymd);
+      return _utcDateOnly(FormatUtils.dateFromYmd(ymd));
     } on ArgumentError {
       return null;
     }
@@ -279,7 +281,7 @@ class TimingMonthlyIncomeService {
   }
 
   static DateTime _firstDayOfNextMonth(DateTime date) {
-    return DateTime(date.year, date.month + 1, 1);
+    return DateTime.utc(date.year, date.month + 1, 1);
   }
 
   static void _distributeToMonths({
@@ -385,11 +387,11 @@ class TimingMonthlyIncomeService {
   }
 
   static DateTime _monthEnd(int year, int month) {
-    return DateTime(year, month + 1, 0);
+    return DateTime.utc(year, month + 1, 0);
   }
 
-  static DateTime _dateOnly(DateTime dateTime) {
-    return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  static DateTime _utcDateOnly(DateTime dateTime) {
+    return DateTime.utc(dateTime.year, dateTime.month, dateTime.day);
   }
 
   static bool _isSameDay(DateTime a, DateTime b) {
