@@ -33,5 +33,8 @@ jobs:
       - name: Custom lint
         run: bash tools/run_custom_lint_isolated.sh
 
+      - name: Architecture boundary check
+        run: bash tools/check_architecture.sh
+
       - name: Verify production IAP dart defines
         run: flutter test test/features/upgrade_page_iap_define_test.dart --dart-define-from-file=dart_defines/production.json
