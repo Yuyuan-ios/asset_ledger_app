@@ -375,40 +375,25 @@ class _BrandSectionHeader extends StatelessWidget {
         SpaceTokens.pagePadding,
         SpaceTokens.sm,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.deviceBrandSectionTitle,
-            style: AppTypography.sectionTitle(
-              context,
-              color: AppColors.textPrimary,
-            ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          hintText: l10n.deviceBrandSearchHint,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(vertical: SpaceTokens.sm),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(RadiusTokens.card),
+            borderSide: const BorderSide(color: AppColors.divider),
           ),
-          const SizedBox(height: SpaceTokens.sm),
-          TextField(
-            controller: controller,
-            onChanged: onChanged,
-            decoration: InputDecoration(
-              isDense: true,
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              hintText: l10n.deviceBrandSearchHint,
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: SpaceTokens.sm,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(RadiusTokens.card),
-                borderSide: const BorderSide(color: AppColors.divider),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(RadiusTokens.card),
-                borderSide: const BorderSide(color: AppColors.divider),
-              ),
-            ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(RadiusTokens.card),
+            borderSide: const BorderSide(color: AppColors.divider),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -532,111 +517,47 @@ class _BottomCta extends StatelessWidget {
   }
 }
 
-/// 设备类型底部弹层：按大类分组 + 搜索 + 滚动。
-class _DeviceTypeSheet extends StatefulWidget {
+/// 设备类型底部弹层：按大类分组（无搜索）。
+class _DeviceTypeSheet extends StatelessWidget {
   const _DeviceTypeSheet({required this.selectedTypeId});
 
   final String selectedTypeId;
 
   @override
-  State<_DeviceTypeSheet> createState() => _DeviceTypeSheetState();
-}
-
-class _DeviceTypeSheetState extends State<_DeviceTypeSheet> {
-  String _query = '';
-
-  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final q = _query.trim().toLowerCase();
-
-    final categories = <DeviceTypeCategory>[];
-    for (final c in DeviceTypeCatalog.categories) {
-      final matched = c.types.where((t) {
-        if (q.isEmpty) return true;
-        return t.name(l10n).toLowerCase().contains(q) ||
-            t.description(l10n).toLowerCase().contains(q) ||
-            c.name(l10n).toLowerCase().contains(q);
-      }).toList();
-      if (matched.isNotEmpty) {
-        categories.add(
-          DeviceTypeCategory(id: c.id, name: c.name, types: matched),
-        );
-      }
-    }
 
     return AppBottomSheetShell(
       title: l10n.deviceTypeSheetTitle,
       scrollable: false,
       footerEnabled: false,
       contentPadding: EdgeInsets.zero,
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          SpaceTokens.pagePadding,
+          0,
+          SpaceTokens.pagePadding,
+          SpaceTokens.xl,
+        ),
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: SpaceTokens.pagePadding,
-            ),
-            child: TextField(
-              autofocus: false,
-              onChanged: (v) => setState(() => _query = v),
-              decoration: InputDecoration(
-                isDense: true,
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                hintText: l10n.deviceTypeSearchHint,
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(RadiusTokens.card),
-                  borderSide: const BorderSide(color: AppColors.divider),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(RadiusTokens.card),
-                  borderSide: const BorderSide(color: AppColors.divider),
+          for (final c in DeviceTypeCatalog.categories) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: SpaceTokens.sm),
+              child: Text(
+                c.name(l10n),
+                style: AppTypography.bodySecondary(
+                  context,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: SpaceTokens.sm),
-          Expanded(
-            child: categories.isEmpty
-                ? Center(
-                    child: Text(
-                      l10n.deviceTypeSheetEmpty,
-                      style: AppTypography.bodySecondary(context),
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      SpaceTokens.pagePadding,
-                      0,
-                      SpaceTokens.pagePadding,
-                      SpaceTokens.xl,
-                    ),
-                    children: [
-                      for (final c in categories) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: SpaceTokens.sm,
-                          ),
-                          child: Text(
-                            c.name(l10n),
-                            style: AppTypography.bodySecondary(
-                              context,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        for (final t in c.types)
-                          _TypeRow(
-                            type: t,
-                            selected: t.id == widget.selectedTypeId,
-                            onTap: () => Navigator.of(context).pop(t),
-                          ),
-                      ],
-                    ],
-                  ),
-          ),
+            for (final t in c.types)
+              _TypeRow(
+                type: t,
+                selected: t.id == selectedTypeId,
+                onTap: () => Navigator.of(context).pop(t),
+              ),
+          ],
         ],
       ),
     );

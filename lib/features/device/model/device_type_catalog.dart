@@ -152,7 +152,7 @@ final List<DeviceTypeCategory> kDeviceTypeCategories = [
       DeviceTypeDef(
         id: 'agricultural_machine',
         categoryId: 'agriculture',
-        icon: Icons.grass_outlined,
+        icon: Icons.agriculture_outlined,
         name: (l) => l.deviceTypeAgriMachineName,
         description: (l) => l.deviceTypeAgriMachineDesc,
         availability: DeviceTypeAvailability.comingSoon,
