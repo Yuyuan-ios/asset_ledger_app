@@ -5,6 +5,7 @@ import '../../infrastructure/cloud/api_client.dart';
 import '../../infrastructure/cloud/http_cloud_api_client.dart';
 import '../../features/sync/sync_conflict_review_controller.dart';
 import '../../infrastructure/sync/sync_device_registration.dart';
+import '../../infrastructure/sync/local_timing_conflict_summary_reader.dart';
 import '../../infrastructure/sync/sync_conflict_repository.dart';
 import '../../infrastructure/sync/sync_conflict_resolution_use_case.dart';
 import '../../infrastructure/sync/sync_live_readiness_gate.dart';
