@@ -1131,6 +1131,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceTypeHandlingVehicleDesc => '装卸 / 转运 / 搬运';
 
   @override
+  String get deviceTypeCraneName => '吊车';
+
+  @override
+  String get deviceTypeCraneDesc => '吊装 / 起重 / 吊运';
+
+  @override
+  String get deviceTypeForkliftName => '叉车';
+
+  @override
+  String get deviceTypeForkliftDesc => '叉取 / 仓储 / 堆垛';
+
+  @override
   String get deviceTypeAgriMachineName => '农机';
 
   @override

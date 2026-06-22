@@ -1646,6 +1646,22 @@
   "@deviceTypeHandlingVehicleDesc": {
     "description": "设备模块:类型描述-装卸车"
   },
+  "deviceTypeCraneName": "吊车",
+  "@deviceTypeCraneName": {
+    "description": "设备模块:类型名-吊车"
+  },
+  "deviceTypeCraneDesc": "吊装 / 起重 / 吊运",
+  "@deviceTypeCraneDesc": {
+    "description": "设备模块:类型描述-吊车"
+  },
+  "deviceTypeForkliftName": "叉车",
+  "@deviceTypeForkliftName": {
+    "description": "设备模块:类型名-叉车"
+  },
+  "deviceTypeForkliftDesc": "叉取 / 仓储 / 堆垛",
+  "@deviceTypeForkliftDesc": {
+    "description": "设备模块:类型描述-叉车"
+  },
   "deviceTypeAgriMachineName": "农机",
   "@deviceTypeAgriMachineName": {
     "description": "设备模块:类型名-农机"

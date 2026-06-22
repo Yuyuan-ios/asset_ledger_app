@@ -2139,6 +2139,30 @@ abstract class AppLocalizations {
   /// **'装卸 / 转运 / 搬运'**
   String get deviceTypeHandlingVehicleDesc;
 
+  /// 设备模块:类型名-吊车
+  ///
+  /// In zh, this message translates to:
+  /// **'吊车'**
+  String get deviceTypeCraneName;
+
+  /// 设备模块:类型描述-吊车
+  ///
+  /// In zh, this message translates to:
+  /// **'吊装 / 起重 / 吊运'**
+  String get deviceTypeCraneDesc;
+
+  /// 设备模块:类型名-叉车
+  ///
+  /// In zh, this message translates to:
+  /// **'叉车'**
+  String get deviceTypeForkliftName;
+
+  /// 设备模块:类型描述-叉车
+  ///
+  /// In zh, this message translates to:
+  /// **'叉取 / 仓储 / 堆垛'**
+  String get deviceTypeForkliftDesc;
+
   /// 设备模块:类型名-农机
   ///
   /// In zh, this message translates to:

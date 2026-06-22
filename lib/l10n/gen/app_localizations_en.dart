@@ -1191,6 +1191,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceTypeHandlingVehicleDesc => 'Loading / transfer / handling';
 
   @override
+  String get deviceTypeCraneName => 'Crane';
+
+  @override
+  String get deviceTypeCraneDesc => 'Lifting / hoisting / hauling';
+
+  @override
+  String get deviceTypeForkliftName => 'Forklift';
+
+  @override
+  String get deviceTypeForkliftDesc => 'Forking / warehousing / stacking';
+
+  @override
   String get deviceTypeAgriMachineName => 'Agricultural machine';
 
   @override

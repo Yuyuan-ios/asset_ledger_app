@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('DeviceTypeCatalog', () {
-    test('exposes all 7 device types plus custom across 5 categories', () {
+    test('exposes all device types across 5 categories', () {
       final ids = DeviceTypeCatalog.allTypes.map((t) => t.id).toSet();
       expect(
         ids,
@@ -17,6 +17,8 @@ void main() {
           'loader',
           'roller',
           'handling_vehicle',
+          'crane',
+          'forklift',
           'agricultural_machine',
           'drone',
           'robot',
@@ -57,6 +59,8 @@ void main() {
     test('coming-soon types have no EquipmentType and are not creatable', () {
       for (final id in [
         'handling_vehicle',
+        'crane',
+        'forklift',
         'agricultural_machine',
         'drone',
         'robot',
@@ -165,11 +169,18 @@ void main() {
     });
   });
 
-  testWidgets('excavator + loader SVG glyphs parse and render', (tester) async {
+  testWidgets('custom vehicle SVG glyphs parse and render', (tester) async {
     expect(DeviceTypeCatalog.byId('excavator')!.svgGlyph, kExcavatorGlyphSvg);
     expect(DeviceTypeCatalog.byId('loader')!.svgGlyph, kLoaderGlyphSvg);
+    expect(DeviceTypeCatalog.byId('crane')!.svgGlyph, kCraneGlyphSvg);
+    expect(DeviceTypeCatalog.byId('forklift')!.svgGlyph, kForkliftGlyphSvg);
 
-    for (final svg in [kExcavatorGlyphSvg, kLoaderGlyphSvg]) {
+    for (final svg in [
+      kExcavatorGlyphSvg,
+      kLoaderGlyphSvg,
+      kCraneGlyphSvg,
+      kForkliftGlyphSvg,
+    ]) {
       await tester.pumpWidget(
         MaterialApp(
           home: SvgPicture.string(

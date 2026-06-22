@@ -102,6 +102,50 @@ const String kLoaderGlyphSvg =
     '<circle cx="16.6" cy="17.8" r="2.3"/>'
     '</svg>';
 
+/// 吊车（汽车起重机）图标（内联 SVG，0.8px 细描边，与挖掘机同一线性风格）：
+/// 底盘载车 + 多轮 + 驾驶室/转台 + 斜伸吊臂连吊钩。
+const String kCraneGlyphSvg =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
+    'fill="none" stroke="#000" stroke-width="0.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    // 底盘载车
+    '<path d="M3.5 14.6 H19.5 V16.4 H3.5 Z"/>'
+    // 驾驶室
+    '<path d="M3.9 14.6 V12.4 H6.3 V14.6"/>'
+    // 转台
+    '<path d="M8 14.6 V12.8 H11 V14.6"/>'
+    // 吊臂
+    '<path d="M9.5 13 L20 5.8"/>'
+    // 起升绳 + 吊钩
+    '<path d="M20 5.8 V9"/>'
+    '<path d="M20 9 q -0.7 0.8 0.2 1.1"/>'
+    // 车轮
+    '<circle cx="6" cy="17" r="1.4"/>'
+    '<circle cx="10" cy="17" r="1.4"/>'
+    '<circle cx="16.8" cy="17" r="1.4"/>'
+    '</svg>';
+
+/// 叉车图标（内联 SVG，0.8px 细描边，与挖掘机同一线性风格）：
+/// 前置门架 + 货叉 + 车身/护顶架 + 双轮，左向侧视。
+const String kForkliftGlyphSvg =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
+    'fill="none" stroke="#000" stroke-width="0.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    // 门架
+    '<path d="M6.8 5.5 V16.8"/>'
+    // 货叉架
+    '<path d="M6.8 9 H8"/>'
+    // 货叉
+    '<path d="M6.8 16.6 H2.4"/>'
+    // 车身 / 配重
+    '<path d="M8 16.8 V12.2 Q8 11.2 9 11.2 H15 Q16.2 11.2 16.2 12.4 V16.8"/>'
+    // 护顶架
+    '<path d="M9.5 11.2 V7.4 H14.5 V11.2"/>'
+    // 车轮
+    '<circle cx="10" cy="17" r="1.8"/>'
+    '<circle cx="14.5" cy="17" r="1.8"/>'
+    '</svg>';
+
 /// 设备大类（弹层按大类分组展示）。
 class DeviceTypeCategory {
   final String id;
@@ -162,6 +206,26 @@ final List<DeviceTypeCategory> kDeviceTypeCategories = [
         icon: Icons.local_shipping_outlined,
         name: (l) => l.deviceTypeHandlingVehicleName,
         description: (l) => l.deviceTypeHandlingVehicleDesc,
+        availability: DeviceTypeAvailability.comingSoon,
+        createFlow: DeviceCreateFlow.comingSoon,
+      ),
+      DeviceTypeDef(
+        id: 'crane',
+        categoryId: 'construction',
+        icon: Icons.construction_outlined,
+        svgGlyph: kCraneGlyphSvg,
+        name: (l) => l.deviceTypeCraneName,
+        description: (l) => l.deviceTypeCraneDesc,
+        availability: DeviceTypeAvailability.comingSoon,
+        createFlow: DeviceCreateFlow.comingSoon,
+      ),
+      DeviceTypeDef(
+        id: 'forklift',
+        categoryId: 'construction',
+        icon: Icons.forklift,
+        svgGlyph: kForkliftGlyphSvg,
+        name: (l) => l.deviceTypeForkliftName,
+        description: (l) => l.deviceTypeForkliftDesc,
         availability: DeviceTypeAvailability.comingSoon,
         createFlow: DeviceCreateFlow.comingSoon,
       ),
