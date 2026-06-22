@@ -65,6 +65,16 @@
 - 建议处理：Phase 2 P2-S1 用 YmdDate/等价 parser 校验
 - 负责人：待确认
 
+## 结算 snapshot 双份逻辑
+
+- 状态：待处理（Phase 1 后续）
+- 来源：P1-S5 架构边界收口
+- 影响范围：计时保存 preview / commit 结清撤销判断
+- 证据：结算 snapshot 逻辑在 analyzer 与 service 双份，已加等价测试，待后续抽到单一来源（注意
+  feature→infrastructure 分层）
+- 建议处理：后续抽取 feature 可依赖的结算影响计算边界，避免 preview 与 commit 漂移
+- 负责人：待确认
+
 ## i18n 残留（用户可见硬编码中文 + external_work 未 key 化）
 
 - 状态：待处理（Phase 2）

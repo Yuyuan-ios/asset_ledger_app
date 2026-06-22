@@ -11,6 +11,7 @@ import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
+import 'package:asset_ledger/infrastructure/local/account/project_settlement_impact_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -617,6 +618,274 @@ void main() {
           projects.single['status'],
           ProjectStatus.settled.name,
           reason: 'analyzer 只预判撤销，不实际恢复 active',
+        );
+      },
+    );
+
+    test(
+      'pins analyzer settlement preview to service snapshots across states',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db, defaultUnitPrice: 100);
+        final service = ProjectSettlementImpactService();
+
+        Future<void> expectAnalyzerMatchesService({
+          required String operationId,
+          required SaveTimingRecordOperationAnalyzeInput input,
+          required Map<String, int> receivableFenByProjectId,
+          required List<_ExpectedSettlementSnapshot> expectedSnapshots,
+        }) async {
+          final analysis = await analyzer.analyze(input);
+          final decision = await service.evaluate(
+            executor: db,
+            receivableFenByProjectId: receivableFenByProjectId,
+            reason: ProjectSettlementImpactReason.editTiming,
+          );
+
+          expect(
+            analysis.affectedProjectIds.toSet(),
+            receivableFenByProjectId.keys.toSet(),
+            reason: '$operationId affected projects must match service input',
+          );
+          expect(
+            analysis.previewInput.willRevokeSettlement,
+            decision.anyRevocationNeeded,
+            reason:
+                '$operationId analyzer inline decision must match service '
+                'decision',
+          );
+          expect(
+            analysis.preview.riskLevel,
+            decision.anyRevocationNeeded
+                ? OperationRiskLevel.high
+                : OperationRiskLevel.medium,
+            reason: '$operationId risk must derive from the same decision',
+          );
+
+          final impactCodes = analysis.preview.impactItems
+              .map((item) => item.code)
+              .toSet();
+          if (decision.anyRevocationNeeded) {
+            expect(impactCodes, contains('settlement_revoke'));
+            expect(analysis.warnings, contains('保存后将自动撤销不再成立的结清状态。'));
+          } else {
+            expect(impactCodes, isNot(contains('settlement_revoke')));
+            expect(analysis.warnings, isNot(contains('保存后将自动撤销不再成立的结清状态。')));
+          }
+
+          final snapshotsById = {
+            for (final snapshot in decision.snapshots)
+              snapshot.projectId: snapshot,
+          };
+          expect(
+            snapshotsById.keys.toSet(),
+            expectedSnapshots.map((s) => s.projectId).toSet(),
+          );
+          for (final expected in expectedSnapshots) {
+            final snapshot = snapshotsById[expected.projectId]!;
+            expect(snapshot.receivableFen, expected.receivableFen);
+            expect(snapshot.receivedFen, expected.receivedFen);
+            expect(snapshot.writeOffFen, expected.writeOffFen);
+            expect(snapshot.wasSettled, expected.wasSettled);
+            expect(snapshot.remainingFen, expected.remainingFen);
+            expect(
+              snapshot.shouldRevokeSettlement,
+              expected.shouldRevokeSettlement,
+            );
+          }
+        }
+
+        await _seedProject(
+          db,
+          projectId: 'project:settled-underpaid',
+          contact: '甲方',
+          site: '收款不足',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-20T00:00:00.000Z',
+        );
+        final underpaidRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:settled-underpaid',
+          contact: '甲方',
+          site: '收款不足',
+          hours: 1,
+          income: 100,
+        );
+        await _seedPayment(
+          db,
+          projectId: 'project:settled-underpaid',
+          amountFen: 10000,
+        );
+        await expectAnalyzerMatchesService(
+          operationId: 'op-equivalence-underpaid',
+          input: SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-equivalence-underpaid',
+            editingRecordId: underpaidRecord.id,
+            draftRecord: underpaidRecord.copyWith(
+              projectId: '',
+              hours: 2,
+              endMeter: 2,
+              income: 200,
+            ),
+          ),
+          receivableFenByProjectId: const {'project:settled-underpaid': 20000},
+          expectedSnapshots: const [
+            _ExpectedSettlementSnapshot(
+              projectId: 'project:settled-underpaid',
+              receivableFen: 20000,
+              receivedFen: 10000,
+              writeOffFen: 0,
+              wasSettled: true,
+              shouldRevokeSettlement: true,
+            ),
+          ],
+        );
+
+        await _seedProject(
+          db,
+          projectId: 'project:settled-covered',
+          contact: '甲方',
+          site: '收核覆盖',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-20T00:00:00.000Z',
+        );
+        final coveredRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:settled-covered',
+          contact: '甲方',
+          site: '收核覆盖',
+          hours: 1,
+          income: 100,
+        );
+        await _seedPayment(
+          db,
+          projectId: 'project:settled-covered',
+          amountFen: 6000,
+        );
+        await _seedWriteOff(
+          db,
+          id: 'wo-equivalence-covered',
+          projectId: 'project:settled-covered',
+          amountFen: 4000,
+        );
+        await expectAnalyzerMatchesService(
+          operationId: 'op-equivalence-covered',
+          input: SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-equivalence-covered',
+            editingRecordId: coveredRecord.id,
+            draftRecord: coveredRecord.copyWith(projectId: ''),
+          ),
+          receivableFenByProjectId: const {'project:settled-covered': 10000},
+          expectedSnapshots: const [
+            _ExpectedSettlementSnapshot(
+              projectId: 'project:settled-covered',
+              receivableFen: 10000,
+              receivedFen: 6000,
+              writeOffFen: 4000,
+              wasSettled: true,
+              shouldRevokeSettlement: false,
+            ),
+          ],
+        );
+
+        await _seedProject(
+          db,
+          projectId: 'project:active-underpaid',
+          contact: '乙方',
+          site: '未结清',
+        );
+        final activeRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:active-underpaid',
+          contact: '乙方',
+          site: '未结清',
+          hours: 1,
+          income: 100,
+        );
+        await expectAnalyzerMatchesService(
+          operationId: 'op-equivalence-active',
+          input: SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-equivalence-active',
+            editingRecordId: activeRecord.id,
+            draftRecord: activeRecord.copyWith(
+              projectId: '',
+              hours: 2,
+              endMeter: 2,
+              income: 200,
+            ),
+          ),
+          receivableFenByProjectId: const {'project:active-underpaid': 20000},
+          expectedSnapshots: const [
+            _ExpectedSettlementSnapshot(
+              projectId: 'project:active-underpaid',
+              receivableFen: 20000,
+              receivedFen: 0,
+              writeOffFen: 0,
+              wasSettled: false,
+              shouldRevokeSettlement: false,
+            ),
+          ],
+        );
+
+        await _seedProject(
+          db,
+          projectId: 'project:zero-settled',
+          contact: '丙方',
+          site: '零额旧项目',
+          status: ProjectStatus.settled,
+          settledAt: '2026-05-20T00:00:00.000Z',
+        );
+        await _seedProject(
+          db,
+          projectId: 'project:zero-target',
+          contact: '丙方',
+          site: '零额目标',
+        );
+        final zeroRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:zero-settled',
+          contact: '丙方',
+          site: '零额旧项目',
+          hours: 1,
+          income: 100,
+        );
+        await expectAnalyzerMatchesService(
+          operationId: 'op-equivalence-zero',
+          input: SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-equivalence-zero',
+            editingRecordId: zeroRecord.id,
+            draftRecord: zeroRecord.copyWith(
+              projectId: '',
+              contact: '丙方',
+              site: '零额目标',
+            ),
+          ),
+          receivableFenByProjectId: const {
+            'project:zero-settled': 0,
+            'project:zero-target': 10000,
+          },
+          expectedSnapshots: const [
+            _ExpectedSettlementSnapshot(
+              projectId: 'project:zero-settled',
+              receivableFen: 0,
+              receivedFen: 0,
+              writeOffFen: 0,
+              wasSettled: true,
+              shouldRevokeSettlement: true,
+            ),
+            _ExpectedSettlementSnapshot(
+              projectId: 'project:zero-target',
+              receivableFen: 10000,
+              receivedFen: 0,
+              writeOffFen: 0,
+              wasSettled: false,
+              shouldRevokeSettlement: false,
+            ),
+          ],
         );
       },
     );
@@ -1330,6 +1599,53 @@ Future<void> _seedPayment(
       '2026-05-18T00:00:00.000Z',
     ],
   );
+}
+
+Future<void> _seedWriteOff(
+  Database db, {
+  required String id,
+  required String projectId,
+  required int amountFen,
+}) async {
+  await db.rawInsert(
+    '''
+    INSERT INTO project_write_offs (
+      id, project_id, amount_fen, reason, note, write_off_date,
+      created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
+    [
+      id,
+      projectId,
+      amountFen,
+      'rounding',
+      null,
+      '2026-05-18',
+      '2026-05-18T00:00:00.000Z',
+      '2026-05-18T00:00:00.000Z',
+    ],
+  );
+}
+
+class _ExpectedSettlementSnapshot {
+  const _ExpectedSettlementSnapshot({
+    required this.projectId,
+    required this.receivableFen,
+    required this.receivedFen,
+    required this.writeOffFen,
+    required this.wasSettled,
+    required this.shouldRevokeSettlement,
+  });
+
+  final String projectId;
+  final int receivableFen;
+  final int receivedFen;
+  final int writeOffFen;
+  final bool wasSettled;
+  final bool shouldRevokeSettlement;
+
+  int get remainingFen => receivableFen - receivedFen - writeOffFen;
 }
 
 class _ThrowingProjectRepository extends SqfliteProjectRepository {
