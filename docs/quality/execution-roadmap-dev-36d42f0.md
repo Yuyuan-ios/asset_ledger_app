@@ -80,11 +80,12 @@ cd server/cloud_backup_backend && python3 -W error::ResourceWarning -m unittest 
 每个 CI 切片合并前必须：
 
 1. 在本地跑通该切片 job 对应命令（见 §3），全绿；
-2. 校验 workflow YAML 合法：
+2. 校验 workflow YAML 合法（本机 python3 无 PyYAML 且 PEP 668 受管，禁直接 pip；
+   用 macOS 自带系统 ruby，零安装）：
    ```bash
-   python3 -c "import yaml; yaml.safe_load(open('.github/workflows/flutter.yml'))"
+   ruby -ryaml -e 'YAML.load_file(".github/workflows/flutter.yml"); puts "yaml OK"'
    ```
-   （或 `actionlint .github/workflows/flutter.yml`，若已安装）。
+   （装了 `actionlint` 更佳。）
 
 只有「本地等价命令全绿 + YAML 合法」才算该切片完成。
 
