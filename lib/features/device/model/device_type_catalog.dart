@@ -81,6 +81,27 @@ const String kExcavatorGlyphSvg =
     '<circle cx="17.4" cy="19" r="1"/>'
     '</svg>';
 
+/// 装载机（铲车）图标（内联 SVG，0.8px 细描边，与挖掘机同一线性风格）：
+/// 左向侧视——车身/驾驶室 + 双前轮 + 前置举升臂连铲斗。
+const String kLoaderGlyphSvg =
+    '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" '
+    'fill="none" stroke="#000" stroke-width="0.8" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    // 车身 + 驾驶室
+    '<path d="M6.8 15.4 L6.8 13 L10.3 13 L10.3 9.6 L14 9.6 Q14.6 9.6 14.6 10.2 '
+    'L14.6 13 L19 13 Q19.6 13 19.6 13.6 L19.6 15.4"/>'
+    // 车底
+    '<path d="M11.4 15.7 H14.2"/>'
+    // 双举升臂
+    '<path d="M6.9 13.4 L3.5 13.9"/>'
+    '<path d="M6.9 14.9 L4 15.9"/>'
+    // 铲斗
+    '<path d="M3.5 13.4 L1.6 14.4 L2.3 16.6 L4.7 16.4"/>'
+    // 前后轮
+    '<circle cx="9" cy="17.8" r="2.3"/>'
+    '<circle cx="16.6" cy="17.8" r="2.3"/>'
+    '</svg>';
+
 /// 设备大类（弹层按大类分组展示）。
 class DeviceTypeCategory {
   final String id;
@@ -117,7 +138,8 @@ final List<DeviceTypeCategory> kDeviceTypeCategories = [
       DeviceTypeDef(
         id: 'loader',
         categoryId: 'construction',
-        icon: Icons.agriculture_outlined,
+        icon: Icons.front_loader,
+        svgGlyph: kLoaderGlyphSvg,
         name: (l) => l.deviceEquipmentLoader,
         description: (l) => l.deviceTypeLoaderDesc,
         availability: DeviceTypeAvailability.available,

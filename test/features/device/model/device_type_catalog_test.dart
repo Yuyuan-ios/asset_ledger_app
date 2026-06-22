@@ -165,20 +165,24 @@ void main() {
     });
   });
 
-  testWidgets('excavator bucket SVG glyph parses and renders', (tester) async {
-    expect(DeviceTypeCatalog.byId('excavator')!.svgGlyph, isNotNull);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SvgPicture.string(
-          kExcavatorGlyphSvg,
-          width: 24,
-          height: 24,
-          colorFilter: const ColorFilter.mode(Colors.orange, BlendMode.srcIn),
+  testWidgets('excavator + loader SVG glyphs parse and render', (tester) async {
+    expect(DeviceTypeCatalog.byId('excavator')!.svgGlyph, kExcavatorGlyphSvg);
+    expect(DeviceTypeCatalog.byId('loader')!.svgGlyph, kLoaderGlyphSvg);
+
+    for (final svg in [kExcavatorGlyphSvg, kLoaderGlyphSvg]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SvgPicture.string(
+            svg,
+            width: 24,
+            height: 24,
+            colorFilter: const ColorFilter.mode(Colors.orange, BlendMode.srcIn),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(find.byType(SvgPicture), findsOneWidget);
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SvgPicture), findsOneWidget);
+    }
   });
 }
