@@ -30,13 +30,8 @@ jobs:
       - name: Static analysis
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
+      - name: Custom lint
+        run: bash tools/run_custom_lint_isolated.sh
+
       - name: Verify production IAP dart defines
         run: flutter test test/features/upgrade_page_iap_define_test.dart --dart-define-from-file=dart_defines/production.json
-
-      # 暂时注释掉不存在的检查和测试
-      # - name: Architecture lint
-      #   run: dart run custom_lint
-      # - name: Architecture boundary check
-      #   run: ./tools/check_architecture.sh
-      # - name: Test
-      #   run: flutter test
