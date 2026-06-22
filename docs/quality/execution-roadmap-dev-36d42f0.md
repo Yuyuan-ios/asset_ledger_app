@@ -113,6 +113,16 @@ test、两个后端 unittest；workflow YAML 通过 `yaml.safe_load`；后端 jo
 任一新加 job 在首个 dev PR 上 >15 分钟未结束或出现非确定性失败，立即 `git revert`
 该切片的 workflow 改动回到上一个绿色 workflow，再单独排查，不阻塞其它切片。
 
+### 4.6 P0-S4 前置：DST 月度分摊修复（执行中发现）
+
+P0-S4 恢复全量 `flutter test` 时揪出一个**既有真实 DST 钱分摊 bug**：
+`timing_monthly_income/expense_service` 把日历日物化成本地 `DateTime` 做
+`.difference().inDays`，跨夏令时少算一天，full test 在本机 `America/Los_Angeles`
+确定性红（GitHub runner 默认 UTC 会 false-green）。
+- 已修 `dc0dbf4`（统一 `DateTime.utc`，双时区全量绿，人工审计通过）→ **S4 前置满足**。
+- 升级中 `FIX-DST-B`：日数差迁移到 `YmdDate` 整数序日。详见
+  `docs/quality/codex-prompts-p0.md` §F 与规范 `docs/architecture/date-timezone-rules.md`。
+
 ---
 
 ## 5. Phase 1–5 索引（执行到时再展开为 prompt 批次）

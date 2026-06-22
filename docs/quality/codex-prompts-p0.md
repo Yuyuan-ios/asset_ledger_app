@@ -205,3 +205,59 @@ git log --oneline dev..feature/p0-ci-restore
 ```
 
 报告必须精简、结构化；**不**自动进入 Phase 1，**不** push/merge。
+
+---
+
+## F. S4 前置：DST 月度分摊修复（执行记录 + 整数序日升级）
+
+执行进度更新（feature/p0-ci-restore）：`S0✅ S1✅ S2✅ S3✅` → **DST 修复（S4 前置）** →
+`S4 / S5 / S6 待续`。原因：S4 恢复全量 `flutter test` 时，揪出一个既有的真实 DST
+钱分摊 bug，full test 在本机 `America/Los_Angeles` 确定性红。该 bug 详见
+`docs/architecture/date-timezone-rules.md` 与 `docs/operations/tech-debt.md`。
+
+### F.1 已执行（`dc0dbf4`，过渡形态，人工审计通过）
+
+- 改 `timing_monthly_income_service` / `timing_monthly_expense_service`：所有 date-only
+  值统一 `DateTime.utc`（date-timezone-rules 铁律 2）；新增 expense DST 边界回归测试。
+- 验证：income/expense 测试在 `TZ=UTC` 与 `TZ=America/Los_Angeles` 双绿；
+  `TZ=America/Los_Angeles bash tools/agent/check_full.sh` = `All tests passed!`（2273 ~3）；
+  `bash tools/check_architecture.sh` 绿。GitNexus impact = LOW。income 测试断言未改。
+- **结论**：S4 前置已满足，full test 在本机真绿，S4 可恢复。
+
+### F.2 FIX-DST-B —— 升级为 YmdDate 整数序日算法（推荐在 S4 前执行）
+
+- **目标**：把这两个服务的日数差从 `DateTime.difference().inDays` 升级为
+  `YmdDate.toEpochDay()` 整数序日（date-timezone-rules 铁律 1），彻底脱离 `DateTime`
+  做日历算术。**行为不变**（与 `dc0dbf4` 等价、更纯），由既有 + 双时区测试护航。
+- **范围（只允许改这些）**：
+  - `lib/core/date/ymd_date.dart`：新增 `int toEpochDay()` 与
+    `int daysBetween(YmdDate other)`，算法照抄 `date-timezone-rules.md` §4（Hinnant
+    `days_from_civil`，proleptic Gregorian）。
+  - `lib/data/services/timing_monthly_income_service.dart` /
+    `timing_monthly_expense_service.dart`：把 `.difference(...).inDays (+1)` 的**日数差**
+    改用 `YmdDate` 序日整数差（含两端则 `+1` 在调用处显式处理）；月/年归属继续直接取
+    `year`/`month`。`DateTime.utc` 承载可保留为过渡，但日数差不再经它。
+  - `test/`：新增 `YmdDate.toEpochDay/daysBetween` 单测（含跨闰年、跨 DST 历法日、负序日）。
+- **限制**：不改既有 income 测试断言；不改共享 `FormatUtils.dateFromYmd`/`YmdDate.toDateTime`
+  的签名语义（如要根治 `toDateTime` 本地化，单列切片 + 先跑 GitNexus 影响分析）；
+  不 push/merge；不 pip 安装；不用 computer use。
+- **必做**：GitNexus `gitnexus_impact` on `toEpochDay`/两服务 compute 方法 + 提交前
+  `gitnexus_detect_changes()`。
+- **验证（双时区都绿）**：
+  ```
+  flutter test test/core/date/ --no-pub
+  TZ=UTC                 flutter test test/data/services/timing_monthly_income_service_test.dart  --no-pub
+  TZ=America/Los_Angeles flutter test test/data/services/timing_monthly_income_service_test.dart  --no-pub
+  TZ=UTC                 flutter test test/data/services/timing_monthly_expense_service_test.dart --no-pub
+  TZ=America/Los_Angeles flutter test test/data/services/timing_monthly_expense_service_test.dart --no-pub
+  TZ=America/Los_Angeles bash tools/agent/check_full.sh
+  bash tools/check_architecture.sh
+  ```
+- **commit**：`refactor(date): compute civil day spans via YmdDate ordinal days`
+- **交付**：修完即停，输出精简报告交人工审计，**不**自动进入 S4。
+
+### F.3 续跑顺序
+
+人工审计 FIX-DST-B 通过后，恢复 C 节自动连跑：`S4 → S5 → S6 → 收口报告`。
+S4 起 full test 在本机已真绿，可干净落地。
+

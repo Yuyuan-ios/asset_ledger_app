@@ -21,6 +21,19 @@
 > `docs/quality/execution-roadmap-dev-36d42f0.md`，P0 prompt 见
 > `docs/quality/codex-prompts-p0.md`。
 
+## DST 月度分摊 bug（日历日被当本地墙钟）
+
+- 状态：部分已修（`dc0dbf4` 过渡形态，双时区全量绿）；升级中（FIX-DST-B 整数序日）
+- 来源：P0-S4 恢复全量 `flutter test` 时揪出
+- 影响范围：`TimingMonthlyIncomeService` / `TimingMonthlyExpenseService` 的月度收入/支出分摊；
+  DST 时区用户、作业分段跨 DST 边界时算错一天占比；GitHub runner（UTC）会 false-green
+- 证据：原 `.difference(start).inDays` 用本地 `DateTime`；`timing_monthly_income_service_test.dart`
+  "keeps april income … under realtime rules" 本机 `America/Los_Angeles` 红、`TZ=UTC` 绿
+- 建议处理：① `dc0dbf4` 已统一 `DateTime.utc`；② FIX-DST-B 迁移到 `YmdDate.toEpochDay()`
+  整数序日；③ 后续审计其它 `dateFromYmd(...).difference()` / 本地 `DateTime(y,m,d)` 日算术
+- 规范：`docs/architecture/date-timezone-rules.md`
+- 负责人：待确认
+
 ## CI 与本地门禁脱节
 
 - 状态：处理中（Phase 0）

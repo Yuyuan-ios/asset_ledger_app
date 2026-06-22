@@ -29,6 +29,7 @@ rule area you are touching.
 | Chinese UI copy rules | `docs/product/ui-copywriting.md` |
 | Layer boundaries and architecture | `docs/architecture/layers.md` |
 | Database migrations | `docs/architecture/database-migration-rules.md` |
+| Date / timezone handling (civil date vs instant, DST-safe day math) | `docs/architecture/date-timezone-rules.md` |
 | Test and verification commands | `docs/architecture/testing-rules.md` |
 | Active or completed operation phases | `docs/operations/active/current-stage.md`, `docs/operations/active/README.md`, `docs/operations/completed/README.md` |
 | Known technical debt | `docs/operations/tech-debt.md` |
