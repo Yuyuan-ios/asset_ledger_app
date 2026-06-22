@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import 'sync_conflict_review_controller.dart';
@@ -14,8 +15,7 @@ class SyncConflictReviewPage extends StatefulWidget {
 
 class _SyncConflictReviewPageState extends State<SyncConflictReviewPage> {
   late final SyncConflictReviewController _controller =
-      widget.controller ?? SyncConflictReviewController();
-  late final bool _ownsController = widget.controller == null;
+      widget.controller ?? context.read<SyncConflictReviewController>();
 
   @override
   void initState() {
@@ -27,9 +27,6 @@ class _SyncConflictReviewPageState extends State<SyncConflictReviewPage> {
   @override
   void dispose() {
     _controller.removeListener(_onChanged);
-    if (_ownsController) {
-      _controller.dispose();
-    }
     super.dispose();
   }
 

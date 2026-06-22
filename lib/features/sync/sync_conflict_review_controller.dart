@@ -99,8 +99,7 @@ class SyncConflictReviewController extends ChangeNotifier {
   SyncConflictReviewController({
     SyncConflictRepository conflictRepository =
         const LocalSyncConflictRepository(),
-    TimingConflictSummaryReader summaryReader =
-        const LocalTimingConflictSummaryReader(),
+    required TimingConflictSummaryReader summaryReader,
     SyncConflictResolver? conflictResolver,
   }) : _conflictRepository = conflictRepository,
        _summaryReader = summaryReader,

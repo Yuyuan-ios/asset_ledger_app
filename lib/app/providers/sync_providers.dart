@@ -3,7 +3,10 @@ import 'package:provider/single_child_widget.dart';
 
 import '../../infrastructure/cloud/api_client.dart';
 import '../../infrastructure/cloud/http_cloud_api_client.dart';
+import '../../features/sync/sync_conflict_review_controller.dart';
 import '../../infrastructure/sync/sync_device_registration.dart';
+import '../../infrastructure/sync/sync_conflict_repository.dart';
+import '../../infrastructure/sync/sync_conflict_resolution_use_case.dart';
 import '../../infrastructure/sync/sync_live_readiness_gate.dart';
 import '../../infrastructure/sync/sync_manager.dart';
 import '../../infrastructure/sync/sync_repositories.dart';
@@ -48,6 +51,23 @@ class SyncProviders {
     String Function()? deviceIdProvider,
     UpgradeRequiredCallback? onUpgradeRequired,
   }) {
+    final conflictRepository = const LocalSyncConflictRepository();
+    const conflictSummaryReader = LocalTimingConflictSummaryReader();
+    final conflictResolver = SyncConflictResolutionUseCase();
+    final conflictReviewController = SyncConflictReviewController(
+      conflictRepository: conflictRepository,
+      summaryReader: conflictSummaryReader,
+      conflictResolver: conflictResolver,
+    );
+    final conflictReviewProviders = <SingleChildWidget>[
+      Provider<SyncConflictRepository>.value(value: conflictRepository),
+      Provider<TimingConflictSummaryReader>.value(value: conflictSummaryReader),
+      Provider<SyncConflictResolver>.value(value: conflictResolver),
+      ChangeNotifierProvider<SyncConflictReviewController>.value(
+        value: conflictReviewController,
+      ),
+    ];
+
     final config = endpointConfig ?? SyncTransportConfig.current;
     final gate =
         liveReadinessGate ??
@@ -68,6 +88,7 @@ class SyncProviders {
           Provider<SyncRuntime>.value(value: runtime),
           Provider<SyncProductionCaller>.value(value: caller),
           Provider<SyncTelemetryStore>.value(value: telemetryStore),
+          ...conflictReviewProviders,
         ],
       );
     }
@@ -117,6 +138,7 @@ class SyncProviders {
         Provider<SyncManager>.value(value: syncManager),
         Provider<SyncDeviceRegistrar>.value(value: deviceRegistrar),
         Provider<SyncTelemetryStore>.value(value: telemetryStore),
+        ...conflictReviewProviders,
       ],
     );
   }
