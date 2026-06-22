@@ -215,6 +215,24 @@ run_forbidden_pattern_check "Checking patterns for use_cases imports" \
   '^import\s+.*/use_cases/' \
   lib/patterns
 
+# Rule: features_no_direct_db_dependencies
+#
+# Feature-layer code may depend on domain-facing repository APIs, but it must
+# not reach into the database handle, db directory, or sqflite package directly.
+# This keeps transaction/DB wiring behind data/infrastructure boundaries while
+# preserving existing legal imports such as lib/data/repositories.
+run_forbidden_pattern_check "Checking features for data/db imports" \
+  '^import\s+.*data/db/' \
+  lib/features
+
+run_forbidden_pattern_check "Checking features for package:sqflite imports" \
+  '^import\s+.*package:sqflite' \
+  lib/features
+
+run_forbidden_pattern_check "Checking features for direct AppDatabase usage" \
+  '^(?!\s*//).*(?<![A-Za-z0-9_])AppDatabase(?![A-Za-z0-9_])' \
+  lib/features
+
 # ============================================================================
 # R5.24: composition_no_default_const_sync_enqueuer
 #

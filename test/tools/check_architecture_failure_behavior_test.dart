@@ -210,6 +210,83 @@ void main() {
         "void archProbe() { SaveTimingRecordUseCase; }\n",
   );
 
+  // P1-S5: feature-layer code must not directly depend on AppDatabase,
+  // data/db, or sqflite. Repository imports remain legal and are covered by
+  // the false-positive probe below.
+  _archProbeTest(
+    name:
+        'features_no_direct_db_dependencies: '
+        'AppDatabase import in lib/features fails',
+    relativeProbePath:
+        'lib/features/timing/operations/__arch_probe_app_database_import.dart',
+    probeContent:
+        "// Probe: features_no_direct_db_dependencies AppDatabase import\n"
+        "import 'package:asset_ledger/data/db/database.dart';\n"
+        "void archProbe() { AppDatabase; }\n",
+  );
+
+  _archProbeTest(
+    name:
+        'features_no_direct_db_dependencies: '
+        'direct AppDatabase reference in lib/features fails',
+    relativeProbePath:
+        'lib/features/timing/operations/__arch_probe_app_database_ref.dart',
+    probeContent:
+        "// Probe: features_no_direct_db_dependencies AppDatabase reference\n"
+        "void archProbe() { AppDatabase; }\n",
+  );
+
+  _archProbeTest(
+    name:
+        'features_no_direct_db_dependencies: '
+        'sqflite import in lib/features fails',
+    relativeProbePath:
+        'lib/features/timing/operations/__arch_probe_sqflite_import.dart',
+    probeContent:
+        "// Probe: features_no_direct_db_dependencies sqflite import\n"
+        "import 'package:sqflite/sqflite.dart';\n"
+        "void archProbe(DatabaseExecutor executor) {}\n",
+  );
+
+  test(
+    'arch script permits feature imports from data/repositories',
+    () async {
+      final probePath = p.join(
+        _repoRoot,
+        'lib/features/timing/operations/__arch_probe_repository_import_allowed.dart',
+      );
+      final probe = File(probePath);
+      try {
+        await probe.writeAsString(
+          "// Probe: feature repository imports remain legal.\n"
+          "import 'package:asset_ledger/data/repositories/project_repository.dart';\n"
+          "void archProbe() { ProjectRepository; }\n",
+        );
+        final result = await _runArchScript();
+        expect(
+          result.exitCode,
+          0,
+          reason:
+              'data/repositories imports under lib/features must stay legal. '
+              'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+        );
+      } finally {
+        if (await probe.exists()) {
+          await probe.delete();
+        }
+      }
+      final after = await _runArchScript();
+      expect(
+        after.exitCode,
+        0,
+        reason:
+            'baseline must pass after removing the repository-import probe. '
+            'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+      );
+    },
+    tags: ['arch-script'],
+  );
+
   // R5.24: composition_no_default_const_sync_enqueuer — a bare/no-arg
   // *SyncEnqueuer() construction in the composition root must fail the script.
   _archProbeTest(
