@@ -1,3 +1,4 @@
+import '../../core/date/ymd_date.dart';
 import '../../core/utils/format_utils.dart';
 import '../models/fuel_log.dart';
 import '../models/maintenance_record.dart';
@@ -47,8 +48,8 @@ class TimingMonthlyExpenseService {
   }) {
     final month = targetMonth.clamp(1, 12);
     final targetMonthEnd = _monthEnd(targetYear, month);
-    final asOf = _utcDateOnly(asOfDate ?? DateTime.now());
-    final cutoffDate = asOf.isBefore(targetMonthEnd) ? asOf : targetMonthEnd;
+    final asOf = _ymdFromDate(asOfDate ?? DateTime.now());
+    final cutoffDate = _isAfter(asOf, targetMonthEnd) ? targetMonthEnd : asOf;
 
     final monthlyFuel = List<double>.filled(12, 0.0);
     final monthlyMaintenance = List<double>.filled(12, 0.0);
@@ -57,8 +58,8 @@ class TimingMonthlyExpenseService {
       final cost = log.effectiveCost;
       if (cost <= 0) continue;
 
-      final recordDate = _utcDateOnly(FormatUtils.dateFromYmd(log.date));
-      if (recordDate.isAfter(cutoffDate)) continue;
+      final recordDate = _ymdFromInt(log.date);
+      if (_isAfter(recordDate, cutoffDate)) continue;
       if (recordDate.year != targetYear) continue;
 
       monthlyFuel[recordDate.month - 1] += cost;
@@ -68,8 +69,8 @@ class TimingMonthlyExpenseService {
       final amount = record.effectiveAmount;
       if (amount <= 0) continue;
 
-      final recordDate = _utcDateOnly(FormatUtils.dateFromYmd(record.ymd));
-      if (recordDate.isAfter(cutoffDate)) continue;
+      final recordDate = _ymdFromInt(record.ymd);
+      if (_isAfter(recordDate, cutoffDate)) continue;
       if (recordDate.year != targetYear) continue;
 
       monthlyMaintenance[recordDate.month - 1] += amount;
@@ -95,11 +96,24 @@ class TimingMonthlyExpenseService {
     );
   }
 
-  static DateTime _monthEnd(int year, int month) {
-    return DateTime.utc(year, month + 1, 0);
+  static YmdDate _monthEnd(int year, int month) {
+    return _ymdFromDate(DateTime.utc(year, month + 1, 0));
   }
 
-  static DateTime _utcDateOnly(DateTime dateTime) {
-    return DateTime.utc(dateTime.year, dateTime.month, dateTime.day);
+  static YmdDate _ymdFromDate(DateTime dateTime) {
+    final ymd = FormatUtils.ymdFromDate(dateTime);
+    return _ymdFromInt(ymd);
+  }
+
+  static YmdDate _ymdFromInt(int ymd) {
+    final parsed = YmdDate.fromInt(ymd);
+    if (parsed == null) {
+      throw ArgumentError.value(ymd, 'ymd', '非法 YYYYMMDD 日期');
+    }
+    return parsed;
+  }
+
+  static bool _isAfter(YmdDate a, YmdDate b) {
+    return a.toEpochDay() > b.toEpochDay();
   }
 }

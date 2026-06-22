@@ -9,6 +9,18 @@ class YmdDate {
 
   DateTime toDateTime() => DateTime(year, month, day);
 
+  /// 1970-01-01 = 0 的序日（proleptic Gregorian，无时区/无 DST）。
+  int toEpochDay() {
+    final y = month <= 2 ? year - 1 : year;
+    final era = (y >= 0 ? y : y - 399) ~/ 400;
+    final yoe = y - era * 400;
+    final doy = (153 * (month > 2 ? month - 3 : month + 9) + 2) ~/ 5 + day - 1;
+    final doe = yoe * 365 + yoe ~/ 4 - yoe ~/ 100 + doy;
+    return era * 146097 + doe - 719468;
+  }
+
+  int daysBetween(YmdDate other) => other.toEpochDay() - toEpochDay();
+
   String get compact => value.toString().padLeft(8, '0');
 
   String get dashed {

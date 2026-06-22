@@ -1,6 +1,7 @@
 import '../../core/measure/quantity.dart';
 import '../../core/money/amount_policy.dart';
 import '../../core/date/gregorian_year_range.dart';
+import '../../core/date/ymd_date.dart';
 import '../../core/utils/format_utils.dart';
 import '../models/device.dart';
 import '../models/project_device_rate.dart';
@@ -145,7 +146,7 @@ class TimingMonthlyIncomeService {
           continue;
         }
 
-        final days = end.difference(start).inDays + 1;
+        final days = _inclusiveDays(start, end);
         if (days <= 0) {
           continue;
         }
@@ -299,7 +300,7 @@ class TimingMonthlyIncomeService {
     while (!cursor.isAfter(end)) {
       final monthEnd = _monthEnd(cursor.year, cursor.month);
       final segmentEnd = monthEnd.isBefore(end) ? monthEnd : end;
-      final days = segmentEnd.difference(cursor).inDays + 1;
+      final days = _inclusiveDays(cursor, segmentEnd);
       final amount = dailyIncome * days;
 
       _addProjectMonthIncome(
@@ -392,6 +393,19 @@ class TimingMonthlyIncomeService {
 
   static DateTime _utcDateOnly(DateTime dateTime) {
     return DateTime.utc(dateTime.year, dateTime.month, dateTime.day);
+  }
+
+  static int _inclusiveDays(DateTime start, DateTime end) {
+    return _ymdFromDate(start).daysBetween(_ymdFromDate(end)) + 1;
+  }
+
+  static YmdDate _ymdFromDate(DateTime dateTime) {
+    final ymd = dateTime.year * 10000 + dateTime.month * 100 + dateTime.day;
+    final parsed = YmdDate.fromInt(ymd);
+    if (parsed == null) {
+      throw ArgumentError.value(ymd, 'ymd', '非法 YYYYMMDD 日期');
+    }
+    return parsed;
   }
 
   static bool _isSameDay(DateTime a, DateTime b) {
