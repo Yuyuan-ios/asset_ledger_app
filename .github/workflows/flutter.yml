@@ -38,3 +38,6 @@ jobs:
 
       - name: Verify production IAP dart defines
         run: flutter test test/features/upgrade_page_iap_define_test.dart --dart-define-from-file=dart_defines/production.json
+
+      - name: Flutter tests
+        run: flutter test
