@@ -87,6 +87,18 @@
 - 建议处理：Phase 2 后端硬化（P2-B1..B4）+ Phase 3 拆 app.py
 - 负责人：待确认
 
+## 后端 sqlite 连接未显式关闭（ResourceWarning）
+
+- 状态：待处理（P0-S6 诊断，未修）
+- 来源：P0-S6 严格 ResourceWarning 诊断
+- 影响范围：`server/cloud_sync_backend` / `server/cloud_backup_backend` 资源句柄
+- 证据：两后端 `python3 -W error::ResourceWarning -m unittest discover -s tests` 均报
+  `ResourceWarning: unclosed database`；告警在 GC finalize 阶段触发，进程 exit=0 不致命；
+  根因：`with self._connect() as conn` 是事务 CM 不关闭连接
+- 建议处理：改 `contextlib.closing(self._connect())` 或 try/finally `conn.close()`；
+  修复后可考虑把严格 ResourceWarning 纳入后端 CI
+- 负责人：待确认
+
 ## 大文件维护性
 
 - 状态：待处理（Phase 3）

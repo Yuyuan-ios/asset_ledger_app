@@ -23,6 +23,15 @@
 - `server/cloud_sync_backend`：21 个 unittest 通过
 - `server/cloud_backup_backend`：30 个 unittest 通过
 
+## ResourceWarning 严格诊断（P0-S6）
+
+- 命令：两后端 `python3 -W error::ResourceWarning -m unittest discover -s tests`
+- 结论：**确有告警**——两后端均报 `ResourceWarning: unclosed database`（sqlite3 连接未显式
+  关闭）。但告警在解释器/GC finalize 阶段触发，**进程 exit=0、不致命**（不会让测试失败）。
+- 处理：按 P0-S6「先诊断不武断阻断」——**不**在本切片改后端代码、**不**把严格模式设为 CI
+  必过（它不会稳定失败）。已记入 `docs/operations/tech-debt.md`，留独立切片修
+  （`with self._connect()` 是事务 CM 不关闭连接，应改 `contextlib.closing(...)` 或 try/finally close）。
+
 ## 远端门禁现状
 
 `.github/workflows/flutter.yml` 与本地门禁脱节：
