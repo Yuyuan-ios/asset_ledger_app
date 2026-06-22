@@ -1,13 +1,17 @@
 name: Flutter CI
 
-on:
+'on':
   push:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  verify:
+  flutter-verify:
     runs-on: ubuntu-latest
 
     steps:
