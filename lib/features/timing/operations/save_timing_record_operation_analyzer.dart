@@ -1,17 +1,15 @@
-import 'package:sqflite/sqflite.dart';
-
 import '../../../core/operations/operation_models.dart';
-import '../../../core/operations/operation_transaction_runner.dart';
-import '../../../data/db/database.dart';
 import '../../../data/models/account_project_merge_member.dart';
 import '../../../data/models/device.dart';
 import '../../../data/models/project.dart';
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/account_project_merge_repository.dart';
+import '../../../data/repositories/account_payment_repository.dart';
 import '../../../data/repositories/device_repository.dart';
 import '../../../data/repositories/project_rate_repository.dart';
 import '../../../data/repositories/project_repository.dart';
+import '../../../data/repositories/project_write_off_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../data/services/account_service.dart';
 import '../../account/domain/services/project_finance_calculator.dart';
@@ -147,8 +145,8 @@ class SaveTimingRecordOperationAnalyzer {
     SqfliteProjectRepository? projectRepository,
     DeviceRepository? deviceRepository,
     ProjectRateRepository? projectRateRepository,
-    ProjectSettlementImpactService? impactService,
-    Future<OperationDatabaseExecutor> Function()? executorFactory,
+    SqfliteAccountPaymentRepository? accountPaymentRepository,
+    SqfliteProjectWriteOffRepository? writeOffRepository,
   }) : _command = command,
        _timingRepository = timingRepository ?? SqfliteTimingRepository(),
        _mergeRepository =
@@ -157,8 +155,10 @@ class SaveTimingRecordOperationAnalyzer {
        _deviceRepository = deviceRepository ?? SqfliteDeviceRepository(),
        _projectRateRepository =
            projectRateRepository ?? SqfliteProjectRateRepository(),
-       _impactService = impactService ?? ProjectSettlementImpactService(),
-       _executorFactory = executorFactory ?? (() async => AppDatabase.database);
+       _accountPaymentRepository =
+           accountPaymentRepository ?? SqfliteAccountPaymentRepository(),
+       _writeOffRepository =
+           writeOffRepository ?? const SqfliteProjectWriteOffRepository();
 
   final SaveTimingRecordOperationCommand _command;
   final SqfliteTimingRepository _timingRepository;
@@ -166,26 +166,23 @@ class SaveTimingRecordOperationAnalyzer {
   final SqfliteProjectRepository _projectRepository;
   final DeviceRepository _deviceRepository;
   final ProjectRateRepository _projectRateRepository;
-  final ProjectSettlementImpactService _impactService;
-  final Future<OperationDatabaseExecutor> Function() _executorFactory;
+  final SqfliteAccountPaymentRepository _accountPaymentRepository;
+  final SqfliteProjectWriteOffRepository _writeOffRepository;
 
   Future<SaveTimingRecordOperationAnalyzeResult> analyze(
     SaveTimingRecordOperationAnalyzeInput input,
   ) async {
-    final executor = await _executorFactory();
     final devices = await _deviceRepository.listAll();
     final rates = await _projectRateRepository.listAll();
     final draft = input.draftRecord;
 
-    final oldRecord = await _readOldRecord(executor, input.editingRecordId);
+    final oldRecord = await _readOldRecord(input.editingRecordId);
     await _validateAllocationCutoff(
-      executor,
       draft: draft,
       editingRecordId: input.editingRecordId,
     );
     final oldProjectId = _trimToNull(oldRecord?.effectiveProjectId);
     final target = await _resolveTargetProject(
-      executor,
       draft: draft,
       oldRecord: oldRecord,
     );
@@ -261,14 +258,12 @@ class SaveTimingRecordOperationAnalyzer {
 
     if (projectChanged) {
       await _collectActiveMergeGroup(
-        executor,
         projectId: oldProjectId,
         affectedProjectIds: affectedProjectIds,
         mergeGroupIds: mergeGroupIds,
         affectedEntities: affectedEntities,
       );
       await _collectActiveMergeGroup(
-        executor,
         projectId: targetProjectId,
         affectedProjectIds: affectedProjectIds,
         mergeGroupIds: mergeGroupIds,
@@ -281,7 +276,6 @@ class SaveTimingRecordOperationAnalyzer {
         : draft.copyWith(projectId: targetProjectId);
     final receivableFenByProjectId =
         await _computeReceivableFenByProjectIdForPreview(
-          executor,
           affectedProjectIds: affectedProjectIds,
           editingRecordId: input.editingRecordId,
           simulatedRecord: simulatedRecord,
@@ -289,8 +283,7 @@ class SaveTimingRecordOperationAnalyzer {
           devices: devices,
           rates: rates,
         );
-    final impactDecision = await _impactService.evaluate(
-      executor: executor,
+    final impactDecision = await _evaluateSettlementImpact(
       receivableFenByProjectId: receivableFenByProjectId,
       reason: ProjectSettlementImpactReason.editTiming,
     );
@@ -470,29 +463,23 @@ class SaveTimingRecordOperationAnalyzer {
     return setA.length == setB.length && setA.containsAll(setB);
   }
 
-  Future<TimingRecord?> _readOldRecord(
-    DatabaseExecutor executor,
-    int? editingRecordId,
-  ) async {
+  Future<TimingRecord?> _readOldRecord(int? editingRecordId) async {
     if (editingRecordId == null) return null;
-    final record = await _timingRepository.findByIdWithExecutor(
-      executor,
-      editingRecordId,
-    );
+    final record = await _timingRepository.findById(editingRecordId);
     if (record == null) {
       throw SaveTimingRecordAnalyzeException('这条计时记录已不存在，请刷新后再试');
     }
     return record;
   }
 
-  Future<void> _validateAllocationCutoff(
-    DatabaseExecutor executor, {
+  Future<void> _validateAllocationCutoff({
     required TimingRecord draft,
     required int? editingRecordId,
   }) async {
     if (draft.allocationCutoffDate == null) return;
-    final sameDeviceRecords = await _timingRepository
-        .listByDeviceIdWithExecutor(executor, draft.deviceId);
+    final sameDeviceRecords = await _timingRepository.listByDeviceId(
+      draft.deviceId,
+    );
     try {
       SaveTimingRecordAllocationCutoffValidator.validate(
         record: draft,
@@ -504,17 +491,13 @@ class SaveTimingRecordOperationAnalyzer {
     }
   }
 
-  Future<_TargetProjectResolution> _resolveTargetProject(
-    DatabaseExecutor executor, {
+  Future<_TargetProjectResolution> _resolveTargetProject({
     required TimingRecord draft,
     required TimingRecord? oldRecord,
   }) async {
     final explicitProjectId = _trimToNull(draft.projectId);
     if (explicitProjectId != null) {
-      final project = await _findProjectByIdWithExecutor(
-        executor,
-        explicitProjectId,
-      );
+      final project = await _projectRepository.findById(explicitProjectId);
       if (project != null) {
         return _TargetProjectResolution(existingProject: project);
       }
@@ -528,22 +511,17 @@ class SaveTimingRecordOperationAnalyzer {
         oldRecord.legacyProjectKey == draft.legacyProjectKey) {
       final oldProjectId = _trimToNull(oldRecord.effectiveProjectId);
       if (oldProjectId != null) {
-        final oldProject = await _findProjectByIdWithExecutor(
-          executor,
-          oldProjectId,
-        );
+        final oldProject = await _projectRepository.findById(oldProjectId);
         if (oldProject != null) {
           return _TargetProjectResolution(existingProject: oldProject);
         }
       }
     }
 
-    final activeProjects = await _projectRepository
-        .findActiveByContactSiteWithExecutor(
-          executor,
-          contact: draft.contact,
-          site: draft.site,
-        );
+    final activeProjects = await _projectRepository.findActiveByContactSite(
+      contact: draft.contact,
+      site: draft.site,
+    );
     if (activeProjects.length == 1) {
       return _TargetProjectResolution(existingProject: activeProjects.single);
     }
@@ -553,24 +531,7 @@ class SaveTimingRecordOperationAnalyzer {
     return const _TargetProjectResolution(wouldCreateNewProject: true);
   }
 
-  Future<Project?> _findProjectByIdWithExecutor(
-    DatabaseExecutor executor,
-    String projectId,
-  ) async {
-    final normalized = projectId.trim();
-    if (normalized.isEmpty) return null;
-    final rows = await executor.query(
-      SqfliteProjectRepository.table,
-      where: 'id = ?',
-      whereArgs: [normalized],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return Project.fromMap(rows.single);
-  }
-
-  Future<void> _collectActiveMergeGroup(
-    DatabaseExecutor executor, {
+  Future<void> _collectActiveMergeGroup({
     required String? projectId,
     required Set<String> affectedProjectIds,
     required Set<int> mergeGroupIds,
@@ -578,8 +539,9 @@ class SaveTimingRecordOperationAnalyzer {
   }) async {
     final normalized = _trimToNull(projectId);
     if (normalized == null) return;
-    final member = await _mergeRepository
-        .findActiveMemberByProjectIdWithExecutor(executor, normalized);
+    final member = await _mergeRepository.findActiveMemberByProjectId(
+      normalized,
+    );
     if (member == null) return;
     if (!mergeGroupIds.add(member.groupId)) return;
 
@@ -591,8 +553,9 @@ class SaveTimingRecordOperationAnalyzer {
         label: '合并项目 ${member.groupId}',
       ),
     );
-    final members = await _mergeRepository
-        .listActiveMembersByGroupIdWithExecutor(executor, member.groupId);
+    final members = await _mergeRepository.listActiveMembersByGroupId(
+      member.groupId,
+    );
     for (final groupMember in members) {
       final pid = _trimToNull(groupMember.effectiveProjectId);
       if (pid == null) continue;
@@ -609,8 +572,7 @@ class SaveTimingRecordOperationAnalyzer {
     }
   }
 
-  Future<Map<String, int>> _computeReceivableFenByProjectIdForPreview(
-    DatabaseExecutor executor, {
+  Future<Map<String, int>> _computeReceivableFenByProjectIdForPreview({
     required Set<String> affectedProjectIds,
     required int? editingRecordId,
     required TimingRecord simulatedRecord,
@@ -621,7 +583,6 @@ class SaveTimingRecordOperationAnalyzer {
     final result = <String, int>{};
     for (final projectId in affectedProjectIds) {
       result[projectId] = await _computeReceivableFenForProject(
-        executor,
         projectId: projectId,
         editingRecordId: editingRecordId,
         simulatedRecord: simulatedRecord,
@@ -633,8 +594,7 @@ class SaveTimingRecordOperationAnalyzer {
     return result;
   }
 
-  Future<int> _computeReceivableFenForProject(
-    DatabaseExecutor executor, {
+  Future<int> _computeReceivableFenForProject({
     required String projectId,
     required int? editingRecordId,
     required TimingRecord simulatedRecord,
@@ -642,10 +602,7 @@ class SaveTimingRecordOperationAnalyzer {
     required List<Device> devices,
     required List<ProjectDeviceRate> rates,
   }) async {
-    final records = await _timingRepository.listByProjectIdWithExecutor(
-      executor,
-      projectId,
-    );
+    final records = await _timingRepository.listByProjectId(projectId);
     final simulatedRecords = <TimingRecord>[
       for (final record in records)
         if (record.id != editingRecordId) record,
@@ -669,6 +626,36 @@ class SaveTimingRecordOperationAnalyzer {
       receivableYuan += money.receivable;
     }
     return ProjectFinanceCalculator.yuanToFen(receivableYuan);
+  }
+
+  Future<ProjectSettlementImpactDecision> _evaluateSettlementImpact({
+    required Map<String, int> receivableFenByProjectId,
+    ProjectSettlementImpactReason reason = ProjectSettlementImpactReason.other,
+  }) async {
+    final snapshots = <ProjectSettlementImpactSnapshot>[];
+    for (final entry in receivableFenByProjectId.entries) {
+      final projectId = entry.key.trim();
+      if (projectId.isEmpty) continue;
+      final receivableFen = entry.value;
+      final receivedFen = await _accountPaymentRepository.sumFenByProjectId(
+        projectId,
+      );
+      final writeOffFen = await _writeOffRepository.sumFenByProjectId(
+        projectId,
+      );
+      final wasSettled = await _projectRepository.isSettled(projectId);
+      snapshots.add(
+        ProjectSettlementImpactSnapshot(
+          projectId: projectId,
+          receivableFen: receivableFen,
+          receivedFen: receivedFen,
+          writeOffFen: writeOffFen,
+          wasSettled: wasSettled,
+          reason: reason,
+        ),
+      );
+    }
+    return ProjectSettlementImpactDecision(snapshots: snapshots);
   }
 
   static void _addEntity(

@@ -11,7 +11,6 @@ import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_analyzer.dart';
 import 'package:asset_ledger/features/timing/operations/save_timing_record_operation_command.dart';
 import 'package:asset_ledger/features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
-import 'package:asset_ledger/infrastructure/local/account/project_settlement_impact_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -34,14 +33,287 @@ void main() {
       projectRepository: projectRepository,
       deviceRepository: SqfliteDeviceRepository(),
       projectRateRepository: SqfliteProjectRateRepository(),
-      impactService: ProjectSettlementImpactService(
-        projectRepository: projectRepository,
-      ),
     );
   });
 
   tearDown(() async {
     await AppDatabase.resetForTest();
+  });
+
+  group('S4 repository-read characterization', () {
+    test(
+      'ordinary save reuses existing target project without writes',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db, name: 'Hitachi 200');
+        await _seedProject(
+          db,
+          projectId: 'project:existing',
+          contact: '甲方',
+          site: '一号工地',
+        );
+        final before = await _countRowsOfInterest(db);
+
+        final result = await analyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-s4-save-existing',
+            draftRecord: _draftRecord(
+              deviceId: deviceId,
+              contact: '甲方',
+              site: '一号工地',
+              projectId: '',
+            ),
+          ),
+        );
+        final after = await _countRowsOfInterest(db);
+
+        expect(result.oldProjectId, isNull);
+        expect(result.existingNewProjectId, 'project:existing');
+        expect(result.wouldCreateNewProject, isFalse);
+        expect(result.affectedProjectIds, ['project:existing']);
+        expect(result.preview.title, '保存计时记录');
+        expect(result.preview.summary, '新增计时；设备：Hitachi 200；项目：甲方 · 一号工地');
+        expect(result.preview.riskLevel, OperationRiskLevel.medium);
+        expect(result.previewInput.willDissolveMerge, isFalse);
+        expect(result.previewInput.willRevokeSettlement, isFalse);
+        expect(after, before, reason: 'analyzer preview must stay read-only');
+      },
+    );
+
+    test(
+      'editing existing record keeps DB-backed old project snapshot',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db, name: 'Komatsu');
+        await _seedProject(
+          db,
+          projectId: 'project:old',
+          contact: '甲方',
+          site: '旧工地',
+        );
+        final oldRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:old',
+          contact: '甲方',
+          site: '旧工地',
+          hours: 1,
+          income: 100,
+        );
+
+        final result = await analyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-s4-edit-existing',
+            editingRecordId: oldRecord.id,
+            draftRecord: oldRecord.copyWith(
+              projectId: '',
+              hours: 2,
+              income: 200,
+            ),
+          ),
+        );
+
+        expect(result.oldProjectId, 'project:old');
+        expect(result.existingNewProjectId, 'project:old');
+        expect(result.wouldCreateNewProject, isFalse);
+        expect(result.previewInput.isEditing, isTrue);
+        expect(result.previewInput.timingRecordId, oldRecord.id.toString());
+        expect(result.previewInput.projectChanged, isFalse);
+        expect(result.preview.summary, '编辑计时；设备：Komatsu；项目：甲方 · 旧工地');
+        expect(await db.query('timing_records'), hasLength(1));
+      },
+    );
+
+    test(
+      'cross-month project move hits old and new active merge groups',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(
+          db,
+          projectId: 'project:a',
+          contact: '甲方',
+          site: '五月工地',
+        );
+        await _seedProject(
+          db,
+          projectId: 'project:b',
+          contact: '甲方',
+          site: '六月工地',
+        );
+        await _seedProject(
+          db,
+          projectId: 'project:c',
+          contact: '甲方',
+          site: '五月成员',
+        );
+        await _seedProject(
+          db,
+          projectId: 'project:d',
+          contact: '甲方',
+          site: '六月成员',
+        );
+        final oldRecord = await _seedTimingRecord(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:a',
+          contact: '甲方',
+          site: '五月工地',
+          hours: 1,
+          income: 100,
+          startDate: 20260531,
+        );
+        final oldGroup = await _seedActiveMergeGroup(
+          db,
+          contact: '甲方',
+          members: [('project:a', '甲方||五月工地'), ('project:c', '甲方||五月成员')],
+        );
+        final newGroup = await _seedActiveMergeGroup(
+          db,
+          contact: '甲方',
+          members: [('project:b', '甲方||六月工地'), ('project:d', '甲方||六月成员')],
+        );
+
+        final result = await analyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-s4-cross-month-merge',
+            editingRecordId: oldRecord.id,
+            draftRecord: oldRecord.copyWith(
+              projectId: '',
+              contact: '甲方',
+              site: '六月工地',
+              startDate: 20260601,
+            ),
+          ),
+        );
+
+        expect(result.oldProjectId, 'project:a');
+        expect(result.existingNewProjectId, 'project:b');
+        expect(result.previewInput.projectChanged, isTrue);
+        expect(result.previewInput.willDissolveMerge, isTrue);
+        expect(result.mergeGroupIdsToDissolve, [oldGroup, newGroup]);
+        expect(
+          result.affectedProjectIds,
+          containsAll(['project:a', 'project:b', 'project:c', 'project:d']),
+        );
+        expect(result.preview.riskLevel, OperationRiskLevel.high);
+        expect(result.preview.summary, contains('项目归属：甲方 · 五月工地 -> 甲方 · 六月工地'));
+      },
+    );
+
+    test(
+      'blank projectId resolves by contact/site while missing explicit id warns',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(
+          db,
+          projectId: 'project:matched',
+          contact: '甲方',
+          site: '匹配工地',
+        );
+
+        final blank = await analyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-s4-blank-project',
+            draftRecord: _draftRecord(
+              deviceId: deviceId,
+              contact: '甲方',
+              site: '匹配工地',
+              projectId: '   ',
+            ),
+          ),
+        );
+        final missing = await analyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-s4-missing-project',
+            draftRecord: _draftRecord(
+              deviceId: deviceId,
+              contact: '甲方',
+              site: '匹配工地',
+              projectId: 'project:missing',
+            ),
+          ),
+        );
+
+        expect(blank.existingNewProjectId, 'project:matched');
+        expect(blank.wouldCreateNewProject, isFalse);
+        expect(missing.existingNewProjectId, isNull);
+        expect(missing.wouldCreateNewProject, isFalse);
+        expect(missing.affectedProjectIds, isEmpty);
+        expect(
+          missing.warnings,
+          contains('当前记录指向的项目 project:missing 不存在，请刷新后再试。'),
+        );
+      },
+    );
+
+    test('new target project preview stays read-only', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      final before = await _countRowsOfInterest(db);
+
+      final result = await analyzer.analyze(
+        SaveTimingRecordOperationAnalyzeInput(
+          operationId: 'op-s4-new-target',
+          draftRecord: _draftRecord(
+            deviceId: deviceId,
+            contact: '新甲方',
+            site: '新工地',
+          ),
+        ),
+      );
+      final after = await _countRowsOfInterest(db);
+
+      expect(result.existingNewProjectId, isNull);
+      expect(result.wouldCreateNewProject, isTrue);
+      expect(result.affectedProjectIds, isEmpty);
+      expect(
+        result.preview.affectedEntities,
+        contains(
+          const OperationEntityRef(
+            entityType: 'project',
+            entityId: 'new:新甲方||新工地',
+            label: '新甲方 · 新工地',
+          ),
+        ),
+      );
+      expect(result.warnings.join('\n'), contains('将创建新项目'));
+      expect(after, before);
+    });
+
+    test('repository read exceptions are not swallowed', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      final throwingAnalyzer = SaveTimingRecordOperationAnalyzer(
+        command: const SaveTimingRecordOperationCommand(),
+        timingRepository: SqfliteTimingRepository(),
+        mergeRepository: SqfliteAccountProjectMergeRepository(),
+        projectRepository: const _ThrowingProjectRepository(),
+        deviceRepository: SqfliteDeviceRepository(),
+        projectRateRepository: SqfliteProjectRateRepository(),
+      );
+
+      await expectLater(
+        throwingAnalyzer.analyze(
+          SaveTimingRecordOperationAnalyzeInput(
+            operationId: 'op-s4-repo-error',
+            draftRecord: _draftRecord(
+              deviceId: deviceId,
+              contact: '甲方',
+              site: '异常工地',
+            ),
+          ),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'project read failed',
+          ),
+        ),
+      );
+    });
   });
 
   group('project identity preview', () {
@@ -1058,4 +1330,25 @@ Future<void> _seedPayment(
       '2026-05-18T00:00:00.000Z',
     ],
   );
+}
+
+class _ThrowingProjectRepository extends SqfliteProjectRepository {
+  const _ThrowingProjectRepository();
+
+  @override
+  Future<List<Project>> findActiveByContactSite({
+    required String contact,
+    required String site,
+  }) async {
+    throw StateError('project read failed');
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  }) async {
+    throw StateError('project read failed');
+  }
 }

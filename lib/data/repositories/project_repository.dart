@@ -178,6 +178,11 @@ class SqfliteProjectRepository implements ProjectRepository {
     return (rows.single['status'] as String?) == ProjectStatus.settled.name;
   }
 
+  Future<bool> isSettled(String projectId) async {
+    final db = await AppDatabase.database;
+    return isSettledWithExecutor(db, projectId);
+  }
+
   Future<bool> restoreActiveWithExecutor(
     DatabaseExecutor executor, {
     required String projectId,

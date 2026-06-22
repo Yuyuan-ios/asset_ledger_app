@@ -111,7 +111,6 @@ class TimingSaveProviders {
       deviceRepository: deviceRepository,
       projectRateRepository: projectRateRepository,
       projectRepository: projectRepository,
-      impactService: impactService,
     );
     final previewAdapter = SaveTimingRecordOperationPreviewAdapter(
       analyzer: analyzer,

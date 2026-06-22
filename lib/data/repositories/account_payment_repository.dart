@@ -215,7 +215,12 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
     AccountPayment p,
   ) async {
     await _ensureProjectWithExecutor(executor, p);
-    return executor.update(table, p.toMap(), where: 'id = ?', whereArgs: [p.id]);
+    return executor.update(
+      table,
+      p.toMap(),
+      where: 'id = ?',
+      whereArgs: [p.id],
+    );
   }
 
   @override
@@ -261,6 +266,18 @@ class SqfliteAccountPaymentRepository implements AccountPaymentRepository {
       [normalized],
     );
     return (rows.single['count'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<int> sumFenByProjectId(String projectId) async {
+    final normalized = projectId.trim();
+    if (normalized.isEmpty) return 0;
+    final db = await AppDatabase.database;
+    final rows = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount_fen), 0) AS total FROM $table '
+      'WHERE project_id = ?',
+      [normalized],
+    );
+    return (rows.single['total'] as num?)?.toInt() ?? 0;
   }
 
   static Future<void> _ensureProjectWithExecutor(
