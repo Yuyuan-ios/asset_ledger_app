@@ -1408,6 +1408,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get devicePickerEmptyHint => '暂无在用设备，请先去“设备”页新增';
 
   @override
+  String devicePickerItemWithMeter(String name, String meter) {
+    return '$name（码表 $meter h）';
+  }
+
+  @override
+  String get devicePickerUnknownDevice => '未知设备';
+
+  @override
+  String devicePickerInactiveItemWithMeter(String name, String meter) {
+    return '$name（已停用 · 码表 $meter h）';
+  }
+
+  @override
+  String get devicePickerUnknownInactive => '未知设备（已停用）';
+
+  @override
   String get deviceDeactivateTitle => '确认停用设备？';
 
   @override
@@ -1417,6 +1433,110 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceDeactivateAction => '停用';
+
+  @override
+  String get deviceSaveAction => '保存';
+
+  @override
+  String get deviceReadAction => '读取';
+
+  @override
+  String get deviceSaveCreated => '已新增设备';
+
+  @override
+  String get deviceSaveUpdated => '已更新设备';
+
+  @override
+  String get deviceDeactivateSuccess => '已停用（历史记录不受影响）';
+
+  @override
+  String get deviceSaveFailureDataNotSaved => '保存失败：数据未保存，请稍后重试';
+
+  @override
+  String get deviceLifecycleSetCostAction => '点击设置成本与残值';
+
+  @override
+  String get deviceLifecycleNetProfitFormula => '生命周期净收益 = 已实收 + 预计残值 - 初始成本';
+
+  @override
+  String deviceLifecycleInitialInvestmentSemantics(String amount) {
+    return '初始投入$amount';
+  }
+
+  @override
+  String get deviceLifecycleInitialInvestmentUnsetValue => '未设置';
+
+  @override
+  String deviceLifecycleNetReceivedSemantics(String amount) {
+    return '已实收净额$amount';
+  }
+
+  @override
+  String deviceLifecycleEstimatedResidualSemantics(String amount) {
+    return '预计售出残值$amount';
+  }
+
+  @override
+  String deviceLifecyclePendingReceivableSemantics(String amount) {
+    return '待收$amount';
+  }
+
+  @override
+  String deviceLifecycleOperationSummary(String hours, int count) {
+    return '已运营：$hours小时 / $count项';
+  }
+
+  @override
+  String get deviceLifecycleInitialInvestmentUnset => '未设置初始投入';
+
+  @override
+  String deviceLifecycleInitialInvestmentAmount(String amount) {
+    return '初始投入 $amount';
+  }
+
+  @override
+  String get deviceLifecycleSurplusLabel => '盈余';
+
+  @override
+  String get deviceLifecyclePaybackGapLabel => '未回本缺口';
+
+  @override
+  String get deviceLifecycleNetReceivedLabel => '已实收净额';
+
+  @override
+  String get deviceLifecycleEstimatedResidualLabel => '预计售出残值';
+
+  @override
+  String deviceLifecyclePendingReceivableLabel(String amount) {
+    return '待收 $amount';
+  }
+
+  @override
+  String get deviceLifecycleAmountSheetTitle => '设置设备生命周期金额';
+
+  @override
+  String get deviceLifecycleAmountUpdateAction => '更新';
+
+  @override
+  String get deviceLifecycleInitialCostLabel => '初始投入成本';
+
+  @override
+  String get deviceLifecycleEstimatedResidualInputLabel => '预计售出残值';
+
+  @override
+  String get deviceLifecycleProjectedSurplusTitle => '预计盈余';
+
+  @override
+  String get deviceLifecyclePaybackRemainingTitle => '还差回本';
+
+  @override
+  String get deviceLifecycleEstimatedResidualFormulaLabel => '+ 预计售出残值';
+
+  @override
+  String get deviceLifecycleInitialCostFormulaLabel => '- 初始投入成本';
+
+  @override
+  String get deviceLifecycleNetProfitFormulaLabel => '= 生命周期净收益';
 
   @override
   String get deviceAccountStatusSectionTitle => '账号状态';

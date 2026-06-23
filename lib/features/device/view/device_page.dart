@@ -218,7 +218,8 @@ class _DevicePageState extends State<DevicePage> {
       if (!mounted) return;
       AppToast.show(
         context,
-        storeErrorMessage(store, action: '保存') ?? '保存失败：数据未保存，请稍后重试',
+        storeErrorMessage(store, action: _l10n.deviceSaveAction) ??
+            _l10n.deviceSaveFailureDataNotSaved,
       );
       return;
     }
@@ -1117,7 +1118,10 @@ class _DevicePageState extends State<DevicePage> {
                   if (store.failure != null) ...[
                     const SizedBox(height: DeviceTokens.loadErrorTopGap),
                     StoreErrorBanner(
-                      message: storeErrorMessage(store, action: '读取')!,
+                      message: storeErrorMessage(
+                        store,
+                        action: l10n.deviceReadAction,
+                      )!,
                       onRetry: store.loading ? null : () => _retryLoad(),
                     ),
                   ],

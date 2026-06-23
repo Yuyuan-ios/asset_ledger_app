@@ -27,6 +27,7 @@ class DevicePageActions {
     String? initialBrand,
     EquipmentType? initialEquipmentType,
   }) async {
+    final l10n = AppLocalizations.of(context);
     final edited = await showDialog<Device>(
       context: context,
       barrierDismissible: false,
@@ -50,8 +51,10 @@ class DevicePageActions {
 
       final feedback = storeActionFeedback(
         store,
-        action: '保存',
-        successMessage: device == null ? '已新增设备' : '已更新设备',
+        action: l10n.deviceSaveAction,
+        successMessage: device == null
+            ? l10n.deviceSaveCreated
+            : l10n.deviceSaveUpdated,
       );
       toast(feedback.message);
     });
@@ -124,14 +127,15 @@ class DevicePageActions {
     required DevicePageToast toast,
   }) async {
     if (device.id == null) return;
+    final l10n = AppLocalizations.of(context);
     final ok = await _confirmDeactivate(context, device);
     if (!ok || !isMounted()) return;
 
     await store.deactivateById(device.id!);
     final feedback = storeActionFeedback(
       store,
-      action: '停用',
-      successMessage: '已停用（历史记录不受影响）',
+      action: l10n.deviceDeactivateAction,
+      successMessage: l10n.deviceDeactivateSuccess,
     );
     toast(feedback.message);
   }

@@ -1,6 +1,7 @@
 import 'package:asset_ledger/data/models/device_maps.dart';
 import '../../core/utils/format_utils.dart';
 import '../../data/models/device.dart';
+import '../../l10n/gen/app_localizations.dart';
 import 'device_picker_pattern.dart';
 
 /// 返回指定设备的当前码表读数（小时）。计算由 feature/device 的 application
@@ -20,6 +21,7 @@ class DeviceEditorContextVm {
 }
 
 DeviceEditorContextVm buildDeviceEditorContext({
+  required AppLocalizations l10n,
   required List<Device> activeDevices,
   required List<Device> allDevices,
   required DeviceCurrentMeterResolver currentMeterResolver,
@@ -28,6 +30,7 @@ DeviceEditorContextVm buildDeviceEditorContext({
   return DeviceEditorContextVm(
     deviceById: buildDeviceByIdMap(allDevices),
     deviceItems: buildDevicePickerItems(
+      l10n: l10n,
       activeDevices: activeDevices,
       allDevices: allDevices,
       currentMeterResolver: currentMeterResolver,
@@ -37,6 +40,7 @@ DeviceEditorContextVm buildDeviceEditorContext({
 }
 
 List<DevicePickerItemVm> buildDevicePickerItems({
+  required AppLocalizations l10n,
   required List<Device> activeDevices,
   required List<Device> allDevices,
   required DeviceCurrentMeterResolver currentMeterResolver,
@@ -57,7 +61,7 @@ List<DevicePickerItemVm> buildDevicePickerItems({
     items.add(
       DevicePickerItemVm(
         id: id,
-        label: '${d.name}（码表 $meterText h）',
+        label: l10n.devicePickerItemWithMeter(d.name, meterText),
         enabled: true,
       ),
     );
@@ -68,7 +72,7 @@ List<DevicePickerItemVm> buildDevicePickerItems({
       (d) => d.id == selectedId,
       orElse: () => Device(
         id: -1,
-        name: '未知设备',
+        name: l10n.devicePickerUnknownDevice,
         brand: '',
         defaultUnitPrice: 0,
         baseMeterHours: 0,
@@ -86,14 +90,21 @@ List<DevicePickerItemVm> buildDevicePickerItems({
         0,
         DevicePickerItemVm(
           id: labelId,
-          label: '${selected.name}（已停用 · 码表 $meterText h）',
+          label: l10n.devicePickerInactiveItemWithMeter(
+            selected.name,
+            meterText,
+          ),
           enabled: false,
         ),
       );
     } else {
       items.insert(
         0,
-        DevicePickerItemVm(id: selectedId, label: '未知设备（已停用）', enabled: false),
+        DevicePickerItemVm(
+          id: selectedId,
+          label: l10n.devicePickerUnknownInactive,
+          enabled: false,
+        ),
       );
     }
   }

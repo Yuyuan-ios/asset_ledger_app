@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/foundation/typography.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
@@ -72,6 +73,7 @@ class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final result = calculateLifecyclePayback(
       LifecyclePaybackInput(
         initialCostFen: _initialCostFen,
@@ -81,10 +83,10 @@ class _LifecycleAmountSheetState extends State<LifecycleAmountSheet> {
     );
 
     return AppBottomSheetShell(
-      title: '设置设备生命周期金额',
+      title: l10n.deviceLifecycleAmountSheetTitle,
       scrollable: false,
-      cancelText: '取消',
-      confirmText: '更新',
+      cancelText: l10n.deviceCancelAction,
+      confirmText: l10n.deviceLifecycleAmountUpdateAction,
       onCancel: () => Navigator.of(context).pop(),
       onConfirm: () {
         Navigator.of(context).pop(
@@ -204,11 +206,12 @@ class _InputGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return _LifecycleAmountCard(
       child: Column(
         children: [
           _MoneyInputRow(
-            label: '初始投入成本',
+            label: l10n.deviceLifecycleInitialCostLabel,
             controller: initialCostController,
             onChanged: onInitialCostChanged,
           ),
@@ -221,7 +224,7 @@ class _InputGroup extends StatelessWidget {
             ),
           ),
           _MoneyInputRow(
-            label: '预计售出残值',
+            label: l10n.deviceLifecycleEstimatedResidualInputLabel,
             controller: estimatedResidualController,
             onChanged: onEstimatedResidualChanged,
           ),
@@ -307,14 +310,15 @@ class _PreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isProfit = result.lifeCycleProfitFen > 0;
     final title = result.isCostUnset
-        ? '预计盈余'
+        ? l10n.deviceLifecycleProjectedSurplusTitle
         : isProfit
-        ? '预计盈余'
+        ? l10n.deviceLifecycleProjectedSurplusTitle
         : result.lifeCycleProfitFen < 0
-        ? '还差回本'
-        : '预计盈余';
+        ? l10n.deviceLifecyclePaybackRemainingTitle
+        : l10n.deviceLifecycleProjectedSurplusTitle;
     final value = result.isCostUnset
         ? '¥0'
         : isProfit
@@ -356,15 +360,15 @@ class _PreviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _FormulaRow(
-            label: '已实收净额',
+            label: l10n.deviceLifecycleNetReceivedLabel,
             value: formatLifecycleMoneyFen(netReceivedFen),
           ),
           _FormulaRow(
-            label: '+ 预计售出残值',
+            label: l10n.deviceLifecycleEstimatedResidualFormulaLabel,
             value: formatLifecycleMoneyFen(estimatedResidualFen ?? 0),
           ),
           _FormulaRow(
-            label: '- 初始投入成本',
+            label: l10n.deviceLifecycleInitialCostFormulaLabel,
             value: formatLifecycleMoneyFen(initialCostFen ?? 0),
           ),
           const Padding(
@@ -376,7 +380,7 @@ class _PreviewCard extends StatelessWidget {
             ),
           ),
           _FormulaRow(
-            label: '= 生命周期净收益',
+            label: l10n.deviceLifecycleNetProfitFormulaLabel,
             value: formatLifecycleMoneyFen(
               result.lifeCycleProfitFen,
               explicitPlus: result.lifeCycleProfitFen > 0,

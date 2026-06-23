@@ -74,8 +74,8 @@ void main() {
     );
     expect(uiCopy, contains('Device operations'));
     expect(uiCopy, contains('SANY 1#'));
-    expect(uiCopy, contains('初始投入 ¥2,500'));
-    expect(uiCopy, contains('待收 ¥450'));
+    expect(uiCopy, contains('Initial investment ¥2,500'));
+    expect(uiCopy, contains('Pending ¥450'));
     expect(uiCopy, isNot(contains('Income ¥1550 · 2.5h, 3trips')));
     expect(uiCopy, isNot(contains('1 project · Pending ¥450')));
     expect(uiCopy, isNot(contains('设备经营')));

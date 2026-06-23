@@ -1,6 +1,8 @@
 import 'package:asset_ledger/features/device/domain/services/lifecycle_payback_calculator.dart';
 import 'package:asset_ledger/features/device/view/lifecycle_amount_sheet.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -10,8 +12,8 @@ void main() {
       var popped = false;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
+        _localizedHost(
+          Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () async {
@@ -59,8 +61,8 @@ void main() {
       var completed = false;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
+        _localizedHost(
+          Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () async {
@@ -91,4 +93,18 @@ void main() {
       expect(saved, isNull);
     });
   });
+}
+
+Widget _localizedHost(Widget home) {
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
 }

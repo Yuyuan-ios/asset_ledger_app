@@ -90,6 +90,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
       activeDevices: deviceStore.activeDevices,
     );
     final editorContext = buildDeviceEditorContext(
+      l10n: l10n,
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),

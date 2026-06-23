@@ -85,6 +85,29 @@
 - 建议处理：Phase 2 P2-S2..S6 分模块 key 化 + 扩 CJK guard
 - 负责人：待确认
 
+## timing save-operation 领域层文案分离（S4b）
+
+- 状态：暂缓（Phase 2 S4b）
+- 来源：Phase 2 i18n 人工诊断
+- 影响范围：`lib/features/timing/operations/**`、`use_cases/**`、`application/**`
+- 证据：`SaveTimingRecordOperationCommand` / analyzer / redactor 等保存链路会生成
+  `userMessage`、warnings、title、summary 等用户可见文案；GitNexus 对保存路径返回
+  CRITICAL，完整 i18n 需要把领域层返回值从展示文案改为 code/structured payload，再由 UI 本地化。
+- 建议处理：单独设计 S4b，先定义领域错误/预览摘要 code 与 UI copy mapper，再迁移保存预览/确认/执行文案。
+- 负责人：待确认
+
+## device 领域/application 层文案分离（S5b）
+
+- 状态：暂缓（Phase 2 S5b）
+- 来源：Phase 2 device view-layer i18n
+- 影响范围：`lib/features/device/domain/**`、`lib/features/device/application/**`
+- 证据：`lifecycle_payback_calculator.dart` 仍直接生成 `statusText/resultText`；
+  `cloud_backup_controller.dart`、`local_backup_controller.dart`、`device_action_controller.dart`
+  和 `device_avatar_policy.dart` 仍含可能展示给用户的中文错误/反馈文案。本轮 S5 只迁
+  `view/**` 与 `patterns/**`，不改领域/application 层。
+- 建议处理：后续 S5b 将领域/application 返回 code 或结构化状态，由 device view 层统一映射 `AppLocalizations`。
+- 负责人：待确认
+
 ## 后端生产化非对称（sync 缺限流 / backup 缺结构化日志）
 
 - 状态：待处理（Phase 2/3）

@@ -2649,6 +2649,30 @@ abstract class AppLocalizations {
   /// **'暂无在用设备，请先去“设备”页新增'**
   String get devicePickerEmptyHint;
 
+  /// 设备模块:设备选择器在用设备条目及当前码表
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}（码表 {meter} h）'**
+  String devicePickerItemWithMeter(String name, String meter);
+
+  /// 设备模块:设备选择器未知设备兜底
+  ///
+  /// In zh, this message translates to:
+  /// **'未知设备'**
+  String get devicePickerUnknownDevice;
+
+  /// 设备模块:设备选择器已停用设备条目及当前码表
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}（已停用 · 码表 {meter} h）'**
+  String devicePickerInactiveItemWithMeter(String name, String meter);
+
+  /// 设备模块:设备选择器未知已停用设备兜底
+  ///
+  /// In zh, this message translates to:
+  /// **'未知设备（已停用）'**
+  String get devicePickerUnknownInactive;
+
   /// 设备模块:停用设备确认标题
   ///
   /// In zh, this message translates to:
@@ -2666,6 +2690,186 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'停用'**
   String get deviceDeactivateAction;
+
+  /// 设备模块:保存动作名,用于 store feedback
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get deviceSaveAction;
+
+  /// 设备模块:读取动作名,用于 store feedback
+  ///
+  /// In zh, this message translates to:
+  /// **'读取'**
+  String get deviceReadAction;
+
+  /// 设备模块:新增设备成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已新增设备'**
+  String get deviceSaveCreated;
+
+  /// 设备模块:更新设备成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已更新设备'**
+  String get deviceSaveUpdated;
+
+  /// 设备模块:停用设备成功 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用（历史记录不受影响）'**
+  String get deviceDeactivateSuccess;
+
+  /// 设备模块:保存生命周期金额失败的兜底 toast
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：数据未保存，请稍后重试'**
+  String get deviceSaveFailureDataNotSaved;
+
+  /// 设备模块:生命周期回本卡片未设置成本时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'点击设置成本与残值'**
+  String get deviceLifecycleSetCostAction;
+
+  /// 设备模块:生命周期回本卡片净收益公式说明
+  ///
+  /// In zh, this message translates to:
+  /// **'生命周期净收益 = 已实收 + 预计残值 - 初始成本'**
+  String get deviceLifecycleNetProfitFormula;
+
+  /// 设备模块:生命周期回本卡片无障碍初始投入摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'初始投入{amount}'**
+  String deviceLifecycleInitialInvestmentSemantics(String amount);
+
+  /// 设备模块:生命周期回本卡片无障碍初始投入未设置值
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get deviceLifecycleInitialInvestmentUnsetValue;
+
+  /// 设备模块:生命周期回本卡片无障碍已实收净额摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'已实收净额{amount}'**
+  String deviceLifecycleNetReceivedSemantics(String amount);
+
+  /// 设备模块:生命周期回本卡片无障碍预计售出残值摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'预计售出残值{amount}'**
+  String deviceLifecycleEstimatedResidualSemantics(String amount);
+
+  /// 设备模块:生命周期回本卡片无障碍待收摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'待收{amount}'**
+  String deviceLifecyclePendingReceivableSemantics(String amount);
+
+  /// 设备模块:生命周期回本卡片运营摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'已运营：{hours}小时 / {count}项'**
+  String deviceLifecycleOperationSummary(String hours, int count);
+
+  /// 设备模块:生命周期回本卡片未设置初始投入
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置初始投入'**
+  String get deviceLifecycleInitialInvestmentUnset;
+
+  /// 设备模块:生命周期回本卡片初始投入金额
+  ///
+  /// In zh, this message translates to:
+  /// **'初始投入 {amount}'**
+  String deviceLifecycleInitialInvestmentAmount(String amount);
+
+  /// 设备模块:生命周期回本卡片盈余图例
+  ///
+  /// In zh, this message translates to:
+  /// **'盈余'**
+  String get deviceLifecycleSurplusLabel;
+
+  /// 设备模块:生命周期回本卡片未回本缺口图例
+  ///
+  /// In zh, this message translates to:
+  /// **'未回本缺口'**
+  String get deviceLifecyclePaybackGapLabel;
+
+  /// 设备模块:生命周期回本卡片已实收净额标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已实收净额'**
+  String get deviceLifecycleNetReceivedLabel;
+
+  /// 设备模块:生命周期回本卡片预计售出残值标签
+  ///
+  /// In zh, this message translates to:
+  /// **'预计售出残值'**
+  String get deviceLifecycleEstimatedResidualLabel;
+
+  /// 设备模块:生命周期回本卡片待收标签
+  ///
+  /// In zh, this message translates to:
+  /// **'待收 {amount}'**
+  String deviceLifecyclePendingReceivableLabel(String amount);
+
+  /// 设备模块:生命周期金额设置 sheet 标题
+  ///
+  /// In zh, this message translates to:
+  /// **'设置设备生命周期金额'**
+  String get deviceLifecycleAmountSheetTitle;
+
+  /// 设备模块:生命周期金额设置 sheet 更新按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'更新'**
+  String get deviceLifecycleAmountUpdateAction;
+
+  /// 设备模块:生命周期金额设置 sheet 初始投入成本字段
+  ///
+  /// In zh, this message translates to:
+  /// **'初始投入成本'**
+  String get deviceLifecycleInitialCostLabel;
+
+  /// 设备模块:生命周期金额设置 sheet 预计售出残值字段
+  ///
+  /// In zh, this message translates to:
+  /// **'预计售出残值'**
+  String get deviceLifecycleEstimatedResidualInputLabel;
+
+  /// 设备模块:生命周期金额设置 sheet 预计盈余标题
+  ///
+  /// In zh, this message translates to:
+  /// **'预计盈余'**
+  String get deviceLifecycleProjectedSurplusTitle;
+
+  /// 设备模块:生命周期金额设置 sheet 未回本标题
+  ///
+  /// In zh, this message translates to:
+  /// **'还差回本'**
+  String get deviceLifecyclePaybackRemainingTitle;
+
+  /// 设备模块:生命周期金额设置 sheet 公式预计售出残值行
+  ///
+  /// In zh, this message translates to:
+  /// **'+ 预计售出残值'**
+  String get deviceLifecycleEstimatedResidualFormulaLabel;
+
+  /// 设备模块:生命周期金额设置 sheet 公式初始投入成本行
+  ///
+  /// In zh, this message translates to:
+  /// **'- 初始投入成本'**
+  String get deviceLifecycleInitialCostFormulaLabel;
+
+  /// 设备模块:生命周期金额设置 sheet 公式生命周期净收益行
+  ///
+  /// In zh, this message translates to:
+  /// **'= 生命周期净收益'**
+  String get deviceLifecycleNetProfitFormulaLabel;
 
   /// 设备模块:账户中心账号状态分组
   ///

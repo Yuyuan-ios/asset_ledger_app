@@ -12,6 +12,10 @@ const List<String> migratedFiles = <String>[
   'lib/features/app_update/domain/version_policy.dart',
   'lib/features/app_update/presentation/forced_update_blocker.dart',
   'lib/features/app_update/presentation/optional_update_prompt.dart',
+  'lib/features/device/view/device_page.dart',
+  'lib/features/device/view/device_page_actions.dart',
+  'lib/features/device/view/lifecycle_amount_sheet.dart',
+  'lib/features/device/view/lifecycle_payback_card.dart',
   'lib/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart',
   'lib/features/external_work/import_preview/use_cases/handle_inbound_share_file_use_case.dart',
   'lib/features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart',
@@ -33,6 +37,7 @@ const List<String> migratedFiles = <String>[
   'lib/patterns/timing/tab_bar_pattern.dart',
   'lib/patterns/timing/timing_recent_records_slivers.dart',
   'lib/patterns/timing/timing_home_pattern.dart',
+  'lib/patterns/device/device_picker_items_builder.dart',
 ];
 
 final RegExp _cjk = RegExp(r'[一-鿿㐀-䶿]');

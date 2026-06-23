@@ -73,6 +73,7 @@ class _FuelPageState extends State<FuelPage> {
       activeDevices: deviceStore.activeDevices,
     );
     final editorContext = buildDeviceEditorContext(
+      l10n: l10n,
       activeDevices: deviceStore.activeDevices,
       allDevices: deviceStore.allDevices,
       currentMeterResolver: deviceCurrentMeterResolver(timingStore.records),

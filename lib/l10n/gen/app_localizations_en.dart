@@ -1528,6 +1528,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'No active devices. Add one on the Devices page first.';
 
   @override
+  String devicePickerItemWithMeter(String name, String meter) {
+    return '$name (meter $meter h)';
+  }
+
+  @override
+  String get devicePickerUnknownDevice => 'Unknown device';
+
+  @override
+  String devicePickerInactiveItemWithMeter(String name, String meter) {
+    return '$name (inactive · meter $meter h)';
+  }
+
+  @override
+  String get devicePickerUnknownInactive => 'Unknown device (inactive)';
+
+  @override
   String get deviceDeactivateTitle => 'Deactivate device?';
 
   @override
@@ -1537,6 +1553,117 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceDeactivateAction => 'Deactivate';
+
+  @override
+  String get deviceSaveAction => 'Save';
+
+  @override
+  String get deviceReadAction => 'Load';
+
+  @override
+  String get deviceSaveCreated => 'Device added';
+
+  @override
+  String get deviceSaveUpdated => 'Device updated';
+
+  @override
+  String get deviceDeactivateSuccess => 'Deactivated (history is kept)';
+
+  @override
+  String get deviceSaveFailureDataNotSaved =>
+      'Save failed: data was not saved. Try again later';
+
+  @override
+  String get deviceLifecycleSetCostAction =>
+      'Tap to set cost and residual value';
+
+  @override
+  String get deviceLifecycleNetProfitFormula =>
+      'Lifecycle net profit = received + residual value - initial cost';
+
+  @override
+  String deviceLifecycleInitialInvestmentSemantics(String amount) {
+    return 'Initial investment $amount';
+  }
+
+  @override
+  String get deviceLifecycleInitialInvestmentUnsetValue => 'not set';
+
+  @override
+  String deviceLifecycleNetReceivedSemantics(String amount) {
+    return 'Net received $amount';
+  }
+
+  @override
+  String deviceLifecycleEstimatedResidualSemantics(String amount) {
+    return 'Estimated resale residual $amount';
+  }
+
+  @override
+  String deviceLifecyclePendingReceivableSemantics(String amount) {
+    return 'Pending $amount';
+  }
+
+  @override
+  String deviceLifecycleOperationSummary(String hours, int count) {
+    return 'Operated: ${hours}h / $count items';
+  }
+
+  @override
+  String get deviceLifecycleInitialInvestmentUnset =>
+      'Initial investment not set';
+
+  @override
+  String deviceLifecycleInitialInvestmentAmount(String amount) {
+    return 'Initial investment $amount';
+  }
+
+  @override
+  String get deviceLifecycleSurplusLabel => 'Surplus';
+
+  @override
+  String get deviceLifecyclePaybackGapLabel => 'Payback gap';
+
+  @override
+  String get deviceLifecycleNetReceivedLabel => 'Net received';
+
+  @override
+  String get deviceLifecycleEstimatedResidualLabel =>
+      'Estimated resale residual';
+
+  @override
+  String deviceLifecyclePendingReceivableLabel(String amount) {
+    return 'Pending $amount';
+  }
+
+  @override
+  String get deviceLifecycleAmountSheetTitle => 'Set device lifecycle amounts';
+
+  @override
+  String get deviceLifecycleAmountUpdateAction => 'Update';
+
+  @override
+  String get deviceLifecycleInitialCostLabel => 'Initial cost';
+
+  @override
+  String get deviceLifecycleEstimatedResidualInputLabel =>
+      'Estimated resale residual';
+
+  @override
+  String get deviceLifecycleProjectedSurplusTitle => 'Projected surplus';
+
+  @override
+  String get deviceLifecyclePaybackRemainingTitle => 'Remaining to pay back';
+
+  @override
+  String get deviceLifecycleEstimatedResidualFormulaLabel =>
+      '+ Estimated resale residual';
+
+  @override
+  String get deviceLifecycleInitialCostFormulaLabel => '- Initial cost';
+
+  @override
+  String get deviceLifecycleNetProfitFormulaLabel => '= Lifecycle net profit';
 
   @override
   String get deviceAccountStatusSectionTitle => 'Account status';

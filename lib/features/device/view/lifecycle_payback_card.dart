@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/foundation/typography.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
 
@@ -38,6 +39,7 @@ class LifecyclePaybackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final result = calculateLifecyclePayback(
       LifecyclePaybackInput(
         initialCostFen: initialCostFen,
@@ -48,7 +50,7 @@ class LifecyclePaybackCard extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: _semanticsLabel(result),
+      label: _semanticsLabel(l10n, result),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -85,7 +87,7 @@ class LifecyclePaybackCard extends StatelessWidget {
                 ] else ...[
                   const SizedBox(height: 10),
                   Text(
-                    '点击设置成本与残值',
+                    l10n.deviceLifecycleSetCostAction,
                     style: AppTypography.caption(
                       context,
                       fontSize: 12,
@@ -108,7 +110,7 @@ class LifecyclePaybackCard extends StatelessWidget {
                 if (!result.isCostUnset) ...[
                   const SizedBox(height: 8),
                   Text(
-                    '生命周期净收益 = 已实收 + 预计残值 - 初始成本',
+                    l10n.deviceLifecycleNetProfitFormula,
                     style: AppTypography.caption(
                       context,
                       fontSize: 11,
@@ -125,17 +127,29 @@ class LifecyclePaybackCard extends StatelessWidget {
     );
   }
 
-  String _semanticsLabel(LifecyclePaybackResult result) {
+  String _semanticsLabel(AppLocalizations l10n, LifecyclePaybackResult result) {
     final parts = <String>[
       deviceName,
-      '初始投入${initialCostFen == null || initialCostFen! <= 0 ? '未设置' : formatLifecycleMoneyFen(initialCostFen!)}',
-      '已实收净额${formatLifecycleMoneyFen(netReceivedFen)}',
-      '预计售出残值${formatLifecycleMoneyFen(estimatedResidualFen ?? 0)}',
+      l10n.deviceLifecycleInitialInvestmentSemantics(
+        initialCostFen == null || initialCostFen! <= 0
+            ? l10n.deviceLifecycleInitialInvestmentUnsetValue
+            : formatLifecycleMoneyFen(initialCostFen!),
+      ),
+      l10n.deviceLifecycleNetReceivedSemantics(
+        formatLifecycleMoneyFen(netReceivedFen),
+      ),
+      l10n.deviceLifecycleEstimatedResidualSemantics(
+        formatLifecycleMoneyFen(estimatedResidualFen ?? 0),
+      ),
       result.statusText,
       result.resultText,
     ];
     if (pendingReceivableFen > 0) {
-      parts.add('待收${formatLifecycleMoneyFen(pendingReceivableFen)}');
+      parts.add(
+        l10n.deviceLifecyclePendingReceivableSemantics(
+          formatLifecycleMoneyFen(pendingReceivableFen),
+        ),
+      );
     }
     return parts.join('，');
   }
@@ -329,6 +343,7 @@ class _MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
@@ -350,7 +365,10 @@ class _MetaRow extends StatelessWidget {
         SizedBox(
           width: _operationSummaryWidth,
           child: Text(
-            '已运营：${operatedHours.toStringAsFixed(1)}小时 / $operationItems项',
+            l10n.deviceLifecycleOperationSummary(
+              operatedHours.toStringAsFixed(1),
+              operationItems,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,
@@ -376,6 +394,7 @@ class _FinancialRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final costIsUnset = result.isCostUnset;
     final statusColor = costIsUnset
         ? LifecyclePaybackTokens.textSecondary
@@ -388,8 +407,10 @@ class _FinancialRow extends StatelessWidget {
         Expanded(
           child: Text(
             costIsUnset
-                ? '未设置初始投入'
-                : '初始投入 ${formatLifecycleMoneyFen(initialCostFen!)}',
+                ? l10n.deviceLifecycleInitialInvestmentUnset
+                : l10n.deviceLifecycleInitialInvestmentAmount(
+                    formatLifecycleMoneyFen(initialCostFen!),
+                  ),
             style: AppTypography.body(
               context,
               fontSize: 14,
@@ -422,7 +443,10 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tailLabel = result.isPaidBack ? '盈余' : '未回本缺口';
+    final l10n = AppLocalizations.of(context);
+    final tailLabel = result.isPaidBack
+        ? l10n.deviceLifecycleSurplusLabel
+        : l10n.deviceLifecyclePaybackGapLabel;
     final tailColor = result.isPaidBack
         ? LifecyclePaybackTokens.surplus
         : LifecyclePaybackTokens.gapMuted;
@@ -430,13 +454,13 @@ class _Legend extends StatelessWidget {
       spacing: 12,
       runSpacing: 8,
       children: [
-        const _LegendItem(
+        _LegendItem(
           color: LifecyclePaybackTokens.netReceived,
-          label: '已实收净额',
+          label: l10n.deviceLifecycleNetReceivedLabel,
         ),
-        const _LegendItem(
+        _LegendItem(
           color: LifecyclePaybackTokens.estimatedResidual,
-          label: '预计售出残值',
+          label: l10n.deviceLifecycleEstimatedResidualLabel,
         ),
         _LegendItem(color: tailColor, label: tailLabel),
       ],
@@ -483,6 +507,7 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final resultColor = result.isCostUnset
         ? LifecyclePaybackTokens.textSecondary
         : result.lifeCycleProfitFen > 0
@@ -514,7 +539,9 @@ class _Footer extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '待收 ${formatLifecycleMoneyFen(pendingReceivableFen)}',
+              l10n.deviceLifecyclePendingReceivableLabel(
+                formatLifecycleMoneyFen(pendingReceivableFen),
+              ),
               style: AppTypography.caption(
                 context,
                 fontSize: 11,
