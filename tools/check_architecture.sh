@@ -144,6 +144,114 @@ run_forbidden_pattern_check_with_glob \
   lib/patterns/timing \
   lib/patterns/device
 
+run_migrated_files_no_hardcoded_cjk_check() {
+  local label="$1"
+  local manifest="$2"
+
+  require_paths "$label" "$manifest" || return 0
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  -> [$label] python3 is required for this rule but was not found on PATH."
+    echo "     Install python3 (e.g. 'brew install python') or ensure it is on PATH."
+    failures=$((failures + 1))
+    return 0
+  fi
+
+  echo "$label..."
+  local output
+  set +e
+  output="$(python3 - "$manifest" <<'PY' 2>&1
+import os
+import re
+import sys
+
+RULE = "migrated_files_no_hardcoded_cjk"
+CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
+MIGRATED_LIST_RE = re.compile(
+    r"const\s+List<String>\s+migratedFiles\s*=\s*<String>\s*\[(.*?)\]\s*;",
+    re.DOTALL,
+)
+PATH_RE = re.compile(r"'([^']+)'")
+
+
+def strip_comments(source):
+    without_block = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    lines = []
+    for line in without_block.split("\n"):
+        idx = line.find("//")
+        lines.append(line[:idx] if idx >= 0 else line)
+    return "\n".join(lines)
+
+
+manifest_path = sys.argv[1]
+repo_root = os.getcwd()
+
+with open(manifest_path, "r", encoding="utf-8") as handle:
+    manifest_source = handle.read()
+
+match = MIGRATED_LIST_RE.search(manifest_source)
+if match is None:
+    print(f"[{RULE}] could not find const List<String> migratedFiles in {manifest_path}.")
+    sys.exit(2)
+
+migrated_files = PATH_RE.findall(match.group(1))
+if not migrated_files:
+    print(f"[{RULE}] migratedFiles list is empty in {manifest_path}.")
+    sys.exit(2)
+
+violations = []
+for relative_path in migrated_files:
+    path = os.path.join(repo_root, relative_path)
+    if not os.path.exists(path):
+        violations.append((relative_path, 0, "listed migrated file does not exist"))
+        continue
+
+    with open(path, "r", encoding="utf-8") as handle:
+        source = handle.read()
+    code = strip_comments(source)
+    cjk_match = CJK_RE.search(code)
+    if cjk_match is None:
+        continue
+
+    line_number = code.count("\n", 0, cjk_match.start()) + 1
+    lines = code.splitlines()
+    snippet = lines[line_number - 1].strip() if line_number - 1 < len(lines) else ""
+    violations.append((relative_path, line_number, snippet))
+
+if violations:
+    print(f"[{RULE}] migrated files must not contain hardcoded CJK in code.")
+    for relative_path, line_number, detail in violations:
+        if line_number:
+            print(f"{relative_path}:{line_number}: {detail}")
+        else:
+            print(f"{relative_path}: {detail}")
+    sys.exit(1)
+PY
+)"
+  local check_status=$?
+  set -e
+
+  case "$check_status" in
+    0)
+      :
+      ;;
+    1)
+      echo "$output"
+      echo "  -> [$label] forbidden pattern matched."
+      failures=$((failures + 1))
+      ;;
+    *)
+      echo "$output"
+      echo "  -> [$label] migrated CJK check failed with exit code $check_status."
+      failures=$((failures + 1))
+      ;;
+  esac
+}
+
+run_migrated_files_no_hardcoded_cjk_check \
+  "Checking migrated files for hardcoded CJK in code" \
+  "${FLEET_ARCH_MIGRATED_CJK_MANIFEST:-test/i18n/migrated_files_no_hardcoded_cjk_test.dart}"
+
 # ============================================================================
 # 阶段 C Step 3 / Step 4：守住 timing + device pattern 边界 +
 # patterns 全局基础设施依赖禁用。

@@ -76,6 +76,106 @@ void main() {
     tags: ['arch-script'],
   );
 
+  test(
+    'migrated CJK guard flags hardcoded Chinese in migrated probe file',
+    () async {
+      const relativeProbePath =
+          'lib/patterns/device/__arch_probe_hardcoded_cjk.dart';
+      final probe = File(p.join(_repoRoot, relativeProbePath));
+      final tempDir = await Directory.systemTemp.createTemp(
+        'fleet_arch_cjk_manifest_',
+      );
+      try {
+        await probe.writeAsString(
+          "// Probe: migrated CJK guard.\n"
+          "String archProbeTitle() => '新增中文';\n",
+        );
+        final manifest = await _writeCjkManifest(tempDir, relativeProbePath);
+
+        final result = await _runArchScript(
+          environment: _archCjkManifestEnv(manifest.path),
+        );
+        expect(
+          result.exitCode,
+          isNot(0),
+          reason:
+              'arch script must fail when a migrated file contains CJK in code. '
+              'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+        );
+        expect(
+          result.stdout + result.stderr,
+          contains('__arch_probe_hardcoded_cjk.dart'),
+          reason: 'failure output must point at the offending migrated file.',
+        );
+        expect(
+          result.stdout + result.stderr,
+          contains('migrated_files_no_hardcoded_cjk'),
+          reason: 'failure output must name the migrated CJK guard.',
+        );
+      } finally {
+        if (await probe.exists()) {
+          await probe.delete();
+        }
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      }
+
+      final after = await _runArchScript();
+      expect(
+        after.exitCode,
+        0,
+        reason:
+            'after removing probe, arch script must pass again. '
+            'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+      );
+    },
+    tags: ['arch-script'],
+  );
+
+  test('migrated CJK guard ignores Chinese in comments', () async {
+    const relativeProbePath =
+        'lib/patterns/device/__arch_probe_comment_cjk.dart';
+    final probe = File(p.join(_repoRoot, relativeProbePath));
+    final tempDir = await Directory.systemTemp.createTemp(
+      'fleet_arch_cjk_manifest_',
+    );
+    try {
+      await probe.writeAsString(
+        "// Probe: migrated CJK guard ignores 注释中文.\n"
+        "/* 块注释中文也应忽略 */\n"
+        "String archProbeTitle() => 'localizedKey';\n",
+      );
+      final manifest = await _writeCjkManifest(tempDir, relativeProbePath);
+
+      final result = await _runArchScript(
+        environment: _archCjkManifestEnv(manifest.path),
+      );
+      expect(
+        result.exitCode,
+        0,
+        reason:
+            'CJK in comments must not trip the migrated CJK guard. '
+            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
+      );
+    } finally {
+      if (await probe.exists()) {
+        await probe.delete();
+      }
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    }
+    final after = await _runArchScript();
+    expect(
+      after.exitCode,
+      0,
+      reason:
+          'baseline must pass after removing the comment-only CJK probe. '
+          'stdout:\n${after.stdout}\nstderr:\n${after.stderr}',
+    );
+  }, tags: ['arch-script']);
+
   // ==========================================================================
   // 阶段 C Step 3：守住 timing pattern 边界 + patterns 全局基础设施依赖禁用。
   //
@@ -627,7 +727,29 @@ String get _repoRoot {
   return p.normalize(p.join(scriptDir.path, '..', '..'));
 }
 
-Future<ProcessResult> _runArchScript() async {
+Future<File> _writeCjkManifest(
+  Directory directory,
+  String relativeProbePath,
+) async {
+  final manifest = File(p.join(directory.path, 'migrated_manifest.dart'));
+  await manifest.writeAsString(
+    "const List<String> migratedFiles = <String>[\n"
+    "  '$relativeProbePath',\n"
+    "];\n",
+  );
+  return manifest;
+}
+
+Map<String, String> _archCjkManifestEnv(String manifestPath) {
+  return <String, String>{'FLEET_ARCH_MIGRATED_CJK_MANIFEST': manifestPath};
+}
+
+Future<ProcessResult> _runArchScript({Map<String, String>? environment}) async {
   final scriptPath = p.join(_repoRoot, 'tools', 'check_architecture.sh');
-  return Process.run('bash', [scriptPath], workingDirectory: _repoRoot);
+  return Process.run(
+    'bash',
+    [scriptPath],
+    workingDirectory: _repoRoot,
+    environment: environment,
+  );
 }
