@@ -23,13 +23,14 @@ from app import (  # noqa: E402
     RESPONSE_FIELDS,
     VALID_ENTITLEMENT_TIERS,
     VALID_OUTCOMES,
+    AppleServerApiVerifierPlaceholder,
     AppConfig,
     EntitlementStore,
-    FakeAppleVerifier,
     IapVerificationApp,
     IapVerificationRequestHandler,
     RequestValidator,
 )
+from verifier import FakeAppleVerifier  # noqa: E402
 
 
 PRO_TOKEN = "00000000-0000-4000-8000-000000000001"
@@ -50,14 +51,14 @@ class IapVerificationBackendTestCase(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def request(self, method, path, body=None):
+    def request(self, method, path, body=None, app=None):
         data = b""
         headers = {}
         if body is not None:
             data = json.dumps(body, separators=(",", ":")).encode("utf-8")
             headers["content-type"] = "application/json"
             headers["content-length"] = str(len(data))
-        handler = _HandlerHarness(self.app, path, headers, data)
+        handler = _HandlerHarness(app or self.app, path, headers, data)
         IapVerificationRequestHandler._handle(handler, method)
         raw = handler.wfile.getvalue().decode("utf-8")
         return handler.status, json.loads(raw) if raw else {}
@@ -197,6 +198,36 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assert_contract_response(body, "verificationUnavailable", "none")
         self.assertIsNone(self.store.get_entitlement(outage_token))
         self.assert_current_entitlement(outage_token, "noActiveEntitlement", "none")
+
+    def test_from_env_without_apple_credentials_fail_closes_even_for_fake_active_token(self):
+        app_account_token = "00000000-0000-4000-8000-000000000321"
+        db_path = f"{self.temp_dir.name}/from-env.sqlite3"
+        with _patched_env(FLEET_IAP_DB_PATH=db_path):
+            production_app = IapVerificationApp.from_env()
+
+        self.assertIsInstance(production_app.verifier, AppleServerApiVerifierPlaceholder)
+        status, body = self.request(
+            "POST",
+            "/iap/apple/verify-purchase",
+            body=purchase_body(
+                fake_token="fake:pro-active",
+                app_account_token=app_account_token,
+            ),
+            app=production_app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assert_contract_response(body, "verificationUnavailable", "none")
+        self.assertEqual(body["appAccountToken"], app_account_token)
+        self.assertIsNone(production_app.store.get_entitlement(app_account_token))
+
+        status, current = self.request(
+            "GET",
+            f"/iap/apple/current-entitlement?appAccountToken={app_account_token}",
+            app=production_app,
+        )
+        self.assertEqual(status, 200)
+        self.assert_contract_response(current, "noActiveEntitlement", "none")
 
     def test_unknown_product_is_rejected(self):
         status, body = self.request(

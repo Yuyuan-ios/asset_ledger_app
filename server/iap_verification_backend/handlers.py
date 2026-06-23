@@ -19,11 +19,11 @@ from http_helpers import (
 )
 from storage import EntitlementStore
 from verifier import (
+    AppleServerApiVerifierPlaceholder,
     AppleVerificationFailed,
     AppleVerificationUnavailable,
     AppleVerifier,
     EntitlementRecord,
-    FakeAppleVerifier,
     no_active_entitlement_record,
     verification_failed_record,
     verification_unavailable_record,
@@ -46,10 +46,11 @@ class IapVerificationApp:
     @classmethod
     def from_env(cls) -> "IapVerificationApp":
         config = AppConfig.from_env()
+        verifier = build_verifier_from_config(config)
         return cls(
             store=EntitlementStore(config.database_path),
             validator=RequestValidator(config.allowed_products, config.allowed_bundle_id),
-            verifier=FakeAppleVerifier(),
+            verifier=verifier,
             max_request_bytes=config.max_request_bytes,
         )
 
@@ -107,6 +108,14 @@ def last_query_value(query: Mapping[str, List[str]], key: str) -> Optional[str]:
     if not values:
         return None
     return values[-1]
+
+
+def build_verifier_from_config(config: AppConfig) -> AppleVerifier:
+    # IAP-S2 owns the real Apple verifier wiring. Until then every production
+    # environment must fail-closed, even if Apple credential placeholders exist.
+    if config.apple_credentials.is_complete:
+        return AppleServerApiVerifierPlaceholder()
+    return AppleServerApiVerifierPlaceholder()
 
 
 class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
