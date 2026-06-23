@@ -27,6 +27,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabDevice => 'Devices';
 
   @override
+  String get commonCreateAction => '+ New';
+
+  @override
+  String get timingSectionHeaderTitle => 'Timing';
+
+  @override
   String get appUpdateActionUpdateNow => 'Update now';
 
   @override

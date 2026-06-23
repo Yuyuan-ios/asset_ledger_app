@@ -6,6 +6,14 @@
   "tabAccount": "Accounts",
   "tabMaintenance": "Service",
   "tabDevice": "Devices",
+  "commonCreateAction": "+ New",
+  "@commonCreateAction": {
+    "description": "Common: add button in list or section headers"
+  },
+  "timingSectionHeaderTitle": "Timing",
+  "@timingSectionHeaderTitle": {
+    "description": "Timing module: home header title"
+  },
   "appUpdateActionUpdateNow": "Update now",
   "@appUpdateActionUpdateNow": {
     "description": "App update dialog: primary action that opens the update flow"

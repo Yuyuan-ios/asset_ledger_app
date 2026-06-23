@@ -27,6 +27,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabDevice => '设备';
 
   @override
+  String get commonCreateAction => '+ 新建';
+
+  @override
+  String get timingSectionHeaderTitle => '计时';
+
+  @override
   String get appUpdateActionUpdateNow => '立即更新';
 
   @override

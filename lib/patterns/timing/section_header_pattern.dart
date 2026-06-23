@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
 class SectionHeader extends StatelessWidget {
-  final String title;
+  final String? title;
   final VoidCallback? onAdd;
   final double horizontalPadding;
   final double bottomPadding;
@@ -17,7 +18,7 @@ class SectionHeader extends StatelessWidget {
 
   const SectionHeader({
     super.key,
-    this.title = '计时',
+    this.title,
     this.onAdd,
     this.horizontalPadding = TimingTokens.headerHorizontalPadding,
     this.bottomPadding = TimingTokens.headerBottomPadding,
@@ -32,6 +33,8 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final effectiveTitle = title ?? l10n.timingSectionHeaderTitle;
     final titleStyle = AppTypography.pageTitle(
       context,
       fontSize: titleSize,
@@ -56,7 +59,7 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: titleStyle),
+          Text(effectiveTitle, style: titleStyle),
           SizedBox(
             height: addButtonHeight,
             child: FilledButton(
@@ -70,7 +73,7 @@ class SectionHeader extends StatelessWidget {
                 ),
                 textStyle: addButtonStyle,
               ),
-              child: const Text('+ 新建'),
+              child: Text(l10n.commonCreateAction),
             ),
           ),
         ],

@@ -134,6 +134,18 @@ abstract class AppLocalizations {
   /// **'设备'**
   String get tabDevice;
 
+  /// 通用:列表/分区标题栏中的新增按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'+ 新建'**
+  String get commonCreateAction;
+
+  /// 计时模块:计时首页顶部标题
+  ///
+  /// In zh, this message translates to:
+  /// **'计时'**
+  String get timingSectionHeaderTitle;
+
   /// App 版本更新弹窗:立即跳转更新的主按钮文案
   ///
   /// In zh, this message translates to:

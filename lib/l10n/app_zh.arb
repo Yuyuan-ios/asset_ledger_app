@@ -24,6 +24,14 @@
   "@tabDevice": {
     "description": "底部导航:设备管理入口"
   },
+  "commonCreateAction": "+ 新建",
+  "@commonCreateAction": {
+    "description": "通用:列表/分区标题栏中的新增按钮"
+  },
+  "timingSectionHeaderTitle": "计时",
+  "@timingSectionHeaderTitle": {
+    "description": "计时模块:计时首页顶部标题"
+  },
   "appUpdateActionUpdateNow": "立即更新",
   "@appUpdateActionUpdateNow": {
     "description": "App 版本更新弹窗:立即跳转更新的主按钮文案"
