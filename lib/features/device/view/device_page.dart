@@ -21,17 +21,15 @@ import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../../features/timing/state/timing_store.dart';
-import '../../../patterns/device/device_page_header_search_pattern.dart';
-import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/pro_gate.dart';
-import '../../../components/feedback/store_error_banner.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../domain/services/device_business_ledger.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
 import 'lifecycle_amount_sheet.dart';
 import 'device_page_actions.dart';
+import 'device_page_content.dart';
 import 'device_page_sections.dart';
 import 'device_account_center_page.dart';
 import 'device_account_status.dart';
@@ -1095,74 +1093,46 @@ class _DevicePageState extends State<DevicePage> {
       settledProjectIds: accountStore.settledProjectIds,
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = PhonePageLayout.resolveHorizontalPadding(
-              constraints.maxWidth,
-              basePadding: DeviceTokens.pageHorizontalPadding,
-            );
-
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ListView(
-                padding: const EdgeInsets.only(
-                  top: 0,
-                  bottom: DeviceTokens.pageBottomPadding,
-                ),
-                children: [
-                  const DevicePageHeaderSearch(),
-                  if (store.failure != null) ...[
-                    const SizedBox(height: DeviceTokens.loadErrorTopGap),
-                    StoreErrorBanner(
-                      message: storeErrorMessage(
-                        store,
-                        action: l10n.deviceReadAction,
-                      )!,
-                      onRetry: store.loading ? null : () => _retryLoad(),
-                    ),
-                  ],
-                  ...buildDevicePageSections(
-                    l10n: l10n,
-                    devices: activeDevices,
-                    handlers: DevicePageSectionHandlers(
-                      onOpenUpgradePage: _openUpgradePage,
-                      onOpenAccountCenter: _openAccountCenter,
-                      accountCenterSubtitle: deviceAccountCenterSubtitle(
-                        l10n: l10n,
-                        session: _loginSession,
-                        subscription: _subscriptionController.snapshot,
-                      ),
-                      onOpenAddDeviceFlow: _openAddDeviceFlow,
-                      onOpenRateApp: _openRateApp,
-                      onOpenTermsPage: _openTermsPage,
-                      onOpenPrivacyPage: _openPrivacyPage,
-                      onOpenContact: _openContactSupport,
-                      onDeviceTap: (d) => _openDeviceDialog(device: d),
-                      onDeviceLongPress: (d) async {
-                        await DevicePageActions.deactivateDevice(
-                          context: context,
-                          store: context.read<DeviceStore>(),
-                          device: d,
-                          isMounted: () => mounted,
-                          toast: _toast,
-                        );
-                      },
-                      businessLedgers: businessLedgers,
-                      lifecyclePaybackAmountsFor: (ledger) =>
-                          _lifecyclePaybackAmountsFor(ledger, devicesById),
-                      onOpenLifecyclePayback: _openLifecyclePaybackSheet,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+    final sections = buildDevicePageSections(
+      l10n: l10n,
+      devices: activeDevices,
+      handlers: DevicePageSectionHandlers(
+        onOpenUpgradePage: _openUpgradePage,
+        onOpenAccountCenter: _openAccountCenter,
+        accountCenterSubtitle: deviceAccountCenterSubtitle(
+          l10n: l10n,
+          session: _loginSession,
+          subscription: _subscriptionController.snapshot,
         ),
+        onOpenAddDeviceFlow: _openAddDeviceFlow,
+        onOpenRateApp: _openRateApp,
+        onOpenTermsPage: _openTermsPage,
+        onOpenPrivacyPage: _openPrivacyPage,
+        onOpenContact: _openContactSupport,
+        onDeviceTap: (d) => _openDeviceDialog(device: d),
+        onDeviceLongPress: (d) async {
+          await DevicePageActions.deactivateDevice(
+            context: context,
+            store: context.read<DeviceStore>(),
+            device: d,
+            isMounted: () => mounted,
+            toast: _toast,
+          );
+        },
+        businessLedgers: businessLedgers,
+        lifecyclePaybackAmountsFor: (ledger) =>
+            _lifecyclePaybackAmountsFor(ledger, devicesById),
+        onOpenLifecyclePayback: _openLifecyclePaybackSheet,
       ),
+    );
+
+    return DevicePageContent(
+      errorMessage: store.failure == null
+          ? null
+          : storeErrorMessage(store, action: l10n.deviceReadAction)!,
+      isLoading: store.loading,
+      onRetryLoad: _retryLoad,
+      sections: sections,
     );
   }
 }
