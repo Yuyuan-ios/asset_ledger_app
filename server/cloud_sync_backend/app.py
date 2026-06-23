@@ -26,6 +26,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from contextlib import closing
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
@@ -149,6 +150,24 @@ def header_value(headers: Mapping[str, Any], name: str) -> Optional[str]:
                 raw = value
                 break
     return non_empty_string(raw)
+
+
+def request_id_from_headers(headers: Mapping[str, Any]) -> str:
+    return header_value(headers, "X-Request-Id") or str(uuid.uuid4())
+
+
+def log_internal_error(request_id: str, method: str, path: Optional[str]) -> None:
+    fields: Dict[str, Any] = {
+        "event": "internal_error",
+        "method": method,
+        "request_id": request_id,
+    }
+    if path is not None:
+        fields["path"] = path
+    LOGGER.exception(
+        "sync_request_error %s",
+        json.dumps(fields, sort_keys=True, separators=(",", ":")),
+    )
 
 
 class VersionPolicySource:
@@ -1027,6 +1046,8 @@ class SyncRequestHandler(http.server.BaseHTTPRequestHandler):
         return self.server.app  # type: ignore[attr-defined]
 
     def _handle(self, method: str) -> None:
+        request_id = request_id_from_headers(self.headers)
+        path: Optional[str] = None
         try:
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path.rstrip("/") or "/"
@@ -1060,7 +1081,7 @@ class SyncRequestHandler(http.server.BaseHTTPRequestHandler):
         except HttpError as exc:
             error_response(self, exc)
         except Exception:
-            print("internal_error while handling cloud sync request", flush=True)
+            log_internal_error(request_id, method, path)
             error_response(self, HttpError(500, "internal_error", "internal server error"))
 
 

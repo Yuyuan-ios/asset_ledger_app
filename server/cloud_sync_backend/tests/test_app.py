@@ -240,6 +240,33 @@ class SyncBackendTestCase(unittest.TestCase):
 
         self.assertEqual(calls, ["logging", "build", "serve"])
 
+    def test_internal_error_logs_request_id_without_sensitive_fields(self):
+        payload = payload_body("secret-sync-payload")
+        change = make_change(mark="ignored", payload=payload)
+        self.app.push_changes = mock.Mock(side_effect=RuntimeError("simulated failure"))
+
+        with self.assertLogs("fleet_ledger.cloud_sync", level="ERROR") as logs:
+            status, body = self.request(
+                "POST",
+                "/sync/changes",
+                token="token-a",
+                body={"changes": [change]},
+                headers={"X-Request-Id": "rid-sync-123"},
+            )
+
+        self.assertEqual(status, 500)
+        self.assertEqual(body["error"]["code"], "internal_error")
+        output = "\n".join(logs.output)
+        self.assertIn("sync_request_error", output)
+        self.assertIn('"event":"internal_error"', output)
+        self.assertIn('"request_id":"rid-sync-123"', output)
+        self.assertIn('"method":"POST"', output)
+        self.assertIn('"path":"/sync/changes"', output)
+        self.assertNotIn("token-a", output)
+        self.assertNotIn("authorization", output.lower())
+        self.assertNotIn("payload_json", output)
+        self.assertNotIn("secret-sync-payload", output)
+
     def test_rejects_missing_and_wrong_auth(self):
         status, body = self.request("GET", "/sync/changes?since=0")
         self.assertEqual(status, 401)
