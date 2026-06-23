@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FleetLedger cloud sync backend.
+"""FleetLedger cloud sync backend bootstrap and compatibility facade.
 
 Minimal production path:
   Flutter App -> HTTPS /sync/changes -> this service -> SQLite change log
@@ -11,1089 +11,114 @@ backup service and does not expose any object-storage credentials to clients.
 
 from __future__ import annotations
 
-import base64
-import dataclasses
-import datetime as dt
-import hashlib
-import hmac
-import http.server
-import json
-import logging
-import os
-import sqlite3
-import threading
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-import uuid
-from contextlib import closing
-from typing import Any, Callable, Dict, List, Mapping, Optional
-
-
-DEFAULT_PORT = 8009
-MAX_REQUEST_BYTES = 4 * 1024 * 1024
-MAX_BATCH_CHANGES = 100
-DEFAULT_PULL_LIMIT = 100
-MAX_PULL_LIMIT = 500
-DEFAULT_RATE_LIMIT_MAX_REQUESTS = 120
-DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60
-VALID_OPERATIONS = {"create", "update", "delete"}
-VERSION_POLICY_PATH_ENV = "FLEET_SYNC_VERSION_POLICY_PATH"
-
-LOGGER = logging.getLogger("fleet_ledger.cloud_sync")
-
-
-def configure_logging() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-
-class HttpError(Exception):
-    def __init__(self, status: int, code: str, message: str):
-        super().__init__(message)
-        self.status = status
-        self.code = code
-        self.message = message
-
-
-def json_response(handler: http.server.BaseHTTPRequestHandler, status: int, body: Mapping[str, Any]) -> None:
-    payload = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("content-type", "application/json; charset=utf-8")
-    handler.send_header("content-length", str(len(payload)))
-    handler.end_headers()
-    handler.wfile.write(payload)
-
-
-def error_response(handler: http.server.BaseHTTPRequestHandler, error: HttpError) -> None:
-    json_response(
-        handler,
-        error.status,
-        {"error": {"code": error.code, "message": error.message}},
-    )
-
-
-def read_json_body(handler: http.server.BaseHTTPRequestHandler, max_bytes: int) -> Dict[str, Any]:
-    raw_length = handler.headers.get("content-length")
-    if not raw_length:
-        raise HttpError(411, "content_length_required", "Content-Length is required")
-    try:
-        length = int(raw_length)
-    except ValueError as exc:
-        raise HttpError(400, "invalid_content_length", "Content-Length is invalid") from exc
-    if length < 0:
-        raise HttpError(400, "invalid_content_length", "Content-Length is invalid")
-    if length > max_bytes:
-        raise HttpError(413, "request_too_large", "request body exceeds allowed size")
-    body = handler.rfile.read(length)
-    if len(body) > max_bytes:
-        raise HttpError(413, "request_too_large", "request body exceeds allowed size")
-    try:
-        decoded = json.loads(body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HttpError(400, "invalid_json", "request body must be valid JSON") from exc
-    if not isinstance(decoded, dict):
-        raise HttpError(400, "invalid_json", "request body must be a JSON object")
-    return decoded
-
-
-def base64url_decode(value: str) -> bytes:
-    padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
-
-
-def base64url_encode(value: bytes) -> str:
-    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
-
-
-def env_int(name: str, default: int, *, minimum: int = 1) -> int:
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be an integer") from exc
-    if value < minimum:
-        raise ValueError(f"{name} must be >= {minimum}")
-    return value
-
-
-def non_empty_string(value: Any) -> Optional[str]:
-    if not isinstance(value, str):
-        return None
-    stripped = value.strip()
-    return stripped or None
-
-
-def parse_semver(value: Any) -> Optional[tuple[int, int, int]]:
-    raw = non_empty_string(value)
-    if raw is None:
-        return None
-    core = raw.split("+", 1)[0].split("-", 1)[0]
-    parts = core.split(".")
-    if len(parts) != 3:
-        return None
-    if any(not part.isdigit() for part in parts):
-        return None
-    return (int(parts[0]), int(parts[1]), int(parts[2]))
-
-
-def header_value(headers: Mapping[str, Any], name: str) -> Optional[str]:
-    raw = headers.get(name)
-    if raw is None:
-        raw = headers.get(name.lower())
-    if raw is None:
-        target = name.lower()
-        for key, value in headers.items():
-            if str(key).lower() == target:
-                raw = value
-                break
-    return non_empty_string(raw)
-
-
-def request_id_from_headers(headers: Mapping[str, Any]) -> str:
-    return header_value(headers, "X-Request-Id") or str(uuid.uuid4())
-
-
-def log_internal_error(request_id: str, method: str, path: Optional[str]) -> None:
-    fields: Dict[str, Any] = {
-        "event": "internal_error",
-        "method": method,
-        "request_id": request_id,
-    }
-    if path is not None:
-        fields["path"] = path
-    LOGGER.exception(
-        "sync_request_error %s",
-        json.dumps(fields, sort_keys=True, separators=(",", ":")),
-    )
-
-
-class VersionPolicySource:
-    def __init__(self, env_name: str):
-        self.env_name = env_name
-        self._cached_path: Optional[str] = None
-        self._cached_mtime: Optional[float] = None
-        self._cached_policy: Optional[Dict[str, Any]] = None
-
-    def load_policy(self) -> Optional[Dict[str, Any]]:
-        path = non_empty_string(os.environ.get(self.env_name))
-        if path is None:
-            return None
-
-        try:
-            mtime = os.path.getmtime(path)
-        except OSError:
-            return None
-
-        if self._cached_path == path and self._cached_mtime == mtime:
-            return self._cached_policy
-
-        try:
-            with open(path, "r", encoding="utf-8") as policy_file:
-                decoded = json.load(policy_file)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            decoded = None
-
-        policy = decoded if isinstance(decoded, dict) else None
-        self._cached_path = path
-        self._cached_mtime = mtime
-        self._cached_policy = policy
-        return policy
-
-
-class VersionUpgradeGate:
-    def __init__(self, policy_source: VersionPolicySource):
-        self.policy_source = policy_source
-
-    def enforce(self, headers: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
-        current_version = header_value(headers, "X-App-Version")
-        platform = header_value(headers, "X-Platform")
-        if current_version is None or platform is None:
-            return None
-
-        policy = self.policy_source.load_policy()
-        platform_policy = policy.get(platform) if isinstance(policy, dict) else None
-        if not isinstance(platform_policy, dict):
-            return None
-
-        min_version = non_empty_string(platform_policy.get("minSupportedVersion"))
-        current_semver = parse_semver(current_version)
-        min_semver = parse_semver(min_version)
-        if current_semver is None or min_semver is None:
-            return None
-
-        if current_semver >= min_semver:
-            return None
-
-        # The server does not know Android channel here, so 426 returns the
-        # platform landing URL; channel-specific store URL selection stays client-side.
-        return {
-            "code": "upgrade_required",
-            "updateUrl": non_empty_string(platform_policy.get("updateUrl")) or "",
-            "title": non_empty_string(platform_policy.get("title")),
-            "content": non_empty_string(platform_policy.get("content")),
-        }
-
-
-VERSION_UPGRADE_GATE = VersionUpgradeGate(VersionPolicySource(VERSION_POLICY_PATH_ENV))
-
-
-class Authenticator:
-    """Validates app bearer tokens and returns the account id.
-
-    The sync service intentionally reuses the cloud-backup auth environment
-    names so operators can point both services at the same app-login token
-    issuer. Production should use HS256 JWT validation or HTTPS token
-    introspection. Dev tokens are for local smoke tests only.
-    """
-
-    def __init__(
-        self,
-        hs256_secret: Optional[str] = None,
-        introspector: Optional[Callable[[str], str]] = None,
-        dev_tokens: Optional[Mapping[str, str]] = None,
-        jwt_issuer: Optional[str] = None,
-        jwt_audience: Optional[str] = None,
-        leeway_seconds: int = 60,
-    ):
-        self.hs256_secret = hs256_secret
-        self.introspector = introspector
-        self.dev_tokens = dict(dev_tokens or {})
-        self.jwt_issuer = jwt_issuer
-        self.jwt_audience = jwt_audience
-        self.leeway_seconds = leeway_seconds
-        if not self.hs256_secret and not self.introspector and not self.dev_tokens:
-            raise ValueError(
-                "Configure FLEET_BACKUP_AUTH_HS256_SECRET, "
-                "FLEET_BACKUP_AUTH_INTROSPECTION_URL, or "
-                "FLEET_BACKUP_DEV_TOKENS_JSON; cloud sync must not run "
-                "without authentication."
-            )
-
-    @classmethod
-    def from_env(cls) -> "Authenticator":
-        raw_dev_tokens = (
-            os.environ.get("FLEET_SYNC_DEV_TOKENS_JSON", "").strip()
-            or os.environ.get("FLEET_BACKUP_DEV_TOKENS_JSON", "").strip()
-        )
-        dev_tokens: Dict[str, str] = {}
-        if raw_dev_tokens:
-            decoded = json.loads(raw_dev_tokens)
-            if not isinstance(decoded, dict):
-                raise ValueError("FLEET_BACKUP_DEV_TOKENS_JSON must be an object")
-            dev_tokens = {str(token): str(account_id) for token, account_id in decoded.items()}
-        secret = (
-            os.environ.get("FLEET_BACKUP_AUTH_HS256_SECRET", "").strip()
-            or os.environ.get("FLEET_SYNC_AUTH_HS256_SECRET", "").strip()
-            or None
-        )
-        introspection_url = (
-            os.environ.get("FLEET_BACKUP_AUTH_INTROSPECTION_URL", "").strip()
-            or os.environ.get("FLEET_SYNC_AUTH_INTROSPECTION_URL", "").strip()
-        )
-        bearer_token = (
-            os.environ.get("FLEET_BACKUP_AUTH_INTROSPECTION_BEARER_TOKEN", "").strip()
-            or os.environ.get("FLEET_SYNC_AUTH_INTROSPECTION_BEARER_TOKEN", "").strip()
-            or None
-        )
-        introspector = None
-        if introspection_url:
-            introspector = HttpTokenIntrospector(introspection_url, bearer_token=bearer_token)
-        return cls(
-            hs256_secret=secret,
-            introspector=introspector,
-            dev_tokens=dev_tokens,
-            jwt_issuer=os.environ.get("FLEET_BACKUP_AUTH_JWT_ISSUER", "").strip()
-            or os.environ.get("FLEET_SYNC_AUTH_JWT_ISSUER", "").strip()
-            or None,
-            jwt_audience=os.environ.get("FLEET_BACKUP_AUTH_JWT_AUDIENCE", "").strip()
-            or os.environ.get("FLEET_SYNC_AUTH_JWT_AUDIENCE", "").strip()
-            or None,
-        )
-
-    def authenticate(self, authorization_header: Optional[str]) -> str:
-        if not authorization_header or not authorization_header.startswith("Bearer "):
-            raise HttpError(401, "unauthorized", "Bearer token is required")
-        token = authorization_header[len("Bearer ") :].strip()
-        if not token:
-            raise HttpError(401, "unauthorized", "Bearer token is required")
-        if token in self.dev_tokens:
-            return self.dev_tokens[token]
-        if self.hs256_secret and len(token.split(".")) == 3:
-            try:
-                return self._authenticate_hs256_jwt(token)
-            except HttpError:
-                if self.introspector is None:
-                    raise
-        if self.introspector is not None:
-            return self.introspector(token)
-        if self.hs256_secret:
-            return self._authenticate_hs256_jwt(token)
-        raise HttpError(401, "unauthorized", "token is not accepted")
-
-    def _authenticate_hs256_jwt(self, token: str) -> str:
-        parts = token.split(".")
-        if len(parts) != 3:
-            raise HttpError(401, "invalid_token", "token must be an HS256 JWT")
-        try:
-            header_bytes = base64url_decode(parts[0])
-            payload_bytes = base64url_decode(parts[1])
-            signature = base64url_decode(parts[2])
-            header = json.loads(header_bytes.decode("utf-8"))
-            payload = json.loads(payload_bytes.decode("utf-8"))
-        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise HttpError(401, "invalid_token", "token payload is invalid") from exc
-        if header.get("alg") != "HS256":
-            raise HttpError(401, "invalid_token", "token alg must be HS256")
-        signing_input = f"{parts[0]}.{parts[1]}".encode("ascii")
-        expected = hmac.new(
-            self.hs256_secret.encode("utf-8"),
-            signing_input,
-            hashlib.sha256,
-        ).digest()
-        if not hmac.compare_digest(signature, expected):
-            raise HttpError(401, "invalid_token", "token signature is invalid")
-        now = int(time.time())
-        exp = payload.get("exp")
-        if isinstance(exp, int) and exp + self.leeway_seconds < now:
-            raise HttpError(401, "token_expired", "token is expired")
-        if self.jwt_issuer is not None and payload.get("iss") != self.jwt_issuer:
-            raise HttpError(401, "invalid_token", "token issuer is invalid")
-        if self.jwt_audience is not None and not audience_matches(payload.get("aud"), self.jwt_audience):
-            raise HttpError(401, "invalid_token", "token audience is invalid")
-        account_id = payload.get("sub") or payload.get("user_id") or payload.get("phone")
-        if not isinstance(account_id, str) or not account_id.strip():
-            raise HttpError(401, "invalid_token", "token is missing account id")
-        return account_id.strip()
-
-
-class HttpTokenIntrospector:
-    """Validates opaque login tokens through the account service."""
-
-    def __init__(self, url: str, bearer_token: Optional[str] = None, timeout: int = 5):
-        if not url.startswith("https://"):
-            raise ValueError("FLEET_BACKUP_AUTH_INTROSPECTION_URL must be https")
-        self.url = url
-        self.bearer_token = bearer_token
-        self.timeout = timeout
-
-    def __call__(self, token: str) -> str:
-        body = json.dumps({"token": token}, separators=(",", ":")).encode("utf-8")
-        request = urllib.request.Request(
-            self.url,
-            data=body,
-            method="POST",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-        )
-        if self.bearer_token:
-            request.add_header("Authorization", f"Bearer {self.bearer_token}")
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                raw = response.read()
-        except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403):
-                raise HttpError(401, "invalid_token", "token is not accepted") from exc
-            raise HttpError(503, "auth_service_unavailable", "auth service is temporarily unavailable") from exc
-        except urllib.error.URLError as exc:
-            raise HttpError(503, "auth_service_unavailable", "auth service is temporarily unavailable") from exc
-        try:
-            decoded = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise HttpError(503, "auth_service_unavailable", "auth service returned invalid JSON") from exc
-        if not isinstance(decoded, dict):
-            raise HttpError(503, "auth_service_unavailable", "auth service response must be an object")
-        active = decoded.get("active")
-        ok = decoded.get("ok")
-        if active is False or ok is False:
-            raise HttpError(401, "invalid_token", "token is not accepted")
-        if active is not True and ok is not True:
-            raise HttpError(401, "invalid_token", "auth service did not accept token")
-        account_id = extract_account_id(decoded)
-        if account_id is None:
-            raise HttpError(401, "invalid_token", "auth service response is missing account id")
-        return account_id
-
-
-def audience_matches(raw_audience: Any, expected: str) -> bool:
-    if isinstance(raw_audience, str):
-        return raw_audience == expected
-    if isinstance(raw_audience, list):
-        return expected in [value for value in raw_audience if isinstance(value, str)]
-    return False
-
-
-def extract_account_id(body: Mapping[str, Any]) -> Optional[str]:
-    for key in ("sub", "user_id", "phone"):
-        value = body.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    user = body.get("user")
-    if isinstance(user, Mapping):
-        for key in ("id", "user_id", "phone"):
-            value = user.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-    return None
-
-
-class SlidingWindowRateLimiter:
-    def __init__(
-        self,
-        max_requests: int = DEFAULT_RATE_LIMIT_MAX_REQUESTS,
-        window_seconds: int = DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
-    ):
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
-        self._lock = threading.Lock()
-        self._requests: Dict[str, List[float]] = {}
-
-    def check(self, account_id: Optional[str]) -> None:
-        bucket = (
-            account_id.strip()
-            if isinstance(account_id, str) and account_id.strip()
-            else "anonymous"
-        )
-        now = time.time()
-        cutoff = now - self.window_seconds
-        with self._lock:
-            recent = [
-                value
-                for value in self._requests.get(bucket, [])
-                if value >= cutoff
-            ]
-            if len(recent) >= self.max_requests:
-                self._requests[bucket] = recent
-                raise HttpError(429, "rate_limited", "too many sync requests")
-            recent.append(now)
-            self._requests[bucket] = recent
-
-
-@dataclasses.dataclass(frozen=True)
-class IncomingChange:
-    entity_type: str
-    entity_id: str
-    operation: str
-    base_version: int
-    payload_json: str
-    payload_hash: str
-    origin_device_id: Optional[str] = None
-
-    @property
-    def deleted(self) -> int:
-        return 1 if self.operation == "delete" else 0
-
-    @property
-    def entity(self) -> Dict[str, str]:
-        return {"entity_type": self.entity_type, "entity_id": self.entity_id}
-
-
-class SyncStore:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        parent = os.path.dirname(os.path.abspath(db_path))
-        if parent:
-            os.makedirs(parent, exist_ok=True)
-        self._init_schema()
-
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
-
-    def _init_schema(self) -> None:
-        with closing(self._connect()) as conn:
-            with conn:
-                conn.execute("PRAGMA foreign_keys = ON")
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS sync_changes (
-                      account_id TEXT NOT NULL,
-                      server_seq INTEGER NOT NULL,
-                      entity_type TEXT NOT NULL,
-                      entity_id TEXT NOT NULL,
-                      base_version INTEGER NOT NULL,
-                      new_version INTEGER NOT NULL,
-                      payload_json TEXT NOT NULL,
-                      payload_hash TEXT NOT NULL,
-                      deleted INTEGER NOT NULL,
-                      origin_device_id TEXT,
-                      server_ts TEXT NOT NULL,
-                      PRIMARY KEY(account_id, server_seq)
-                    )
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_sync_changes_entity_head
-                    ON sync_changes(account_id, entity_type, entity_id, new_version DESC)
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_sync_changes_pull
-                    ON sync_changes(account_id, server_seq)
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_changes_idempotency
-                    ON sync_changes(account_id, entity_type, entity_id, payload_hash)
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS sync_devices (
-                      account_id TEXT NOT NULL,
-                      device_id TEXT NOT NULL,
-                      name TEXT NOT NULL,
-                      last_seen TEXT NOT NULL,
-                      PRIMARY KEY(account_id, device_id)
-                    )
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS sync_entity_heads (
-                      account_id TEXT NOT NULL,
-                      entity_type TEXT NOT NULL,
-                      entity_id TEXT NOT NULL,
-                      version INTEGER NOT NULL,
-                      deleted INTEGER NOT NULL,
-                      payload_hash TEXT NOT NULL,
-                      server_seq INTEGER NOT NULL,
-                      updated_at TEXT NOT NULL,
-                      PRIMARY KEY(account_id, entity_type, entity_id),
-                      FOREIGN KEY(account_id, server_seq)
-                        REFERENCES sync_changes(account_id, server_seq)
-                    )
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_sync_entity_heads_account
-                    ON sync_entity_heads(account_id, entity_type, entity_id)
-                    """
-                )
-
-    def push_changes(self, account_id: str, changes: List[IncomingChange]) -> Dict[str, List[Dict[str, Any]]]:
-        accepted: List[Dict[str, Any]] = []
-        conflicts: List[Dict[str, Any]] = []
-        conn = self._connect()
-        try:
-            conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute("BEGIN IMMEDIATE")
-            for change in changes:
-                existing = conn.execute(
-                    """
-                    SELECT server_seq, new_version
-                    FROM sync_changes
-                    WHERE account_id = ?
-                      AND entity_type = ?
-                      AND entity_id = ?
-                      AND payload_hash = ?
-                    """,
-                    (account_id, change.entity_type, change.entity_id, change.payload_hash),
-                ).fetchone()
-                if existing is not None:
-                    accepted.append(
-                        {
-                            "entity": change.entity,
-                            "server_seq": int(existing["server_seq"]),
-                            "new_version": int(existing["new_version"]),
-                        }
-                    )
-                    continue
-
-                head = conn.execute(
-                    """
-                    SELECT version
-                    FROM sync_entity_heads
-                    WHERE account_id = ? AND entity_type = ? AND entity_id = ?
-                    """,
-                    (account_id, change.entity_type, change.entity_id),
-                ).fetchone()
-                current_version = int(head["version"]) if head is not None else 0
-                if change.base_version != current_version:
-                    conflicts.append(
-                        {
-                            "entity": change.entity,
-                            "server_version": current_version,
-                        }
-                    )
-                    continue
-
-                server_seq = int(
-                    conn.execute(
-                        "SELECT COALESCE(MAX(server_seq), 0) + 1 AS next_seq FROM sync_changes WHERE account_id = ?",
-                        (account_id,),
-                    ).fetchone()["next_seq"]
-                )
-                new_version = current_version + 1
-                server_ts = utc_now_iso()
-                conn.execute(
-                    """
-                    INSERT INTO sync_changes (
-                      account_id, server_seq, entity_type, entity_id, base_version,
-                      new_version, payload_json, payload_hash, deleted,
-                      origin_device_id, server_ts
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        account_id,
-                        server_seq,
-                        change.entity_type,
-                        change.entity_id,
-                        change.base_version,
-                        new_version,
-                        change.payload_json,
-                        change.payload_hash,
-                        change.deleted,
-                        change.origin_device_id,
-                        server_ts,
-                    ),
-                )
-                conn.execute(
-                    """
-                    INSERT INTO sync_entity_heads (
-                      account_id, entity_type, entity_id, version, deleted,
-                      payload_hash, server_seq, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(account_id, entity_type, entity_id) DO UPDATE SET
-                      version = excluded.version,
-                      deleted = excluded.deleted,
-                      payload_hash = excluded.payload_hash,
-                      server_seq = excluded.server_seq,
-                      updated_at = excluded.updated_at
-                    """,
-                    (
-                        account_id,
-                        change.entity_type,
-                        change.entity_id,
-                        new_version,
-                        change.deleted,
-                        change.payload_hash,
-                        server_seq,
-                        server_ts,
-                    ),
-                )
-                accepted.append(
-                    {
-                        "entity": change.entity,
-                        "server_seq": server_seq,
-                        "new_version": new_version,
-                    }
-                )
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
-        return {"accepted": accepted, "conflicts": conflicts}
-
-    def pull_changes(self, account_id: str, since: int, limit: int) -> Dict[str, Any]:
-        with closing(self._connect()) as conn:
-            with conn:
-                rows = conn.execute(
-                    """
-                    SELECT *
-                    FROM sync_changes
-                    WHERE account_id = ? AND server_seq > ?
-                    ORDER BY server_seq ASC
-                    LIMIT ?
-                    """,
-                    (account_id, since, limit),
-                ).fetchall()
-        changes = [change_row_to_json(row) for row in rows]
-        next_cursor = max((int(row["server_seq"]) for row in rows), default=since)
-        return {"changes": changes, "next_cursor": next_cursor}
-
-    def register_device(self, account_id: str, device_id: str, name: str) -> Dict[str, str]:
-        last_seen = utc_now_iso()
-        with closing(self._connect()) as conn:
-            with conn:
-                conn.execute(
-                    """
-                    INSERT INTO sync_devices (account_id, device_id, name, last_seen)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT(account_id, device_id) DO UPDATE SET
-                      name = excluded.name,
-                      last_seen = excluded.last_seen
-                    """,
-                    (account_id, device_id, name, last_seen),
-                )
-        return {"device_id": device_id, "name": name, "last_seen": last_seen}
-
-    def get_head(self, account_id: str, entity_type: str, entity_id: str) -> Optional[Dict[str, Any]]:
-        with closing(self._connect()) as conn:
-            with conn:
-                row = conn.execute(
-                    """
-                    SELECT *
-                    FROM sync_entity_heads
-                    WHERE account_id = ? AND entity_type = ? AND entity_id = ?
-                    """,
-                    (account_id, entity_type, entity_id),
-                ).fetchone()
-        return dict(row) if row is not None else None
-
-    def get_device(self, account_id: str, device_id: str) -> Optional[Dict[str, Any]]:
-        with closing(self._connect()) as conn:
-            with conn:
-                row = conn.execute(
-                    """
-                    SELECT *
-                    FROM sync_devices
-                    WHERE account_id = ? AND device_id = ?
-                    """,
-                    (account_id, device_id),
-                ).fetchone()
-        return dict(row) if row is not None else None
-
-    def count_changes(self, account_id: str) -> int:
-        with closing(self._connect()) as conn:
-            with conn:
-                row = conn.execute(
-                    "SELECT COUNT(*) AS count FROM sync_changes WHERE account_id = ?",
-                    (account_id,),
-                ).fetchone()
-        return int(row["count"])
-
-
-def change_row_to_json(row: sqlite3.Row) -> Dict[str, Any]:
-    return {
-        "server_seq": int(row["server_seq"]),
-        "entity_type": row["entity_type"],
-        "entity_id": row["entity_id"],
-        "base_version": int(row["base_version"]),
-        "new_version": int(row["new_version"]),
-        "payload_json": row["payload_json"],
-        "payload_hash": row["payload_hash"],
-        "deleted": bool(row["deleted"]),
-        "origin_device_id": row["origin_device_id"],
-        "server_ts": row["server_ts"],
-    }
-
-
-@dataclasses.dataclass(frozen=True)
-class AppConfig:
-    host: str
-    port: int
-    database_path: str
-    max_request_bytes: int
-    default_pull_limit: int
-    max_pull_limit: int
-    rate_limit_max_requests: int
-    rate_limit_window_seconds: int
-
-    @classmethod
-    def from_env(cls) -> "AppConfig":
-        default_pull_limit = env_int("FLEET_SYNC_DEFAULT_PULL_LIMIT", DEFAULT_PULL_LIMIT)
-        max_pull_limit = env_int("FLEET_SYNC_MAX_PULL_LIMIT", MAX_PULL_LIMIT)
-        if default_pull_limit > max_pull_limit:
-            raise ValueError("FLEET_SYNC_DEFAULT_PULL_LIMIT must be <= FLEET_SYNC_MAX_PULL_LIMIT")
-        return cls(
-            host=os.environ.get("FLEET_SYNC_HOST", "127.0.0.1"),
-            port=env_int("FLEET_SYNC_PORT", DEFAULT_PORT),
-            database_path=os.environ.get("FLEET_SYNC_DB_PATH", "./data/sync.sqlite3"),
-            max_request_bytes=env_int("FLEET_SYNC_MAX_REQUEST_BYTES", MAX_REQUEST_BYTES),
-            default_pull_limit=default_pull_limit,
-            max_pull_limit=max_pull_limit,
-            rate_limit_max_requests=env_int(
-                "FLEET_SYNC_RATE_LIMIT_MAX_REQUESTS",
-                DEFAULT_RATE_LIMIT_MAX_REQUESTS,
-            ),
-            rate_limit_window_seconds=env_int(
-                "FLEET_SYNC_RATE_LIMIT_WINDOW_SECONDS",
-                DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
-            ),
-        )
-
-
-class SyncApp:
-    def __init__(
-        self,
-        store: SyncStore,
-        authenticator: Authenticator,
-        max_request_bytes: int = MAX_REQUEST_BYTES,
-        default_pull_limit: int = DEFAULT_PULL_LIMIT,
-        max_pull_limit: int = MAX_PULL_LIMIT,
-        rate_limiter: Optional[SlidingWindowRateLimiter] = None,
-    ):
-        self.store = store
-        self.authenticator = authenticator
-        self.max_request_bytes = max_request_bytes
-        self.default_pull_limit = default_pull_limit
-        self.max_pull_limit = max_pull_limit
-        self.rate_limiter = rate_limiter or SlidingWindowRateLimiter()
-
-    @classmethod
-    def from_env(cls) -> "SyncApp":
-        config = AppConfig.from_env()
-        return cls(
-            store=SyncStore(config.database_path),
-            authenticator=Authenticator.from_env(),
-            max_request_bytes=config.max_request_bytes,
-            default_pull_limit=config.default_pull_limit,
-            max_pull_limit=config.max_pull_limit,
-            rate_limiter=SlidingWindowRateLimiter(
-                max_requests=config.rate_limit_max_requests,
-                window_seconds=config.rate_limit_window_seconds,
-            ),
-        )
-
-    def authenticate(self, handler: http.server.BaseHTTPRequestHandler) -> str:
-        return self.authenticator.authenticate(handler.headers.get("authorization"))
-
-    def check_rate_limit(self, account_id: Optional[str]) -> None:
-        self.rate_limiter.check(account_id)
-
-    def push_changes(self, account_id: str, body: Mapping[str, Any]) -> Dict[str, Any]:
-        started = time.monotonic()
-        accepted = 0
-        conflicts = 0
-        status = "ok"
-        try:
-            changes = parse_changes_body(body)
-            result = self.store.push_changes(account_id, changes)
-            accepted = len(result["accepted"])
-            conflicts = len(result["conflicts"])
-            return result
-        except Exception:
-            status = "error"
-            raise
-        finally:
-            log_sync_event(
-                {
-                    "account_id": account_id,
-                    "op": "push",
-                    "accepted": accepted,
-                    "conflicts": conflicts,
-                    "duration_ms": duration_ms_since(started),
-                    "status": status,
-                }
-            )
-
-    def pull_changes(self, account_id: str, query: Mapping[str, List[str]]) -> Dict[str, Any]:
-        started = time.monotonic()
-        since = 0
-        next_cursor = 0
-        returned = 0
-        status = "ok"
-        try:
-            since = parse_query_int(query, "since", 0, minimum=0)
-            next_cursor = since
-            limit = parse_query_int(query, "limit", self.default_pull_limit, minimum=1)
-            limit = min(limit, self.max_pull_limit)
-            result = self.store.pull_changes(account_id, since, limit)
-            returned = len(result["changes"])
-            next_cursor = int(result["next_cursor"])
-            return result
-        except Exception:
-            status = "error"
-            raise
-        finally:
-            log_sync_event(
-                {
-                    "account_id": account_id,
-                    "op": "pull",
-                    "applied": 0,
-                    "returned": returned,
-                    "since": since,
-                    "next_cursor": next_cursor,
-                    "duration_ms": duration_ms_since(started),
-                    "status": status,
-                }
-            )
-
-    def register_device(self, account_id: str, body: Mapping[str, Any]) -> Dict[str, str]:
-        device_id = require_text(body.get("device_id"), "device_id", max_length=128)
-        name = require_text(body.get("name"), "name", max_length=128)
-        return self.store.register_device(account_id, device_id, name)
-
-
-def parse_changes_body(body: Mapping[str, Any]) -> List[IncomingChange]:
-    raw_changes = body.get("changes")
-    if not isinstance(raw_changes, list):
-        raise HttpError(400, "invalid_request", "changes must be an array")
-    if len(raw_changes) > MAX_BATCH_CHANGES:
-        raise HttpError(413, "batch_too_large", "too many changes in one request")
-    changes = []
-    for index, raw in enumerate(raw_changes):
-        if not isinstance(raw, dict):
-            raise HttpError(400, "invalid_change", f"changes[{index}] must be an object")
-        changes.append(parse_change(raw, index, body.get("device_id")))
-    return changes
-
-
-def reject_batch_too_large(body: Mapping[str, Any]) -> None:
-    raw_changes = body.get("changes")
-    if isinstance(raw_changes, list) and len(raw_changes) > MAX_BATCH_CHANGES:
-        raise HttpError(413, "batch_too_large", "too many changes in one request")
-
-
-def parse_change(raw: Mapping[str, Any], index: int, default_device_id: Any = None) -> IncomingChange:
-    entity_type = require_text(raw.get("entity_type"), f"changes[{index}].entity_type", max_length=128)
-    entity_id = require_text(raw.get("entity_id"), f"changes[{index}].entity_id", max_length=256)
-    operation = require_text(raw.get("op"), f"changes[{index}].op", max_length=16)
-    if operation not in VALID_OPERATIONS:
-        raise HttpError(400, "invalid_change", f"changes[{index}].op is invalid")
-    base_version = require_int(raw.get("base_version"), f"changes[{index}].base_version", minimum=0)
-    payload_field = "payload_json" if "payload_json" in raw else "payload"
-    payload_json = normalize_payload_json(raw.get(payload_field), f"changes[{index}].{payload_field}")
-    payload_hash = require_text(raw.get("payload_hash"), f"changes[{index}].payload_hash", max_length=256)
-    origin_device_id = raw.get("origin_device_id", default_device_id)
-    if origin_device_id is not None:
-        origin_device_id = require_text(origin_device_id, f"changes[{index}].origin_device_id", max_length=128)
-    return IncomingChange(
-        entity_type=entity_type,
-        entity_id=entity_id,
-        operation=operation,
-        base_version=base_version,
-        payload_json=payload_json,
-        payload_hash=payload_hash,
-        origin_device_id=origin_device_id,
-    )
-
-
-def require_text(value: Any, name: str, *, max_length: int) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise HttpError(400, "invalid_request", f"{name} is required")
-    result = value.strip()
-    if len(result) > max_length:
-        raise HttpError(400, "invalid_request", f"{name} is too long")
-    return result
-
-
-def require_int(value: Any, name: str, *, minimum: int) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise HttpError(400, "invalid_request", f"{name} must be an integer")
-    if value < minimum:
-        raise HttpError(400, "invalid_request", f"{name} must be >= {minimum}")
-    return value
-
-
-def normalize_payload_json(value: Any, name: str) -> str:
-    # INVARIANT: payload_hash is the client's hash over the exact bytes the
-    # client serialized. The server stores payload_hash verbatim (push_changes
-    # never recomputes it), and clients do not re-verify the hash against pulled
-    # payload_json. So the dict/list branch below MAY emit different bytes
-    # (sort_keys re-serialization) than the client hashed -- that is safe ONLY
-    # while no side recomputes the hash over payload_json. Before adding any such
-    # verification, make client and server serialization byte-identical, or have
-    # the client send payload_json as the exact string it hashed.
-    if isinstance(value, str):
-        if not value:
-            raise HttpError(400, "invalid_request", f"{name} is required")
-        try:
-            json.loads(value)
-        except json.JSONDecodeError as exc:
-            raise HttpError(400, "invalid_payload_json", f"{name} must be valid JSON") from exc
-        return value
-    if isinstance(value, (dict, list)):
-        return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    raise HttpError(400, "invalid_request", f"{name} is required")
-
-
-def parse_query_int(query: Mapping[str, List[str]], key: str, default: int, *, minimum: int) -> int:
-    values = query.get(key)
-    if not values:
-        return default
-    try:
-        value = int(values[-1])
-    except ValueError as exc:
-        raise HttpError(400, "invalid_query", f"{key} must be an integer") from exc
-    if value < minimum:
-        raise HttpError(400, "invalid_query", f"{key} must be >= {minimum}")
-    return value
-
-
-def duration_ms_since(started: float) -> int:
-    return int((time.monotonic() - started) * 1000)
-
-
-def log_sync_event(fields: Mapping[str, Any]) -> None:
-    LOGGER.info("sync_event %s", json.dumps(fields, sort_keys=True, separators=(",", ":")))
-
-
-def utc_now_iso() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-
-class SyncRequestHandler(http.server.BaseHTTPRequestHandler):
-    server_version = "FleetLedgerCloudSync/1.0"
-
-    def do_GET(self) -> None:
-        self._handle("GET")
-
-    def do_POST(self) -> None:
-        self._handle("POST")
-
-    def log_message(self, format: str, *args: Any) -> None:
-        print(
-            "%s - - [%s] %s"
-            % (self.address_string(), self.log_date_time_string(), format % args),
-            flush=True,
-        )
-
-    @property
-    def app(self) -> SyncApp:
-        return self.server.app  # type: ignore[attr-defined]
-
-    def _handle(self, method: str) -> None:
-        request_id = request_id_from_headers(self.headers)
-        path: Optional[str] = None
-        try:
-            parsed = urllib.parse.urlparse(self.path)
-            path = parsed.path.rstrip("/") or "/"
-            if method == "GET" and path == "/healthz":
-                json_response(self, 200, {"ok": True})
-                return
-
-            upgrade_body = VERSION_UPGRADE_GATE.enforce(self.headers)
-            if upgrade_body is not None:
-                json_response(self, 426, upgrade_body)
-                return
-
-            account_id = self.app.authenticate(self)
-            if method == "POST" and path == "/sync/changes":
-                body = read_json_body(self, self.app.max_request_bytes)
-                reject_batch_too_large(body)
-                self.app.check_rate_limit(account_id)
-                json_response(self, 200, self.app.push_changes(account_id, body))
-                return
-            if method == "GET" and path == "/sync/changes":
-                self.app.check_rate_limit(account_id)
-                query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
-                json_response(self, 200, self.app.pull_changes(account_id, query))
-                return
-            if method == "POST" and path == "/sync/devices":
-                body = read_json_body(self, self.app.max_request_bytes)
-                self.app.check_rate_limit(account_id)
-                json_response(self, 200, self.app.register_device(account_id, body))
-                return
-            raise HttpError(404, "not_found", "endpoint not found")
-        except HttpError as exc:
-            error_response(self, exc)
-        except Exception:
-            log_internal_error(request_id, method, path)
-            error_response(self, HttpError(500, "internal_error", "internal server error"))
-
-
-class SyncHttpServer(http.server.ThreadingHTTPServer):
-    def __init__(self, server_address: tuple[str, int], app: SyncApp):
-        super().__init__(server_address, SyncRequestHandler)
-        self.app = app
-
-
-def build_server_from_env() -> SyncHttpServer:
-    config = AppConfig.from_env()
-    return SyncHttpServer((config.host, config.port), SyncApp.from_env())
+from auth import (
+    Authenticator,
+    HttpTokenIntrospector,
+    audience_matches,
+    base64url_decode,
+    base64url_encode,
+    extract_account_id,
+)
+from config import (
+    DEFAULT_PORT,
+    DEFAULT_PULL_LIMIT,
+    DEFAULT_RATE_LIMIT_MAX_REQUESTS,
+    DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+    MAX_BATCH_CHANGES,
+    MAX_PULL_LIMIT,
+    MAX_REQUEST_BYTES,
+    VALID_OPERATIONS,
+    VERSION_POLICY_PATH_ENV,
+    VERSION_UPGRADE_GATE,
+    AppConfig,
+    VersionPolicySource,
+    VersionUpgradeGate,
+    env_int,
+    header_value,
+    non_empty_string,
+    parse_semver,
+)
+from handlers import (
+    SyncApp,
+    SyncHttpServer,
+    SyncRequestHandler,
+    build_server_from_env,
+    normalize_payload_json,
+    parse_change,
+    parse_changes_body,
+    parse_query_int,
+    reject_batch_too_large,
+    require_int,
+    require_text,
+)
+from http_helpers import (
+    LOGGER,
+    HttpError,
+    configure_logging,
+    duration_ms_since,
+    error_response,
+    json_response,
+    log_internal_error,
+    log_sync_event,
+    read_json_body,
+    request_id_from_headers,
+    utc_now_iso,
+)
+from rate_limit import SlidingWindowRateLimiter
+from storage import IncomingChange, SyncStore, change_row_to_json
+
+__all__ = [
+    "AppConfig",
+    "Authenticator",
+    "DEFAULT_PORT",
+    "DEFAULT_PULL_LIMIT",
+    "DEFAULT_RATE_LIMIT_MAX_REQUESTS",
+    "DEFAULT_RATE_LIMIT_WINDOW_SECONDS",
+    "HttpError",
+    "HttpTokenIntrospector",
+    "IncomingChange",
+    "LOGGER",
+    "MAX_BATCH_CHANGES",
+    "MAX_PULL_LIMIT",
+    "MAX_REQUEST_BYTES",
+    "SlidingWindowRateLimiter",
+    "SyncApp",
+    "SyncHttpServer",
+    "SyncRequestHandler",
+    "SyncStore",
+    "VALID_OPERATIONS",
+    "VERSION_POLICY_PATH_ENV",
+    "VERSION_UPGRADE_GATE",
+    "VersionPolicySource",
+    "VersionUpgradeGate",
+    "audience_matches",
+    "base64url_decode",
+    "base64url_encode",
+    "build_server_from_env",
+    "change_row_to_json",
+    "configure_logging",
+    "duration_ms_since",
+    "env_int",
+    "error_response",
+    "extract_account_id",
+    "header_value",
+    "json_response",
+    "log_internal_error",
+    "log_sync_event",
+    "main",
+    "non_empty_string",
+    "normalize_payload_json",
+    "parse_change",
+    "parse_changes_body",
+    "parse_query_int",
+    "parse_semver",
+    "read_json_body",
+    "reject_batch_too_large",
+    "request_id_from_headers",
+    "require_int",
+    "require_text",
+    "utc_now_iso",
+]
 
 
 def main() -> None:
