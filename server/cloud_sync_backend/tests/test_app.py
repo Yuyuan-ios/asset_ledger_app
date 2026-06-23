@@ -13,6 +13,8 @@ from app import (
     AppConfig,
     Authenticator,
     HttpError,
+    MAX_BATCH_CHANGES,
+    SlidingWindowRateLimiter,
     SyncApp,
     SyncStore,
     base64url_encode,
@@ -251,6 +253,69 @@ class SyncBackendTestCase(unittest.TestCase):
         self.assertEqual(status, 401)
         self.assertEqual(body["error"]["code"], "unauthorized")
 
+    def test_rate_limiter_returns_429_after_authenticated_user_exceeds_limit(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(dev_tokens={"token-a": "account-a"}),
+            rate_limiter=SlidingWindowRateLimiter(max_requests=1),
+        )
+
+        status, body = self.request("GET", "/sync/changes?since=0", token="token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["changes"], [])
+
+        status, body = self.request("GET", "/sync/changes?since=0", token="token-a")
+        self.assertEqual(status, 429)
+        self.assertEqual(body["error"]["code"], "rate_limited")
+
+    def test_rate_limiter_isolates_different_authenticated_users(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(
+                dev_tokens={"token-a": "account-a", "token-b": "account-b"},
+            ),
+            rate_limiter=SlidingWindowRateLimiter(max_requests=1),
+        )
+
+        status, _ = self.request("GET", "/sync/changes?since=0", token="token-a")
+        self.assertEqual(status, 200)
+        status, _ = self.request("GET", "/sync/changes?since=0", token="token-b")
+        self.assertEqual(status, 200)
+
+        status, body = self.request("GET", "/sync/changes?since=0", token="token-a")
+        self.assertEqual(status, 429)
+        self.assertEqual(body["error"]["code"], "rate_limited")
+
+    def test_rate_limiter_uses_anonymous_bucket_for_missing_account(self):
+        limiter = SlidingWindowRateLimiter(max_requests=1)
+
+        limiter.check(None)
+        with self.assertRaises(HttpError) as error:
+            limiter.check("")
+
+        self.assertEqual(error.exception.status, 429)
+        self.assertEqual(error.exception.code, "rate_limited")
+        limiter.check("account-a")
+
+    def test_batch_too_large_takes_priority_over_rate_limit(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(dev_tokens={"token-a": "account-a"}),
+            rate_limiter=SlidingWindowRateLimiter(max_requests=1),
+        )
+        status, _ = self.request("GET", "/sync/changes?since=0", token="token-a")
+        self.assertEqual(status, 200)
+
+        status, body = self.request(
+            "POST",
+            "/sync/changes",
+            token="token-a",
+            body={"changes": [{}] * (MAX_BATCH_CHANGES + 1)},
+        )
+
+        self.assertEqual(status, 413)
+        self.assertEqual(body["error"]["code"], "batch_too_large")
+
     def test_push_accepts_and_assigns_account_monotonic_server_seq(self):
         first = make_change(entity_id="timer-1", mark="a")
         second = make_change(entity_id="timer-2", mark="b")
@@ -475,6 +540,8 @@ class SyncBackendTestCase(unittest.TestCase):
             FLEET_SYNC_MAX_REQUEST_BYTES="1024",
             FLEET_SYNC_DEFAULT_PULL_LIMIT="25",
             FLEET_SYNC_MAX_PULL_LIMIT="50",
+            FLEET_SYNC_RATE_LIMIT_MAX_REQUESTS="75",
+            FLEET_SYNC_RATE_LIMIT_WINDOW_SECONDS="30",
         ):
             config = AppConfig.from_env()
 
@@ -483,6 +550,8 @@ class SyncBackendTestCase(unittest.TestCase):
         self.assertEqual(config.max_request_bytes, 1024)
         self.assertEqual(config.default_pull_limit, 25)
         self.assertEqual(config.max_pull_limit, 50)
+        self.assertEqual(config.rate_limit_max_requests, 75)
+        self.assertEqual(config.rate_limit_window_seconds, 30)
 
 
 def make_hs256_jwt(secret, payload):

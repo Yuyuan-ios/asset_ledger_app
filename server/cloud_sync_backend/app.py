@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -34,6 +35,8 @@ MAX_REQUEST_BYTES = 4 * 1024 * 1024
 MAX_BATCH_CHANGES = 100
 DEFAULT_PULL_LIMIT = 100
 MAX_PULL_LIMIT = 500
+DEFAULT_RATE_LIMIT_MAX_REQUESTS = 120
+DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60
 VALID_OPERATIONS = {"create", "update", "delete"}
 VERSION_POLICY_PATH_ENV = "FLEET_SYNC_VERSION_POLICY_PATH"
 
@@ -419,6 +422,38 @@ def extract_account_id(body: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
+class SlidingWindowRateLimiter:
+    def __init__(
+        self,
+        max_requests: int = DEFAULT_RATE_LIMIT_MAX_REQUESTS,
+        window_seconds: int = DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+    ):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._lock = threading.Lock()
+        self._requests: Dict[str, List[float]] = {}
+
+    def check(self, account_id: Optional[str]) -> None:
+        bucket = (
+            account_id.strip()
+            if isinstance(account_id, str) and account_id.strip()
+            else "anonymous"
+        )
+        now = time.time()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            recent = [
+                value
+                for value in self._requests.get(bucket, [])
+                if value >= cutoff
+            ]
+            if len(recent) >= self.max_requests:
+                self._requests[bucket] = recent
+                raise HttpError(429, "rate_limited", "too many sync requests")
+            recent.append(now)
+            self._requests[bucket] = recent
+
+
 @dataclasses.dataclass(frozen=True)
 class IncomingChange:
     entity_type: str
@@ -734,6 +769,8 @@ class AppConfig:
     max_request_bytes: int
     default_pull_limit: int
     max_pull_limit: int
+    rate_limit_max_requests: int
+    rate_limit_window_seconds: int
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -748,6 +785,14 @@ class AppConfig:
             max_request_bytes=env_int("FLEET_SYNC_MAX_REQUEST_BYTES", MAX_REQUEST_BYTES),
             default_pull_limit=default_pull_limit,
             max_pull_limit=max_pull_limit,
+            rate_limit_max_requests=env_int(
+                "FLEET_SYNC_RATE_LIMIT_MAX_REQUESTS",
+                DEFAULT_RATE_LIMIT_MAX_REQUESTS,
+            ),
+            rate_limit_window_seconds=env_int(
+                "FLEET_SYNC_RATE_LIMIT_WINDOW_SECONDS",
+                DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+            ),
         )
 
 
@@ -759,12 +804,14 @@ class SyncApp:
         max_request_bytes: int = MAX_REQUEST_BYTES,
         default_pull_limit: int = DEFAULT_PULL_LIMIT,
         max_pull_limit: int = MAX_PULL_LIMIT,
+        rate_limiter: Optional[SlidingWindowRateLimiter] = None,
     ):
         self.store = store
         self.authenticator = authenticator
         self.max_request_bytes = max_request_bytes
         self.default_pull_limit = default_pull_limit
         self.max_pull_limit = max_pull_limit
+        self.rate_limiter = rate_limiter or SlidingWindowRateLimiter()
 
     @classmethod
     def from_env(cls) -> "SyncApp":
@@ -775,10 +822,17 @@ class SyncApp:
             max_request_bytes=config.max_request_bytes,
             default_pull_limit=config.default_pull_limit,
             max_pull_limit=config.max_pull_limit,
+            rate_limiter=SlidingWindowRateLimiter(
+                max_requests=config.rate_limit_max_requests,
+                window_seconds=config.rate_limit_window_seconds,
+            ),
         )
 
     def authenticate(self, handler: http.server.BaseHTTPRequestHandler) -> str:
         return self.authenticator.authenticate(handler.headers.get("authorization"))
+
+    def check_rate_limit(self, account_id: Optional[str]) -> None:
+        self.rate_limiter.check(account_id)
 
     def push_changes(self, account_id: str, body: Mapping[str, Any]) -> Dict[str, Any]:
         started = time.monotonic()
@@ -856,6 +910,12 @@ def parse_changes_body(body: Mapping[str, Any]) -> List[IncomingChange]:
             raise HttpError(400, "invalid_change", f"changes[{index}] must be an object")
         changes.append(parse_change(raw, index, body.get("device_id")))
     return changes
+
+
+def reject_batch_too_large(body: Mapping[str, Any]) -> None:
+    raw_changes = body.get("changes")
+    if isinstance(raw_changes, list) and len(raw_changes) > MAX_BATCH_CHANGES:
+        raise HttpError(413, "batch_too_large", "too many changes in one request")
 
 
 def parse_change(raw: Mapping[str, Any], index: int, default_device_id: Any = None) -> IncomingChange:
@@ -982,14 +1042,18 @@ class SyncRequestHandler(http.server.BaseHTTPRequestHandler):
             account_id = self.app.authenticate(self)
             if method == "POST" and path == "/sync/changes":
                 body = read_json_body(self, self.app.max_request_bytes)
+                reject_batch_too_large(body)
+                self.app.check_rate_limit(account_id)
                 json_response(self, 200, self.app.push_changes(account_id, body))
                 return
             if method == "GET" and path == "/sync/changes":
+                self.app.check_rate_limit(account_id)
                 query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
                 json_response(self, 200, self.app.pull_changes(account_id, query))
                 return
             if method == "POST" and path == "/sync/devices":
                 body = read_json_body(self, self.app.max_request_bytes)
+                self.app.check_rate_limit(account_id)
                 json_response(self, 200, self.app.register_device(account_id, body))
                 return
             raise HttpError(404, "not_found", "endpoint not found")
