@@ -3,7 +3,10 @@ import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/view_models/external_work_records_view_model.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+final _text = ExternalWorkRecordsText(l10n: AppLocalizationsZh());
 
 /// 阶段 C Step 7：外协记录列表展示 VM builder 单测。
 ///
@@ -12,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('ExternalWorkRecordsViewModelBuilder.build', () {
     test('空列表 → isEmpty', () {
-      final vm = ExternalWorkRecordsViewModelBuilder.build(const []);
+      final vm = ExternalWorkRecordsViewModelBuilder.build(const [], _text);
       expect(vm.isEmpty, isTrue);
       expect(vm.yearGroups, isEmpty);
     });
@@ -40,7 +43,7 @@ void main() {
         ),
       ];
 
-      final vm = ExternalWorkRecordsViewModelBuilder.build(items);
+      final vm = ExternalWorkRecordsViewModelBuilder.build(items, _text);
       expect(vm.yearGroups, hasLength(1));
       expect(vm.yearGroups.single.year, 2026);
 
@@ -72,14 +75,14 @@ void main() {
         batch: _batch(sourceDisplayName: '   '),
         record: _record(collaboratorName: '张三', siteSnapshot: '工地A'),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.build([item]);
+      final vm = ExternalWorkRecordsViewModelBuilder.build([item], _text);
       final pkg = vm.yearGroups.single.sourceGroups.single.packages.single;
       expect(pkg.title, '张三 · 工地A');
     });
 
     test('linkedProjectId 非空 → hasLinkedRecord = true', () {
       final item = _item(record: _record(linkedProjectId: 'project:alpha'));
-      final vm = ExternalWorkRecordsViewModelBuilder.build([item]);
+      final vm = ExternalWorkRecordsViewModelBuilder.build([item], _text);
       final pkg = vm.yearGroups.single.sourceGroups.single.packages.single;
       expect(pkg.hasLinkedRecord, isTrue);
       expect(pkg.childRows.single.isLinked, isTrue);
@@ -87,7 +90,7 @@ void main() {
 
     test('linkedProjectId 为空 → hasLinkedRecord = false', () {
       final item = _item(record: _record(linkedProjectId: null));
-      final vm = ExternalWorkRecordsViewModelBuilder.build([item]);
+      final vm = ExternalWorkRecordsViewModelBuilder.build([item], _text);
       final pkg = vm.yearGroups.single.sourceGroups.single.packages.single;
       expect(pkg.hasLinkedRecord, isFalse);
       expect(pkg.childRows.single.isLinked, isFalse);
@@ -97,7 +100,7 @@ void main() {
       final item = _item(
         record: _record(hoursMilli: 30000, equipmentBrand: 'Komatsu'),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.build([item]);
+      final vm = ExternalWorkRecordsViewModelBuilder.build([item], _text);
       final pkg = vm.yearGroups.single.sourceGroups.single.packages.single;
       expect(pkg.isAggregate, isFalse);
       expect(pkg.recordCount, 1);
@@ -118,7 +121,7 @@ void main() {
           record: _record(id: 'r2', importBatchId: 'batch-b'),
         ),
       ];
-      final vm = ExternalWorkRecordsViewModelBuilder.build(items);
+      final vm = ExternalWorkRecordsViewModelBuilder.build(items, _text);
       expect(vm.yearGroups, hasLength(1));
       final sourceGroups = vm.yearGroups.single.sourceGroups;
       expect(sourceGroups, hasLength(2));
@@ -162,7 +165,10 @@ void main() {
           hoursMilli: 50000,
         ).copyWith(amountFen: 123456, sourceUnitPriceFen: 1000),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
 
       expect(vm.sourceText, '从分享包导入');
       expect(vm.sourceNameText, '余远');
@@ -177,21 +183,30 @@ void main() {
 
     test('linkedProjectId 非空 → isLinked=true, status=已关联', () {
       final item = _item(record: _record(linkedProjectId: 'project:alpha'));
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.isLinked, isTrue);
       expect(vm.statusText, '已关联');
     });
 
     test('linkedProjectId 为空 → isLinked=false, status=待处理', () {
       final item = _item(record: _record(linkedProjectId: null));
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.isLinked, isFalse);
       expect(vm.statusText, '待处理');
     });
 
     test('site 空 → 地址 fallback "-"', () {
       final item = _item(record: _record(siteSnapshot: '   '));
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.siteText, '-');
     });
 
@@ -203,7 +218,10 @@ void main() {
           equipmentType: '',
         ),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.equipmentText, '设备未填写');
     });
 
@@ -214,7 +232,10 @@ void main() {
           sourceUnitPriceFen: null,
         ),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.sourceUnitPriceText, '未知');
     });
 
@@ -225,7 +246,10 @@ void main() {
           localUnitPriceFen: 88000,
         ),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.sourceUnitPriceText, '未知');
     });
 
@@ -236,20 +260,29 @@ void main() {
           localUnitPriceFen: 88000,
         ),
       );
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.sourceUnitPriceText, '${FormatUtils.money(10)} / h');
     });
 
     test('projectReceivedFen > 0 → showProjectReceived=true 且文案正确', () {
       final item = _item(record: _record().copyWith(projectReceivedFen: 50000));
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.showProjectReceived, isTrue);
       expect(vm.projectReceivedText, FormatUtils.money(500));
     });
 
     test('projectReceivedFen = 0 → showProjectReceived=false', () {
       final item = _item(record: _record().copyWith(projectReceivedFen: 0));
-      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(item: item);
+      final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
+        item: item,
+        text: _text,
+      );
       expect(vm.showProjectReceived, isFalse);
     });
 
@@ -264,6 +297,7 @@ void main() {
       );
       final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
         item: a,
+        text: _text,
         packageItems: [a, b],
       );
       expect(vm.siteText, '鲜滩、尚义');

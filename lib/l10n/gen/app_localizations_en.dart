@@ -206,6 +206,294 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timingExternalWorkUnlinkFailure => 'Unlink failed. Try again';
 
   @override
+  String get externalWorkPickInvalidType =>
+      'Select a FleetLedger .jzt share package';
+
+  @override
+  String get externalWorkPickReadFailure =>
+      'Failed to read the share package. Select the file again';
+
+  @override
+  String get externalWorkPickFileTooLarge =>
+      'The share package is too large to import';
+
+  @override
+  String get externalWorkImportPreviewTitle => 'External work records';
+
+  @override
+  String get externalWorkImportPreviewImportingAction => 'Importing';
+
+  @override
+  String get externalWorkImportPreviewSectionTitle => 'Preview';
+
+  @override
+  String get externalWorkImportPreviewSenderLabel => 'From';
+
+  @override
+  String get externalWorkImportPreviewRecordLabel => 'Records';
+
+  @override
+  String externalWorkImportPreviewRecordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records',
+      one: '1 record',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get externalWorkImportPreviewSiteLabel => 'Site';
+
+  @override
+  String get externalWorkImportPreviewTotalHoursLabel => 'Total hours';
+
+  @override
+  String get externalWorkImportPreviewTotalAmountLabel => 'Total amount';
+
+  @override
+  String get externalWorkImportPreviewLinesTitle => 'Record details';
+
+  @override
+  String externalWorkImportPreviewHoursValue(String hours) {
+    return '$hours h';
+  }
+
+  @override
+  String get externalWorkImportPreviewStatusImportable => 'Ready to import';
+
+  @override
+  String get externalWorkImportPreviewStatusImported => 'Already imported';
+
+  @override
+  String get externalWorkImportPreviewStatusSameSource => 'Same source exists';
+
+  @override
+  String get externalWorkImportPreviewStatusSuspiciousDuplicate =>
+      'Possible duplicate';
+
+  @override
+  String externalWorkImportPreviewSameSourceCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count same-source records',
+      one: '1 same-source record',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String externalWorkImportPreviewSuspiciousCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count possible duplicates',
+      one: '1 possible duplicate',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String externalWorkImportPreviewImportedSuccess(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count external work records',
+      one: '1 external work record',
+    );
+    return 'Imported $_temp0';
+  }
+
+  @override
+  String externalWorkImportPreviewSuccessBanner(String message) {
+    return '$message. You can view it in external work records';
+  }
+
+  @override
+  String get externalWorkImportPreviewGenericPrepareFailure =>
+      'Failed to build the import preview. Try again later';
+
+  @override
+  String get externalWorkImportPreviewGenericImportFailure =>
+      'Import failed. Try again later';
+
+  @override
+  String get externalWorkImportPreviewEmptyContent =>
+      'Select or paste .jzt content first';
+
+  @override
+  String get externalWorkImportPreviewInvalidJson =>
+      'The share package is not valid JSON';
+
+  @override
+  String get externalWorkImportPreviewInvalidPackage =>
+      'This is not a valid FleetLedger share package';
+
+  @override
+  String get externalWorkImportPreviewUnsupportedVersion =>
+      'This share package version is not supported';
+
+  @override
+  String get externalWorkImportPreviewUnsupportedPackage =>
+      'This share package type is not supported';
+
+  @override
+  String get externalWorkImportPreviewIncompleteIntegrity =>
+      'The share package integrity info is incomplete';
+
+  @override
+  String get externalWorkImportPreviewHashMismatch =>
+      'Share package verification failed. Get the package again';
+
+  @override
+  String get externalWorkImportPreviewInvalidRecords =>
+      'Share package records are incomplete or malformed';
+
+  @override
+  String get externalWorkImportPreviewInvalidBaseInfo =>
+      'Share package base info is incomplete or malformed';
+
+  @override
+  String get externalWorkImportPreviewParseFailure =>
+      'Unable to parse the share package';
+
+  @override
+  String get externalWorkImportPreviewDuplicateRejected =>
+      'This share package was already imported or contains records from the same source';
+
+  @override
+  String get externalWorkRecordsEmptyTitle => 'No external work records';
+
+  @override
+  String get externalWorkRecordsEmptySubtitle =>
+      'Records imported from shared .jzt files will appear here';
+
+  @override
+  String get externalWorkRecordsSourceImported => 'Imported from share package';
+
+  @override
+  String externalWorkRecordsBulletCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records',
+      one: '1 record',
+    );
+    return ' • $_temp0';
+  }
+
+  @override
+  String externalWorkRecordsMoreDevices(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count devices',
+      one: '1 device',
+    );
+    return ' + $_temp0';
+  }
+
+  @override
+  String get externalWorkRecordsMissingDevice => 'Device not provided';
+
+  @override
+  String get externalWorkRecordsUnknown => 'Unknown';
+
+  @override
+  String get externalWorkRecordsStatusLinked => 'Linked';
+
+  @override
+  String get externalWorkRecordsStatusPending => 'Pending';
+
+  @override
+  String get externalWorkRecordsStatusIgnored => 'Ignored';
+
+  @override
+  String get externalWorkRecordsStatusArchived => 'Archived';
+
+  @override
+  String get externalWorkRecordsStatusVoided => 'Voided';
+
+  @override
+  String externalWorkRecordsYearLabel(int year) {
+    return '$year';
+  }
+
+  @override
+  String get externalWorkRecordsSourceLabel => 'Source';
+
+  @override
+  String get externalWorkRecordsSourceNameLabel => 'Shared by';
+
+  @override
+  String get externalWorkRecordsSiteLabel => 'Site';
+
+  @override
+  String get externalWorkRecordsDeviceLabel => 'Device';
+
+  @override
+  String get externalWorkRecordsDateLabel => 'Date';
+
+  @override
+  String get externalWorkRecordsHoursQuantityLabel => 'Hours / qty';
+
+  @override
+  String get externalWorkRecordsUnitPriceLabel => 'Unit price';
+
+  @override
+  String get externalWorkRecordsAmountLabel => 'Amount';
+
+  @override
+  String get externalWorkRecordsProjectReceivedLabel => 'Project received';
+
+  @override
+  String get externalWorkRecordsImportedAtLabel => 'Imported at';
+
+  @override
+  String get externalWorkRecordsCurrentStatusLabel => 'Status';
+
+  @override
+  String get externalWorkRecordsReadOnlyNotice =>
+      'This record was shared by someone else and cannot be edited now.';
+
+  @override
+  String get externalWorkRecordsLinkAction => 'Link to local project';
+
+  @override
+  String get externalWorkRecordsAvatarLabel => 'EXT';
+
+  @override
+  String get externalWorkDetailSheetTitle => 'External work details';
+
+  @override
+  String get externalWorkDeleteSharePackageAction => 'Delete share package';
+
+  @override
+  String get externalWorkDeleteSharePackageTitle => 'Delete share package';
+
+  @override
+  String externalWorkDeleteSharePackageContent(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count external work records',
+      one: '1 external work record',
+    );
+    return 'This will delete all $_temp0 imported from this share package. This cannot be undone.';
+  }
+
+  @override
+  String get externalWorkDeleteAction => 'Delete';
+
+  @override
+  String get externalWorkReadAction => 'Read';
+
+  @override
+  String get externalWorkConfirmAction => 'OK';
+
+  @override
   String get timingEntryCreateSheetTitle => 'New timing';
 
   @override

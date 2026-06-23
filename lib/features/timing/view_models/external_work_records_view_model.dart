@@ -1,8 +1,29 @@
 import '../../../core/utils/format_utils.dart';
 import '../../../data/models/external_work_record.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../account/model/project_title_formatter.dart';
 import '../../../tokens/mapper/account_tokens.dart';
 import '../state/timing_external_work_store.dart';
+
+class ExternalWorkRecordsText {
+  const ExternalWorkRecordsText({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  String yearLabel(int year) => l10n.externalWorkRecordsYearLabel(year);
+  String bulletCount(int count) => l10n.externalWorkRecordsBulletCount(count);
+  String moreDevices(int count) => l10n.externalWorkRecordsMoreDevices(count);
+
+  String get separator => l10n.timingExternalWorkSiteSummarySeparator;
+  String get importedSource => l10n.externalWorkRecordsSourceImported;
+  String get missingDevice => l10n.externalWorkRecordsMissingDevice;
+  String get unknown => l10n.externalWorkRecordsUnknown;
+  String get linked => l10n.externalWorkRecordsStatusLinked;
+  String get pending => l10n.externalWorkRecordsStatusPending;
+  String get ignored => l10n.externalWorkRecordsStatusIgnored;
+  String get archived => l10n.externalWorkRecordsStatusArchived;
+  String get voided => l10n.externalWorkRecordsStatusVoided;
+}
 
 /// 阶段 C Step 7：外协项目记录列表的"分组 / 标题 fallback / 状态 / 摘要"
 /// 展示业务判断从 pattern 上移到此处（feature 层 view-model builder）。
@@ -154,53 +175,56 @@ class ExternalWorkRecordsViewModelBuilder {
   /// 行为一致）。
   static ExternalWorkRecordDetailVm buildDetail({
     required TimingExternalWorkRecordItem item,
+    required ExternalWorkRecordsText text,
     List<TimingExternalWorkRecordItem>? packageItems,
   }) {
     final record = item.record;
     final detailItems = packageItems ?? [item];
     final records = detailItems.map((each) => each.record);
     return ExternalWorkRecordDetailVm(
-      sourceText: '从分享包导入',
+      sourceText: text.importedSource,
       sourceNameText: item.displayName,
-      siteText: _detailSiteText(detailItems),
-      equipmentText: _detailEquipmentText(record),
+      siteText: _detailSiteText(detailItems, text),
+      equipmentText: _detailEquipmentText(record, text),
       workDateText: FormatUtils.date(record.workDate),
       hoursText: _hoursText(record.hoursMilli),
-      sourceUnitPriceText: _sourceUnitPriceText(records),
+      sourceUnitPriceText: _sourceUnitPriceText(records, text),
       amountText: _moneyFen(record.amountFen),
       showProjectReceived: record.projectReceivedFen > 0,
       projectReceivedText: _moneyFen(record.projectReceivedFen),
       importedAtText: _blankFallback(
         item.batch?.importedAt ?? record.createdAt,
       ),
-      statusText: _statusText(record),
+      statusText: _statusText(record, text),
       isLinked: detailItems.any((each) => each.isLinked),
     );
   }
 
   static ExternalWorkRecordsVm build(
     List<TimingExternalWorkRecordItem> items,
+    ExternalWorkRecordsText text,
   ) {
     if (items.isEmpty) {
       return const ExternalWorkRecordsVm(yearGroups: []);
     }
-    return ExternalWorkRecordsVm(yearGroups: _buildYearGroups(items));
+    return ExternalWorkRecordsVm(yearGroups: _buildYearGroups(items, text));
   }
 
   /// 所有可聚合（batch）包的 key 集合，供 UI 维护展开状态。
   static Set<String> aggregateKeys(List<TimingExternalWorkRecordItem> items) {
-    return _buildBatchGroups(items).map((group) => group.key).toSet();
+    return {for (final item in items) _batchKey(item)};
   }
 
   /// 顶层包数量。
   static int topLevelCount(List<TimingExternalWorkRecordItem> items) {
-    return _buildBatchGroups(items).length;
+    return aggregateKeys(items).length;
   }
 
   static List<ExternalWorkYearGroupVm> _buildYearGroups(
     List<TimingExternalWorkRecordItem> items,
+    ExternalWorkRecordsText text,
   ) {
-    final batchGroups = _buildBatchGroups(items);
+    final batchGroups = _buildBatchGroups(items, text);
     final grouped = <int, List<_BatchGroup>>{};
     for (final group in batchGroups) {
       grouped.putIfAbsent(group.year, () => <_BatchGroup>[]).add(group);
@@ -210,7 +234,7 @@ class ExternalWorkRecordsViewModelBuilder {
       for (final entry in grouped.entries)
         ExternalWorkYearGroupVm(
           year: entry.key,
-          sourceGroups: _buildSourceGroups(entry.value),
+          sourceGroups: _buildSourceGroups(entry.value, text),
         ),
     ]..sort((a, b) => b.year.compareTo(a.year));
     return yearGroups;
@@ -218,18 +242,19 @@ class ExternalWorkRecordsViewModelBuilder {
 
   static List<ExternalWorkSourceGroupVm> _buildSourceGroups(
     List<_BatchGroup> groups,
+    ExternalWorkRecordsText text,
   ) {
     final grouped = <String, List<_BatchGroup>>{};
     for (final group in groups) {
-      grouped.putIfAbsent(_sourceGroupKey(group.displayName), () => []).add(
-        group,
-      );
+      grouped
+          .putIfAbsent(_sourceGroupKey(group.displayName), () => [])
+          .add(group);
     }
 
     return [
       for (final entry in grouped.entries)
         ExternalWorkSourceGroupVm(
-          packages: [for (final group in entry.value) group.toVm()],
+          packages: [for (final group in entry.value) group.toVm(text)],
         ),
     ];
   }
@@ -241,6 +266,7 @@ class ExternalWorkRecordsViewModelBuilder {
 
   static List<_BatchGroup> _buildBatchGroups(
     List<TimingExternalWorkRecordItem> items,
+    ExternalWorkRecordsText text,
   ) {
     final grouped = <String, List<TimingExternalWorkRecordItem>>{};
     for (final item in items) {
@@ -249,7 +275,7 @@ class ExternalWorkRecordsViewModelBuilder {
 
     final groups = <_BatchGroup>[];
     for (final entry in grouped.entries) {
-      groups.add(_BatchGroup.fromItems(entry.key, entry.value));
+      groups.add(_BatchGroup.fromItems(entry.key, entry.value, text));
     }
 
     groups.sort((a, b) {
@@ -303,6 +329,7 @@ class _BatchGroup {
   factory _BatchGroup.fromItems(
     String key,
     List<TimingExternalWorkRecordItem> items,
+    ExternalWorkRecordsText text,
   ) {
     final sortedItems = [...items]
       ..sort((a, b) {
@@ -312,12 +339,16 @@ class _BatchGroup {
       });
     final first = sortedItems.first;
     final importedAt = _importedAtText(first);
-    final equipmentSummary = _equipmentSummary(sortedItems);
+    final equipmentSummary = _equipmentSummary(sortedItems, text);
     return _BatchGroup._(
       key: key,
       items: sortedItems,
       displayName: first.displayName,
-      siteSummary: _siteSummaryText(sortedItems, first.batch?.siteSummary),
+      siteSummary: _siteSummaryText(
+        sortedItems,
+        first.batch?.siteSummary,
+        text,
+      ),
       equipmentSummaryMain: equipmentSummary.main,
       equipmentSummarySuffix: equipmentSummary.suffix,
       startWorkDate: sortedItems.first.record.workDate,
@@ -332,7 +363,7 @@ class _BatchGroup {
     );
   }
 
-  ExternalWorkPackageVm toVm() {
+  ExternalWorkPackageVm toVm(ExternalWorkRecordsText text) {
     return ExternalWorkPackageVm(
       key: key,
       isAggregate: isAggregate,
@@ -340,7 +371,7 @@ class _BatchGroup {
       title: _externalWorkTitle(displayName, siteSummary),
       equipmentSummaryMain: equipmentSummaryMain,
       equipmentSummarySuffix: equipmentSummarySuffix,
-      recordCountLabel: isAggregate ? '•${items.length}条记录' : null,
+      recordCountLabel: isAggregate ? text.bulletCount(items.length) : null,
       dateText: FormatUtils.date(startWorkDate),
       hoursText: _hoursText(totalHoursMilli),
       hasLinkedRecord: hasLinkedRecord,
@@ -353,7 +384,7 @@ class _BatchGroup {
               item.displayName,
               _blankFallback(item.record.siteSnapshot),
             ),
-            subtitle: _rowEquipmentText(item.record),
+            subtitle: _rowEquipmentText(item.record, text),
             dateText: FormatUtils.date(item.record.workDate),
             hoursText: _hoursText(item.record.hoursMilli),
             isLinked: item.isLinked,
@@ -397,6 +428,7 @@ int _groupYear(int workDate, String fallbackDateTime) {
 String _siteSummaryText(
   List<TimingExternalWorkRecordItem> items,
   String? batchSiteSummary,
+  ExternalWorkRecordsText text,
 ) {
   final sites = <String>[];
   for (final item in items) {
@@ -405,11 +437,11 @@ String _siteSummaryText(
   }
   if (sites.isEmpty) {
     final batchSite = _visibleSiteText(batchSiteSummary ?? '');
-    if (batchSite.isNotEmpty) sites.add(_displaySiteSummary(batchSite));
+    if (batchSite.isNotEmpty) sites.add(_displaySiteSummary(batchSite, text));
   }
   if (sites.isEmpty) return '';
 
-  final joined = sites.join('、');
+  final joined = sites.join(text.separator);
   const maxChars = AccountTokens.projectCardMergedSitesPreviewMaxChars;
   if (joined.length <= maxChars) return joined;
   return '${joined.substring(0, maxChars)}...';
@@ -421,19 +453,28 @@ String _visibleSiteText(String text) {
   return trimmed;
 }
 
-String _displaySiteSummary(String value) {
-  return value.trim().replaceAll('+', '、').replaceAll('•', '、');
+String _displaySiteSummary(String value, ExternalWorkRecordsText text) {
+  return value
+      .trim()
+      .replaceAll('+', text.separator)
+      .replaceAll('•', text.separator);
 }
 
-_EquipmentSummary _equipmentSummary(List<TimingExternalWorkRecordItem> items) {
+_EquipmentSummary _equipmentSummary(
+  List<TimingExternalWorkRecordItem> items,
+  ExternalWorkRecordsText text,
+) {
   final devices = <String>[];
   for (final item in items) {
     final device = _deviceSummaryName(item.record);
     if (device.isNotEmpty && !devices.contains(device)) devices.add(device);
   }
-  if (devices.isEmpty) return const _EquipmentSummary(main: '设备未填写');
+  if (devices.isEmpty) return _EquipmentSummary(main: text.missingDevice);
   if (devices.length == 1) return _EquipmentSummary(main: devices.first);
-  return _EquipmentSummary(main: devices.first, suffix: '等${devices.length}台');
+  return _EquipmentSummary(
+    main: devices.first,
+    suffix: text.moreDevices(devices.length),
+  );
 }
 
 class _EquipmentSummary {
@@ -453,7 +494,10 @@ String _deviceSummaryName(ExternalWorkRecord record) {
   return '';
 }
 
-String _rowEquipmentText(ExternalWorkRecord record) {
+String _rowEquipmentText(
+  ExternalWorkRecord record,
+  ExternalWorkRecordsText text,
+) {
   final parts = [
     record.equipmentBrand?.trim(),
     record.equipmentModel?.trim(),
@@ -461,7 +505,7 @@ String _rowEquipmentText(ExternalWorkRecord record) {
   if (parts.isNotEmpty) return parts.join(' / ');
 
   final type = record.equipmentType?.trim() ?? '';
-  return type.isEmpty ? '设备未填写' : type;
+  return type.isEmpty ? text.missingDevice : type;
 }
 
 String _hoursText(int hoursMilli) {
@@ -477,22 +521,28 @@ String _blankFallback(String? text) {
 // 详情卡片专用展示 helper（阶段 C Step 8 从 pattern 上移）。
 // ===========================================================================
 
-String _detailSiteText(List<TimingExternalWorkRecordItem> items) {
+String _detailSiteText(
+  List<TimingExternalWorkRecordItem> items,
+  ExternalWorkRecordsText text,
+) {
   final sites = <String>[];
   for (final item in items) {
     final site = item.record.siteSnapshot.trim();
     if (site.isNotEmpty && !sites.contains(site)) sites.add(site);
   }
-  return sites.isEmpty ? '-' : sites.join('、');
+  return sites.isEmpty ? '-' : sites.join(text.separator);
 }
 
-String _detailEquipmentText(ExternalWorkRecord record) {
+String _detailEquipmentText(
+  ExternalWorkRecord record,
+  ExternalWorkRecordsText text,
+) {
   final parts = [
     record.equipmentBrand?.trim(),
     record.equipmentModel?.trim(),
     record.equipmentType?.trim(),
   ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
-  return parts.isEmpty ? '设备未填写' : parts.join(' / ');
+  return parts.isEmpty ? text.missingDevice : parts.join(' / ');
 }
 
 /// 计时页 "外协项目记录" 详情专用：展示**来源方**原始单价（不是接收方复核）。
@@ -508,7 +558,10 @@ String _detailEquipmentText(ExternalWorkRecord record) {
 /// localUnitPriceFen 是接收方未来本地复核的外协应付/结算单价，账户页
 /// 外协卡片才走 `localUnitPriceFen ?? sourceUnitPriceFen` 作为有效应付价；
 /// 在计时页详情拉它会把"接收方复核值"伪装成"来源事实"，破坏审计语义。
-String _sourceUnitPriceText(Iterable<ExternalWorkRecord> records) {
+String _sourceUnitPriceText(
+  Iterable<ExternalWorkRecord> records,
+  ExternalWorkRecordsText text,
+) {
   final seen = <int>{};
   final values = <String>[];
   for (final record in records) {
@@ -517,25 +570,27 @@ String _sourceUnitPriceText(Iterable<ExternalWorkRecord> records) {
     if (price == null || !seen.add(price)) continue;
     values.add('${_moneyFen(price)} / h');
   }
-  return values.isEmpty ? '未知' : values.join('、');
+  return values.isEmpty ? text.unknown : values.join(text.separator);
 }
 
 String _moneyFen(int fen) {
   return FormatUtils.money(fen / 100);
 }
 
-String _statusText(ExternalWorkRecord record) {
+String _statusText(ExternalWorkRecord record, ExternalWorkRecordsText text) {
   if (record.status == ExternalWorkRecordStatus.active) {
-    return record.linkedProjectId?.trim().isNotEmpty == true ? '已关联' : '待处理';
+    return record.linkedProjectId?.trim().isNotEmpty == true
+        ? text.linked
+        : text.pending;
   }
   switch (record.status) {
     case ExternalWorkRecordStatus.active:
-      return '待处理';
+      return text.pending;
     case ExternalWorkRecordStatus.ignored:
-      return '已忽略';
+      return text.ignored;
     case ExternalWorkRecordStatus.archived:
-      return '已归档';
+      return text.archived;
     case ExternalWorkRecordStatus.voided:
-      return '已作废';
+      return text.voided;
   }
 }

@@ -5,6 +5,7 @@ import '../../components/buttons/app_brand_outline_action_button.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
 import '../../features/timing/view_models/external_work_records_view_model.dart';
+import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -12,20 +13,22 @@ const double _externalWorkEmptyTitleFontSize = 16;
 const double _externalWorkEmptySubtitleFontSize = 15;
 
 List<Widget> buildTimingExternalWorkRecordSlivers({
+  required AppLocalizations l10n,
   required List<TimingExternalWorkRecordItem> items,
   required Set<String> expandedAggregateKeys,
   required ValueChanged<String> onToggleAggregate,
   ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
 }) {
+  final text = ExternalWorkRecordsText(l10n: l10n);
   // 分组 / 标题 fallback / 状态 / 摘要等展示判断由 feature 层 builder 计算（C7）。
   // pattern 只负责渲染 VM 与回调点击事件。
-  final vm = ExternalWorkRecordsViewModelBuilder.build(items);
+  final vm = ExternalWorkRecordsViewModelBuilder.build(items, text);
   if (vm.isEmpty) {
-    return const <Widget>[
+    return <Widget>[
       SliverToBoxAdapter(
         child: AppRecentRecordsEmptyState(
-          title: '暂无外协项目记录',
-          subtitle: '从他人分享的 .jzt 文件导入后，会显示在这里',
+          title: l10n.externalWorkRecordsEmptyTitle,
+          subtitle: l10n.externalWorkRecordsEmptySubtitle,
           titleFontSize: _externalWorkEmptyTitleFontSize,
           subtitleFontSize: _externalWorkEmptySubtitleFontSize,
         ),
@@ -35,7 +38,9 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
 
   return <Widget>[
     for (final yearGroup in vm.yearGroups) ...[
-      SliverToBoxAdapter(child: _ExternalWorkYearHeader(year: yearGroup.year)),
+      SliverToBoxAdapter(
+        child: _ExternalWorkYearHeader(label: text.yearLabel(yearGroup.year)),
+      ),
       for (
         var sourceIndex = 0;
         sourceIndex < yearGroup.sourceGroups.length;
@@ -101,10 +106,13 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = ExternalWorkRecordsText(l10n: l10n);
     // 详情展示字段（site / equipment / 单价 / 金额 / 工时 / 状态 / 导入时间 /
     // linked）由 feature 层 builder 计算（C8）。pattern 只渲染 VM + 回调。
     final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
       item: item,
+      text: text,
       packageItems: packageItems,
     );
     final linkAction = vm.isLinked ? onUnlinkProject : onLinkProject;
@@ -115,29 +123,56 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
         children: [
           _ExternalWorkDetailCard(
             children: [
-              _ExternalWorkDetailRow(label: '来源', value: vm.sourceText),
-              _ExternalWorkDetailRow(label: '分享人', value: vm.sourceNameText),
-              _ExternalWorkDetailRow(label: '地址', value: vm.siteText),
-              _ExternalWorkDetailRow(label: '设备', value: vm.equipmentText),
-              _ExternalWorkDetailRow(label: '日期', value: vm.workDateText),
-              _ExternalWorkDetailRow(label: '工时 / 数量', value: vm.hoursText),
               _ExternalWorkDetailRow(
-                label: '单价',
+                label: l10n.externalWorkRecordsSourceLabel,
+                value: vm.sourceText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsSourceNameLabel,
+                value: vm.sourceNameText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsSiteLabel,
+                value: vm.siteText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsDeviceLabel,
+                value: vm.equipmentText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsDateLabel,
+                value: vm.workDateText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsHoursQuantityLabel,
+                value: vm.hoursText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsUnitPriceLabel,
                 value: vm.sourceUnitPriceText,
               ),
-              _ExternalWorkDetailRow(label: '金额', value: vm.amountText),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsAmountLabel,
+                value: vm.amountText,
+              ),
               if (vm.showProjectReceived)
                 _ExternalWorkDetailRow(
-                  label: '已收项目款',
+                  label: l10n.externalWorkRecordsProjectReceivedLabel,
                   value: vm.projectReceivedText,
                 ),
-              _ExternalWorkDetailRow(label: '导入时间', value: vm.importedAtText),
-              _ExternalWorkDetailRow(label: '当前状态', value: vm.statusText),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsImportedAtLabel,
+                value: vm.importedAtText,
+              ),
+              _ExternalWorkDetailRow(
+                label: l10n.externalWorkRecordsCurrentStatusLabel,
+                value: vm.statusText,
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            '这条记录来自他人分享，当前不可编辑。',
+            l10n.externalWorkRecordsReadOnlyNotice,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: TimingColors.textSecondary,
               height: 1.35,
@@ -150,7 +185,11 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: linkAction,
                 style: appBrandOutlineActionButtonStyle(),
-                child: Text(vm.isLinked ? '解除关联' : '关联到本地项目'),
+                child: Text(
+                  vm.isLinked
+                      ? l10n.timingExternalWorkUnlinkAction
+                      : l10n.externalWorkRecordsLinkAction,
+                ),
               ),
             ),
           ],
@@ -209,16 +248,16 @@ class _ExternalWorkInnerDivider extends StatelessWidget {
 }
 
 class _ExternalWorkYearHeader extends StatelessWidget {
-  const _ExternalWorkYearHeader({required this.year});
+  const _ExternalWorkYearHeader({required this.label});
 
-  final int year;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: TimingTokens.dateHeaderLeftInset),
       child: Text(
-        '$year年',
+        label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           fontSize: TimingTokens.dateHeaderFontSize,
           color: AppColors.textPrimary,
@@ -311,6 +350,7 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
     final titleStyle = textTheme.bodyMedium?.copyWith(
       fontSize: TimingTokens.recordTitleFontSize,
@@ -380,7 +420,10 @@ class _ExternalWorkRecordRowBase extends StatelessWidget {
                 else
                   Transform.translate(
                     offset: const Offset(0, TimingTokens.recordAvatarOffsetY),
-                    child: _ExternalWorkAvatar(linked: linked),
+                    child: _ExternalWorkAvatar(
+                      linked: linked,
+                      avatarLabel: l10n.externalWorkRecordsAvatarLabel,
+                    ),
                   ),
                 const SizedBox(width: TimingTokens.recordAvatarRightGap),
                 Expanded(
@@ -519,9 +562,10 @@ class _ExternalWorkToggleLabel extends StatelessWidget {
 }
 
 class _ExternalWorkAvatar extends StatelessWidget {
-  const _ExternalWorkAvatar({required this.linked});
+  const _ExternalWorkAvatar({required this.linked, required this.avatarLabel});
 
   final bool linked;
+  final String avatarLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -540,7 +584,7 @@ class _ExternalWorkAvatar extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              '协',
+              avatarLabel,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: _externalWorkAvatarTextColor,
                 fontSize: 18,

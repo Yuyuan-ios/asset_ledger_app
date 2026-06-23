@@ -416,6 +416,420 @@ abstract class AppLocalizations {
   /// **'解除关联失败，请重试'**
   String get timingExternalWorkUnlinkFailure;
 
+  /// 外协导入:选择的分享包扩展名不支持时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择 FleetLedger .jzt 分享包'**
+  String get externalWorkPickInvalidType;
+
+  /// 外协导入:分享包读取失败或内容为空时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'读取分享包失败，请重新选择文件'**
+  String get externalWorkPickReadFailure;
+
+  /// 外协导入:分享包超过大小上限时的提示
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包文件过大，无法导入'**
+  String get externalWorkPickFileTooLarge;
+
+  /// 外协导入预览页标题
+  ///
+  /// In zh, this message translates to:
+  /// **'外协项目记录'**
+  String get externalWorkImportPreviewTitle;
+
+  /// 外协导入预览页确认按钮导入中的状态
+  ///
+  /// In zh, this message translates to:
+  /// **'导入中'**
+  String get externalWorkImportPreviewImportingAction;
+
+  /// 外协导入预览页摘要区标题
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get externalWorkImportPreviewSectionTitle;
+
+  /// 外协导入预览页分享来源行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'来自'**
+  String get externalWorkImportPreviewSenderLabel;
+
+  /// 外协导入预览页记录数量行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'记录'**
+  String get externalWorkImportPreviewRecordLabel;
+
+  /// 外协导入预览页记录数量值
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条'**
+  String externalWorkImportPreviewRecordCount(int count);
+
+  /// 外协导入预览页地点行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'地点'**
+  String get externalWorkImportPreviewSiteLabel;
+
+  /// 外协导入预览页总工时行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'总工时'**
+  String get externalWorkImportPreviewTotalHoursLabel;
+
+  /// 外协导入预览页总金额行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'总金额'**
+  String get externalWorkImportPreviewTotalAmountLabel;
+
+  /// 外协导入预览页记录明细标题
+  ///
+  /// In zh, this message translates to:
+  /// **'记录明细'**
+  String get externalWorkImportPreviewLinesTitle;
+
+  /// 外协导入预览页工时值
+  ///
+  /// In zh, this message translates to:
+  /// **'{hours}小时'**
+  String externalWorkImportPreviewHoursValue(String hours);
+
+  /// 外协导入预览页记录可导入状态标签
+  ///
+  /// In zh, this message translates to:
+  /// **'可导入'**
+  String get externalWorkImportPreviewStatusImportable;
+
+  /// 外协导入预览页记录已导入状态标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入过'**
+  String get externalWorkImportPreviewStatusImported;
+
+  /// 外协导入预览页记录存在相同来源记录状态标签
+  ///
+  /// In zh, this message translates to:
+  /// **'存在相同来源记录'**
+  String get externalWorkImportPreviewStatusSameSource;
+
+  /// 外协导入预览页记录存在可疑重复状态标签
+  ///
+  /// In zh, this message translates to:
+  /// **'存在可疑重复记录'**
+  String get externalWorkImportPreviewStatusSuspiciousDuplicate;
+
+  /// 外协导入预览页相同来源重复数量摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'存在相同来源记录 {count} 条'**
+  String externalWorkImportPreviewSameSourceCount(int count);
+
+  /// 外协导入预览页可疑重复数量摘要
+  ///
+  /// In zh, this message translates to:
+  /// **'存在可疑重复记录 {count} 条'**
+  String externalWorkImportPreviewSuspiciousCount(int count);
+
+  /// 外协导入预览页导入成功消息
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入 {count} 条外协项目记录'**
+  String externalWorkImportPreviewImportedSuccess(int count);
+
+  /// 外协导入预览页导入成功横幅完整文案
+  ///
+  /// In zh, this message translates to:
+  /// **'{message}，可在外协项目记录中查看'**
+  String externalWorkImportPreviewSuccessBanner(String message);
+
+  /// 外协导入预览页预览生成失败兜底消息
+  ///
+  /// In zh, this message translates to:
+  /// **'导入预览生成失败，请稍后重试'**
+  String get externalWorkImportPreviewGenericPrepareFailure;
+
+  /// 外协导入预览页导入失败兜底消息
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败，请稍后重试'**
+  String get externalWorkImportPreviewGenericImportFailure;
+
+  /// 外协导入预览页空内容错误
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择或粘贴 .jzt 内容'**
+  String get externalWorkImportPreviewEmptyContent;
+
+  /// 外协导入预览页 JSON 解析失败错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包不是有效的 JSON 内容'**
+  String get externalWorkImportPreviewInvalidJson;
+
+  /// 外协导入预览页分享包 magic 不匹配错误
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是有效的 FleetLedger 分享包'**
+  String get externalWorkImportPreviewInvalidPackage;
+
+  /// 外协导入预览页分享包版本不支持错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包版本暂不支持'**
+  String get externalWorkImportPreviewUnsupportedVersion;
+
+  /// 外协导入预览页分享包类型不支持错误
+  ///
+  /// In zh, this message translates to:
+  /// **'暂不支持这种分享包'**
+  String get externalWorkImportPreviewUnsupportedPackage;
+
+  /// 外协导入预览页完整性信息不完整错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包完整性信息不完整'**
+  String get externalWorkImportPreviewIncompleteIntegrity;
+
+  /// 外协导入预览页 payload hash 校验失败错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包内容校验失败，请重新获取分享包'**
+  String get externalWorkImportPreviewHashMismatch;
+
+  /// 外协导入预览页记录内容无效错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包记录内容不完整或格式异常'**
+  String get externalWorkImportPreviewInvalidRecords;
+
+  /// 外协导入预览页基础信息无效错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包基础信息不完整或格式异常'**
+  String get externalWorkImportPreviewInvalidBaseInfo;
+
+  /// 外协导入预览页分享包解析失败兜底错误
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包无法解析'**
+  String get externalWorkImportPreviewParseFailure;
+
+  /// 外协导入预览页确认导入时因重复被拒绝的错误
+  ///
+  /// In zh, this message translates to:
+  /// **'这份分享包已导入过，或包含相同来源记录'**
+  String get externalWorkImportPreviewDuplicateRejected;
+
+  /// 计时页外协项目记录列表空态标题
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无外协项目记录'**
+  String get externalWorkRecordsEmptyTitle;
+
+  /// 计时页外协项目记录列表空态说明
+  ///
+  /// In zh, this message translates to:
+  /// **'从他人分享的 .jzt 文件导入后，会显示在这里'**
+  String get externalWorkRecordsEmptySubtitle;
+
+  /// 计时页外协项目记录详情来源说明
+  ///
+  /// In zh, this message translates to:
+  /// **'从分享包导入'**
+  String get externalWorkRecordsSourceImported;
+
+  /// 计时页外协项目记录聚合行的记录数量后缀
+  ///
+  /// In zh, this message translates to:
+  /// **'•{count}条记录'**
+  String externalWorkRecordsBulletCount(int count);
+
+  /// 计时页外协项目记录聚合行的设备数量后缀
+  ///
+  /// In zh, this message translates to:
+  /// **'等{count}台'**
+  String externalWorkRecordsMoreDevices(int count);
+
+  /// 计时页外协项目记录设备信息为空时的兜底
+  ///
+  /// In zh, this message translates to:
+  /// **'设备未填写'**
+  String get externalWorkRecordsMissingDevice;
+
+  /// 计时页外协项目记录未知值兜底
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get externalWorkRecordsUnknown;
+
+  /// 计时页外协项目记录已关联状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已关联'**
+  String get externalWorkRecordsStatusLinked;
+
+  /// 计时页外协项目记录待处理状态
+  ///
+  /// In zh, this message translates to:
+  /// **'待处理'**
+  String get externalWorkRecordsStatusPending;
+
+  /// 计时页外协项目记录已忽略状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已忽略'**
+  String get externalWorkRecordsStatusIgnored;
+
+  /// 计时页外协项目记录已归档状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已归档'**
+  String get externalWorkRecordsStatusArchived;
+
+  /// 计时页外协项目记录已作废状态
+  ///
+  /// In zh, this message translates to:
+  /// **'已作废'**
+  String get externalWorkRecordsStatusVoided;
+
+  /// 计时页外协项目记录年份分组标题
+  ///
+  /// In zh, this message translates to:
+  /// **'{year}年'**
+  String externalWorkRecordsYearLabel(int year);
+
+  /// 计时页外协项目记录详情来源行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'来源'**
+  String get externalWorkRecordsSourceLabel;
+
+  /// 计时页外协项目记录详情分享人行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'分享人'**
+  String get externalWorkRecordsSourceNameLabel;
+
+  /// 计时页外协项目记录详情地址行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'地址'**
+  String get externalWorkRecordsSiteLabel;
+
+  /// 计时页外协项目记录详情设备行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'设备'**
+  String get externalWorkRecordsDeviceLabel;
+
+  /// 计时页外协项目记录详情日期行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'日期'**
+  String get externalWorkRecordsDateLabel;
+
+  /// 计时页外协项目记录详情工时数量行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'工时 / 数量'**
+  String get externalWorkRecordsHoursQuantityLabel;
+
+  /// 计时页外协项目记录详情单价行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'单价'**
+  String get externalWorkRecordsUnitPriceLabel;
+
+  /// 计时页外协项目记录详情金额行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'金额'**
+  String get externalWorkRecordsAmountLabel;
+
+  /// 计时页外协项目记录详情已收项目款行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'已收项目款'**
+  String get externalWorkRecordsProjectReceivedLabel;
+
+  /// 计时页外协项目记录详情导入时间行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'导入时间'**
+  String get externalWorkRecordsImportedAtLabel;
+
+  /// 计时页外协项目记录详情当前状态行标签
+  ///
+  /// In zh, this message translates to:
+  /// **'当前状态'**
+  String get externalWorkRecordsCurrentStatusLabel;
+
+  /// 计时页外协项目记录详情只读说明
+  ///
+  /// In zh, this message translates to:
+  /// **'这条记录来自他人分享，当前不可编辑。'**
+  String get externalWorkRecordsReadOnlyNotice;
+
+  /// 计时页外协项目记录详情关联到本地项目按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'关联到本地项目'**
+  String get externalWorkRecordsLinkAction;
+
+  /// 计时页外协项目记录列表头像短字
+  ///
+  /// In zh, this message translates to:
+  /// **'协'**
+  String get externalWorkRecordsAvatarLabel;
+
+  /// 计时页外协项目详情底部弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'外协项目详情'**
+  String get externalWorkDetailSheetTitle;
+
+  /// 计时页外协项目详情底部弹窗删除分享包按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除分享包'**
+  String get externalWorkDeleteSharePackageAction;
+
+  /// 计时页删除外协分享包确认弹窗标题
+  ///
+  /// In zh, this message translates to:
+  /// **'删除分享包'**
+  String get externalWorkDeleteSharePackageTitle;
+
+  /// 计时页删除外协分享包确认弹窗正文
+  ///
+  /// In zh, this message translates to:
+  /// **'这将删除该分享包导入的全部 {count} 条外协记录，删除后不可恢复。'**
+  String externalWorkDeleteSharePackageContent(int count);
+
+  /// 外协模块删除按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get externalWorkDeleteAction;
+
+  /// 外协模块读取动作名,用于 store 反馈文案
+  ///
+  /// In zh, this message translates to:
+  /// **'读取'**
+  String get externalWorkReadAction;
+
+  /// 外协模块确认按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get externalWorkConfirmAction;
+
   /// 计时模块:新建计时记录底部录入 sheet 标题
   ///
   /// In zh, this message translates to:

@@ -22,10 +22,7 @@ class ConfirmExternalWorkImportUseCase implements ExternalWorkImportConfirmer {
   ) async {
     final result = await _importer.importParsed(session.parsed);
     if (result.status == ProjectExternalWorkImportStatus.rejectedDuplicate) {
-      throw const ExternalWorkImportPreviewFailure(
-        'duplicate_rejected',
-        '这份分享包已导入过，或包含相同来源记录',
-      );
+      throw const ExternalWorkImportPreviewFailure('duplicate_rejected');
     }
     return result;
   }

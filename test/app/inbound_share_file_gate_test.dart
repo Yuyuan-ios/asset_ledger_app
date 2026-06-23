@@ -1,7 +1,9 @@
 import 'package:asset_ledger/app/inbound_share_file_gate.dart';
 import 'package:asset_ledger/data/services/inbound_share_file_channel.dart';
-import 'package:asset_ledger/features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _QueueChannel implements InboundShareFileChannel {
@@ -29,6 +31,14 @@ Future<void> _pumpGate(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: InboundShareFileGate(
         channel: channel,
         onContent: (c) async {
@@ -44,6 +54,8 @@ Future<void> _pumpGate(
 }
 
 void main() {
+  final zh = AppLocalizationsZh();
+
   testWidgets('drains a valid .jzt file on cold start and forwards content', (
     tester,
   ) async {
@@ -84,7 +96,7 @@ void main() {
     );
 
     expect(contents, isEmpty);
-    expect(errors, [PickExternalWorkShareFileUseCase.readErrorMessage]);
+    expect(errors, [zh.externalWorkPickReadFailure]);
   });
 
   testWidgets('non-.jzt extension surfaces invalid-type message', (
@@ -104,7 +116,7 @@ void main() {
     );
 
     expect(contents, isEmpty);
-    expect(errors, [PickExternalWorkShareFileUseCase.invalidTypeMessage]);
+    expect(errors, [zh.externalWorkPickInvalidType]);
   });
 
   testWidgets('legacy .jztshare extension is rejected (no historical compat)', (
@@ -124,7 +136,7 @@ void main() {
     );
 
     expect(contents, isEmpty);
-    expect(errors, [PickExternalWorkShareFileUseCase.invalidTypeMessage]);
+    expect(errors, [zh.externalWorkPickInvalidType]);
   });
 
   testWidgets('empty queue is a no-op (no content, no error)', (tester) async {

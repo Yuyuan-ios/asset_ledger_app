@@ -1,11 +1,24 @@
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
 import 'package:asset_ledger/patterns/timing/external_work_records_pattern.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+final _zh = AppLocalizationsZh();
+
 Widget _host(List<Widget> slivers) => MaterialApp(
+  locale: const Locale('zh'),
+  localizationsDelegates: const [
+    AppLocalizations.delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: CustomScrollView(slivers: slivers)),
 );
 
@@ -14,6 +27,14 @@ Widget _statefulHost(
   ValueChanged<TimingExternalWorkRecordItem>? onTapRecord,
 }) {
   return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: _ExternalWorkRecordsStateHost(
         items: items,
@@ -30,6 +51,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: const [],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -101,6 +123,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: items,
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -153,6 +176,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: items,
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -220,6 +244,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: [yuPackageA, zhangPackage, yuPackageB],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -254,6 +279,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: [_item()],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -409,6 +435,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: [oldItem, newItem],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -433,6 +460,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: [item],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -450,6 +478,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: [_item()],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -466,6 +495,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
           items: [_item(record: _record(linkedProjectId: 'project-1'))],
           expandedAggregateKeys: const {},
           onToggleAggregate: (_) {},
@@ -500,6 +530,7 @@ class _ExternalWorkRecordsStateHostState
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: buildTimingExternalWorkRecordSlivers(
+        l10n: _zh,
         items: widget.items,
         expandedAggregateKeys: expanded,
         onToggleAggregate: (key) {

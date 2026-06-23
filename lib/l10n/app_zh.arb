@@ -262,6 +262,342 @@
   "@timingExternalWorkUnlinkFailure": {
     "description": "计时模块:外协包解除关联失败 toast"
   },
+  "externalWorkPickInvalidType": "请选择 FleetLedger .jzt 分享包",
+  "@externalWorkPickInvalidType": {
+    "description": "外协导入:选择的分享包扩展名不支持时的提示"
+  },
+  "externalWorkPickReadFailure": "读取分享包失败，请重新选择文件",
+  "@externalWorkPickReadFailure": {
+    "description": "外协导入:分享包读取失败或内容为空时的提示"
+  },
+  "externalWorkPickFileTooLarge": "分享包文件过大，无法导入",
+  "@externalWorkPickFileTooLarge": {
+    "description": "外协导入:分享包超过大小上限时的提示"
+  },
+  "externalWorkImportPreviewTitle": "外协项目记录",
+  "@externalWorkImportPreviewTitle": {
+    "description": "外协导入预览页标题"
+  },
+  "externalWorkImportPreviewImportingAction": "导入中",
+  "@externalWorkImportPreviewImportingAction": {
+    "description": "外协导入预览页确认按钮导入中的状态"
+  },
+  "externalWorkImportPreviewSectionTitle": "预览",
+  "@externalWorkImportPreviewSectionTitle": {
+    "description": "外协导入预览页摘要区标题"
+  },
+  "externalWorkImportPreviewSenderLabel": "来自",
+  "@externalWorkImportPreviewSenderLabel": {
+    "description": "外协导入预览页分享来源行标签"
+  },
+  "externalWorkImportPreviewRecordLabel": "记录",
+  "@externalWorkImportPreviewRecordLabel": {
+    "description": "外协导入预览页记录数量行标签"
+  },
+  "externalWorkImportPreviewRecordCount": "{count} 条",
+  "@externalWorkImportPreviewRecordCount": {
+    "description": "外协导入预览页记录数量值",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "externalWorkImportPreviewSiteLabel": "地点",
+  "@externalWorkImportPreviewSiteLabel": {
+    "description": "外协导入预览页地点行标签"
+  },
+  "externalWorkImportPreviewTotalHoursLabel": "总工时",
+  "@externalWorkImportPreviewTotalHoursLabel": {
+    "description": "外协导入预览页总工时行标签"
+  },
+  "externalWorkImportPreviewTotalAmountLabel": "总金额",
+  "@externalWorkImportPreviewTotalAmountLabel": {
+    "description": "外协导入预览页总金额行标签"
+  },
+  "externalWorkImportPreviewLinesTitle": "记录明细",
+  "@externalWorkImportPreviewLinesTitle": {
+    "description": "外协导入预览页记录明细标题"
+  },
+  "externalWorkImportPreviewHoursValue": "{hours}小时",
+  "@externalWorkImportPreviewHoursValue": {
+    "description": "外协导入预览页工时值",
+    "placeholders": {
+      "hours": {
+        "type": "String",
+        "example": "1.5"
+      }
+    }
+  },
+  "externalWorkImportPreviewStatusImportable": "可导入",
+  "@externalWorkImportPreviewStatusImportable": {
+    "description": "外协导入预览页记录可导入状态标签"
+  },
+  "externalWorkImportPreviewStatusImported": "已导入过",
+  "@externalWorkImportPreviewStatusImported": {
+    "description": "外协导入预览页记录已导入状态标签"
+  },
+  "externalWorkImportPreviewStatusSameSource": "存在相同来源记录",
+  "@externalWorkImportPreviewStatusSameSource": {
+    "description": "外协导入预览页记录存在相同来源记录状态标签"
+  },
+  "externalWorkImportPreviewStatusSuspiciousDuplicate": "存在可疑重复记录",
+  "@externalWorkImportPreviewStatusSuspiciousDuplicate": {
+    "description": "外协导入预览页记录存在可疑重复状态标签"
+  },
+  "externalWorkImportPreviewSameSourceCount": "存在相同来源记录 {count} 条",
+  "@externalWorkImportPreviewSameSourceCount": {
+    "description": "外协导入预览页相同来源重复数量摘要",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "externalWorkImportPreviewSuspiciousCount": "存在可疑重复记录 {count} 条",
+  "@externalWorkImportPreviewSuspiciousCount": {
+    "description": "外协导入预览页可疑重复数量摘要",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "externalWorkImportPreviewImportedSuccess": "已导入 {count} 条外协项目记录",
+  "@externalWorkImportPreviewImportedSuccess": {
+    "description": "外协导入预览页导入成功消息",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "externalWorkImportPreviewSuccessBanner": "{message}，可在外协项目记录中查看",
+  "@externalWorkImportPreviewSuccessBanner": {
+    "description": "外协导入预览页导入成功横幅完整文案",
+    "placeholders": {
+      "message": {
+        "type": "String",
+        "example": "已导入 2 条外协项目记录"
+      }
+    }
+  },
+  "externalWorkImportPreviewGenericPrepareFailure": "导入预览生成失败，请稍后重试",
+  "@externalWorkImportPreviewGenericPrepareFailure": {
+    "description": "外协导入预览页预览生成失败兜底消息"
+  },
+  "externalWorkImportPreviewGenericImportFailure": "导入失败，请稍后重试",
+  "@externalWorkImportPreviewGenericImportFailure": {
+    "description": "外协导入预览页导入失败兜底消息"
+  },
+  "externalWorkImportPreviewEmptyContent": "请先选择或粘贴 .jzt 内容",
+  "@externalWorkImportPreviewEmptyContent": {
+    "description": "外协导入预览页空内容错误"
+  },
+  "externalWorkImportPreviewInvalidJson": "分享包不是有效的 JSON 内容",
+  "@externalWorkImportPreviewInvalidJson": {
+    "description": "外协导入预览页 JSON 解析失败错误"
+  },
+  "externalWorkImportPreviewInvalidPackage": "这不是有效的 FleetLedger 分享包",
+  "@externalWorkImportPreviewInvalidPackage": {
+    "description": "外协导入预览页分享包 magic 不匹配错误"
+  },
+  "externalWorkImportPreviewUnsupportedVersion": "分享包版本暂不支持",
+  "@externalWorkImportPreviewUnsupportedVersion": {
+    "description": "外协导入预览页分享包版本不支持错误"
+  },
+  "externalWorkImportPreviewUnsupportedPackage": "暂不支持这种分享包",
+  "@externalWorkImportPreviewUnsupportedPackage": {
+    "description": "外协导入预览页分享包类型不支持错误"
+  },
+  "externalWorkImportPreviewIncompleteIntegrity": "分享包完整性信息不完整",
+  "@externalWorkImportPreviewIncompleteIntegrity": {
+    "description": "外协导入预览页完整性信息不完整错误"
+  },
+  "externalWorkImportPreviewHashMismatch": "分享包内容校验失败，请重新获取分享包",
+  "@externalWorkImportPreviewHashMismatch": {
+    "description": "外协导入预览页 payload hash 校验失败错误"
+  },
+  "externalWorkImportPreviewInvalidRecords": "分享包记录内容不完整或格式异常",
+  "@externalWorkImportPreviewInvalidRecords": {
+    "description": "外协导入预览页记录内容无效错误"
+  },
+  "externalWorkImportPreviewInvalidBaseInfo": "分享包基础信息不完整或格式异常",
+  "@externalWorkImportPreviewInvalidBaseInfo": {
+    "description": "外协导入预览页基础信息无效错误"
+  },
+  "externalWorkImportPreviewParseFailure": "分享包无法解析",
+  "@externalWorkImportPreviewParseFailure": {
+    "description": "外协导入预览页分享包解析失败兜底错误"
+  },
+  "externalWorkImportPreviewDuplicateRejected": "这份分享包已导入过，或包含相同来源记录",
+  "@externalWorkImportPreviewDuplicateRejected": {
+    "description": "外协导入预览页确认导入时因重复被拒绝的错误"
+  },
+  "externalWorkRecordsEmptyTitle": "暂无外协项目记录",
+  "@externalWorkRecordsEmptyTitle": {
+    "description": "计时页外协项目记录列表空态标题"
+  },
+  "externalWorkRecordsEmptySubtitle": "从他人分享的 .jzt 文件导入后，会显示在这里",
+  "@externalWorkRecordsEmptySubtitle": {
+    "description": "计时页外协项目记录列表空态说明"
+  },
+  "externalWorkRecordsSourceImported": "从分享包导入",
+  "@externalWorkRecordsSourceImported": {
+    "description": "计时页外协项目记录详情来源说明"
+  },
+  "externalWorkRecordsBulletCount": "•{count}条记录",
+  "@externalWorkRecordsBulletCount": {
+    "description": "计时页外协项目记录聚合行的记录数量后缀",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "externalWorkRecordsMoreDevices": "等{count}台",
+  "@externalWorkRecordsMoreDevices": {
+    "description": "计时页外协项目记录聚合行的设备数量后缀",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "externalWorkRecordsMissingDevice": "设备未填写",
+  "@externalWorkRecordsMissingDevice": {
+    "description": "计时页外协项目记录设备信息为空时的兜底"
+  },
+  "externalWorkRecordsUnknown": "未知",
+  "@externalWorkRecordsUnknown": {
+    "description": "计时页外协项目记录未知值兜底"
+  },
+  "externalWorkRecordsStatusLinked": "已关联",
+  "@externalWorkRecordsStatusLinked": {
+    "description": "计时页外协项目记录已关联状态"
+  },
+  "externalWorkRecordsStatusPending": "待处理",
+  "@externalWorkRecordsStatusPending": {
+    "description": "计时页外协项目记录待处理状态"
+  },
+  "externalWorkRecordsStatusIgnored": "已忽略",
+  "@externalWorkRecordsStatusIgnored": {
+    "description": "计时页外协项目记录已忽略状态"
+  },
+  "externalWorkRecordsStatusArchived": "已归档",
+  "@externalWorkRecordsStatusArchived": {
+    "description": "计时页外协项目记录已归档状态"
+  },
+  "externalWorkRecordsStatusVoided": "已作废",
+  "@externalWorkRecordsStatusVoided": {
+    "description": "计时页外协项目记录已作废状态"
+  },
+  "externalWorkRecordsYearLabel": "{year}年",
+  "@externalWorkRecordsYearLabel": {
+    "description": "计时页外协项目记录年份分组标题",
+    "placeholders": {
+      "year": {
+        "type": "int",
+        "example": "2026"
+      }
+    }
+  },
+  "externalWorkRecordsSourceLabel": "来源",
+  "@externalWorkRecordsSourceLabel": {
+    "description": "计时页外协项目记录详情来源行标签"
+  },
+  "externalWorkRecordsSourceNameLabel": "分享人",
+  "@externalWorkRecordsSourceNameLabel": {
+    "description": "计时页外协项目记录详情分享人行标签"
+  },
+  "externalWorkRecordsSiteLabel": "地址",
+  "@externalWorkRecordsSiteLabel": {
+    "description": "计时页外协项目记录详情地址行标签"
+  },
+  "externalWorkRecordsDeviceLabel": "设备",
+  "@externalWorkRecordsDeviceLabel": {
+    "description": "计时页外协项目记录详情设备行标签"
+  },
+  "externalWorkRecordsDateLabel": "日期",
+  "@externalWorkRecordsDateLabel": {
+    "description": "计时页外协项目记录详情日期行标签"
+  },
+  "externalWorkRecordsHoursQuantityLabel": "工时 / 数量",
+  "@externalWorkRecordsHoursQuantityLabel": {
+    "description": "计时页外协项目记录详情工时数量行标签"
+  },
+  "externalWorkRecordsUnitPriceLabel": "单价",
+  "@externalWorkRecordsUnitPriceLabel": {
+    "description": "计时页外协项目记录详情单价行标签"
+  },
+  "externalWorkRecordsAmountLabel": "金额",
+  "@externalWorkRecordsAmountLabel": {
+    "description": "计时页外协项目记录详情金额行标签"
+  },
+  "externalWorkRecordsProjectReceivedLabel": "已收项目款",
+  "@externalWorkRecordsProjectReceivedLabel": {
+    "description": "计时页外协项目记录详情已收项目款行标签"
+  },
+  "externalWorkRecordsImportedAtLabel": "导入时间",
+  "@externalWorkRecordsImportedAtLabel": {
+    "description": "计时页外协项目记录详情导入时间行标签"
+  },
+  "externalWorkRecordsCurrentStatusLabel": "当前状态",
+  "@externalWorkRecordsCurrentStatusLabel": {
+    "description": "计时页外协项目记录详情当前状态行标签"
+  },
+  "externalWorkRecordsReadOnlyNotice": "这条记录来自他人分享，当前不可编辑。",
+  "@externalWorkRecordsReadOnlyNotice": {
+    "description": "计时页外协项目记录详情只读说明"
+  },
+  "externalWorkRecordsLinkAction": "关联到本地项目",
+  "@externalWorkRecordsLinkAction": {
+    "description": "计时页外协项目记录详情关联到本地项目按钮"
+  },
+  "externalWorkRecordsAvatarLabel": "协",
+  "@externalWorkRecordsAvatarLabel": {
+    "description": "计时页外协项目记录列表头像短字"
+  },
+  "externalWorkDetailSheetTitle": "外协项目详情",
+  "@externalWorkDetailSheetTitle": {
+    "description": "计时页外协项目详情底部弹窗标题"
+  },
+  "externalWorkDeleteSharePackageAction": "删除分享包",
+  "@externalWorkDeleteSharePackageAction": {
+    "description": "计时页外协项目详情底部弹窗删除分享包按钮"
+  },
+  "externalWorkDeleteSharePackageTitle": "删除分享包",
+  "@externalWorkDeleteSharePackageTitle": {
+    "description": "计时页删除外协分享包确认弹窗标题"
+  },
+  "externalWorkDeleteSharePackageContent": "这将删除该分享包导入的全部 {count} 条外协记录，删除后不可恢复。",
+  "@externalWorkDeleteSharePackageContent": {
+    "description": "计时页删除外协分享包确认弹窗正文",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "externalWorkDeleteAction": "删除",
+  "@externalWorkDeleteAction": {
+    "description": "外协模块删除按钮"
+  },
+  "externalWorkReadAction": "读取",
+  "@externalWorkReadAction": {
+    "description": "外协模块读取动作名,用于 store 反馈文案"
+  },
+  "externalWorkConfirmAction": "确定",
+  "@externalWorkConfirmAction": {
+    "description": "外协模块确认按钮"
+  },
   "timingEntryCreateSheetTitle": "新建计时",
   "@timingEntryCreateSheetTitle": {
     "description": "计时模块:新建计时记录底部录入 sheet 标题"

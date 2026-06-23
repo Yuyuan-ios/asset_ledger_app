@@ -22,6 +22,7 @@ import '../../../features/timing/state/timing_store.dart';
 import '../../../features/app_update/application/update_prompt_coordinator.dart';
 import '../../../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
 import '../../../features/external_work/import_preview/view/external_work_import_preview_page.dart';
+import '../../../features/external_work/import_preview/view_model/external_work_import_preview_copy.dart';
 import '../../../features/timing/use_cases/delete_timing_record_with_impact_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_use_case.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
@@ -710,6 +711,7 @@ class _TimingPageState extends State<TimingPage> {
   Future<void> _openExternalWorkDetail(
     TimingExternalWorkRecordItem item,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final detailItems = _externalWorkDetailItems(item);
     final detailPackage = _buildExternalWorkLinkPackage(
       item.record.importBatchId,
@@ -720,13 +722,13 @@ class _TimingPageState extends State<TimingPage> {
       context: context,
       builder: (sheetContext) {
         return AppBottomSheetShell(
-          title: '外协项目详情',
+          title: l10n.externalWorkDetailSheetTitle,
           scrollable: true,
           onCancel: () => _deleteExternalWorkRecord(sheetContext, item),
           onConfirm: () => Navigator.of(sheetContext).pop(),
-          cancelText: '删除分享包',
+          cancelText: l10n.externalWorkDeleteSharePackageAction,
           cancelForegroundColor: Colors.red.shade600,
-          confirmText: '确定',
+          confirmText: l10n.externalWorkConfirmAction,
           contentPadding: EdgeInsets.zero,
           child: ExternalWorkRecordDetailContent(
             item: item,
@@ -778,6 +780,7 @@ class _TimingPageState extends State<TimingPage> {
     TimingExternalWorkRecordItem item,
   ) {
     () async {
+      final l10n = AppLocalizations.of(context);
       final store = context.read<TimingExternalWorkStore>();
       final batchId = item.record.importBatchId;
       final batchRecordCount = store.items
@@ -785,16 +788,19 @@ class _TimingPageState extends State<TimingPage> {
           .length;
       final confirmed = await showAppConfirmDialog(
         context: context,
-        title: '删除分享包',
-        content: '这将删除该分享包导入的全部 $batchRecordCount 条外协记录，删除后不可恢复。',
-        confirmText: '删除',
+        title: l10n.externalWorkDeleteSharePackageTitle,
+        content: l10n.externalWorkDeleteSharePackageContent(batchRecordCount),
+        confirmText: l10n.externalWorkDeleteAction,
         confirmDestructive: true,
       );
       if (!confirmed || !mounted) return;
 
       await store.deleteByBatchId(batchId);
       if (!mounted) return;
-      final feedback = storeActionFeedback(store, action: '删除');
+      final feedback = storeActionFeedback(
+        store,
+        action: l10n.externalWorkDeleteAction,
+      );
       _toast(feedback.message);
       if (!feedback.isSuccess || !sheetContext.mounted) return;
       Navigator.of(sheetContext).pop();
@@ -809,11 +815,14 @@ class _TimingPageState extends State<TimingPage> {
         .read<PickExternalWorkShareFileUseCase>()
         .pick();
     if (!mounted) return;
+    final copy = ExternalWorkImportPreviewCopy(
+      l10n: AppLocalizations.of(context),
+    );
     switch (result) {
       case PickShareFileCancelled():
         return;
-      case PickShareFileError(:final message):
-        _toast(message);
+      case PickShareFileError():
+        _toast(copy.pickErrorMessage(result));
       case PickShareFileContent(:final content):
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -839,6 +848,7 @@ class _TimingPageState extends State<TimingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final timingStore = context.watch<TimingStore>();
     final deviceStore = context.watch<DeviceStore>();
     final fuelStore = context.watch<FuelStore>();
@@ -860,11 +870,11 @@ class _TimingPageState extends State<TimingPage> {
       maintenanceStore,
       accountStore,
       externalWorkStore,
-    ], action: '读取');
+    ], action: l10n.externalWorkReadAction);
     final deviceById = buildDeviceByIdMap(deviceStore.allDevices);
     final deviceIndexById = DeviceLabel.indexMapById(
       deviceStore.allDevices,
-      inactiveLabel: AppLocalizations.of(context).deviceInactiveIndexLabel,
+      inactiveLabel: l10n.deviceInactiveIndexLabel,
     );
     final rateStore = context.watch<ProjectRateStore>();
     final chartData = _buildChartData(

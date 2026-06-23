@@ -1,7 +1,9 @@
 import 'package:asset_ledger/data/models/external_work_record.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/timing/external_work_records_pattern.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 计时页"外协项目记录"详情弹窗的"单价"行展示规则（来源事实视图）：
@@ -24,6 +26,14 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ExternalWorkRecordDetailContent(
             item: TimingExternalWorkRecordItem(record: record),

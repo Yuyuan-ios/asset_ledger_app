@@ -9,13 +9,12 @@ abstract class ExternalWorkImportPreviewPreparer {
 }
 
 class ExternalWorkImportPreviewFailure implements Exception {
-  const ExternalWorkImportPreviewFailure(this.code, this.message);
+  const ExternalWorkImportPreviewFailure(this.code);
 
   final String code;
-  final String message;
 
   @override
-  String toString() => 'ExternalWorkImportPreviewFailure($code): $message';
+  String toString() => 'ExternalWorkImportPreviewFailure($code)';
 }
 
 class PrepareExternalWorkImportPreviewUseCase
@@ -33,10 +32,7 @@ class PrepareExternalWorkImportPreviewUseCase
   Future<ExternalWorkImportPreviewSession> execute(String content) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty) {
-      throw const ExternalWorkImportPreviewFailure(
-        'empty_content',
-        '请先选择或粘贴 .jzt 内容',
-      );
+      throw const ExternalWorkImportPreviewFailure('empty_content');
     }
 
     try {
@@ -44,50 +40,13 @@ class PrepareExternalWorkImportPreviewUseCase
       final preview = await _importer.buildPreview(parsed);
       return ExternalWorkImportPreviewSession(parsed: parsed, preview: preview);
     } on JztShareParseException catch (error) {
-      throw ExternalWorkImportPreviewFailure(
-        error.code,
-        _messageForJztShareCode(error.code),
-      );
+      throw ExternalWorkImportPreviewFailure(error.code);
     } on ProjectExternalWorkImportException catch (error) {
-      throw ExternalWorkImportPreviewFailure(error.code, error.message);
+      throw ExternalWorkImportPreviewFailure(error.code);
     } on FormatException {
       throw const ExternalWorkImportPreviewFailure(
         JztShareErrorCodes.invalidJson,
-        '分享包不是有效的 JSON 内容',
       );
-    }
-  }
-
-  static String _messageForJztShareCode(String code) {
-    switch (code) {
-      case JztShareErrorCodes.invalidJson:
-        return '分享包不是有效的 JSON 内容';
-      case JztShareErrorCodes.missingMagic:
-      case JztShareErrorCodes.invalidMagic:
-        return '这不是有效的 FleetLedger 分享包';
-      case JztShareErrorCodes.missingFormatVersion:
-      case JztShareErrorCodes.unsupportedFormatVersion:
-        return '分享包版本暂不支持';
-      case JztShareErrorCodes.missingPackageType:
-      case JztShareErrorCodes.unsupportedPackageType:
-        return '暂不支持这种分享包';
-      case JztShareErrorCodes.missingPayloadSha256:
-      case JztShareErrorCodes.invalidPayloadSha256:
-        return '分享包完整性信息不完整';
-      case JztShareErrorCodes.payloadHashMismatch:
-        return '分享包内容校验失败，请重新获取分享包';
-      case JztShareErrorCodes.missingPayload:
-      case JztShareErrorCodes.invalidExportLines:
-      case JztShareErrorCodes.exportLinesTooMany:
-      case JztShareErrorCodes.invalidLine:
-      case JztShareErrorCodes.invalidPayload:
-        return '分享包记录内容不完整或格式异常';
-      case JztShareErrorCodes.invalidProducer:
-      case JztShareErrorCodes.invalidIntegrity:
-      case JztShareErrorCodes.unsupportedPayloadEncoding:
-        return '分享包基础信息不完整或格式异常';
-      default:
-        return '分享包无法解析';
     }
   }
 }

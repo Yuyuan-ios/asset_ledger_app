@@ -367,6 +367,7 @@ class _TimingHomePatternState extends State<TimingHomePattern>
                             ),
                             bottomSpacer: bottomSpacer,
                             slivers: buildTimingExternalWorkRecordSlivers(
+                              l10n: l10n,
                               items: widget.externalWorkItems,
                               expandedAggregateKeys:
                                   _expandedExternalWorkAggregateKeys,

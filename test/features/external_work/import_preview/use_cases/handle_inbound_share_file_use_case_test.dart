@@ -28,8 +28,8 @@ void main() {
     );
     expect(result, isA<PickShareFileError>());
     expect(
-      (result as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.invalidTypeMessage,
+      (result as PickShareFileError).code,
+      PickShareFileErrorCode.invalidType,
     );
   });
 
@@ -39,8 +39,8 @@ void main() {
     );
     expect(result, isA<PickShareFileError>());
     expect(
-      (result as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.invalidTypeMessage,
+      (result as PickShareFileError).code,
+      PickShareFileErrorCode.invalidType,
     );
   });
 
@@ -50,8 +50,8 @@ void main() {
     );
     expect(result, isA<PickShareFileError>());
     expect(
-      (result as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.readErrorMessage,
+      (result as PickShareFileError).code,
+      PickShareFileErrorCode.readFailure,
     );
   });
 
@@ -63,8 +63,8 @@ void main() {
       );
       expect(result, isA<PickShareFileError>());
       expect(
-        (result as PickShareFileError).message,
-        PickExternalWorkShareFileUseCase.invalidTypeMessage,
+        (result as PickShareFileError).code,
+        PickShareFileErrorCode.invalidType,
       );
     },
   );

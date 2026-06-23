@@ -8,9 +8,17 @@ import 'package:flutter_test/flutter_test.dart';
 /// 这是渐进式清单:每完成一个文件/模块的 key 化,加入 [migratedFiles]。
 /// 反向锁定已完成的成果,防止后续提交往已迁移文件里重新硬编码中文。
 const List<String> migratedFiles = <String>[
+  'lib/app/inbound_share_file_gate.dart',
   'lib/features/app_update/domain/version_policy.dart',
   'lib/features/app_update/presentation/forced_update_blocker.dart',
   'lib/features/app_update/presentation/optional_update_prompt.dart',
+  'lib/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart',
+  'lib/features/external_work/import_preview/use_cases/handle_inbound_share_file_use_case.dart',
+  'lib/features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart',
+  'lib/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart',
+  'lib/features/external_work/import_preview/view/external_work_import_preview_page.dart',
+  'lib/features/external_work/import_preview/view_model/external_work_import_preview_copy.dart',
+  'lib/features/external_work/import_preview/view_model/external_work_import_preview_view_model.dart',
   'lib/features/timing/calculator/view/calculation_history_list.dart',
   'lib/features/timing/calculator/view/calculator_keypad.dart',
   'lib/features/timing/calculator/view/work_hour_calculator_sheet.dart',
@@ -18,6 +26,7 @@ const List<String> migratedFiles = <String>[
   'lib/features/sync/sync_conflict_review_controller.dart',
   'lib/features/sync/sync_conflict_review_page.dart',
   'lib/patterns/timing/card_main_chart_pattern.dart',
+  'lib/patterns/timing/external_work_records_pattern.dart',
   'lib/patterns/timing/external_work_link_sheet.dart',
   'lib/patterns/timing/recent_records_pattern.dart',
   'lib/patterns/timing/tab_bar_pattern.dart',

@@ -7,7 +7,9 @@ import '../data/services/inbound_share_file_channel.dart';
 import '../features/external_work/import_preview/use_cases/handle_inbound_share_file_use_case.dart';
 import '../features/external_work/import_preview/use_cases/pick_external_work_share_file_use_case.dart';
 import '../features/external_work/import_preview/view/external_work_import_preview_page.dart';
+import '../features/external_work/import_preview/view_model/external_work_import_preview_copy.dart';
 import '../features/timing/state/timing_external_work_store.dart';
+import '../l10n/gen/app_localizations.dart';
 
 /// Signature for delivering inbound-file content into the import preview.
 typedef InboundShareContentHandler = Future<void> Function(String content);
@@ -97,8 +99,11 @@ class _InboundShareFileGateState extends State<InboundShareFileGate>
     switch (result) {
       case PickShareFileCancelled():
         return;
-      case PickShareFileError(:final message):
-        (widget.onError ?? _defaultErrorHandler)(message);
+      case PickShareFileError():
+        final copy = ExternalWorkImportPreviewCopy(
+          l10n: AppLocalizations.of(context),
+        );
+        (widget.onError ?? _defaultErrorHandler)(copy.pickErrorMessage(result));
       case PickShareFileContent(:final content):
         await (widget.onContent ?? _defaultContentHandler)(content);
     }

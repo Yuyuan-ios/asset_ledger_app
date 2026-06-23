@@ -9,8 +9,12 @@ import 'package:asset_ledger/features/external_work/import_preview/use_cases/con
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/external_work_import_preview_session.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart';
 import 'package:asset_ledger/features/external_work/import_preview/view/external_work_import_preview_page.dart';
+import 'package:asset_ledger/features/external_work/import_preview/view_model/external_work_import_preview_copy.dart';
 import 'package:asset_ledger/features/external_work/import_preview/view_model/external_work_import_preview_view_model.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -41,7 +45,6 @@ void main() {
         _session(),
         failure: const ExternalWorkImportPreviewFailure(
           'payload_hash_mismatch',
-          '分享包内容校验失败，请重新获取分享包',
         ),
       );
       await tester.pumpWidget(
@@ -111,7 +114,17 @@ void main() {
 }
 
 Widget _app(Widget child) {
-  return MaterialApp(home: child);
+  return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: child,
+  );
 }
 
 ExternalWorkImportPreviewPage _page(
@@ -124,6 +137,7 @@ ExternalWorkImportPreviewPage _page(
     viewModel: ExternalWorkImportPreviewViewModel(
       preparePreview: preparer,
       confirmImport: confirmer,
+      copy: ExternalWorkImportPreviewCopy(l10n: AppLocalizationsZh()),
     ),
   );
 }

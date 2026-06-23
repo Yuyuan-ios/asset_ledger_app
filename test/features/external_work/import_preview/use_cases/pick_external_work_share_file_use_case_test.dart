@@ -47,8 +47,8 @@ void main() {
       final r = await useCase.pick();
       expect(r, isA<PickShareFileError>());
       expect(
-        (r as PickShareFileError).message,
-        PickExternalWorkShareFileUseCase.invalidTypeMessage,
+        (r as PickShareFileError).code,
+        PickShareFileErrorCode.invalidType,
       );
     },
   );
@@ -61,10 +61,7 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect(
-      (r as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.invalidTypeMessage,
-    );
+    expect((r as PickShareFileError).code, PickShareFileErrorCode.invalidType);
   });
 
   test('unreadable file (no bytes, no path) returns read error', () async {
@@ -73,10 +70,7 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect(
-      (r as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.readErrorMessage,
-    );
+    expect((r as PickShareFileError).code, PickShareFileErrorCode.readFailure);
   });
 
   test('empty content returns read error', () async {
@@ -87,10 +81,7 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect(
-      (r as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.readErrorMessage,
-    );
+    expect((r as PickShareFileError).code, PickShareFileErrorCode.readFailure);
   });
 
   test('oversized in-memory bytes are rejected before decoding', () async {
@@ -104,10 +95,7 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect(
-      (r as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.fileTooLargeMessage,
-    );
+    expect((r as PickShareFileError).code, PickShareFileErrorCode.fileTooLarge);
   });
 
   test('oversized file at path is rejected without loading it', () async {
@@ -127,10 +115,7 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect(
-      (r as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.fileTooLargeMessage,
-    );
+    expect((r as PickShareFileError).code, PickShareFileErrorCode.fileTooLarge);
   });
 
   test('cancelled selection is not an error', () async {
@@ -145,9 +130,6 @@ void main() {
     );
     final r = await useCase.pick();
     expect(r, isA<PickShareFileError>());
-    expect(
-      (r as PickShareFileError).message,
-      PickExternalWorkShareFileUseCase.readErrorMessage,
-    );
+    expect((r as PickShareFileError).code, PickShareFileErrorCode.readFailure);
   });
 }

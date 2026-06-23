@@ -10,7 +10,9 @@ import 'package:asset_ledger/data/share/jztshare/share_envelope_validator.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/confirm_external_work_import_use_case.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/external_work_import_preview_session.dart';
 import 'package:asset_ledger/features/external_work/import_preview/use_cases/prepare_external_work_import_preview_use_case.dart';
+import 'package:asset_ledger/features/external_work/import_preview/view_model/external_work_import_preview_copy.dart';
 import 'package:asset_ledger/features/external_work/import_preview/view_model/external_work_import_preview_view_model.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -135,13 +137,14 @@ void main() {
       final viewModel = ExternalWorkImportPreviewViewModel(
         preparePreview: _StaticPreparer(session),
         confirmImport: const _FailingConfirmer(),
+        copy: _copy(),
       );
 
       await viewModel.prepare(_encodedEnvelope());
       await viewModel.confirmImport();
 
       expect(viewModel.status, ExternalWorkImportPreviewStatus.error);
-      expect(viewModel.errorMessage, '导入事务失败');
+      expect(viewModel.errorMessage, '导入失败，请稍后重试');
     });
   });
 }
@@ -150,7 +153,12 @@ ExternalWorkImportPreviewViewModel _viewModel() {
   return ExternalWorkImportPreviewViewModel(
     preparePreview: const PrepareExternalWorkImportPreviewUseCase(),
     confirmImport: const ConfirmExternalWorkImportUseCase(),
+    copy: _copy(),
   );
+}
+
+ExternalWorkImportPreviewCopy _copy() {
+  return ExternalWorkImportPreviewCopy(l10n: AppLocalizationsZh());
 }
 
 class _StaticPreparer implements ExternalWorkImportPreviewPreparer {
@@ -171,10 +179,7 @@ class _FailingConfirmer implements ExternalWorkImportConfirmer {
   Future<ProjectExternalWorkImportResult> execute(
     ExternalWorkImportPreviewSession session,
   ) async {
-    throw const ExternalWorkImportPreviewFailure(
-      'transaction_failed',
-      '导入事务失败',
-    );
+    throw const ExternalWorkImportPreviewFailure('transaction_failed');
   }
 }
 

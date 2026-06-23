@@ -4,6 +4,7 @@ import '../../../../data/share/jztshare/project_external_work_import_preview.dar
 import '../use_cases/confirm_external_work_import_use_case.dart';
 import '../use_cases/external_work_import_preview_session.dart';
 import '../use_cases/prepare_external_work_import_preview_use_case.dart';
+import 'external_work_import_preview_copy.dart';
 
 enum ExternalWorkImportPreviewStatus {
   idle,
@@ -18,11 +19,14 @@ class ExternalWorkImportPreviewViewModel extends ChangeNotifier {
   ExternalWorkImportPreviewViewModel({
     required ExternalWorkImportPreviewPreparer preparePreview,
     required ExternalWorkImportConfirmer confirmImport,
+    required ExternalWorkImportPreviewCopy copy,
   }) : _preparePreview = preparePreview,
-       _confirmImport = confirmImport;
+       _confirmImport = confirmImport,
+       _copy = copy;
 
   final ExternalWorkImportPreviewPreparer _preparePreview;
   final ExternalWorkImportConfirmer _confirmImport;
+  final ExternalWorkImportPreviewCopy _copy;
 
   ExternalWorkImportPreviewStatus _status =
       ExternalWorkImportPreviewStatus.idle;
@@ -61,12 +65,12 @@ class ExternalWorkImportPreviewViewModel extends ChangeNotifier {
       _status = ExternalWorkImportPreviewStatus.ready;
     } on ExternalWorkImportPreviewFailure catch (error) {
       _session = null;
-      _errorMessage = error.message;
+      _errorMessage = _copy.prepareFailureMessage(error);
       _successMessage = null;
       _status = ExternalWorkImportPreviewStatus.error;
     } catch (_) {
       _session = null;
-      _errorMessage = '导入预览生成失败，请稍后重试';
+      _errorMessage = _copy.l10n.externalWorkImportPreviewGenericPrepareFailure;
       _successMessage = null;
       _status = ExternalWorkImportPreviewStatus.error;
     }
@@ -81,14 +85,16 @@ class ExternalWorkImportPreviewViewModel extends ChangeNotifier {
     try {
       final result = await _confirmImport.execute(session);
       _errorMessage = null;
-      _successMessage = '已导入 ${result.insertedRecordCount} 条外协项目记录';
+      _successMessage = _copy.l10n.externalWorkImportPreviewImportedSuccess(
+        result.insertedRecordCount,
+      );
       _status = ExternalWorkImportPreviewStatus.success;
     } on ExternalWorkImportPreviewFailure catch (error) {
-      _errorMessage = error.message;
+      _errorMessage = _copy.importFailureMessage(error);
       _successMessage = null;
       _status = ExternalWorkImportPreviewStatus.error;
     } catch (_) {
-      _errorMessage = '导入失败，请稍后重试';
+      _errorMessage = _copy.l10n.externalWorkImportPreviewGenericImportFailure;
       _successMessage = null;
       _status = ExternalWorkImportPreviewStatus.error;
     }
@@ -108,18 +114,5 @@ class ExternalWorkImportPreviewViewModel extends ChangeNotifier {
     _errorMessage = null;
     _successMessage = null;
     notifyListeners();
-  }
-}
-
-String externalWorkDuplicateStatusLabel(ExternalWorkDuplicateStatus status) {
-  switch (status) {
-    case ExternalWorkDuplicateStatus.none:
-      return '可导入';
-    case ExternalWorkDuplicateStatus.sameShareAlreadyImported:
-      return '已导入过';
-    case ExternalWorkDuplicateStatus.sameSourceRecordAlreadyImported:
-      return '存在相同来源记录';
-    case ExternalWorkDuplicateStatus.sameOriginFingerprintAlreadyImported:
-      return '存在可疑重复记录';
   }
 }

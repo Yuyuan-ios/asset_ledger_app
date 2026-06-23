@@ -185,6 +185,235 @@ class AppLocalizationsZh extends AppLocalizations {
   String get timingExternalWorkUnlinkFailure => '解除关联失败，请重试';
 
   @override
+  String get externalWorkPickInvalidType => '请选择 FleetLedger .jzt 分享包';
+
+  @override
+  String get externalWorkPickReadFailure => '读取分享包失败，请重新选择文件';
+
+  @override
+  String get externalWorkPickFileTooLarge => '分享包文件过大，无法导入';
+
+  @override
+  String get externalWorkImportPreviewTitle => '外协项目记录';
+
+  @override
+  String get externalWorkImportPreviewImportingAction => '导入中';
+
+  @override
+  String get externalWorkImportPreviewSectionTitle => '预览';
+
+  @override
+  String get externalWorkImportPreviewSenderLabel => '来自';
+
+  @override
+  String get externalWorkImportPreviewRecordLabel => '记录';
+
+  @override
+  String externalWorkImportPreviewRecordCount(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String get externalWorkImportPreviewSiteLabel => '地点';
+
+  @override
+  String get externalWorkImportPreviewTotalHoursLabel => '总工时';
+
+  @override
+  String get externalWorkImportPreviewTotalAmountLabel => '总金额';
+
+  @override
+  String get externalWorkImportPreviewLinesTitle => '记录明细';
+
+  @override
+  String externalWorkImportPreviewHoursValue(String hours) {
+    return '$hours小时';
+  }
+
+  @override
+  String get externalWorkImportPreviewStatusImportable => '可导入';
+
+  @override
+  String get externalWorkImportPreviewStatusImported => '已导入过';
+
+  @override
+  String get externalWorkImportPreviewStatusSameSource => '存在相同来源记录';
+
+  @override
+  String get externalWorkImportPreviewStatusSuspiciousDuplicate => '存在可疑重复记录';
+
+  @override
+  String externalWorkImportPreviewSameSourceCount(int count) {
+    return '存在相同来源记录 $count 条';
+  }
+
+  @override
+  String externalWorkImportPreviewSuspiciousCount(int count) {
+    return '存在可疑重复记录 $count 条';
+  }
+
+  @override
+  String externalWorkImportPreviewImportedSuccess(int count) {
+    return '已导入 $count 条外协项目记录';
+  }
+
+  @override
+  String externalWorkImportPreviewSuccessBanner(String message) {
+    return '$message，可在外协项目记录中查看';
+  }
+
+  @override
+  String get externalWorkImportPreviewGenericPrepareFailure => '导入预览生成失败，请稍后重试';
+
+  @override
+  String get externalWorkImportPreviewGenericImportFailure => '导入失败，请稍后重试';
+
+  @override
+  String get externalWorkImportPreviewEmptyContent => '请先选择或粘贴 .jzt 内容';
+
+  @override
+  String get externalWorkImportPreviewInvalidJson => '分享包不是有效的 JSON 内容';
+
+  @override
+  String get externalWorkImportPreviewInvalidPackage =>
+      '这不是有效的 FleetLedger 分享包';
+
+  @override
+  String get externalWorkImportPreviewUnsupportedVersion => '分享包版本暂不支持';
+
+  @override
+  String get externalWorkImportPreviewUnsupportedPackage => '暂不支持这种分享包';
+
+  @override
+  String get externalWorkImportPreviewIncompleteIntegrity => '分享包完整性信息不完整';
+
+  @override
+  String get externalWorkImportPreviewHashMismatch => '分享包内容校验失败，请重新获取分享包';
+
+  @override
+  String get externalWorkImportPreviewInvalidRecords => '分享包记录内容不完整或格式异常';
+
+  @override
+  String get externalWorkImportPreviewInvalidBaseInfo => '分享包基础信息不完整或格式异常';
+
+  @override
+  String get externalWorkImportPreviewParseFailure => '分享包无法解析';
+
+  @override
+  String get externalWorkImportPreviewDuplicateRejected =>
+      '这份分享包已导入过，或包含相同来源记录';
+
+  @override
+  String get externalWorkRecordsEmptyTitle => '暂无外协项目记录';
+
+  @override
+  String get externalWorkRecordsEmptySubtitle => '从他人分享的 .jzt 文件导入后，会显示在这里';
+
+  @override
+  String get externalWorkRecordsSourceImported => '从分享包导入';
+
+  @override
+  String externalWorkRecordsBulletCount(int count) {
+    return '•$count条记录';
+  }
+
+  @override
+  String externalWorkRecordsMoreDevices(int count) {
+    return '等$count台';
+  }
+
+  @override
+  String get externalWorkRecordsMissingDevice => '设备未填写';
+
+  @override
+  String get externalWorkRecordsUnknown => '未知';
+
+  @override
+  String get externalWorkRecordsStatusLinked => '已关联';
+
+  @override
+  String get externalWorkRecordsStatusPending => '待处理';
+
+  @override
+  String get externalWorkRecordsStatusIgnored => '已忽略';
+
+  @override
+  String get externalWorkRecordsStatusArchived => '已归档';
+
+  @override
+  String get externalWorkRecordsStatusVoided => '已作废';
+
+  @override
+  String externalWorkRecordsYearLabel(int year) {
+    return '$year年';
+  }
+
+  @override
+  String get externalWorkRecordsSourceLabel => '来源';
+
+  @override
+  String get externalWorkRecordsSourceNameLabel => '分享人';
+
+  @override
+  String get externalWorkRecordsSiteLabel => '地址';
+
+  @override
+  String get externalWorkRecordsDeviceLabel => '设备';
+
+  @override
+  String get externalWorkRecordsDateLabel => '日期';
+
+  @override
+  String get externalWorkRecordsHoursQuantityLabel => '工时 / 数量';
+
+  @override
+  String get externalWorkRecordsUnitPriceLabel => '单价';
+
+  @override
+  String get externalWorkRecordsAmountLabel => '金额';
+
+  @override
+  String get externalWorkRecordsProjectReceivedLabel => '已收项目款';
+
+  @override
+  String get externalWorkRecordsImportedAtLabel => '导入时间';
+
+  @override
+  String get externalWorkRecordsCurrentStatusLabel => '当前状态';
+
+  @override
+  String get externalWorkRecordsReadOnlyNotice => '这条记录来自他人分享，当前不可编辑。';
+
+  @override
+  String get externalWorkRecordsLinkAction => '关联到本地项目';
+
+  @override
+  String get externalWorkRecordsAvatarLabel => '协';
+
+  @override
+  String get externalWorkDetailSheetTitle => '外协项目详情';
+
+  @override
+  String get externalWorkDeleteSharePackageAction => '删除分享包';
+
+  @override
+  String get externalWorkDeleteSharePackageTitle => '删除分享包';
+
+  @override
+  String externalWorkDeleteSharePackageContent(int count) {
+    return '这将删除该分享包导入的全部 $count 条外协记录，删除后不可恢复。';
+  }
+
+  @override
+  String get externalWorkDeleteAction => '删除';
+
+  @override
+  String get externalWorkReadAction => '读取';
+
+  @override
+  String get externalWorkConfirmAction => '确定';
+
+  @override
   String get timingEntryCreateSheetTitle => '新建计时';
 
   @override
