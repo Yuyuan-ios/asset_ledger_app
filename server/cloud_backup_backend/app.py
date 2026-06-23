@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import http.server
 import json
+import logging
 import os
 import sqlite3
 import threading
@@ -48,6 +49,12 @@ ENCRYPTION_META_FIELDS = (
     "plaintext_sha256",
     "plaintext_bytes",
 )
+
+LOGGER = logging.getLogger("fleet_ledger.cloud_backup")
+
+
+def configure_logging() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 class HttpError(Exception):
@@ -163,6 +170,24 @@ def header_value(headers: Mapping[str, Any], name: str) -> Optional[str]:
                 raw = value
                 break
     return non_empty_string(raw)
+
+
+def request_id_from_headers(headers: Mapping[str, Any]) -> str:
+    return header_value(headers, "X-Request-Id") or str(uuid.uuid4())
+
+
+def log_internal_error(request_id: str, method: str, path: Optional[str]) -> None:
+    fields: Dict[str, Any] = {
+        "event": "internal_error",
+        "method": method,
+        "request_id": request_id,
+    }
+    if path is not None:
+        fields["path"] = path
+    LOGGER.exception(
+        "backup_request_error %s",
+        json.dumps(fields, sort_keys=True, separators=(",", ":")),
+    )
 
 
 class VersionPolicySource:
@@ -972,6 +997,8 @@ class BackupRequestHandler(http.server.BaseHTTPRequestHandler):
         return self.server.app  # type: ignore[attr-defined]
 
     def _handle(self, method: str) -> None:
+        request_id = request_id_from_headers(self.headers)
+        path: Optional[str] = None
         try:
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path.rstrip("/") or "/"
@@ -1008,7 +1035,7 @@ class BackupRequestHandler(http.server.BaseHTTPRequestHandler):
         except HttpError as exc:
             error_response(self, exc)
         except Exception:
-            print("internal_error while handling cloud backup request", flush=True)
+            log_internal_error(request_id, method, path)
             error_response(self, HttpError(500, "internal_error", "internal server error"))
 
 
@@ -1024,6 +1051,7 @@ def build_server_from_env() -> BackupHttpServer:
 
 
 def main() -> None:
+    configure_logging()
     server = build_server_from_env()
     host, port = server.server_address
     print(f"FleetLedger cloud backup backend listening on {host}:{port}", flush=True)

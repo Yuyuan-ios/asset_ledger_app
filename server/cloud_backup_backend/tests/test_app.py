@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import os
 import sqlite3
 import tempfile
@@ -19,6 +20,8 @@ from app import (
     SlidingWindowRateLimiter,
     StorageError,
     base64url_encode,
+    configure_logging,
+    main,
     validate_envelope,
 )
 
@@ -501,6 +504,57 @@ class BackendHttpTestCase(unittest.TestCase):
                 separators=(",", ":"),
             )
         return path
+
+    def test_configure_logging_emits_info_messages_to_journald(self):
+        with mock.patch("logging.basicConfig") as basic_config:
+            configure_logging()
+
+        basic_config.assert_called_once_with(level=logging.INFO, format="%(message)s")
+
+    def test_main_configures_logging_before_serving(self):
+        calls = []
+
+        class FakeServer:
+            server_address = ("127.0.0.1", 8008)
+
+            def serve_forever(self):
+                calls.append("serve")
+
+        with (
+            mock.patch("app.configure_logging", side_effect=lambda: calls.append("logging")),
+            mock.patch("app.build_server_from_env", side_effect=lambda: calls.append("build") or FakeServer()),
+            mock.patch("sys.stdout", new=io.StringIO()),
+        ):
+            main()
+
+        self.assertEqual(calls, ["logging", "build", "serve"])
+
+    def test_internal_error_logs_request_id_without_sensitive_fields(self):
+        secret_payload = "secret-backup-payload"
+        envelope = make_envelope({"data": {"secret": secret_payload}})
+        self.app.create_backup = mock.Mock(side_effect=RuntimeError("simulated failure"))
+
+        with self.assertLogs("fleet_ledger.cloud_backup", level="ERROR") as logs:
+            status, body = self.request(
+                "POST",
+                "/v1/backups",
+                token="token-a",
+                body=envelope,
+                headers={"X-Request-Id": "rid-123"},
+            )
+
+        self.assertEqual(status, 500)
+        self.assertEqual(body["error"]["code"], "internal_error")
+        output = "\n".join(logs.output)
+        self.assertIn("backup_request_error", output)
+        self.assertIn('"event":"internal_error"', output)
+        self.assertIn('"request_id":"rid-123"', output)
+        self.assertIn('"method":"POST"', output)
+        self.assertIn('"path":"/v1/backups"', output)
+        self.assertNotIn("token-a", output)
+        self.assertNotIn("authorization", output.lower())
+        self.assertNotIn("payload_json", output)
+        self.assertNotIn(secret_payload, output)
 
     def test_http_endpoints_require_bearer_token(self):
         status, body = self.request("GET", "/v1/backups")
