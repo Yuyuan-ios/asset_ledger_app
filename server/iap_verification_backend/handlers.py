@@ -5,6 +5,7 @@ import time
 import urllib.parse
 from typing import Any, Dict, List, Mapping, Optional
 
+from apple_verifier import build_real_apple_verifier_from_config
 from auth import RequestValidator
 from config import MAX_REQUEST_BYTES, AppConfig
 from http_helpers import (
@@ -111,10 +112,12 @@ def last_query_value(query: Mapping[str, List[str]], key: str) -> Optional[str]:
 
 
 def build_verifier_from_config(config: AppConfig) -> AppleVerifier:
-    # IAP-S2 owns the real Apple verifier wiring. Until then every production
-    # environment must fail-closed, even if Apple credential placeholders exist.
     if config.apple_credentials.is_complete:
-        return AppleServerApiVerifierPlaceholder()
+        return build_real_apple_verifier_from_config(
+            config.apple_credentials,
+            allowed_products=config.allowed_products,
+            request_timeout_seconds=config.apple_request_timeout_seconds,
+        )
     return AppleServerApiVerifierPlaceholder()
 
 

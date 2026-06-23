@@ -25,6 +25,7 @@ from app import (  # noqa: E402
     VALID_OUTCOMES,
     AppleServerApiVerifierPlaceholder,
     AppConfig,
+    AppStoreServerAppleVerifier,
     EntitlementStore,
     IapVerificationApp,
     IapVerificationRequestHandler,
@@ -229,6 +230,27 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assert_contract_response(current, "noActiveEntitlement", "none")
 
+    def test_from_env_with_complete_apple_credentials_uses_real_verifier(self):
+        key_path = f"{self.temp_dir.name}/AuthKey_TEST.p8"
+        cert_path = f"{self.temp_dir.name}/AppleRootCA-G3.cer"
+        with open(key_path, "wb") as key_file:
+            key_file.write(b"fake-private-key-for-construction-only")
+        with open(cert_path, "wb") as cert_file:
+            cert_file.write(b"fake-root-cert-for-construction-only")
+
+        with _patched_env(
+            FLEET_IAP_DB_PATH=f"{self.temp_dir.name}/real-from-env.sqlite3",
+            FLEET_IAP_APPLE_KEY_ID="TESTKEY123",
+            FLEET_IAP_APPLE_ISSUER_ID="00000000-0000-0000-0000-000000000000",
+            FLEET_IAP_APPLE_PRIVATE_KEY_PATH=key_path,
+            FLEET_IAP_APPLE_BUNDLE_ID=DEFAULT_ALLOWED_BUNDLE_ID,
+            FLEET_IAP_APPLE_ROOT_CERTIFICATE_PATHS=cert_path,
+            FLEET_IAP_APPLE_APP_APPLE_ID="1234567890",
+        ):
+            production_app = IapVerificationApp.from_env()
+
+        self.assertIsInstance(production_app.verifier, AppStoreServerAppleVerifier)
+
     def test_unknown_product_is_rejected(self):
         status, body = self.request(
             "POST",
@@ -308,6 +330,8 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(config.apple_request_timeout_seconds, 7)
         self.assertFalse(config.apple_credentials.is_complete)
         self.assertIsNone(config.apple_credentials.key_id)
+        self.assertEqual(config.apple_credentials.root_certificate_paths, ())
+        self.assertIsNone(config.apple_credentials.app_apple_id)
 
     def test_app_config_rejects_products_outside_contract_allowlist(self):
         with _patched_env(

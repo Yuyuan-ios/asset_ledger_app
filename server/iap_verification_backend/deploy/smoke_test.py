@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Smoke test for the FleetLedger IAP verification backend.
 
-The script uses fake verifier tokens only and never prints receipt payloads.
+This no-credentials smoke only proves the production entrypoint fails closed.
+Real Apple sandbox smoke tests require real signed StoreKit payloads and are
+intentionally outside this local script.
 """
 
 from __future__ import annotations
@@ -86,23 +88,15 @@ def main() -> int:
         "/iap/apple/verify-purchase",
         body=purchase_body(app_account_token, "fake:pro-active"),
     )
-    require(status == 200 and body.get("outcome") == "verifiedActivePro", "expected fake Pro verification")
-    print("PASS verify-purchase returns verifiedActivePro for fake Pro token")
+    require(status == 200 and body.get("outcome") == "verificationUnavailable", "expected fail-closed response")
+    require(body.get("entitlementTier") == "none", "fake token must not unlock entitlement")
+    print("PASS fake Pro token fails closed without Apple credentials")
 
     path = f"/iap/apple/current-entitlement?appAccountToken={urllib.parse.quote(app_account_token)}"
     status, body = request(args.base_url, "GET", path)
-    require(status == 200 and body.get("outcome") == "verifiedActivePro", "expected persisted Pro entitlement")
-    print("PASS current-entitlement returns persisted entitlement")
-
-    outage_token = str(uuid.uuid4())
-    status, body = request(
-        args.base_url,
-        "POST",
-        "/iap/apple/verify-purchase",
-        body=purchase_body(outage_token, "fake:outage"),
-    )
-    require(status == 200 and body.get("outcome") == "verificationUnavailable", "expected fake outage")
-    print("PASS fake Apple outage returns verificationUnavailable")
+    require(status == 200 and body.get("outcome") == "noActiveEntitlement", "expected no persisted entitlement")
+    require(body.get("entitlementTier") == "none", "current entitlement must not unlock")
+    print("PASS current-entitlement remains noActiveEntitlement after fail-closed verify")
 
     status, body = request(args.base_url, "GET", "/iap/apple/current-entitlement")
     require(status == 400 and body.get("error", {}).get("code") == "missing_app_account_token", "expected 400")

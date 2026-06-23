@@ -45,6 +45,19 @@ def env_csv(name: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
     return values
 
 
+def env_optional_int(name: str, *, minimum: int = 1) -> Optional[int]:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}")
+    return value
+
+
 def validate_allowed_products(products: Tuple[str, ...]) -> Tuple[str, ...]:
     unknown = sorted(set(products) - set(DEFAULT_ALLOWED_PRODUCTS))
     if unknown:
@@ -59,6 +72,8 @@ class AppleCredentialConfig:
     issuer_id: Optional[str]
     private_key_path: Optional[str]
     bundle_id: Optional[str]
+    root_certificate_paths: Tuple[str, ...]
+    app_apple_id: Optional[int]
 
     @classmethod
     def from_env(cls) -> "AppleCredentialConfig":
@@ -67,6 +82,8 @@ class AppleCredentialConfig:
             issuer_id=non_empty_string(os.environ.get("FLEET_IAP_APPLE_ISSUER_ID")),
             private_key_path=non_empty_string(os.environ.get("FLEET_IAP_APPLE_PRIVATE_KEY_PATH")),
             bundle_id=non_empty_string(os.environ.get("FLEET_IAP_APPLE_BUNDLE_ID")),
+            root_certificate_paths=env_csv("FLEET_IAP_APPLE_ROOT_CERTIFICATE_PATHS", ()),
+            app_apple_id=env_optional_int("FLEET_IAP_APPLE_APP_APPLE_ID"),
         )
 
     @property
@@ -76,6 +93,8 @@ class AppleCredentialConfig:
             and self.issuer_id is not None
             and self.private_key_path is not None
             and self.bundle_id is not None
+            and len(self.root_certificate_paths) > 0
+            and self.app_apple_id is not None
         )
 
 
