@@ -1,5 +1,6 @@
 // ==============================================================================
 
+import '../../core/date/ymd_date.dart';
 import '../../core/measure/measure_unit.dart';
 import 'project_id.dart';
 import 'project_key.dart';
@@ -209,10 +210,14 @@ class TimingRecord {
     if (incomeFen == null) {
       throw StateError('timing_records.income_fen is required');
     }
+    final startDate = m['start_date'];
+    if (startDate is! int || YmdDate.fromInt(startDate) == null) {
+      throw FormatException('Invalid timing_records.start_date: $startDate');
+    }
     return TimingRecord(
       id: m['id'] as int?,
       deviceId: m['device_id'] as int,
-      startDate: m['start_date'] as int,
+      startDate: startDate,
       allocationCutoffDate: (m['allocation_cutoff_date'] as num?)?.toInt(),
       displayEndDate: (m['display_end_date'] as num?)?.toInt(),
       projectId: (m['project_id'] as String?) ?? '',

@@ -363,5 +363,45 @@ void main() {
 
       expect(rebuilt.type, TimingType.hours);
     });
+
+    test('fromMap accepts valid yyyymmdd start_date', () {
+      final rebuilt = TimingRecord.fromMap({
+        'id': 4,
+        'device_id': 7,
+        'start_date': 20260305,
+        'contact': 'Alice',
+        'site': 'Yard A',
+        'type': 'hours',
+        'start_meter': 10,
+        'end_meter': 15,
+        'hours': 5,
+        'income_fen': 30000,
+      });
+
+      expect(rebuilt.startDate, 20260305);
+    });
+
+    test('fromMap rejects invalid start_date values', () {
+      Map<String, Object?> rowWith(Object? startDate) => {
+        'id': 4,
+        'device_id': 7,
+        'start_date': startDate,
+        'contact': 'Alice',
+        'site': 'Yard A',
+        'type': 'hours',
+        'start_meter': 10,
+        'end_meter': 15,
+        'hours': 5,
+        'income_fen': 30000,
+      };
+
+      for (final startDate in <Object?>[null, -1, 0, 20261332, 20260230]) {
+        expect(
+          () => TimingRecord.fromMap(rowWith(startDate)),
+          throwsA(isA<FormatException>()),
+          reason: 'start_date=$startDate',
+        );
+      }
+    });
   });
 }
