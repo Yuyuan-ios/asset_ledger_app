@@ -33,7 +33,7 @@ rule area you are touching.
 | Test and verification commands | `docs/architecture/testing-rules.md` |
 | Active or completed operation phases | `docs/operations/active/current-stage.md`, `docs/operations/active/README.md`, `docs/operations/completed/README.md` |
 | Known technical debt | `docs/operations/tech-debt.md` |
-| Quality-first execution roadmap (dev@36d42f0) | `docs/quality/execution-roadmap-dev-36d42f0.md`, `docs/quality/codex-prompts-p0.md`, `docs/quality/codex-prompts-p1.md`, `docs/quality/codex-prompts-p2.md` |
+| Quality-first execution roadmap (dev@36d42f0) | `docs/quality/execution-roadmap-dev-36d42f0.md`, `docs/quality/codex-prompts-p0.md`, `docs/quality/codex-prompts-p1.md`, `docs/quality/codex-prompts-p2.md`, `docs/quality/codex-prompts-p3.md` |
 
 ## Task Templates
 
