@@ -17,6 +17,10 @@ import 'local_backup_import_preview_service.dart';
 part 'backup/backup_tables.dart';
 part 'backup/backup_validation_result.dart';
 part 'backup/backup_validator.dart';
+part 'backup/backup_validator_schema.dart';
+part 'backup/backup_validator_rows.dart';
+part 'backup/backup_validator_normalization.dart';
+part 'backup/backup_validator_aggregation.dart';
 part 'backup/local_restore_service.dart';
 
 class LocalBackupRestoreService {
