@@ -131,8 +131,11 @@ class AppStoreServerAppleVerifier:
             raise AppleVerificationFailed("transaction product id does not match request")
         if transaction.product_id not in self.allowed_products:
             raise AppleVerificationFailed("transaction product id is not allowed")
-        if transaction.app_account_token != request.app_account_token:
-            raise AppleVerificationFailed("transaction appAccountToken does not match request")
+        _validate_app_account_token_match(
+            transaction.app_account_token,
+            request.app_account_token,
+            "transaction appAccountToken does not match request",
+        )
         if not transaction.original_transaction_id or not transaction.transaction_id:
             raise AppleVerificationFailed("transaction identifiers are missing")
 
@@ -196,8 +199,34 @@ class AppStoreServerAppleVerifier:
             raise AppleVerificationFailed("status transaction bundle id does not match")
         if transaction.product_id not in self.allowed_products:
             raise AppleVerificationFailed("status transaction product id is not allowed")
-        if transaction.app_account_token != app_account_token:
-            raise AppleVerificationFailed("status transaction appAccountToken does not match")
+        _validate_app_account_token_match(
+            transaction.app_account_token,
+            app_account_token,
+            "status transaction appAccountToken does not match",
+        )
+
+
+def _normalize_app_account_token(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
+
+
+def _validate_app_account_token_match(
+    transaction_app_account_token: Optional[str],
+    expected_app_account_token: str,
+    failure_message: str,
+) -> None:
+    transaction_token = _normalize_app_account_token(transaction_app_account_token)
+    if transaction_token is None:
+        return
+    expected_token = _normalize_app_account_token(expected_app_account_token)
+    if transaction_token != expected_token:
+        raise AppleVerificationFailed(
+            failure_message,
+            has_transaction_app_account_token=True,
+        )
 
 
 def normalize_apple_status(status: Any) -> int:

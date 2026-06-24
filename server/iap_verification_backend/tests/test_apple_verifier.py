@@ -28,6 +28,8 @@ from verifier import AppleVerificationFailed, AppleVerificationUnavailable  # no
 
 
 APP_TOKEN = "00000000-0000-4000-8000-000000000777"
+CASE_APP_TOKEN = "abcdefab-cdef-4abc-8def-abcdefabcdef"
+OTHER_APP_TOKEN = "11111111-2222-4333-8444-555555555555"
 BUNDLE_ID = "com.yuyuan.assetledger"
 
 
@@ -185,6 +187,71 @@ class AppStoreServerAppleVerifierTestCase(unittest.TestCase):
         with self.assertRaises(AppleVerificationFailed):
             verifier.verify_purchase(purchase_request(product_id="com.yuyuan.assetledger.legacy.monthly"))
 
+    def test_request_transaction_without_app_account_token_uses_request_token(self):
+        verifier, _, _ = make_verifier(
+            status=APPLE_STATUS_ACTIVE,
+            request_transaction=transaction("txn-request", app_account_token=None),
+        )
+
+        record = verifier.verify_purchase(purchase_request())
+
+        self.assertEqual(record.outcome, "verifiedActivePro")
+        self.assertEqual(record.app_account_token, APP_TOKEN)
+
+    def test_request_transaction_token_is_normalized_before_matching(self):
+        verifier, _, _ = make_verifier(
+            status=APPLE_STATUS_ACTIVE,
+            request_transaction=transaction("txn-request", app_account_token=CASE_APP_TOKEN.upper()),
+            status_transaction=transaction("txn-status", app_account_token=CASE_APP_TOKEN),
+        )
+
+        record = verifier.verify_purchase(purchase_request(app_account_token=CASE_APP_TOKEN))
+
+        self.assertEqual(record.outcome, "verifiedActivePro")
+        self.assertEqual(record.app_account_token, CASE_APP_TOKEN)
+
+    def test_request_transaction_with_different_non_empty_token_is_rejected(self):
+        verifier, _, _ = make_verifier(
+            status=APPLE_STATUS_ACTIVE,
+            request_transaction=transaction("txn-request", app_account_token=OTHER_APP_TOKEN),
+        )
+
+        with self.assertRaisesRegex(AppleVerificationFailed, "transaction appAccountToken does not match request"):
+            verifier.verify_purchase(purchase_request(app_account_token=CASE_APP_TOKEN))
+
+    def test_status_transaction_without_app_account_token_uses_request_token(self):
+        verifier, _, _ = make_verifier(
+            status=APPLE_STATUS_ACTIVE,
+            status_transaction=transaction("txn-status", app_account_token=None),
+        )
+
+        record = verifier.verify_purchase(purchase_request())
+
+        self.assertEqual(record.outcome, "verifiedActivePro")
+        self.assertEqual(record.app_account_token, APP_TOKEN)
+
+    def test_status_transaction_token_is_normalized_before_matching(self):
+        verifier, _, _ = make_verifier(
+            status=APPLE_STATUS_ACTIVE,
+            request_transaction=transaction("txn-request", app_account_token=CASE_APP_TOKEN),
+            status_transaction=transaction("txn-status", app_account_token=CASE_APP_TOKEN.upper()),
+        )
+
+        record = verifier.verify_purchase(purchase_request(app_account_token=CASE_APP_TOKEN))
+
+        self.assertEqual(record.outcome, "verifiedActivePro")
+        self.assertEqual(record.app_account_token, CASE_APP_TOKEN)
+
+    def test_status_transaction_with_different_non_empty_token_is_rejected(self):
+        verifier, _, _ = make_verifier(
+            status=APPLE_STATUS_ACTIVE,
+            request_transaction=transaction("txn-request", app_account_token=CASE_APP_TOKEN),
+            status_transaction=transaction("txn-status", app_account_token=OTHER_APP_TOKEN),
+        )
+
+        with self.assertRaisesRegex(AppleVerificationFailed, "status transaction appAccountToken does not match"):
+            verifier.verify_purchase(purchase_request(app_account_token=CASE_APP_TOKEN))
+
 
 def make_verifier(
     *,
@@ -229,6 +296,7 @@ def transaction(
     *,
     product_id=PRO_YEARLY_PRODUCT_ID,
     environment=ENVIRONMENT_SANDBOX,
+    app_account_token=APP_TOKEN,
     revocation_date_ms=None,
 ):
     return DecodedAppleTransaction(
@@ -236,14 +304,14 @@ def transaction(
         transaction_id=transaction_id,
         product_id=product_id,
         bundle_id=BUNDLE_ID,
-        app_account_token=APP_TOKEN,
+        app_account_token=app_account_token,
         environment=environment,
         expires_date_ms=4102444800000,
         revocation_date_ms=revocation_date_ms,
     )
 
 
-def purchase_request(product_id=PRO_YEARLY_PRODUCT_ID):
+def purchase_request(product_id=PRO_YEARLY_PRODUCT_ID, app_account_token=APP_TOKEN):
     return PurchaseVerificationRequest(
         platform="ios",
         product_id=product_id,
@@ -251,7 +319,7 @@ def purchase_request(product_id=PRO_YEARLY_PRODUCT_ID):
         local_verification_data="local",
         source="app_store",
         status="purchased",
-        app_account_token=APP_TOKEN,
+        app_account_token=app_account_token,
         bundle_id=BUNDLE_ID,
     )
 
