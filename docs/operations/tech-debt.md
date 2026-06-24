@@ -82,13 +82,24 @@
 
 ## timing save-operation 领域层文案分离（S4b）
 
-- 状态：⏳ 待处理（曾暂缓，2026-06-24 用户决定处理）
+- 状态：⏳ 待处理（2026-06-24 深度 scoping 完成，待专项实施）
 - 来源：Phase 2 i18n 人工诊断
-- 影响范围：`lib/features/timing/operations/**`、`use_cases/**`、`application/**`
-- 证据：`SaveTimingRecordOperationCommand` / analyzer / redactor 等保存链路生成
-  `userMessage`、warnings、title、summary 等用户可见文案，埋在领域层；GitNexus 标 CRITICAL
-- 建议处理：先定义领域错误/预览摘要 code 与 UI copy mapper，再迁移保存预览/确认/执行文案
-- 负责人：待确认
+- 影响范围：`lib/features/timing/operations/**`（~88 中文串，含 command 20 / analyzer 21 /
+  redactor 11 / use_case 10 / disambiguation 6）
+- **架构发现（2026-06-24）**：用户真正看到的文案**不是** analyzer 的 raw warnings（那些含
+  项目/财务 ID，被 `save_timing_record_preview_redactor.dart` **脱敏剥离**），而是 redactor 的
+  `_safeWarnings`（'预览基于当前本地数据…'、'可能影响项目结构，需老板确认。'）/
+  `_genericImpactItems`（title/description，**已带 `code: 'project_structure'`**）/
+  `_redactionReasons`（3 条）。这些经 `core/operations` 通用框架（`OperationImpactItem`，
+  含可选 `code` 字段）以 `List<String> warnings` 形态流到 UI；UI 最终渲染点在通用 operation
+  框架里，不在 timing view 直引，需先定位。
+- **设计**：① 给 safe warnings / redaction reasons 定 enum code；② `OperationImpactItem` 用已有
+  `code` 做 key；③ 在通用 operation-preview 渲染点加 code→`AppLocalizations` mapper（embedded
+  title/description 作 fallback）；④ ARB key；⑤ 改 `warnings: List<String>` → 结构化 code 贯穿
+  command/redactor/service/adapter（~6 源文件）；⑥ 更新 5 个测试文件断言（改断 code 而非中文串）。
+- **风险**：CRITICAL 保存路径 + 跨 ~10 文件类型变更；须逐片 + characterization 护航，勿大爆改。
+- 既有可复用 code 模式：`SaveTimingRecordStaleReasonType`、`OperationImpactItem.code`
+- 负责人：待确认（建议专项 session 执行）
 
 ## device 领域/application 层文案分离（S5b）
 
