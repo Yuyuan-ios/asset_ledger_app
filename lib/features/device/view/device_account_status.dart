@@ -41,6 +41,13 @@ String purchaseEntitlementSubtitle(SubscriptionSnapshot subscription) {
 }
 
 String _subscriptionEntitlementLabel(SubscriptionSnapshot subscription) {
+  final errorMessage = subscription.errorMessage?.trim();
+  if (errorMessage != null && errorMessage.isNotEmpty) return errorMessage;
+  if (subscription.isRestoring ||
+      subscription.isPurchasing ||
+      subscription.status == SubscriptionStatus.pending) {
+    return '正在等待 App Store 交易结果';
+  }
   return subscription.allowsProFeatures ? 'Pro 已开通' : '免费版';
 }
 

@@ -47,30 +47,44 @@ class InAppPurchaseSubscriptionStoreGateway
     final restoredPurchases = <PurchaseDetails>[];
     final completer = Completer<List<PurchaseDetails>>();
     Timer? settleTimer;
+    Timer? timeoutTimer;
     late final StreamSubscription<List<PurchaseDetails>> subscription;
+
+    void completeWithCurrentPurchases() {
+      if (!completer.isCompleted) {
+        completer.complete(
+          List<PurchaseDetails>.unmodifiable(restoredPurchases),
+        );
+      }
+    }
 
     subscription = purchaseStream.listen((purchases) {
       if (purchases.isEmpty) return;
       restoredPurchases.addAll(purchases);
       settleTimer?.cancel();
       settleTimer = Timer(const Duration(milliseconds: 300), () {
-        if (!completer.isCompleted) {
-          completer.complete(
-            List<PurchaseDetails>.unmodifiable(restoredPurchases),
-          );
-        }
+        completeWithCurrentPurchases();
       });
     });
 
     try {
-      await _inAppPurchase.restorePurchases(
-        applicationUserName: applicationUserName,
+      timeoutTimer = Timer(const Duration(seconds: 5), () {
+        completeWithCurrentPurchases();
+      });
+      unawaited(
+        _inAppPurchase
+            .restorePurchases(applicationUserName: applicationUserName)
+            .then((_) {})
+            .catchError((Object error, StackTrace stackTrace) {
+              if (completer.isCompleted) {
+                return;
+              }
+              completer.completeError(error, stackTrace);
+            }),
       );
-      return await completer.future.timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => List<PurchaseDetails>.unmodifiable(restoredPurchases),
-      );
+      return await completer.future;
     } finally {
+      timeoutTimer?.cancel();
       settleTimer?.cancel();
       await subscription.cancel();
     }

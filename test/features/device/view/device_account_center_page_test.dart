@@ -260,6 +260,45 @@ void main() {
     expect(find.textContaining('13800138000'), findsNothing);
   });
 
+  testWidgets(
+    'account center shows restore pending instead of free entitlement',
+    (WidgetTester tester) async {
+      final subscription = ValueNotifier<SubscriptionSnapshot>(
+        const SubscriptionSnapshot(
+          status: SubscriptionStatus.pending,
+          products: <SubscriptionProductKind, ProductDetails>{},
+          isRestoring: true,
+        ),
+      );
+      addTearDown(subscription.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AccountCenterPage(
+            loginSession: const PhoneLoginSession(
+              loggedIn: true,
+              privacyAccepted: true,
+              phoneNumber: '13800138000',
+              authToken: 'token',
+            ),
+            subscriptionListenable: subscription,
+            onOpenPhoneLogin: () async =>
+                const PhoneLoginSession.unauthenticated(),
+            onOpenUpgradePage: () {},
+            onRestorePurchases: () async {},
+            onOpenLocalBackup: () {},
+            onOpenLocalRestore: () {},
+            onOpenSyncInfo: () {},
+            onOpenCloudBackup: () {},
+          ),
+        ),
+      );
+
+      expect(find.textContaining('正在等待 App Store 交易结果'), findsWidgets);
+      expect(find.textContaining('免费版'), findsNothing);
+    },
+  );
+
   testWidgets('account center shows cloud backup unavailable state', (
     WidgetTester tester,
   ) async {

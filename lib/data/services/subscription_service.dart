@@ -144,6 +144,7 @@ class SubscriptionService {
       const SharedPreferencesSubscriptionEntitlementCache();
   static SubscriptionIdentityStore _identityStore =
       SharedPreferencesSubscriptionIdentityStore();
+  static Duration _restoreGatewayTimeout = const Duration(seconds: 6);
 
   static SubscriptionSnapshot get snapshot => notifier.value;
 
@@ -290,9 +291,12 @@ class SubscriptionService {
     try {
       final appAccountToken = await _identityStore
           .readOrCreateAppAccountToken();
-      final restoredPurchases = await _storeGateway.restorePurchases(
-        applicationUserName: appAccountToken,
-      );
+      final restoredPurchases = await _storeGateway
+          .restorePurchases(applicationUserName: appAccountToken)
+          .timeout(
+            _restoreGatewayTimeout,
+            onTimeout: () => const <PurchaseDetails>[],
+          );
       final restored = await _handleRestorePurchaseUpdates(restoredPurchases);
       if (!restored) {
         final entitlement = await _verificationRepository
@@ -547,6 +551,7 @@ class SubscriptionService {
           createDefaultSubscriptionVerificationRepository();
       _entitlementCache = const SharedPreferencesSubscriptionEntitlementCache();
       _identityStore = SharedPreferencesSubscriptionIdentityStore();
+      _restoreGatewayTimeout = const Duration(seconds: 6);
       notifier.value = SubscriptionSnapshot.initial();
       return true;
     }());
@@ -558,6 +563,7 @@ class SubscriptionService {
     SubscriptionVerificationRepository? verificationRepository,
     SubscriptionEntitlementCache? entitlementCache,
     SubscriptionIdentityStore? identityStore,
+    Duration? restoreGatewayTimeout,
   }) {
     assert(() {
       if (storeGateway != null) {
@@ -571,6 +577,9 @@ class SubscriptionService {
       }
       if (identityStore != null) {
         _identityStore = identityStore;
+      }
+      if (restoreGatewayTimeout != null) {
+        _restoreGatewayTimeout = restoreGatewayTimeout;
       }
       return true;
     }());
