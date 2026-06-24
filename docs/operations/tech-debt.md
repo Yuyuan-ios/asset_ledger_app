@@ -129,11 +129,23 @@
 - 状态：⏳ 待处理（曾暂缓，2026-06-24 用户决定处理）
 - 来源：Phase 2 device view-layer i18n
 - 影响范围：`lib/features/device/domain/**`、`lib/features/device/application/**`
-- 证据：`lifecycle_payback_calculator.dart` 仍直接生成 `statusText/resultText`；
-  `cloud_backup_controller.dart`、`local_backup_controller.dart`、`device_action_controller.dart`、
-  `device_avatar_policy.dart` 仍含可能展示给用户的中文错误/反馈文案
-- 建议处理：领域/application 返回 code 或结构化状态，由 device view 层统一映射 `AppLocalizations`
-- 负责人：待确认
+- 证据（~19 串）：`lifecycle_payback_calculator.dart`(9)、`device_action_controller.dart`(4)、
+  `local_backup_controller.dart`(3)、`cloud_backup_controller.dart`(2)、`device_avatar_policy.dart`(1)
+- **2026-06-24 scoping（精确计划，复用 store_feedback 已验证的 code→UI mapper 模式）**：分两类
+  - **A. application 层 message（device_action / local_backup / cloud_backup controller）**：方法把
+    `Future<String>`（中文）改返回**已有的 code/enum**（如 `device_action_controller.openRateApp`→`bool`、
+    `openSupportEntry`→`SupportFeedbackOpenResult`；backup controller 的 restore-blocked reason→enum）；
+    caller 在 view 层映射 `AppLocalizations` + ARB key。**坑：device_page_actions 的 static action 方法
+    （openRateApp/openSupportPage）只收 `toast`/`isMounted`、无 l10n**，需把 l10n 穿透进这些 static 方法
+    及其 caller（与 view_data 那次同型）。
+  - **B. lifecycle_payback_calculator（最复杂）**：`LifecyclePaybackResult.statusText/resultText`
+    含**插值金额/百分比**（'已回本 95.5%'、'预计盈余 ¥X'、'还差 ¥X 回本'），被 **5 个 device view**
+    （lifecycle_payback_card / device_business_ledger_section / device_page / device_page_sections /
+    lifecycle_amount_sheet）消费。改法：calculator 返回 **status code + 原始 paybackRate/profitFen**，
+    各 view 用 ICU placeholder（百分比/金额）本地化。result 类型变更 ripple 到 5 view。
+- **风险/建议**：B 是 device-facing 的 ICU 金额重构、跨 ~7 文件，须逐 view + golden/characterization
+  护航，建议**独立专项 session** 执行，勿在长会话尾巴大爆改。A 可作为先行小片。
+- 负责人：待确认（建议专项 session）
 
 ## 后端生产化非对称（sync 限流 ✓ / backup 结构化日志 仍稀疏）
 
