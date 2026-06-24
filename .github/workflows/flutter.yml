@@ -2,9 +2,9 @@ name: Flutter CI
 
 'on':
   push:
-    branches: [ main, master, dev ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master, dev ]
+    branches: [ main, master, develop ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,7 +40,13 @@ jobs:
         run: flutter test test/features/upgrade_page_iap_define_test.dart --dart-define-from-file=dart_defines/production.json
 
       - name: Flutter tests
-        run: flutter test
+        # Two passes so the `arch-script` test (which writes/deletes temporary
+        # __arch_probe_* files under lib/ to exercise check_architecture.sh)
+        # never runs concurrently with the invariant tests that scan lib/ —
+        # otherwise they race and flake with PathNotFoundException.
+        run: |
+          flutter test --exclude-tags arch-script
+          flutter test --tags arch-script --concurrency=1
 
   backend-verify:
     runs-on: ubuntu-latest
