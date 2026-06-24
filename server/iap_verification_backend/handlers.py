@@ -68,6 +68,8 @@ class IapVerificationApp:
         status = "ok"
         failure_reason: Optional[str] = None
         has_transaction_app_account_token: Optional[bool] = None
+        apple_verification_status: Optional[str] = None
+        apple_verification_statuses: Optional[str] = None
         request = self.validator.validate_purchase_body(body)
         result: EntitlementRecord
         try:
@@ -79,6 +81,8 @@ class IapVerificationApp:
             status = "failed"
             failure_reason = str(exc)
             has_transaction_app_account_token = exc.has_transaction_app_account_token
+            apple_verification_status = exc.apple_verification_status
+            apple_verification_statuses = exc.apple_verification_statuses
             result = self.store.upsert_entitlement(verification_failed_record(request))
         else:
             result = self.store.upsert_entitlement(result)
@@ -87,6 +91,9 @@ class IapVerificationApp:
                 "op": "verify_purchase",
                 "has_app_account_token": bool(request.app_account_token),
                 "product_id": request.product_id,
+                "server_verification_data_format": classify_verification_data(
+                    request.server_verification_data
+                ),
                 "duration_ms": duration_ms_since(started),
                 "status": status,
             }
@@ -94,6 +101,10 @@ class IapVerificationApp:
                 fields["reason"] = failure_reason
                 if has_transaction_app_account_token is not None:
                     fields["has_transaction_app_account_token"] = has_transaction_app_account_token
+                if apple_verification_status is not None:
+                    fields["apple_verification_status"] = apple_verification_status
+                if apple_verification_statuses is not None:
+                    fields["apple_verification_statuses"] = apple_verification_statuses
             log_iap_event(fields)
         return result.to_response_body()
 
@@ -124,6 +135,15 @@ def last_query_value(query: Mapping[str, List[str]], key: str) -> Optional[str]:
     if not values:
         return None
     return values[-1]
+
+
+def classify_verification_data(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        return "empty"
+    if stripped.count(".") == 2:
+        return "jws"
+    return "non_jws"
 
 
 def build_verifier_from_config(config: AppConfig) -> AppleVerifier:
