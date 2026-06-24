@@ -139,38 +139,35 @@ void main() {
 
     final db = await AppDatabase.database;
     final devices = await db.query('devices');
-    expect(devices.single.containsKey('default_unit_price'), isFalse);
-    expect(devices.single.containsKey('breaking_unit_price'), isFalse);
+    expect(devices.single['default_unit_price'], 123.45);
+    expect(devices.single['breaking_unit_price'], 67.89);
     expect(devices.single['default_unit_price_fen'], 12345);
     expect(devices.single['breaking_unit_price_fen'], 6789);
 
     final timingRecords = await db.query('timing_records');
-    expect(timingRecords.single.containsKey('income'), isFalse);
+    expect(timingRecords.single['income'], 333.33);
     expect(timingRecords.single['income_fen'], 33333);
 
     final fuelLogs = await db.query('fuel_logs');
-    expect(fuelLogs.single.containsKey('cost'), isFalse);
-    expect(fuelLogs.single['cost_fen'], 4567);
+    expect(fuelLogs.single['cost'], 45.67);
+    expect(fuelLogs.single.containsKey('cost_fen'), isFalse);
 
     final maintenanceRecords = await db.query('maintenance_records');
-    expect(maintenanceRecords.single.containsKey('amount'), isFalse);
-    expect(maintenanceRecords.single['amount_fen'], 8888);
+    expect(maintenanceRecords.single['amount'], 88.88);
+    expect(maintenanceRecords.single.containsKey('amount_fen'), isFalse);
 
     final accountPayments = await db.query('account_payments');
-    expect(accountPayments.single.containsKey('amount'), isFalse);
-    expect(
-      accountPayments.single.containsKey('merge_batch_total_amount'),
-      isFalse,
-    );
+    expect(accountPayments.single['amount'], 100.01);
+    expect(accountPayments.single['merge_batch_total_amount'], 250.75);
     expect(accountPayments.single['amount_fen'], 10001);
     expect(accountPayments.single['merge_batch_total_amount_fen'], 25075);
 
     final writeOffs = await db.query('project_write_offs');
-    expect(writeOffs.single.containsKey('amount'), isFalse);
+    expect(writeOffs.single['amount'], 77.77);
     expect(writeOffs.single['amount_fen'], 7777);
 
     final rates = await db.query('project_device_rates');
-    expect(rates.single.containsKey('rate'), isFalse);
+    expect(rates.single['rate'], 222.22);
     expect(rates.single['rate_fen'], 22222);
   });
 
@@ -356,27 +353,27 @@ List<_InvalidRowCase> _invalidRowCases() {
     ),
     _InvalidRowCase(
       'timing_records',
-      _timingRecordRow()..['income_fen'] = -1,
+      _timingRecordRow()..['income_fen'] = '30000',
       'invalid_timing_records_income_fen',
     ),
     _InvalidRowCase(
       'fuel_logs',
-      _fuelLogRow()..['cost_fen'] = '65000',
-      'invalid_fuel_logs_cost_fen',
+      _fuelLogRow()..['cost'] = '650.0',
+      'invalid_fuel_logs_cost',
     ),
     _InvalidRowCase(
       'maintenance_records',
-      _maintenanceRecordRow()..['amount_fen'] = '12000',
-      'invalid_maintenance_records_amount_fen',
+      _maintenanceRecordRow()..['amount'] = '120.0',
+      'invalid_maintenance_records_amount',
     ),
     _InvalidRowCase(
       'account_payments',
-      _accountPaymentRow()..['amount_fen'] = -1,
+      _accountPaymentRow()..['amount_fen'] = '10000',
       'invalid_account_payments_amount_fen',
     ),
     _InvalidRowCase(
       'project_write_offs',
-      _projectWriteOffRow()..['amount_fen'] = -1,
+      _projectWriteOffRow()..['amount_fen'] = '5000',
       'invalid_project_write_offs_amount_fen',
     ),
     _InvalidRowCase(
@@ -418,14 +415,14 @@ Map<String, dynamic> _deviceRow() {
     'name': '一号机',
     'brand': 'CAT',
     'model': '320',
+    'default_unit_price': 120.0,
+    'breaking_unit_price': 150.0,
     'default_unit_price_fen': 12000,
     'breaking_unit_price_fen': 15000,
     'base_meter_hours': 0.0,
     'is_active': 1,
     'custom_avatar_path': null,
     'equipment_type': 'excavator',
-    'lifecycle_initial_cost_fen': null,
-    'lifecycle_estimated_residual_fen': null,
   };
 }
 
@@ -457,6 +454,7 @@ Map<String, dynamic> _timingRecordRow() {
     'start_meter': 1.0,
     'end_meter': 3.5,
     'hours': 2.5,
+    'income': 300.0,
     'income_fen': 30000,
     'unit': 'HOUR',
     'quantity_scaled': 2500,
@@ -472,7 +470,7 @@ Map<String, dynamic> _fuelLogRow() {
     'date': 20260601,
     'supplier': '油站',
     'liters': 10.5,
-    'cost_fen': 65000,
+    'cost': 650.0,
   };
 }
 
@@ -482,7 +480,7 @@ Map<String, dynamic> _maintenanceRecordRow() {
     'device_id': 1,
     'ymd': 20260601,
     'item': '保养',
-    'amount_fen': 12000,
+    'amount': 120.0,
     'note': null,
   };
 }
@@ -497,11 +495,13 @@ Map<String, dynamic> _accountPaymentRow({
     'project_id': _projectId,
     'project_key': _projectKey,
     'ymd': 20260601,
+    'amount': 100.0,
     'amount_fen': 10000,
     'note': null,
     'source_type': sourceType,
     'merge_group_id': mergeGroupId,
     'merge_batch_id': mergeBatchId,
+    'merge_batch_total_amount': null,
     'merge_batch_total_amount_fen': null,
     'merge_batch_note': null,
     'created_at': _now,
@@ -512,6 +512,7 @@ Map<String, dynamic> _projectWriteOffRow() {
   return <String, dynamic>{
     'id': 'write-off-1',
     'project_id': _projectId,
+    'amount': 50.0,
     'amount_fen': 5000,
     'reason': 'settlement',
     'note': null,
@@ -527,6 +528,7 @@ Map<String, dynamic> _projectDeviceRateRow() {
     'project_key': _projectKey,
     'device_id': 1,
     'is_breaking': 0,
+    'rate': 130.0,
     'rate_fen': 13000,
   };
 }
@@ -607,7 +609,6 @@ Map<String, dynamic> _externalWorkRecordRow({
     'hours_milli': 1000,
     'source_unit_price_fen': 20000,
     'local_unit_price_fen': 20000,
-    'customer_unit_price_fen': 22000,
     'amount_fen': 20000,
     'project_received_fen': 0,
     'linked_project_id': linkedProjectId,

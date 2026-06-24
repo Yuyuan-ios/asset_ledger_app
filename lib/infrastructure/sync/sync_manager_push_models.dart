@@ -15,18 +15,11 @@ class _PushGroup {
 }
 
 class _SendOutcome {
-  const _SendOutcome.ok({this.serverSeq, this.newVersion})
-    : success = true,
-      error = '';
-  const _SendOutcome.fail(this.error)
-    : success = false,
-      serverSeq = null,
-      newVersion = null;
+  const _SendOutcome.ok() : success = true, error = '';
+  const _SendOutcome.fail(this.error) : success = false;
 
   final bool success;
   final String error;
-  final int? serverSeq;
-  final int? newVersion;
 }
 
 /// R5.23: result of folding the due pending snapshot. [remaining] preserves

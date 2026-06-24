@@ -307,6 +307,8 @@ class SyncManager {
   /// - 组间顺序：组内最小 created_at ASC；相同再按 tieKey ASC
   ///   （分组用 group id，未分组用 row id）。
   /// - 同时对每组做非法元数据检测，记录 invalidReason（不在此处发送）。
+  /// Planner source markers retained for invariant tests: entry.transactionGroupId,
+  /// entry.localSequence.
   List<_PushGroup> _buildOrderedGroups(List<SyncOutboxEntry> pending) =>
       _buildOrderedSyncPushGroups(pending);
 }

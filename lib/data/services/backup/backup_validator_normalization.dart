@@ -23,18 +23,13 @@ Map<String, Object?> _normalizeRow(
       break;
     case 'devices':
       normalized['equipment_type'] ??= 'excavator';
-      // Track A / A4-3：旧备份缺单价 fen 时按 legacy REAL 回填；
-      // 插入新 schema 前移除已删除的 REAL 单价列。
+      // v35：旧备份缺单价 fen 镜像时按 REAL 回填；breaking 为 null 保持 null。
       normalized['default_unit_price_fen'] ??= _fenFromYuan(
         normalized['default_unit_price'],
       );
       normalized['breaking_unit_price_fen'] ??= _fenFromYuan(
         normalized['breaking_unit_price'],
       );
-      normalized.putIfAbsent('lifecycle_initial_cost_fen', () => null);
-      normalized.putIfAbsent('lifecycle_estimated_residual_fen', () => null);
-      normalized.remove('default_unit_price');
-      normalized.remove('breaking_unit_price');
       break;
     case 'timing_records':
       normalized['contact'] ??= '';
@@ -46,10 +41,9 @@ Map<String, Object?> _normalizeRow(
           timestamp: BackupRestoreTables.legacyProjectTimestamp,
         ).id;
       }
-      // Track A / A4-7：旧备份缺 income_fen 时按 legacy REAL income
-      // 回填；插入新 schema 前移除已删除的 REAL income 列。
+      // R5.26-B3：旧备份缺 income_fen 时按 income 回填整数分镜像，避免回灌出
+      // NULL income_fen；已有非 NULL income_fen 不被覆盖。
       normalized['income_fen'] ??= _fenFromYuan(normalized['income']);
-      normalized.remove('income');
       // S2/v33：旧备份缺 unit/quantity_scaled 时按 type/hours 回填镜像；
       // rent 行 quantity 保持 null（租期计量语义未定），已有非 NULL 不覆盖。
       normalized['unit'] ??= normalized['type'] == 'rent' ? 'RENT' : 'HOUR';
@@ -68,30 +62,15 @@ Map<String, Object?> _normalizeRow(
         );
       }
       normalized['source_type'] ??= 'manual';
-      // Track A / A4-6：旧备份缺 fen 时按 legacy REAL 回填；插入新
-      // schema 前移除已删除的 REAL 金额列。
       normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
       normalized.putIfAbsent('merge_group_id', () => null);
       normalized.putIfAbsent('merge_batch_id', () => null);
+      normalized.putIfAbsent('merge_batch_total_amount', () => null);
       normalized['merge_batch_total_amount_fen'] ??= _fenFromYuan(
         normalized['merge_batch_total_amount'],
       );
-      normalized.remove('amount');
-      normalized.remove('merge_batch_total_amount');
       normalized.putIfAbsent('merge_batch_note', () => null);
       normalized.putIfAbsent('created_at', () => null);
-      break;
-    case 'fuel_logs':
-      // Track A / A4-1：旧备份缺 cost_fen 时按 legacy REAL cost 回填；
-      // 插入新 schema 前移除已删除的 REAL cost 列。
-      normalized['cost_fen'] ??= _fenFromYuan(normalized['cost']);
-      normalized.remove('cost');
-      break;
-    case 'maintenance_records':
-      // Track A / A4-2：旧备份缺 amount_fen 时按 legacy REAL amount 回填；
-      // 插入新 schema 前移除已删除的 REAL amount 列。
-      normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
-      normalized.remove('amount');
       break;
     case 'project_device_rates':
       if (allowLegacyProjectIdentity) {
@@ -100,16 +79,11 @@ Map<String, Object?> _normalizeRow(
         );
       }
       normalized['is_breaking'] ??= 0;
-      // Track A / A4-4：旧备份缺 rate_fen 时按 legacy REAL rate 回填；
-      // 插入新 schema 前移除已删除的 REAL rate 列。
+      // v35：旧备份缺 rate_fen 时按 REAL rate 回填。
       normalized['rate_fen'] ??= _fenFromYuan(normalized['rate']);
-      normalized.remove('rate');
       break;
     case 'project_write_offs':
-      // Track A / A4-5：旧备份缺 amount_fen 时按 legacy REAL amount 回填；
-      // 插入新 schema 前移除已删除的 REAL amount 列。
       normalized['amount_fen'] ??= _fenFromYuan(normalized['amount']);
-      normalized.remove('amount');
       normalized.putIfAbsent('note', () => null);
       break;
     case 'account_project_merge_members':
@@ -132,7 +106,6 @@ Map<String, Object?> _normalizeRow(
       normalized.putIfAbsent('equipment_type', () => null);
       normalized.putIfAbsent('source_unit_price_fen', () => null);
       normalized.putIfAbsent('local_unit_price_fen', () => null);
-      normalized.putIfAbsent('customer_unit_price_fen', () => null);
       normalized['project_received_fen'] ??= 0;
       normalized.putIfAbsent('linked_project_id', () => null);
       normalized['record_kind'] ??= 'hours';

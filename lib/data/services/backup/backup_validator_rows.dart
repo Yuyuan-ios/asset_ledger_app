@@ -148,7 +148,13 @@ String? _validateDevicesRow(Map<String, Object?> row) {
   if (!_isString(row['name'])) return 'invalid_devices_name';
   if (!_isString(row['brand'])) return 'invalid_devices_brand';
   if (!_isNullableString(row['model'])) return 'invalid_devices_model';
-  if (!_isInt(row['default_unit_price_fen'])) {
+  if (!_isNumber(row['default_unit_price'])) {
+    return 'invalid_devices_default_unit_price';
+  }
+  if (!_isNullableNumber(row['breaking_unit_price'])) {
+    return 'invalid_devices_breaking_unit_price';
+  }
+  if (!_isNullableInt(row['default_unit_price_fen'])) {
     return 'invalid_devices_default_unit_price_fen';
   }
   if (!_isNullableInt(row['breaking_unit_price_fen'])) {
@@ -163,12 +169,6 @@ String? _validateDevicesRow(Map<String, Object?> row) {
   }
   if (!_isString(row['equipment_type'])) {
     return 'invalid_devices_equipment_type';
-  }
-  if (!_isNullableInt(row['lifecycle_initial_cost_fen'])) {
-    return 'invalid_devices_lifecycle_initial_cost_fen';
-  }
-  if (!_isNullableInt(row['lifecycle_estimated_residual_fen'])) {
-    return 'invalid_devices_lifecycle_estimated_residual_fen';
   }
   return null;
 }
@@ -208,7 +208,8 @@ String? _validateTimingRow(Map<String, Object?> row) {
   }
   if (!_isNumber(row['end_meter'])) return 'invalid_timing_records_end_meter';
   if (!_isNumber(row['hours'])) return 'invalid_timing_records_hours';
-  if (!_isNonNegativeInt(row['income_fen'])) {
+  if (!_isNumber(row['income'])) return 'invalid_timing_records_income';
+  if (!_isNullableInt(row['income_fen'])) {
     return 'invalid_timing_records_income_fen';
   }
   final unit = row['unit'];
@@ -242,7 +243,7 @@ String? _validateFuelRow(Map<String, Object?> row) {
     return 'invalid_fuel_logs_supplier';
   }
   if (!_isNumber(row['liters'])) return 'invalid_fuel_logs_liters';
-  if (!_isInt(row['cost_fen'])) return 'invalid_fuel_logs_cost_fen';
+  if (!_isNumber(row['cost'])) return 'invalid_fuel_logs_cost';
   return null;
 }
 
@@ -253,9 +254,7 @@ String? _validateMaintenanceRow(Map<String, Object?> row) {
   }
   if (!_isInt(row['ymd'])) return 'invalid_maintenance_records_ymd';
   if (!_isString(row['item'])) return 'invalid_maintenance_records_item';
-  if (!_isInt(row['amount_fen'])) {
-    return 'invalid_maintenance_records_amount_fen';
-  }
+  if (!_isNumber(row['amount'])) return 'invalid_maintenance_records_amount';
   if (!_isNullableString(row['note'])) {
     return 'invalid_maintenance_records_note';
   }
@@ -271,7 +270,8 @@ String? _validateAccountPaymentRow(Map<String, Object?> row) {
     return 'invalid_account_payments_project_key';
   }
   if (!_isInt(row['ymd'])) return 'invalid_account_payments_ymd';
-  if (!_isNonNegativeInt(row['amount_fen'])) {
+  if (!_isNumber(row['amount'])) return 'invalid_account_payments_amount';
+  if (!_isNullableInt(row['amount_fen'])) {
     return 'invalid_account_payments_amount_fen';
   }
   if (!_isNullableString(row['note'])) return 'invalid_account_payments_note';
@@ -291,7 +291,10 @@ String? _validateAccountPaymentRow(Map<String, Object?> row) {
   if (!_isNullableString(row['merge_batch_id'])) {
     return 'invalid_account_payments_merge_batch_id';
   }
-  if (!_isNullableNonNegativeInt(row['merge_batch_total_amount_fen'])) {
+  if (!_isNullableNumber(row['merge_batch_total_amount'])) {
+    return 'invalid_account_payments_merge_batch_total_amount';
+  }
+  if (!_isNullableInt(row['merge_batch_total_amount_fen'])) {
     return 'invalid_account_payments_merge_batch_total_amount_fen';
   }
   if (!_isNullableString(row['merge_batch_note'])) {
@@ -316,7 +319,8 @@ String? _validateProjectDeviceRateRow(Map<String, Object?> row) {
   if (!_isBooleanInt(row['is_breaking'])) {
     return 'invalid_project_device_rates_is_breaking';
   }
-  if (!_isInt(row['rate_fen'])) {
+  if (!_isNumber(row['rate'])) return 'invalid_project_device_rates_rate';
+  if (!_isNullableInt(row['rate_fen'])) {
     return 'invalid_project_device_rates_rate_fen';
   }
   return null;
@@ -327,7 +331,11 @@ String? _validateProjectWriteOffRow(Map<String, Object?> row) {
   if (!_isNonEmptyString(row['project_id'])) {
     return 'invalid_project_write_offs_project_id';
   }
-  if (!_isNonNegativeInt(row['amount_fen'])) {
+  final amount = row['amount'];
+  if (!_isNumber(amount) || (amount as num) <= 0) {
+    return 'invalid_project_write_offs_amount';
+  }
+  if (!_isNullableInt(row['amount_fen'])) {
     return 'invalid_project_write_offs_amount_fen';
   }
   final reason = row['reason'];
@@ -453,3 +461,5 @@ bool _isNullableBooleanInt(Object? value) =>
     value == null || _isBooleanInt(value);
 
 bool _isNumber(Object? value) => value is num;
+
+bool _isNullableNumber(Object? value) => value == null || value is num;
