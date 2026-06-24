@@ -147,7 +147,7 @@ class MemoryEntitlementCache implements SubscriptionEntitlementCache {
 class MemoryIdentityStore implements SubscriptionIdentityStore {
   MemoryIdentityStore(this.token);
 
-  final String token;
+  String token;
 
   @override
   Future<void> clear() async {}
@@ -157,6 +157,11 @@ class MemoryIdentityStore implements SubscriptionIdentityStore {
 
   @override
   Future<String> readOrCreateAppAccountToken() async => token;
+
+  @override
+  Future<void> writeAppAccountToken(String token) async {
+    this.token = token;
+  }
 }
 
 class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
