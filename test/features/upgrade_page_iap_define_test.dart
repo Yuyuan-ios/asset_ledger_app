@@ -205,7 +205,11 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }
 
   @override
-  Future<void> restorePurchases({String? applicationUserName}) async {}
+  Future<List<PurchaseDetails>> restorePurchases({
+    String? applicationUserName,
+  }) async {
+    return const <PurchaseDetails>[];
+  }
 
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {}
