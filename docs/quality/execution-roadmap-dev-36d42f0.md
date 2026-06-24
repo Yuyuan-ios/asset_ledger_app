@@ -7,6 +7,26 @@
 > 来源：基于 `dev@36d42f0` 的只读复核（评分 6.5/10，适合作稳定开发基线，不适合
 > 宣称完整商业化生产闭环）。配套 Codex prompt：`docs/quality/codex-prompts-p0.md`。
 
+## 0′. 2026-06-24 状态刷新（分支收口后）
+
+> 分支收口：发布主线已切到真主线 **`main = develop = ba52b60`**（与本文原基线
+> `dev@36d42f0` 是两条不相交 root 的关系，详见记忆 `dev-branch-renamed-develop`）。
+> 本文 Phase 0–5 的执行计划仍有效，但**多数 Phase 0–3 已在 ba52b60 落实**。按实测：
+
+| 阶段 | 状态（ba52b60 实测） |
+| --- | --- |
+| Phase 0 远端门禁 | ✅ 完成（flutter.yml 全检查 + develop 触发 + arch-script 两遍隔离 + 双后端 job） |
+| Phase 1 架构边界 | 🟡 features 直连 DB ✅ 收口并 guard；**patterns→data/models 15 文件未收（P1-S6/S7）** |
+| Phase 2 质量债 | ✅ 日期校验 / i18n 展示层 / sync 限流 / FIX-DST-B；🟡 backup 后端结构化日志仍稀疏 |
+| Phase 3 维护性 | ✅ 大文件拆分完成 |
+| Phase 4 生产闭环 | ⏳ 全部代码就绪、未部署：live sync 硬阻断+2 deferred、driver entry 骨架、app-update launcher=null、IAP 待 sandbox smoke |
+| Phase 5 发布准入 | ⏳ 未开始（真机矩阵 / 线上 smoke / runbook / rollback / secret rotation） |
+
+**进行中欠账**（见 `docs/operations/tech-debt.md`）：patterns→data/models（P1-S6/S7）、
+结算 snapshot 双份、S4b/S5b 领域层文案分离。下方原文按 `dev@36d42f0` 保留作历史参照。
+
+---
+
 ## 0. 复核基线（repo-verified, 2026-06-22）
 
 | 项 | 状态 |
@@ -14,7 +34,7 @@
 | 基线 | `dev@36d42f0`；工作区干净 |
 | 本地门禁 | `check_fast` / `check_architecture` / `check_full` 全绿；Flutter 测试 `+2272 ~3` |
 | 后端单测 | cloud_sync_backend 21、cloud_backup_backend 30，全绿 |
-| 远端门禁 | **脱节**：`.github/workflows/flutter.yml` 只跑 analyze + 单个 IAP define 测试；custom_lint / architecture guard / full test 被注释；只在 `main/master` 触发 |
+| 远端门禁 | ~~**脱节**~~ → **2026-06-24 已修复**（见 §0′）：`flutter.yml` 全检查接回、两遍隔离 arch-script、`develop` 触发 |
 | 阻断生产声明 | live sync（hard-gate + delete-meta/terminal-failed deferred）、driver entry（纯领域骨架）、native update（`inAppUpdateLauncher: null`，仅 URL fallback）、IAP 服务端校验（配置门控，未做 sandbox smoke；已 fail-closed） |
 
 ## 1. 总原则
