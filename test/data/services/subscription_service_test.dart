@@ -268,6 +268,29 @@ void main() {
       },
     );
 
+    test('restore falls back when the store gateway hangs', () async {
+      verificationRepository.currentResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+        entitlementTier: SubscriptionEntitlementTier.pro,
+        productId: SubscriptionService.proYearlyProductId,
+      );
+      storeGateway.restoreCompleter = Completer<List<PurchaseDetails>>();
+      SubscriptionService.configureForTest(
+        storeGateway: storeGateway,
+        verificationRepository: verificationRepository,
+        entitlementCache: entitlementCache,
+        identityStore: identityStore,
+        restoreGatewayTimeout: const Duration(milliseconds: 1),
+      );
+
+      await SubscriptionService.restorePurchases();
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activePro);
+      expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(verificationRepository.currentFetchCount, 1);
+      expect(verificationRepository.verifiedPurchases, isEmpty);
+    });
+
     test('purchased but verificationFailed does not unlock pro', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(
         outcome: SubscriptionVerificationOutcome.verificationFailed,
@@ -569,6 +592,7 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   PurchaseParam? lastPurchaseParam;
   String? lastRestoreApplicationUserName;
   List<PurchaseDetails> restoredPurchases = const <PurchaseDetails>[];
+  Completer<List<PurchaseDetails>>? restoreCompleter;
   var restoreCallCount = 0;
 
   @override
@@ -596,6 +620,8 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }) async {
     restoreCallCount++;
     lastRestoreApplicationUserName = applicationUserName;
+    final completer = restoreCompleter;
+    if (completer != null) return completer.future;
     return restoredPurchases;
   }
 
