@@ -33,7 +33,7 @@ Before execution, Codex must confirm:
 Default baseline unless the user explicitly says otherwise:
 
 - Repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Branch: `dev`
+- Branch: `develop`
 
 ## 3. Stop Conditions
 
@@ -50,7 +50,7 @@ Codex must stop and report when any of these are true:
   migration-change template.
 - The prompt asks to push, merge, release, or publish.
 - The prompt conflicts with actual repository state.
-- The FINAL prompt conflicts with current `dev` branch state.
+- The FINAL prompt conflicts with current `develop` branch state.
 - The task scope is too large and should be split.
 - The prompt tries to execute more than one long-goal stage at once.
 

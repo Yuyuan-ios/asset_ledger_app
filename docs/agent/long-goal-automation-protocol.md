@@ -267,7 +267,7 @@ Future optional enhancement:
 OpenClaw must stop and notify Telegram when any of these are true:
 
 - Current repository path is wrong.
-- Current branch is not `dev`.
+- Current branch is not `develop`.
 - Git status is dirty and the current stage did not allow continuing.
 - ChatGPT did not output `FINAL_CODEX_PROMPT`.
 - Codex report lacks validation results.
@@ -312,4 +312,3 @@ Every stage requires Telegram approval.
 - Do not write secrets into logs.
 - Do not write secrets into Codex prompts.
 - Use placeholders only in repository docs.
-

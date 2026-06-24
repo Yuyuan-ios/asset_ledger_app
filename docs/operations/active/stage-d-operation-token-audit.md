@@ -6,7 +6,7 @@ This document is historical and task-specific context for Stage D operation
 token, operation audit, and preview-confirm workflow tasks.
 
 It is not the current default execution baseline. The current default execution
-baseline is `/Users/yu/Flutter_Projects/fleet_ledger_app` on branch `dev`.
+baseline is `/Users/yu/Flutter_Projects/fleet_ledger_app` on branch `develop`.
 
 OpenClaw / MiniMax should not read this document as the default next step unless
 the user explicitly asks for Stage D, operation token, operation audit, or
@@ -15,13 +15,13 @@ preview-confirm work.
 ## 2. Baseline Policy
 
 - Default repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Default branch: `dev`
+- Default branch: `develop`
 - Old audit worktree path:
   `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`
 - The old audit worktree path is historical reference only.
 - Do not use the old audit worktree as a default execution path.
-- If future work reopens Stage D, first use current `dev` git state and confirm
-  relevant code has been merged to `dev`.
+- If future work reopens Stage D, first use current `develop` git state and
+  confirm relevant code has been merged to `develop`.
 - If the user explicitly requires the audit worktree, verify path, branch, HEAD,
   and git status before drafting.
 
@@ -65,9 +65,9 @@ preview-confirm work.
 - D58 token failure audit committed as
   `cbf2fdb feat(operations): audit token failure paths`. (`user-provided`)
 - D60 design audit completed and recommended D61. (`user-provided`)
-- Later dev history includes operation token audit infrastructure and preview
+- Later develop history includes operation token audit infrastructure and preview
   token confirmation test commits. (`repo-verified` from recent git log)
-- Future Stage D work must use current `dev` state unless the user explicitly
+- Future Stage D work must use current `develop` state unless the user explicitly
   provides another execution target. (`repo-verified` baseline policy)
 
 ## 6. Recommended D61 Direction
@@ -118,10 +118,10 @@ Before generating a Stage D implementation prompt:
 - Verify branch.
 - Verify HEAD.
 - Verify git status clean/dirty state.
-- Confirm relevant code is present in current `dev`.
+- Confirm relevant code is present in current `develop`.
 - Inspect current task-relevant files before writing the prompt.
 - Confirm whether historical D58/D60/D61 assumptions are already superseded by
-  current `dev` commits.
+  current `develop` commits.
 
 ## 9. Forbidden Assumptions
 
@@ -143,8 +143,8 @@ Only when the user explicitly asks for Stage D work, default to:
 
 ```text
 prompt-review / readonly-audit:
-Generate a dev-baseline Stage D status audit DRAFT_PROMPT_PACKAGE for ChatGPT review
+Generate a develop-baseline Stage D status audit DRAFT_PROMPT_PACKAGE for ChatGPT review
 ```
 
-Do not default to direct implementation until current `dev` status and task
+Do not default to direct implementation until current `develop` status and task
 scope are confirmed.

@@ -23,8 +23,8 @@ Do not present `user-provided` status as `repo-verified`.
 ## 3. Current Default Baseline
 
 - Active repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Active branch: `dev`
-- Default execution baseline: `dev`
+- Active branch: `develop`
+- Default execution baseline: `develop`
 - Current actual HEAD must be verified by git before every task.
 - Latest known audited HEAD:
   `a2a7899 docs(agent): define dev-only orchestration contracts`.
@@ -65,7 +65,7 @@ checkout, or repair state unless the user explicitly asks.
 ## 6. Current Active Workflow
 
 The immediate next workflow is a first real `/draft` mobile office long-goal
-dry run on the `dev` baseline.
+dry run on the `develop` baseline.
 
 For the recommended date picker sample, the first stage must be a read-only
 audit and must not modify code.

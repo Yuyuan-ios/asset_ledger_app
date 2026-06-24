@@ -163,7 +163,7 @@ OpenClaw must stop and ask for user confirmation when any of these happen:
 - Codex report lacks validation results.
 - Codex fails.
 - The worktree is dirty and the task did not allow continuing.
-- Current branch is not `dev`.
+- Current branch is not `develop`.
 - Current repository path is not `/Users/yu/Flutter_Projects/fleet_ledger_app`.
 - GUI automation cannot confirm page state.
 - ChatGPT or Codex login expires.
@@ -185,7 +185,7 @@ OpenClaw must stop and ask for user confirmation when any of these happen:
 ## 9. Default Baseline
 
 - Default repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Default branch: `dev`
+- Default branch: `develop`
 - Default: do not use the old audit worktree.
 - Default: do not push.
 - Default: do not merge.

@@ -12,7 +12,7 @@ still naming risk, scope, forbidden changes, and validation.
 The default execution baseline for Telegram-reviewed work is:
 
 - Repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Branch: `dev`
+- Branch: `develop`
 
 Every task must verify the current path, branch, HEAD, and dirty status before
 reporting or execution.
@@ -31,7 +31,7 @@ reporting or execution.
 
 ### `/status`
 
-- Returns dev branch status, HEAD, dirty files, recent commits, and current
+- Returns develop branch status, HEAD, dirty files, recent commits, and current
   active stage.
 - Does not modify code.
 - Does not call Codex for execution.

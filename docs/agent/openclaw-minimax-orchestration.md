@@ -16,7 +16,7 @@ OpenClaw / MiniMax must assume this default baseline unless the user explicitly
 provides another one:
 
 - Repository: `/Users/yu/Flutter_Projects/fleet_ledger_app`
-- Branch: `dev`
+- Branch: `develop`
 
 The old audit worktree is not the default execution path. Do not generate
 prompts pointing to `/Users/yu/Flutter_Projects/worktrees/fleet_ledger_audit`
