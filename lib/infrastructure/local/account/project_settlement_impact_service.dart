@@ -156,7 +156,7 @@ class ProjectSettlementImpactService {
         projectId,
       );
       snapshots.add(
-        ProjectSettlementImpactSnapshot(
+        _snapshot(
           projectId: projectId,
           receivableFen: receivableFen,
           receivedFen: receivedFen,
@@ -167,6 +167,59 @@ class ProjectSettlementImpactService {
       );
     }
     return ProjectSettlementImpactDecision(snapshots: snapshots);
+  }
+
+  /// 与 [evaluate] 同口径，但走 repository（非 executor）数据访问，供**预览**路径
+  /// （feature 层 analyzer，无 transaction executor）复用同一套 snapshot 构建逻辑，
+  /// 避免 preview 与 commit 漂移。提交路径用实例方法 [evaluate]（在事务 executor 上读）。
+  static Future<ProjectSettlementImpactDecision> evaluateFromRepositories({
+    required Map<String, int> receivableFenByProjectId,
+    required SqfliteAccountPaymentRepository accountPaymentRepository,
+    required SqfliteProjectWriteOffRepository writeOffRepository,
+    required SqfliteProjectRepository projectRepository,
+    ProjectSettlementImpactReason reason = ProjectSettlementImpactReason.other,
+  }) async {
+    final snapshots = <ProjectSettlementImpactSnapshot>[];
+    for (final entry in receivableFenByProjectId.entries) {
+      final projectId = entry.key.trim();
+      if (projectId.isEmpty) continue;
+      final receivedFen = await accountPaymentRepository.sumFenByProjectId(
+        projectId,
+      );
+      final writeOffFen = await writeOffRepository.sumFenByProjectId(projectId);
+      final wasSettled = await projectRepository.isSettled(projectId);
+      snapshots.add(
+        _snapshot(
+          projectId: projectId,
+          receivableFen: entry.value,
+          receivedFen: receivedFen,
+          writeOffFen: writeOffFen,
+          wasSettled: wasSettled,
+          reason: reason,
+        ),
+      );
+    }
+    return ProjectSettlementImpactDecision(snapshots: snapshots);
+  }
+
+  /// 单一 snapshot 构建点：[evaluate]（commit/executor）与
+  /// [evaluateFromRepositories]（preview/repository）共用，杜绝字段映射漂移。
+  static ProjectSettlementImpactSnapshot _snapshot({
+    required String projectId,
+    required int receivableFen,
+    required int receivedFen,
+    required int writeOffFen,
+    required bool wasSettled,
+    required ProjectSettlementImpactReason reason,
+  }) {
+    return ProjectSettlementImpactSnapshot(
+      projectId: projectId,
+      receivableFen: receivableFen,
+      receivedFen: receivedFen,
+      writeOffFen: writeOffFen,
+      wasSettled: wasSettled,
+      reason: reason,
+    );
   }
 
   /// 根据 [decision] 的 [ProjectSettlementImpactSnapshot.shouldRevokeSettlement]

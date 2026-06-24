@@ -628,34 +628,21 @@ class SaveTimingRecordOperationAnalyzer {
     return ProjectFinanceCalculator.yuanToFen(receivableYuan);
   }
 
+  // 预览路径委托到单一来源 [ProjectSettlementImpactService.evaluateFromRepositories]，
+  // 与 commit 路径（事务 executor 上的 [ProjectSettlementImpactService.evaluate]）共用
+  // 同一套 snapshot 构建逻辑，避免 preview 与 commit 漂移。feature 层不持 executor，
+  // 故走 repository 版（不违反 features→AppDatabase 守卫）。
   Future<ProjectSettlementImpactDecision> _evaluateSettlementImpact({
     required Map<String, int> receivableFenByProjectId,
     ProjectSettlementImpactReason reason = ProjectSettlementImpactReason.other,
-  }) async {
-    final snapshots = <ProjectSettlementImpactSnapshot>[];
-    for (final entry in receivableFenByProjectId.entries) {
-      final projectId = entry.key.trim();
-      if (projectId.isEmpty) continue;
-      final receivableFen = entry.value;
-      final receivedFen = await _accountPaymentRepository.sumFenByProjectId(
-        projectId,
-      );
-      final writeOffFen = await _writeOffRepository.sumFenByProjectId(
-        projectId,
-      );
-      final wasSettled = await _projectRepository.isSettled(projectId);
-      snapshots.add(
-        ProjectSettlementImpactSnapshot(
-          projectId: projectId,
-          receivableFen: receivableFen,
-          receivedFen: receivedFen,
-          writeOffFen: writeOffFen,
-          wasSettled: wasSettled,
-          reason: reason,
-        ),
-      );
-    }
-    return ProjectSettlementImpactDecision(snapshots: snapshots);
+  }) {
+    return ProjectSettlementImpactService.evaluateFromRepositories(
+      receivableFenByProjectId: receivableFenByProjectId,
+      accountPaymentRepository: _accountPaymentRepository,
+      writeOffRepository: _writeOffRepository,
+      projectRepository: _projectRepository,
+      reason: reason,
+    );
   }
 
   static void _addEntity(

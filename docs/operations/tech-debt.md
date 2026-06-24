@@ -61,14 +61,16 @@
 
 ## 结算 snapshot 双份逻辑（analyzer / service）
 
-- 状态：⏳ 待处理
+- 状态：✅ 已完成（2026-06-24）
 - 来源：P1-S5 架构边界收口
 - 影响范围：计时保存 preview / commit 结清撤销判断
-- 证据：结算影响计算在 feature 层 `save_timing_record_operation_analyzer.dart` 与
-  infrastructure 层 `project_settlement_impact_service.dart` 双份，已加等价测试，待抽单一来源
-- 建议处理：抽 feature 可依赖的结算影响计算边界（注意 feature→infrastructure 分层），
-  避免 preview 与 commit 漂移
-- 负责人：待确认
+- 处理：snapshot 构建收敛到 `ProjectSettlementImpactService` 单一来源——
+  `evaluate`（commit，事务 executor）与新增 static `evaluateFromRepositories`
+  （preview，repository；feature 层不持 executor 故走 repo 版，不违反 features→AppDatabase
+  守卫）共用私有 `_snapshot` 构建点；analyzer 的 `_evaluateSettlementImpact` 改为委托。
+  revoke 决策本就单源于 `ProjectSettlementImpactSnapshot.shouldRevokeSettlement`
+- 证据：142 等价测试绿（analyzer / impact service / save_with_impact / 结清 use_case）
+- 负责人：—
 
 ## i18n 展示层硬编码中文
 
