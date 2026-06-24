@@ -11,6 +11,14 @@
 
 - 承载跨功能复用的交互、状态或展示模式。
 - 不应沉淀具体业务规则，除非该规则本身就是通用模式的一部分。
+- **允许的依赖**：可只读依赖 `data/models` 的 domain 值对象（如 `Device`、
+  `TimingRecord`）用于展示与类型签名。
+- **禁止的依赖**：不得依赖 `repositories` / `data/db` / `infrastructure` /
+  `data/services` / `use_cases`（持久化、事务、基础设施接线一律走 feature 层注入）。
+  由 `tools/check_architecture.sh` 强制。
+- 注：早期 roadmap（P1-S6/S7）曾设想禁 patterns→data/models，2026-06-24 评估后
+  正式化为「允许只读 domain 值对象」——data/models 是稳定值对象，patterns 直接用于
+  展示不构成有害耦合；真正有害的 repositories/db/infra 依赖已被 guard 拦住。
 
 ## data
 

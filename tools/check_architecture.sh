@@ -267,6 +267,13 @@ run_migrated_files_no_hardcoded_cjk_check \
 # - 标识符匹配两侧用 `(?<![A-Za-z0-9_])` / `(?![A-Za-z0-9_])` 守住单词边界，
 #   不会把 selectedDeviceLabel / TickerProvider / ChangeNotifierProvider /
 #   MyTimingService / TimingServiceFoo / SingleTickerProviderStateMixin 当成违规。
+#
+# 2026-06-24 决策（formalize-allow，原 P1-S6/S7 歧义收口）：
+#   patterns → lib/data/models **刻意允许**。patterns（跨功能复用展示模式）可
+#   只读依赖 data/models 的 domain 值对象（Device / TimingRecord 等）用于展示与
+#   类型签名；但**不得**依赖 repositories / db / infrastructure / data/services /
+#   use_cases（由下方规则强制）。故本脚本不为 patterns→data/models 设禁令。
+#   依据：docs/architecture/layers.md「patterns」节。
 # ============================================================================
 
 # Rule: patterns_ui_no_data_services

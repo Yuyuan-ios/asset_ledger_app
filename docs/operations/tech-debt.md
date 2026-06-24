@@ -48,16 +48,16 @@
 - 证据：`tools/check_architecture.sh:336,340` 已守 features→`package:sqflite` 与直接
   `AppDatabase` 使用；`lib/features/**` 直连 `AppDatabase.database` 残留 = 0
 
-## 架构守卫：patterns→data/models（P1-S6/S7，唯一未收的 Phase 1 项）
+## 架构守卫：patterns→data/models（P1-S6/S7）
 
-- 状态：⏳ 待处理
-- 来源：dev@36d42f0 复核；ba52b60 复验仍在
-- 影响范围：分层边界长期漂移（presentation pattern 直依赖 domain data model）
-- 证据：`lib/patterns/**` 仍有 **15 文件** 直接 `import .../data/models/*`
-  （`device.dart` 被引 13 次、`timing_record.dart` 5 次等）；guard 未覆盖此类
-- 建议处理：定层级意图（见 `docs/architecture/layers.md`）→ 若禁，则 patterns 改用
-  pattern 局部 view-model/DTO，再扩 `check_architecture.sh` guard；若允许则显式 allowlist
-- 负责人：待确认
+- 状态：✅ 已完成（2026-06-24 决策：formalize-allow）
+- 来源：dev@36d42f0 复核；ba52b60 复验
+- 决策：patterns 可只读依赖 `data/models` 的 domain 值对象（展示用），不视为违规；
+  真正有害的 repositories/db/infrastructure/data/services/use_cases 依赖已被 guard 拦住
+- 证据：`docs/architecture/layers.md`「patterns」节已明确允许/禁止依赖；
+  `tools/check_architecture.sh` 注释记录该决策（patterns 全局基础设施依赖禁用块）
+- 备注：roadmap P1-S7「guard 禁 patterns→data/models」原意被该决策替代——
+  data/models 是稳定值对象，patterns 直接展示不构成有害耦合
 
 ## 结算 snapshot 双份逻辑（analyzer / service）
 
