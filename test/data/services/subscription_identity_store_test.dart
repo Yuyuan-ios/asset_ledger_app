@@ -37,5 +37,19 @@ void main() {
         ),
       );
     });
+
+    test('writes a verified appAccountToken for later reuse', () async {
+      SharedPreferences.setMockInitialValues({
+        'subscription.appAccountToken': '00000000-0000-4000-8000-000000000123',
+      });
+      final store = SharedPreferencesSubscriptionIdentityStore();
+
+      await store.writeAppAccountToken('00000000-0000-4000-8000-000000000456');
+
+      expect(
+        await store.readOrCreateAppAccountToken(),
+        '00000000-0000-4000-8000-000000000456',
+      );
+    });
   });
 }

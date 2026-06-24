@@ -13,6 +13,9 @@ abstract class SubscriptionIdentityStore {
   /// Returns the stored App Store appAccountToken without creating one.
   Future<String?> readAppAccountToken();
 
+  /// Persists a verified App Store appAccountToken.
+  Future<void> writeAppAccountToken(String token);
+
   /// Clears the stored App Store appAccountToken.
   Future<void> clear();
 }
@@ -61,6 +64,14 @@ class SharedPreferencesSubscriptionIdentityStore
     final token = prefs.getString(_appAccountTokenKey);
     if (token == null || token.trim().isEmpty) return null;
     return token;
+  }
+
+  @override
+  Future<void> writeAppAccountToken(String token) async {
+    final normalized = token.trim();
+    if (normalized.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_appAccountTokenKey, normalized);
   }
 
   @override

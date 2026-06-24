@@ -577,6 +577,11 @@ class MemoryIdentityStore implements SubscriptionIdentityStore {
 
   @override
   Future<String> readOrCreateAppAccountToken() async => token;
+
+  @override
+  Future<void> writeAppAccountToken(String token) async {
+    this.token = token;
+  }
 }
 
 class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {

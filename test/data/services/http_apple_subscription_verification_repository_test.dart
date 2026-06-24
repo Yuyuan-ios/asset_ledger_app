@@ -100,6 +100,78 @@ void main() {
       );
     });
 
+    test(
+      'verify-purchase uses signed transaction appAccountToken and persists server token',
+      () async {
+        const storedToken = '00000000-0000-4000-8000-000000000111';
+        const transactionToken = '00000000-0000-4000-8000-000000000222';
+        final identityStore = MemoryIdentityStore(storedToken);
+        final client = FakeVerificationHttpClient(
+          postResponse: SubscriptionHttpResponse(
+            statusCode: 200,
+            body: jsonEncode({
+              'outcome': 'verifiedActivePro',
+              'entitlementTier': 'pro',
+              'productId': SubscriptionService.proYearlyProductId,
+              'appAccountToken': transactionToken,
+            }),
+          ),
+        );
+        final repository = HttpAppleSubscriptionVerificationRepository(
+          config: configured,
+          httpClient: client,
+          identityStore: identityStore,
+        );
+
+        final result = await repository.verifyPurchase(
+          purchaseDetails(
+            productId: SubscriptionService.proYearlyProductId,
+            serverVerificationData: signedTransactionJws({
+              'appAccountToken': transactionToken,
+            }),
+          ),
+        );
+
+        expect(
+          result.outcome,
+          SubscriptionVerificationOutcome.verifiedActivePro,
+        );
+        expect(result.appAccountToken, transactionToken);
+        expect(client.lastPostBody?['appAccountToken'], transactionToken);
+        expect(identityStore.token, transactionToken);
+      },
+    );
+
+    test(
+      'verify-purchase falls back to stored token when JWS has no token',
+      () async {
+        const storedToken = '00000000-0000-4000-8000-000000000333';
+        final identityStore = MemoryIdentityStore(storedToken);
+        final client = FakeVerificationHttpClient(
+          postResponse: const SubscriptionHttpResponse(
+            statusCode: 200,
+            body:
+                '{"outcome":"verifiedActivePro","entitlementTier":"pro","productId":"com.yuyuan.assetledger.pro.yearly"}',
+          ),
+        );
+        final repository = HttpAppleSubscriptionVerificationRepository(
+          config: configured,
+          httpClient: client,
+          identityStore: identityStore,
+        );
+
+        await repository.verifyPurchase(
+          purchaseDetails(
+            productId: SubscriptionService.proYearlyProductId,
+            serverVerificationData: signedTransactionJws({}),
+          ),
+        );
+
+        expect(client.lastPostBody?['appAccountToken'], storedToken);
+        expect(identityStore.token, storedToken);
+      },
+    );
+
     test('verify-purchase maps active max response', () async {
       final client = FakeVerificationHttpClient(
         postResponse: SubscriptionHttpResponse(
@@ -286,13 +358,16 @@ void main() {
   });
 }
 
-PurchaseDetails purchaseDetails({required String productId}) {
+PurchaseDetails purchaseDetails({
+  required String productId,
+  String? serverVerificationData,
+}) {
   return PurchaseDetails(
     productID: productId,
     purchaseID: 'purchase-$productId',
     verificationData: PurchaseVerificationData(
       localVerificationData: 'local-$productId',
-      serverVerificationData: 'server-$productId',
+      serverVerificationData: serverVerificationData ?? 'server-$productId',
       source: 'app_store',
     ),
     transactionDate: '1700000000000',
@@ -300,10 +375,18 @@ PurchaseDetails purchaseDetails({required String productId}) {
   );
 }
 
+String signedTransactionJws(Map<String, Object?> payload) {
+  String encodePart(Map<String, Object?> value) {
+    return base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  }
+
+  return '${encodePart({'alg': 'none'})}.${encodePart(payload)}.signature';
+}
+
 class MemoryIdentityStore implements SubscriptionIdentityStore {
   MemoryIdentityStore(this.token);
 
-  final String token;
+  String token;
 
   @override
   Future<void> clear() async {}
@@ -313,6 +396,11 @@ class MemoryIdentityStore implements SubscriptionIdentityStore {
 
   @override
   Future<String> readOrCreateAppAccountToken() async => token;
+
+  @override
+  Future<void> writeAppAccountToken(String token) async {
+    this.token = token;
+  }
 }
 
 class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {

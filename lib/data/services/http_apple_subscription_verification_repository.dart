@@ -37,9 +37,16 @@ class HttpAppleSubscriptionVerificationRepository
     }
 
     try {
+      final storedAppAccountToken = await _identityStore
+          .readOrCreateAppAccountToken();
+      final requestAppAccountToken =
+          _appAccountTokenFromSignedTransaction(
+            purchase.verificationData.serverVerificationData,
+          ) ??
+          storedAppAccountToken;
       final request = AppleVerifyPurchaseRequest.fromPurchase(
         purchase,
-        appAccountToken: await _identityStore.readOrCreateAppAccountToken(),
+        appAccountToken: requestAppAccountToken,
         bundleId: _bundleId,
       );
       final response = await _httpClient.postJson(
@@ -47,7 +54,12 @@ class HttpAppleSubscriptionVerificationRepository
         request.toJson(),
         timeout: _config.requestTimeout,
       );
-      return _entitlementFromResponse(response, purchase.productID);
+      final entitlement = _entitlementFromResponse(
+        response,
+        purchase.productID,
+      );
+      await _persistVerifiedAppAccountToken(entitlement);
+      return entitlement;
     } catch (_) {
       return _safeUnavailable(
         productId: purchase.productID,
@@ -70,7 +82,9 @@ class HttpAppleSubscriptionVerificationRepository
         _uriWithAppAccountToken(uri, appAccountToken),
         timeout: _config.requestTimeout,
       );
-      return _entitlementFromResponse(response, null);
+      final entitlement = _entitlementFromResponse(response, null);
+      await _persistVerifiedAppAccountToken(entitlement);
+      return entitlement;
     } catch (_) {
       return _safeUnavailable(reason: '订阅服务端同步请求失败');
     }
@@ -109,6 +123,18 @@ class HttpAppleSubscriptionVerificationRepository
     );
   }
 
+  Future<void> _persistVerifiedAppAccountToken(
+    VerifiedEntitlement entitlement,
+  ) async {
+    final appAccountToken = entitlement.appAccountToken;
+    if (!entitlement.isVerified ||
+        appAccountToken == null ||
+        appAccountToken.trim().isEmpty) {
+      return;
+    }
+    await _identityStore.writeAppAccountToken(appAccountToken);
+  }
+
   VerifiedEntitlement _safeFailed({String? productId, String? reason}) {
     return VerifiedEntitlement(
       outcome: SubscriptionVerificationOutcome.verificationFailed,
@@ -124,6 +150,27 @@ class HttpAppleSubscriptionVerificationRepository
         'appAccountToken': appAccountToken,
       },
     );
+  }
+
+  String? _appAccountTokenFromSignedTransaction(String signedTransaction) {
+    final parts = signedTransaction.trim().split('.');
+    if (parts.length != 3) return null;
+    try {
+      final payloadBytes = base64Url.decode(base64Url.normalize(parts[1]));
+      final decoded = jsonDecode(utf8.decode(payloadBytes));
+      if (decoded is! Map<String, dynamic>) return null;
+      final token = decoded['appAccountToken'];
+      if (token is! String || !_looksLikeUuid(token)) return null;
+      return token.trim();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _looksLikeUuid(String value) {
+    return RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(value.trim());
   }
 }
 
@@ -192,6 +239,7 @@ class AppleEntitlementResponse {
     required this.outcome,
     required this.entitlementTier,
     this.productId,
+    this.appAccountToken,
     this.expiryDate,
   });
 
@@ -214,10 +262,14 @@ class AppleEntitlementResponse {
           outcome: SubscriptionVerificationOutcome.verificationFailed,
           entitlementTier: SubscriptionEntitlementTier.none,
           productId: productId is String ? productId : null,
+          appAccountToken: json['appAccountToken'] is String
+              ? json['appAccountToken'] as String
+              : null,
         );
       }
     }
 
+    final appAccountToken = json['appAccountToken'];
     final mappedOutcome = _outcomeFromWireValue(outcome);
     return AppleEntitlementResponse(
       outcome: mappedOutcome,
@@ -225,6 +277,7 @@ class AppleEntitlementResponse {
           _tierFromWireValue(json['entitlementTier']) ??
           _tierFromOutcome(mappedOutcome),
       productId: productId is String ? productId : null,
+      appAccountToken: appAccountToken is String ? appAccountToken : null,
       expiryDate: expiryDate,
     );
   }
@@ -232,6 +285,7 @@ class AppleEntitlementResponse {
   final SubscriptionVerificationOutcome outcome;
   final SubscriptionEntitlementTier entitlementTier;
   final String? productId;
+  final String? appAccountToken;
   final DateTime? expiryDate;
 
   VerifiedEntitlement toVerifiedEntitlement({String? fallbackProductId}) {
@@ -242,6 +296,7 @@ class AppleEntitlementResponse {
       outcome: outcome,
       entitlementTier: entitlementTier,
       productId: productId ?? fallbackProductId,
+      appAccountToken: appAccountToken,
       expiryDate: expiryDate,
       reason: failed ? '订阅服务端未返回有效授权' : null,
     );
