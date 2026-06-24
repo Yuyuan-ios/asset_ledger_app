@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../application/controllers/device_action_controller.dart';
 import '../domain/entities/device.dart';
@@ -51,12 +52,12 @@ class DevicePageActions {
 
       final feedback = storeActionFeedback(
         store,
-        action: l10n.deviceSaveAction,
-        successMessage: device == null
+        action: StoreActionKind.save,
+        successOverrideText: device == null
             ? l10n.deviceSaveCreated
             : l10n.deviceSaveUpdated,
       );
-      toast(feedback.message);
+      toast(localizeStoreActionFeedback(l10n, feedback));
     });
   }
 
@@ -134,10 +135,10 @@ class DevicePageActions {
     await store.deactivateById(device.id!);
     final feedback = storeActionFeedback(
       store,
-      action: l10n.deviceDeactivateAction,
-      successMessage: l10n.deviceDeactivateSuccess,
+      action: StoreActionKind.deactivate,
+      successOverrideText: l10n.deviceDeactivateSuccess,
     );
-    toast(feedback.message);
+    toast(localizeStoreActionFeedback(l10n, feedback));
   }
 
   static Future<bool> _confirmDeactivate(BuildContext context, Device d) async {

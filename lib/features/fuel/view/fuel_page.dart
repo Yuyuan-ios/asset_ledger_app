@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../core/foundation/typography.dart';
@@ -111,8 +112,14 @@ class _FuelPageState extends State<FuelPage> {
             }
 
             if (!mounted) return;
-            final feedback = storeActionFeedback(fuelStore, action: '保存');
-            _toast(feedback.message);
+            final feedback =
+                storeActionFeedback(fuelStore, action: StoreActionKind.save);
+            _toast(
+              localizeStoreActionFeedback(
+                AppLocalizations.of(context),
+                feedback,
+              ),
+            );
             if (!feedback.isSuccess) {
               return;
             }
@@ -145,8 +152,11 @@ class _FuelPageState extends State<FuelPage> {
     await store.deleteById(log.id!);
 
     if (!mounted) return false;
-    final feedback = storeActionFeedback(store, action: '删除');
-    _toast(feedback.message);
+    final feedback =
+        storeActionFeedback(store, action: StoreActionKind.delete);
+    _toast(
+      localizeStoreActionFeedback(AppLocalizations.of(context), feedback),
+    );
     if (!feedback.isSuccess) {
       return false;
     }

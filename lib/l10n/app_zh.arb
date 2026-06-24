@@ -3197,5 +3197,34 @@
         "example": "100.00"
       }
     }
+  },
+  "storeActionSaveSuccess": "已保存",
+  "storeActionDeleteSuccess": "已删除",
+  "storeActionUpdateSuccess": "已更新",
+  "storeActionCreateSuccess": "已新增",
+  "storeActionDeactivateSuccess": "已停用",
+  "storeActionSaveLabel": "保存",
+  "storeActionDeleteLabel": "删除",
+  "storeActionUpdateLabel": "更新",
+  "storeActionCreateLabel": "新增",
+  "storeActionDeactivateLabel": "停用",
+  "storeActionFailureWithDetail": "{action}失败：{detail}",
+  "@storeActionFailureWithDetail": {
+    "placeholders": {
+      "action": { "type": "String" },
+      "detail": { "type": "String" }
+    }
+  },
+  "storeActionFailureDatabase": "{action}失败：数据未保存，请稍后重试",
+  "@storeActionFailureDatabase": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "storeActionFailureFileSystem": "{action}失败：请检查文件状态和访问权限",
+  "@storeActionFailureFileSystem": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
   }
 }

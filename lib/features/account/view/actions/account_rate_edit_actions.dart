@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../../core/utils/interaction_feedback.dart';
 import '../../../../core/utils/store_feedback.dart';
 import '../../../../l10n/gen/app_localizations.dart';
@@ -132,7 +133,12 @@ class AccountRateEditActions {
         }
       }
 
-      toast(storeActionFeedback(rateStore, action: '更新').message);
+      toast(
+        localizeStoreActionFeedback(
+          l10n,
+          storeActionFeedback(rateStore, action: StoreActionKind.update),
+        ),
+      );
     });
   }
 
@@ -211,10 +217,10 @@ class AccountRateEditActions {
 
       final feedback = storeActionFeedback(
         rateStore,
-        action: '保存',
-        successMessage: l10n.accountUpdated,
+        action: StoreActionKind.save,
+        successOverrideText: l10n.accountUpdated,
       );
-      toast(feedback.message);
+      toast(localizeStoreActionFeedback(l10n, feedback));
     });
   }
 }

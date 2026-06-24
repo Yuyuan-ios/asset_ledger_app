@@ -37,8 +37,9 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
 
       if (!mounted) return;
 
-      final feedback = storeActionFeedback(store, action: '保存');
-      _toast(feedback.message);
+      final feedback =
+          storeActionFeedback(store, action: StoreActionKind.save);
+      _toast(localizeStoreActionFeedback(_l10n, feedback));
     });
   }
 
@@ -364,8 +365,9 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
     final store = context.read<AccountPaymentStore>();
     await store.deleteById(p.id!);
 
-    final feedback = storeActionFeedback(store, action: '删除');
-    _toast(feedback.message);
+    final feedback =
+        storeActionFeedback(store, action: StoreActionKind.delete);
+    _toast(localizeStoreActionFeedback(_l10n, feedback));
     if (!feedback.isSuccess) {
       return;
     }

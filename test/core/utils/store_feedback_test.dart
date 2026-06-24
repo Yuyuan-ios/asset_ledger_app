@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:asset_ledger/core/errors/store_failure.dart';
 import 'package:asset_ledger/core/utils/base_store.dart';
 import 'package:asset_ledger/core/utils/store_feedback.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +8,7 @@ import 'package:sqflite/sqflite.dart';
 
 void main() {
   group('storeFeedback', () {
-    test('formats validation and database failures for the UI', () async {
+    test('storeErrorMessage formats validation and database failures', () async {
       final validationStore = _HarnessStore();
       await expectLater(
         validationStore.runAction(() => throw ArgumentError('brand 不能为空')),
@@ -24,15 +25,9 @@ void main() {
         storeErrorMessage(databaseStore, action: '删除'),
         '删除失败：数据未保存，请稍后重试',
       );
-      final deleteFeedback = storeActionFeedback(
-        databaseStore,
-        action: '删除',
-      );
-      expect(deleteFeedback.isSuccess, isFalse);
-      expect(deleteFeedback.message, '删除失败：数据未保存，请稍后重试');
     });
 
-    test('formats file-system failures and picks the first active error', () async {
+    test('firstStoreErrorMessage picks the first active error', () async {
       final fileStore = _HarnessStore();
       await expectLater(
         fileStore.runAction(
@@ -48,20 +43,40 @@ void main() {
       );
     });
 
-    test('returns centralized success copy for completed actions', () {
+    test('storeActionFeedback exposes failure as structured code (no display text)',
+        () async {
+      final databaseStore = _HarnessStore();
+      await expectLater(
+        databaseStore.runAction(() => throw _FakeDatabaseException('write failed')),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      final feedback = storeActionFeedback(
+        databaseStore,
+        action: StoreActionKind.delete,
+      );
+      expect(feedback.isSuccess, isFalse);
+      expect(feedback.action, StoreActionKind.delete);
+      expect(feedback.failureType, StoreFailureType.database);
+      expect(feedback.successOverrideText, isNull);
+    });
+
+    test('storeActionFeedback exposes success as structured code', () {
       final store = _HarnessStore();
 
-      final saveFeedback = storeActionFeedback(store, action: '保存');
+      final saveFeedback = storeActionFeedback(store, action: StoreActionKind.save);
       expect(saveFeedback.isSuccess, isTrue);
-      expect(saveFeedback.message, '已保存');
+      expect(saveFeedback.action, StoreActionKind.save);
+      expect(saveFeedback.failureType, isNull);
+      expect(saveFeedback.successOverrideText, isNull);
 
-      final customFeedback = storeActionFeedback(
+      final custom = storeActionFeedback(
         store,
-        action: '保存',
-        successMessage: '已新增设备',
+        action: StoreActionKind.create,
+        successOverrideText: '已新增设备',
       );
-      expect(customFeedback.isSuccess, isTrue);
-      expect(customFeedback.message, '已新增设备');
+      expect(custom.isSuccess, isTrue);
+      expect(custom.successOverrideText, '已新增设备');
     });
   });
 }

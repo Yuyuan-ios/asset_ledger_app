@@ -99,7 +99,25 @@
   command/redactor/service/adapter（~6 源文件）；⑥ 更新 5 个测试文件断言（改断 code 而非中文串）。
 - **风险**：CRITICAL 保存路径 + 跨 ~10 文件类型变更；须逐片 + characterization 护航，勿大爆改。
 - 既有可复用 code 模式：`SaveTimingRecordStaleReasonType`、`OperationImpactItem.code`
-- 负责人：待确认（建议专项 session 执行）
+- **2026-06-24 渲染点排查（重大修正）**：timing_page 的唯一保存入口是
+  `SaveTimingRecordWithImpactUseCase`（`timing_page.dart:507`），**operation 管线
+  （analyzer/command/redactor/preview 那 88 串）DI 接了但 UI 不渲染、也无审计历史 UI 展示**
+  → 这些串当前**并非用户可见**（疑为 sync/未来 token-aware confirm 的地基）。真正用户可见的
+  保存/删除反馈来自共享核心工具 **`lib/core/utils/store_feedback.dart`**（`'已保存'/'已删除'/
+  `'$action失败：…'`），被 timing/fuel/device/maintenance/account **8 个 caller** 调用
+  （action 传中文 '保存'6/'删除'3/'更新'1）。timing 的外协确认弹窗已 `l10n.*`。
+  **故 S4b 真正第一片应改 `store_feedback.dart`（enum action + code→UI mapper），而非 operation 管线。**
+- **✅ 第一片已完成（2026-06-24）action-toast 路径**：`store_feedback.dart` 的
+  `StoreActionFeedback` 改为 code 型（`StoreActionKind` + `isSuccess` + `failureType` +
+  `failureDetail` + `successOverrideText`，core 不含展示中文）；新增 UI mapper
+  `lib/components/feedback/store_action_feedback_l10n.dart` 映射到 `AppLocalizations`；
+  13 个 ARB key（zh+en）；迁 **7 个 caller**（fuel/timing/device/maintenance/account ×2 dialog
+  + payment dialog 的 save/delete/update/deactivate toast）。等价测试绿（mapper 输出与旧
+  '已保存'/'X失败：…' 逐字一致）。
+- **本片剩余 follow-up**：① `storeErrorMessage`/`firstStoreErrorMessage`（String 版）仍含中文模板，
+  服务 view_data 的「读取」错误路径（fuel/maintenance/account view_data builder 无 l10n，需穿透）；
+  ② operation 管线那 88 串当前不可见，待其真正接 UI（token-aware confirm / 审计历史）时再 i18n。
+- 负责人：待确认（剩余 follow-up 建议专项执行）
 
 ## device 领域/application 层文案分离（S5b）
 

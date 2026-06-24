@@ -2406,4 +2406,49 @@ class AppLocalizationsEn extends AppLocalizations {
   ) {
     return 'Device $deviceId · $date · $hours h · ¥$amount';
   }
+
+  @override
+  String get storeActionSaveSuccess => 'Saved';
+
+  @override
+  String get storeActionDeleteSuccess => 'Deleted';
+
+  @override
+  String get storeActionUpdateSuccess => 'Updated';
+
+  @override
+  String get storeActionCreateSuccess => 'Created';
+
+  @override
+  String get storeActionDeactivateSuccess => 'Deactivated';
+
+  @override
+  String get storeActionSaveLabel => 'Save';
+
+  @override
+  String get storeActionDeleteLabel => 'Delete';
+
+  @override
+  String get storeActionUpdateLabel => 'Update';
+
+  @override
+  String get storeActionCreateLabel => 'Create';
+
+  @override
+  String get storeActionDeactivateLabel => 'Deactivate';
+
+  @override
+  String storeActionFailureWithDetail(String action, String detail) {
+    return '$action failed: $detail';
+  }
+
+  @override
+  String storeActionFailureDatabase(String action) {
+    return '$action failed: data was not saved, please try again later';
+  }
+
+  @override
+  String storeActionFailureFileSystem(String action) {
+    return '$action failed: please check file status and access permissions';
+  }
 }

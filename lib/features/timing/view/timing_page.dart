@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../core/utils/form_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../device/domain/services/device_label.dart';
@@ -533,19 +534,24 @@ class _TimingPageState extends State<TimingPage> {
             }
             if (!mounted) return;
 
-            final feedback = storeActionFeedback(timingStore, action: '保存');
+            final feedback =
+                storeActionFeedback(timingStore, action: StoreActionKind.save);
+            final feedbackMessage = localizeStoreActionFeedback(
+              AppLocalizations.of(context),
+              feedback,
+            );
             if (!feedback.isSuccess) {
               final form = formKey.currentState;
               if (form != null && form.mounted) {
-                form.showSubmitFailure(feedback.message);
+                form.showSubmitFailure(feedbackMessage);
               } else {
-                _toast(feedback.message);
+                _toast(feedbackMessage);
               }
               return;
             }
             // 事务化路径已完成所有级联：UI 不再依赖 pending retry。
             final impact = result.impact;
-            final toastMessage = impact.userMessage ?? feedback.message;
+            final toastMessage = impact.userMessage ?? feedbackMessage;
             if (!mounted) return;
             _toast(toastMessage);
             if (!sheetContext.mounted) return;
@@ -560,10 +566,11 @@ class _TimingPageState extends State<TimingPage> {
     if (error is SaveTimingRecordOperationException) {
       return formValidationMessage(_friendlySaveFailureReason(error.message));
     }
-    final feedback = storeActionFeedback(timingStore, action: '保存');
+    final feedback =
+        storeActionFeedback(timingStore, action: StoreActionKind.save);
     return feedback.isSuccess
         ? AppLocalizations.of(context).timingEntrySaveFailure
-        : feedback.message;
+        : localizeStoreActionFeedback(AppLocalizations.of(context), feedback);
   }
 
   String _friendlySaveFailureReason(String message) {
@@ -800,9 +807,9 @@ class _TimingPageState extends State<TimingPage> {
       if (!mounted) return;
       final feedback = storeActionFeedback(
         store,
-        action: l10n.externalWorkDeleteAction,
+        action: StoreActionKind.delete,
       );
-      _toast(feedback.message);
+      _toast(localizeStoreActionFeedback(l10n, feedback));
       if (!feedback.isSuccess || !sheetContext.mounted) return;
       Navigator.of(sheetContext).pop();
     }();

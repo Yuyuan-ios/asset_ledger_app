@@ -170,8 +170,11 @@ mixin _AccountPageProjectSheetActions
       result.fen,
     );
     if (!mounted) return;
-    final feedback = storeActionFeedback(externalWorkStore, action: '保存');
-    if (!feedback.isSuccess) _toast(feedback.message);
+    final feedback =
+        storeActionFeedback(externalWorkStore, action: StoreActionKind.save);
+    if (!feedback.isSuccess) {
+      _toast(localizeStoreActionFeedback(_l10n, feedback));
+    }
   }
 
   void _openProjectDetail(AccountProjectVM project) {

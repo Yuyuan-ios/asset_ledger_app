@@ -20,6 +20,7 @@ import '../domain/entities/maintenance_entities.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
+import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/account_tokens.dart';
 import '../../../tokens/mapper/summary_card_tokens.dart';
@@ -147,9 +148,14 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
               final feedback = storeActionFeedback(
                 maintenanceStore,
-                action: '保存',
+                action: StoreActionKind.save,
               );
-              _toast(feedback.message);
+              _toast(
+                localizeStoreActionFeedback(
+                  AppLocalizations.of(context),
+                  feedback,
+                ),
+              );
               if (!feedback.isSuccess) {
                 return;
               }
@@ -193,8 +199,11 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
     if (!mounted) return;
 
-    final feedback = storeActionFeedback(store, action: '删除');
-    _toast(feedback.message);
+    final feedback =
+        storeActionFeedback(store, action: StoreActionKind.delete);
+    _toast(
+      localizeStoreActionFeedback(AppLocalizations.of(context), feedback),
+    );
   }
 
   // =====================================================================

@@ -4103,6 +4103,84 @@ abstract class AppLocalizations {
     String hours,
     String amount,
   );
+
+  /// No description provided for @storeActionSaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get storeActionSaveSuccess;
+
+  /// No description provided for @storeActionDeleteSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除'**
+  String get storeActionDeleteSuccess;
+
+  /// No description provided for @storeActionUpdateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已更新'**
+  String get storeActionUpdateSuccess;
+
+  /// No description provided for @storeActionCreateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已新增'**
+  String get storeActionCreateSuccess;
+
+  /// No description provided for @storeActionDeactivateSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用'**
+  String get storeActionDeactivateSuccess;
+
+  /// No description provided for @storeActionSaveLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get storeActionSaveLabel;
+
+  /// No description provided for @storeActionDeleteLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get storeActionDeleteLabel;
+
+  /// No description provided for @storeActionUpdateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新'**
+  String get storeActionUpdateLabel;
+
+  /// No description provided for @storeActionCreateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增'**
+  String get storeActionCreateLabel;
+
+  /// No description provided for @storeActionDeactivateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'停用'**
+  String get storeActionDeactivateLabel;
+
+  /// No description provided for @storeActionFailureWithDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}失败：{detail}'**
+  String storeActionFailureWithDetail(String action, String detail);
+
+  /// No description provided for @storeActionFailureDatabase.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}失败：数据未保存，请稍后重试'**
+  String storeActionFailureDatabase(String action);
+
+  /// No description provided for @storeActionFailureFileSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}失败：请检查文件状态和访问权限'**
+  String storeActionFailureFileSystem(String action);
 }
 
 class _AppLocalizationsDelegate

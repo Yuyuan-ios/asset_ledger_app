@@ -2221,4 +2221,49 @@ class AppLocalizationsZh extends AppLocalizations {
   ) {
     return '设备 $deviceId · $date · $hours h · ¥$amount';
   }
+
+  @override
+  String get storeActionSaveSuccess => '已保存';
+
+  @override
+  String get storeActionDeleteSuccess => '已删除';
+
+  @override
+  String get storeActionUpdateSuccess => '已更新';
+
+  @override
+  String get storeActionCreateSuccess => '已新增';
+
+  @override
+  String get storeActionDeactivateSuccess => '已停用';
+
+  @override
+  String get storeActionSaveLabel => '保存';
+
+  @override
+  String get storeActionDeleteLabel => '删除';
+
+  @override
+  String get storeActionUpdateLabel => '更新';
+
+  @override
+  String get storeActionCreateLabel => '新增';
+
+  @override
+  String get storeActionDeactivateLabel => '停用';
+
+  @override
+  String storeActionFailureWithDetail(String action, String detail) {
+    return '$action失败：$detail';
+  }
+
+  @override
+  String storeActionFailureDatabase(String action) {
+    return '$action失败：数据未保存，请稍后重试';
+  }
+
+  @override
+  String storeActionFailureFileSystem(String action) {
+    return '$action失败：请检查文件状态和访问权限';
+  }
 }
