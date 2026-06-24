@@ -44,7 +44,7 @@ class AccountPageViewData {
   final double netCashReceived;
   final bool loading;
   final bool hasActiveFilter;
-  final String? error;
+  final StoreActionFeedback? error;
 }
 
 AccountPageViewData buildAccountPageViewData({
@@ -121,7 +121,7 @@ AccountPageViewData buildAccountPageViewData({
       filterStore.projectFilterKeyword.isNotEmpty &&
       (filteredProjects.length + filteredExternalWorkProjects.length) <
           (computed.projects.length + externalWorkProjects.length);
-  final error = firstStoreErrorMessage([
+  final error = firstStoreActionFailure([
     timingStore,
     deviceStore,
     paymentStore,
@@ -130,7 +130,7 @@ AccountPageViewData buildAccountPageViewData({
     ?fuelStore,
     ?maintenanceStore,
     ?externalWorkStore,
-  ], action: '读取');
+  ], action: StoreActionKind.read);
 
   return AccountPageViewData(
     localComputed: localComputed,

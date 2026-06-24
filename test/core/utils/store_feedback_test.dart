@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:asset_ledger/core/errors/store_failure.dart';
 import 'package:asset_ledger/core/utils/base_store.dart';
 import 'package:asset_ledger/core/utils/store_feedback.dart';
@@ -8,41 +6,6 @@ import 'package:sqflite/sqflite.dart';
 
 void main() {
   group('storeFeedback', () {
-    test('storeErrorMessage formats validation and database failures', () async {
-      final validationStore = _HarnessStore();
-      await expectLater(
-        validationStore.runAction(() => throw ArgumentError('brand 不能为空')),
-        throwsArgumentError,
-      );
-      expect(storeErrorMessage(validationStore, action: '保存'), '保存失败：brand 不能为空');
-
-      final databaseStore = _HarnessStore();
-      await expectLater(
-        databaseStore.runAction(() => throw _FakeDatabaseException('write failed')),
-        throwsA(isA<DatabaseException>()),
-      );
-      expect(
-        storeErrorMessage(databaseStore, action: '删除'),
-        '删除失败：数据未保存，请稍后重试',
-      );
-    });
-
-    test('firstStoreErrorMessage picks the first active error', () async {
-      final fileStore = _HarnessStore();
-      await expectLater(
-        fileStore.runAction(
-          () => throw FileSystemException('copy failed', '/tmp/avatar.png'),
-        ),
-        throwsA(isA<FileSystemException>()),
-      );
-
-      final idleStore = _HarnessStore();
-      expect(
-        firstStoreErrorMessage([idleStore, fileStore], action: '读取'),
-        '读取失败：请检查文件状态和访问权限',
-      );
-    });
-
     test('storeActionFeedback exposes failure as structured code (no display text)',
         () async {
       final databaseStore = _HarnessStore();
@@ -58,6 +21,7 @@ void main() {
       expect(feedback.isSuccess, isFalse);
       expect(feedback.action, StoreActionKind.delete);
       expect(feedback.failureType, StoreFailureType.database);
+      expect(feedback.failureDetail, isNotNull);
       expect(feedback.successOverrideText, isNull);
     });
 
@@ -77,6 +41,30 @@ void main() {
       );
       expect(custom.isSuccess, isTrue);
       expect(custom.successOverrideText, '已新增设备');
+    });
+
+    test('firstStoreActionFailure returns the first failing store as a code',
+        () async {
+      final idleStore = _HarnessStore();
+      final failingStore = _HarnessStore();
+      await expectLater(
+        failingStore.runAction(() => throw _FakeDatabaseException('write failed')),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      final feedback = firstStoreActionFailure(
+        [idleStore, failingStore],
+        action: StoreActionKind.read,
+      );
+      expect(feedback, isNotNull);
+      expect(feedback!.isSuccess, isFalse);
+      expect(feedback.action, StoreActionKind.read);
+      expect(feedback.failureType, StoreFailureType.database);
+
+      expect(
+        firstStoreActionFailure([idleStore], action: StoreActionKind.read),
+        isNull,
+      );
     });
   });
 }

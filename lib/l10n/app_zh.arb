@@ -3203,11 +3203,13 @@
   "storeActionUpdateSuccess": "已更新",
   "storeActionCreateSuccess": "已新增",
   "storeActionDeactivateSuccess": "已停用",
+  "storeActionReadSuccess": "已读取",
   "storeActionSaveLabel": "保存",
   "storeActionDeleteLabel": "删除",
   "storeActionUpdateLabel": "更新",
   "storeActionCreateLabel": "新增",
   "storeActionDeactivateLabel": "停用",
+  "storeActionReadLabel": "读取",
   "storeActionFailureWithDetail": "{action}失败：{detail}",
   "@storeActionFailureWithDetail": {
     "placeholders": {

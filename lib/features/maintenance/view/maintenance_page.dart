@@ -379,7 +379,9 @@ class _MaintenancePageState extends State<MaintenancePage> {
       ),
       records: recordsContent,
       loading: viewData.loading,
-      error: viewData.error,
+      error: viewData.error == null
+          ? null
+          : localizeStoreActionFeedback(l10n, viewData.error!),
       onRetry: _retryLoad,
     );
   }

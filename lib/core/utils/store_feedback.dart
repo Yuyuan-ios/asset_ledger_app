@@ -4,7 +4,7 @@ import '../errors/store_failure.dart';
 /// 用户操作类型。core 只产出 code，由 UI 层
 /// （`components/feedback/store_action_feedback_l10n.dart`）映射为本地化文案，
 /// core/utils 不持有 AppLocalizations、不含展示用中文。
-enum StoreActionKind { save, delete, update, create, deactivate }
+enum StoreActionKind { save, delete, update, create, deactivate, read }
 
 /// 结构化操作反馈：成功/失败 + 操作 code + 失败原因 code/detail。
 /// 可选 [successOverrideText] 给调用方传入已本地化的自定义成功文案（如 device
@@ -47,34 +47,16 @@ StoreActionFeedback storeActionFeedback(
   );
 }
 
-// ---------------------------------------------------------------------------
-// 以下 String 版仍服务 view_data 的「读取」错误路径与 device_page 直读，
-// 尚含硬编码中文模板；S4b 后续片再迁（见 docs/operations/tech-debt.md）。
-// ---------------------------------------------------------------------------
-
-String? storeErrorMessage(BaseStore store, {required String action}) {
-  final failure = store.failure;
-  if (failure == null) return null;
-
-  switch (failure.type) {
-    case StoreFailureType.validation:
-      return '$action失败：${failure.message}';
-    case StoreFailureType.database:
-      return '$action失败：数据未保存，请稍后重试';
-    case StoreFailureType.fileSystem:
-      return '$action失败：请检查文件状态和访问权限';
-    case StoreFailureType.unknown:
-      return '$action失败：${failure.message}';
-  }
-}
-
-String? firstStoreErrorMessage(
+/// 返回 [stores] 中第一个处于失败态的结构化反馈（不含本地化文案），全部成功则 null。
+/// 供「读取/加载」错误路径用：调用方（含无 l10n 的 view_data builder）拿到 code，
+/// 由 UI 层 mapper 本地化。
+StoreActionFeedback? firstStoreActionFailure(
   Iterable<BaseStore> stores, {
-  required String action,
+  required StoreActionKind action,
 }) {
   for (final store in stores) {
-    final message = storeErrorMessage(store, action: action);
-    if (message != null) return message;
+    final feedback = storeActionFeedback(store, action: action);
+    if (!feedback.isSuccess) return feedback;
   }
   return null;
 }

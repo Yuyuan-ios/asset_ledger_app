@@ -4134,6 +4134,12 @@ abstract class AppLocalizations {
   /// **'已停用'**
   String get storeActionDeactivateSuccess;
 
+  /// No description provided for @storeActionReadSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已读取'**
+  String get storeActionReadSuccess;
+
   /// No description provided for @storeActionSaveLabel.
   ///
   /// In zh, this message translates to:
@@ -4163,6 +4169,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'停用'**
   String get storeActionDeactivateLabel;
+
+  /// No description provided for @storeActionReadLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取'**
+  String get storeActionReadLabel;
 
   /// No description provided for @storeActionFailureWithDetail.
   ///

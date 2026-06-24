@@ -871,14 +871,17 @@ class _TimingPageState extends State<TimingPage> {
         maintenanceStore.loading ||
         accountStore.loading ||
         externalWorkStore.loading;
-    final error = firstStoreErrorMessage([
+    final errorFeedback = firstStoreActionFailure([
       timingStore,
       deviceStore,
       fuelStore,
       maintenanceStore,
       accountStore,
       externalWorkStore,
-    ], action: l10n.externalWorkReadAction);
+    ], action: StoreActionKind.read);
+    final error = errorFeedback == null
+        ? null
+        : localizeStoreActionFeedback(l10n, errorFeedback);
     final deviceById = buildDeviceByIdMap(deviceStore.allDevices);
     final deviceIndexById = DeviceLabel.indexMapById(
       deviceStore.allDevices,

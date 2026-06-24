@@ -265,7 +265,12 @@ class _FuelPageState extends State<FuelPage> {
       onConfirmDelete: _confirmDelete,
       onDelete: _delete,
       loading: viewData.loading,
-      error: viewData.error,
+      error: viewData.error == null
+          ? null
+          : localizeStoreActionFeedback(
+              AppLocalizations.of(context),
+              viewData.error!,
+            ),
       onRetry: () => _retryLoad(),
     );
   }

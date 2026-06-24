@@ -114,9 +114,14 @@
   13 个 ARB key（zh+en）；迁 **7 个 caller**（fuel/timing/device/maintenance/account ×2 dialog
   + payment dialog 的 save/delete/update/deactivate toast）。等价测试绿（mapper 输出与旧
   '已保存'/'X失败：…' 逐字一致）。
-- **本片剩余 follow-up**：① `storeErrorMessage`/`firstStoreErrorMessage`（String 版）仍含中文模板，
-  服务 view_data 的「读取」错误路径（fuel/maintenance/account view_data builder 无 l10n，需穿透）；
-  ② operation 管线那 88 串当前不可见，待其真正接 UI（token-aware confirm / 审计历史）时再 i18n。
+- **✅ 第二片已完成（2026-06-24）view_data「读取」路径**：`store_feedback.dart` 现**完全 code 化、零中文**——
+  删除 `storeErrorMessage`/`firstStoreErrorMessage`（String 版），新增 code 型 `firstStoreActionFailure`
+  + `StoreActionKind.read`。view_data builder（fuel/maintenance/account）的 `error` 字段改为
+  `StoreActionFeedback?`，由各 view（account_page_content / fuel_page / maintenance_page）用 mapper 本地化；
+  in-view 直读（timing_page / device_page ×2 / account_rate_edit_actions）也迁到 code+mapper。
+  等价测试绿（含 read 失败映射 '读取失败：…'）。**store_feedback i18n 全部收口**。
+- **本片剩余 follow-up**：operation 管线那 88 串当前不可见，待其真正接 UI（token-aware confirm /
+  审计历史）时再 i18n。
 - 负责人：待确认（剩余 follow-up 建议专项执行）
 
 ## device 领域/application 层文案分离（S5b）

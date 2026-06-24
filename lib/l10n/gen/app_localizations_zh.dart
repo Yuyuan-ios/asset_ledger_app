@@ -2238,6 +2238,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get storeActionDeactivateSuccess => '已停用';
 
   @override
+  String get storeActionReadSuccess => '已读取';
+
+  @override
   String get storeActionSaveLabel => '保存';
 
   @override
@@ -2251,6 +2254,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get storeActionDeactivateLabel => '停用';
+
+  @override
+  String get storeActionReadLabel => '读取';
 
   @override
   String storeActionFailureWithDetail(String action, String detail) {

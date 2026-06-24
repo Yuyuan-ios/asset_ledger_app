@@ -58,7 +58,7 @@ class MaintenancePageViewData {
   });
 
   final bool loading;
-  final String? error;
+  final StoreActionFeedback? error;
   final int recordsCount;
   final bool isEmpty;
   final MaintenanceSummaryViewData summary;
@@ -71,10 +71,10 @@ MaintenancePageViewData buildMaintenancePageViewData({
   required String inactiveDeviceIndexLabel,
 }) {
   final loading = maintenanceStore.loading || deviceStore.loading;
-  final error = firstStoreErrorMessage([
+  final error = firstStoreActionFailure([
     maintenanceStore,
     deviceStore,
-  ], action: '读取');
+  ], action: StoreActionKind.read);
 
   final nowYmd = FormatUtils.ymdFromDate(DateTime.now());
   final summaryMap = maintenanceStore.currentYearSummary(nowYmd: nowYmd);

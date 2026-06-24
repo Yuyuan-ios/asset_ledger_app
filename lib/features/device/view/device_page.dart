@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/sync_runtime.dart';
 import '../../../app/phone_login_gate.dart';
+import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../infrastructure/cloud/cloud_backup_gateway.dart';
 import '../application/controllers/cloud_backup_controller.dart';
@@ -227,8 +228,12 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
       if (!mounted) return;
       AppToast.show(
         context,
-        storeErrorMessage(store, action: _l10n.deviceSaveAction) ??
-            _l10n.deviceSaveFailureDataNotSaved,
+        store.failure == null
+            ? _l10n.deviceSaveFailureDataNotSaved
+            : localizeStoreActionFeedback(
+                _l10n,
+                storeActionFeedback(store, action: StoreActionKind.save),
+              ),
       );
       return;
     }
@@ -432,7 +437,10 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
     return DevicePageContent(
       errorMessage: store.failure == null
           ? null
-          : storeErrorMessage(store, action: l10n.deviceReadAction)!,
+          : localizeStoreActionFeedback(
+              l10n,
+              storeActionFeedback(store, action: StoreActionKind.read),
+            ),
       isLoading: store.loading,
       onRetryLoad: _retryLoad,
       sections: sections,

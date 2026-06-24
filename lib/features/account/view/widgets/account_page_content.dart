@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../../components/feedback/store_error_banner.dart';
 import '../../../../components/layout/pinned_header_delegate.dart';
 import '../../../../features/account/model/account_view_model.dart';
@@ -78,7 +79,10 @@ class AccountPageContent extends StatelessWidget {
                               child: Column(
                                 children: [
                                   StoreErrorBanner(
-                                    message: viewData.error!,
+                                    message: localizeStoreActionFeedback(
+                                      l10n,
+                                      viewData.error!,
+                                    ),
                                     onRetry: viewData.loading
                                         ? null
                                         : onRetryLoad,

@@ -90,6 +90,17 @@ void main() {
         ),
         '更新失败：请检查文件状态和访问权限',
       );
+      expect(
+        localizeStoreActionFeedback(
+          l10n,
+          const StoreActionFeedback(
+            isSuccess: false,
+            action: StoreActionKind.read,
+            failureType: StoreFailureType.database,
+          ),
+        ),
+        '读取失败：数据未保存，请稍后重试',
+      );
     });
   });
 }

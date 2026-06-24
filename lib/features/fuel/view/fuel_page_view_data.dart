@@ -22,7 +22,7 @@ class FuelPageViewData {
   });
 
   final bool loading;
-  final String? error;
+  final StoreActionFeedback? error;
   final FuelYearSummary yearSummary;
   final String yearSummaryTitle;
   final Map<int, FuelEfficiencyAgg> byDevice;
@@ -40,11 +40,11 @@ FuelPageViewData buildFuelPageViewData({
 }) {
   final loading =
       fuelStore.loading || deviceStore.loading || timingStore.loading;
-  final error = firstStoreErrorMessage([
+  final error = firstStoreActionFailure([
     fuelStore,
     deviceStore,
     timingStore,
-  ], action: '读取');
+  ], action: StoreActionKind.read);
 
   final normalizedSupplierFilter = supplierFilter.trim();
   final nowYmd = FormatUtils.ymdFromDate(DateTime.now());

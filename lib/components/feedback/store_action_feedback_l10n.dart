@@ -39,6 +39,8 @@ String _successText(AppLocalizations l10n, StoreActionKind action) {
       return l10n.storeActionCreateSuccess;
     case StoreActionKind.deactivate:
       return l10n.storeActionDeactivateSuccess;
+    case StoreActionKind.read:
+      return l10n.storeActionReadSuccess;
   }
 }
 
@@ -54,5 +56,7 @@ String _actionLabel(AppLocalizations l10n, StoreActionKind action) {
       return l10n.storeActionCreateLabel;
     case StoreActionKind.deactivate:
       return l10n.storeActionDeactivateLabel;
+    case StoreActionKind.read:
+      return l10n.storeActionReadLabel;
   }
 }

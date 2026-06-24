@@ -2423,6 +2423,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storeActionDeactivateSuccess => 'Deactivated';
 
   @override
+  String get storeActionReadSuccess => 'Loaded';
+
+  @override
   String get storeActionSaveLabel => 'Save';
 
   @override
@@ -2436,6 +2439,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storeActionDeactivateLabel => 'Deactivate';
+
+  @override
+  String get storeActionReadLabel => 'Read';
 
   @override
   String storeActionFailureWithDetail(String action, String detail) {

@@ -687,11 +687,13 @@
   "storeActionUpdateSuccess": "Updated",
   "storeActionCreateSuccess": "Created",
   "storeActionDeactivateSuccess": "Deactivated",
+  "storeActionReadSuccess": "Loaded",
   "storeActionSaveLabel": "Save",
   "storeActionDeleteLabel": "Delete",
   "storeActionUpdateLabel": "Update",
   "storeActionCreateLabel": "Create",
   "storeActionDeactivateLabel": "Deactivate",
+  "storeActionReadLabel": "Read",
   "storeActionFailureWithDetail": "{action} failed: {detail}",
   "storeActionFailureDatabase": "{action} failed: data was not saved, please try again later",
   "storeActionFailureFileSystem": "{action} failed: please check file status and access permissions"

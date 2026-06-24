@@ -126,9 +126,10 @@ class AccountRateEditActions {
           );
         }
 
-        final error = storeErrorMessage(rateStore, action: '保存');
-        if (error != null) {
-          toast(error);
+        final saveFeedback =
+            storeActionFeedback(rateStore, action: StoreActionKind.save);
+        if (!saveFeedback.isSuccess) {
+          toast(localizeStoreActionFeedback(l10n, saveFeedback));
           return;
         }
       }
