@@ -185,6 +185,89 @@ void main() {
       );
     });
 
+    test('restore verifies purchases returned by the restore call', () async {
+      verificationRepository.purchaseResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+        entitlementTier: SubscriptionEntitlementTier.pro,
+        productId: SubscriptionService.proYearlyProductId,
+      );
+      storeGateway.restoredPurchases = [
+        purchaseDetails(
+          productId: SubscriptionService.proYearlyProductId,
+          status: PurchaseStatus.restored,
+        ),
+      ];
+
+      await SubscriptionService.restorePurchases();
+
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.activePro);
+      expect(SubscriptionService.allowsProFeatures, isTrue);
+      expect(verificationRepository.verifiedPurchases, hasLength(1));
+      expect(
+        verificationRepository.verifiedPurchases.single.productID,
+        SubscriptionService.proYearlyProductId,
+      );
+      expect(verificationRepository.currentFetchCount, 0);
+    });
+
+    test(
+      'restore prefers max when multiple restored subscriptions arrive',
+      () async {
+        verificationRepository.purchaseResults = {
+          SubscriptionService.proYearlyProductId: VerifiedEntitlement(
+            outcome: SubscriptionVerificationOutcome.verifiedActivePro,
+            entitlementTier: SubscriptionEntitlementTier.pro,
+            productId: SubscriptionService.proYearlyProductId,
+          ),
+          SubscriptionService.maxYearlyProductId: VerifiedEntitlement(
+            outcome: SubscriptionVerificationOutcome.verifiedActiveMax,
+            entitlementTier: SubscriptionEntitlementTier.max,
+            productId: SubscriptionService.maxYearlyProductId,
+          ),
+        };
+        storeGateway.restoredPurchases = [
+          purchaseDetails(
+            productId: SubscriptionService.proYearlyProductId,
+            status: PurchaseStatus.restored,
+          ),
+          purchaseDetails(
+            productId: SubscriptionService.maxYearlyProductId,
+            status: PurchaseStatus.restored,
+          ),
+        ];
+
+        await SubscriptionService.restorePurchases();
+
+        expect(
+          SubscriptionService.snapshot.status,
+          SubscriptionStatus.activeMax,
+        );
+        expect(
+          verificationRepository.verifiedPurchases.first.productID,
+          SubscriptionService.maxYearlyProductId,
+        );
+      },
+    );
+
+    test(
+      'restore falls back to current entitlement when no purchases arrive',
+      () async {
+        verificationRepository.currentResult = VerifiedEntitlement(
+          outcome: SubscriptionVerificationOutcome.noActiveEntitlement,
+        );
+
+        await SubscriptionService.restorePurchases();
+
+        expect(
+          SubscriptionService.snapshot.status,
+          SubscriptionStatus.noActiveEntitlement,
+        );
+        expect(SubscriptionService.snapshot.isRestoring, isFalse);
+        expect(verificationRepository.currentFetchCount, 1);
+        expect(verificationRepository.verifiedPurchases, isEmpty);
+      },
+    );
+
     test('purchased but verificationFailed does not unlock pro', () async {
       verificationRepository.purchaseResult = VerifiedEntitlement(
         outcome: SubscriptionVerificationOutcome.verificationFailed,
@@ -413,10 +496,15 @@ ProductDetails productDetails({required String id, required String price}) {
 }
 
 class FakeVerificationRepository implements SubscriptionVerificationRepository {
+  final verifiedPurchases = <PurchaseDetails>[];
+  var currentFetchCount = 0;
+
   VerifiedEntitlement purchaseResult = VerifiedEntitlement(
     outcome: SubscriptionVerificationOutcome.verificationFailed,
     reason: 'unset purchase result',
   );
+
+  Map<String, VerifiedEntitlement>? purchaseResults;
 
   VerifiedEntitlement currentResult = VerifiedEntitlement(
     outcome: SubscriptionVerificationOutcome.verificationUnavailable,
@@ -425,11 +513,13 @@ class FakeVerificationRepository implements SubscriptionVerificationRepository {
 
   @override
   Future<VerifiedEntitlement> verifyPurchase(PurchaseDetails purchase) async {
-    return purchaseResult;
+    verifiedPurchases.add(purchase);
+    return purchaseResults?[purchase.productID] ?? purchaseResult;
   }
 
   @override
   Future<VerifiedEntitlement> fetchCurrentEntitlement() async {
+    currentFetchCount++;
     return currentResult;
   }
 }
@@ -478,6 +568,7 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   );
   PurchaseParam? lastPurchaseParam;
   String? lastRestoreApplicationUserName;
+  List<PurchaseDetails> restoredPurchases = const <PurchaseDetails>[];
   var restoreCallCount = 0;
 
   @override
@@ -500,9 +591,12 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }
 
   @override
-  Future<void> restorePurchases({String? applicationUserName}) async {
+  Future<List<PurchaseDetails>> restorePurchases({
+    String? applicationUserName,
+  }) async {
     restoreCallCount++;
     lastRestoreApplicationUserName = applicationUserName;
+    return restoredPurchases;
   }
 
   @override
