@@ -6,7 +6,13 @@ import 'app_toast_bubble.dart';
 
 class AppToast {
   static void show(BuildContext context, String message) {
-    final messenger = ScaffoldMessenger.of(context);
+    showWithMessenger(ScaffoldMessenger.of(context), message);
+  }
+
+  static void showWithMessenger(
+    ScaffoldMessengerState messenger,
+    String message,
+  ) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
@@ -20,9 +26,7 @@ class AppToast {
           ToastTokens.snackBarMarginHorizontal,
           ToastTokens.snackBarMarginBottom,
         ),
-        content: Center(
-          child: AppToastBubble(message),
-        ),
+        content: Center(child: AppToastBubble(message)),
       ),
     );
   }

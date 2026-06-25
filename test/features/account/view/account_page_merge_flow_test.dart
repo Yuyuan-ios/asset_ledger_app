@@ -5,15 +5,19 @@ import 'package:asset_ledger/data/models/account_project_merge_member.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/external_import_batch.dart';
 import 'package:asset_ledger/data/models/external_work_record.dart';
+import 'package:asset_ledger/data/models/project.dart';
 import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/project_id.dart';
+import 'package:asset_ledger/data/models/project_write_off.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
 import 'package:asset_ledger/data/repositories/device_repository.dart';
 import 'package:asset_ledger/data/repositories/external_import_repository.dart';
 import 'package:asset_ledger/data/repositories/external_work_record_repository.dart';
+import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/repositories/project_rate_repository.dart';
+import 'package:asset_ledger/data/repositories/project_write_off_repository.dart';
 import 'package:asset_ledger/data/repositories/timing_repository.dart';
 import 'package:asset_ledger/data/services/account_project_merge_service.dart';
 import 'package:asset_ledger/features/account/application/controllers/account_action_controller.dart';
@@ -35,6 +39,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite/sqflite.dart';
 
 void main() {
   testWidgets(
@@ -565,6 +570,116 @@ void main() {
     },
   );
 
+  testWidgets(
+    'AccountPage shows project detail revoke failure on the sheet messenger',
+    (tester) async {
+      final projectId = ProjectId.legacyFromParts(contact: '李杰', site: '新村');
+      final mergeRepository = _FakeMergeRepository();
+      final mergeService = AccountProjectMergeService(
+        repository: mergeRepository,
+        now: () => DateTime.utc(2026, 5, 15),
+      );
+      final accountStore = AccountStore(
+        mergeService: mergeService,
+        projectRepository: _FakeProjectRepository([
+          Project(
+            id: projectId,
+            contact: '李杰',
+            site: '新村',
+            status: ProjectStatus.settled,
+            settledAt: '2026-05-18T00:00:00.000Z',
+            createdAt: '2026-05-01T00:00:00.000Z',
+            updatedAt: '2026-05-18T00:00:00.000Z',
+            legacyProjectKey: '李杰||新村',
+          ),
+        ]),
+        writeOffRepository: _FakeProjectWriteOffRepository([
+          ProjectWriteOff(
+            id: 'write-off-1',
+            projectId: projectId,
+            amount: 60,
+            reason: ProjectWriteOffReason.settlement.dbValue,
+            writeOffDate: '2026-05-18',
+            createdAt: '2026-05-18T00:00:00.000Z',
+            updatedAt: '2026-05-18T00:00:00.000Z',
+          ),
+        ]),
+      );
+      final timingStore = TimingStore(_FakeTimingRepository());
+      final deviceStore = DeviceStore(_FakeDeviceRepository());
+      final paymentRepository = _FakePaymentRepository(
+        seed: [
+          AccountPayment(
+            id: 1,
+            projectId: projectId,
+            projectKey: '李杰||新村',
+            ymd: 20260518,
+            amount: 940,
+          ),
+        ],
+      );
+      final paymentStore = AccountPaymentStore(paymentRepository);
+      final rateStore = ProjectRateStore(_FakeRateRepository());
+
+      await Future.wait([
+        timingStore.loadAll(),
+        deviceStore.loadAll(),
+        paymentStore.loadAll(),
+        rateStore.loadAll(),
+        accountStore.loadAll(),
+      ]);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<AccountProjectMergeService>.value(value: mergeService),
+            Provider<AccountPaymentRepository>.value(value: paymentRepository),
+            _accountActionControllerProvider(
+              paymentRepository,
+              mergeService,
+              settlementRepository: _FakeProjectSettlementRepository(
+                deleteWriteOffError: Exception('delete failed'),
+              ),
+            ),
+            ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+            ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+            ChangeNotifierProvider<AccountPaymentStore>.value(
+              value: paymentStore,
+            ),
+            ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+            ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+            ChangeNotifierProvider<AccountFilterStore>(
+              create: (_) => AccountFilterStore(),
+            ),
+          ],
+          child: _localizedAccountApp(),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('李杰 · 新村'));
+      await tester.pumpAndSettle();
+
+      final revokeButton = find.text('已结清，点此撤销');
+      expect(revokeButton, findsOneWidget);
+
+      await tester.tap(revokeButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('撤销核销失败'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('account-project-detail-feedback-host'),
+          ),
+          matching: find.byType(SnackBar),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('AccountPage edits a merged payment batch by replacing rows', (
     tester,
   ) async {
@@ -941,10 +1056,13 @@ class _FakePaymentRepository implements AccountPaymentRepository {
 }
 
 class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
+  _FakeProjectSettlementRepository({this.deleteWriteOffError});
+
   int settleCalls = 0;
   int settleMergedCalls = 0;
   ProjectSettlementRequest? lastSettleRequest;
   MergedProjectSettlementRequest? lastMergedSettleRequest;
+  final Object? deleteWriteOffError;
 
   @override
   Future<ProjectSettlementResult> settle(ProjectSettlementRequest request) {
@@ -1004,6 +1122,8 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
   Future<DeleteProjectWriteOffResult> deleteWriteOff(
     DeleteProjectWriteOffRequest request,
   ) {
+    final error = deleteWriteOffError;
+    if (error != null) return Future.error(error);
     return Future.value(
       DeleteProjectWriteOffResult(
         projectId: request.projectId,
@@ -1063,6 +1183,114 @@ class _FakeProjectSettlementRepository implements ProjectSettlementRepository {
       ),
     );
   }
+}
+
+class _FakeProjectRepository implements ProjectRepository {
+  const _FakeProjectRepository(this.projects);
+
+  final List<Project> projects;
+
+  @override
+  Future<List<Project>> listAll() async => List.of(projects);
+
+  @override
+  Future<Project?> findById(String id) async {
+    final normalized = id.trim();
+    for (final project in projects) {
+      if (project.id == normalized) return project;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSite({
+    required String contact,
+    required String site,
+  }) async {
+    return projects.where((project) {
+      return project.contact == contact.trim() &&
+          project.site == site.trim() &&
+          project.status == ProjectStatus.active;
+    }).toList();
+  }
+
+  @override
+  Future<List<Project>> findActiveByContactSiteWithExecutor(
+    DatabaseExecutor executor, {
+    required String contact,
+    required String site,
+  }) async {
+    return findActiveByContactSite(contact: contact, site: site);
+  }
+
+  @override
+  Future<void> insert(Project project) async {}
+
+  @override
+  Future<void> insertWithExecutor(
+    DatabaseExecutor executor,
+    Project project,
+  ) async {}
+
+  @override
+  Future<Project> findOrCreateLegacyProject({
+    required String contact,
+    required String site,
+  }) async {
+    final active = await findActiveByContactSite(contact: contact, site: site);
+    if (active.isNotEmpty) return active.first;
+    throw StateError('not implemented');
+  }
+
+  @override
+  Future<void> upsert(Project project) async {}
+}
+
+class _FakeProjectWriteOffRepository implements ProjectWriteOffRepository {
+  const _FakeProjectWriteOffRepository(this.rows);
+
+  final List<ProjectWriteOff> rows;
+
+  @override
+  Future<List<ProjectWriteOff>> listAll() async => List.of(rows);
+
+  @override
+  Future<List<ProjectWriteOff>> listByProjectId(String projectId) async {
+    final normalized = projectId.trim();
+    return rows.where((row) => row.projectId == normalized).toList();
+  }
+
+  @override
+  Future<double> sumByProjectId(String projectId) async {
+    return (await listByProjectId(
+      projectId,
+    )).fold<double>(0, (sum, row) => sum + row.amount);
+  }
+
+  @override
+  Future<Map<String, double>> sumByProjectIds(
+    Iterable<String> projectIds,
+  ) async {
+    final ids = projectIds.map((id) => id.trim()).toSet();
+    final sums = <String, double>{};
+    for (final row in rows) {
+      if (!ids.contains(row.projectId)) continue;
+      sums[row.projectId] = (sums[row.projectId] ?? 0) + row.amount;
+    }
+    return sums;
+  }
+
+  @override
+  Future<void> insert(ProjectWriteOff item) async {}
+
+  @override
+  Future<int> update(ProjectWriteOff item) async => 1;
+
+  @override
+  Future<int> deleteById(String id) async => 1;
+
+  @override
+  Future<int> clearAllForRestore() async => rows.length;
 }
 
 AccountPayment _mergeAllocation({

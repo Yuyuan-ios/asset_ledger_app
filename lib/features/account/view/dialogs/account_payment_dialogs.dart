@@ -1,8 +1,16 @@
 part of '../account_page.dart';
 
+typedef _AccountFeedbackToast = void Function(String message);
+
 mixin _AccountPagePaymentDialogs on State<AccountPage> {
   AppLocalizations get _l10n;
   void _toast(String msg);
+
+  void _toastTo(_AccountFeedbackToast? feedbackToast, String msg) {
+    if (!mounted) return;
+    final targetToast = feedbackToast ?? _toast;
+    targetToast(msg);
+  }
 
   // =====================================================================
   // ============================== A) 三联弹窗：收款（项目内模式） ==============================
@@ -37,8 +45,7 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
 
       if (!mounted) return;
 
-      final feedback =
-          storeActionFeedback(store, action: StoreActionKind.save);
+      final feedback = storeActionFeedback(store, action: StoreActionKind.save);
       _toast(localizeStoreActionFeedback(_l10n, feedback));
     });
   }
@@ -365,15 +372,17 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
     final store = context.read<AccountPaymentStore>();
     await store.deleteById(p.id!);
 
-    final feedback =
-        storeActionFeedback(store, action: StoreActionKind.delete);
+    final feedback = storeActionFeedback(store, action: StoreActionKind.delete);
     _toast(localizeStoreActionFeedback(_l10n, feedback));
     if (!feedback.isSuccess) {
       return;
     }
   }
 
-  Future<void> _revokeWriteOff(ProjectWriteOff writeOff) async {
+  Future<void> _revokeWriteOff(
+    ProjectWriteOff writeOff, {
+    _AccountFeedbackToast? feedbackToast,
+  }) async {
     try {
       final latestProject = _latestProjectByProjectId(writeOff.projectId);
       final controller = context.read<AccountActionController>();
@@ -384,10 +393,11 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
       );
 
       if (!mounted) return;
-      _toast(_l10n.accountWriteOffRevoked);
+      _toastTo(feedbackToast, _l10n.accountWriteOffRevoked);
     } catch (error) {
       if (!mounted) return;
-      _toast(
+      _toastTo(
+        feedbackToast,
         _l10n.accountRevokeWriteOffFailure(
           context.read<AccountActionController>().friendlyWriteOffError(error),
         ),
@@ -395,9 +405,12 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
     }
   }
 
-  Future<void> _revokeProjectWriteOff(AccountProjectVM project) async {
+  Future<void> _revokeProjectWriteOff(
+    AccountProjectVM project, {
+    _AccountFeedbackToast? feedbackToast,
+  }) async {
     if (project.kind == AccountProjectKind.merged) {
-      await _revokeMergedProjectWriteOff(project);
+      await _revokeMergedProjectWriteOff(project, feedbackToast: feedbackToast);
       return;
     }
 
@@ -411,17 +424,17 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
         .toList(growable: false);
 
     if (writeOffs.length > 1) {
-      _toast(_l10n.accountWriteOffInvalid);
+      _toastTo(feedbackToast, _l10n.accountWriteOffInvalid);
       return;
     }
     if (writeOffs.length == 1) {
-      await _revokeWriteOff(writeOffs.single);
+      await _revokeWriteOff(writeOffs.single, feedbackToast: feedbackToast);
       return;
     }
 
     final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
     if (!isSettled) {
-      _toast(_l10n.accountWriteOffInvalid);
+      _toastTo(feedbackToast, _l10n.accountWriteOffInvalid);
       return;
     }
 
@@ -436,10 +449,11 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
       );
 
       if (!mounted) return;
-      _toast(_l10n.accountSettlementRevoked);
+      _toastTo(feedbackToast, _l10n.accountSettlementRevoked);
     } catch (error) {
       if (!mounted) return;
-      _toast(
+      _toastTo(
+        feedbackToast,
         _l10n.accountRevokeSettlementFailure(
           context.read<AccountActionController>().friendlyWriteOffError(error),
         ),
@@ -447,13 +461,16 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
     }
   }
 
-  Future<void> _revokeMergedProjectWriteOff(AccountProjectVM project) async {
+  Future<void> _revokeMergedProjectWriteOff(
+    AccountProjectVM project, {
+    _AccountFeedbackToast? feedbackToast,
+  }) async {
     final latestProject = _latestProjectForSettlement(project);
     final projectIds =
         latestProject.memberProjectIds.map((id) => id.trim()).toSet()
           ..removeWhere((id) => id.isEmpty);
     if (projectIds.isEmpty) {
-      _toast(_l10n.accountMergedMemberInvalid);
+      _toastTo(feedbackToast, _l10n.accountMergedMemberInvalid);
       return;
     }
 
@@ -475,13 +492,13 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
           accountStore: accountStore,
         );
         if (!mounted) return;
-        _toast(_l10n.accountWriteOffRevoked);
+        _toastTo(feedbackToast, _l10n.accountWriteOffRevoked);
         return;
       }
 
       final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
       if (!isSettled) {
-        _toast(_l10n.accountWriteOffInvalid);
+        _toastTo(feedbackToast, _l10n.accountWriteOffInvalid);
         return;
       }
 
@@ -495,10 +512,11 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
       );
 
       if (!mounted) return;
-      _toast(_l10n.accountSettlementRevoked);
+      _toastTo(feedbackToast, _l10n.accountSettlementRevoked);
     } catch (error) {
       if (!mounted) return;
-      _toast(
+      _toastTo(
+        feedbackToast,
         _l10n.accountRevokeSettlementFailure(
           context.read<AccountActionController>().friendlyWriteOffError(error),
         ),

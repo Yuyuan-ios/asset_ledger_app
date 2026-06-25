@@ -529,6 +529,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
       final shouldRestoreActive =
           remainingFenAfter > 0 && project.status == ProjectStatus.settled;
       if (shouldRestoreActive) {
+        await _ensureNoActiveProjectConflict(txn, project);
         await SqfliteProjectRepository.upsertWithExecutor(
           txn,
           project.copyWith(
@@ -702,6 +703,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
             memberWriteOffFenAfter;
         if (memberRemainingFenAfter > 0 &&
             project.status == ProjectStatus.settled) {
+          await _ensureNoActiveProjectConflict(txn, project);
           await SqfliteProjectRepository.upsertWithExecutor(
             txn,
             project.copyWith(
@@ -767,6 +769,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
 
       final shouldRestoreActive = project.status == ProjectStatus.settled;
       if (shouldRestoreActive) {
+        await _ensureNoActiveProjectConflict(txn, project);
         await SqfliteProjectRepository.upsertWithExecutor(
           txn,
           project.copyWith(
@@ -820,6 +823,7 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
         }
         final project = Project.fromMap(projectRows.single);
         if (project.status == ProjectStatus.settled) {
+          await _ensureNoActiveProjectConflict(txn, project);
           await SqfliteProjectRepository.upsertWithExecutor(
             txn,
             project.copyWith(
@@ -849,6 +853,29 @@ class LocalProjectSettlementRepository implements ProjectSettlementRepository {
   /// 权威 fen 汇总：所有结清 / 待收 / 已收 / 核销判断都基于 amount_fen，
   /// REAL amount 列仅用于 legacy / 展示兼容。整数 fen 比较无浮点误差，
   /// 因此不再需要 projectSettlementEpsilon 兜底。
+  Future<void> _ensureNoActiveProjectConflict(
+    DatabaseExecutor executor,
+    Project project,
+  ) async {
+    final legacyProjectKey = project.legacyProjectKey?.trim() ?? '';
+    if (legacyProjectKey.isEmpty) return;
+
+    final rows = await executor.query(
+      SqfliteProjectRepository.table,
+      columns: const ['id'],
+      where: 'legacy_project_key = ? AND status = ? AND id <> ?',
+      whereArgs: [
+        legacyProjectKey,
+        ProjectStatus.active.name,
+        project.id.trim(),
+      ],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    throw StateError('同联系人同工地已有进行中项目，无法直接撤销结清。');
+  }
+
   Future<int> _sumFenByProjectId(
     DatabaseExecutor executor, {
     required String table,
