@@ -2132,6 +2132,72 @@
   "@deviceLifecycleNetProfitFormula": {
     "description": "设备模块:生命周期回本卡片净收益公式说明"
   },
+  "deviceLifecyclePaybackNoCostStatus": "未设置成本",
+  "@deviceLifecyclePaybackNoCostStatus": {
+    "description": "设备模块:生命周期回本未设置成本时的状态文案"
+  },
+  "deviceLifecyclePaybackNoCostResult": "设置后可查看回本进度与预计盈余",
+  "@deviceLifecyclePaybackNoCostResult": {
+    "description": "设备模块:生命周期回本未设置成本时的结果文案"
+  },
+  "deviceLifecyclePaybackPaidBackMultiplier": "已回本 {multiplier}x",
+  "@deviceLifecyclePaybackPaidBackMultiplier": {
+    "description": "设备模块:生命周期已回本且回本倍数≥2时的状态文案",
+    "placeholders": {
+      "multiplier": {
+        "type": "String",
+        "example": "2.00"
+      }
+    }
+  },
+  "deviceLifecyclePaybackPaidBackFull": "已回本 100%",
+  "@deviceLifecyclePaybackPaidBackFull": {
+    "description": "设备模块:生命周期恰好回本(100%)时的状态文案"
+  },
+  "deviceLifecyclePaybackPaidBackPercent": "已回本 {percent}%",
+  "@deviceLifecyclePaybackPaidBackPercent": {
+    "description": "设备模块:生命周期已回本且不足2倍时的百分比状态文案",
+    "placeholders": {
+      "percent": {
+        "type": "String",
+        "example": "104.5"
+      }
+    }
+  },
+  "deviceLifecyclePaybackPercentInProgress": "回本 {percent}%",
+  "@deviceLifecyclePaybackPercentInProgress": {
+    "description": "设备模块:生命周期尚未回本时的百分比进度状态文案",
+    "placeholders": {
+      "percent": {
+        "type": "String",
+        "example": "86.0"
+      }
+    }
+  },
+  "deviceLifecyclePaybackProfit": "预计盈余 {amount}",
+  "@deviceLifecyclePaybackProfit": {
+    "description": "设备模块:生命周期已回本且有盈余时的结果文案",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "+¥2,724"
+      }
+    }
+  },
+  "deviceLifecyclePaybackBreakeven": "已回本，暂无盈余",
+  "@deviceLifecyclePaybackBreakeven": {
+    "description": "设备模块:生命周期恰好回本暂无盈余时的结果文案"
+  },
+  "deviceLifecyclePaybackShortfall": "还差 {amount} 回本",
+  "@deviceLifecyclePaybackShortfall": {
+    "description": "设备模块:生命周期尚未回本时的差额结果文案",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "¥8,400"
+      }
+    }
+  },
   "deviceLifecycleInitialInvestmentSemantics": "初始投入{amount}",
   "@deviceLifecycleInitialInvestmentSemantics": {
     "description": "设备模块:生命周期回本卡片无障碍初始投入摘要",

@@ -2739,6 +2739,60 @@ abstract class AppLocalizations {
   /// **'生命周期净收益 = 已实收 + 预计残值 - 初始成本'**
   String get deviceLifecycleNetProfitFormula;
 
+  /// 设备模块:生命周期回本未设置成本时的状态文案
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置成本'**
+  String get deviceLifecyclePaybackNoCostStatus;
+
+  /// 设备模块:生命周期回本未设置成本时的结果文案
+  ///
+  /// In zh, this message translates to:
+  /// **'设置后可查看回本进度与预计盈余'**
+  String get deviceLifecyclePaybackNoCostResult;
+
+  /// 设备模块:生命周期已回本且回本倍数≥2时的状态文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已回本 {multiplier}x'**
+  String deviceLifecyclePaybackPaidBackMultiplier(String multiplier);
+
+  /// 设备模块:生命周期恰好回本(100%)时的状态文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已回本 100%'**
+  String get deviceLifecyclePaybackPaidBackFull;
+
+  /// 设备模块:生命周期已回本且不足2倍时的百分比状态文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已回本 {percent}%'**
+  String deviceLifecyclePaybackPaidBackPercent(String percent);
+
+  /// 设备模块:生命周期尚未回本时的百分比进度状态文案
+  ///
+  /// In zh, this message translates to:
+  /// **'回本 {percent}%'**
+  String deviceLifecyclePaybackPercentInProgress(String percent);
+
+  /// 设备模块:生命周期已回本且有盈余时的结果文案
+  ///
+  /// In zh, this message translates to:
+  /// **'预计盈余 {amount}'**
+  String deviceLifecyclePaybackProfit(String amount);
+
+  /// 设备模块:生命周期恰好回本暂无盈余时的结果文案
+  ///
+  /// In zh, this message translates to:
+  /// **'已回本，暂无盈余'**
+  String get deviceLifecyclePaybackBreakeven;
+
+  /// 设备模块:生命周期尚未回本时的差额结果文案
+  ///
+  /// In zh, this message translates to:
+  /// **'还差 {amount} 回本'**
+  String deviceLifecyclePaybackShortfall(String amount);
+
   /// 设备模块:生命周期回本卡片无障碍初始投入摘要
   ///
   /// In zh, this message translates to:

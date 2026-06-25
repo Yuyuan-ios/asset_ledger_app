@@ -15,8 +15,7 @@ void main() {
       expect(result.isCostUnset, isTrue);
       expect(result.paybackRate, isNull);
       expect(result.gapSegmentRatio, 1);
-      expect(result.statusText, '未设置成本');
-      expect(result.resultText, '设置后可查看回本进度与预计盈余');
+      expect(result.status, PaybackStatus.noCost);
     });
 
     test('treats zero initial cost as unset', () {
@@ -32,7 +31,7 @@ void main() {
       expect(result.isPaidBack, isFalse);
       expect(result.paybackRate, isNull);
       expect(result.gapSegmentRatio, 1);
-      expect(result.statusText, '未设置成本');
+      expect(result.status, PaybackStatus.noCost);
     });
 
     test('treats negative initial cost as unset', () {
@@ -67,8 +66,7 @@ void main() {
       expect(result.residualSegmentRatio, closeTo(0.11, 0.0001));
       expect(result.gapSegmentRatio, closeTo(0.14, 0.0001));
       expect(result.tailRatio, 0);
-      expect(result.statusText, '回本 86.0%');
-      expect(result.resultText, '还差 ¥8,400 回本');
+      expect(result.status, PaybackStatus.payingBack);
     });
 
     test('calculates exactly paid back state', () {
@@ -86,8 +84,7 @@ void main() {
       expect(result.residualSegmentRatio, closeTo(0.1333, 0.0001));
       expect(result.gapSegmentRatio, 0);
       expect(result.tailRatio, 0);
-      expect(result.statusText, '已回本 100%');
-      expect(result.resultText, '已回本，暂无盈余');
+      expect(result.status, PaybackStatus.paidBack);
     });
 
     test('calculates small paid back surplus with uncapped tail', () {
@@ -107,8 +104,7 @@ void main() {
       expect(result.residualSegmentRatio, closeTo(0.0879, 0.0001));
       expect(result.tailRatio, closeTo(0.0454, 0.0001));
       expect(result.tailIsCapped, isFalse);
-      expect(result.statusText, '已回本 104.5%');
-      expect(result.resultText, '预计盈余 +¥2,724');
+      expect(result.status, PaybackStatus.paidBack);
     });
 
     test('caps large surplus tail but keeps true numbers', () {
@@ -125,8 +121,7 @@ void main() {
       expect(result.paybackRate, closeTo(3.18, 0.0001));
       expect(result.tailRatio, 0.25);
       expect(result.tailIsCapped, isTrue);
-      expect(result.statusText, '已回本 3.18x');
-      expect(result.resultText, '预计盈余 +¥130,800');
+      expect(result.status, PaybackStatus.paidBack);
     });
 
     test('responds to estimated residual changes', () {
@@ -147,8 +142,8 @@ void main() {
 
       expect(lower.isPaidBack, isFalse);
       expect(higher.isPaidBack, isTrue);
-      expect(lower.statusText, '回本 90.0%');
-      expect(higher.statusText, '已回本 105.0%');
+      expect(lower.status, PaybackStatus.payingBack);
+      expect(higher.status, PaybackStatus.paidBack);
     });
 
     test('responds to initial cost changes', () {
@@ -169,8 +164,8 @@ void main() {
 
       expect(lowerCost.isPaidBack, isTrue);
       expect(higherCost.isPaidBack, isFalse);
-      expect(lowerCost.resultText, '预计盈余 +¥3,000');
-      expect(higherCost.resultText, '还差 ¥17,000 回本');
+      expect(lowerCost.lifeCycleProfitFen, 300000);
+      expect(higherCost.lifeCycleProfitFen, -1700000);
     });
 
     test('handles zero net received', () {
@@ -185,7 +180,7 @@ void main() {
       expect(result.netSegmentRatio, 0);
       expect(result.residualSegmentRatio, closeTo(0.1333, 0.0001));
       expect(result.gapSegmentRatio, closeTo(0.8667, 0.0001));
-      expect(result.resultText, '还差 ¥52,000 回本');
+      expect(result.lifeCycleProfitFen, -5200000);
     });
 
     test('clamps negative visual widths without dropping real amounts', () {
@@ -202,7 +197,6 @@ void main() {
       expect(result.netSegmentRatio, 0);
       expect(result.residualSegmentRatio, closeTo(0.1333, 0.0001));
       expect(result.gapSegmentRatio, closeTo(0.8667, 0.0001));
-      expect(result.resultText, '还差 ¥53,000 回本');
     });
   });
 

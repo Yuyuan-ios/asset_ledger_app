@@ -4,6 +4,7 @@ import '../../../core/foundation/typography.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../../tokens/mapper/device_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
+import 'lifecycle_payback_l10n.dart';
 
 const double _paybackBarHeight = LifecyclePaybackTokens.barHeight;
 const double _paybackBarDividerWidth = LifecyclePaybackTokens.barDividerWidth;
@@ -141,8 +142,8 @@ class LifecyclePaybackCard extends StatelessWidget {
       l10n.deviceLifecycleEstimatedResidualSemantics(
         formatLifecycleMoneyFen(estimatedResidualFen ?? 0),
       ),
-      result.statusText,
-      result.resultText,
+      paybackStatusText(l10n, result),
+      paybackResultText(l10n, result),
     ];
     if (pendingReceivableFen > 0) {
       parts.add(
@@ -423,7 +424,7 @@ class _FinancialRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Text(
-          result.statusText,
+          paybackStatusText(l10n, result),
           style: AppTypography.body(
             context,
             fontSize: costIsUnset ? 14 : 16,
@@ -519,7 +520,7 @@ class _Footer extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            result.resultText,
+            paybackResultText(l10n, result),
             style: AppTypography.body(
               context,
               fontSize: result.isCostUnset ? 13 : 15,

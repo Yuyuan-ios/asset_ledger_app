@@ -1459,6 +1459,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceLifecycleNetProfitFormula => '生命周期净收益 = 已实收 + 预计残值 - 初始成本';
 
   @override
+  String get deviceLifecyclePaybackNoCostStatus => '未设置成本';
+
+  @override
+  String get deviceLifecyclePaybackNoCostResult => '设置后可查看回本进度与预计盈余';
+
+  @override
+  String deviceLifecyclePaybackPaidBackMultiplier(String multiplier) {
+    return '已回本 ${multiplier}x';
+  }
+
+  @override
+  String get deviceLifecyclePaybackPaidBackFull => '已回本 100%';
+
+  @override
+  String deviceLifecyclePaybackPaidBackPercent(String percent) {
+    return '已回本 $percent%';
+  }
+
+  @override
+  String deviceLifecyclePaybackPercentInProgress(String percent) {
+    return '回本 $percent%';
+  }
+
+  @override
+  String deviceLifecyclePaybackProfit(String amount) {
+    return '预计盈余 $amount';
+  }
+
+  @override
+  String get deviceLifecyclePaybackBreakeven => '已回本，暂无盈余';
+
+  @override
+  String deviceLifecyclePaybackShortfall(String amount) {
+    return '还差 $amount 回本';
+  }
+
+  @override
   String deviceLifecycleInitialInvestmentSemantics(String amount) {
     return '初始投入$amount';
   }

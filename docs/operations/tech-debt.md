@@ -126,7 +126,7 @@
 
 ## device 领域/application 层文案分离（S5b）
 
-- 状态：⏳ 进行中（2026-06-24：**S5b-A application 层全 4/4 完成**；剩 B=lifecycle_payback_calculator ICU 金额跨 5 view）
+- 状态：✅ 完成（2026-06-24：**S5b-A application 层全 4/4 + S5b-B lifecycle ICU 全部完成**，整线收口）
 - 来源：Phase 2 device view-layer i18n
 - 影响范围：`lib/features/device/domain/**`、`lib/features/device/application/**`
 - 证据（~19 串）：`lifecycle_payback_calculator.dart`(9)、`device_action_controller.dart`(4)、
@@ -162,8 +162,16 @@
   - 注：`cloud_backup_service.dart`（data 层）仍有 `export_failed`/`payload_too_large` 等 service 错误码的
     中文 errorMessage —— 经 mapper else 分支 `serverMessage ?? generic` 原样透出，属另一文件 sprawl，本次刻意未动。
   ARB(zh+en) + `check_full.sh` 全绿（analyze / custom_lint / 全量测试含 arch-script CJK guard）。
-- **风险/建议**：剩 B（lifecycle ICU 金额，跨 5 view）建议**独立专项**做，勿在长会话尾巴大爆改。
-- 负责人：待确认（建议专项 session）
+  - **✅ S5b-B 全部完成（2026-06-24，独立专项）**：`lifecycle_payback_calculator` 删 `LifecyclePaybackResult.statusText/resultText`
+    两 String 字段，改暴露 `PaybackStatus { noCost, payingBack, paidBack }` code + 原始 `paybackRate`/`lifeCycleProfitFen`
+    （calculator **整文件零 CJK**，含 doc 注释英文化；`formatLifecycleMoneyFen` 数字格式不变）。新增 view 层 mapper
+    `lib/features/device/view/lifecycle_payback_l10n.dart`（`paybackStatusText`/`paybackResultText`，ICU placeholder 拼百分比/金额）。
+    实际唯一文案消费者 `lifecycle_payback_card`（4 处直读 statusText/resultText）改调 mapper；scoping 列的另 4 view
+    （device_business_ledger_section / device_page / device_page_sections / lifecycle_amount_sheet）**不读这两字段**（消费 result 的其它字段），无须改。
+    ARB(zh+en) 新增 **9** key（NoCostStatus / NoCostResult / PaidBackMultiplier / PaidBackFull / **PaidBackPercent** /
+    PercentInProgress / Profit / Breakeven / Shortfall）——注:原 scoping 漏列「已回本 X%」与「回本 X%」是两个独立百分比串，已补 `PaidBackPercent`。
+    新增 characterization 测试 `lifecycle_payback_l10n_test`（zh 全场景逐字断言）；calculator 测试改断言 `status`+数值；card 测试经 mapper 断言。`check_full.sh` exit 0。
+- **风险/建议**：S5b 全线（A+B）收口完成，无遗留专项。
 
 ## 后端生产化非对称（sync 限流 ✓ / backup 结构化日志 仍稀疏）
 

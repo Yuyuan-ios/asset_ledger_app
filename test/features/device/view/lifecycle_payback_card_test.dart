@@ -1,9 +1,13 @@
 import 'package:asset_ledger/features/device/domain/services/lifecycle_payback_calculator.dart';
 import 'package:asset_ledger/features/device/view/lifecycle_payback_card.dart';
+import 'package:asset_ledger/features/device/view/lifecycle_payback_l10n.dart';
+import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final l10n = AppLocalizationsZh();
+
   group('PaybackSegmentBar', () {
     testWidgets('uses a painter instead of rounded segment widgets', (
       tester,
@@ -49,8 +53,8 @@ void main() {
         size: const Size(320, 36),
       );
 
-      expect(result.statusText, '已回本 161.3%');
-      expect(result.resultText, '预计盈余 +¥1,534');
+      expect(paybackStatusText(l10n, result), '已回本 161.3%');
+      expect(paybackResultText(l10n, result), '预计盈余 +¥1,534');
       expect(result.tailIsCapped, isTrue);
       expect(layout.netSegment, isNotNull);
       expect(layout.residualSegment, isNotNull);
@@ -110,7 +114,7 @@ void main() {
           size: const Size(320, 36),
         );
 
-        expect(result.resultText, '已回本，暂无盈余');
+        expect(paybackResultText(l10n, result), '已回本，暂无盈余');
         expect(layout.tailSegment, isNull);
         expect(layout.hasProfitTail, isFalse);
         expect(

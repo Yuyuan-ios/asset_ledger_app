@@ -1582,6 +1582,44 @@ class AppLocalizationsEn extends AppLocalizations {
       'Lifecycle net profit = received + residual value - initial cost';
 
   @override
+  String get deviceLifecyclePaybackNoCostStatus => 'Cost not set';
+
+  @override
+  String get deviceLifecyclePaybackNoCostResult =>
+      'Set it to see payback progress and projected surplus';
+
+  @override
+  String deviceLifecyclePaybackPaidBackMultiplier(String multiplier) {
+    return 'Paid back ${multiplier}x';
+  }
+
+  @override
+  String get deviceLifecyclePaybackPaidBackFull => 'Paid back 100%';
+
+  @override
+  String deviceLifecyclePaybackPaidBackPercent(String percent) {
+    return 'Paid back $percent%';
+  }
+
+  @override
+  String deviceLifecyclePaybackPercentInProgress(String percent) {
+    return 'Payback $percent%';
+  }
+
+  @override
+  String deviceLifecyclePaybackProfit(String amount) {
+    return 'Projected surplus $amount';
+  }
+
+  @override
+  String get deviceLifecyclePaybackBreakeven => 'Paid back, no surplus yet';
+
+  @override
+  String deviceLifecyclePaybackShortfall(String amount) {
+    return '$amount left to pay back';
+  }
+
+  @override
   String deviceLifecycleInitialInvestmentSemantics(String amount) {
     return 'Initial investment $amount';
   }

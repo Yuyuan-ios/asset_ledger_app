@@ -2,6 +2,14 @@ import 'dart:math' as math;
 
 const double defaultMaxLifecycleTailRatio = 0.25;
 
+/// Payback status code (no display copy).
+///
+/// The display variants (multiplier / 100% / percentage / surplus / shortfall)
+/// are derived and localized in the view layer from
+/// [LifecyclePaybackResult.paybackRate] and
+/// [LifecyclePaybackResult.lifeCycleProfitFen]; the calculator emits no copy.
+enum PaybackStatus { noCost, payingBack, paidBack }
+
 class LifecyclePaybackAmounts {
   const LifecyclePaybackAmounts({
     this.initialCostFen,
@@ -38,8 +46,7 @@ class LifecyclePaybackResult {
     required this.gapSegmentRatio,
     required this.tailRatio,
     required this.tailIsCapped,
-    required this.statusText,
-    required this.resultText,
+    required this.status,
   });
 
   final int totalRecoverableFen;
@@ -52,14 +59,14 @@ class LifecyclePaybackResult {
   final double gapSegmentRatio;
   final double tailRatio;
   final bool tailIsCapped;
-  final String statusText;
-  final String resultText;
+  final PaybackStatus status;
 }
 
-/// 设备生命周期回本计算。
+/// Device lifecycle payback calculation.
 ///
-/// `pendingReceivable` 只允许作为 UI 辅助标签展示，不参与这里的生命周期净收益：
-/// 生命周期净收益 = 已实收净额 + 预计残值 - 初始成本。
+/// `pendingReceivable` may only be shown as an auxiliary UI label; it is not
+/// part of the lifecycle net profit here:
+/// lifecycle net profit = net received + estimated residual - initial cost.
 LifecyclePaybackResult calculateLifecyclePayback(LifecyclePaybackInput input) {
   final initialCostFen = input.initialCostFen ?? 0;
   final netReceivedFen = input.netReceivedFen ?? 0;
@@ -79,15 +86,12 @@ LifecyclePaybackResult calculateLifecyclePayback(LifecyclePaybackInput input) {
       gapSegmentRatio: 1,
       tailRatio: 0,
       tailIsCapped: false,
-      statusText: '未设置成本',
-      resultText: '设置后可查看回本进度与预计盈余',
+      status: PaybackStatus.noCost,
     );
   }
 
   final paybackRate = totalRecoverableFen / initialCostFen;
   final isPaidBack = totalRecoverableFen >= initialCostFen;
-  final statusText = _statusText(paybackRate, isPaidBack: isPaidBack);
-  final resultText = _resultText(lifeCycleProfitFen);
   final maxTailRatio = math.max(0.0, input.maxTailRatio);
 
   if (!isPaidBack) {
@@ -112,8 +116,7 @@ LifecyclePaybackResult calculateLifecyclePayback(LifecyclePaybackInput input) {
       gapSegmentRatio: gapSegmentRatio,
       tailRatio: 0,
       tailIsCapped: false,
-      statusText: statusText,
-      resultText: resultText,
+      status: PaybackStatus.payingBack,
     );
   }
 
@@ -133,8 +136,7 @@ LifecyclePaybackResult calculateLifecyclePayback(LifecyclePaybackInput input) {
     gapSegmentRatio: 0,
     tailRatio: tailRatio,
     tailIsCapped: profitRatio > maxTailRatio,
-    statusText: statusText,
-    resultText: resultText,
+    status: PaybackStatus.paidBack,
   );
 }
 
@@ -153,23 +155,6 @@ String formatLifecycleMoneyYuan(num amountYuan, {bool explicitPlus = false}) {
     (amountYuan * 100).round(),
     explicitPlus: explicitPlus,
   );
-}
-
-String _statusText(double paybackRate, {required bool isPaidBack}) {
-  if (isPaidBack) {
-    if (paybackRate >= 2) return '已回本 ${paybackRate.toStringAsFixed(2)}x';
-    if ((paybackRate - 1).abs() < 0.000001) return '已回本 100%';
-    return '已回本 ${(paybackRate * 100).toStringAsFixed(1)}%';
-  }
-  return '回本 ${(paybackRate * 100).toStringAsFixed(1)}%';
-}
-
-String _resultText(int lifeCycleProfitFen) {
-  if (lifeCycleProfitFen > 0) {
-    return '预计盈余 ${formatLifecycleMoneyFen(lifeCycleProfitFen, explicitPlus: true)}';
-  }
-  if (lifeCycleProfitFen == 0) return '已回本，暂无盈余';
-  return '还差 ${formatLifecycleMoneyFen(lifeCycleProfitFen.abs())} 回本';
 }
 
 String _groupThousands(int value) {
