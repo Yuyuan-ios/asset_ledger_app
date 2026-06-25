@@ -2,6 +2,7 @@ import 'package:asset_ledger/features/account/model/account_view_model.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/account/account_project_list_pattern.dart';
 import 'package:asset_ledger/patterns/account/account_project_section_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/account_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -26,8 +27,11 @@ void main() {
     );
 
     final emptyHint = tester.widget<Text>(find.text(emptyText));
-    expect(emptyHint.style?.fontSize, 16);
-    expect(tester.getTopLeft(find.text(emptyText)).dy, greaterThan(40));
+    expect(emptyHint.style?.fontSize, AccountTokens.projectEmptyStateFontSize);
+    expect(
+      tester.getCenter(find.text(emptyText)).dy,
+      moreOrLessEquals(AccountTokens.projectEmptyStateHeight / 2),
+    );
   });
 
   testWidgets('renders total hours in bold on account project cards', (

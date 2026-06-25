@@ -58,9 +58,9 @@ class TimingTokens {
   static const FontWeight recordsTitleFontWeight = FontWeight.w700; // 最近记录标题字重
   static const double recordsTitleLineHeight = 1; // 最近记录标题行高
   static const double emptyStateHeight = 180; // 空态区域高度
-  static const double emptyStateTitleFontSize = 13; // 空态主文案字号
+  static const double emptyStateTitleFontSize = 16; // 空态主文案字号
   static const double emptyStateSubtitleTopGap = 6; // 空态主副文案间距
-  static const double emptyStateSubtitleFontSize = 12; // 空态副文案字号
+  static const double emptyStateSubtitleFontSize = 15; // 空态副文案字号
   static const double dateHeaderFontSize = 13; // 日期分组标题字号
   static const double dateHeaderLineHeight = 1.2; // 日期分组标题行高
   static const double dateHeaderLeftInset = 10; // 日期分组标题左偏移

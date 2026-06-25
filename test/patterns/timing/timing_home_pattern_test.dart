@@ -314,6 +314,10 @@ void main() {
     await pump();
 
     expect(find.text('暂无记录'), findsOneWidget);
+    final recentEmptyTitle = tester.widget<Text>(find.text('暂无记录'));
+    final recentEmptySubtitle = tester.widget<Text>(find.text('点击右上角 + 新建'));
+    expect(recentEmptyTitle.style?.fontSize, 16);
+    expect(recentEmptySubtitle.style?.fontSize, 15);
     expect(find.text('最近记录(0)'), findsOneWidget);
     expect(
       find.byKey(const Key('timing-recent-device-filter-button')),

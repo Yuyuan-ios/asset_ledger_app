@@ -84,6 +84,8 @@ class AccountTokens {
   static const double projectTitleLineHeight = 1; // 标题行高
   static const FontWeight projectTitleWeight = FontWeight.w700; // 标题字重
   static const double projectFilterFontSize = 15; // 筛选字号
+  static const double projectEmptyStateHeight = 180; // 项目空态容器高度（对齐最近记录空态）
+  static const double projectEmptyStateFontSize = 16; // 项目空态文案字号
 
   // ===== 账户页：项目卡片 =====
   static const double projectCardMinHeight = 104; // 项目卡片最小高度（继续轻微收缩底部留白）
