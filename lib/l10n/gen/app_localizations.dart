@@ -3018,6 +3018,18 @@ abstract class AppLocalizations {
   /// **'云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。'**
   String get deviceCloudBackupProMessage;
 
+  /// 设备模块:云端备份命中 Pro 门禁时的失败文案(controller 返回 cloud_backup_requires_pro,view 映射)
+  ///
+  /// In zh, this message translates to:
+  /// **'云端备份是 Pro 功能，请升级后再使用。'**
+  String get deviceCloudBackupRequiresPro;
+
+  /// 设备模块:云端备份服务未配置时的兜底文案(controller 返回 cloud_backup_not_configured 且无 server 文案,view 映射)
+  ///
+  /// In zh, this message translates to:
+  /// **'云端备份服务暂未配置'**
+  String get deviceCloudBackupNotConfigured;
+
   /// 设备模块:手动本地备份标题
   ///
   /// In zh, this message translates to:

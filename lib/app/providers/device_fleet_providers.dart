@@ -110,8 +110,10 @@ class DeviceFleetProviders {
         ),
       );
     } else {
+      // server 下发文案(nullable)透传给 controller;view 层缺省时兜底为
+      // 本地化的 deviceCloudBackupNotConfigured。
       cloudBackupController = CloudBackupController.unavailable(
-        cloudBackupEndpoint.disabledMessage ?? '云端备份服务暂未配置',
+        cloudBackupEndpoint.disabledMessage,
       );
     }
 

@@ -7,42 +7,60 @@ void main() {
   test(
     'unavailable controller fails closed without calling a gateway',
     () async {
-      final controller = CloudBackupController.unavailable('云端备份服务暂未配置');
+      // server 下发文案透传(nullable)；errorCode 权威，文案由 view 层映射。
+      final controller = CloudBackupController.unavailable('server is down');
 
       final upload = await controller.uploadCurrent();
       final list = await controller.listRemote();
       final restore = await controller.restoreFromCloud('backup-1');
 
       expect(controller.isAvailable, isFalse);
+      expect(controller.serverUnavailableMessage, 'server is down');
       expect(upload.success, isFalse);
-      expect(upload.errorCode, 'cloud_backup_not_configured');
+      expect(upload.errorCode, cloudBackupNotConfiguredCode);
+      expect(upload.errorMessage, 'server is down');
       expect(list.success, isFalse);
-      expect(list.errorCode, 'cloud_backup_not_configured');
+      expect(list.errorCode, cloudBackupNotConfiguredCode);
+      expect(list.errorMessage, 'server is down');
       expect(restore.success, isFalse);
-      expect(restore.errorCode, 'cloud_backup_not_configured');
+      expect(restore.errorCode, cloudBackupNotConfiguredCode);
+      expect(restore.message, 'server is down');
     },
   );
+
+  test('unavailable controller with no server message leaves text empty', () async {
+    final controller = CloudBackupController.unavailable(null);
+
+    final upload = await controller.uploadCurrent();
+    final restore = await controller.restoreFromCloud('backup-1');
+
+    expect(controller.serverUnavailableMessage, isNull);
+    expect(upload.errorCode, cloudBackupNotConfiguredCode);
+    expect(upload.errorMessage, isNull);
+    expect(restore.errorCode, cloudBackupNotConfiguredCode);
+    expect(restore.message, isEmpty);
+  });
 
   test('pro entitlement gate fails closed before calling a gateway', () async {
     final controller = CloudBackupController(
       service: CloudBackupService(gateway: _FailingGateway()),
       allowsCloudBackup: () => false,
-      entitlementRequiredMessage: '需要 Pro',
     );
 
     final upload = await controller.uploadCurrent();
     final list = await controller.listRemote();
     final restore = await controller.restoreFromCloud('backup-1');
 
+    // requires-pro 不带文案：errorCode 权威，文案由 view 层映射 l10n。
     expect(upload.success, isFalse);
-    expect(upload.errorCode, 'cloud_backup_requires_pro');
-    expect(upload.errorMessage, '需要 Pro');
+    expect(upload.errorCode, cloudBackupRequiresProCode);
+    expect(upload.errorMessage, isNull);
     expect(list.success, isFalse);
-    expect(list.errorCode, 'cloud_backup_requires_pro');
-    expect(list.errorMessage, '需要 Pro');
+    expect(list.errorCode, cloudBackupRequiresProCode);
+    expect(list.errorMessage, isNull);
     expect(restore.success, isFalse);
-    expect(restore.errorCode, 'cloud_backup_requires_pro');
-    expect(restore.message, '需要 Pro');
+    expect(restore.errorCode, cloudBackupRequiresProCode);
+    expect(restore.message, isEmpty);
   });
 
   test('listRemote maps gateway failures to result objects', () async {

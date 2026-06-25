@@ -493,6 +493,8 @@
   "deviceCloudBackupProSubtitle": "Available with Pro. Upgrade to save and restore cloud backups",
   "deviceCloudBackupProTitle": "Pro required",
   "deviceCloudBackupProMessage": "Cloud backup is a Pro feature. Upgrade to upload current data and restore from cloud.",
+  "deviceCloudBackupRequiresPro": "Cloud backup is a Pro feature. Please upgrade to use it.",
+  "deviceCloudBackupNotConfigured": "Cloud backup service is not configured yet",
   "deviceManualBackupTitle": "Manual local backup",
   "deviceManualBackupSubtitle": "Export current data for saving or migration",
   "deviceLocalRestoreTitle": "Local restore",

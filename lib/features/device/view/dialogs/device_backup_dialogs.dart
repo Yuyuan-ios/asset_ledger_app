@@ -23,7 +23,9 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
     if (!_cloudBackupController.isAvailable) {
       await _showAccountSyncPlaceholder(
         title: _l10n.deviceCloudBackupUnavailableTitle,
-        message: _cloudBackupController.unavailableMessage,
+        message:
+            _cloudBackupController.serverUnavailableMessage ??
+            _l10n.deviceCloudBackupNotConfigured,
       );
       return;
     }
@@ -111,9 +113,12 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
       if (!result.success) {
         await _showAccountSyncPlaceholder(
           title: _l10n.deviceCloudBackupFailureTitle,
-          message:
-              result.errorMessage ??
-              _l10n.deviceCloudBackupUploadFailureMessage,
+          message: _cloudBackupFailureText(
+            _l10n,
+            errorCode: result.errorCode,
+            serverMessage: result.errorMessage,
+            generic: _l10n.deviceCloudBackupUploadFailureMessage,
+          ),
         );
         return;
       }
@@ -141,9 +146,12 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
     if (!listResult.success) {
       await _showAccountSyncPlaceholder(
         title: _l10n.deviceCloudBackupReadFailureTitle,
-        message:
-            listResult.errorMessage ??
-            _l10n.deviceCloudBackupReadFailureMessage,
+        message: _cloudBackupFailureText(
+          _l10n,
+          errorCode: listResult.errorCode,
+          serverMessage: listResult.errorMessage,
+          generic: _l10n.deviceCloudBackupReadFailureMessage,
+        ),
       );
       return;
     }
@@ -728,13 +736,45 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
     final backupNote = result.autoBackupPath == null
         ? ''
         : _l10n.deviceRestoreAutoBackupNote;
+    // 本地与云端恢复共用本弹窗:仅当 result 带云端 errorCode 时走 l10n mapper
+    // (云端 message 已留空,errorCode 权威);本地恢复保留其 result.message 文案。
+    final errorCode = result.errorCode;
+    final isCloudFailure =
+        errorCode == cloudBackupRequiresProCode ||
+        errorCode == cloudBackupNotConfiguredCode;
+    final body = isCloudFailure
+        ? _cloudBackupFailureText(
+            _l10n,
+            errorCode: errorCode,
+            serverMessage: result.message.isEmpty ? null : result.message,
+            generic: _l10n.deviceCloudBackupReadFailureMessage,
+          )
+        : result.message;
     await _showAccountSyncPlaceholder(
       title: _l10n.deviceRestoreFailureTitle,
-      message: '${result.message}$backupNote',
+      message: '$body$backupNote',
     );
   }
 
   String _formatDateTime(DateTime value) {
     return _localBackupController.formatBackupTimeForDisplay(value);
   }
+}
+
+/// 把云端备份失败的结果 code 映射为本地化展示文案。
+/// requires-pro → 本地化 Pro 提示;not-configured → server 文案兜底 l10n;
+/// 其余(service/gateway 错误码)→ server/result 文案兜底 [generic]。
+String _cloudBackupFailureText(
+  AppLocalizations l10n, {
+  String? errorCode,
+  String? serverMessage,
+  required String generic,
+}) {
+  if (errorCode == cloudBackupRequiresProCode) {
+    return l10n.deviceCloudBackupRequiresPro;
+  }
+  if (errorCode == cloudBackupNotConfiguredCode) {
+    return serverMessage ?? l10n.deviceCloudBackupNotConfigured;
+  }
+  return serverMessage ?? generic;
 }

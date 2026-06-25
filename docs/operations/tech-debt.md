@@ -126,7 +126,7 @@
 
 ## device 领域/application 层文案分离（S5b）
 
-- 状态：⏳ 待处理（曾暂缓，2026-06-24 用户决定处理）
+- 状态：⏳ 进行中（2026-06-24：**S5b-A application 层全 4/4 完成**；剩 B=lifecycle_payback_calculator ICU 金额跨 5 view）
 - 来源：Phase 2 device view-layer i18n
 - 影响范围：`lib/features/device/domain/**`、`lib/features/device/application/**`
 - 证据（~19 串）：`lifecycle_payback_calculator.dart`(9)、`device_action_controller.dart`(4)、
@@ -143,24 +143,26 @@
     （lifecycle_payback_card / device_business_ledger_section / device_page / device_page_sections /
     lifecycle_amount_sheet）消费。改法：calculator 返回 **status code + 原始 paybackRate/profitFen**，
     各 view 用 ICU placeholder（百分比/金额）本地化。result 类型变更 ripple 到 5 view。
-- **✅ S5b-A 部分完成（2026-06-24，3/4）**：`device_action_controller`（openRateApp→`bool`、
+- **✅ S5b-A 全部完成（2026-06-24，4/4）**：`device_action_controller`（openRateApp→`bool`、
   openSupportEntry→新 `SupportEntryOutcome` enum，避免 view 直依赖 data 层 `SupportFeedbackOpenResult`，
   view 层 device_page_actions 映射 l10n）、`local_backup_controller.restoreBlockReason`→`RestoreBlockReason`
   enum（device_backup_dialogs 映射）、`device_avatar_policy` 抛 typed `CustomAvatarNotAllowedException`
-  （device_editor_dialog catch→l10n）。ARB(zh+en) + check_full 绿。**剩 `cloud_backup_controller`（已全 trace，确认是 ~6 文件 sprawl，未做）**：3 处硬编码中文
-  （`_defaultEntitlementRequiredMessage`、`unavailableMessage` 兜底 '云端备份服务暂未配置'、
-  `device_fleet_providers.dart:114` 同串兜底）经**两个不同 result 字段**流向 UI——
-  ① `errorMessage`（带 `errorCode` `cloud_backup_requires_pro`/`cloud_backup_not_configured`）在
-  device_backup_dialogs **upload(:115)/list(:145)** 以 `result.errorMessage ?? l10n.fallback` 显示；
-  ② **`BackupRestoreResult.message`** 在 `_showRestoreFailureDialog(:733)` 以 `'${result.message}…'` 显示，
-  而该 dialog **本地+云端 restore 共用**——直接 null 掉云端 message 会破坏本地恢复路径，须分辨来源。
-  另 `unavailableMessage` 直读 2 处（device_page:347、device_backup_dialogs:26）经 **nullable 参数链**
-  穿 `device_account_center_page`（:43 nullable / :161 non-null / :118 `?? 兜底` / :256）。`availability.message`
-  是 server `disabledMessage`（nullable）+ 构造期中文兜底。**clean 做法**：codes 公开 + 移除 controller/providers
-  中文 + result 对结构化 code 不带中文 + 各展示点 errorCode→l10n（含共用 restore dialog 按来源分辨）+
-  nullable 参数链补 l10n 兜底。涉及备份/恢复数据路径，须独立专项 + 充分回归，勿在长会话尾巴做。
-- **风险/建议**：B（lifecycle ICU 金额，跨 5 view）+ cloud_backup（result errorMessage 流）建议**独立专项**做，
-  勿在长会话尾巴大爆改。
+  （device_editor_dialog catch→l10n）。
+  - **✅ cloud_backup（4/4，本次专项）**：controller 公开 code 常量
+    `cloudBackupRequiresProCode` / `cloudBackupNotConfiguredCode`；删 `_defaultEntitlementRequiredMessage`
+    与 `entitlementRequiredMessage` 构造参数；`unavailableMessage` getter（含中文兜底）→
+    `String? get serverUnavailableMessage`（只读 server 文案，nullable）；`.unavailable(String?)` 改可空；
+    upload/list/restore：requires-pro 分支文案置空（errorCode 权威）、not-configured 分支带 `availability.message`
+    （nullable server 文案）。`device_fleet_providers.dart:114` 去中文兜底，透传 `disabledMessage`。view 层新增
+    top-level mapper `_cloudBackupFailureText`（device_backup_dialogs）用于 upload/list，`_showRestoreFailureDialog`
+    **按 errorCode 分辨**云端/本地（本地恢复文案不受影响）；2 处直读 + device_account_center_page nullable
+    链兜底 `?? l10n.deviceCloudBackupNotConfigured`。ARB(zh+en) 新增 `deviceCloudBackupRequiresPro` /
+    `deviceCloudBackupNotConfigured` 两 key。controller 测试更新（requires-pro errorMessage=null /
+    restore.message 空、not-configured 透传 server 文案）。
+  - 注：`cloud_backup_service.dart`（data 层）仍有 `export_failed`/`payload_too_large` 等 service 错误码的
+    中文 errorMessage —— 经 mapper else 分支 `serverMessage ?? generic` 原样透出，属另一文件 sprawl，本次刻意未动。
+  ARB(zh+en) + `check_full.sh` 全绿（analyze / custom_lint / 全量测试含 arch-script CJK guard）。
+- **风险/建议**：剩 B（lifecycle ICU 金额，跨 5 view）建议**独立专项**做，勿在长会话尾巴大爆改。
 - 负责人：待确认（建议专项 session）
 
 ## 后端生产化非对称（sync 限流 ✓ / backup 结构化日志 仍稀疏）

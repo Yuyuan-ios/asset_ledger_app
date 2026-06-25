@@ -1622,6 +1622,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceCloudBackupProMessage => '云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。';
 
   @override
+  String get deviceCloudBackupRequiresPro => '云端备份是 Pro 功能，请升级后再使用。';
+
+  @override
+  String get deviceCloudBackupNotConfigured => '云端备份服务暂未配置';
+
+  @override
   String get deviceManualBackupTitle => '手动本地备份';
 
   @override

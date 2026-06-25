@@ -2,8 +2,11 @@ import '../../../../data/models/backup_restore_result.dart';
 import '../../../../data/services/backup/cloud_backup_service.dart';
 import '../../../../infrastructure/cloud/cloud_backup_gateway.dart';
 
-const _cloudBackupRequiresProCode = 'cloud_backup_requires_pro';
-const _defaultEntitlementRequiredMessage = '云端备份是 Pro 功能，请升级后再使用。';
+/// 云端备份失败的结果 code（application 层常量）。用户可见文案不在本层产出：
+/// `errorMessage` / `message` 仅承载 server 下发文案或留空，由 view 层据 code
+/// 映射 AppLocalizations（参照 [SupportEntryOutcome] 的 code→l10n 模式）。
+const cloudBackupRequiresProCode = 'cloud_backup_requires_pro';
+const cloudBackupNotConfiguredCode = 'cloud_backup_not_configured';
 
 bool _allowCloudBackupByDefault() => true;
 
@@ -41,25 +44,23 @@ class CloudBackupController {
     required CloudBackupService service,
     this.availability = const CloudBackupAvailability.available(),
     bool Function() allowsCloudBackup = _allowCloudBackupByDefault,
-    String entitlementRequiredMessage = _defaultEntitlementRequiredMessage,
   }) : _service = service,
-       _allowsCloudBackup = allowsCloudBackup,
-       _entitlementRequiredMessage = entitlementRequiredMessage;
+       _allowsCloudBackup = allowsCloudBackup;
 
-  CloudBackupController.unavailable(String message)
+  CloudBackupController.unavailable(String? message)
     : _service = null,
       availability = CloudBackupAvailability.unavailable(message),
-      _allowsCloudBackup = _allowCloudBackupByDefault,
-      _entitlementRequiredMessage = _defaultEntitlementRequiredMessage;
+      _allowsCloudBackup = _allowCloudBackupByDefault;
 
   final CloudBackupService? _service;
   final bool Function() _allowsCloudBackup;
-  final String _entitlementRequiredMessage;
   final CloudBackupAvailability availability;
 
   bool get isAvailable => availability.isAvailable;
 
-  String get unavailableMessage => availability.message ?? '云端备份服务暂未配置';
+  /// server 下发的不可用文案（nullable）。view 层据此显示，缺省时兜底为
+  /// 本地化的 `deviceCloudBackupNotConfigured`。
+  String? get serverUnavailableMessage => availability.message;
 
   Future<CloudBackupUploadResult> uploadCurrent() {
     final service = _service;
@@ -67,8 +68,8 @@ class CloudBackupController {
       return Future.value(
         CloudBackupUploadResult(
           success: false,
-          errorCode: 'cloud_backup_not_configured',
-          errorMessage: unavailableMessage,
+          errorCode: cloudBackupNotConfiguredCode,
+          errorMessage: availability.message,
         ),
       );
     }
@@ -76,8 +77,8 @@ class CloudBackupController {
       return Future.value(
         CloudBackupUploadResult(
           success: false,
-          errorCode: _cloudBackupRequiresProCode,
-          errorMessage: _entitlementRequiredMessage,
+          errorCode: cloudBackupRequiresProCode,
+          errorMessage: null,
         ),
       );
     }
@@ -89,15 +90,15 @@ class CloudBackupController {
     if (service == null || !availability.isAvailable) {
       return CloudBackupListResult(
         success: false,
-        errorCode: 'cloud_backup_not_configured',
-        errorMessage: unavailableMessage,
+        errorCode: cloudBackupNotConfiguredCode,
+        errorMessage: availability.message,
       );
     }
     if (!_allowsCloudBackup()) {
       return CloudBackupListResult(
         success: false,
-        errorCode: _cloudBackupRequiresProCode,
-        errorMessage: _entitlementRequiredMessage,
+        errorCode: cloudBackupRequiresProCode,
+        errorMessage: null,
       );
     }
     try {
@@ -119,16 +120,19 @@ class CloudBackupController {
     if (service == null || !availability.isAvailable) {
       return Future.value(
         BackupRestoreResult.failure(
-          message: unavailableMessage,
-          errorCode: 'cloud_backup_not_configured',
+          // message 非空字段：not-configured 承载 server 文案(缺省留空),
+          // errorCode 权威,view 据 code 兜底本地化文案。
+          message: availability.message ?? '',
+          errorCode: cloudBackupNotConfiguredCode,
         ),
       );
     }
     if (!_allowsCloudBackup()) {
       return Future.value(
         BackupRestoreResult.failure(
-          message: _entitlementRequiredMessage,
-          errorCode: _cloudBackupRequiresProCode,
+          // requires-pro 不带文案,errorCode 权威。
+          message: '',
+          errorCode: cloudBackupRequiresProCode,
         ),
       );
     }

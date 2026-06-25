@@ -344,7 +344,7 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
               syncConflictReviewAvailable: syncRuntime?.isAvailable ?? false,
               cloudBackupAvailable: _cloudBackupController.isAvailable,
               cloudBackupUnavailableMessage:
-                  _cloudBackupController.unavailableMessage,
+                  _cloudBackupController.serverUnavailableMessage,
             ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final offset = Tween<Offset>(

@@ -116,7 +116,7 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
                       cloudBackupAvailable: widget.cloudBackupAvailable,
                       cloudBackupUnavailableMessage:
                           widget.cloudBackupUnavailableMessage ??
-                          l10n.deviceCloudBackupUnavailableTitle,
+                          l10n.deviceCloudBackupNotConfigured,
                     );
                   },
                 ),
