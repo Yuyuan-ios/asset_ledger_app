@@ -4,13 +4,14 @@ import hashlib
 import hmac
 import http.server
 import json
+import time
 import urllib.parse
 import uuid
 from typing import Any, Dict, List, Mapping, Optional
 
 from auth import Authenticator
 from config import ENCODING_AES_GCM, ENCODING_PLAINTEXT, ENCRYPTION_META_FIELDS, KIND_VALUE, MAX_PAYLOAD_BYTES, MAX_REQUEST_BYTES, SUPPORTED_FORMAT_VERSION, VERSION_UPGRADE_GATE, AppConfig
-from http_helpers import HttpError, error_response, json_response, log_internal_error, read_json_body, request_id_from_headers
+from http_helpers import HttpError, duration_ms_since, error_response, json_response, log_backup_event, log_internal_error, read_json_body, request_id_from_headers
 from object_store import AliyunOssObjectStore, FileObjectStore, StorageError
 from rate_limit import SlidingWindowRateLimiter
 from storage import BackupMetadata, BackupMetadataStore
@@ -80,65 +81,140 @@ class BackupApp:
         本模型为「账号绑定」(用户已选定):账号服务在信任链内,非完全零知识;
         但 OSS 桶只存密文,桶泄露(无主密钥)不致明文外泄。
         """
-        master = self.account_key_secret
-        if not master or len(master) < 32:
-            raise HttpError(
-                503,
-                "backup_key_unavailable",
-                "account backup key is not configured on the server",
+        started = time.monotonic()
+        status = "ok"
+        try:
+            master = self.account_key_secret
+            if not master or len(master) < 32:
+                raise HttpError(
+                    503,
+                    "backup_key_unavailable",
+                    "account backup key is not configured on the server",
+                )
+            # NOTE: the derived secret is the response body; it is never logged.
+            return hmac.new(
+                master.encode("utf-8"),
+                f"fleet-ledger-backup-key:v1:{user_id}".encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            log_backup_event(
+                {
+                    "account_id": user_id,
+                    "op": "issue_key",
+                    "duration_ms": duration_ms_since(started),
+                    "status": status,
+                }
             )
-        digest = hmac.new(
-            master.encode("utf-8"),
-            f"fleet-ledger-backup-key:v1:{user_id}".encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        return digest
 
     def create_backup(self, user_id: str, envelope: Mapping[str, Any]) -> str:
-        validated = validate_envelope(envelope, self.max_payload_bytes)
-        backup_id = str(uuid.uuid4())
-        object_key = self._object_key(user_id, backup_id)
-        body = json.dumps(validated, ensure_ascii=False, separators=(",", ":"))
+        started = time.monotonic()
+        backup_id = ""
+        db_schema_version = 0
+        payload_bytes = 0
+        status = "ok"
         try:
-            self.object_store.put_text(object_key, body)
-        except StorageError as exc:
-            raise HttpError(502, "storage_error", "backup object storage failed") from exc
-        metadata = BackupMetadata(
-            backup_id=backup_id,
-            user_id=user_id,
-            object_key=object_key,
-            db_schema_version=int(validated["db_schema_version"]),
-            payload_sha256=str(validated["payload_sha256"]),
-            payload_bytes=int(validated["payload_bytes"]),
-            created_at=str(validated["created_at"]),
-        )
-        try:
-            self.metadata_store.insert(metadata)
-        except Exception as exc:
-            self._cleanup_object_after_metadata_failure(object_key)
-            raise HttpError(
-                500,
-                "metadata_write_failed",
-                "backup metadata write failed",
-            ) from exc
-        return backup_id
+            validated = validate_envelope(envelope, self.max_payload_bytes)
+            db_schema_version = int(validated["db_schema_version"])
+            payload_bytes = int(validated["payload_bytes"])
+            backup_id = str(uuid.uuid4())
+            object_key = self._object_key(user_id, backup_id)
+            body = json.dumps(validated, ensure_ascii=False, separators=(",", ":"))
+            try:
+                self.object_store.put_text(object_key, body)
+            except StorageError as exc:
+                raise HttpError(502, "storage_error", "backup object storage failed") from exc
+            metadata = BackupMetadata(
+                backup_id=backup_id,
+                user_id=user_id,
+                object_key=object_key,
+                db_schema_version=db_schema_version,
+                payload_sha256=str(validated["payload_sha256"]),
+                payload_bytes=payload_bytes,
+                created_at=str(validated["created_at"]),
+            )
+            try:
+                self.metadata_store.insert(metadata)
+            except Exception as exc:
+                self._cleanup_object_after_metadata_failure(object_key)
+                raise HttpError(
+                    500,
+                    "metadata_write_failed",
+                    "backup metadata write failed",
+                ) from exc
+            return backup_id
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            # Structured event only: never the payload_json, sha, or encryption metadata.
+            log_backup_event(
+                {
+                    "account_id": user_id,
+                    "op": "create",
+                    "backup_id": backup_id,
+                    "db_schema_version": db_schema_version,
+                    "payload_bytes": payload_bytes,
+                    "duration_ms": duration_ms_since(started),
+                    "status": status,
+                }
+            )
 
     def list_backups(self, user_id: str) -> List[Dict[str, Any]]:
-        return [metadata.public_json() for metadata in self.metadata_store.list_for_user(user_id)]
+        started = time.monotonic()
+        count = 0
+        status = "ok"
+        try:
+            result = [metadata.public_json() for metadata in self.metadata_store.list_for_user(user_id)]
+            count = len(result)
+            return result
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            log_backup_event(
+                {
+                    "account_id": user_id,
+                    "op": "list",
+                    "count": count,
+                    "duration_ms": duration_ms_since(started),
+                    "status": status,
+                }
+            )
 
     def download_backup(self, user_id: str, backup_id: str) -> Dict[str, Any]:
-        metadata = self.metadata_store.get_for_user(user_id, backup_id)
+        started = time.monotonic()
+        status = "ok"
         try:
-            raw = self.object_store.get_text(metadata.object_key)
-        except StorageError as exc:
-            raise HttpError(502, "storage_error", "backup object storage failed") from exc
-        try:
-            decoded = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise HttpError(502, "storage_corrupt", "stored backup object is invalid JSON") from exc
-        if not isinstance(decoded, dict):
-            raise HttpError(502, "storage_corrupt", "stored backup object must be a JSON object")
-        return validate_envelope(decoded, self.max_payload_bytes)
+            metadata = self.metadata_store.get_for_user(user_id, backup_id)
+            try:
+                raw = self.object_store.get_text(metadata.object_key)
+            except StorageError as exc:
+                raise HttpError(502, "storage_error", "backup object storage failed") from exc
+            try:
+                decoded = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise HttpError(502, "storage_corrupt", "stored backup object is invalid JSON") from exc
+            if not isinstance(decoded, dict):
+                raise HttpError(502, "storage_corrupt", "stored backup object must be a JSON object")
+            # Structured event only: the decrypted/stored payload is never logged.
+            return validate_envelope(decoded, self.max_payload_bytes)
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            log_backup_event(
+                {
+                    "account_id": user_id,
+                    "op": "download",
+                    "backup_id": backup_id,
+                    "duration_ms": duration_ms_since(started),
+                    "status": status,
+                }
+            )
 
     def _object_key(self, user_id: str, backup_id: str) -> str:
         user_hash = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:32]

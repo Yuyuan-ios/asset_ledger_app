@@ -96,6 +96,79 @@ class BackendTestCase(unittest.TestCase):
             self.app.download_backup("user-b", backup_id)
         self.assertEqual(error.exception.status, 404)
 
+    def test_create_logs_structured_event_without_payload(self):
+        secret_marker = "secret-backup-payload"
+        envelope = make_envelope({"data": {"note": secret_marker}})
+        user_id = self.app.authenticator.authenticate("Bearer token-a")
+
+        with self.assertLogs("fleet_ledger.cloud_backup", level="INFO") as logs:
+            backup_id = self.app.create_backup(user_id, envelope)
+
+        output = "\n".join(logs.output)
+        self.assertIn('"account_id":"user-a"', output)
+        self.assertIn('"op":"create"', output)
+        self.assertIn(f'"backup_id":"{backup_id}"', output)
+        self.assertIn('"db_schema_version":36', output)
+        self.assertIn('"payload_bytes":', output)
+        self.assertIn('"duration_ms":', output)
+        self.assertIn('"status":"ok"', output)
+        self.assertNotIn(secret_marker, output)
+        self.assertNotIn(envelope["payload_json"], output)
+        self.assertNotIn(envelope["payload_sha256"], output)
+        self.assertNotIn("token-a", output)
+
+    def test_list_logs_structured_event(self):
+        user_id = self.app.authenticator.authenticate("Bearer token-a")
+        self.app.create_backup(user_id, make_envelope())
+
+        with self.assertLogs("fleet_ledger.cloud_backup", level="INFO") as logs:
+            self.app.list_backups("user-a")
+
+        output = "\n".join(logs.output)
+        self.assertIn('"account_id":"user-a"', output)
+        self.assertIn('"op":"list"', output)
+        self.assertIn('"count":1', output)
+        self.assertIn('"duration_ms":', output)
+        self.assertIn('"status":"ok"', output)
+
+    def test_download_logs_structured_event_without_payload(self):
+        secret_marker = "secret-download-payload"
+        envelope = make_envelope({"data": {"note": secret_marker}})
+        user_id = self.app.authenticator.authenticate("Bearer token-a")
+        backup_id = self.app.create_backup(user_id, envelope)
+
+        with self.assertLogs("fleet_ledger.cloud_backup", level="INFO") as logs:
+            self.app.download_backup("user-a", backup_id)
+
+        output = "\n".join(logs.output)
+        self.assertIn('"account_id":"user-a"', output)
+        self.assertIn('"op":"download"', output)
+        self.assertIn(f'"backup_id":"{backup_id}"', output)
+        self.assertIn('"duration_ms":', output)
+        self.assertIn('"status":"ok"', output)
+        self.assertNotIn(secret_marker, output)
+        self.assertNotIn(envelope["payload_json"], output)
+
+    def test_download_failure_logs_error_status(self):
+        with self.assertLogs("fleet_ledger.cloud_backup", level="INFO") as logs:
+            with self.assertRaises(HttpError):
+                self.app.download_backup("user-a", "missing-backup-id")
+
+        output = "\n".join(logs.output)
+        self.assertIn('"op":"download"', output)
+        self.assertIn('"status":"error"', output)
+
+    def test_issue_account_backup_key_logs_event_without_secret(self):
+        with self.assertLogs("fleet_ledger.cloud_backup", level="INFO") as logs:
+            secret = self.app.issue_account_backup_key("user-a")
+
+        output = "\n".join(logs.output)
+        self.assertIn('"account_id":"user-a"', output)
+        self.assertIn('"op":"issue_key"', output)
+        self.assertIn('"duration_ms":', output)
+        self.assertIn('"status":"ok"', output)
+        self.assertNotIn(secret, output)
+
     def test_encrypted_envelope_round_trips_and_is_not_decrypted(self):
         envelope = make_encrypted_envelope()
         user_id = self.app.authenticator.authenticate("Bearer token-a")

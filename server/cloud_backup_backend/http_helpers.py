@@ -3,6 +3,7 @@ from __future__ import annotations
 import http.server
 import json
 import logging
+import time
 import uuid
 from typing import Any, Dict, Mapping, Optional
 
@@ -81,3 +82,11 @@ def log_internal_error(request_id: str, method: str, path: Optional[str]) -> Non
         "backup_request_error %s",
         json.dumps(fields, sort_keys=True, separators=(",", ":")),
     )
+
+
+def duration_ms_since(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
+
+
+def log_backup_event(fields: Mapping[str, Any]) -> None:
+    LOGGER.info("backup_event %s", json.dumps(fields, sort_keys=True, separators=(",", ":")))
