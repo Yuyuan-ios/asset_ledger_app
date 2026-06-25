@@ -147,10 +147,18 @@
   openSupportEntry→新 `SupportEntryOutcome` enum，避免 view 直依赖 data 层 `SupportFeedbackOpenResult`，
   view 层 device_page_actions 映射 l10n）、`local_backup_controller.restoreBlockReason`→`RestoreBlockReason`
   enum（device_backup_dialogs 映射）、`device_avatar_policy` 抛 typed `CustomAvatarNotAllowedException`
-  （device_editor_dialog catch→l10n）。ARB(zh+en) + check_full 绿。**剩 `cloud_backup_controller`**：
-  其中文经 result 对象 `errorMessage`（已带 `errorCode` 如 `cloud_backup_requires_pro`/`cloud_backup_not_configured`）
-  流到多个展示点 + `unavailableMessage` 2 处直读，且 message 可能 server 来源——需把 errorCode→l10n 映射
-  铺到各 cloud-backup result 展示点，属独立子 trace，未做。
+  （device_editor_dialog catch→l10n）。ARB(zh+en) + check_full 绿。**剩 `cloud_backup_controller`（已全 trace，确认是 ~6 文件 sprawl，未做）**：3 处硬编码中文
+  （`_defaultEntitlementRequiredMessage`、`unavailableMessage` 兜底 '云端备份服务暂未配置'、
+  `device_fleet_providers.dart:114` 同串兜底）经**两个不同 result 字段**流向 UI——
+  ① `errorMessage`（带 `errorCode` `cloud_backup_requires_pro`/`cloud_backup_not_configured`）在
+  device_backup_dialogs **upload(:115)/list(:145)** 以 `result.errorMessage ?? l10n.fallback` 显示；
+  ② **`BackupRestoreResult.message`** 在 `_showRestoreFailureDialog(:733)` 以 `'${result.message}…'` 显示，
+  而该 dialog **本地+云端 restore 共用**——直接 null 掉云端 message 会破坏本地恢复路径，须分辨来源。
+  另 `unavailableMessage` 直读 2 处（device_page:347、device_backup_dialogs:26）经 **nullable 参数链**
+  穿 `device_account_center_page`（:43 nullable / :161 non-null / :118 `?? 兜底` / :256）。`availability.message`
+  是 server `disabledMessage`（nullable）+ 构造期中文兜底。**clean 做法**：codes 公开 + 移除 controller/providers
+  中文 + result 对结构化 code 不带中文 + 各展示点 errorCode→l10n（含共用 restore dialog 按来源分辨）+
+  nullable 参数链补 l10n 兜底。涉及备份/恢复数据路径，须独立专项 + 充分回归，勿在长会话尾巴做。
 - **风险/建议**：B（lifecycle ICU 金额，跨 5 view）+ cloud_backup（result errorMessage 流）建议**独立专项**做，
   勿在长会话尾巴大爆改。
 - 负责人：待确认（建议专项 session）
