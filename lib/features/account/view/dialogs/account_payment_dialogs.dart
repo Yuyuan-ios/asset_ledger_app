@@ -41,6 +41,14 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
       if (!mounted) return;
 
       final store = context.read<AccountPaymentStore>();
+      final targetProject = await _prepareSettledPaymentChange(
+        project,
+        title: _l10n.accountSettledPaymentSaveConfirmTitle,
+        content: _l10n.accountSettledPaymentSaveConfirmContent,
+        confirmText: _l10n.accountConfirmAction,
+      );
+      if (!mounted || targetProject == null) return;
+
       await store.save(payment);
 
       if (!mounted) return;
@@ -159,8 +167,16 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
       final controller = context.read<AccountActionController>();
 
       try {
+        final targetProject = await _prepareSettledPaymentChange(
+          project,
+          title: _l10n.accountSettledPaymentSaveConfirmTitle,
+          content: _l10n.accountSettledPaymentSaveConfirmContent,
+          confirmText: _l10n.accountConfirmAction,
+        );
+        if (!mounted || targetProject == null) return;
+
         await controller.createMergedPayment(
-          project: project,
+          project: targetProject,
           payment: payment,
           timingStore: timingStore,
           deviceStore: deviceStore,
@@ -221,8 +237,16 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
       final controller = context.read<AccountActionController>();
 
       try {
+        final targetProject = await _prepareSettledPaymentChange(
+          project,
+          title: _l10n.accountSettledPaymentSaveConfirmTitle,
+          content: _l10n.accountSettledPaymentSaveConfirmContent,
+          confirmText: _l10n.accountConfirmAction,
+        );
+        if (!mounted || targetProject == null) return;
+
         await controller.updateMergedPaymentBatch(
-          project: project,
+          project: targetProject,
           paymentItem: paymentItem,
           payment: payment,
           timingStore: timingStore,
@@ -245,24 +269,38 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
   }
 
   Future<void> _confirmDeleteMergedPaymentBatch(
-    AccountProjectVM _,
+    AccountProjectVM project,
     AccountProjectPaymentDisplayVM paymentItem,
   ) async {
     final batchId = paymentItem.mergeBatchId;
     if (batchId == null || batchId.trim().isEmpty) return;
 
-    final ok = await showAppConfirmDialog(
-      context: context,
-      title: _l10n.accountMergedPaymentDeleteTitle,
-      content: _l10n.accountMergedPaymentDeleteContent(
-        FormatUtils.date(paymentItem.ymd),
-        FormatUtils.money(paymentItem.amount),
-      ),
-      cancelText: _l10n.accountCancelAction,
-      confirmText: _l10n.accountDeleteAction,
-    );
-
-    if (!mounted || ok != true) return;
+    final latestProject = _latestProjectForSettlement(project);
+    if (latestProject.isSettled) {
+      final prepared = await _prepareSettledPaymentChange(
+        latestProject,
+        title: _l10n.accountDeleteConfirmTitle,
+        content: _l10n.accountSettledPaymentDeleteConfirmContent(
+          FormatUtils.date(paymentItem.ymd),
+          FormatUtils.money(paymentItem.amount),
+        ),
+        confirmText: _l10n.accountDeleteAction,
+        confirmDestructive: true,
+      );
+      if (!mounted || prepared == null) return;
+    } else {
+      final ok = await showAppConfirmDialog(
+        context: context,
+        title: _l10n.accountMergedPaymentDeleteTitle,
+        content: _l10n.accountMergedPaymentDeleteContent(
+          FormatUtils.date(paymentItem.ymd),
+          FormatUtils.money(paymentItem.amount),
+        ),
+        cancelText: _l10n.accountCancelAction,
+        confirmText: _l10n.accountDeleteAction,
+      );
+      if (!mounted || ok != true) return;
+    }
 
     final paymentStore = context.read<AccountPaymentStore>();
     final accountStore = context.read<AccountStore>();
@@ -355,19 +393,50 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
   Future<void> _deletePayment(AccountPayment p) async {
     if (p.id == null) return;
 
-    final ok = await showAppConfirmDialog(
-      context: context,
-      title: _l10n.accountDeleteConfirmTitle,
-      content: _l10n.accountPaymentDeleteConfirmContent(
-        FormatUtils.date(p.ymd),
-        FormatUtils.money(p.amount),
-      ),
-      cancelText: _l10n.accountCancelAction,
-      confirmText: _l10n.accountDeleteAction,
-    );
+    late final AccountProjectVM project;
+    try {
+      project = _latestProjectByProjectId(p.effectiveProjectId);
+    } catch (_) {
+      _toast(_l10n.accountProjectMissing);
+      return;
+    }
+    final isSettled = project.isSettled;
+    final bool? ok;
+    if (isSettled) {
+      ok = await showAppConfirmDialog(
+        context: context,
+        title: _l10n.accountDeleteConfirmTitle,
+        content: _l10n.accountSettledPaymentDeleteConfirmContent(
+          FormatUtils.date(p.ymd),
+          FormatUtils.money(p.amount),
+        ),
+        cancelText: _l10n.accountCancelAction,
+        confirmText: _l10n.accountDeleteAction,
+        confirmDestructive: true,
+      );
+    } else {
+      ok = await showAppConfirmDialog(
+        context: context,
+        title: _l10n.accountDeleteConfirmTitle,
+        content: _l10n.accountPaymentDeleteConfirmContent(
+          FormatUtils.date(p.ymd),
+          FormatUtils.money(p.amount),
+        ),
+        cancelText: _l10n.accountCancelAction,
+        confirmText: _l10n.accountDeleteAction,
+      );
+    }
 
     if (ok != true) return;
     if (!mounted) return;
+
+    if (isSettled) {
+      final revoked = await _revokeProjectWriteOff(
+        project,
+        showSuccessToast: false,
+      );
+      if (!mounted || !revoked) return;
+    }
 
     final store = context.read<AccountPaymentStore>();
     await store.deleteById(p.id!);
@@ -379,9 +448,50 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
     }
   }
 
-  Future<void> _revokeWriteOff(
+  Future<AccountProjectVM?> _prepareSettledPaymentChange(
+    AccountProjectVM project, {
+    required String title,
+    required String content,
+    required String confirmText,
+    bool confirmDestructive = false,
+  }) async {
+    late final AccountProjectVM latestProject;
+    try {
+      latestProject = _latestProjectForSettlement(project);
+    } catch (_) {
+      _toast(_l10n.accountProjectMissing);
+      return null;
+    }
+    if (!latestProject.isSettled) return latestProject;
+
+    final ok = await showAppConfirmDialog(
+      context: context,
+      title: title,
+      content: content,
+      cancelText: _l10n.accountCancelAction,
+      confirmText: confirmText,
+      confirmDestructive: confirmDestructive,
+    );
+    if (!mounted || ok != true) return null;
+
+    final revoked = await _revokeProjectWriteOff(
+      latestProject,
+      showSuccessToast: false,
+    );
+    if (!mounted || !revoked) return null;
+
+    try {
+      return _latestProjectForSettlement(project);
+    } catch (_) {
+      _toast(_l10n.accountProjectMissing);
+      return null;
+    }
+  }
+
+  Future<bool> _revokeWriteOff(
     ProjectWriteOff writeOff, {
     _AccountFeedbackToast? feedbackToast,
+    bool showSuccessToast = true,
   }) async {
     try {
       final latestProject = _latestProjectByProjectId(writeOff.projectId);
@@ -392,26 +502,34 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
         accountStore: context.read<AccountStore>(),
       );
 
-      if (!mounted) return;
-      _toastTo(feedbackToast, _l10n.accountWriteOffRevoked);
+      if (!mounted) return false;
+      if (showSuccessToast) {
+        _toastTo(feedbackToast, _l10n.accountWriteOffRevoked);
+      }
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _toastTo(
         feedbackToast,
         _l10n.accountRevokeWriteOffFailure(
           context.read<AccountActionController>().friendlyWriteOffError(error),
         ),
       );
+      return false;
     }
   }
 
-  Future<void> _revokeProjectWriteOff(
+  Future<bool> _revokeProjectWriteOff(
     AccountProjectVM project, {
     _AccountFeedbackToast? feedbackToast,
+    bool showSuccessToast = true,
   }) async {
     if (project.kind == AccountProjectKind.merged) {
-      await _revokeMergedProjectWriteOff(project, feedbackToast: feedbackToast);
-      return;
+      return _revokeMergedProjectWriteOff(
+        project,
+        feedbackToast: feedbackToast,
+        showSuccessToast: showSuccessToast,
+      );
     }
 
     final projectIds = {project.effectiveProjectId.trim()}
@@ -425,17 +543,20 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
 
     if (writeOffs.length > 1) {
       _toastTo(feedbackToast, _l10n.accountWriteOffInvalid);
-      return;
+      return false;
     }
     if (writeOffs.length == 1) {
-      await _revokeWriteOff(writeOffs.single, feedbackToast: feedbackToast);
-      return;
+      return _revokeWriteOff(
+        writeOffs.single,
+        feedbackToast: feedbackToast,
+        showSuccessToast: showSuccessToast,
+      );
     }
 
     final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
     if (!isSettled) {
       _toastTo(feedbackToast, _l10n.accountWriteOffInvalid);
-      return;
+      return false;
     }
 
     try {
@@ -448,22 +569,27 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
         accountStore: accountStore,
       );
 
-      if (!mounted) return;
-      _toastTo(feedbackToast, _l10n.accountSettlementRevoked);
+      if (!mounted) return false;
+      if (showSuccessToast) {
+        _toastTo(feedbackToast, _l10n.accountSettlementRevoked);
+      }
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _toastTo(
         feedbackToast,
         _l10n.accountRevokeSettlementFailure(
           context.read<AccountActionController>().friendlyWriteOffError(error),
         ),
       );
+      return false;
     }
   }
 
-  Future<void> _revokeMergedProjectWriteOff(
+  Future<bool> _revokeMergedProjectWriteOff(
     AccountProjectVM project, {
     _AccountFeedbackToast? feedbackToast,
+    bool showSuccessToast = true,
   }) async {
     final latestProject = _latestProjectForSettlement(project);
     final projectIds =
@@ -471,7 +597,7 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
           ..removeWhere((id) => id.isEmpty);
     if (projectIds.isEmpty) {
       _toastTo(feedbackToast, _l10n.accountMergedMemberInvalid);
-      return;
+      return false;
     }
 
     final accountStore = context.read<AccountStore>();
@@ -491,15 +617,17 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
           rateStore: context.read<ProjectRateStore>(),
           accountStore: accountStore,
         );
-        if (!mounted) return;
-        _toastTo(feedbackToast, _l10n.accountWriteOffRevoked);
-        return;
+        if (!mounted) return false;
+        if (showSuccessToast) {
+          _toastTo(feedbackToast, _l10n.accountWriteOffRevoked);
+        }
+        return true;
       }
 
       final isSettled = projectIds.any(accountStore.settledProjectIds.contains);
       if (!isSettled) {
         _toastTo(feedbackToast, _l10n.accountWriteOffInvalid);
-        return;
+        return false;
       }
 
       await controller.revokeMergedSettlementStatus(
@@ -511,16 +639,20 @@ mixin _AccountPagePaymentDialogs on State<AccountPage> {
         accountStore: accountStore,
       );
 
-      if (!mounted) return;
-      _toastTo(feedbackToast, _l10n.accountSettlementRevoked);
+      if (!mounted) return false;
+      if (showSuccessToast) {
+        _toastTo(feedbackToast, _l10n.accountSettlementRevoked);
+      }
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _toastTo(
         feedbackToast,
         _l10n.accountRevokeSettlementFailure(
           context.read<AccountActionController>().friendlyWriteOffError(error),
         ),
       );
+      return false;
     }
   }
 }

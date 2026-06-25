@@ -83,51 +83,30 @@ class AccountRateEditActions {
 
       for (final d in usedDevices) {
         final id = d.id!;
-        const eps = 0.05;
-        final defaultDigging = d.effectiveDefaultUnitPrice;
-        final defaultBreaking =
-            d.effectiveBreakingUnitPrice ?? d.effectiveDefaultUnitPrice;
-
-        if ((newRate.diggingRate - defaultDigging).abs() <= eps) {
-          await rateStore.delete(
-            project.projectKey,
-            id,
+        await rateStore.upsert(
+          ProjectDeviceRate(
             projectId: projectId,
+            projectKey: project.projectKey,
+            deviceId: id,
             isBreaking: false,
-          );
-        } else {
-          await rateStore.upsert(
-            ProjectDeviceRate(
-              projectId: projectId,
-              projectKey: project.projectKey,
-              deviceId: id,
-              isBreaking: false,
-              rate: newRate.diggingRate,
-            ),
-          );
-        }
+            rate: newRate.diggingRate,
+          ),
+        );
 
-        if ((newRate.breakingRate - defaultBreaking).abs() <= eps) {
-          await rateStore.delete(
-            project.projectKey,
-            id,
+        await rateStore.upsert(
+          ProjectDeviceRate(
             projectId: projectId,
+            projectKey: project.projectKey,
+            deviceId: id,
             isBreaking: true,
-          );
-        } else {
-          await rateStore.upsert(
-            ProjectDeviceRate(
-              projectId: projectId,
-              projectKey: project.projectKey,
-              deviceId: id,
-              isBreaking: true,
-              rate: newRate.breakingRate,
-            ),
-          );
-        }
+            rate: newRate.breakingRate,
+          ),
+        );
 
-        final saveFeedback =
-            storeActionFeedback(rateStore, action: StoreActionKind.save);
+        final saveFeedback = storeActionFeedback(
+          rateStore,
+          action: StoreActionKind.save,
+        );
         if (!saveFeedback.isSuccess) {
           toast(localizeStoreActionFeedback(l10n, saveFeedback));
           return;
@@ -196,25 +175,15 @@ class AccountRateEditActions {
     Future.microtask(() async {
       if (!isMounted()) return;
 
-      const eps = 0.05;
-      if ((newRate - modeDefaultRate).abs() <= eps) {
-        await rateStore.delete(
-          project.projectKey,
-          deviceId,
+      await rateStore.upsert(
+        ProjectDeviceRate(
           projectId: projectId,
+          projectKey: project.projectKey,
+          deviceId: deviceId,
           isBreaking: isBreaking,
-        );
-      } else {
-        await rateStore.upsert(
-          ProjectDeviceRate(
-            projectId: projectId,
-            projectKey: project.projectKey,
-            deviceId: deviceId,
-            isBreaking: isBreaking,
-            rate: newRate,
-          ),
-        );
-      }
+          rate: newRate,
+        ),
+      );
 
       final feedback = storeActionFeedback(
         rateStore,

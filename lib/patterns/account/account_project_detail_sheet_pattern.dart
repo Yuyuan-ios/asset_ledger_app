@@ -162,6 +162,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
             onDeleteMergedPaymentBatch != null,
         showRawPaymentActions: false,
         showAddPayment: showInlineAddPayment && onAddMergedPayment != null,
+        canEditRates: !vm.isProjectSettled,
         onBatchEditRate: () => onDissolveMergeGroup?.call(project),
         onEditDeviceRate: (_, _) {},
         onEditRateRow: (row) {
@@ -210,6 +211,7 @@ class AccountProjectDetailSheet extends StatelessWidget {
       payments: project.payments,
       writeOffs: vm.writeOffs,
       externalWorkRows: vm.externalWorkRows,
+      canEditRates: !vm.isProjectSettled,
       onBatchEditRate: () => onBatchEditRate(project, allDevices, allRates),
       onEditDeviceRate: (deviceId, isBreaking) =>
           onEditDeviceRate(project, deviceId, isBreaking, allDevices, allRates),

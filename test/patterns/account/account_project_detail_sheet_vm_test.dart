@@ -14,6 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const shangyiKey = '李杰||尚义';
   const xiantanKey = '李杰||鲜滩';
+  const shangyiProjectId = 'project:shangyi';
+  const xiantanProjectId = 'project:xiantan';
   final normalKey = ProjectKey.buildKey(contact: '李杰', site: '尚义');
 
   final devices = [
@@ -35,6 +37,7 @@ void main() {
 
   final records = [
     TimingRecord(
+      projectId: shangyiProjectId,
       deviceId: 1,
       startDate: 20260501,
       contact: '李杰',
@@ -46,6 +49,7 @@ void main() {
       income: 6490,
     ),
     TimingRecord(
+      projectId: xiantanProjectId,
       deviceId: 1,
       startDate: 20260502,
       contact: '李杰',
@@ -57,6 +61,7 @@ void main() {
       income: 23900,
     ),
     TimingRecord(
+      projectId: xiantanProjectId,
       deviceId: 2,
       startDate: 20260502,
       contact: '李杰',
@@ -70,9 +75,24 @@ void main() {
   ];
 
   final rates = [
-    ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
-    ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
-    ProjectDeviceRate(projectKey: xiantanKey, deviceId: 2, rate: 180),
+    ProjectDeviceRate(
+      projectId: shangyiProjectId,
+      projectKey: shangyiKey,
+      deviceId: 1,
+      rate: 100,
+    ),
+    ProjectDeviceRate(
+      projectId: xiantanProjectId,
+      projectKey: xiantanKey,
+      deviceId: 1,
+      rate: 100,
+    ),
+    ProjectDeviceRate(
+      projectId: xiantanProjectId,
+      projectKey: xiantanKey,
+      deviceId: 2,
+      rate: 180,
+    ),
   ];
 
   AccountProjectDetailSheetVmBuilder builderFor({
@@ -103,7 +123,7 @@ void main() {
   }
 
   AccountProjectVM normalProject({
-    String projectId = 'project:1',
+    String projectId = shangyiProjectId,
     double receivable = 6490,
     double remaining = 6490,
     double writeOff = 0,
@@ -134,10 +154,7 @@ void main() {
     int? mergeGroupId = 1,
     double writeOff = 0,
     double remaining = 5000,
-    List<String> memberProjectIds = const [
-      'project:shangyi',
-      'project:xiantan',
-    ],
+    List<String> memberProjectIds = const [shangyiProjectId, xiantanProjectId],
   }) {
     return AccountProjectVM(
       projectId: 'merge:1',
@@ -229,6 +246,7 @@ void main() {
         projects: [normalProject()],
         allRates: [
           ProjectDeviceRate(
+            projectId: shangyiProjectId,
             projectKey: shangyiKey,
             deviceId: 1,
             rate: 9999,
@@ -245,7 +263,7 @@ void main() {
     test('uses settledProjectIds when provided', () {
       final vm = builderFor(
         projects: [normalProject(remaining: 6490)],
-        settledProjectIds: const {'project:1'},
+        settledProjectIds: const {shangyiProjectId},
       ).build(projectKey: normalKey);
       expect(vm!.isProjectSettled, isTrue);
     });
@@ -284,7 +302,7 @@ void main() {
       final vm = builderFor(
         projects: [normalProject(writeOff: 60, remaining: 0)],
         writeOffs: [
-          writeOff('w-1', 'project:1'),
+          writeOff('w-1', shangyiProjectId),
           writeOff('w-other', 'project:other'),
         ],
       ).build(projectKey: normalKey);
@@ -295,13 +313,13 @@ void main() {
     test('hasUniqueWriteOffForRevoke requires positive write-off total', () {
       final revokable = builderFor(
         projects: [normalProject(writeOff: 60, remaining: 0)],
-        writeOffs: [writeOff('w-1', 'project:1')],
+        writeOffs: [writeOff('w-1', shangyiProjectId)],
       ).build(projectKey: normalKey);
       expect(revokable!.hasUniqueWriteOffForRevoke, isTrue);
 
       final noTotal = builderFor(
         projects: [normalProject(writeOff: 0, remaining: 0)],
-        writeOffs: [writeOff('w-1', 'project:1')],
+        writeOffs: [writeOff('w-1', shangyiProjectId)],
       ).build(projectKey: normalKey);
       expect(noTotal!.hasUniqueWriteOffForRevoke, isFalse);
     });
@@ -309,7 +327,7 @@ void main() {
     test('deletableWriteOffTarget: normal returns first write-off', () {
       final vm = builderFor(
         projects: [normalProject(writeOff: 60, remaining: 0)],
-        writeOffs: [writeOff('w-1', 'project:1')],
+        writeOffs: [writeOff('w-1', shangyiProjectId)],
       ).build(projectKey: normalKey);
       expect(vm!.deletableWriteOffTarget?.id, 'w-1');
     });

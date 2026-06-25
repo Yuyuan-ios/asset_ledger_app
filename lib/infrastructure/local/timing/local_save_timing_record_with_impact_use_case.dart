@@ -16,12 +16,14 @@ import '../../../data/repositories/timing_calculation_history_repository.dart';
 import '../../../data/repositories/timing_repository.dart';
 import '../../../data/services/account_service.dart';
 import '../../../data/services/project_resolver.dart';
+import '../../../data/services/project_rate_snapshot_planner.dart';
 import '../../../features/account/domain/services/project_finance_calculator.dart';
 import '../../../features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import '../../sync/sync_actor.dart';
 import '../../sync/sync_repositories.dart';
 import '../../sync/sync_transaction_group.dart';
+import '../account/project_device_rate_sync_enqueuer.dart';
 import '../account/project_sync_enqueuer.dart';
 import '../account/project_settlement_impact_service.dart';
 import 'timing_record_sync_enqueuer.dart';
@@ -48,13 +50,14 @@ class LocalSaveTimingRecordWithImpactUseCase
     timingCalculationHistoryRepository,
     required SqfliteAccountProjectMergeRepository mergeRepository,
     required DeviceRepository deviceRepository,
-    required ProjectRateRepository projectRateRepository,
+    required SqfliteProjectRateRepository projectRateRepository,
     SqfliteProjectRepository? projectRepository,
     required ProjectResolver projectResolver,
     required ProjectSettlementImpactService impactService,
     SyncOutboxRepository? syncOutboxRepository,
     EntitySyncMetaRepository? entitySyncMetaRepository,
     ProjectSyncEnqueuer? projectSyncEnqueuer,
+    ProjectDeviceRateSyncEnqueuer? projectDeviceRateSyncEnqueuer,
     TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer,
     SyncActorProvider? actorProvider,
     DateTime Function()? now,
@@ -73,6 +76,12 @@ class LocalSaveTimingRecordWithImpactUseCase
              syncOutboxRepository: syncOutboxRepository,
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
+       _projectDeviceRateSyncEnqueuer =
+           projectDeviceRateSyncEnqueuer ??
+           ProjectDeviceRateSyncEnqueuer(
+             syncOutboxRepository: syncOutboxRepository,
+             entitySyncMetaRepository: entitySyncMetaRepository,
+           ),
        _timingRecordSyncEnqueuer =
            timingRecordSyncEnqueuer ??
            TimingRecordSyncEnqueuer(
@@ -87,11 +96,12 @@ class LocalSaveTimingRecordWithImpactUseCase
   _timingCalculationHistoryRepository;
   final SqfliteAccountProjectMergeRepository _mergeRepository;
   final DeviceRepository _deviceRepository;
-  final ProjectRateRepository _projectRateRepository;
+  final SqfliteProjectRateRepository _projectRateRepository;
   final SqfliteProjectRepository _projectRepository;
   final ProjectResolver _projectResolver;
   final ProjectSettlementImpactService _impactService;
   final ProjectSyncEnqueuer _projectSyncEnqueuer;
+  final ProjectDeviceRateSyncEnqueuer _projectDeviceRateSyncEnqueuer;
   final TimingRecordSyncEnqueuer _timingRecordSyncEnqueuer;
   final SyncActorProvider? _actorProvider;
   final DateTime Function() _now;
@@ -168,7 +178,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     final createdProject = resolved.createdProject;
     final newProjectId = recordToSave.effectiveProjectId.trim();
     final devices = preparation.devices;
-    final rates = preparation.rates;
+    var rates = preparation.rates;
     final timestamp = preparation.timestampIso;
 
     // 事务内按 id 重读旧记录，作为 oldProjectId 的**唯一权威**来源。
@@ -242,6 +252,15 @@ class LocalSaveTimingRecordWithImpactUseCase
       await dissolveGroupForProject(newProjectId);
     }
 
+    final rateSnapshotResult = await _ensureProjectRateSnapshotsForProjects(
+      txn,
+      projectIds: affectedProjectIds,
+      devices: devices,
+      rates: rates,
+    );
+    rates = rateSnapshotResult.rates;
+    final createdRateSnapshots = rateSnapshotResult.createdSnapshots;
+
     // 基于保存后的 DB 状态，为每个受影响项目计算 receivableFen。
     // - 走 AccountService.calcMoney 既有口径（hours × effRate + rent income）。
     // - 不复用 UI 缓存 / AccountPageViewData。
@@ -272,14 +291,15 @@ class LocalSaveTimingRecordWithImpactUseCase
 
     final settlementRevoked = revocation.revokedProjectIds.isNotEmpty;
     final actor = _actorProvider?.call();
-    // R5.26-A: when this save also created a new project, OR restored a settled
-    // project's status, the transaction produces >1 outbox row and becomes a
-    // R5.22-A cluster. Causal push order: project create (FK prerequisite) →
-    // timing_record → restored project update(s). A new project is always
-    // `active`, so it can never also appear in revokedProjectIds (no
-    // create+update for the same project). No new project and no revocation
-    // keeps the legacy single-row, ungrouped timing outbox shape.
-    final needsGroup = createdProject != null || settlementRevoked;
+    // R5.26-A: when this save also created a new project, materialized project
+    // rate snapshots, OR restored a settled project's status, the transaction
+    // produces >1 outbox row and becomes a R5.22-A cluster. Causal push order:
+    // project create (FK prerequisite) → project rate snapshot(s) →
+    // timing_record → restored project update(s).
+    final needsGroup =
+        createdProject != null ||
+        createdRateSnapshots.isNotEmpty ||
+        settlementRevoked;
     final group = needsGroup ? SyncTransactionGroup.create() : null;
 
     if (createdProject != null) {
@@ -289,6 +309,15 @@ class LocalSaveTimingRecordWithImpactUseCase
         project: createdProject,
         transactionGroupId: group!.id,
         localSequence: group.nextSequence(),
+        actor: actor,
+      );
+    }
+    for (final snapshot in createdRateSnapshots) {
+      await _projectDeviceRateSyncEnqueuer.enqueueUpsert(
+        txn,
+        rate: snapshot,
+        transactionGroupId: group?.id,
+        localSequence: group?.nextSequence(),
         actor: actor,
       );
     }
@@ -498,6 +527,39 @@ class LocalSaveTimingRecordWithImpactUseCase
     return recordToSave;
   }
 
+  Future<_ProjectRateSnapshotResult> _ensureProjectRateSnapshotsForProjects(
+    DatabaseExecutor txn, {
+    required Set<String> projectIds,
+    required List<Device> devices,
+    required List<ProjectDeviceRate> rates,
+  }) async {
+    var currentRates = List<ProjectDeviceRate>.of(rates);
+    final created = <ProjectDeviceRate>[];
+
+    for (final projectId in projectIds) {
+      if (projectId.trim().isEmpty) continue;
+      final records = await _timingRepository.listByProjectIdWithExecutor(
+        txn,
+        projectId,
+      );
+      final missing = ProjectRateSnapshotPlanner.missingSnapshots(
+        timingRecords: records,
+        devices: devices,
+        rates: currentRates,
+      );
+      for (final snapshot in missing) {
+        await _projectRateRepository.upsertWithExecutor(txn, snapshot);
+        currentRates = [...currentRates, snapshot];
+        created.add(snapshot);
+      }
+    }
+
+    return _ProjectRateSnapshotResult(
+      rates: currentRates,
+      createdSnapshots: created,
+    );
+  }
+
   Future<int> _computeReceivableFenForProject(
     DatabaseExecutor txn, {
     required String projectId,
@@ -552,6 +614,16 @@ class LocalSaveTimingRecordWithImpactUseCase
       );
     }
   }
+}
+
+class _ProjectRateSnapshotResult {
+  const _ProjectRateSnapshotResult({
+    required this.rates,
+    required this.createdSnapshots,
+  });
+
+  final List<ProjectDeviceRate> rates;
+  final List<ProjectDeviceRate> createdSnapshots;
 }
 
 class TimingRecordQuantityAuthorityException implements Exception {

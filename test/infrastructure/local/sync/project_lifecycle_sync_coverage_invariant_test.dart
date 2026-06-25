@@ -44,8 +44,7 @@ void main() {
       expect(enqueuer, contains("'record': project.toMap()"));
       expect(enqueuer, contains('updatedBy: resolvedActor.actorId'));
       // version/actor are top-level, never inside the business record.
-      final versionIdx =
-          enqueuer.indexOf("'payload_schema_version':");
+      final versionIdx = enqueuer.indexOf("'payload_schema_version':");
       final recordIdx = enqueuer.indexOf("'record':");
       expect(versionIdx, greaterThanOrEqualTo(0));
       expect(recordIdx, greaterThan(versionIdx));
@@ -75,20 +74,33 @@ void main() {
       expect(saveUseCase, contains('result.created ? result.project : null'));
       // ... and a create outbox is enqueued (FK prerequisite, in a group).
       expect(saveUseCase, contains('_projectSyncEnqueuer.enqueueCreate('));
+      expect(saveUseCase, contains('createdRateSnapshots.isNotEmpty'));
       expect(
         saveUseCase,
-        contains('createdProject != null || settlementRevoked'),
-        reason: 'a new project OR a revocation promotes the save to a cluster.',
+        contains('createdProject != null ||'),
+        reason: 'a new project promotes the save to a cluster.',
+      );
+      expect(
+        saveUseCase,
+        contains('settlementRevoked'),
+        reason:
+            'a materialized rate snapshot or revocation also promotes the save '
+            'to a cluster.',
       );
     });
 
     test('the create enqueue happens before the timing enqueue (causal FK '
         'order)', () {
-      final createIdx = saveUseCase.indexOf('_projectSyncEnqueuer.enqueueCreate(');
+      final createIdx = saveUseCase.indexOf(
+        '_projectSyncEnqueuer.enqueueCreate(',
+      );
       final timingIdx = saveUseCase.indexOf('_enqueueSyncForSavedRecord(');
       expect(createIdx, greaterThanOrEqualTo(0));
-      expect(timingIdx, greaterThan(createIdx),
-          reason: 'project create must be enqueued before the timing row.');
+      expect(
+        timingIdx,
+        greaterThan(createIdx),
+        reason: 'project create must be enqueued before the timing row.',
+      );
     });
   });
 

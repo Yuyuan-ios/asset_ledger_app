@@ -21,6 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const shangyiKey = '李杰||尚义';
   const xiantanKey = '李杰||鲜滩';
+  const shangyiProjectId = 'project:shangyi';
+  const xiantanProjectId = 'project:xiantan';
 
   final devices = [
     Device(
@@ -41,6 +43,7 @@ void main() {
 
   final records = [
     TimingRecord(
+      projectId: shangyiProjectId,
       deviceId: 1,
       startDate: 20260501,
       contact: '李杰',
@@ -52,6 +55,7 @@ void main() {
       income: 6490,
     ),
     TimingRecord(
+      projectId: xiantanProjectId,
       deviceId: 1,
       startDate: 20260502,
       contact: '李杰',
@@ -63,6 +67,7 @@ void main() {
       income: 23900,
     ),
     TimingRecord(
+      projectId: xiantanProjectId,
       deviceId: 2,
       startDate: 20260502,
       contact: '李杰',
@@ -110,9 +115,24 @@ void main() {
             allPayments: [],
             allWriteOffs: writeOffs,
             allRates: [
-              ProjectDeviceRate(projectKey: shangyiKey, deviceId: 1, rate: 100),
-              ProjectDeviceRate(projectKey: xiantanKey, deviceId: 1, rate: 100),
-              ProjectDeviceRate(projectKey: xiantanKey, deviceId: 2, rate: 180),
+              ProjectDeviceRate(
+                projectId: shangyiProjectId,
+                projectKey: shangyiKey,
+                deviceId: 1,
+                rate: 100,
+              ),
+              ProjectDeviceRate(
+                projectId: xiantanProjectId,
+                projectKey: xiantanKey,
+                deviceId: 1,
+                rate: 100,
+              ),
+              ProjectDeviceRate(
+                projectId: xiantanProjectId,
+                projectKey: xiantanKey,
+                deviceId: 2,
+                rate: 180,
+              ),
             ],
             allExternalWorkItems: externalWorkItems,
             computed: computed,
@@ -145,7 +165,7 @@ void main() {
       kind: AccountProjectKind.merged,
       mergeGroupId: mergeGroupId,
       memberProjectKeys: [shangyiKey, xiantanKey],
-      memberProjectIds: ['project:shangyi', 'project:xiantan'],
+      memberProjectIds: [shangyiProjectId, xiantanProjectId],
       includedSites: ['尚义', '鲜滩'],
       includedSitesText: '尚义、鲜滩',
       minYmd: 20260501,
@@ -365,6 +385,7 @@ void main() {
         computed: AccountComputed(
           projects: [
             AccountProjectVM(
+              projectId: shangyiProjectId,
               projectKey: normalKey,
               displayName: '李杰 + 尚义',
               minYmd: 20260501,
@@ -1049,6 +1070,7 @@ void main() {
         computed: AccountComputed(
           projects: [
             AccountProjectVM(
+              projectId: shangyiProjectId,
               projectKey: normalKey,
               displayName: '李杰 · 尚义',
               minYmd: 20260501,

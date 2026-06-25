@@ -678,6 +678,63 @@ void main() {
     },
   );
 
+  testWidgets(
+    'AccountPage blocks new payment when settled project revoke fails',
+    (tester) async {
+      final harness = await _pumpSettledProjectAccountPage(
+        tester,
+        settlementRepository: _FakeProjectSettlementRepository(
+          deleteWriteOffError: StateError('同联系人同工地已有进行中项目，无法直接撤销结清。'),
+        ),
+      );
+
+      await tester.tap(find.text('李杰 · 新村'));
+      await tester.pumpAndSettle();
+      final addPaymentButton = find.widgetWithText(InkWell, '+ 新增收款');
+      await tester.ensureVisible(addPaymentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addPaymentButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(_textFieldByLabel('金额（整数）'), '10');
+      await tester.tap(find.widgetWithText(FilledButton, '确定').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('撤销结清并保存收款？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '确定').last);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('撤销核销失败'), findsOneWidget);
+      expect(harness.paymentRepository.records, hasLength(1));
+      expect(harness.paymentRepository.insertCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'AccountPage blocks payment delete when settled project revoke fails',
+    (tester) async {
+      final harness = await _pumpSettledProjectAccountPage(
+        tester,
+        settlementRepository: _FakeProjectSettlementRepository(
+          deleteWriteOffError: StateError('同联系人同工地已有进行中项目，无法直接撤销结清。'),
+        ),
+      );
+
+      await tester.tap(find.text('李杰 · 新村'));
+      await tester.pumpAndSettle();
+      final deleteButton = find.byIcon(Icons.delete_outline);
+      await tester.ensureVisible(deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '删除').last);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('撤销核销失败'), findsOneWidget);
+      expect(harness.paymentRepository.records, hasLength(1));
+      expect(harness.paymentRepository.deleteByIdCalls, 0);
+    },
+  );
+
   testWidgets('AccountPage edits a merged payment batch by replacing rows', (
     tester,
   ) async {
@@ -889,6 +946,98 @@ Provider<AccountActionController> _accountActionControllerProvider(
   );
 }
 
+Future<_SettledProjectHarness> _pumpSettledProjectAccountPage(
+  WidgetTester tester, {
+  required _FakeProjectSettlementRepository settlementRepository,
+}) async {
+  final projectId = ProjectId.legacyFromParts(contact: '李杰', site: '新村');
+  final mergeRepository = _FakeMergeRepository();
+  final mergeService = AccountProjectMergeService(
+    repository: mergeRepository,
+    now: () => DateTime.utc(2026, 5, 15),
+  );
+  final accountStore = AccountStore(
+    mergeService: mergeService,
+    projectRepository: _FakeProjectRepository([
+      Project(
+        id: projectId,
+        contact: '李杰',
+        site: '新村',
+        status: ProjectStatus.settled,
+        settledAt: '2026-05-18T00:00:00.000Z',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-18T00:00:00.000Z',
+        legacyProjectKey: '李杰||新村',
+      ),
+    ]),
+    writeOffRepository: _FakeProjectWriteOffRepository([
+      ProjectWriteOff(
+        id: 'write-off-1',
+        projectId: projectId,
+        amount: 60,
+        reason: ProjectWriteOffReason.settlement.dbValue,
+        writeOffDate: '2026-05-18',
+        createdAt: '2026-05-18T00:00:00.000Z',
+        updatedAt: '2026-05-18T00:00:00.000Z',
+      ),
+    ]),
+  );
+  final timingStore = TimingStore(_FakeTimingRepository());
+  final deviceStore = DeviceStore(_FakeDeviceRepository());
+  final paymentRepository = _FakePaymentRepository(
+    seed: [
+      AccountPayment(
+        id: 1,
+        projectId: projectId,
+        projectKey: '李杰||新村',
+        ymd: 20260518,
+        amount: 940,
+      ),
+    ],
+  );
+  final paymentStore = AccountPaymentStore(paymentRepository);
+  final rateStore = ProjectRateStore(_FakeRateRepository());
+
+  await Future.wait([
+    timingStore.loadAll(),
+    deviceStore.loadAll(),
+    paymentStore.loadAll(),
+    rateStore.loadAll(),
+    accountStore.loadAll(),
+  ]);
+
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        Provider<AccountProjectMergeService>.value(value: mergeService),
+        Provider<AccountPaymentRepository>.value(value: paymentRepository),
+        _accountActionControllerProvider(
+          paymentRepository,
+          mergeService,
+          settlementRepository: settlementRepository,
+        ),
+        ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+        ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+        ChangeNotifierProvider<AccountPaymentStore>.value(value: paymentStore),
+        ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+        ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+        ChangeNotifierProvider<AccountFilterStore>(
+          create: (_) => AccountFilterStore(),
+        ),
+      ],
+      child: _localizedAccountApp(),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return _SettledProjectHarness(paymentRepository: paymentRepository);
+}
+
+class _SettledProjectHarness {
+  const _SettledProjectHarness({required this.paymentRepository});
+
+  final _FakePaymentRepository paymentRepository;
+}
+
 class _FakeTimingRepository implements TimingRepository {
   @override
   Future<List<TimingRecord>> listAll() async {
@@ -988,9 +1137,11 @@ class _FakePaymentRepository implements AccountPaymentRepository {
   }
 
   final records = <AccountPayment>[];
+  int insertCalls = 0;
   int insertAllCalls = 0;
   int replaceBatchCalls = 0;
   int deleteBatchCalls = 0;
+  int deleteByIdCalls = 0;
   int _nextId = 1;
 
   @override
@@ -998,6 +1149,7 @@ class _FakePaymentRepository implements AccountPaymentRepository {
 
   @override
   Future<int> insert(AccountPayment payment) async {
+    insertCalls++;
     final id = payment.id ?? _nextId++;
     records.add(payment.copyWith(id: id));
     return id;
@@ -1050,7 +1202,12 @@ class _FakePaymentRepository implements AccountPaymentRepository {
   Future<int> update(AccountPayment payment) async => 1;
 
   @override
-  Future<int> deleteById(int id) async => 1;
+  Future<int> deleteById(int id) async {
+    deleteByIdCalls++;
+    final before = records.length;
+    records.removeWhere((row) => row.id == id);
+    return before - records.length;
+  }
 }
 
 class _FakeProjectSettlementRepository implements ProjectSettlementRepository {

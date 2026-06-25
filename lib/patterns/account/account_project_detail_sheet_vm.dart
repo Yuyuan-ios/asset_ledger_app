@@ -147,13 +147,10 @@ class AccountProjectDetailSheetVmBuilder {
 
     final normalHoursByDevice = <int, double>{};
     final breakingHoursByDevice = <int, double>{};
+    final targetProjectId = project.effectiveProjectId;
     for (final record in timingRecords) {
       if (record.type != TimingType.hours) continue;
-      final key = ProjectKey.buildKey(
-        contact: record.contact.trim(),
-        site: record.site.trim(),
-      );
-      if (key != project.projectKey) continue;
+      if (record.effectiveProjectId != targetProjectId) continue;
       final target = record.isBreaking
           ? breakingHoursByDevice
           : normalHoursByDevice;
@@ -165,7 +162,7 @@ class AccountProjectDetailSheetVmBuilder {
     final deviceRates = <int, double>{};
     final breakingDeviceRates = <int, double>{};
     for (final rate in allRates) {
-      if (rate.projectKey != project.projectKey) continue;
+      if (rate.effectiveProjectId != targetProjectId) continue;
       if (rate.isBreaking) {
         breakingDeviceRates[rate.deviceId] = rate.effectiveRate;
       } else {
@@ -203,6 +200,7 @@ class AccountProjectDetailSheetVmBuilder {
   }) {
     final key = ProjectKey.fromKey(row.projectKey);
     return AccountProjectVM(
+      projectId: row.projectId,
       projectKey: row.projectKey,
       displayName: ProjectTitleFormatter.project(
         contact: key.contact,
@@ -304,17 +302,29 @@ class AccountProjectDetailSheetVmBuilder {
         if (device.id != null) device.id!: device,
     };
 
-    for (final memberProjectKey in project.memberProjectKeys) {
+    for (
+      var memberIndex = 0;
+      memberIndex < project.memberProjectKeys.length;
+      memberIndex += 1
+    ) {
+      final memberProjectKey = project.memberProjectKeys[memberIndex];
+      final memberProjectId = memberIndex < project.memberProjectIds.length
+          ? project.memberProjectIds[memberIndex].trim()
+          : '';
       final key = ProjectKey.fromKey(memberProjectKey);
       final normalHoursByDevice = <int, double>{};
       final breakingHoursByDevice = <int, double>{};
       for (final record in timingRecords) {
         if (record.type != TimingType.hours) continue;
+        if (memberProjectId.isNotEmpty &&
+            record.effectiveProjectId != memberProjectId) {
+          continue;
+        }
         final recordKey = ProjectKey.buildKey(
           contact: record.contact.trim(),
           site: record.site.trim(),
         );
-        if (recordKey != memberProjectKey) continue;
+        if (memberProjectId.isEmpty && recordKey != memberProjectKey) continue;
         final target = record.isBreaking
             ? breakingHoursByDevice
             : normalHoursByDevice;
@@ -334,16 +344,27 @@ class AccountProjectDetailSheetVmBuilder {
         final normalHours = normalHoursByDevice[deviceId] ?? 0.0;
         final breakingHours = breakingHoursByDevice[deviceId] ?? 0.0;
         final normalRate =
-            _rateFor(memberProjectKey, deviceId, isBreaking: false) ??
+            _rateFor(
+              projectId: memberProjectId,
+              projectKey: memberProjectKey,
+              deviceId: deviceId,
+              isBreaking: false,
+            ) ??
             device.effectiveDefaultUnitPrice;
         final breakingRate =
-            _rateFor(memberProjectKey, deviceId, isBreaking: true) ??
+            _rateFor(
+              projectId: memberProjectId,
+              projectKey: memberProjectKey,
+              deviceId: deviceId,
+              isBreaking: true,
+            ) ??
             device.effectiveBreakingUnitPrice ??
             device.effectiveDefaultUnitPrice;
 
         if (normalHours > 0) {
           rows.add(
             ProjectAccountDetailRateRow(
+              projectId: memberProjectId,
               projectKey: memberProjectKey,
               label: hasShownSite ? '' : key.site.trim(),
               deviceId: deviceId,
@@ -360,6 +381,7 @@ class AccountProjectDetailSheetVmBuilder {
         if (breakingHours > 0) {
           rows.add(
             ProjectAccountDetailRateRow(
+              projectId: memberProjectId,
               projectKey: memberProjectKey,
               label: hasShownSite ? '' : key.site.trim(),
               deviceId: deviceId,
@@ -378,13 +400,17 @@ class AccountProjectDetailSheetVmBuilder {
     return rows;
   }
 
-  double? _rateFor(
-    String projectKey,
-    int deviceId, {
+  double? _rateFor({
+    required String projectId,
+    required String projectKey,
+    required int deviceId,
     required bool isBreaking,
   }) {
     for (final rate in allRates) {
-      if (rate.projectKey == projectKey &&
+      final sameProject = projectId.isNotEmpty
+          ? rate.effectiveProjectId == projectId
+          : rate.projectKey == projectKey;
+      if (sameProject &&
           rate.deviceId == deviceId &&
           rate.isBreaking == isBreaking) {
         return rate.effectiveRate;

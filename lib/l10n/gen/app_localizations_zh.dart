@@ -948,6 +948,18 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get accountSettledPaymentSaveConfirmTitle => '撤销结清并保存收款？';
+
+  @override
+  String get accountSettledPaymentSaveConfirmContent =>
+      '该项目已结清。保存收款前将先撤销结清状态，并撤销结清产生的核销结果。是否继续？';
+
+  @override
+  String accountSettledPaymentDeleteConfirmContent(String date, String amount) {
+    return '该项目已结清。删除这笔收款前将先撤销结清状态，并撤销结清产生的核销结果。\n\n日期：$date\n金额：$amount\n\n是否继续？';
+  }
+
+  @override
   String get accountWriteOffRevoked => '已撤销核销，待收已恢复';
 
   @override
@@ -1030,13 +1042,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get accountBatchRateHelper =>
-      '保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。';
+      '保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新项目单价（仅影响本项目）。';
 
   @override
   String get accountSingleRateLabel => '单价';
 
   @override
-  String get accountSingleRateHelper => '提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。';
+  String get accountSingleRateHelper => '提示：该单价会保存为本项目的项目单价，仅影响本项目。';
 
   @override
   String accountBatchRateTitle(String project) {

@@ -7,6 +7,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/project_repository.dart';
 import 'package:asset_ledger/data/services/project_resolver.dart';
@@ -62,6 +63,7 @@ void main() {
           updatedAt: '2026-06-01T00:00:00.000Z',
         ).toMap(),
       );
+      await _seedAlphaProjectRate(db, deviceId);
       final actorContext = ActorContext(
         actorType: OperationActorType.owner,
         actorId: 'owner-r5-token',
@@ -151,6 +153,7 @@ void main() {
           updatedAt: '2026-06-01T00:00:00.000Z',
         ).toMap(),
       );
+      await _seedAlphaProjectRate(db, deviceId);
       final providers = TimingSaveProviders.build(
         projectResolver: ProjectResolver(
           projectRepository: SqfliteProjectRepository(),
@@ -218,6 +221,7 @@ void main() {
           updatedAt: '2026-06-01T00:00:00.000Z',
         ).toMap(),
       );
+      await _seedAlphaProjectRate(db, deviceId);
       final existing = TimingRecord(
         deviceId: deviceId,
         startDate: 20260601,
@@ -266,5 +270,17 @@ void main() {
       expect(recordPayload.containsKey('allocation_cutoff_date'), isTrue);
       expect(recordPayload['allocation_cutoff_date'], isNull);
     },
+  );
+}
+
+Future<void> _seedAlphaProjectRate(Database db, int deviceId) async {
+  await db.insert(
+    'project_device_rates',
+    ProjectDeviceRate(
+      projectId: 'project:alpha',
+      projectKey: '甲方||alpha',
+      deviceId: deviceId,
+      rate: 100,
+    ).toMap(),
   );
 }

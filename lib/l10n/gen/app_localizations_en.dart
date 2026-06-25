@@ -1046,6 +1046,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get accountSettledPaymentSaveConfirmTitle =>
+      'Reopen settlement and save payment?';
+
+  @override
+  String get accountSettledPaymentSaveConfirmContent =>
+      'This project is settled. Saving this payment will first reopen the settlement and revoke the settlement write-off. Continue?';
+
+  @override
+  String accountSettledPaymentDeleteConfirmContent(String date, String amount) {
+    return 'This project is settled. Deleting this payment will first reopen the settlement and revoke the settlement write-off.\n\nDate: $date\nAmount: $amount\n\nContinue?';
+  }
+
+  @override
   String get accountWriteOffRevoked =>
       'Write-off revoked. Pending amount restored';
 
@@ -1141,14 +1154,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountBatchRateHelper =>
-      'After saving, all devices in this project will update bucket/breaker rates separately. If a rate matches the device default, the override record is cleared.';
+      'After saving, all devices in this project will update bucket/breaker project rates. Only this project is affected.';
 
   @override
   String get accountSingleRateLabel => 'Rate';
 
   @override
   String get accountSingleRateHelper =>
-      'Tip: changing back to the device default rate clears the override record.';
+      'Tip: this rate is saved as this project\'s project rate. Only this project is affected.';
 
   @override
   String accountBatchRateTitle(String project) {

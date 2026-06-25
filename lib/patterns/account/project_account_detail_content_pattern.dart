@@ -29,6 +29,7 @@ const _projectActionPillText = Color(0xFF7A5A3A);
 const _moneyEpsilon = 0.000001;
 
 class ProjectAccountDetailRateRow {
+  final String projectId;
   final String projectKey;
   final String label;
   final int deviceId;
@@ -39,6 +40,7 @@ class ProjectAccountDetailRateRow {
   final bool isBreaking;
 
   const ProjectAccountDetailRateRow({
+    this.projectId = '',
     required this.projectKey,
     required this.label,
     required this.deviceId,
@@ -92,6 +94,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
   final bool showPaymentActions;
   final bool showRawPaymentActions;
   final bool showAddPayment;
+  final bool canEditRates;
 
   /// 回调
   final VoidCallback onBatchEditRate;
@@ -144,6 +147,7 @@ class ProjectAccountDetailContent extends StatelessWidget {
     this.showPaymentActions = true,
     this.showRawPaymentActions = true,
     this.showAddPayment = true,
+    this.canEditRates = true,
     this.onEditRateRow,
     this.onDeleteWriteOff,
     this.onRevokeWriteOff,

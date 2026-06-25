@@ -1,6 +1,9 @@
 import '../../../data/models/project_device_rate.dart';
 import '../../../data/models/project_id.dart';
+import '../../../data/models/device.dart';
+import '../../../data/models/timing_record.dart';
 import '../../../data/repositories/project_rate_repository.dart';
+import '../../../data/services/project_rate_snapshot_planner.dart';
 import '../../../core/utils/base_store.dart';
 import '../use_cases/project_device_rate_write_use_case.dart';
 
@@ -19,9 +22,16 @@ class ProjectRateStore extends BaseStore {
   /// 项目设备单价配置列表（私有变量）
   /// 下划线标记为私有，防止外部直接修改，保证数据的不可变特性
   List<ProjectDeviceRate> _rates = const [];
+  bool _loaded = false;
 
   Future<void> _reload() async {
     _rates = await _repository.listAll();
+    _loaded = true;
+  }
+
+  Future<void> _ensureLoaded() async {
+    if (_loaded) return;
+    await _reload();
   }
 
   /// 对外暴露的只读单价配置列表
@@ -35,6 +45,23 @@ class ProjectRateStore extends BaseStore {
     await run(() async {
       await _reload();
     });
+  }
+
+  /// Materializes missing project-level unit-price snapshots for existing
+  /// timing records. Existing project rates are never overwritten.
+  Future<void> ensureSnapshotsForTimingRecords({
+    required List<TimingRecord> timingRecords,
+    required List<Device> devices,
+  }) async {
+    await _ensureLoaded();
+    final snapshots = ProjectRateSnapshotPlanner.missingSnapshots(
+      timingRecords: timingRecords,
+      devices: devices,
+      rates: _rates,
+    );
+    for (final snapshot in snapshots) {
+      await upsert(snapshot);
+    }
   }
 
   /// 新增/更新项目设备单价配置（Upsert 逻辑）

@@ -6,6 +6,7 @@ import 'package:asset_ledger/data/db/database.dart';
 import 'package:asset_ledger/data/db/db_schema.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/project.dart';
+import 'package:asset_ledger/data/models/project_device_rate.dart';
 import 'package:asset_ledger/data/models/timing_record.dart';
 import 'package:asset_ledger/data/repositories/account_payment_repository.dart';
 import 'package:asset_ledger/data/repositories/account_project_merge_repository.dart';
@@ -125,12 +126,30 @@ void main() {
     );
   }
 
+  Future<void> seedProjectRate(
+    Database db, {
+    required String projectId,
+    required int deviceId,
+  }) async {
+    final site = projectId.split(':').last;
+    await db.insert(
+      'project_device_rates',
+      ProjectDeviceRate(
+        projectId: projectId,
+        projectKey: '甲方||$site',
+        deviceId: deviceId,
+        rate: 100,
+      ).toMap(),
+    );
+  }
+
   test(
     'SaveTimingRecord inline payload + meta both carry the threaded owner id',
     () async {
       final db = await AppDatabase.database;
       final deviceId = await seedDevice(db);
       await seedProject(db, 'project:alpha');
+      await seedProjectRate(db, projectId: 'project:alpha', deviceId: deviceId);
 
       final useCase = buildSaveUseCase(actorProvider: () => fixedOwner());
 
@@ -182,6 +201,7 @@ void main() {
       final db = await AppDatabase.database;
       final deviceId = await seedDevice(db);
       await seedProject(db, 'project:alpha');
+      await seedProjectRate(db, projectId: 'project:alpha', deviceId: deviceId);
 
       final useCase = buildSaveUseCase();
 

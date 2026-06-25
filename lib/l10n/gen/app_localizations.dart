@@ -1802,6 +1802,24 @@ abstract class AppLocalizations {
   /// **'日期：{date}\n金额：{amount}'**
   String accountPaymentDeleteConfirmContent(String date, String amount);
 
+  /// 账户模块:已结清项目保存收款前撤销结清确认标题
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销结清并保存收款？'**
+  String get accountSettledPaymentSaveConfirmTitle;
+
+  /// 账户模块:已结清项目保存收款前撤销结清确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目已结清。保存收款前将先撤销结清状态，并撤销结清产生的核销结果。是否继续？'**
+  String get accountSettledPaymentSaveConfirmContent;
+
+  /// 账户模块:已结清项目删除收款前撤销结清确认正文
+  ///
+  /// In zh, this message translates to:
+  /// **'该项目已结清。删除这笔收款前将先撤销结清状态，并撤销结清产生的核销结果。\n\n日期：{date}\n金额：{amount}\n\n是否继续？'**
+  String accountSettledPaymentDeleteConfirmContent(String date, String amount);
+
   /// 账户模块:撤销核销成功 toast
   ///
   /// In zh, this message translates to:
@@ -1955,7 +1973,7 @@ abstract class AppLocalizations {
   /// 账户模块:批量改单价弹窗说明
   ///
   /// In zh, this message translates to:
-  /// **'保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新单价（仅影响本项目）。\n若等于设备默认对应模式单价，将自动清理覆盖记录（减少冗余）。'**
+  /// **'保存后：该项目下所有设备会分别按“挖斗/破碎”模式更新项目单价（仅影响本项目）。'**
   String get accountBatchRateHelper;
 
   /// 账户模块:单台改单价输入框标签
@@ -1967,7 +1985,7 @@ abstract class AppLocalizations {
   /// 账户模块:单台改单价弹窗说明
   ///
   /// In zh, this message translates to:
-  /// **'提示：若把单价改回设备默认单价，将自动清理覆盖记录（减少冗余）。'**
+  /// **'提示：该单价会保存为本项目的项目单价，仅影响本项目。'**
   String get accountSingleRateHelper;
 
   /// 账户模块:批量改单价弹窗标题

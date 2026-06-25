@@ -22,5 +22,9 @@ class AppBootstrap {
       projectRateStore.loadAll(),
       accountStore.loadAll(),
     ]);
+    await projectRateStore.ensureSnapshotsForTimingRecords(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+    );
   }
 }

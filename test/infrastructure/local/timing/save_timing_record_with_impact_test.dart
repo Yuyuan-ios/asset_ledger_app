@@ -142,13 +142,17 @@ void main() {
 
       final savedId = result.savedRecord.id.toString();
       final outboxRows = await db.query('sync_outbox');
-      expect(outboxRows, hasLength(1));
-      expect(outboxRows.single['entity_type'], 'timing_record');
-      expect(outboxRows.single['entity_id'], savedId);
-      expect(outboxRows.single['operation'], 'create');
-      expect(outboxRows.single['status'], SyncOutboxStatus.pending.name);
+      expect(outboxRows, hasLength(2));
+      expect(
+        _singleOutboxRow(outboxRows, 'project_device_rate')['operation'],
+        'update',
+      );
+      final timingOutbox = _singleOutboxRow(outboxRows, 'timing_record');
+      expect(timingOutbox['entity_id'], savedId);
+      expect(timingOutbox['operation'], 'create');
+      expect(timingOutbox['status'], SyncOutboxStatus.pending.name);
       final payload =
-          jsonDecode(outboxRows.single['payload_json'] as String)
+          jsonDecode(timingOutbox['payload_json'] as String)
               as Map<String, Object?>;
       expect(payload['entity_type'], 'timing_record');
       expect(payload['entity_id'], savedId);
@@ -159,15 +163,12 @@ void main() {
       );
 
       final metaRows = await db.query('entity_sync_meta');
-      expect(metaRows, hasLength(1));
-      expect(metaRows.single['entity_type'], 'timing_record');
-      expect(metaRows.single['local_id'], savedId);
-      expect(metaRows.single['sync_status'], SyncStatus.pendingUpload.name);
-      expect(metaRows.single['source'], 'owner_app');
-      expect(
-        metaRows.single['payload_hash'],
-        outboxRows.single['payload_hash'],
-      );
+      expect(metaRows, hasLength(2));
+      final timingMeta = _singleMetaRow(metaRows, 'timing_record');
+      expect(timingMeta['local_id'], savedId);
+      expect(timingMeta['sync_status'], SyncStatus.pendingUpload.name);
+      expect(timingMeta['source'], 'owner_app');
+      expect(timingMeta['payload_hash'], timingOutbox['payload_hash']);
     });
 
     test('新建工时记录落库和同步 payload 必带 unit 与 quantity_scaled', () async {
@@ -197,9 +198,10 @@ void main() {
       expect(rows.single['quantity_scaled'], 7500);
 
       final outboxRows = await db.query('sync_outbox');
-      expect(outboxRows, hasLength(1));
+      expect(outboxRows, hasLength(2));
+      final timingOutbox = _singleOutboxRow(outboxRows, 'timing_record');
       final payload =
-          jsonDecode(outboxRows.single['payload_json'] as String)
+          jsonDecode(timingOutbox['payload_json'] as String)
               as Map<String, Object?>;
       final payloadRecord = payload['record'] as Map<String, Object?>;
       expect(payloadRecord['id'], result.savedRecord.id);
@@ -497,26 +499,27 @@ void main() {
 
       final savedId = result.savedRecord.id.toString();
       final outboxRows = await db.query('sync_outbox');
-      expect(outboxRows, hasLength(1));
-      expect(outboxRows.single['entity_type'], 'timing_record');
-      expect(outboxRows.single['entity_id'], savedId);
-      expect(outboxRows.single['operation'], 'update');
-      expect(outboxRows.single['status'], SyncOutboxStatus.pending.name);
+      expect(outboxRows, hasLength(2));
+      expect(
+        _singleOutboxRow(outboxRows, 'project_device_rate')['operation'],
+        'update',
+      );
+      final timingOutbox = _singleOutboxRow(outboxRows, 'timing_record');
+      expect(timingOutbox['entity_id'], savedId);
+      expect(timingOutbox['operation'], 'update');
+      expect(timingOutbox['status'], SyncOutboxStatus.pending.name);
       final payload =
-          jsonDecode(outboxRows.single['payload_json'] as String)
+          jsonDecode(timingOutbox['payload_json'] as String)
               as Map<String, Object?>;
       expect(payload['operation'], 'update');
       expect((payload['record'] as Map<String, Object?>)['income_fen'], 20000);
 
       final metaRows = await db.query('entity_sync_meta');
-      expect(metaRows, hasLength(1));
-      expect(metaRows.single['entity_type'], 'timing_record');
-      expect(metaRows.single['local_id'], savedId);
-      expect(metaRows.single['sync_status'], SyncStatus.pendingUpdate.name);
-      expect(
-        metaRows.single['payload_hash'],
-        outboxRows.single['payload_hash'],
-      );
+      expect(metaRows, hasLength(2));
+      final timingMeta = _singleMetaRow(metaRows, 'timing_record');
+      expect(timingMeta['local_id'], savedId);
+      expect(timingMeta['sync_status'], SyncStatus.pendingUpdate.name);
+      expect(timingMeta['payload_hash'], timingOutbox['payload_hash']);
     });
 
     test('只清空 allocation cutoff 不触发业务影响并写 update outbox', () async {
@@ -543,6 +546,13 @@ void main() {
         hours: 1,
         income: 100,
         allocationCutoffDate: 20260610,
+      );
+      await _seedRate(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+        projectKey: '甲方||alpha',
+        rate: 100,
       );
 
       final result = await useCase.execute(
@@ -590,6 +600,13 @@ void main() {
         final db = await AppDatabase.database;
         final deviceId = await _seedDevice(db);
         await _seedProject(db, projectId: 'project:alpha');
+        await _seedRate(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          projectKey: '甲方||alpha',
+          rate: 100,
+        );
 
         final result = await useCase.execute(
           editing: null,
@@ -684,6 +701,13 @@ void main() {
         hours: 1,
         income: 100,
       );
+      await _seedRate(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+        projectKey: '甲方||alpha',
+        rate: 100,
+      );
 
       final result = await useCase.execute(
         editing: existing,
@@ -713,6 +737,13 @@ void main() {
           startDate: 20260601,
           hours: 1,
           income: 100,
+        );
+        await _seedRate(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          projectKey: '甲方||alpha',
+          rate: 100,
         );
         await _seedTimingRecord(
           db,
@@ -769,6 +800,13 @@ void main() {
         startDate: 20260610,
         hours: 1,
         income: 100,
+      );
+      await _seedRate(
+        db,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+        projectKey: '甲方||alpha',
+        rate: 100,
       );
 
       final result = await useCase.execute(
@@ -867,6 +905,13 @@ void main() {
           startDate: 20260610,
           hours: 1,
           income: 100,
+        );
+        await _seedRate(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          projectKey: '甲方||alpha',
+          rate: 100,
         );
 
         final result = await useCase.execute(
@@ -1008,6 +1053,13 @@ void main() {
           startDate: 20260610,
           hours: 1,
           income: 100,
+        );
+        await _seedRate(
+          db,
+          deviceId: deviceId,
+          projectId: 'project:alpha',
+          projectKey: '甲方||alpha',
+          rate: 100,
         );
 
         final result = await useCase.execute(
@@ -2621,6 +2673,28 @@ Future<void> _seedRate(
       rate: rate,
     ).toMap(),
   );
+}
+
+Map<String, Object?> _singleOutboxRow(
+  List<Map<String, Object?>> rows,
+  String entityType,
+) {
+  final matches = rows
+      .where((row) => row['entity_type'] == entityType)
+      .toList(growable: false);
+  expect(matches, hasLength(1));
+  return matches.single;
+}
+
+Map<String, Object?> _singleMetaRow(
+  List<Map<String, Object?>> rows,
+  String entityType,
+) {
+  final matches = rows
+      .where((row) => row['entity_type'] == entityType)
+      .toList(growable: false);
+  expect(matches, hasLength(1));
+  return matches.single;
 }
 
 Future<void> _seedActiveMergeGroup(

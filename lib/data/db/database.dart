@@ -153,10 +153,12 @@ class AppDatabase {
   // - v52：devices 新增 lifecycle_initial_cost_fen /
   //        lifecycle_estimated_residual_fen（nullable）；设备生命周期回本
   //        卡片金额本地持久化，additive，旧库 onOpen 补列。
+  // - v53：按既有 hours 计时记录补齐缺失的 project_device_rates 项目级
+  //        单价快照，保留已有项目价，不覆盖用户设置。
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 52;
+  static const int _dbVersion = 53;
 
   static int get schemaVersion => _dbVersion;
 

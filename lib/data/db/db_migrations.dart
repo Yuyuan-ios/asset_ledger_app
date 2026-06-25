@@ -45,6 +45,7 @@ part 'migrations/migration_049.dart';
 part 'migrations/migration_050.dart';
 part 'migrations/migration_051.dart';
 part 'migrations/migration_052.dart';
+part 'migrations/migration_053.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -203,6 +204,10 @@ class DbMigrations {
 
   static Future<void> ensureDeviceLifecyclePaybackAmountColumns(Database db) {
     return Migration052.ensureDeviceLifecyclePaybackAmountColumns(db);
+  }
+
+  static Future<void> ensureProjectRateSnapshots(Database db) {
+    return Migration053.ensureProjectRateSnapshots(db);
   }
 
   static Future<void> ensureOperationTokensSchema(Database db) {

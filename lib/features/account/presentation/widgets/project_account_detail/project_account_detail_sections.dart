@@ -141,31 +141,39 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     required TextStyle? rowMetricStyle,
     required TextStyle actionStyle,
   }) {
+    final editEnabled = row.showEdit && canEditRates;
+    final resolvedActionStyle = canEditRates
+        ? actionStyle
+        : actionStyle.copyWith(color: SheetColors.muted);
     final editButton = row.showEdit
         ? SizedBox(
             width: 48,
             height: 36,
             child: TextButton(
-              onPressed: () {
-                final editRow = onEditRateRow;
-                if (editRow != null) {
-                  editRow(row);
-                  return;
-                }
-                onEditDeviceRate(row.deviceId, row.isBreaking);
-              },
+              onPressed: editEnabled
+                  ? () {
+                      final editRow = onEditRateRow;
+                      if (editRow != null) {
+                        editRow(row);
+                        return;
+                      }
+                      onEditDeviceRate(row.deviceId, row.isBreaking);
+                    }
+                  : null,
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(48, 36),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: AccountTokens.projectDetailActionColor,
+                foregroundColor: editEnabled
+                    ? AccountTokens.projectDetailActionColor
+                    : SheetColors.muted,
               ),
               child: Text(
                 l10n.accountEditAction,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: actionStyle,
+                style: resolvedActionStyle,
               ),
             ),
           )
@@ -358,14 +366,15 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         ? l10n.accountBatchEditAction
         : batchActionText;
     if (batchActionText.isEmpty) {
+      final enabled = canEditRates;
       final batchPillStyle = actionStyle.copyWith(
-        color: AppColors.brandOutlineAction,
+        color: enabled ? AppColors.brandOutlineAction : SheetColors.muted,
         fontSize: 14,
         fontWeight: FontWeight.w600,
       );
 
       return OutlinedButton(
-        onPressed: onBatchEditRate,
+        onPressed: enabled ? onBatchEditRate : null,
         style: appBrandOutlineActionButtonStyle(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           minimumSize: Size.zero,

@@ -101,97 +101,115 @@ void main() {
   );
 
   group('create (production timing-save path)', () {
-    test('creating a new project while saving timing enqueues a project create '
-        'outbox as the FK prerequisite (seq1), then the timing row (seq2), '
-        'sharing one transaction group; meta is pendingUpload; actor + '
-        'updated_by mirror; record is a clean snapshot', () async {
-      final db = await AppDatabase.database;
-      final deviceId = await _seedDevice(db);
+    test(
+      'creating a new project while saving timing enqueues project create, '
+      'rate snapshot, then timing in one transaction group; meta is '
+      'pendingUpload; actor + updated_by mirror; record is a clean snapshot',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
 
-      final result = await useCase.execute(
-        editing: null,
-        record: newProjectTiming().copyWith(deviceId: deviceId),
-      );
-      final projectId = result.savedRecord.effectiveProjectId;
-      expect(projectId, isNotEmpty);
+        final result = await useCase.execute(
+          editing: null,
+          record: newProjectTiming().copyWith(deviceId: deviceId),
+        );
+        final projectId = result.savedRecord.effectiveProjectId;
+        expect(projectId, isNotEmpty);
 
-      final rows = await db.query('sync_outbox', orderBy: 'local_sequence ASC');
-      expect(rows, hasLength(2));
+        final rows = await db.query(
+          'sync_outbox',
+          orderBy: 'local_sequence ASC',
+        );
+        expect(rows, hasLength(3));
 
-      // Shared, dense group: project create (1) → timing create (2).
-      final groupIds = rows.map((r) => r['transaction_group_id']).toSet();
-      expect(groupIds, hasLength(1));
-      expect(groupIds.single as String?, startsWith('txn-'));
-      expect(rows.map((r) => r['local_sequence']).toList(), <int>[1, 2]);
+        // Shared, dense group: project create → rate snapshot → timing create.
+        final groupIds = rows.map((r) => r['transaction_group_id']).toSet();
+        expect(groupIds, hasLength(1));
+        expect(groupIds.single as String?, startsWith('txn-'));
+        expect(rows.map((r) => r['local_sequence']).toList(), <int>[1, 2, 3]);
 
-      expect(rows[0]['entity_type'], ProjectSyncEnqueuer.entityType);
-      expect(rows[0]['operation'], 'create');
-      expect(rows[1]['entity_type'], 'timing_record');
-      expect(rows[1]['operation'], 'create');
+        expect(rows[0]['entity_type'], ProjectSyncEnqueuer.entityType);
+        expect(rows[0]['operation'], 'create');
+        expect(rows[1]['entity_type'], 'project_device_rate');
+        expect(rows[1]['operation'], 'update');
+        expect(rows[2]['entity_type'], 'timing_record');
+        expect(rows[2]['operation'], 'create');
 
-      // Project create payload: schema v1 + actor + clean record.
-      final payload = (jsonDecode(rows[0]['payload_json'] as String) as Map)
-          .cast<String, Object?>();
-      expect(payload['payload_schema_version'], 1);
-      expect(payload['entity_type'], 'project');
-      expect(payload['entity_id'], projectId);
-      expect(payload['operation'], 'create');
-      final actor = payload['actor'] as Map<String, Object?>;
-      expect(actor['type'], 'owner');
-      expect(actor['id'], 'owner-prj-1');
-      expect(actor.containsKey('session_id'), isTrue);
-      expect(actor['session_id'], isNull);
-      final record = payload['record'] as Map<String, Object?>;
-      expect(record.containsKey('actor'), isFalse);
-      expect(record.containsKey('payload_schema_version'), isFalse);
-      expect(record['id'], projectId);
-      expect(record['contact'], '新甲方');
-      expect(record['status'], ProjectStatus.active.name);
+        // Project create payload: schema v1 + actor + clean record.
+        final payload = (jsonDecode(rows[0]['payload_json'] as String) as Map)
+            .cast<String, Object?>();
+        expect(payload['payload_schema_version'], 1);
+        expect(payload['entity_type'], 'project');
+        expect(payload['entity_id'], projectId);
+        expect(payload['operation'], 'create');
+        final actor = payload['actor'] as Map<String, Object?>;
+        expect(actor['type'], 'owner');
+        expect(actor['id'], 'owner-prj-1');
+        expect(actor.containsKey('session_id'), isTrue);
+        expect(actor['session_id'], isNull);
+        final record = payload['record'] as Map<String, Object?>;
+        expect(record.containsKey('actor'), isFalse);
+        expect(record.containsKey('payload_schema_version'), isFalse);
+        expect(record['id'], projectId);
+        expect(record['contact'], '新甲方');
+        expect(record['status'], ProjectStatus.active.name);
 
-      // entity_sync_meta: project pendingUpload, updated_by == actor.id.
-      final meta = await db.query(
-        'entity_sync_meta',
-        where: 'entity_type = ? AND local_id = ?',
-        whereArgs: ['project', projectId],
-      );
-      expect(meta, hasLength(1));
-      expect(meta.single['sync_status'], 'pendingUpload');
-      expect(meta.single['updated_by'], 'owner-prj-1');
-    });
+        // entity_sync_meta: project pendingUpload, updated_by == actor.id.
+        final meta = await db.query(
+          'entity_sync_meta',
+          where: 'entity_type = ? AND local_id = ?',
+          whereArgs: ['project', projectId],
+        );
+        expect(meta, hasLength(1));
+        expect(meta.single['sync_status'], 'pendingUpload');
+        expect(meta.single['updated_by'], 'owner-prj-1');
+      },
+    );
 
-    test('reusing an existing active project (no create) keeps the legacy '
-        'single ungrouped timing outbox — no project create row', () async {
-      final db = await AppDatabase.database;
-      final deviceId = await _seedDevice(db);
-      await _seedProject(
-        db,
-        projectId: 'project:existing',
-        contact: '老甲方',
-        site: '老工地',
-      );
-
-      await useCase.execute(
-        editing: null,
-        record: newProjectTiming(
+    test(
+      'reusing an existing active project (no create) materializes the '
+      'missing rate snapshot before timing — no project create row',
+      () async {
+        final db = await AppDatabase.database;
+        final deviceId = await _seedDevice(db);
+        await _seedProject(
+          db,
+          projectId: 'project:existing',
           contact: '老甲方',
           site: '老工地',
-        ).copyWith(deviceId: deviceId),
-      );
+        );
 
-      final rows = await db.query('sync_outbox');
-      expect(rows, hasLength(1));
-      expect(rows.single['entity_type'], 'timing_record');
-      expect(rows.single['transaction_group_id'], isNull);
-      expect(rows.single['local_sequence'], isNull);
+        await useCase.execute(
+          editing: null,
+          record: newProjectTiming(
+            contact: '老甲方',
+            site: '老工地',
+          ).copyWith(deviceId: deviceId),
+        );
 
-      // No project outbox / meta produced when the project already exists.
-      final projectOutbox = await db.query(
-        'sync_outbox',
-        where: 'entity_type = ?',
-        whereArgs: ['project'],
-      );
-      expect(projectOutbox, isEmpty);
-    });
+        final rows = await db.query(
+          'sync_outbox',
+          orderBy: 'local_sequence ASC',
+        );
+        expect(rows, hasLength(2));
+        final groupIds = rows.map((r) => r['transaction_group_id']).toSet();
+        expect(groupIds, hasLength(1));
+        expect(groupIds.single as String?, startsWith('txn-'));
+        expect(rows.map((r) => r['local_sequence']).toList(), <int>[1, 2]);
+        expect(rows[0]['entity_type'], 'project_device_rate');
+        expect(rows[0]['operation'], 'update');
+        expect(rows[1]['entity_type'], 'timing_record');
+        expect(rows[1]['operation'], 'create');
+
+        // No project outbox / meta produced when the project already exists.
+        final projectOutbox = await db.query(
+          'sync_outbox',
+          where: 'entity_type = ?',
+          whereArgs: ['project'],
+        );
+        expect(projectOutbox, isEmpty);
+      },
+    );
 
     test('sessionId on the threaded actor propagates into the project create '
         'payload', () async {
@@ -346,22 +364,24 @@ void main() {
       expect(newProject['status'], ProjectStatus.active.name);
 
       final rows = await db.query('sync_outbox', orderBy: 'local_sequence ASC');
-      expect(rows, hasLength(3));
+      expect(rows, hasLength(4));
       final groupId = rows.first['transaction_group_id'];
       expect(groupId, isA<String>());
       expect(groupId as String, startsWith('txn-'));
       expect(rows.map((r) => r['transaction_group_id']).toSet(), {groupId});
-      expect(rows.map((r) => r['local_sequence']).toList(), <int>[1, 2, 3]);
+      expect(rows.map((r) => r['local_sequence']).toList(), <int>[1, 2, 3, 4]);
 
       expect(rows[0]['entity_type'], ProjectSyncEnqueuer.entityType);
       expect(rows[0]['entity_id'], newProjectId);
       expect(rows[0]['operation'], 'create');
-      expect(rows[1]['entity_type'], 'timing_record');
-      expect(rows[1]['entity_id'], result.savedRecord.id.toString());
+      expect(rows[1]['entity_type'], 'project_device_rate');
       expect(rows[1]['operation'], 'update');
-      expect(rows[2]['entity_type'], ProjectSyncEnqueuer.entityType);
-      expect(rows[2]['entity_id'], 'project:old');
+      expect(rows[2]['entity_type'], 'timing_record');
+      expect(rows[2]['entity_id'], result.savedRecord.id.toString());
       expect(rows[2]['operation'], 'update');
+      expect(rows[3]['entity_type'], ProjectSyncEnqueuer.entityType);
+      expect(rows[3]['entity_id'], 'project:old');
+      expect(rows[3]['operation'], 'update');
 
       for (final row in rows) {
         final payload = (jsonDecode(row['payload_json'] as String) as Map)
@@ -387,7 +407,7 @@ void main() {
       expect(createdRecord['contact'], '新甲方');
 
       final restoredPayload =
-          (jsonDecode(rows[2]['payload_json'] as String) as Map)
+          (jsonDecode(rows[3]['payload_json'] as String) as Map)
               .cast<String, Object?>();
       final restoredRecord = restoredPayload['record'] as Map<String, Object?>;
       expect(restoredRecord['id'], 'project:old');
@@ -398,11 +418,16 @@ void main() {
         'entity_sync_meta',
         orderBy: 'entity_type ASC, local_id ASC',
       );
-      expect(metaRows, hasLength(3));
+      expect(metaRows, hasLength(4));
       final newProjectMeta = metaRows.singleWhere(
         (row) =>
             row['entity_type'] == ProjectSyncEnqueuer.entityType &&
             row['local_id'] == newProjectId,
+      );
+      final rateMeta = metaRows.singleWhere(
+        (row) =>
+            row['entity_type'] == 'project_device_rate' &&
+            row['local_id'] == '$newProjectId:2:0',
       );
       final timingMeta = metaRows.singleWhere(
         (row) =>
@@ -415,6 +440,7 @@ void main() {
             row['local_id'] == 'project:old',
       );
       expect(newProjectMeta['sync_status'], 'pendingUpload');
+      expect(rateMeta['sync_status'], 'pendingUpdate');
       expect(timingMeta['sync_status'], 'pendingUpdate');
       expect(oldProjectMeta['sync_status'], 'pendingUpdate');
       expect(metaRows.map((row) => row['updated_by']).toSet(), {
