@@ -82,7 +82,9 @@
 
 ## timing save-operation 领域层文案分离（S4b）
 
-- 状态：⏳ 待处理（2026-06-24 深度 scoping 完成，待专项实施）
+- 状态：✅ 用户可见路径已收口（store_feedback i18n 全部完成，见下「第一/二片」）；
+  ⏸ 仅 operation 管线 88 串延后——当前 UI **不渲染**、无审计历史 UI，非用户可见，
+  待该框架真正接 UI（token-aware confirm / 审计历史）时再 i18n，不属当前活跃债。
 - 来源：Phase 2 i18n 人工诊断
 - 影响范围：`lib/features/timing/operations/**`（~88 中文串，含 command 20 / analyzer 21 /
   redactor 11 / use_case 10 / disambiguation 6）
