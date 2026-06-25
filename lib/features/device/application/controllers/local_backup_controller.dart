@@ -3,6 +3,9 @@ import 'dart:ui';
 import '../../domain/entities/local_backup_entities.dart';
 import '../../domain/repositories/local_backup_repository.dart';
 
+/// 恢复被阻断的原因 code；用户可见文案由 view 层映射 AppLocalizations。
+enum RestoreBlockReason { incompleteFormat, olderUnsupported, newerVersion }
+
 class LocalBackupController {
   const LocalBackupController(this._repository);
 
@@ -44,14 +47,14 @@ class LocalBackupController {
     return _repository.restoreFromDecodedJson(backupJson);
   }
 
-  String? restoreBlockReason(BackupPreview preview) {
+  RestoreBlockReason? restoreBlockReason(BackupPreview preview) {
     final schemaVersion = preview.schemaVersion;
-    if (schemaVersion == null) return '备份文件格式不完整，暂不能恢复。';
+    if (schemaVersion == null) return RestoreBlockReason.incompleteFormat;
     if (schemaVersion < _repository.currentSchemaVersion) {
-      return '当前版本暂不支持恢复旧版备份，请使用相同版本导出的备份。';
+      return RestoreBlockReason.olderUnsupported;
     }
     if (schemaVersion > _repository.currentSchemaVersion) {
-      return '备份文件版本较新，请升级 App 后再试。';
+      return RestoreBlockReason.newerVersion;
     }
     return null;
   }

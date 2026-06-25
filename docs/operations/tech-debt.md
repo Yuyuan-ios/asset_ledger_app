@@ -143,8 +143,16 @@
     （lifecycle_payback_card / device_business_ledger_section / device_page / device_page_sections /
     lifecycle_amount_sheet）消费。改法：calculator 返回 **status code + 原始 paybackRate/profitFen**，
     各 view 用 ICU placeholder（百分比/金额）本地化。result 类型变更 ripple 到 5 view。
-- **风险/建议**：B 是 device-facing 的 ICU 金额重构、跨 ~7 文件，须逐 view + golden/characterization
-  护航，建议**独立专项 session** 执行，勿在长会话尾巴大爆改。A 可作为先行小片。
+- **✅ S5b-A 部分完成（2026-06-24，3/4）**：`device_action_controller`（openRateApp→`bool`、
+  openSupportEntry→新 `SupportEntryOutcome` enum，避免 view 直依赖 data 层 `SupportFeedbackOpenResult`，
+  view 层 device_page_actions 映射 l10n）、`local_backup_controller.restoreBlockReason`→`RestoreBlockReason`
+  enum（device_backup_dialogs 映射）、`device_avatar_policy` 抛 typed `CustomAvatarNotAllowedException`
+  （device_editor_dialog catch→l10n）。ARB(zh+en) + check_full 绿。**剩 `cloud_backup_controller`**：
+  其中文经 result 对象 `errorMessage`（已带 `errorCode` 如 `cloud_backup_requires_pro`/`cloud_backup_not_configured`）
+  流到多个展示点 + `unavailableMessage` 2 处直读，且 message 可能 server 来源——需把 errorCode→l10n 映射
+  铺到各 cloud-backup result 展示点，属独立子 trace，未做。
+- **风险/建议**：B（lifecycle ICU 金额，跨 5 view）+ cloud_backup（result errorMessage 流）建议**独立专项**做，
+  勿在长会话尾巴大爆改。
 - 负责人：待确认（建议专项 session）
 
 ## 后端生产化非对称（sync 限流 ✓ / backup 结构化日志 仍稀疏）

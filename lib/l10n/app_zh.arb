@@ -3198,6 +3198,20 @@
       }
     }
   },
+  "deviceRateEntryOpened": "已打开评分入口",
+  "deviceRateEntryUnavailable": "评分入口暂不可用",
+  "deviceSupportSiteOpened": "已打开技术支持网页",
+  "deviceSupportEmailFallback": "暂时无法打开支持页，已切换到邮件联系",
+  "deviceSupportUnavailable": "暂时无法打开支持页，请稍后重试或发送邮件到 {email}",
+  "@deviceSupportUnavailable": {
+    "placeholders": {
+      "email": { "type": "String" }
+    }
+  },
+  "deviceRestoreBlockIncompleteFormat": "备份文件格式不完整，暂不能恢复。",
+  "deviceRestoreBlockOlderUnsupported": "当前版本暂不支持恢复旧版备份，请使用相同版本导出的备份。",
+  "deviceRestoreBlockNewerVersion": "备份文件版本较新，请升级 App 后再试。",
+  "deviceCustomAvatarNotAllowed": "当前方案不支持自定义头像",
   "storeActionSaveSuccess": "已保存",
   "storeActionDeleteSuccess": "已删除",
   "storeActionUpdateSuccess": "已更新",

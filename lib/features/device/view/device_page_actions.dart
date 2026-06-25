@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../components/feedback/store_action_feedback_l10n.dart';
+import '../../../core/config/support_feedback_config.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../application/controllers/device_action_controller.dart';
 import '../domain/entities/device.dart';
@@ -85,12 +86,15 @@ class DevicePageActions {
   }
 
   static Future<void> openRateApp({
+    required AppLocalizations l10n,
     required DevicePageMounted isMounted,
     required DevicePageToast toast,
   }) async {
-    final message = await const DeviceActionController().openRateApp();
+    final opened = await const DeviceActionController().openRateApp();
     if (!isMounted()) return;
-    toast(message);
+    toast(
+      opened ? l10n.deviceRateEntryOpened : l10n.deviceRateEntryUnavailable,
+    );
   }
 
   static Future<void> openTermsPage(BuildContext context) async {
@@ -106,12 +110,27 @@ class DevicePageActions {
   }
 
   static Future<void> openSupportPage({
+    required AppLocalizations l10n,
     required DevicePageMounted isMounted,
     required DevicePageToast toast,
   }) async {
-    final message = await const DeviceActionController().openSupportEntry();
+    final result = await const DeviceActionController().openSupportEntry();
     if (!isMounted()) return;
-    toast(message);
+    toast(_supportEntryMessage(l10n, result));
+  }
+
+  static String _supportEntryMessage(
+    AppLocalizations l10n,
+    SupportEntryOutcome outcome,
+  ) {
+    switch (outcome) {
+      case SupportEntryOutcome.siteOpened:
+        return l10n.deviceSupportSiteOpened;
+      case SupportEntryOutcome.emailFallback:
+        return l10n.deviceSupportEmailFallback;
+      case SupportEntryOutcome.unavailable:
+        return l10n.deviceSupportUnavailable(SupportFeedbackConfig.supportEmail);
+    }
   }
 
   static Future<void> openUpgradePage(BuildContext context) async {

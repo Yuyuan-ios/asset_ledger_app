@@ -4104,6 +4104,60 @@ abstract class AppLocalizations {
     String amount,
   );
 
+  /// No description provided for @deviceRateEntryOpened.
+  ///
+  /// In zh, this message translates to:
+  /// **'已打开评分入口'**
+  String get deviceRateEntryOpened;
+
+  /// No description provided for @deviceRateEntryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'评分入口暂不可用'**
+  String get deviceRateEntryUnavailable;
+
+  /// No description provided for @deviceSupportSiteOpened.
+  ///
+  /// In zh, this message translates to:
+  /// **'已打开技术支持网页'**
+  String get deviceSupportSiteOpened;
+
+  /// No description provided for @deviceSupportEmailFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法打开支持页，已切换到邮件联系'**
+  String get deviceSupportEmailFallback;
+
+  /// No description provided for @deviceSupportUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法打开支持页，请稍后重试或发送邮件到 {email}'**
+  String deviceSupportUnavailable(String email);
+
+  /// No description provided for @deviceRestoreBlockIncompleteFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份文件格式不完整，暂不能恢复。'**
+  String get deviceRestoreBlockIncompleteFormat;
+
+  /// No description provided for @deviceRestoreBlockOlderUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本暂不支持恢复旧版备份，请使用相同版本导出的备份。'**
+  String get deviceRestoreBlockOlderUnsupported;
+
+  /// No description provided for @deviceRestoreBlockNewerVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份文件版本较新，请升级 App 后再试。'**
+  String get deviceRestoreBlockNewerVersion;
+
+  /// No description provided for @deviceCustomAvatarNotAllowed.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前方案不支持自定义头像'**
+  String get deviceCustomAvatarNotAllowed;
+
   /// No description provided for @storeActionSaveSuccess.
   ///
   /// In zh, this message translates to:

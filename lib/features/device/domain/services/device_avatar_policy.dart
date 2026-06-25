@@ -1,5 +1,10 @@
 import '../entities/device.dart';
 
+/// 当前方案不支持自定义头像。domain 抛 typed 异常，用户可见文案由 view 层映射 l10n。
+class CustomAvatarNotAllowedException implements Exception {
+  const CustomAvatarNotAllowedException();
+}
+
 class DeviceAvatarPolicy {
   const DeviceAvatarPolicy._();
 
@@ -14,7 +19,7 @@ class DeviceAvatarPolicy {
     }
 
     if (!canUseCustomAvatar) {
-      throw Exception('当前方案不支持自定义头像');
+      throw const CustomAvatarNotAllowedException();
     }
 
     return device.copyWith(customAvatarPath: normalizedPath);

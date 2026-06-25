@@ -285,6 +285,8 @@ class _DeviceEditorDialogState extends State<DeviceEditorDialog> {
               canUseCustomAvatar: _subscriptionController.canUseCustomAvatar,
             );
             _close(resolved);
+          } on CustomAvatarNotAllowedException {
+            _showMsg(AppLocalizations.of(context).deviceCustomAvatarNotAllowed);
           } catch (e) {
             _showMsg(e.toString());
           } finally {

@@ -2223,6 +2223,36 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get deviceRateEntryOpened => '已打开评分入口';
+
+  @override
+  String get deviceRateEntryUnavailable => '评分入口暂不可用';
+
+  @override
+  String get deviceSupportSiteOpened => '已打开技术支持网页';
+
+  @override
+  String get deviceSupportEmailFallback => '暂时无法打开支持页，已切换到邮件联系';
+
+  @override
+  String deviceSupportUnavailable(String email) {
+    return '暂时无法打开支持页，请稍后重试或发送邮件到 $email';
+  }
+
+  @override
+  String get deviceRestoreBlockIncompleteFormat => '备份文件格式不完整，暂不能恢复。';
+
+  @override
+  String get deviceRestoreBlockOlderUnsupported =>
+      '当前版本暂不支持恢复旧版备份，请使用相同版本导出的备份。';
+
+  @override
+  String get deviceRestoreBlockNewerVersion => '备份文件版本较新，请升级 App 后再试。';
+
+  @override
+  String get deviceCustomAvatarNotAllowed => '当前方案不支持自定义头像';
+
+  @override
   String get storeActionSaveSuccess => '已保存';
 
   @override

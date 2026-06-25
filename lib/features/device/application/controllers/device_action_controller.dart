@@ -1,24 +1,29 @@
-import '../../../../core/config/support_feedback_config.dart';
 import '../../../../data/services/rate_app_service.dart';
 import '../../../../data/services/support_feedback_service.dart';
 
+/// 联系技术支持的结果 code（application 层枚举，避免 view 直依赖 data 层的
+/// [SupportFeedbackOpenResult]）；用户可见文案由 view 层映射 AppLocalizations。
+enum SupportEntryOutcome { siteOpened, emailFallback, unavailable }
+
+/// application 层只返回结果 code；用户可见文案由 view 层映射 AppLocalizations
+/// （见 device_page_actions），controller 不含展示中文。
 class DeviceActionController {
   const DeviceActionController();
 
-  Future<String> openRateApp() async {
-    final ok = await RateAppService.openSystemRateEntry();
-    return ok ? '已打开评分入口' : '评分入口暂不可用';
+  /// true=已打开系统评分入口，false=评分入口暂不可用。
+  Future<bool> openRateApp() {
+    return RateAppService.openSystemRateEntry();
   }
 
-  Future<String> openSupportEntry() async {
+  Future<SupportEntryOutcome> openSupportEntry() async {
     final result = await SupportFeedbackService.openSupportEntry();
     switch (result) {
       case SupportFeedbackOpenResult.supportSite:
-        return '已打开技术支持网页';
+        return SupportEntryOutcome.siteOpened;
       case SupportFeedbackOpenResult.email:
-        return '暂时无法打开支持页，已切换到邮件联系';
+        return SupportEntryOutcome.emailFallback;
       case SupportFeedbackOpenResult.unavailable:
-        return '暂时无法打开支持页，请稍后重试或发送邮件到 ${SupportFeedbackConfig.supportEmail}';
+        return SupportEntryOutcome.unavailable;
     }
   }
 }

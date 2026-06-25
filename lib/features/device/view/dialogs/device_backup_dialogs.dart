@@ -580,7 +580,7 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
                     ],
                     if (restoreBlockReason != null) ...[
                       Text(
-                        restoreBlockReason,
+                        _restoreBlockReasonText(restoreBlockReason),
                         style: const TextStyle(color: AppColors.brand),
                       ),
                       const SizedBox(height: 8),
@@ -656,8 +656,19 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
     );
   }
 
-  String? _restoreBlockReason(BackupPreview preview) {
+  RestoreBlockReason? _restoreBlockReason(BackupPreview preview) {
     return _localBackupController.restoreBlockReason(preview);
+  }
+
+  String _restoreBlockReasonText(RestoreBlockReason reason) {
+    switch (reason) {
+      case RestoreBlockReason.incompleteFormat:
+        return _l10n.deviceRestoreBlockIncompleteFormat;
+      case RestoreBlockReason.olderUnsupported:
+        return _l10n.deviceRestoreBlockOlderUnsupported;
+      case RestoreBlockReason.newerVersion:
+        return _l10n.deviceRestoreBlockNewerVersion;
+    }
   }
 
   Future<bool> _confirmLocalRestore() async {

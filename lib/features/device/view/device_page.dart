@@ -178,6 +178,7 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
 
   Future<void> _openRateApp() async {
     await DevicePageActions.openRateApp(
+      l10n: AppLocalizations.of(context),
       isMounted: () => mounted,
       toast: _toast,
     );
@@ -193,6 +194,7 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
 
   Future<void> _openContactSupport() async {
     await DevicePageActions.openSupportPage(
+      l10n: AppLocalizations.of(context),
       isMounted: () => mounted,
       toast: _toast,
     );

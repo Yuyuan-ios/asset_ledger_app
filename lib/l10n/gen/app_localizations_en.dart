@@ -2408,6 +2408,40 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get deviceRateEntryOpened => 'Opened the rating entry';
+
+  @override
+  String get deviceRateEntryUnavailable => 'Rating entry is unavailable';
+
+  @override
+  String get deviceSupportSiteOpened => 'Opened the support page';
+
+  @override
+  String get deviceSupportEmailFallback =>
+      'Could not open the support page; switched to email';
+
+  @override
+  String deviceSupportUnavailable(String email) {
+    return 'Could not open the support page; please retry later or email $email';
+  }
+
+  @override
+  String get deviceRestoreBlockIncompleteFormat =>
+      'The backup file is incomplete and cannot be restored.';
+
+  @override
+  String get deviceRestoreBlockOlderUnsupported =>
+      'Restoring older backups is not supported in this version; please use a backup exported from the same version.';
+
+  @override
+  String get deviceRestoreBlockNewerVersion =>
+      'The backup file is from a newer version; please update the app and try again.';
+
+  @override
+  String get deviceCustomAvatarNotAllowed =>
+      'Custom avatars are not available on your current plan';
+
+  @override
   String get storeActionSaveSuccess => 'Saved';
 
   @override
