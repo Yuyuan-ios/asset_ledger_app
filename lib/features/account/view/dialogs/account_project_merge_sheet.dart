@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../components/feedback/app_toast.dart';
 import '../../../../core/foundation/typography.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
@@ -29,15 +30,22 @@ Future<MergeProjectSheetResult?> showAccountProjectMergeSheet(
   BuildContext context, {
   required List<MergeProjectSheetContactGroup> groups,
   required ConfirmMergeProjects onConfirmMerge,
-  required ValueChanged<String> onError,
+  ValueChanged<String>? onError,
 }) {
   return showAppBottomSheet<MergeProjectSheetResult>(
     context: context,
-    builder: (_) => AccountProjectMergeSheet(
-      groups: groups,
-      onConfirmMerge: onConfirmMerge,
-      onError: onError,
-    ),
+    builder: (sheetContext) {
+      return AccountProjectMergeSheet(
+        groups: groups,
+        onConfirmMerge: onConfirmMerge,
+        onError:
+            onError ??
+            (message) {
+              if (!sheetContext.mounted) return;
+              AppToast.show(sheetContext, message);
+            },
+      );
+    },
   );
 }
 

@@ -20,7 +20,7 @@ Future<T?> showAppBottomSheet<T>({
       duration: BottomSheetTokens.animationDuration,
       reverseDuration: BottomSheetTokens.reverseAnimationDuration,
     ),
-    builder: builder,
+    builder: (_) => _AppBottomSheetFeedbackHost(builder: builder),
   );
 }
 
@@ -75,6 +75,24 @@ Future<T?> openEditorSheet<T>({
       );
     },
   );
+}
+
+class _AppBottomSheetFeedbackHost extends StatelessWidget {
+  const _AppBottomSheetFeedbackHost({required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaffoldMessenger(
+      child: Scaffold(
+        key: const ValueKey('app-bottom-sheet-feedback-host'),
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
+        body: Builder(builder: builder),
+      ),
+    );
+  }
 }
 
 /// 通用 BottomSheet 壳（Shell）

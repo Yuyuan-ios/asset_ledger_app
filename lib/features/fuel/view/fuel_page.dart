@@ -91,6 +91,11 @@ class _FuelPageState extends State<FuelPage> {
       confirmText: l10n.fuelConfirmAction,
       onConfirm: () => formKey.currentState?.submit(),
       childBuilder: (ctx) {
+        void sheetToast(String msg) {
+          if (!ctx.mounted) return;
+          AppToast.show(ctx, msg);
+        }
+
         return FuelDetailContent(
           key: formKey,
           editing: editing,
@@ -103,7 +108,7 @@ class _FuelPageState extends State<FuelPage> {
             q,
             limit: 9999,
           ),
-          onToast: _toast,
+          onToast: sheetToast,
           onSubmit: (log) async {
             if (log.id == null) {
               await fuelStore.insert(log);
@@ -111,18 +116,20 @@ class _FuelPageState extends State<FuelPage> {
               await fuelStore.update(log);
             }
 
-            if (!mounted) return;
-            final feedback =
-                storeActionFeedback(fuelStore, action: StoreActionKind.save);
-            _toast(
-              localizeStoreActionFeedback(
-                AppLocalizations.of(context),
-                feedback,
-              ),
+            if (!mounted || !ctx.mounted) return;
+            final feedback = storeActionFeedback(
+              fuelStore,
+              action: StoreActionKind.save,
+            );
+            final message = localizeStoreActionFeedback(
+              AppLocalizations.of(ctx),
+              feedback,
             );
             if (!feedback.isSuccess) {
+              sheetToast(message);
               return;
             }
+            _toast(message);
             if (!ctx.mounted) return;
             Navigator.of(ctx).pop();
           },
@@ -152,11 +159,8 @@ class _FuelPageState extends State<FuelPage> {
     await store.deleteById(log.id!);
 
     if (!mounted) return false;
-    final feedback =
-        storeActionFeedback(store, action: StoreActionKind.delete);
-    _toast(
-      localizeStoreActionFeedback(AppLocalizations.of(context), feedback),
-    );
+    final feedback = storeActionFeedback(store, action: StoreActionKind.delete);
+    _toast(localizeStoreActionFeedback(AppLocalizations.of(context), feedback));
     if (!feedback.isSuccess) {
       return false;
     }

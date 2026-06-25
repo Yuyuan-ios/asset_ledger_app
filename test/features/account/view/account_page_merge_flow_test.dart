@@ -670,9 +670,7 @@ void main() {
       expect(find.textContaining('撤销核销失败'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byKey(
-            const ValueKey('account-project-detail-feedback-host'),
-          ),
+          of: find.byKey(const ValueKey('app-bottom-sheet-feedback-host')),
           matching: find.byType(SnackBar),
         ),
         findsOneWidget,

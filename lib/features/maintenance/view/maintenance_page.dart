@@ -124,6 +124,11 @@ class _MaintenancePageState extends State<MaintenancePage> {
       confirmText: l10n.maintenanceConfirmAction,
       onConfirm: () => formKey.currentState?.submit(),
       childBuilder: (ctx) {
+        void sheetToast(String msg) {
+          if (!ctx.mounted) return;
+          AppToast.show(ctx, msg);
+        }
+
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: MaintenanceDetailContent(
@@ -137,28 +142,28 @@ class _MaintenancePageState extends State<MaintenancePage> {
             // 取消：Page 负责 pop
             onCancel: () => Navigator.of(ctx).pop(),
 
-            // toast：统一走 Page
-            onToast: _toast,
+            // toast：sheet 内校验和失败提示留在当前弹层。
+            onToast: sheetToast,
 
             // ✅ 保存：Page 负责落库 + toast + pop（与 Account/Fuel/Timing 统一）
             onSubmit: (record) async {
               await maintenanceStore.save(record);
 
-              if (!mounted) return;
+              if (!mounted || !ctx.mounted) return;
 
               final feedback = storeActionFeedback(
                 maintenanceStore,
                 action: StoreActionKind.save,
               );
-              _toast(
-                localizeStoreActionFeedback(
-                  AppLocalizations.of(context),
-                  feedback,
-                ),
+              final message = localizeStoreActionFeedback(
+                AppLocalizations.of(ctx),
+                feedback,
               );
               if (!feedback.isSuccess) {
+                sheetToast(message);
                 return;
               }
+              _toast(message);
               if (!ctx.mounted) return;
               Navigator.of(ctx).pop();
             },
@@ -199,11 +204,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
     if (!mounted) return;
 
-    final feedback =
-        storeActionFeedback(store, action: StoreActionKind.delete);
-    _toast(
-      localizeStoreActionFeedback(AppLocalizations.of(context), feedback),
-    );
+    final feedback = storeActionFeedback(store, action: StoreActionKind.delete);
+    _toast(localizeStoreActionFeedback(AppLocalizations.of(context), feedback));
   }
 
   // =====================================================================

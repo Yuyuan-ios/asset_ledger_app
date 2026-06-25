@@ -442,6 +442,11 @@ class _TimingPageState extends State<TimingPage> {
           : (sheetContext) => _deleteEditingRecord(sheetContext, editing),
       onConfirm: () => formKey.currentState?.submit(),
       childBuilder: (sheetContext) {
+        void sheetToast(String msg) {
+          if (!sheetContext.mounted) return;
+          AppToast.show(sheetContext, msg);
+        }
+
         return TimingDetailContent(
           key: formKey,
           editing: editing,
@@ -503,7 +508,7 @@ class _TimingPageState extends State<TimingPage> {
               baseMeterHours: device?.baseMeterHours ?? 0,
             );
           },
-          onToast: _toast,
+          onToast: sheetToast,
           onSubmit: (record, calculationHistories) async {
             // 唯一的保存入口：事务化 SaveTimingRecordWithImpactUseCase。
             // Provider 必须由 TimingSaveProviders 注入；缺失即生产配置错误，
@@ -522,22 +527,24 @@ class _TimingPageState extends State<TimingPage> {
                 calculationHistories: calculationHistories,
               );
             } catch (error) {
-              if (!mounted) return;
+              if (!mounted || !sheetContext.mounted) return;
               final message = _saveFailureMessage(error, timingStore);
               final form = formKey.currentState;
               if (form != null && form.mounted) {
                 form.showSubmitFailure(message);
               } else {
-                _toast(message);
+                sheetToast(message);
               }
               return;
             }
-            if (!mounted) return;
+            if (!mounted || !sheetContext.mounted) return;
 
-            final feedback =
-                storeActionFeedback(timingStore, action: StoreActionKind.save);
+            final feedback = storeActionFeedback(
+              timingStore,
+              action: StoreActionKind.save,
+            );
             final feedbackMessage = localizeStoreActionFeedback(
-              AppLocalizations.of(context),
+              AppLocalizations.of(sheetContext),
               feedback,
             );
             if (!feedback.isSuccess) {
@@ -545,7 +552,7 @@ class _TimingPageState extends State<TimingPage> {
               if (form != null && form.mounted) {
                 form.showSubmitFailure(feedbackMessage);
               } else {
-                _toast(feedbackMessage);
+                sheetToast(feedbackMessage);
               }
               return;
             }
@@ -566,8 +573,10 @@ class _TimingPageState extends State<TimingPage> {
     if (error is SaveTimingRecordOperationException) {
       return formValidationMessage(_friendlySaveFailureReason(error.message));
     }
-    final feedback =
-        storeActionFeedback(timingStore, action: StoreActionKind.save);
+    final feedback = storeActionFeedback(
+      timingStore,
+      action: StoreActionKind.save,
+    );
     return feedback.isSuccess
         ? AppLocalizations.of(context).timingEntrySaveFailure
         : localizeStoreActionFeedback(AppLocalizations.of(context), feedback);
@@ -602,8 +611,11 @@ class _TimingPageState extends State<TimingPage> {
     try {
       impact = await deleteUseCase.analyzeImpact(recordId);
     } catch (_) {
-      if (mounted) {
-        _toast(AppLocalizations.of(context).timingEntryDeletePrecheckFailure);
+      if (mounted && sheetContext.mounted) {
+        AppToast.show(
+          sheetContext,
+          AppLocalizations.of(sheetContext).timingEntryDeletePrecheckFailure,
+        );
       }
       return;
     }
@@ -636,8 +648,11 @@ class _TimingPageState extends State<TimingPage> {
       await _showDeleteBlockedDialog(sheetContext, error.message);
       return;
     } catch (_) {
-      if (mounted) {
-        _toast(AppLocalizations.of(context).timingEntryDeleteFailure);
+      if (mounted && sheetContext.mounted) {
+        AppToast.show(
+          sheetContext,
+          AppLocalizations.of(sheetContext).timingEntryDeleteFailure,
+        );
       }
       return;
     }
@@ -809,8 +824,15 @@ class _TimingPageState extends State<TimingPage> {
         store,
         action: StoreActionKind.delete,
       );
-      _toast(localizeStoreActionFeedback(l10n, feedback));
-      if (!feedback.isSuccess || !sheetContext.mounted) return;
+      final message = localizeStoreActionFeedback(l10n, feedback);
+      if (!feedback.isSuccess) {
+        if (sheetContext.mounted) {
+          AppToast.show(sheetContext, message);
+        }
+        return;
+      }
+      _toast(message);
+      if (!sheetContext.mounted) return;
       Navigator.of(sheetContext).pop();
     }();
   }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../components/fields/app_auto_suggest_field.dart';
 import '../../../../l10n/gen/app_localizations.dart';
 import '../../../../patterns/layout/bottom_sheet_shell_pattern.dart';
-import '../../../../tokens/mapper/bottom_sheet_tokens.dart';
 
 enum AccountProjectFilterResultType { ok, clear, cancel }
 
@@ -28,15 +27,8 @@ Future<AccountProjectFilterResult?> showAccountProjectFilterSheet(
   required String initialKeyword,
   required List<String> suggestions,
 }) {
-  return showModalBottomSheet<AccountProjectFilterResult>(
+  return showAppBottomSheet<AccountProjectFilterResult>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    sheetAnimationStyle: const AnimationStyle(
-      duration: BottomSheetTokens.animationDuration,
-      reverseDuration: BottomSheetTokens.reverseAnimationDuration,
-    ),
     builder: (_) => AccountProjectFilterSheet(
       initialKeyword: initialKeyword,
       suggestions: suggestions,
