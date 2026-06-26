@@ -76,6 +76,10 @@ void main() {
     expect(uiCopy, contains('SANY 1#'));
     expect(uiCopy, contains('Initial investment ¥2,500'));
     expect(uiCopy, contains('Pending ¥450'));
+    expect(uiCopy, contains('Received principal'));
+    expect(uiCopy, contains('Estimated resale residual'));
+    expect(uiCopy, contains('Payback gap'));
+    expect(uiCopy, isNot(contains('Surplus')));
     expect(uiCopy, isNot(contains('Income ¥1550 · 2.5h, 3trips')));
     expect(uiCopy, isNot(contains('1 project · Pending ¥450')));
     expect(uiCopy, isNot(contains('设备经营')));
@@ -100,7 +104,12 @@ void main() {
     expect(uiCopy, contains('设备经营'));
     expect(uiCopy, contains('SANY 1#'));
     expect(uiCopy, contains('初始投入 ¥2,500'));
+    expect(uiCopy, contains('实收补本额'));
+    expect(uiCopy, contains('预计售出残值'));
+    expect(uiCopy, contains('未回本缺口'));
     expect(uiCopy, contains('待收 ¥450'));
+    expect(uiCopy, isNot(contains('已实收净额')));
+    expect(uiCopy, isNot(contains('盈余')));
     expect(uiCopy, isNot(contains('收入 ¥1550 · 2.5小时, 3次')));
     expect(uiCopy, isNot(contains('1 项 · 待收 ¥450')));
 

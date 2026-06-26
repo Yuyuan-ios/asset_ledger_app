@@ -2871,6 +2871,12 @@ abstract class AppLocalizations {
   /// **'未回本缺口'**
   String get deviceLifecyclePaybackGapLabel;
 
+  /// 设备模块:生命周期回本进度条实收补本额图例
+  ///
+  /// In zh, this message translates to:
+  /// **'实收补本额'**
+  String get deviceLifecycleReceivedPrincipalLabel;
+
   /// 设备模块:生命周期回本卡片已实收净额标签
   ///
   /// In zh, this message translates to:

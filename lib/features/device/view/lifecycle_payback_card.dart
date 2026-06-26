@@ -174,23 +174,21 @@ class PaybackSegmentBar extends StatelessWidget {
 class PaybackBarLayout {
   const PaybackBarLayout({
     required this.track,
-    this.netSegment,
+    this.receivedPrincipalSegment,
     this.residualSegment,
-    this.tailSegment,
-    this.netResidualDivider,
-    this.residualGapDivider,
-    this.paybackDivider,
+    this.surplusSegment,
+    this.gapSegment,
+    this.segmentDividers = const [],
   });
 
   final Rect track;
-  final Rect? netSegment;
+  final Rect? receivedPrincipalSegment;
   final Rect? residualSegment;
-  final Rect? tailSegment;
-  final Rect? netResidualDivider;
-  final Rect? residualGapDivider;
-  final Rect? paybackDivider;
+  final Rect? surplusSegment;
+  final Rect? gapSegment;
+  final List<Rect> segmentDividers;
 
-  bool get hasProfitTail => tailSegment != null;
+  bool get hasSurplusSegment => surplusSegment != null;
 }
 
 PaybackBarLayout calculatePaybackBarLayout({
@@ -206,67 +204,58 @@ PaybackBarLayout calculatePaybackBarLayout({
     return PaybackBarLayout(track: track);
   }
 
-  final tailRatio = result.tailRatio;
-  final hasTail = result.isPaidBack && tailRatio > 0;
-  final calculatedCostWidth = hasTail ? width / (1 + tailRatio) : width;
-  final calculatedTailWidth = width - calculatedCostWidth;
-  final showTail = calculatedTailWidth > _minVisibleSegmentWidth;
-  final costWidth = (showTail ? calculatedCostWidth : width)
-      .clamp(0.0, width)
-      .toDouble();
-  final tailWidth = showTail ? width - costWidth : 0.0;
+  final receivedPrincipalWidth = _segmentWidth(
+    width,
+    result.receivedPrincipalSegmentRatio,
+  );
+  final residualWidth = _segmentWidth(
+    width,
+    result.estimatedResidualSegmentRatio,
+  );
+  final surplusWidth = _segmentWidth(width, result.surplusSegmentRatio);
+  final gapWidth = _segmentWidth(width, result.paybackGapSegmentRatio);
+  final residualLeft = receivedPrincipalWidth;
+  final surplusLeft = residualLeft + residualWidth;
+  final gapLeft = surplusLeft + surplusWidth;
 
-  final netWidth = (costWidth * result.netSegmentRatio)
-      .clamp(0.0, costWidth)
-      .toDouble();
-  final residualLeft = netWidth;
-  final residualWidth = (costWidth * result.residualSegmentRatio)
-      .clamp(0.0, costWidth - residualLeft)
-      .toDouble();
-  final gapLeft = netWidth + residualWidth;
-  final gapWidth = (costWidth - gapLeft).clamp(0.0, costWidth).toDouble();
+  final receivedPrincipalSegment = _visibleRect(
+    left: 0,
+    width: receivedPrincipalWidth,
+    height: height,
+  );
+  final residualSegment = _visibleRect(
+    left: residualLeft,
+    width: residualWidth,
+    height: height,
+  );
+  final surplusSegment = _visibleRect(
+    left: surplusLeft,
+    width: surplusWidth,
+    height: height,
+  );
+  final gapSegment = _visibleRect(
+    left: gapLeft,
+    width: gapWidth,
+    height: height,
+  );
 
   return PaybackBarLayout(
     track: track,
-    netSegment: _visibleRect(left: 0, width: netWidth, height: height),
-    residualSegment: _visibleRect(
-      left: residualLeft,
-      width: residualWidth,
+    receivedPrincipalSegment: receivedPrincipalSegment,
+    residualSegment: residualSegment,
+    surplusSegment: surplusSegment,
+    gapSegment: gapSegment,
+    segmentDividers: _segmentDividers(
+      [receivedPrincipalSegment, residualSegment, surplusSegment, gapSegment],
+      width: width,
       height: height,
+      dividerWidth: dividerWidth,
     ),
-    tailSegment: showTail
-        ? _visibleRect(left: costWidth, width: tailWidth, height: height)
-        : null,
-    netResidualDivider:
-        netWidth > _minVisibleSegmentWidth &&
-            residualWidth > _minVisibleSegmentWidth
-        ? _dividerRect(
-            boundary: netWidth,
-            width: width,
-            height: height,
-            dividerWidth: dividerWidth,
-          )
-        : null,
-    residualGapDivider:
-        residualWidth > _minVisibleSegmentWidth &&
-            gapWidth > _minVisibleSegmentWidth &&
-            result.gapSegmentRatio > 0.001
-        ? _dividerRect(
-            boundary: gapLeft,
-            width: width,
-            height: height,
-            dividerWidth: dividerWidth,
-          )
-        : null,
-    paybackDivider: showTail
-        ? _dividerRect(
-            boundary: costWidth,
-            width: width,
-            height: height,
-            dividerWidth: dividerWidth,
-          )
-        : null,
   );
+}
+
+double _segmentWidth(double width, double ratio) {
+  return (width * ratio).clamp(0.0, width).toDouble();
 }
 
 Rect? _visibleRect({
@@ -276,6 +265,31 @@ Rect? _visibleRect({
 }) {
   if (width <= _minVisibleSegmentWidth) return null;
   return Rect.fromLTWH(left, 0, width, height);
+}
+
+List<Rect> _segmentDividers(
+  List<Rect?> segments, {
+  required double width,
+  required double height,
+  required double dividerWidth,
+}) {
+  final dividers = <Rect>[];
+  Rect? previous;
+  for (final segment in segments) {
+    if (segment == null) continue;
+    if (previous != null) {
+      dividers.add(
+        _dividerRect(
+          boundary: segment.left,
+          width: width,
+          height: height,
+          dividerWidth: dividerWidth,
+        ),
+      );
+    }
+    previous = segment;
+  }
+  return dividers;
 }
 
 Rect _dividerRect({
@@ -308,16 +322,21 @@ class _PaybackSegmentPainter extends CustomPainter {
 
     const dividerColor = LifecyclePaybackTokens.segmentDivider;
     final layout = calculatePaybackBarLayout(result: result, size: size);
-    _drawRect(canvas, layout.netSegment, LifecyclePaybackTokens.netReceived);
+    _drawRect(
+      canvas,
+      layout.receivedPrincipalSegment,
+      LifecyclePaybackTokens.receivedPrincipal,
+    );
     _drawRect(
       canvas,
       layout.residualSegment,
       LifecyclePaybackTokens.estimatedResidual,
     );
-    _drawRect(canvas, layout.tailSegment, LifecyclePaybackTokens.surplus);
-    _drawRect(canvas, layout.netResidualDivider, dividerColor);
-    _drawRect(canvas, layout.residualGapDivider, dividerColor);
-    _drawRect(canvas, layout.paybackDivider, dividerColor);
+    _drawRect(canvas, layout.surplusSegment, LifecyclePaybackTokens.surplus);
+    _drawRect(canvas, layout.gapSegment, LifecyclePaybackTokens.barTrack);
+    for (final divider in layout.segmentDividers) {
+      _drawRect(canvas, divider, dividerColor);
+    }
   }
 
   @override
@@ -445,25 +464,28 @@ class _Legend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final tailLabel = result.isPaidBack
-        ? l10n.deviceLifecycleSurplusLabel
-        : l10n.deviceLifecyclePaybackGapLabel;
-    final tailColor = result.isPaidBack
-        ? LifecyclePaybackTokens.surplus
-        : LifecyclePaybackTokens.gapMuted;
     return Wrap(
       spacing: 12,
       runSpacing: 8,
       children: [
         _LegendItem(
-          color: LifecyclePaybackTokens.netReceived,
-          label: l10n.deviceLifecycleNetReceivedLabel,
+          color: LifecyclePaybackTokens.receivedPrincipal,
+          label: l10n.deviceLifecycleReceivedPrincipalLabel,
         ),
         _LegendItem(
           color: LifecyclePaybackTokens.estimatedResidual,
           label: l10n.deviceLifecycleEstimatedResidualLabel,
         ),
-        _LegendItem(color: tailColor, label: tailLabel),
+        if (result.surplusSegmentFen > 0)
+          _LegendItem(
+            color: LifecyclePaybackTokens.surplus,
+            label: l10n.deviceLifecycleSurplusLabel,
+          ),
+        if (result.paybackGapSegmentRatio > 0)
+          _LegendItem(
+            color: LifecyclePaybackTokens.gapMuted,
+            label: l10n.deviceLifecyclePaybackGapLabel,
+          ),
       ],
     );
   }

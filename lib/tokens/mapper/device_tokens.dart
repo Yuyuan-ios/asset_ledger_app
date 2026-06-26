@@ -445,22 +445,22 @@ class DeviceLegalTokens {
 
 /// 设备生命周期回本卡片与「设置金额」弹窗共用的语义色与尺寸。
 ///
-/// 颜色对齐 App 全局口径：已实收净额用账户页收入绿（[TimingColors.chartIncome]），
-/// 盈余用 App 品牌橙（[AppColors.brand]）。未回本/还差是「进行中」状态而非告警，
-/// 用中性深灰（[textBody]）作信息态，不外借告警红。其余中性灰与文字色沿用系统
-/// 分组列表风格。
+/// 颜色对齐 App 全局口径：实收补本额用 App 品牌橙（[AppColors.brand]），
+/// 盈余用账户页收入绿（[TimingColors.chartIncome]）。未回本/还差是「进行中」
+/// 状态而非告警，用中性深灰（[textBody]）作信息态，不外借告警红。其余中性灰
+/// 与文字色沿用系统分组列表风格。
 class LifecyclePaybackTokens {
   const LifecyclePaybackTokens._();
 
   // —— 语义数据色 ——
-  /// 已实收净额：对齐账户页收入绿（饼图/进度条已收色）。
-  static const Color netReceived = TimingColors.chartIncome;
+  /// 实收补本额：App 品牌橙（原盈余强调色）。
+  static const Color receivedPrincipal = AppColors.brand;
 
   /// 预计售出残值：青蓝，与已实收绿区分。
   static const Color estimatedResidual = Color(0xFF30B0C7);
 
-  /// 盈余 / 已回本状态：App 品牌橙（仅正向强调）。
-  static const Color surplus = AppColors.brand;
+  /// 盈余 / 已回本状态：对齐账户页收入绿（饼图/进度条已收色）。
+  static const Color surplus = TimingColors.chartIncome;
 
   // —— 回本条轨道与缺口 ——
   /// 回本条底/未填充轨道：较系统灰 0xFFE5E5EA 加深一档，让进度条灰更突出。

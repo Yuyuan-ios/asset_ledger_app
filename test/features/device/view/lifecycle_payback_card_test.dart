@@ -20,7 +20,7 @@ void main() {
         ),
       );
       expect(result.isPaidBack, isTrue);
-      expect(result.tailRatio, greaterThan(0));
+      expect(result.surplusSegmentRatio, greaterThan(0));
 
       await tester.pumpWidget(
         Directionality(
@@ -55,22 +55,31 @@ void main() {
 
       expect(paybackStatusText(l10n, result), '已回本 161.3%');
       expect(paybackResultText(l10n, result), '预计盈余 +¥1,534');
-      expect(result.tailIsCapped, isTrue);
-      expect(layout.netSegment, isNotNull);
+      expect(result.tailIsCapped, isFalse);
+      expect(layout.receivedPrincipalSegment, isNotNull);
       expect(layout.residualSegment, isNotNull);
-      expect(layout.tailSegment, isNotNull);
-      expect(layout.hasProfitTail, isTrue);
-      expect(layout.paybackDivider, isNotNull);
-      expect(layout.residualGapDivider, isNull);
-      expect(layout.netSegment!.right, closeTo(240.3574, 0.0001));
+      expect(layout.surplusSegment, isNotNull);
+      expect(layout.gapSegment, isNull);
+      expect(layout.hasSurplusSegment, isTrue);
+      expect(layout.segmentDividers, hasLength(2));
+      expect(
+        layout.receivedPrincipalSegment!.right,
+        closeTo(320 * (81364 / 403360), 0.0001),
+      );
+      expect(
+        layout.residualSegment!.left,
+        closeTo(layout.receivedPrincipalSegment!.right, 0.0001),
+      );
       expect(
         layout.residualSegment!.right,
-        closeTo(layout.tailSegment!.left, 0.0001),
+        closeTo(320 * (250000 / 403360), 0.0001),
       );
-      expect(layout.tailSegment!.left, closeTo(256, 0.0001));
-      expect(layout.tailSegment!.right, closeTo(320, 0.0001));
-      expect(layout.paybackDivider!.left, closeTo(255, 0.0001));
-      expect(layout.paybackDivider!.width, 2);
+      expect(
+        layout.surplusSegment!.left,
+        closeTo(layout.residualSegment!.right, 0.0001),
+      );
+      expect(layout.surplusSegment!.right, closeTo(320, 0.0001));
+      expect(layout.segmentDividers.first.width, 2);
     });
 
     test('keeps residual square before the unpaid gap', () {
@@ -88,14 +97,15 @@ void main() {
       );
 
       expect(result.isPaidBack, isFalse);
-      expect(layout.tailSegment, isNull);
-      expect(layout.hasProfitTail, isFalse);
-      expect(layout.netSegment!.right, closeTo(128, 0.0001));
+      expect(layout.surplusSegment, isNull);
+      expect(layout.gapSegment, isNotNull);
+      expect(layout.hasSurplusSegment, isFalse);
+      expect(layout.receivedPrincipalSegment!.right, closeTo(128, 0.0001));
       expect(layout.residualSegment!.left, closeTo(128, 0.0001));
       expect(layout.residualSegment!.right, closeTo(192, 0.0001));
-      expect(layout.netResidualDivider, isNotNull);
-      expect(layout.residualGapDivider, isNotNull);
-      expect(layout.paybackDivider, isNull);
+      expect(layout.gapSegment!.left, closeTo(192, 0.0001));
+      expect(layout.gapSegment!.right, closeTo(320, 0.0001));
+      expect(layout.segmentDividers, hasLength(2));
     });
 
     test(
@@ -115,42 +125,47 @@ void main() {
         );
 
         expect(paybackResultText(l10n, result), '已回本，暂无盈余');
-        expect(layout.tailSegment, isNull);
-        expect(layout.hasProfitTail, isFalse);
+        expect(layout.surplusSegment, isNull);
+        expect(layout.gapSegment, isNull);
+        expect(layout.hasSurplusSegment, isFalse);
         expect(
           layout.residualSegment!.right,
           closeTo(layout.track.right, 0.0001),
         );
-        expect(layout.netResidualDivider, isNotNull);
-        expect(layout.residualGapDivider, isNull);
-        expect(layout.paybackDivider, isNull);
+        expect(layout.segmentDividers, hasLength(1));
       },
     );
 
-    test('caps large surplus tails without adding residual width', () {
+    test('uses scenario B ratios without capped surplus tail', () {
       final result = calculateLifecyclePayback(
         const LifecyclePaybackInput(
-          initialCostFen: 250000,
-          netReceivedFen: 400000,
-          estimatedResidualFen: 30000,
+          initialCostFen: 80000,
+          netReceivedFen: 60000,
+          estimatedResidualFen: 60000,
         ),
       );
 
       final layout = calculatePaybackBarLayout(
         result: result,
-        size: const Size(320, 36),
+        size: const Size(120, 36),
       );
 
-      expect(result.tailIsCapped, isTrue);
-      expect(layout.hasProfitTail, isTrue);
-      expect(layout.netSegment!.right, closeTo(256, 0.0001));
-      expect(layout.residualSegment, isNull);
-      expect(layout.tailSegment!.left, closeTo(256, 0.0001));
-      expect(layout.tailSegment!.right, closeTo(320, 0.0001));
-      expect(layout.paybackDivider, isNotNull);
+      expect(result.tailIsCapped, isFalse);
+      expect(result.receivedPrincipalSegmentRatio, closeTo(1 / 6, 0.0001));
+      expect(result.estimatedResidualSegmentRatio, 0.5);
+      expect(result.surplusSegmentRatio, closeTo(1 / 3, 0.0001));
+      expect(layout.hasSurplusSegment, isTrue);
+      expect(layout.receivedPrincipalSegment!.left, 0);
+      expect(layout.receivedPrincipalSegment!.right, closeTo(20, 0.0001));
+      expect(layout.residualSegment!.left, closeTo(20, 0.0001));
+      expect(layout.residualSegment!.right, closeTo(80, 0.0001));
+      expect(layout.surplusSegment!.left, closeTo(80, 0.0001));
+      expect(layout.surplusSegment!.right, closeTo(120, 0.0001));
+      expect(layout.gapSegment, isNull);
+      expect(layout.segmentDividers, hasLength(2));
     });
 
-    test('uses ratio-based square tail width for tiny surplus', () {
+    test('uses direct ratio width for tiny surplus', () {
       final result = calculateLifecyclePayback(
         const LifecyclePaybackInput(
           initialCostFen: 250000,
@@ -166,10 +181,18 @@ void main() {
 
       expect(result.isPaidBack, isTrue);
       expect(result.lifeCycleProfitFen, 1000);
-      expect(layout.hasProfitTail, isTrue);
-      expect(layout.tailSegment!.width, closeTo(1.275, 0.001));
-      expect(layout.tailSegment!.right, 320);
-      expect(layout.paybackDivider, isNotNull);
+      expect(result.surplusSegmentRatio, closeTo(1000 / 251000, 0.0001));
+      expect(layout.hasSurplusSegment, isTrue);
+      expect(
+        layout.residualSegment!.width,
+        closeTo(320 * (2000 / 251000), 0.001),
+      );
+      expect(
+        layout.surplusSegment!.width,
+        closeTo(320 * (1000 / 251000), 0.001),
+      );
+      expect(layout.surplusSegment!.right, closeTo(320, 0.0001));
+      expect(layout.segmentDividers, hasLength(2));
     });
 
     test('leaves only the track for unset costs', () {
@@ -188,11 +211,12 @@ void main() {
 
       expect(result.isCostUnset, isTrue);
       expect(layout.track, const Rect.fromLTWH(0, 0, 320, 36));
-      expect(layout.netSegment, isNull);
+      expect(layout.receivedPrincipalSegment, isNull);
       expect(layout.residualSegment, isNull);
-      expect(layout.tailSegment, isNull);
-      expect(layout.hasProfitTail, isFalse);
-      expect(layout.paybackDivider, isNull);
+      expect(layout.surplusSegment, isNull);
+      expect(layout.gapSegment, isNull);
+      expect(layout.hasSurplusSegment, isFalse);
+      expect(layout.segmentDividers, isEmpty);
     });
   });
 }

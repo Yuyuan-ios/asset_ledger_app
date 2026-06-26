@@ -1676,6 +1676,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceLifecyclePaybackGapLabel => 'Payback gap';
 
   @override
+  String get deviceLifecycleReceivedPrincipalLabel => 'Received principal';
+
+  @override
   String get deviceLifecycleNetReceivedLabel => 'Net received';
 
   @override

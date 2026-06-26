@@ -479,6 +479,7 @@
   "deviceLifecycleInitialInvestmentAmount": "Initial investment {amount}",
   "deviceLifecycleSurplusLabel": "Surplus",
   "deviceLifecyclePaybackGapLabel": "Payback gap",
+  "deviceLifecycleReceivedPrincipalLabel": "Received principal",
   "deviceLifecycleNetReceivedLabel": "Net received",
   "deviceLifecycleEstimatedResidualLabel": "Estimated resale residual",
   "deviceLifecyclePendingReceivableLabel": "Pending {amount}",

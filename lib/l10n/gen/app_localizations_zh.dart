@@ -1550,6 +1550,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceLifecyclePaybackGapLabel => '未回本缺口';
 
   @override
+  String get deviceLifecycleReceivedPrincipalLabel => '实收补本额';
+
+  @override
   String get deviceLifecycleNetReceivedLabel => '已实收净额';
 
   @override

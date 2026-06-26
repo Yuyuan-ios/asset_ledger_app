@@ -2300,6 +2300,10 @@
   "@deviceLifecyclePaybackGapLabel": {
     "description": "设备模块:生命周期回本卡片未回本缺口图例"
   },
+  "deviceLifecycleReceivedPrincipalLabel": "实收补本额",
+  "@deviceLifecycleReceivedPrincipalLabel": {
+    "description": "设备模块:生命周期回本进度条实收补本额图例"
+  },
   "deviceLifecycleNetReceivedLabel": "已实收净额",
   "@deviceLifecycleNetReceivedLabel": {
     "description": "设备模块:生命周期回本卡片已实收净额标签"
