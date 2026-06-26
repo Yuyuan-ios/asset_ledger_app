@@ -51,12 +51,14 @@ class TimingStore extends BaseStore {
   // 写：save（insert / update）
   // =====================================================================
 
-  /// Legacy internal write helper.
+  /// Legacy/internal write helper; keep public only for old call sites/tests.
   ///
   /// Production UI saves should use SaveTimingRecordWithImpactUseCase so
   /// project impact, sync outbox, and the Free timing-record limit stay in one
-  /// transaction. This fallback still fail-closes ordinary creates at the Free
-  /// 30-record limit so old tests/internal callers cannot bypass entitlement.
+  /// transaction. New UI/controller/store code must not treat this as the
+  /// normal create path. This fallback still fail-closes ordinary creates at
+  /// the Free 30-record limit so old tests/internal callers cannot bypass
+  /// entitlement.
   Future<void> save(
     TimingRecord record, {
     List<TimingCalculationHistory> calculationHistories = const [],

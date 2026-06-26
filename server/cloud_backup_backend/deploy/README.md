@@ -21,6 +21,11 @@ cloud backup. It must be a long random value and must stay stable across
 deployments; losing or rotating it makes existing encrypted backups
 unrecoverable.
 
+Production and staging must also set `CLOUD_BACKUP_ENTITLEMENT_URL` and
+`CLOUD_BACKUP_ENTITLEMENT_TOKEN`. The service fails fast without a server-side
+Max entitlement source, and local static entitlement lists are not allowed in
+production.
+
 ## Nginx
 
 Copy `deploy/nginx.conf.example` to the ECS Nginx config directory and replace
@@ -38,6 +43,6 @@ python3 deploy/smoke_test.py --base-url https://backup-api.example.com --token "
 python3 deploy/smoke_test.py --base-url https://backup-api.example.com --token "$TOKEN_A" --other-token "$TOKEN_B"
 ```
 
-The script verifies auth rejection, account backup-key issuance/stability,
-backup round-trip, and optional cross-account isolation. It does not print
-bearer tokens, account secrets, or payload bodies.
+The script verifies auth rejection, Max-entitled account backup-key
+issuance/stability, backup round-trip, and optional cross-account isolation. It
+does not print bearer tokens, account secrets, or payload bodies.

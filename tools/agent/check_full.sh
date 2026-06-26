@@ -17,6 +17,45 @@ require_command() {
   fi
 }
 
+resolve_executable() {
+  local path="$1"
+  while [[ -L "${path}" ]]; do
+    local target
+    target="$(readlink "${path}")"
+    if [[ "${target}" == /* ]]; then
+      path="${target}"
+    else
+      path="$(cd "$(dirname "${path}")" && pwd -P)/${target}"
+    fi
+  done
+  echo "$(cd "$(dirname "${path}")" && pwd -P)/$(basename "${path}")"
+}
+
+check_flutter_sdk_cache_writable() {
+  local flutter_bin
+  flutter_bin="$(resolve_executable "$(command -v flutter)")"
+  local sdk_root
+  sdk_root="$(cd "$(dirname "${flutter_bin}")/.." && pwd -P)"
+  local cache_dir="${sdk_root}/bin/cache"
+  local engine_stamp="${cache_dir}/engine.stamp"
+
+  if [[ -d "${cache_dir}" && ! -w "${cache_dir}" ]]; then
+    echo "error: Flutter SDK cache is not writable." >&2
+    echo "  Cache: ${cache_dir}" >&2
+    echo "  Rerun with proper permissions or use a writable Flutter SDK/cache." >&2
+    echo "  This is an environment permission issue, not necessarily a project test failure." >&2
+    exit 1
+  fi
+
+  if [[ -e "${engine_stamp}" && ! -w "${engine_stamp}" ]]; then
+    echo "error: Flutter SDK cache is not writable." >&2
+    echo "  File: ${engine_stamp}" >&2
+    echo "  Rerun with proper permissions or use a writable Flutter SDK/cache." >&2
+    echo "  This is an environment permission issue, not necessarily a project test failure." >&2
+    exit 1
+  fi
+}
+
 run_step() {
   local label="$1"
   shift
@@ -29,6 +68,7 @@ run_step() {
 
 require_command git
 require_command flutter
+check_flutter_sdk_cache_writable
 
 if [[ ! -f "tools/run_custom_lint_isolated.sh" ]]; then
   echo "error: missing tools/run_custom_lint_isolated.sh" >&2

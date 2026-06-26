@@ -16,12 +16,15 @@ import 'package:asset_ledger/data/repositories/timing_calculation_history_reposi
 abstract class TimingRepository {
   Future<List<TimingRecord>> listAll();
 
-  /// Low-level insert for repository tests, restore/migration helpers, and
-  /// infrastructure use cases that already enforce business rules.
+  /// Low-level infrastructure insert.
+  ///
+  /// Allowed callers: repository tests, local restore, migrations, or
+  /// infrastructure use cases that already enforced business rules.
   ///
   /// Ordinary user-created timing records must go through
-  /// LocalSaveTimingRecordWithImpactUseCase so the Free 30-record limit,
-  /// project impact, and sync outbox writes share one transaction.
+  /// LocalSaveTimingRecordWithImpactUseCase. UI/controller/store callers must
+  /// not call this directly, otherwise they bypass subscription entitlement,
+  /// the Free 30-record limit, project impact, and sync outbox writes.
   Future<int> insert(TimingRecord record);
 
   Future<int> update(TimingRecord record);
@@ -195,18 +198,22 @@ class SqfliteTimingRepository implements TimingRepository {
   // ============================== 四、新增（Create） ==============================
   // =====================================================================
 
-  /// 新增记录：返回新行 id。
+  /// Low-level infrastructure insert: returns the new row id.
   ///
-  /// 普通新增不要直接调用本方法；应走 LocalSaveTimingRecordWithImpactUseCase。
-  /// 本低层入口保留给恢复/迁移/测试，以及已经在上层事务内完成业务校验的
-  /// infrastructure use case。
+  /// Allowed callers are restore/migration/test code and infrastructure use
+  /// cases that have already enforced subscription and timing business rules.
+  /// Normal creates must go through LocalSaveTimingRecordWithImpactUseCase.
   @override
   Future<int> insert(TimingRecord r) async {
     final db = await AppDatabase.database;
     return insertWithExecutor(db, r);
   }
 
-  /// 事务内低层 insert。调用方必须先完成新增权限与业务不变量校验。
+  /// Low-level transactional insert. Do not call this from UI/controllers/store.
+  ///
+  /// Callers must first enforce create entitlement, Free 30-record limits, and
+  /// related timing/project invariants. Normal creates must go through
+  /// LocalSaveTimingRecordWithImpactUseCase instead.
   Future<int> insertWithExecutor(DatabaseExecutor executor, TimingRecord r) {
     return executor.insert(_table, _toRow(r));
   }

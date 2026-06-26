@@ -284,6 +284,32 @@ void main() {
       );
     });
 
+    test(
+      'UI controller and store layers cannot call TimingRepository low-level inserts',
+      () {
+        final violations = <String, List<String>>{
+          for (final file in _prohibitedTimingRepositoryInsertFiles())
+            if (_lowLevelTimingRepositoryInsertMarkers(
+              _stripDartCommentsAndStrings(_read(file)),
+            ).isNotEmpty)
+              file: _lowLevelTimingRepositoryInsertMarkers(
+                _stripDartCommentsAndStrings(_read(file)),
+              ),
+        };
+
+        expect(
+          violations,
+          isEmpty,
+          reason:
+              'UI/controller/store layers must create timing records through '
+              'LocalSaveTimingRecordWithImpactUseCase or the current unified '
+              'save use case. Direct TimingRepository.insert/insertWithExecutor '
+              'calls bypass subscription entitlement and the Free 30-record '
+              'limit.\n${_describeLowLevelInsertViolations(violations)}',
+        );
+      },
+    );
+
     test('timing record direct write detector recognizes common write shapes', () {
       const writeExamples = {
         'executor.insert literal':
@@ -449,6 +475,42 @@ List<String> _libDartFiles() {
   return files;
 }
 
+List<String> _prohibitedTimingRepositoryInsertFiles() {
+  return _libDartFiles()
+      .where(_isProhibitedTimingRepositoryInsertLayer)
+      .toList();
+}
+
+bool _isProhibitedTimingRepositoryInsertLayer(String path) {
+  if (!path.startsWith('lib/features/')) return false;
+  return path.contains('/view/') ||
+      path.contains('/widgets/') ||
+      path.contains('/state/') ||
+      path.contains('/application/controllers/');
+}
+
+List<String> _lowLevelTimingRepositoryInsertMarkers(String source) {
+  final markers = <String>{};
+  for (final repositoryName in _timingRepositoryVariableNames(source)) {
+    final escapedName = RegExp.escape(repositoryName);
+    final lowLevelInsertPattern = RegExp(
+      '$escapedName\\s*\\.\\s*(insert|insertWithExecutor)\\s*\\(',
+    );
+    if (lowLevelInsertPattern.hasMatch(source)) {
+      markers.add('$repositoryName.insert/insertWithExecutor');
+    }
+  }
+
+  final providerReadPattern = RegExp(
+    r'\b(read|watch)<(?:TimingRepository|SqfliteTimingRepository)>\s*'
+    r'\(\s*\)\s*\.\s*(insert|insertWithExecutor)\s*\(',
+  );
+  if (providerReadPattern.hasMatch(source)) {
+    markers.add('Provider read/watch TimingRepository low-level insert');
+  }
+  return markers.toList()..sort();
+}
+
 List<String> _timingRecordWriteMarkers(String source) {
   final normalizedSource = _normalizeWriteSource(source);
   final markers = <String>{};
@@ -505,6 +567,12 @@ String _normalizeWriteSource(String source) {
       .replaceAll('"', '')
       .replaceAll("'", '')
       .replaceAll('`', '');
+}
+
+String _stripDartCommentsAndStrings(String source) {
+  return source
+      .replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '')
+      .replaceAll(RegExp(r'//.*', multiLine: true), '');
 }
 
 Set<String> _timingRepositoryVariableNames(String source) {
@@ -588,4 +656,14 @@ String _describeMissing(Set<String> actual, Set<String> expected) {
     return 'No stale timing_records allowlist paths.';
   }
   return 'Missing paths:\n${missing.join('\n')}';
+}
+
+String _describeLowLevelInsertViolations(Map<String, List<String>> violations) {
+  if (violations.isEmpty) {
+    return 'No forbidden TimingRepository low-level insert calls.';
+  }
+  final paths = violations.keys.toList()..sort();
+  return 'Forbidden calls:\n${paths.map((path) {
+    return '$path: ${violations[path]!.join(', ')}';
+  }).join('\n')}';
 }

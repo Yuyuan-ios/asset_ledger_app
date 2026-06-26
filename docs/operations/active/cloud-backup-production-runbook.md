@@ -70,8 +70,12 @@ sudo bash deploy/install_on_ecs.sh
 
 - [ ] `FLEET_BACKUP_AUTH_HS256_SECRET` **或** introspection 组（见 0.1）
 - [ ] `FLEET_BACKUP_ACCOUNT_KEY_SECRET`（见 0.2，**生成后立刻离线备份**）
+- [ ] `CLOUD_BACKUP_ENTITLEMENT_URL` + `CLOUD_BACKUP_ENTITLEMENT_TOKEN`
+      （服务端 Max 权益校验；生产/预发缺任一项会启动失败）
 - [ ] `ALIYUN_OSS_*` / `ALIBABA_CLOUD_ACCESS_KEY_*`（见 1）；`FLEET_BACKUP_STORAGE=oss`
-- [ ] 确认**无** `FLEET_BACKUP_DEV_TOKENS_JSON`（生产严禁 dev token）
+- [ ] 确认**无** `FLEET_BACKUP_DEV_TOKENS_JSON`，且无
+      `CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON` / `FLEET_BACKUP_MAX_ENTITLED_USERS_JSON`
+      （生产严禁 dev token 和本地 Max allowlist）
 
 ```bash
 systemctl enable --now fleet-ledger-cloud-backup
@@ -86,7 +90,8 @@ systemctl status fleet-ledger-cloud-backup --no-pager
 
 ```bash
 nginx -t && systemctl reload nginx
-curl -fsS https://backup-api.yuyuan.net.cn/healthz   # 期望 {"ok":true}
+curl -fsS https://backup-api.yuyuan.net.cn/healthz
+# 期望 ok=true, cloud_backup_entitlement_required=true, entitlement_verifier=configured
 ```
 
 ## 4. 冒烟验收（任意能访问该域名的机器）
@@ -115,6 +120,7 @@ flutter build ipa --release --dart-define-from-file=dart_defines/production.json
 
 - [ ] 0.1 账号服务在线 & 备份后端能验证其 token（HS256 共享 / introspection 二选一已配）
 - [ ] 0.2 `FLEET_BACKUP_ACCOUNT_KEY_SECRET` 已生成、已离线备份、确认永不轮换
+- [ ] 服务端 Max entitlement 已配置：`CLOUD_BACKUP_ENTITLEMENT_URL` + `CLOUD_BACKUP_ENTITLEMENT_TOKEN`
 - [ ] 0.3 `backup-api` 子域 ICP 备案已覆盖
 - [ ] OSS 私有桶 + 最小权限 RAM、AK/SK 仅在后端 env
 - [ ] DNS + TLS 就位，`/healthz` 200

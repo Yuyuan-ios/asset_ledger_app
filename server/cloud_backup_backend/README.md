@@ -25,7 +25,7 @@ bucket policy, or object path is placed in the Flutter client.
   - Returns the stable high-entropy account secret used by the App as
     `CloudBackupCipher` key material.
 - `GET /healthz`
-  - No auth; for local health checks.
+  - No auth; for local health checks and non-secret config diagnostics.
 
 ## Storage
 
@@ -90,25 +90,70 @@ server-side Max entitlement check before backup-key issuance, upload, list, or
 download. Production must configure a trusted HTTPS entitlement source:
 
 ```bash
-FLEET_BACKUP_ENTITLEMENT_VERIFICATION_URL=https://api.example.com/v1/subscriptions/entitlement
-FLEET_BACKUP_ENTITLEMENT_BEARER_TOKEN=replace-with-server-to-server-token
+APP_ENV=production
+CLOUD_BACKUP_ENTITLEMENT_URL=https://api.example.com/v1/subscriptions/entitlement
+CLOUD_BACKUP_ENTITLEMENT_TOKEN=replace-with-server-to-server-token
+CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS=5
+CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_SECONDS=60
 ```
 
-The verifier sends the authenticated `userId` server-to-server and accepts only
-JSON that proves Max, such as `{"entitlementTier":"max"}` or
-`{"canUseCloudBackup":true}`. Free, Pro, unknown, expired, malformed, or
-unconfigured entitlement states fail closed. Without a configured entitlement
-source, authenticated cloud-backup requests return `403 cloud_backup_requires_max`.
+The verifier posts the authenticated `user_id` server-to-server with
+`required_capability:"cloud_backup"` and `required_plan:"max"`, authenticated by
+`Authorization: Bearer <CLOUD_BACKUP_ENTITLEMENT_TOKEN>`. It accepts only JSON
+that explicitly proves active Max entitlement, for example
+`{"entitlementTier":"max","active":true}` or an equivalent nested
+entitlement/subscription object. Free, Pro, expired, unknown, missing fields,
+malformed JSON, non-2xx service errors, timeouts, or exceptions fail closed.
+
+Response semantics:
+
+- Missing/invalid app Bearer token: `401 unauthorized`.
+- Authenticated but Free/Pro/expired/not entitled: `403 cloud_backup_requires_max`.
+- Entitlement service unavailable, timed out, returned 500, or returned malformed
+  JSON: `503 subscription_verification_unavailable`.
+
+Production and staging fail fast at startup if `CLOUD_BACKUP_ENTITLEMENT_URL` or
+`CLOUD_BACKUP_ENTITLEMENT_TOKEN` is missing. If `APP_ENV` is unset, the backend
+treats it as production for this entitlement check. The old
+`FLEET_BACKUP_ENTITLEMENT_VERIFICATION_URL` and
+`FLEET_BACKUP_ENTITLEMENT_BEARER_TOKEN` names are still read as compatibility
+fallbacks, but new deployments should use the `CLOUD_BACKUP_*` names above.
 
 For local or test-only smoke checks, a static allow-list can be enabled only
 when `APP_ENV` is `test`, `local`, or `development`:
 
 ```bash
 APP_ENV=local
-FLEET_BACKUP_MAX_ENTITLED_USERS_JSON='["test-user"]'
+CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON='["test-user"]'
 ```
 
-Do not enable the static allow-list in production.
+Do not enable the static allow-list in production. The backend never trusts
+client-declared subscription headers such as `X-Subscription-Tier: max`; only the
+server-to-server entitlement source can grant Max cloud backup access.
+
+`GET /healthz` returns non-secret diagnostics:
+
+```json
+{
+  "ok": true,
+  "app_env": "production",
+  "cloud_backup_entitlement_required": true,
+  "entitlement_verifier": "configured"
+}
+```
+
+`entitlement_verifier` can be `configured`, `missing`, or `disabled_for_test`.
+The response never includes tokens, secrets, receipts, or full account data.
+
+Deployment checklist:
+
+- Set `APP_ENV=production` or `APP_ENV=staging`.
+- Set `CLOUD_BACKUP_ENTITLEMENT_URL` to an HTTPS account/subscription endpoint.
+- Set `CLOUD_BACKUP_ENTITLEMENT_TOKEN` to a server-to-server token.
+- Confirm no `CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON` or
+  `FLEET_BACKUP_MAX_ENTITLED_USERS_JSON` is present in production.
+- Confirm Free, Pro, expired, and entitlement-service-unavailable states fail
+  closed before enabling cloud backup for users.
 
 ## Account Backup Key Issuer
 
@@ -155,12 +200,13 @@ Production requirements:
   intended to run behind nginx on `127.0.0.1`.
 - Keep systemd logs and access logs free of Authorization headers, app tokens,
   OSS secrets, JWT secrets, and backup payload bodies.
-- The health check only returns `{"ok":true}` and must not expose config.
+- The health check exposes only non-secret config status and must never expose
+  tokens, receipts, Authorization headers, OSS secrets, JWT secrets, or payloads.
 
 ## Test
 
 ```bash
-python3 -m py_compile app.py tests/test_app.py
+python3 -m py_compile app.py handlers.py entitlements.py tests/test_app.py
 python3 -m unittest discover -s tests
 ```
 

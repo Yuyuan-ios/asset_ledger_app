@@ -8,6 +8,7 @@ import sqlite3
 import tempfile
 import time
 import unittest
+import urllib.error
 from unittest import mock
 
 from app import (
@@ -17,9 +18,12 @@ from app import (
     BackupMetadataStore,
     FileObjectStore,
     HttpError,
+    HttpCloudBackupEntitlementVerifier,
     SlidingWindowRateLimiter,
+    StaticMaxUserEntitlementVerifier,
     StorageError,
     base64url_encode,
+    build_cloud_backup_entitlement_verifier_from_env,
     configure_logging,
     main,
     validate_envelope,
@@ -77,6 +81,7 @@ class BackendTestCase(unittest.TestCase):
                     "token-free": "user-free",
                     "token-pro": "user-pro",
                     "token-max": "user-max",
+                    "token-expired": "user-expired",
                 }
             ),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
@@ -420,6 +425,163 @@ class BackendTestCase(unittest.TestCase):
             with self.assertRaises(ValueError):
                 AppConfig.from_env()
 
+    def test_production_entitlement_config_requires_url(self):
+        with _patched_env(clear=True, APP_ENV="production"):
+            with self.assertRaisesRegex(ValueError, "CLOUD_BACKUP_ENTITLEMENT_URL"):
+                build_cloud_backup_entitlement_verifier_from_env()
+
+    def test_production_entitlement_config_requires_token(self):
+        with _patched_env(
+            clear=True,
+            APP_ENV="production",
+            CLOUD_BACKUP_ENTITLEMENT_URL="https://api.example.test/entitlement",
+        ):
+            with self.assertRaisesRegex(ValueError, "CLOUD_BACKUP_ENTITLEMENT_TOKEN"):
+                build_cloud_backup_entitlement_verifier_from_env()
+
+    def test_unset_app_env_defaults_to_production_entitlement_config(self):
+        with _patched_env(clear=True):
+            with self.assertRaisesRegex(ValueError, "CLOUD_BACKUP_ENTITLEMENT_URL"):
+                build_cloud_backup_entitlement_verifier_from_env()
+
+    def test_production_rejects_static_entitlement_allowlist(self):
+        with _patched_env(
+            clear=True,
+            APP_ENV="production",
+            CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON='["user-max"]',
+        ):
+            with self.assertRaisesRegex(ValueError, "not allowed"):
+                build_cloud_backup_entitlement_verifier_from_env()
+
+    def test_local_static_entitlement_allowlist_is_explicit_only(self):
+        with _patched_env(
+            clear=True,
+            APP_ENV="local",
+            CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON='["user-max"]',
+        ):
+            verifier = build_cloud_backup_entitlement_verifier_from_env()
+
+        self.assertIsInstance(verifier, StaticMaxUserEntitlementVerifier)
+        verifier.require_max("user-max")
+        with self.assertRaises(HttpError) as error:
+            verifier.require_max("user-free")
+        self.assertEqual(error.exception.status, 403)
+
+    def test_production_url_and_token_build_http_entitlement_verifier(self):
+        with _patched_env(
+            clear=True,
+            APP_ENV="production",
+            CLOUD_BACKUP_ENTITLEMENT_URL="https://api.example.test/entitlement",
+            CLOUD_BACKUP_ENTITLEMENT_TOKEN="server-token",
+            CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS="3",
+            CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_SECONDS="7",
+        ):
+            verifier = build_cloud_backup_entitlement_verifier_from_env()
+
+        self.assertIsInstance(verifier, HttpCloudBackupEntitlementVerifier)
+        self.assertEqual(verifier.timeout_seconds, 3)
+        self.assertEqual(verifier.cache_ttl_seconds, 7)
+
+
+class EntitlementVerifierTestCase(unittest.TestCase):
+    def test_http_verifier_sends_server_token_and_allows_active_max(self):
+        calls = []
+
+        def urlopen(request, timeout):
+            calls.append((request, timeout))
+            return _HttpResponse({"entitlementTier": "max", "active": True})
+
+        verifier = HttpCloudBackupEntitlementVerifier(
+            "https://api.example.test/entitlement",
+            bearer_token="server-token",
+            timeout_seconds=2,
+        )
+
+        with mock.patch("entitlements.urllib.request.urlopen", side_effect=urlopen):
+            verifier.require_max("user-max")
+
+        self.assertEqual(len(calls), 1)
+        request, timeout = calls[0]
+        self.assertEqual(timeout, 2)
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(request.get_header("Authorization"), "Bearer server-token")
+        self.assertEqual(request.get_header("Content-type"), "application/json")
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(body["user_id"], "user-max")
+        self.assertEqual(body["required_capability"], "cloud_backup")
+        self.assertEqual(body["required_plan"], "max")
+
+    def test_http_verifier_rejects_free_pro_expired_and_missing_fields(self):
+        cases = [
+            ({"entitlementTier": "free", "active": True}, 403),
+            ({"entitlementTier": "pro", "active": True}, 403),
+            ({"entitlementTier": "max", "status": "expired"}, 403),
+            ({"entitlementTier": "max"}, 403),
+            ({"active": True}, 403),
+        ]
+
+        for response, status in cases:
+            with self.subTest(response=response):
+                verifier = HttpCloudBackupEntitlementVerifier(
+                    "https://api.example.test/entitlement",
+                    bearer_token="server-token",
+                )
+                with mock.patch(
+                    "entitlements.urllib.request.urlopen",
+                    return_value=_HttpResponse(response),
+                ):
+                    with self.assertRaises(HttpError) as error:
+                        verifier.require_max("user-a")
+                self.assertEqual(error.exception.status, status)
+                self.assertEqual(error.exception.code, "cloud_backup_requires_max")
+
+    def test_http_verifier_treats_service_errors_as_unavailable(self):
+        cases = [
+            urllib.error.HTTPError(
+                "https://api.example.test/entitlement",
+                500,
+                "server error",
+                {},
+                None,
+            ),
+            TimeoutError("timed out"),
+            urllib.error.URLError("network down"),
+        ]
+
+        for side_effect in cases:
+            with self.subTest(side_effect=type(side_effect).__name__):
+                verifier = HttpCloudBackupEntitlementVerifier(
+                    "https://api.example.test/entitlement",
+                    bearer_token="server-token",
+                )
+                with mock.patch(
+                    "entitlements.urllib.request.urlopen",
+                    side_effect=side_effect,
+                ):
+                    with self.assertRaises(HttpError) as error:
+                        verifier.require_max("user-a")
+                self.assertEqual(error.exception.status, 503)
+                self.assertEqual(
+                    error.exception.code,
+                    "subscription_verification_unavailable",
+                )
+
+    def test_http_verifier_malformed_json_fails_closed_as_unavailable(self):
+        verifier = HttpCloudBackupEntitlementVerifier(
+            "https://api.example.test/entitlement",
+            bearer_token="server-token",
+        )
+
+        with mock.patch(
+            "entitlements.urllib.request.urlopen",
+            return_value=_RawHttpResponse(b"{not-json"),
+        ):
+            with self.assertRaises(HttpError) as error:
+                verifier.require_max("user-a")
+
+        self.assertEqual(error.exception.status, 503)
+        self.assertEqual(error.exception.code, "subscription_verification_unavailable")
+
 
 class BackendHttpTestCase(unittest.TestCase):
     def setUp(self):
@@ -434,6 +596,7 @@ class BackendHttpTestCase(unittest.TestCase):
                     "token-free": "user-free",
                     "token-pro": "user-pro",
                     "token-max": "user-max",
+                    "token-expired": "user-expired",
                 }
             ),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
@@ -463,11 +626,25 @@ class BackendHttpTestCase(unittest.TestCase):
         return handler.status, json.loads(handler.wfile.getvalue().decode("utf-8"))
 
     def test_healthz_is_unauthenticated_and_bypasses_version_gate(self):
-        with mock.patch("app.VERSION_UPGRADE_GATE.enforce", side_effect=AssertionError("gate should not run")):
+        with (
+            _patched_env(clear=True),
+            mock.patch(
+                "app.VERSION_UPGRADE_GATE.enforce",
+                side_effect=AssertionError("gate should not run"),
+            ),
+        ):
             status, body = self.request("GET", "/healthz")
 
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"ok": True})
+        self.assertEqual(
+            body,
+            {
+                "ok": True,
+                "app_env": "production",
+                "cloud_backup_entitlement_required": True,
+                "entitlement_verifier": "configured",
+            },
+        )
 
     def test_version_gate_returns_426_for_outdated_client_before_auth(self):
         policy_path = self.write_version_policy(min_version="2.0.0")
@@ -687,6 +864,7 @@ class BackendHttpTestCase(unittest.TestCase):
                 "user-free": "free",
                 "user-pro": "pro",
                 "user-max": "max",
+                "user-expired": "expired",
             }
         )
 
@@ -697,7 +875,7 @@ class BackendHttpTestCase(unittest.TestCase):
             ("GET", "/v1/backups/missing-backup-id", None),
         ]
 
-        for token in ("token-free", "token-pro"):
+        for token in ("token-free", "token-pro", "token-expired"):
             for method, path, body in cases:
                 with self.subTest(token=token, method=method, path=path):
                     status, response = self.request(method, path, token=token, body=body)
@@ -707,6 +885,34 @@ class BackendHttpTestCase(unittest.TestCase):
                         response["error"]["message"],
                         "Cloud backup requires Max subscription.",
                     )
+
+    def test_http_cloud_backup_does_not_trust_client_subscription_tier_header(self):
+        self.app.entitlement_verifier = _TierEntitlementVerifier({"user-free": "free"})
+
+        status, response = self.request(
+            "GET",
+            "/v1/backups",
+            token="token-free",
+            headers={"X-Subscription-Tier": "max"},
+        )
+
+        self.assertEqual(status, 403)
+        self.assertEqual(response["error"]["code"], "cloud_backup_requires_max")
+
+    def test_all_current_cloud_backup_routes_hit_max_guard(self):
+        cases = [
+            ("GET", "/v1/account/backup-key", None),
+            ("POST", "/v1/backups", make_envelope()),
+            ("GET", "/v1/backups", None),
+            ("GET", "/v1/backups/missing-backup-id", None),
+        ]
+
+        for method, path, body in cases:
+            with self.subTest(method=method, path=path):
+                verifier = _RecordingEntitlementVerifier()
+                self.app.entitlement_verifier = verifier
+                self.request(method, path, token="token-a", body=body)
+                self.assertEqual(verifier.user_ids, ["user-a"])
 
     def test_http_cloud_backup_endpoints_allow_max_entitlement(self):
         self.app.entitlement_verifier = _TierEntitlementVerifier(
@@ -733,13 +939,13 @@ class BackendHttpTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(downloaded["kind"], "cloud_backup")
 
-    def test_http_entitlement_verifier_exception_fails_closed(self):
+    def test_http_entitlement_verifier_exception_is_unavailable(self):
         self.app.entitlement_verifier = _ExplodingEntitlementVerifier()
 
         status, body = self.request("GET", "/v1/backups", token="token-a")
 
-        self.assertEqual(status, 403)
-        self.assertEqual(body["error"]["code"], "cloud_backup_requires_max")
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"]["code"], "subscription_verification_unavailable")
 
     def test_http_entitlement_unavailable_returns_503_without_leaking_account(self):
         self.app.entitlement_verifier = _UnavailableEntitlementVerifier()
@@ -861,6 +1067,14 @@ class _TierEntitlementVerifier:
         )
 
 
+class _RecordingEntitlementVerifier:
+    def __init__(self):
+        self.user_ids = []
+
+    def require_max(self, user_id):
+        self.user_ids.append(user_id)
+
+
 class _ExplodingEntitlementVerifier:
     def require_max(self, user_id):
         raise RuntimeError("simulated entitlement verifier failure")
@@ -873,6 +1087,25 @@ class _UnavailableEntitlementVerifier:
             "subscription_verification_unavailable",
             "Subscription verification is currently unavailable.",
         )
+
+
+class _RawHttpResponse:
+    def __init__(self, raw):
+        self.raw = raw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return self.raw
+
+
+class _HttpResponse(_RawHttpResponse):
+    def __init__(self, body):
+        super().__init__(json.dumps(body, separators=(",", ":")).encode("utf-8"))
 
 
 class _HandlerHarness:
@@ -900,12 +1133,15 @@ class _HandlerHarness:
 
 
 class _patched_env:
-    def __init__(self, **updates):
+    def __init__(self, clear=False, **updates):
+        self.clear = clear
         self.updates = updates
         self.original = None
 
     def __enter__(self):
         self.original = os.environ.copy()
+        if self.clear:
+            os.environ.clear()
         os.environ.update(self.updates)
 
     def __exit__(self, exc_type, exc, tb):

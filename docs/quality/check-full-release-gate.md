@@ -38,6 +38,12 @@ Also: pub dependencies must already be fetched, because the test steps use
 `--no-pub` (no implicit `flutter pub get`). If deps are stale, run `flutter pub get`
 first.
 
+`check_full.sh` also verifies that the Flutter SDK cache is writable before it
+starts the gate. If `bin/cache` or `bin/cache/engine.stamp` is read-only, the
+script fails immediately with an environment-permission message instead of
+letting `flutter analyze` or `flutter test` fail later with a misleading project
+test error.
+
 ## 3. Step-by-step walkthrough of `check_full.sh`
 
 The script sets `set -euo pipefail` (unset vars, pipe failures, and any non-zero
@@ -53,7 +59,9 @@ Preamble (before any step):
 1. `ROOT="$(git rev-parse --show-toplevel)"`; if empty → `error: not inside a git repository`, exit `1`.
 2. `cd "$ROOT"`.
 3. `require_command git`, `require_command flutter`.
-4. Verify `tools/run_custom_lint_isolated.sh` exists; else `error: missing ...`, exit `1`.
+4. Resolve the Flutter SDK and verify `bin/cache` / `bin/cache/engine.stamp` is
+   writable. If not, exit `1` with `Flutter SDK cache is not writable.`
+5. Verify `tools/run_custom_lint_isolated.sh` exists; else `error: missing ...`, exit `1`.
 
 Then the five gate steps, in this exact order (fail-fast — a failure stops the rest):
 
@@ -181,5 +189,9 @@ Exit code `0`. Any `error: <label> failed` line means that step is the failure p
 - **Inspect a custom_lint failure workspace:** rerun with
   `ASSET_LEDGER_KEEP_LINT_WORKSPACE=1 bash tools/agent/check_full.sh` (or call the helper
   directly) to keep the temp copy for inspection.
+- **`Flutter SDK cache is not writable` / `engine.stamp: Operation not permitted`:**
+  rerun with proper permissions or point the environment at a writable Flutter
+  SDK/cache. Do not chmod system directories from the script. This is an
+  environment permission issue, not necessarily a project test failure.
 - **`--no-pub` surprises:** if a dependency was just added, run `flutter pub get` before
   the gate.

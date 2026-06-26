@@ -11,7 +11,14 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from auth import Authenticator
 from config import ENCODING_AES_GCM, ENCODING_PLAINTEXT, ENCRYPTION_META_FIELDS, KIND_VALUE, MAX_PAYLOAD_BYTES, MAX_REQUEST_BYTES, SUPPORTED_FORMAT_VERSION, VERSION_UPGRADE_GATE, AppConfig
-from entitlements import CloudBackupEntitlementVerifier, FailClosedCloudBackupEntitlementVerifier, build_cloud_backup_entitlement_verifier_from_env, cloud_backup_requires_max_error
+from entitlements import (
+    CloudBackupEntitlementVerifier,
+    FailClosedCloudBackupEntitlementVerifier,
+    build_cloud_backup_entitlement_verifier_from_env,
+    cloud_backup_app_env,
+    cloud_backup_entitlement_diagnostic_state,
+    subscription_verification_unavailable_error,
+)
 from http_helpers import HttpError, duration_ms_since, error_response, json_response, log_backup_event, log_internal_error, read_json_body, request_id_from_headers
 from object_store import AliyunOssObjectStore, FileObjectStore, StorageError
 from rate_limit import SlidingWindowRateLimiter
@@ -82,7 +89,25 @@ class BackupApp:
         except HttpError:
             raise
         except Exception as exc:
-            raise cloud_backup_requires_max_error() from exc
+            raise subscription_verification_unavailable_error() from exc
+
+    def require_authenticated_max_user(
+        self,
+        handler: http.server.BaseHTTPRequestHandler,
+    ) -> str:
+        user_id = self.authenticate(handler)
+        self.require_max_entitlement(user_id)
+        return user_id
+
+    def health_response(self) -> Dict[str, Any]:
+        return {
+            "ok": True,
+            "app_env": cloud_backup_app_env(),
+            "cloud_backup_entitlement_required": True,
+            "entitlement_verifier": cloud_backup_entitlement_diagnostic_state(
+                self.entitlement_verifier,
+            ),
+        }
 
     def issue_account_backup_key(self, user_id: str) -> str:
         """派生 per-account 的稳定高熵备份秘密(账号绑定客户端加密的密钥材料)。
@@ -362,44 +387,64 @@ class BackupRequestHandler(http.server.BaseHTTPRequestHandler):
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path.rstrip("/") or "/"
             if method == "GET" and path == "/healthz":
-                json_response(self, 200, {"ok": True})
+                json_response(self, 200, self.app.health_response())
                 return
             upgrade_body = VERSION_UPGRADE_GATE.enforce(self.headers)
             if upgrade_body is not None:
                 json_response(self, 426, upgrade_body)
                 return
-            user_id = self.app.authenticate(self)
-            if method == "GET" and path == "/v1/account/backup-key":
-                self.app.require_max_entitlement(user_id)
-                json_response(
-                    self,
-                    200,
-                    {"backup_secret": self.app.issue_account_backup_key(user_id)},
-                )
+            if BackupRequestHandler._handle_cloud_backup_route(self, method, path):
                 return
-            if method == "POST" and path == "/v1/backups":
-                self.app.require_max_entitlement(user_id)
-                envelope = read_json_body(self, self.app.max_request_bytes)
-                backup_id = self.app.create_backup(user_id, envelope)
-                json_response(self, 200, {"backup_id": backup_id})
-                return
-            if method == "GET" and path == "/v1/backups":
-                self.app.require_max_entitlement(user_id)
-                json_response(self, 200, {"backups": self.app.list_backups(user_id)})
-                return
-            if method == "GET" and path.startswith("/v1/backups/"):
-                self.app.require_max_entitlement(user_id)
-                backup_id = urllib.parse.unquote(path[len("/v1/backups/") :])
-                if not backup_id:
-                    raise HttpError(404, "not_found", "backup not found")
-                json_response(self, 200, self.app.download_backup(user_id, backup_id))
-                return
+            self.app.authenticate(self)
             raise HttpError(404, "not_found", "endpoint not found")
         except HttpError as exc:
             error_response(self, exc)
         except Exception:
             log_internal_error(request_id, method, path)
             error_response(self, HttpError(500, "internal_error", "internal server error"))
+
+    def _handle_cloud_backup_route(self, method: str, path: str) -> bool:
+        if not _is_cloud_backup_path(path):
+            return False
+
+        # Any current or future /v1/backups* or /v1/account/backup-key endpoint
+        # must use this chain: Bearer auth -> server-side Max entitlement guard
+        # -> concrete handler. Do not trust client subscription/plan headers.
+        user_id = self.app.require_authenticated_max_user(self)
+        if method == "GET" and path == "/v1/account/backup-key":
+            json_response(
+                self,
+                200,
+                {"backup_secret": self.app.issue_account_backup_key(user_id)},
+            )
+            return True
+        if method == "POST" and path == "/v1/backups":
+            envelope = read_json_body(self, self.app.max_request_bytes)
+            backup_id = self.app.create_backup(user_id, envelope)
+            json_response(self, 200, {"backup_id": backup_id})
+            return True
+        if method == "GET" and path == "/v1/backups":
+            json_response(self, 200, {"backups": self.app.list_backups(user_id)})
+            return True
+        if method == "GET" and path.startswith("/v1/backups/"):
+            backup_id = urllib.parse.unquote(path[len("/v1/backups/") :])
+            if not backup_id:
+                raise HttpError(404, "not_found", "backup not found")
+            json_response(
+                self,
+                200,
+                self.app.download_backup(user_id, backup_id),
+            )
+            return True
+        raise HttpError(404, "not_found", "endpoint not found")
+
+
+def _is_cloud_backup_path(path: str) -> bool:
+    return (
+        path == "/v1/account/backup-key"
+        or path == "/v1/backups"
+        or path.startswith("/v1/backups/")
+    )
 
 
 class BackupHttpServer(http.server.ThreadingHTTPServer):
