@@ -13,8 +13,8 @@ import '../../../test_setup.dart';
 /// FOREIGN KEY constraint failed。
 ///
 /// Migration021.apply 必须是 onUpgrade 事务内安全的 no-op；真正的列级 UNIQUE
-/// 移除 + partial unique index 建立由 DbSchemaCompat.ensure（onOpen）执行——
-/// 那里没有 sqflite 事务，PRAGMA foreign_keys = OFF 才会生效。
+/// 移除 + active-scoped legacy key 唯一性拆除由 DbSchemaCompat.ensure（onOpen）
+/// 执行——那里没有 sqflite 事务，PRAGMA foreign_keys = OFF 才会生效。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   configureTestDatabase();
@@ -37,7 +37,7 @@ void main() {
 
   test(
     'v20 + 真实子表 FK 数据 → v21 完整 onUpgrade/onOpen 链路：'
-    '不抛 FOREIGN KEY constraint failed，数据保留，UNIQUE 拆除，partial unique 就位',
+    '不抛 FOREIGN KEY constraint failed，数据保留，UNIQUE 拆除，允许重复 active key',
     () async {
       // ---- 1) 模拟旧 v20 库：projects 带列级 UNIQUE，并写入子表 FK 数据 ----
       final v20 = await databaseFactoryFfi.openDatabase(
@@ -169,13 +169,12 @@ void main() {
               await DbMigrations.apply(db, oldV, newV);
             },
             onOpen: (db) async {
-              // 这里只调用本次修复所关心的 v21 兜底；DbSchemaCompat.ensure 在生产里
+              // 这里只调用本次修复所关心的 v54 兜底；DbSchemaCompat.ensure 在生产里
               // 会顺次跑完所有 v* ensure，但其他 ensure 需要的旧表（account_payments
               // 等）超出本测试的最小 v20 fixture 范围。
-              // 关键不变量：本 ensure 在 onOpen 路径执行，即 sqflite 事务之外，
+              // 关键不变量：本 drop 在 onOpen 路径执行，即 sqflite 事务之外，
               // 因此 PRAGMA foreign_keys = OFF 可以生效；这正是修复点。
-              await DbMigrations
-                  .ensureActiveScopedLegacyProjectKeyUniqueness(db);
+              await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(db);
             },
           ),
         );
@@ -185,20 +184,14 @@ void main() {
 
       try {
         // ---- 3) 业务数据保留 ----
-        final projectRows = await v21.query(
-          'projects',
-          orderBy: 'id ASC',
-        );
+        final projectRows = await v21.query('projects', orderBy: 'id ASC');
         expect(projectRows.map((r) => r['id']).toList(), [
           'project:p1',
           'project:p2',
         ]);
 
         // 子表 FK 行也保留。
-        final timingRows = await v21.query(
-          'timing_records',
-          orderBy: 'id ASC',
-        );
+        final timingRows = await v21.query('timing_records', orderBy: 'id ASC');
         expect(timingRows, hasLength(2));
 
         final extBatches = await v21.query('external_import_batches');
@@ -213,22 +206,21 @@ void main() {
           "SELECT sql FROM sqlite_master WHERE type='table' AND name='projects';",
         );
         final tableSql = (tableSqlRow.single['sql'] as String).toUpperCase();
-        final legacyKeyClause = RegExp(r'LEGACY_PROJECT_KEY[^,)\n]*')
-            .firstMatch(tableSql)!
-            .group(0)!;
-        expect(legacyKeyClause.contains('UNIQUE'), isFalse,
-            reason:
-                '升级后 legacy_project_key 列不应再有 UNIQUE: $legacyKeyClause');
+        final legacyKeyClause = RegExp(
+          r'LEGACY_PROJECT_KEY[^,)\n]*',
+        ).firstMatch(tableSql)!.group(0)!;
+        expect(
+          legacyKeyClause.contains('UNIQUE'),
+          isFalse,
+          reason: '升级后 legacy_project_key 列不应再有 UNIQUE: $legacyKeyClause',
+        );
 
-        // ---- 5) partial unique index 建立 ----
+        // ---- 5) active-scoped legacy key 唯一索引不存在 ----
         final idxInfo = await v21.rawQuery(
           "SELECT name, sql FROM sqlite_master WHERE type='index' "
           "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
         );
-        expect(idxInfo, hasLength(1));
-        final idxSql = (idxInfo.single['sql'] as String).toUpperCase();
-        expect(idxSql, contains('UNIQUE'));
-        expect(idxSql, contains("STATUS = 'ACTIVE'"));
+        expect(idxInfo, isEmpty);
 
         // ---- 6) FK 校验通过 ----
         final fkIssues = await v21.rawQuery('PRAGMA foreign_key_check;');
@@ -240,7 +232,7 @@ void main() {
   );
 
   test(
-    '升级后再次打开数据库：ensureActiveScopedLegacyProjectKeyUniqueness 幂等，不抛错',
+    '升级后再次打开数据库：dropActiveScopedLegacyProjectKeyUniqueness 幂等，不抛错',
     () async {
       // 制造一个 v20 + UNIQUE + 子表 FK 的库，升级一次再打开第二次。
       final v20 = await databaseFactoryFfi.openDatabase(
@@ -299,14 +291,14 @@ void main() {
             await DbMigrations.apply(db, oldV, newV);
           },
           onOpen: (db) async {
-            await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+            await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(db);
           },
         ),
       );
       await firstOpen.close();
 
       // 第二次打开：只走 onOpen，不会走 onUpgrade（version 已经是 21）。
-      // ensureActiveScopedLegacyProjectKeyUniqueness 应该幂等：什么都不应失败。
+      // dropActiveScopedLegacyProjectKeyUniqueness 应该幂等：什么都不应失败。
       final secondOpen = await databaseFactoryFfi.openDatabase(
         dbPath,
         options: OpenDatabaseOptions(
@@ -318,7 +310,7 @@ void main() {
             await DbMigrations.apply(db, oldV, newV);
           },
           onOpen: (db) async {
-            await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+            await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(db);
           },
         ),
       );
@@ -329,11 +321,11 @@ void main() {
         final fkIssues = await secondOpen.rawQuery('PRAGMA foreign_key_check;');
         expect(fkIssues, isEmpty);
 
-        // 直接再次手动调用 ensure 也不抛错（幂等）。
-        await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(
+        // 直接再次手动调用 drop 也不抛错（幂等）。
+        await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(
           secondOpen,
         );
-        await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(
+        await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(
           secondOpen,
         );
       } finally {
@@ -343,7 +335,7 @@ void main() {
   );
 
   test(
-    '升级后业务规则：两 settled 同 key OK / settled+active 同 key OK / 两 active 同 key 阻断',
+    '升级后业务规则：两 settled 同 key OK / settled+active 同 key OK / 两 active 同 key OK',
     () async {
       // 准备一个 v20 库（带 UNIQUE，仅一行）然后升级。
       final v20 = await databaseFactoryFfi.openDatabase(
@@ -402,7 +394,7 @@ void main() {
             await DbMigrations.apply(db, oldV, newV);
           },
           onOpen: (db) async {
-            await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+            await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(db);
           },
         ),
       );
@@ -430,19 +422,28 @@ void main() {
           'legacy_project_key': '甲方||一号工地',
         });
 
-        // 再插一个 active 同 key —— 被 partial unique index 阻断。
-        await expectLater(
-          v21.insert('projects', {
-            'id': 'project:active-dup',
-            'contact': '甲方',
-            'site': '一号工地',
-            'status': ProjectStatus.active.name,
-            'created_at': '2026-05-02T00:00:00.000Z',
-            'updated_at': '2026-05-02T00:00:00.000Z',
-            'legacy_project_key': '甲方||一号工地',
-          }),
-          throwsA(isA<DatabaseException>()),
+        // 再插一个 active 同 key —— v54 允许重复 active legacy key。
+        await v21.insert('projects', {
+          'id': 'project:active-dup',
+          'contact': '甲方',
+          'site': '一号工地',
+          'status': ProjectStatus.active.name,
+          'created_at': '2026-05-02T00:00:00.000Z',
+          'updated_at': '2026-05-02T00:00:00.000Z',
+          'legacy_project_key': '甲方||一号工地',
+        });
+
+        final activeRows = await v21.query(
+          'projects',
+          columns: ['id'],
+          where: 'legacy_project_key = ? AND status = ?',
+          whereArgs: ['甲方||一号工地', ProjectStatus.active.name],
+          orderBy: 'id ASC',
         );
+        expect(activeRows.map((row) => row['id']).toList(), [
+          'project:active-1',
+          'project:active-dup',
+        ]);
       } finally {
         await v21.close();
       }

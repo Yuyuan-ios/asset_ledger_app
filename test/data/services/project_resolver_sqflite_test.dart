@@ -21,7 +21,7 @@ void main() {
     await AppDatabase.resetForTest();
   });
 
-  group('ProjectResolver (sqflite) - legacy_project_key 唯一性规则', () {
+  group('ProjectResolver (sqflite) - legacy_project_key 复用规则', () {
     test('未结清同联系人同工地：resolveOrCreate 返回同一 active project_id', () async {
       final db = await _openCurrentInMemoryDb();
       final resolver = _resolver();
@@ -194,7 +194,7 @@ void main() {
       expect(rows, hasLength(2));
     });
 
-    test('不允许两个 active 项目拥有相同 legacy_project_key', () async {
+    test('允许两个 active 项目拥有相同 legacy_project_key', () async {
       final db = await _openCurrentInMemoryDb();
       const legacyKey = '甲方||一号工地';
 
@@ -208,19 +208,27 @@ void main() {
         'legacy_project_key': legacyKey,
       });
 
-      // 直接插入第二个 active（同 key）应失败，partial unique index 阻止。
-      await expectLater(
-        db.insert('projects', {
-          'id': 'project:active-2',
-          'contact': '甲方',
-          'site': '一号工地',
-          'status': ProjectStatus.active.name,
-          'created_at': '2026-05-02T00:00:00.000Z',
-          'updated_at': '2026-05-02T00:00:00.000Z',
-          'legacy_project_key': legacyKey,
-        }),
-        throwsA(isA<DatabaseException>()),
+      // v54 已移除 active-scoped partial unique index，同 key active 可共存。
+      await db.insert('projects', {
+        'id': 'project:active-2',
+        'contact': '甲方',
+        'site': '一号工地',
+        'status': ProjectStatus.active.name,
+        'created_at': '2026-05-02T00:00:00.000Z',
+        'updated_at': '2026-05-02T00:00:00.000Z',
+        'legacy_project_key': legacyKey,
+      });
+
+      final rows = await db.query(
+        'projects',
+        where: 'legacy_project_key = ? AND status = ?',
+        whereArgs: [legacyKey, ProjectStatus.active.name],
+        orderBy: 'id ASC',
       );
+      expect(rows.map((row) => row['id']).toList(), [
+        'project:active-1',
+        'project:active-2',
+      ]);
     });
 
     test('settled 与 active 可共存于同一 legacy_project_key', () async {
@@ -292,9 +300,9 @@ void main() {
     });
   });
 
-  group('legacy_project_key partial unique index 迁移路径', () {
+  group('legacy_project_key 唯一约束迁移路径', () {
     test(
-      '新库建表：projects 没有全局 UNIQUE 列约束，仅有 active partial unique index',
+      '新库建表：projects 没有全局 UNIQUE 列约束，也没有 active partial unique index',
       () async {
         final db = await _openCurrentInMemoryDb();
 
@@ -312,20 +320,17 @@ void main() {
           reason: 'legacy_project_key 列不应再有 UNIQUE 约束: $legacyKeyLine',
         );
 
-        // 必须存在 partial unique index。
+        // 不再创建 active-scoped partial unique index。
         final indexInfo = await db.rawQuery(
           "SELECT name, sql FROM sqlite_master WHERE type='index' "
           "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
         );
-        expect(indexInfo, hasLength(1));
-        final indexSql = (indexInfo.single['sql'] as String).toUpperCase();
-        expect(indexSql, contains('UNIQUE'));
-        expect(indexSql, contains("STATUS = 'ACTIVE'"));
+        expect(indexInfo, isEmpty);
       },
     );
 
     test(
-      '旧库升级：v20 schema（带 legacy_project_key UNIQUE）升级后应失去 UNIQUE 并具备 partial unique',
+      '旧库升级：v20 schema（带 legacy_project_key UNIQUE）升级后应失去 UNIQUE 且允许重复 active key',
       () async {
         // 模拟旧 DB：legacy_project_key TEXT UNIQUE。
         final db = await openDatabase(
@@ -363,8 +368,8 @@ void main() {
           'legacy_project_key': '甲方||一号工地',
         });
 
-        // 应用 v21 迁移。
-        await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+        // 应用 v54 onOpen 兜底。
+        await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(db);
 
         // UNIQUE 已被移除。
         final tableInfo = await db.rawQuery(
@@ -376,12 +381,12 @@ void main() {
         ).firstMatch(tableSql)!.group(0)!;
         expect(legacyKeyLine.contains('UNIQUE'), isFalse);
 
-        // partial unique index 已建立。
+        // active-scoped partial unique index 不存在。
         final indexInfo = await db.rawQuery(
           "SELECT name FROM sqlite_master WHERE type='index' "
           "AND tbl_name='projects' AND name='idx_projects_active_legacy_key';",
         );
-        expect(indexInfo, hasLength(1));
+        expect(indexInfo, isEmpty);
 
         // 旧数据保留。
         final rows = await db.query('projects');
@@ -399,19 +404,28 @@ void main() {
           'legacy_project_key': '甲方||一号工地',
         });
 
-        // 但第二个 active 仍被 partial unique 阻止。
-        await expectLater(
-          db.insert('projects', {
-            'id': 'project:duplicate-active',
-            'contact': '甲方',
-            'site': '一号工地',
-            'status': ProjectStatus.active.name,
-            'created_at': '2026-05-16T00:00:00.000Z',
-            'updated_at': '2026-05-16T00:00:00.000Z',
-            'legacy_project_key': '甲方||一号工地',
-          }),
-          throwsA(isA<DatabaseException>()),
+        // 第二个 active 同 key 也允许落库。
+        await db.insert('projects', {
+          'id': 'project:duplicate-active',
+          'contact': '甲方',
+          'site': '一号工地',
+          'status': ProjectStatus.active.name,
+          'created_at': '2026-05-16T00:00:00.000Z',
+          'updated_at': '2026-05-16T00:00:00.000Z',
+          'legacy_project_key': '甲方||一号工地',
+        });
+
+        final activeRows = await db.query(
+          'projects',
+          columns: ['id'],
+          where: 'legacy_project_key = ? AND status = ?',
+          whereArgs: ['甲方||一号工地', ProjectStatus.active.name],
+          orderBy: 'id ASC',
         );
+        expect(activeRows.map((row) => row['id']).toList(), [
+          'project:duplicate-active',
+          'project:new-active',
+        ]);
 
         await db.close();
       },
