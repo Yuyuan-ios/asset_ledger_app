@@ -163,7 +163,7 @@ class MemoryEntitlementCache implements SubscriptionEntitlementCache {
 class MemoryIdentityStore implements SubscriptionIdentityStore {
   MemoryIdentityStore(this.token);
 
-  final String token;
+  String token;
 
   @override
   Future<void> clear() async {}
@@ -173,6 +173,11 @@ class MemoryIdentityStore implements SubscriptionIdentityStore {
 
   @override
   Future<String> readOrCreateAppAccountToken() async => token;
+
+  @override
+  Future<void> writeAppAccountToken(String token) async {
+    this.token = token;
+  }
 }
 
 class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
@@ -205,7 +210,11 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }
 
   @override
-  Future<void> restorePurchases({String? applicationUserName}) async {}
+  Future<List<PurchaseDetails>> restorePurchases({
+    String? applicationUserName,
+  }) async {
+    return const <PurchaseDetails>[];
+  }
 
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {}

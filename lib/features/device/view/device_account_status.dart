@@ -57,6 +57,13 @@ String _subscriptionEntitlementLabel(
   AppLocalizations l10n,
   SubscriptionSnapshot subscription,
 ) {
+  final errorMessage = subscription.errorMessage?.trim();
+  if (errorMessage != null && errorMessage.isNotEmpty) return errorMessage;
+  if (subscription.isRestoring ||
+      subscription.isPurchasing ||
+      subscription.status == SubscriptionStatus.pending) {
+    return l10n.deviceUpgradeTransactionPending;
+  }
   return subscription.allowsProFeatures
       ? l10n.deviceEntitlementPro
       : l10n.deviceEntitlementFree;

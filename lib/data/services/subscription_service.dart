@@ -144,6 +144,7 @@ class SubscriptionService {
       const SharedPreferencesSubscriptionEntitlementCache();
   static SubscriptionIdentityStore _identityStore =
       SharedPreferencesSubscriptionIdentityStore();
+  static Duration _restoreGatewayTimeout = const Duration(seconds: 6);
 
   static SubscriptionSnapshot get snapshot => notifier.value;
 
@@ -290,9 +291,18 @@ class SubscriptionService {
     try {
       final appAccountToken = await _identityStore
           .readOrCreateAppAccountToken();
-      await _storeGateway.restorePurchases(
-        applicationUserName: appAccountToken,
-      );
+      final restoredPurchases = await _storeGateway
+          .restorePurchases(applicationUserName: appAccountToken)
+          .timeout(
+            _restoreGatewayTimeout,
+            onTimeout: () => const <PurchaseDetails>[],
+          );
+      final restored = await _handleRestorePurchaseUpdates(restoredPurchases);
+      if (!restored) {
+        final entitlement = await _verificationRepository
+            .fetchCurrentEntitlement();
+        await _applyVerificationResult(entitlement);
+      }
     } catch (error) {
       _setSnapshot(
         snapshot.copyWith(
@@ -303,6 +313,36 @@ class SubscriptionService {
         ),
       );
     }
+  }
+
+  static Future<bool> _handleRestorePurchaseUpdates(
+    List<PurchaseDetails> purchases,
+  ) async {
+    final subscriptionPurchases = _prioritizedSubscriptionPurchases(purchases);
+    if (subscriptionPurchases.isEmpty) return false;
+
+    var restored = false;
+    for (final purchase in subscriptionPurchases) {
+      switch (purchase.status) {
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          final shouldCompletePurchase = await _handleVerifiedPurchase(
+            purchase,
+          );
+          if (purchase.pendingCompletePurchase && shouldCompletePurchase) {
+            await _storeGateway.completePurchase(purchase);
+          }
+          if (snapshot.allowsMaxFeatures) return true;
+          restored = restored || snapshot.allowsProFeatures;
+          break;
+        case PurchaseStatus.pending:
+        case PurchaseStatus.error:
+        case PurchaseStatus.canceled:
+          await handlePurchaseUpdates([purchase]);
+          break;
+      }
+    }
+    return restored;
   }
 
   static Future<void> handlePurchaseUpdates(
@@ -356,6 +396,29 @@ class SubscriptionService {
         await _storeGateway.completePurchase(purchase);
       }
     }
+  }
+
+  static List<PurchaseDetails> _prioritizedSubscriptionPurchases(
+    List<PurchaseDetails> purchases,
+  ) {
+    final subscriptionPurchases = purchases
+        .where(
+          (purchase) => _subscriptionProductPriority(purchase.productID) > 0,
+        )
+        .toList(growable: false);
+    return subscriptionPurchases..sort(
+      (a, b) => _subscriptionProductPriority(
+        b.productID,
+      ).compareTo(_subscriptionProductPriority(a.productID)),
+    );
+  }
+
+  static int _subscriptionProductPriority(String productId) {
+    return switch (productId) {
+      maxYearlyProductId => 2,
+      proYearlyProductId => 1,
+      _ => 0,
+    };
   }
 
   static Future<void> syncSubscriptionStatus() async {
@@ -488,6 +551,7 @@ class SubscriptionService {
           createDefaultSubscriptionVerificationRepository();
       _entitlementCache = const SharedPreferencesSubscriptionEntitlementCache();
       _identityStore = SharedPreferencesSubscriptionIdentityStore();
+      _restoreGatewayTimeout = const Duration(seconds: 6);
       notifier.value = SubscriptionSnapshot.initial();
       return true;
     }());
@@ -499,6 +563,7 @@ class SubscriptionService {
     SubscriptionVerificationRepository? verificationRepository,
     SubscriptionEntitlementCache? entitlementCache,
     SubscriptionIdentityStore? identityStore,
+    Duration? restoreGatewayTimeout,
   }) {
     assert(() {
       if (storeGateway != null) {
@@ -512,6 +577,9 @@ class SubscriptionService {
       }
       if (identityStore != null) {
         _identityStore = identityStore;
+      }
+      if (restoreGatewayTimeout != null) {
+        _restoreGatewayTimeout = restoreGatewayTimeout;
       }
       return true;
     }());

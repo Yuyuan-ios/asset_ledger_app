@@ -27,6 +27,7 @@ class VerifiedEntitlement {
     required this.outcome,
     SubscriptionEntitlementTier? entitlementTier,
     this.productId,
+    this.appAccountToken,
     this.expiryDate,
     DateTime? lastSyncedAt,
     this.reason,
@@ -36,6 +37,7 @@ class VerifiedEntitlement {
   final SubscriptionVerificationOutcome outcome;
   final SubscriptionEntitlementTier entitlementTier;
   final String? productId;
+  final String? appAccountToken;
   final DateTime? expiryDate;
   final DateTime lastSyncedAt;
   final String? reason;

@@ -116,7 +116,18 @@ class AppleVerificationUnavailable(Exception):
 
 
 class AppleVerificationFailed(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        has_transaction_app_account_token: bool | None = None,
+        apple_verification_status: str | None = None,
+        apple_verification_statuses: str | None = None,
+    ):
+        super().__init__(message)
+        self.has_transaction_app_account_token = has_transaction_app_account_token
+        self.apple_verification_status = apple_verification_status
+        self.apple_verification_statuses = apple_verification_statuses
 
 
 class AppleVerifier(Protocol):

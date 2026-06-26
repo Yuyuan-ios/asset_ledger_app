@@ -131,8 +131,11 @@ class AppStoreServerAppleVerifier:
             raise AppleVerificationFailed("transaction product id does not match request")
         if transaction.product_id not in self.allowed_products:
             raise AppleVerificationFailed("transaction product id is not allowed")
-        if transaction.app_account_token != request.app_account_token:
-            raise AppleVerificationFailed("transaction appAccountToken does not match request")
+        _validate_app_account_token_match(
+            transaction.app_account_token,
+            request.app_account_token,
+            "transaction appAccountToken does not match request",
+        )
         if not transaction.original_transaction_id or not transaction.transaction_id:
             raise AppleVerificationFailed("transaction identifiers are missing")
 
@@ -196,8 +199,34 @@ class AppStoreServerAppleVerifier:
             raise AppleVerificationFailed("status transaction bundle id does not match")
         if transaction.product_id not in self.allowed_products:
             raise AppleVerificationFailed("status transaction product id is not allowed")
-        if transaction.app_account_token != app_account_token:
-            raise AppleVerificationFailed("status transaction appAccountToken does not match")
+        _validate_app_account_token_match(
+            transaction.app_account_token,
+            app_account_token,
+            "status transaction appAccountToken does not match",
+        )
+
+
+def _normalize_app_account_token(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
+
+
+def _validate_app_account_token_match(
+    transaction_app_account_token: Optional[str],
+    expected_app_account_token: str,
+    failure_message: str,
+) -> None:
+    transaction_token = _normalize_app_account_token(transaction_app_account_token)
+    if transaction_token is None:
+        return
+    expected_token = _normalize_app_account_token(expected_app_account_token)
+    if transaction_token != expected_token:
+        raise AppleVerificationFailed(
+            failure_message,
+            has_transaction_app_account_token=True,
+        )
 
 
 def normalize_apple_status(status: Any) -> int:
@@ -320,17 +349,20 @@ class OfficialSignedDataVerifier:
                 return mapper(verify_call(verifier, signed_payload))
             except self._verification_exception_type() as exc:
                 if self._is_retryable_verification_exception(exc):
-                    retryable_errors.append(exc)
+                    retryable_errors.append((environment, exc, _verification_status_name(exc)))
                 else:
-                    deterministic_errors.append(exc)
+                    deterministic_errors.append((environment, exc, _verification_status_name(exc)))
             except Exception as exc:
                 raise AppleVerificationUnavailable("apple signed payload verification failed") from exc
         if retryable_errors:
             raise AppleVerificationUnavailable(
                 "apple signed payload verification is temporarily unavailable"
-            ) from retryable_errors[-1]
-        cause = deterministic_errors[-1] if deterministic_errors else None
-        raise AppleVerificationFailed("apple signed payload verification failed") from cause
+            ) from retryable_errors[-1][1]
+        cause = deterministic_errors[-1][1] if deterministic_errors else None
+        raise AppleVerificationFailed(
+            "apple signed payload verification failed",
+            apple_verification_statuses=_format_verification_statuses(deterministic_errors),
+        ) from cause
 
     def _verifier_for_environment(self, environment: str):
         if environment in self._verifiers:
@@ -378,7 +410,10 @@ class OfficialSignedDataVerifier:
     def _raise_for_verification_exception(self, exc: Exception) -> None:
         if self._is_retryable_verification_exception(exc):
             raise AppleVerificationUnavailable("apple signed payload verification is temporarily unavailable") from exc
-        raise AppleVerificationFailed("apple signed payload verification failed") from exc
+        raise AppleVerificationFailed(
+            "apple signed payload verification failed",
+            apple_verification_status=_verification_status_name(exc),
+        ) from exc
 
 
 class OfficialSubscriptionStatusClient:
@@ -487,6 +522,27 @@ def read_binary_file(path: Optional[str]) -> bytes:
         raise ValueError("path is required")
     with open(path, "rb") as handle:
         return handle.read()
+
+
+def _verification_status_name(exc: Exception) -> Optional[str]:
+    status = getattr(exc, "status", None)
+    if status is None:
+        return None
+    name = getattr(status, "name", None)
+    if isinstance(name, str) and name:
+        return name
+    value = getattr(status, "value", None)
+    if value is not None:
+        return str(value)
+    return str(status)
+
+
+def _format_verification_statuses(
+    errors: Sequence[tuple[str, Exception, Optional[str]]],
+) -> Optional[str]:
+    if not errors:
+        return None
+    return ",".join(f"{environment}:{status or 'UNKNOWN'}" for environment, _, status in errors)
 
 
 def _transaction_from_apple_payload(payload: Any) -> DecodedAppleTransaction:

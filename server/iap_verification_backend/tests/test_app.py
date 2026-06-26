@@ -31,7 +31,8 @@ from app import (  # noqa: E402
     IapVerificationRequestHandler,
     RequestValidator,
 )
-from verifier import FakeAppleVerifier  # noqa: E402
+from handlers import redact_app_account_token_values  # noqa: E402
+from verifier import AppleVerificationFailed, FakeAppleVerifier  # noqa: E402
 
 
 PRO_TOKEN = "00000000-0000-4000-8000-000000000001"
@@ -168,6 +169,53 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assert_contract_response(body, "verificationFailed", "none")
         self.assert_current_entitlement(PRO_TOKEN, "verificationFailed", "none")
+
+    def test_failed_purchase_log_is_redacted_and_includes_reason(self):
+        with self.assertLogs("fleet_ledger.iap_verification", level="INFO") as logs:
+            status, body = self.verify_purchase("fake:invalid")
+
+        self.assertEqual(status, 200)
+        self.assert_contract_response(body, "verificationFailed", "none")
+        log_output = "\n".join(logs.output)
+        self.assertIn('"reason":"fake invalid purchase"', log_output)
+        self.assertIn('"has_app_account_token":true', log_output)
+        self.assertIn('"server_verification_data_format":"non_jws"', log_output)
+        self.assertNotIn(PRO_TOKEN, log_output)
+
+    def test_failed_purchase_log_includes_redacted_apple_verification_diagnostics(self):
+        app = IapVerificationApp(
+            store=self.store,
+            validator=RequestValidator(DEFAULT_ALLOWED_PRODUCTS, DEFAULT_ALLOWED_BUNDLE_ID),
+            verifier=DiagnosticFailureVerifier(),
+            max_request_bytes=64 * 1024,
+        )
+
+        with self.assertLogs("fleet_ledger.iap_verification", level="INFO") as logs:
+            status, body = self.request(
+                "POST",
+                "/iap/apple/verify-purchase",
+                body=purchase_body(
+                    fake_token="header.payload.signature",
+                    app_account_token=PRO_TOKEN,
+                ),
+                app=app,
+            )
+
+        self.assertEqual(status, 200)
+        self.assert_contract_response(body, "verificationFailed", "none")
+        log_output = "\n".join(logs.output)
+        self.assertIn('"server_verification_data_format":"jws"', log_output)
+        self.assertIn('"apple_verification_status":"INVALID_CHAIN"', log_output)
+        self.assertIn('"apple_verification_statuses":"Sandbox:INVALID_CHAIN,Production:INVALID_ENVIRONMENT"', log_output)
+        self.assertNotIn(PRO_TOKEN, log_output)
+
+    def test_access_log_redacts_app_account_token_query_value(self):
+        message = redact_app_account_token_values(
+            f'"GET /iap/apple/current-entitlement?appAccountToken={PRO_TOKEN} HTTP/1.1" 200 -'
+        )
+
+        self.assertIn("appAccountToken=<redacted>", message)
+        self.assertNotIn(PRO_TOKEN, message)
 
     def test_missing_token_is_rejected_without_entitlement_body(self):
         status, body = self.request("GET", "/iap/apple/current-entitlement")
@@ -378,6 +426,18 @@ def purchase_body(
         "appAccountToken": app_account_token,
         "bundleId": DEFAULT_ALLOWED_BUNDLE_ID,
     }
+
+
+class DiagnosticFailureVerifier:
+    def verify_purchase(self, request):
+        raise AppleVerificationFailed(
+            "apple signed payload verification failed",
+            apple_verification_status="INVALID_CHAIN",
+            apple_verification_statuses="Sandbox:INVALID_CHAIN,Production:INVALID_ENVIRONMENT",
+        )
+
+    def refresh_current_entitlement(self, record):
+        return record
 
 
 class _HandlerHarness:

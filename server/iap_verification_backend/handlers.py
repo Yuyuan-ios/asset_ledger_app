@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import http.server
+import re
 import time
 import urllib.parse
 from typing import Any, Dict, List, Mapping, Optional
@@ -31,6 +32,13 @@ from verifier import (
 )
 
 
+APP_ACCOUNT_TOKEN_QUERY_RE = re.compile(r"(?i)(appAccountToken=)[^&\s\"]+")
+
+
+def redact_app_account_token_values(message: str) -> str:
+    return APP_ACCOUNT_TOKEN_QUERY_RE.sub(r"\1<redacted>", message)
+
+
 class IapVerificationApp:
     def __init__(
         self,
@@ -58,6 +66,10 @@ class IapVerificationApp:
     def verify_purchase(self, body: Mapping[str, Any]) -> Dict[str, str]:
         started = time.monotonic()
         status = "ok"
+        failure_reason: Optional[str] = None
+        has_transaction_app_account_token: Optional[bool] = None
+        apple_verification_status: Optional[str] = None
+        apple_verification_statuses: Optional[str] = None
         request = self.validator.validate_purchase_body(body)
         result: EntitlementRecord
         try:
@@ -65,21 +77,35 @@ class IapVerificationApp:
         except AppleVerificationUnavailable:
             status = "unavailable"
             result = verification_unavailable_record(request)
-        except AppleVerificationFailed:
+        except AppleVerificationFailed as exc:
             status = "failed"
+            failure_reason = str(exc)
+            has_transaction_app_account_token = exc.has_transaction_app_account_token
+            apple_verification_status = exc.apple_verification_status
+            apple_verification_statuses = exc.apple_verification_statuses
             result = self.store.upsert_entitlement(verification_failed_record(request))
         else:
             result = self.store.upsert_entitlement(result)
         finally:
-            log_iap_event(
-                {
-                    "op": "verify_purchase",
-                    "app_account_token": request.app_account_token,
-                    "product_id": request.product_id,
-                    "duration_ms": duration_ms_since(started),
-                    "status": status,
-                }
-            )
+            fields: Dict[str, object] = {
+                "op": "verify_purchase",
+                "has_app_account_token": bool(request.app_account_token),
+                "product_id": request.product_id,
+                "server_verification_data_format": classify_verification_data(
+                    request.server_verification_data
+                ),
+                "duration_ms": duration_ms_since(started),
+                "status": status,
+            }
+            if failure_reason is not None:
+                fields["reason"] = failure_reason
+                if has_transaction_app_account_token is not None:
+                    fields["has_transaction_app_account_token"] = has_transaction_app_account_token
+                if apple_verification_status is not None:
+                    fields["apple_verification_status"] = apple_verification_status
+                if apple_verification_statuses is not None:
+                    fields["apple_verification_statuses"] = apple_verification_statuses
+            log_iap_event(fields)
         return result.to_response_body()
 
     def current_entitlement(self, query: Mapping[str, List[str]]) -> Dict[str, str]:
@@ -111,6 +137,15 @@ def last_query_value(query: Mapping[str, List[str]], key: str) -> Optional[str]:
     return values[-1]
 
 
+def classify_verification_data(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        return "empty"
+    if stripped.count(".") == 2:
+        return "jws"
+    return "non_jws"
+
+
 def build_verifier_from_config(config: AppConfig) -> AppleVerifier:
     if config.apple_credentials.is_complete:
         return build_real_apple_verifier_from_config(
@@ -131,9 +166,10 @@ class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
         self._handle("POST")
 
     def log_message(self, format: str, *args: Any) -> None:
+        message = redact_app_account_token_values(format % args)
         print(
             "%s - - [%s] %s"
-            % (self.address_string(), self.log_date_time_string(), format % args),
+            % (self.address_string(), self.log_date_time_string(), message),
             flush=True,
         )
 

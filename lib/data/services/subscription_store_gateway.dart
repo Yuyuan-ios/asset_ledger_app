@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 abstract class SubscriptionStoreGateway {
@@ -9,7 +11,7 @@ abstract class SubscriptionStoreGateway {
 
   Future<bool> buyNonConsumable({required PurchaseParam purchaseParam});
 
-  Future<void> restorePurchases({String? applicationUserName});
+  Future<List<PurchaseDetails>> restorePurchases({String? applicationUserName});
 
   Future<void> completePurchase(PurchaseDetails purchase);
 }
@@ -39,10 +41,53 @@ class InAppPurchaseSubscriptionStoreGateway
   }
 
   @override
-  Future<void> restorePurchases({String? applicationUserName}) {
-    return _inAppPurchase.restorePurchases(
-      applicationUserName: applicationUserName,
-    );
+  Future<List<PurchaseDetails>> restorePurchases({
+    String? applicationUserName,
+  }) async {
+    final restoredPurchases = <PurchaseDetails>[];
+    final completer = Completer<List<PurchaseDetails>>();
+    Timer? settleTimer;
+    Timer? timeoutTimer;
+    late final StreamSubscription<List<PurchaseDetails>> subscription;
+
+    void completeWithCurrentPurchases() {
+      if (!completer.isCompleted) {
+        completer.complete(
+          List<PurchaseDetails>.unmodifiable(restoredPurchases),
+        );
+      }
+    }
+
+    subscription = purchaseStream.listen((purchases) {
+      if (purchases.isEmpty) return;
+      restoredPurchases.addAll(purchases);
+      settleTimer?.cancel();
+      settleTimer = Timer(const Duration(milliseconds: 300), () {
+        completeWithCurrentPurchases();
+      });
+    });
+
+    try {
+      timeoutTimer = Timer(const Duration(seconds: 5), () {
+        completeWithCurrentPurchases();
+      });
+      unawaited(
+        _inAppPurchase
+            .restorePurchases(applicationUserName: applicationUserName)
+            .then((_) {})
+            .catchError((Object error, StackTrace stackTrace) {
+              if (completer.isCompleted) {
+                return;
+              }
+              completer.completeError(error, stackTrace);
+            }),
+      );
+      return await completer.future;
+    } finally {
+      timeoutTimer?.cancel();
+      settleTimer?.cancel();
+      await subscription.cancel();
+    }
   }
 
   @override
@@ -76,7 +121,11 @@ class UnavailableSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }
 
   @override
-  Future<void> restorePurchases({String? applicationUserName}) async {}
+  Future<List<PurchaseDetails>> restorePurchases({
+    String? applicationUserName,
+  }) async {
+    return const <PurchaseDetails>[];
+  }
 
   @override
   Future<void> completePurchase(PurchaseDetails purchase) async {}
