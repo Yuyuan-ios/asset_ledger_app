@@ -1056,7 +1056,7 @@
   "@accountNetReceivedTooltip": {
     "description": "账户模块:总览卡净收款 tooltip"
   },
-  "accountNetReceivedLabel": "已收(净)",
+  "accountNetReceivedLabel": "已收-开支",
   "@accountNetReceivedLabel": {
     "description": "账户模块:总览卡净收款标签"
   },

@@ -742,7 +742,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountNetReceivedTooltip => '已收款扣除油电、维保和已支付外协项目款后的金额。';
 
   @override
-  String get accountNetReceivedLabel => '已收(净)';
+  String get accountNetReceivedLabel => '已收-开支';
 
   @override
   String get accountProjectMissing => '项目不存在或已被清理';

@@ -1457,7 +1457,7 @@ abstract class AppLocalizations {
   /// 账户模块:总览卡净收款标签
   ///
   /// In zh, this message translates to:
-  /// **'已收(净)'**
+  /// **'已收-开支'**
   String get accountNetReceivedLabel;
 
   /// 账户模块:项目不存在或被清理时的提示

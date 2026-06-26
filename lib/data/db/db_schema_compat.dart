@@ -109,7 +109,7 @@ class DbSchemaCompat {
     await DbMigrations.ensureMoneyFenSchema(db);
     await DbMigrations.ensureNullableExternalWorkUnitPrice(db);
     await DbMigrations.ensureExternalWorkProjectReceivedFen(db);
-    await DbMigrations.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+    await DbMigrations.dropActiveScopedLegacyProjectKeyUniqueness(db);
     await DbMigrations.ensureOperationAuditLogSchema(db);
     await DbMigrations.ensureOperationTokensSchema(db);
     await DbMigrations.ensureTimingAllocationCutoffDate(db);

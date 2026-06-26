@@ -326,14 +326,6 @@ class ProjectIdentityMigration {
       WHERE status = 'active';
     ''');
 
-    // Partial unique index：同 legacy_project_key 下只允许一个 active 项目；
-    // 已结清的历史项目可以与新 active 项目共享同一 legacy_project_key。
-    await db.execute('''
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_active_legacy_key
-      ON projects(legacy_project_key)
-      WHERE legacy_project_key IS NOT NULL AND status = 'active';
-    ''');
-
     if (await _tableExists(db, 'timing_records')) {
       await db.execute('''
         CREATE INDEX IF NOT EXISTS idx_timing_records_project

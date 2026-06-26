@@ -158,7 +158,7 @@ class AppDatabase {
   // -------------------------------------------------------------------
   static const String _dbName = 'asset_ledger.db';
   static const List<String> _legacyDbNames = ['excavator_ledger.db'];
-  static const int _dbVersion = 53;
+  static const int _dbVersion = 54;
 
   static int get schemaVersion => _dbVersion;
 

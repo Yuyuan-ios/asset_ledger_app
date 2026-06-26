@@ -737,7 +737,7 @@ void main() {
     });
 
     test(
-      'rejects deleting write-off when same key already has an active project',
+      'deleting write-off revokes settled status even when another active project shares the same key',
       () async {
         final db = await _openCurrentInMemoryDb();
         await _seedProject(db, status: ProjectStatus.settled);
@@ -746,27 +746,16 @@ void main() {
         await _seedProjectWithId(db, id: 'project:2', site: '一号工地');
         final useCase = _useCase();
 
-        await expectLater(
-          useCase.deleteWriteOff(
-            projectId: 'project:1',
-            writeOffId: 'write-off-1',
-            receivable: 1260,
-          ),
-          throwsA(
-            predicate(
-              (error) =>
-                  error is StateError &&
-                  error.message == '同联系人同工地已有进行中项目，无法直接撤销结清。',
-            ),
-          ),
+        await useCase.deleteWriteOff(
+          projectId: 'project:1',
+          writeOffId: 'write-off-1',
+          receivable: 1260,
         );
 
         expect(await _paymentCount(db), 1);
-        expect(await _writeOffCount(db), 1);
-        expect(await _projectStatus(db), ProjectStatus.settled);
+        expect(await _writeOffCount(db), 0);
+        expect(await _projectStatus(db), ProjectStatus.active);
         expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
-        expect(await db.query('sync_outbox'), isEmpty);
-        expect(await db.query('entity_sync_meta'), isEmpty);
       },
     );
 
@@ -1049,7 +1038,7 @@ void main() {
     );
 
     test(
-      'rejects settled status revoke when same key already has an active project',
+      'allows settled status revoke even when another active project shares the same key',
       () async {
         final db = await _openCurrentInMemoryDb();
         await _seedProject(db, status: ProjectStatus.settled);
@@ -1057,23 +1046,12 @@ void main() {
         await _seedProjectWithId(db, id: 'project:2', site: '一号工地');
         final useCase = _useCase();
 
-        await expectLater(
-          useCase.revokeSettlementStatus(projectId: 'project:1'),
-          throwsA(
-            predicate(
-              (error) =>
-                  error is StateError &&
-                  error.message == '同联系人同工地已有进行中项目，无法直接撤销结清。',
-            ),
-          ),
-        );
+        await useCase.revokeSettlementStatus(projectId: 'project:1');
 
         expect(await _paymentCount(db), 1);
         expect(await _writeOffCount(db), 0);
-        expect(await _projectStatus(db), ProjectStatus.settled);
+        expect(await _projectStatus(db), ProjectStatus.active);
         expect(await _projectStatusById(db, 'project:2'), ProjectStatus.active);
-        expect(await db.query('sync_outbox'), isEmpty);
-        expect(await db.query('entity_sync_meta'), isEmpty);
       },
     );
 

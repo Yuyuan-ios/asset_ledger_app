@@ -37,10 +37,10 @@ void main() {
       ),
     );
 
-    expect(find.text('已收(净)'), findsOneWidget);
+    expect(find.text('已收-开支'), findsOneWidget);
     expect(find.text('-¥2000'), findsOneWidget);
 
-    final label = tester.widget<Text>(find.text('已收(净)'));
+    final label = tester.widget<Text>(find.text('已收-开支'));
     final amount = tester.widget<Text>(find.text('-¥2000'));
     expect(amount.style?.color, label.style?.color);
     expect(amount.style?.fontSize, label.style?.fontSize);

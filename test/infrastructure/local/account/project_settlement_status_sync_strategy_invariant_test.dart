@@ -33,7 +33,7 @@ void main() {
         "status TEXT NOT NULL DEFAULT 'active'",
         'settled_at TEXT',
         'settled_snapshot TEXT',
-        'idx_projects_active_legacy_key',
+        'idx_projects_active_contact_site',
         "WHERE status = 'active'",
       ]);
     });

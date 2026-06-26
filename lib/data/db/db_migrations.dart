@@ -46,6 +46,7 @@ part 'migrations/migration_050.dart';
 part 'migrations/migration_051.dart';
 part 'migrations/migration_052.dart';
 part 'migrations/migration_053.dart';
+part 'migrations/migration_054.dart';
 part 'migrations/project_identity_migration.dart';
 part 'migrations/project_foreign_key_migration.dart';
 part 'migrations/migration_helpers.dart';
@@ -84,10 +85,10 @@ class DbMigrations {
     return Migration020.ensureExternalWorkProjectReceivedFen(db);
   }
 
-  static Future<void> ensureActiveScopedLegacyProjectKeyUniqueness(
+  static Future<void> dropActiveScopedLegacyProjectKeyUniqueness(
     Database db,
   ) {
-    return Migration021.ensureActiveScopedLegacyProjectKeyUniqueness(db);
+    return Migration054.dropActiveScopedLegacyProjectKeyUniqueness(db);
   }
 
   static Future<void> ensureOperationAuditLogSchema(Database db) {
