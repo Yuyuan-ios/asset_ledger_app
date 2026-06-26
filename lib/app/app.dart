@@ -9,7 +9,9 @@ import '../core/theme/app_theme.dart';
 import '../l10n/gen/app_localizations.dart';
 
 class AssetLedgerApp extends StatelessWidget {
-  const AssetLedgerApp({super.key});
+  const AssetLedgerApp({super.key, this.onAppReviewDemoLogin});
+
+  final Future<void> Function()? onAppReviewDemoLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +29,9 @@ class AssetLedgerApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       theme: AppTheme.light(),
-      home: const PhoneLoginGate(
-        child: SyncLifecycleGate(
+      home: PhoneLoginGate(
+        onAppReviewDemoLogin: onAppReviewDemoLogin,
+        child: const SyncLifecycleGate(
           child: InboundShareFileGate(child: AppRouterEntry()),
         ),
       ),

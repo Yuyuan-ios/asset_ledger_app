@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/app_bootstrap.dart';
 import '../../../app/sync_runtime.dart';
 import '../../../app/phone_login_gate.dart';
 import '../../../components/feedback/store_action_feedback_l10n.dart';
@@ -23,6 +24,7 @@ import '../../../features/device/state/device_store.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
 import '../../../features/timing/state/timing_store.dart';
+import '../../../features/timing/state/timing_external_work_store.dart';
 import '../../../components/feedback/app_toast.dart';
 import '../../../components/feedback/pro_gate.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -285,7 +287,9 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
     await navigator.push<void>(
       MaterialPageRoute<void>(
         builder: (_) => PhoneLoginPage(
-          verificationService: const HttpPhoneVerificationService(),
+          verificationService: const AppReviewDemoPhoneVerificationService(
+            delegate: HttpPhoneVerificationService(),
+          ),
           initialAgreementAccepted: initialSession.privacyAccepted,
           onLoggedIn:
               ({
@@ -302,6 +306,19 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
                     tokenExpiresAt: tokenExpiresAt,
                   ),
                 );
+                if (AppReviewDemoAccount.isDemoPhone(phoneNumber) && mounted) {
+                  await AppBootstrap.seedAppReviewDemoDataAndReload(
+                    deviceStore: context.read<DeviceStore>(),
+                    timingStore: context.read<TimingStore>(),
+                    fuelStore: context.read<FuelStore>(),
+                    maintenanceStore: context.read<MaintenanceStore>(),
+                    projectRateStore: context.read<ProjectRateStore>(),
+                    accountStore: context.read<AccountStore>(),
+                    paymentStore: context.read<AccountPaymentStore>(),
+                    timingExternalWorkStore: context
+                        .read<TimingExternalWorkStore>(),
+                  );
+                }
                 if (navigator.mounted) navigator.pop();
               },
           onLoginSkipped: () async {

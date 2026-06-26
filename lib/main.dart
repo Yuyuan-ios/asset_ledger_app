@@ -28,7 +28,20 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: appProviderBundle.providers,
-      child: const AssetLedgerApp(),
+      child: AssetLedgerApp(
+        onAppReviewDemoLogin: () {
+          return AppBootstrap.seedAppReviewDemoDataAndReload(
+            deviceStore: appProviderBundle.deviceStore,
+            timingStore: appProviderBundle.timingStore,
+            fuelStore: appProviderBundle.fuelStore,
+            maintenanceStore: appProviderBundle.maintenanceStore,
+            projectRateStore: appProviderBundle.projectRateStore,
+            accountStore: appProviderBundle.accountStore,
+            paymentStore: appProviderBundle.paymentStore,
+            timingExternalWorkStore: appProviderBundle.timingExternalWorkStore,
+          );
+        },
+      ),
     ),
   );
 }

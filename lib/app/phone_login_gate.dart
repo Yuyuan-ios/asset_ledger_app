@@ -7,9 +7,11 @@ import 'package:flutter/services.dart';
 
 import '../features/device/view/privacy_page.dart';
 import '../features/device/view/terms_page.dart';
+import 'app_review_demo_account.dart';
 import 'phone_login_store.dart';
 import 'phone_verification_service.dart';
 
+export 'app_review_demo_account.dart';
 export 'phone_login_store.dart';
 export 'phone_verification_service.dart';
 
@@ -28,6 +30,7 @@ class PhoneLoginGate extends StatefulWidget {
     this.verificationService,
     this.privacyPageBuilder,
     this.termsPageBuilder,
+    this.onAppReviewDemoLogin,
   });
 
   final Widget child;
@@ -35,6 +38,7 @@ class PhoneLoginGate extends StatefulWidget {
   final PhoneVerificationService? verificationService;
   final LegalPageBuilder? privacyPageBuilder;
   final LegalPageBuilder? termsPageBuilder;
+  final Future<void> Function()? onAppReviewDemoLogin;
 
   @override
   State<PhoneLoginGate> createState() => _PhoneLoginGateState();
@@ -48,7 +52,10 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
   void initState() {
     super.initState();
     _verificationService =
-        widget.verificationService ?? const HttpPhoneVerificationService();
+        widget.verificationService ??
+        const AppReviewDemoPhoneVerificationService(
+          delegate: HttpPhoneVerificationService(),
+        );
     _loadSession();
   }
 
@@ -71,6 +78,9 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
       tokenExpiresAt: tokenExpiresAt,
     );
     await widget.store.save(session);
+    if (AppReviewDemoAccount.isDemoPhone(phoneNumber)) {
+      await widget.onAppReviewDemoLogin?.call();
+    }
     if (!mounted) return;
     setState(() => _session = session);
   }
@@ -170,7 +180,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   String? _requestedPhoneNumber;
 
   bool get _phoneValid =>
-      RegExp(r'^1[3-9]\d{9}$').hasMatch(_phoneController.text.trim());
+      AppReviewDemoAccount.isSupportedLoginPhone(_phoneController.text);
 
   bool get _codeValid =>
       RegExp(r'^\d{6}$').hasMatch(_codeController.text.trim());
@@ -184,7 +194,8 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _phoneValid &&
       _agreementAccepted &&
       _codeRequested &&
-      _requestedPhoneNumber == _phoneController.text.trim() &&
+      _requestedPhoneNumber ==
+          AppReviewDemoAccount.normalizeForLogin(_phoneController.text) &&
       _codeValid &&
       !_busy;
 
@@ -216,7 +227,8 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
     setState(() {
       _errorText = null;
       if (_codeRequested &&
-          _requestedPhoneNumber != _phoneController.text.trim()) {
+          _requestedPhoneNumber !=
+              AppReviewDemoAccount.normalizeForLogin(_phoneController.text)) {
         _codeRequested = false;
         _requestedPhoneNumber = null;
         _statusText = null;
@@ -241,10 +253,11 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _statusText = null;
     });
     late final PhoneVerificationSendResult result;
+    final phoneNumber = AppReviewDemoAccount.normalizeForLogin(
+      _phoneController.text,
+    );
     try {
-      result = await widget.verificationService.sendCode(
-        _phoneController.text.trim(),
-      );
+      result = await widget.verificationService.sendCode(phoneNumber);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -259,7 +272,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
     setState(() {
       _busy = false;
       _codeRequested = true;
-      _requestedPhoneNumber = _phoneController.text.trim();
+      _requestedPhoneNumber = phoneNumber;
       _statusText = result.message;
     });
     _startCodeCooldown();
@@ -306,7 +319,9 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _busy = true;
       _errorText = null;
     });
-    final phoneNumber = _phoneController.text.trim();
+    final phoneNumber = AppReviewDemoAccount.normalizeForLogin(
+      _phoneController.text,
+    );
     late final PhoneVerificationVerifyResult result;
     try {
       result = await widget.verificationService.verifyCode(

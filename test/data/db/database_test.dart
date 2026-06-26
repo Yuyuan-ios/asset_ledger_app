@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:asset_ledger/data/db/database.dart';
+import 'package:asset_ledger/data/db/db_seed.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -53,35 +54,87 @@ void main() {
     },
   );
 
-  test('AppDatabase migrates the legacy excavator_ledger db file name', () async {
-    final dbPath = await getDatabasesPath();
-    final newPath = p.join(dbPath, 'asset_ledger.db');
-    final legacyPath = p.join(dbPath, 'excavator_ledger.db');
+  test(
+    'AppDatabase.seedAppReviewDemoData is idempotent and seeds review ledger',
+    () async {
+      final dbPath = await getDatabasesPath();
+      final filePath = p.join(dbPath, 'asset_ledger.db');
+      final legacyFilePath = p.join(dbPath, 'excavator_ledger.db');
 
-    await deleteDatabase(newPath);
-    await deleteDatabase(legacyPath);
+      await deleteDatabase(filePath);
+      await deleteDatabase(legacyFilePath);
 
-    final createdDb = await AppDatabase.database;
-    expect(createdDb.isOpen, isTrue);
-    await AppDatabase.resetForTest();
+      final db = await AppDatabase.database;
 
-    await File(newPath).rename(legacyPath);
-    expect(await File(legacyPath).exists(), isTrue);
-    expect(await File(newPath).exists(), isFalse);
+      await AppDatabase.seedAppReviewDemoData();
+      await AppDatabase.seedAppReviewDemoData();
 
-    final migratedDb = await AppDatabase.database;
-    final tables = await migratedDb.query(
-      'sqlite_master',
-      columns: ['name'],
-      where: 'type = ? AND name = ?',
-      whereArgs: ['table', 'devices'],
-      limit: 1,
-    );
+      final devices = await db.query(
+        'devices',
+        where: 'name IN (?, ?)',
+        whereArgs: ['Demo Excavator 1', 'Demo Loader 2'],
+      );
+      final projects = await db.query(
+        'projects',
+        where: 'id = ?',
+        whereArgs: [DbSeed.appReviewDemoProjectId],
+      );
+      final timingCount = Sqflite.firstIntValue(
+        await db.rawQuery(
+          'SELECT COUNT(*) FROM timing_records WHERE project_id = ?',
+          [DbSeed.appReviewDemoProjectId],
+        ),
+      );
+      final paymentCount = Sqflite.firstIntValue(
+        await db.rawQuery(
+          'SELECT COUNT(*) FROM account_payments WHERE project_id = ?',
+          [DbSeed.appReviewDemoProjectId],
+        ),
+      );
 
-    expect(tables, isNotEmpty);
-    expect(await File(newPath).exists(), isTrue);
-    expect(await File(legacyPath).exists(), isFalse);
-  });
+      expect(devices, hasLength(2));
+      expect(projects, hasLength(1));
+      expect(timingCount, 2);
+      expect(paymentCount, 1);
+      expect(devices.map((row) => row['default_unit_price_fen']).toSet(), {
+        35000,
+        36000,
+      });
+    },
+  );
+
+  test(
+    'AppDatabase migrates the legacy excavator_ledger db file name',
+    () async {
+      final dbPath = await getDatabasesPath();
+      final newPath = p.join(dbPath, 'asset_ledger.db');
+      final legacyPath = p.join(dbPath, 'excavator_ledger.db');
+
+      await deleteDatabase(newPath);
+      await deleteDatabase(legacyPath);
+
+      final createdDb = await AppDatabase.database;
+      expect(createdDb.isOpen, isTrue);
+      await AppDatabase.resetForTest();
+
+      await File(newPath).rename(legacyPath);
+      expect(await File(legacyPath).exists(), isTrue);
+      expect(await File(newPath).exists(), isFalse);
+
+      final migratedDb = await AppDatabase.database;
+      final tables = await migratedDb.query(
+        'sqlite_master',
+        columns: ['name'],
+        where: 'type = ? AND name = ?',
+        whereArgs: ['table', 'devices'],
+        limit: 1,
+      );
+
+      expect(tables, isNotEmpty);
+      expect(await File(newPath).exists(), isTrue);
+      expect(await File(legacyPath).exists(), isFalse);
+    },
+  );
 
   test(
     'AppDatabase.database shares one in-flight initialization across concurrent callers',

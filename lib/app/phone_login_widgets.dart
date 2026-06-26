@@ -335,8 +335,8 @@ class _PhoneNumberField extends StatelessWidget {
               keyboardType: TextInputType.phone,
               autofillHints: const [AutofillHints.telephoneNumber],
               inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(11),
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
+                LengthLimitingTextInputFormatter(20),
               ],
               cursorColor: _loginOutline,
               style: _loginTextStyle(

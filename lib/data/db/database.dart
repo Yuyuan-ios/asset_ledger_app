@@ -261,6 +261,12 @@ class AppDatabase {
     await DbSeed.seedDemoDataIfEmpty(db);
   }
 
+  /// App Review demo account seed入口:仅在审核专用账号登录成功后调用。
+  static Future<void> seedAppReviewDemoData() async {
+    final db = await database;
+    await DbSeed.seedAppReviewDemoData(db);
+  }
+
   /// 测试辅助：清空单例缓存，避免测试之间复用打开的数据库句柄。
   static Future<void> resetForTest() async {
     final db = _db;
