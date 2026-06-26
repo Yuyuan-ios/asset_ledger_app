@@ -76,7 +76,7 @@ void main() {
         identityStore: MemoryIdentityStore(
           '00000000-0000-4000-8000-000000000456',
         ),
-        bundleId: 'com.yuyuan.assetledger',
+        bundleId: 'com.yuyuan.asset-ledger',
       );
 
       final result = await repository.verifyPurchase(
@@ -89,7 +89,7 @@ void main() {
       expect(result.expiryDate, expiryDate);
       expect(client.lastPostUri?.path, '/iap/apple/verify-purchase');
       expect(client.lastPostBody?['platform'], 'ios');
-      expect(client.lastPostBody?['bundleId'], 'com.yuyuan.assetledger');
+      expect(client.lastPostBody?['bundleId'], 'com.yuyuan.asset-ledger');
       expect(
         client.lastPostBody?['appAccountToken'],
         '00000000-0000-4000-8000-000000000456',

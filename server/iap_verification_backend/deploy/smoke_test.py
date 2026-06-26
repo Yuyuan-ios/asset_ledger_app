@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Smoke test for the FleetLedger IAP verification backend.
 
-This no-credentials smoke only proves the production entrypoint fails closed.
-Real Apple sandbox smoke tests require real signed StoreKit payloads and are
-intentionally outside this local script.
+This smoke proves the production entrypoint fails closed for fake purchase
+data. A deployment without Apple credentials returns verificationUnavailable;
+a deployment with real Apple verification returns verificationFailed. Both are
+valid non-unlocking results. Real Apple sandbox smoke tests require signed
+StoreKit payloads and are intentionally outside this local script.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from typing import Any, Dict, Optional, Tuple
 
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 PRO_PRODUCT_ID = "com.yuyuan.assetledger.pro.yearly"
+FAIL_CLOSED_OUTCOMES = {"verificationFailed", "verificationUnavailable"}
 
 
 def request(
@@ -68,7 +71,7 @@ def purchase_body(app_account_token: str, fake_token: str) -> Dict[str, str]:
         "source": "app_store",
         "status": "purchased",
         "appAccountToken": app_account_token,
-        "bundleId": "com.yuyuan.assetledger",
+        "bundleId": "com.yuyuan.asset-ledger",
     }
 
 
@@ -88,15 +91,18 @@ def main() -> int:
         "/iap/apple/verify-purchase",
         body=purchase_body(app_account_token, "fake:pro-active"),
     )
-    require(status == 200 and body.get("outcome") == "verificationUnavailable", "expected fail-closed response")
+    require(status == 200 and body.get("outcome") in FAIL_CLOSED_OUTCOMES, "expected fail-closed response")
     require(body.get("entitlementTier") == "none", "fake token must not unlock entitlement")
-    print("PASS fake Pro token fails closed without Apple credentials")
+    print(f"PASS fake Pro token fails closed as {body.get('outcome')}")
 
     path = f"/iap/apple/current-entitlement?appAccountToken={urllib.parse.quote(app_account_token)}"
     status, body = request(args.base_url, "GET", path)
-    require(status == 200 and body.get("outcome") == "noActiveEntitlement", "expected no persisted entitlement")
+    require(
+        status == 200 and body.get("outcome") in {"noActiveEntitlement", "verificationFailed"},
+        "expected no active entitlement after fake verify",
+    )
     require(body.get("entitlementTier") == "none", "current entitlement must not unlock")
-    print("PASS current-entitlement remains noActiveEntitlement after fail-closed verify")
+    print(f"PASS current-entitlement remains non-unlocking as {body.get('outcome')}")
 
     status, body = request(args.base_url, "GET", "/iap/apple/current-entitlement")
     require(status == 400 and body.get("error", {}).get("code") == "missing_app_account_token", "expected 400")

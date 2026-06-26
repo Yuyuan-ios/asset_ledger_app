@@ -6,9 +6,24 @@ class SubscriptionConfig {
     this.requestTimeout = const Duration(seconds: 10),
   });
 
+  /// Production IAP verification backend.
+  ///
+  /// Keep this default in sync with `dart_defines/production.json` so a manual
+  /// Xcode Archive or local release build cannot silently fall back to the
+  /// pending server-verification repository and disable purchases. Debug/test
+  /// builds keep the old fail-closed default to avoid accidental network calls.
+  static const String defaultAppleVerificationBaseUrl =
+      'https://api.yuyuan.net.cn/fleet-ledger';
+
+  static const bool _useReleaseDefaultAppleVerificationBaseUrl =
+      bool.fromEnvironment('dart.vm.product');
+
   static const SubscriptionConfig fromEnvironment = SubscriptionConfig(
     appleVerificationBaseUrl: String.fromEnvironment(
       'APPLE_IAP_VERIFICATION_BASE_URL',
+      defaultValue: _useReleaseDefaultAppleVerificationBaseUrl
+          ? defaultAppleVerificationBaseUrl
+          : '',
     ),
     verifyPurchasePath: String.fromEnvironment(
       'APPLE_IAP_VERIFY_PURCHASE_PATH',

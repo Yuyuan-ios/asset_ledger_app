@@ -30,7 +30,7 @@ from verifier import AppleVerificationFailed, AppleVerificationUnavailable  # no
 APP_TOKEN = "00000000-0000-4000-8000-000000000777"
 CASE_APP_TOKEN = "abcdefab-cdef-4abc-8def-abcdefabcdef"
 OTHER_APP_TOKEN = "11111111-2222-4333-8444-555555555555"
-BUNDLE_ID = "com.yuyuan.assetledger"
+BUNDLE_ID = "com.yuyuan.asset-ledger"
 
 
 class AppStoreServerAppleVerifierTestCase(unittest.TestCase):

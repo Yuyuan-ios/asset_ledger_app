@@ -67,3 +67,7 @@ jobs:
       - name: Cloud backup backend unittest
         working-directory: server/cloud_backup_backend
         run: python -m unittest discover -s tests
+
+      - name: IAP verification backend unittest
+        working-directory: server/iap_verification_backend
+        run: python -m unittest discover -s tests

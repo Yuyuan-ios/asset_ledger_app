@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:asset_ledger/core/config/subscription_config.dart';
 import 'package:asset_ledger/data/services/subscription_entitlement_cache.dart';
@@ -35,9 +37,44 @@ void main() {
     skip: !kUseLocalIapVerification,
   );
 
+  test('production base URL enables the purchase flow when configured', () {
+    expect(
+      SubscriptionController.isPurchaseFlowAvailable(
+        config: const SubscriptionConfig(
+          appleVerificationBaseUrl:
+              SubscriptionConfig.defaultAppleVerificationBaseUrl,
+        ),
+        useLocalIapVerification: false,
+      ),
+      isTrue,
+    );
+    expect(
+      SubscriptionController.isPurchaseFlowAvailable(
+        config: const SubscriptionConfig(appleVerificationBaseUrl: ''),
+        useLocalIapVerification: false,
+      ),
+      isFalse,
+    );
+  });
+
+  test('production dart define stays in sync with the code default', () {
+    final file = File('dart_defines/production.json');
+    final decoded = jsonDecode(file.readAsStringSync());
+
+    expect(decoded, isA<Map<String, dynamic>>());
+    expect(
+      decoded['APPLE_IAP_VERIFICATION_BASE_URL'],
+      SubscriptionConfig.defaultAppleVerificationBaseUrl,
+    );
+  });
+
   test(
-    'production base URL define enables the purchase flow',
+    'production base URL define enables the runtime purchase flow',
     () {
+      expect(
+        SubscriptionConfig.fromEnvironment.appleVerificationBaseUrl,
+        SubscriptionConfig.defaultAppleVerificationBaseUrl,
+      );
       expect(SubscriptionConfig.fromEnvironment.isConfigured, isTrue);
       expect(const SubscriptionController().canUsePurchaseFlow, isTrue);
     },

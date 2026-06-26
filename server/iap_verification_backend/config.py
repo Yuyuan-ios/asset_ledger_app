@@ -8,7 +8,7 @@ from typing import Optional, Tuple
 PRO_YEARLY_PRODUCT_ID = "com.yuyuan.assetledger.pro.yearly"
 MAX_YEARLY_PRODUCT_ID = "com.yuyuan.assetledger.max.yearly"
 DEFAULT_ALLOWED_PRODUCTS = (PRO_YEARLY_PRODUCT_ID, MAX_YEARLY_PRODUCT_ID)
-DEFAULT_ALLOWED_BUNDLE_ID = "com.yuyuan.assetledger"
+DEFAULT_ALLOWED_BUNDLE_ID = "com.yuyuan.asset-ledger"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8010
 MAX_REQUEST_BYTES = 1024 * 1024

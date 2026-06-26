@@ -1,7 +1,6 @@
 # IAP Verification Backend Contract
 
 This document is the Flutter app contract for Apple subscription verification.
-The Flutter repository does not contain backend code.
 
 ## Build-Time Modes
 
@@ -15,8 +14,12 @@ The Flutter repository does not contain backend code.
   - `APPLE_IAP_VERIFY_PURCHASE_PATH`, default `/iap/apple/verify-purchase`
   - `APPLE_IAP_CURRENT_ENTITLEMENT_PATH`, default `/iap/apple/current-entitlement`
   - `APPLE_IAP_REQUEST_TIMEOUT_SECONDS`, default `10`
-- A build with neither verification define keeps the purchase flow disabled and
-  uses `PendingServerSubscriptionVerificationRepository`.
+- Release/product builds have a production default base URL matching
+  `dart_defines/production.json`. This prevents manual Xcode Archive / local
+  release builds from silently falling back to
+  `PendingServerSubscriptionVerificationRepository` and disabling purchases.
+  Debug/test builds, and tests that pass an explicit empty config, still cover
+  the fail-closed pending-server path without accidental network calls.
 
 The current expected production base URL is
 `https://api.yuyuan.net.cn/fleet-ledger`. Confirm this against the deployed
@@ -84,7 +87,7 @@ Request body:
   "source": "app_store",
   "status": "purchased",
   "appAccountToken": "00000000-0000-4000-8000-000000000000",
-  "bundleId": "com.yuyuan.assetledger"
+  "bundleId": "com.yuyuan.asset-ledger"
 }
 ```
 
