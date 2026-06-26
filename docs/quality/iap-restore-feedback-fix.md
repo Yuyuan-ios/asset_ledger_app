@@ -134,8 +134,11 @@
 ## 8. 最终上线准备清单
 
 - [x] IAP 线整合进 `develop`（merge `7b5a49f`，零冲突，IAP 测试全绿）
-- [ ] 恢复购买显式反馈修复（§5 codex prompt）→ 人工审计
-- [ ] **真机验证订阅闭环**（§6 全部步骤通过）
-- [ ] 清除 `5a2f173` db 测试断裂（§7）→ 全量 `bash tools/agent/check_full.sh` 转绿
+- [x] 恢复购买显式反馈修复（§5 codex prompt）→ 人工审计通过，提交 `dab0b94`
+- [x] 清除 `5a2f173` db 测试断裂（§7）→ 提交 `ec5dfd0`，审计通过；`flutter analyze lib test` 全量转绿 + 134 db 测试 + IAP 44 测试 + custom_lint 全净
+- [ ] **真机验证订阅闭环**（§6 全部步骤通过）← 当前关键剩余项
+- [ ] 全量 `bash tools/agent/check_full.sh` 转绿（已覆盖改动面；最终确认）
 - [ ] 上线运维闸（见 `docs/quality/codex-prompts-p4.md` 的 go-live checklist）：App Store Connect 密钥就位、`fleet-ledger-iap` 部署且 nginx 路由（`/fleet-ledger/iap/{healthz,apple/verify-purchase,apple/current-entitlement}`）通、Sandbox Pro/Max smoke
 - [ ] `develop` → `main` FF 发布
+
+> §7 的 `5a2f173` 阻断已于 `ec5dfd0` 解决：删除死掉的 `Migration021.ensure...`，把列级 UNIQUE 的 12-step 重建逻辑搬进 `Migration054`（onOpen 兜底、事务外 FK 安全；`apply` 在 onUpgrade 内只做安全 DROP INDEX），重建列/索引与 `ProjectSchema` 逐一对齐无丢列，测试改断言"索引不存在 + 同 key 多 active 共存"。
