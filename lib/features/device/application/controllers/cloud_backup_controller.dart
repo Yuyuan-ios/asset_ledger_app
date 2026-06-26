@@ -8,7 +8,7 @@ import '../../../../infrastructure/cloud/cloud_backup_gateway.dart';
 const cloudBackupRequiresMaxCode = 'cloud_backup_requires_max';
 const cloudBackupNotConfiguredCode = 'cloud_backup_not_configured';
 
-bool _allowCloudBackupByDefault() => true;
+bool _denyCloudBackupByDefault() => false;
 
 class CloudBackupListResult {
   const CloudBackupListResult({
@@ -42,15 +42,15 @@ class CloudBackupAvailability {
 class CloudBackupController {
   const CloudBackupController({
     required CloudBackupService service,
+    required bool Function() canUseCloudBackup,
     this.availability = const CloudBackupAvailability.available(),
-    bool Function() canUseCloudBackup = _allowCloudBackupByDefault,
   }) : _service = service,
        _canUseCloudBackup = canUseCloudBackup;
 
   CloudBackupController.unavailable(String? message)
     : _service = null,
       availability = CloudBackupAvailability.unavailable(message),
-      _canUseCloudBackup = _allowCloudBackupByDefault;
+      _canUseCloudBackup = _denyCloudBackupByDefault;
 
   final CloudBackupService? _service;
   final bool Function() _canUseCloudBackup;

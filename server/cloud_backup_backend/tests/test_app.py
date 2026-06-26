@@ -70,10 +70,19 @@ class BackendTestCase(unittest.TestCase):
         self.app = BackupApp(
             metadata_store=BackupMetadataStore(f"{self.temp_dir.name}/backups.sqlite3"),
             object_store=FileObjectStore(f"{self.temp_dir.name}/objects"),
-            authenticator=Authenticator(dev_tokens={"token-a": "user-a", "token-b": "user-b"}),
+            authenticator=Authenticator(
+                dev_tokens={
+                    "token-a": "user-a",
+                    "token-b": "user-b",
+                    "token-free": "user-free",
+                    "token-pro": "user-pro",
+                    "token-max": "user-max",
+                }
+            ),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
             oss_prefix="test/backups",
             account_key_secret="x" * 48,
+            entitlement_verifier=_MaxEntitlementVerifier(),
         )
 
     def tearDown(self):
@@ -418,10 +427,19 @@ class BackendHttpTestCase(unittest.TestCase):
         self.app = BackupApp(
             metadata_store=BackupMetadataStore(f"{self.temp_dir.name}/backups.sqlite3"),
             object_store=FileObjectStore(f"{self.temp_dir.name}/objects"),
-            authenticator=Authenticator(dev_tokens={"token-a": "user-a", "token-b": "user-b"}),
+            authenticator=Authenticator(
+                dev_tokens={
+                    "token-a": "user-a",
+                    "token-b": "user-b",
+                    "token-free": "user-free",
+                    "token-pro": "user-pro",
+                    "token-max": "user-max",
+                }
+            ),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
             oss_prefix="test/backups",
             account_key_secret="x" * 48,
+            entitlement_verifier=_MaxEntitlementVerifier(),
         )
 
     def tearDown(self):
@@ -642,6 +660,96 @@ class BackendHttpTestCase(unittest.TestCase):
         self.assertEqual(status, 401)
         self.assertEqual(body["error"]["code"], "unauthorized")
 
+    def test_http_endpoints_fail_closed_when_max_entitlement_is_unconfigured(self):
+        app = BackupApp(
+            metadata_store=BackupMetadataStore(f"{self.temp_dir.name}/fail-closed.sqlite3"),
+            object_store=FileObjectStore(f"{self.temp_dir.name}/fail-closed-objects"),
+            authenticator=Authenticator(dev_tokens={"token-a": "user-a"}),
+            rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
+            account_key_secret="x" * 48,
+        )
+        handler = _HandlerHarness(
+            app,
+            "/v1/backups",
+            {"authorization": "Bearer token-a"},
+            b"",
+        )
+        from app import BackupRequestHandler
+
+        BackupRequestHandler._handle(handler, "GET")
+        body = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(handler.status, 403)
+        self.assertEqual(body["error"]["code"], "cloud_backup_requires_max")
+
+    def test_http_cloud_backup_endpoints_reject_free_and_pro_entitlements(self):
+        self.app.entitlement_verifier = _TierEntitlementVerifier(
+            {
+                "user-free": "free",
+                "user-pro": "pro",
+                "user-max": "max",
+            }
+        )
+
+        cases = [
+            ("GET", "/v1/account/backup-key", None),
+            ("POST", "/v1/backups", make_envelope()),
+            ("GET", "/v1/backups", None),
+            ("GET", "/v1/backups/missing-backup-id", None),
+        ]
+
+        for token in ("token-free", "token-pro"):
+            for method, path, body in cases:
+                with self.subTest(token=token, method=method, path=path):
+                    status, response = self.request(method, path, token=token, body=body)
+                    self.assertEqual(status, 403)
+                    self.assertEqual(response["error"]["code"], "cloud_backup_requires_max")
+                    self.assertEqual(
+                        response["error"]["message"],
+                        "Cloud backup requires Max subscription.",
+                    )
+
+    def test_http_cloud_backup_endpoints_allow_max_entitlement(self):
+        self.app.entitlement_verifier = _TierEntitlementVerifier(
+            {
+                "user-free": "free",
+                "user-pro": "pro",
+                "user-max": "max",
+            }
+        )
+
+        status, key = self.request("GET", "/v1/account/backup-key", token="token-max")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(key["backup_secret"]), 64)
+
+        status, uploaded = self.request("POST", "/v1/backups", token="token-max", body=make_envelope())
+        self.assertEqual(status, 200)
+        backup_id = uploaded["backup_id"]
+
+        status, listed = self.request("GET", "/v1/backups", token="token-max")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["backup_id"] for item in listed["backups"]], [backup_id])
+
+        status, downloaded = self.request("GET", f"/v1/backups/{backup_id}", token="token-max")
+        self.assertEqual(status, 200)
+        self.assertEqual(downloaded["kind"], "cloud_backup")
+
+    def test_http_entitlement_verifier_exception_fails_closed(self):
+        self.app.entitlement_verifier = _ExplodingEntitlementVerifier()
+
+        status, body = self.request("GET", "/v1/backups", token="token-a")
+
+        self.assertEqual(status, 403)
+        self.assertEqual(body["error"]["code"], "cloud_backup_requires_max")
+
+    def test_http_entitlement_unavailable_returns_503_without_leaking_account(self):
+        self.app.entitlement_verifier = _UnavailableEntitlementVerifier()
+
+        status, body = self.request("GET", "/v1/backups", token="token-a")
+
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"]["code"], "subscription_verification_unavailable")
+        self.assertNotIn("user-a", json.dumps(body))
+
     def test_http_upload_list_download_is_user_scoped(self):
         status, body = self.request("POST", "/v1/backups", token="token-a", body=make_envelope())
         self.assertEqual(status, 200)
@@ -681,6 +789,7 @@ class BackendHttpTestCase(unittest.TestCase):
             authenticator=Authenticator(dev_tokens={"token-a": "user-a"}),
             rate_limiter=SlidingWindowRateLimiter(max_requests=1000),
             account_key_secret="",
+            entitlement_verifier=_MaxEntitlementVerifier(),
         )
         handler = _HandlerHarness(
             app,
@@ -731,6 +840,39 @@ class _RecordingObjectStore(FileObjectStore):
 class _FailingMetadataStore(BackupMetadataStore):
     def insert(self, metadata):
         raise sqlite3.OperationalError("simulated metadata failure")
+
+
+class _MaxEntitlementVerifier:
+    def require_max(self, user_id):
+        return None
+
+
+class _TierEntitlementVerifier:
+    def __init__(self, tiers_by_user):
+        self.tiers_by_user = dict(tiers_by_user)
+
+    def require_max(self, user_id):
+        if self.tiers_by_user.get(user_id) == "max":
+            return None
+        raise HttpError(
+            403,
+            "cloud_backup_requires_max",
+            "Cloud backup requires Max subscription.",
+        )
+
+
+class _ExplodingEntitlementVerifier:
+    def require_max(self, user_id):
+        raise RuntimeError("simulated entitlement verifier failure")
+
+
+class _UnavailableEntitlementVerifier:
+    def require_max(self, user_id):
+        raise HttpError(
+            503,
+            "subscription_verification_unavailable",
+            "Subscription verification is currently unavailable.",
+        )
 
 
 class _HandlerHarness:

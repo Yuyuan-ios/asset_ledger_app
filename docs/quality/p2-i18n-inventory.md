@@ -71,7 +71,7 @@ Already keyed/excluded in this area:
 | `lib/patterns/device/device_picker_items_builder.dart` | `...（码表 ... h）`; `未知设备`; `...（已停用 · 码表 ... h）`; `未知设备（已停用）` | Picker item labels. |
 | `lib/features/device/domain/services/device_avatar_policy.dart` | `当前方案不支持自定义头像` | Exception may surface as user error. Confirm before keyizing if strictly internal. |
 | `lib/features/device/domain/services/lifecycle_payback_calculator.dart` | `未设置成本`; `设置后可查看回本进度与预计盈余`; `已回本 ...x`; `已回本 100%`; `已回本 ...%`; `回本 ...%`; `预计盈余 ...`; `已回本，暂无盈余`; `还差 ... 回本` | Lifecycle status/result text. |
-| `lib/features/device/application/controllers/cloud_backup_controller.dart` | `云端备份是 Pro 功能，请升级后再使用。`; `云端备份服务暂未配置` | Cloud backup availability messages. |
+| `lib/features/device/application/controllers/cloud_backup_controller.dart` | `云端备份与恢复是 Max 功能。请升级 Max 后再使用。`; `云端备份服务暂未配置` | Cloud backup availability messages. |
 | `lib/features/device/application/controllers/local_backup_controller.dart` | `备份文件格式不完整，暂不能恢复。`; `当前版本暂不支持恢复旧版备份，请使用相同版本导出的备份。`; `备份文件版本较新，请升级 App 后再试。` | Local backup validation messages. |
 | `lib/features/device/application/controllers/device_action_controller.dart` | `已打开评分入口`; `评分入口暂不可用`; `已打开技术支持网页`; `暂时无法打开支持页，已切换到邮件联系`; `暂时无法打开支持页，请稍后重试或发送邮件到 ...` | Action feedback/toasts. |
 | `lib/features/device/view/lifecycle_payback_card.dart` | `点击设置成本与残值`; `生命周期净收益 = 已实收 + 预计残值 - 初始成本`; `初始投入...`; `已实收净额...`; `预计售出残值...`; `待收...`; `已运营：...小时 / ...项`; `未设置初始投入`; `盈余`; `未回本缺口`; row labels `已实收净额`, `预计售出残值`; `待收 ...` | Lifecycle payback card UI. |

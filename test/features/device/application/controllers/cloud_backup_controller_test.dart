@@ -69,6 +69,7 @@ void main() {
   test('listRemote maps gateway failures to result objects', () async {
     final controller = CloudBackupController(
       service: CloudBackupService(gateway: _FailingGateway()),
+      canUseCloudBackup: () => true,
     );
 
     final result = await controller.listRemote();
@@ -78,9 +79,23 @@ void main() {
     expect(result.errorMessage, 'service unavailable');
   });
 
+  test('max entitlement allows restore to reach the gateway', () async {
+    final controller = CloudBackupController(
+      service: CloudBackupService(gateway: _FailingGateway()),
+      canUseCloudBackup: () => true,
+    );
+
+    final result = await controller.restoreFromCloud('backup-1');
+
+    expect(result.success, isFalse);
+    expect(result.errorCode, 'http_503');
+    expect(result.message, contains('service unavailable'));
+  });
+
   test('formats remote metadata for account center display', () {
     final controller = CloudBackupController(
       service: CloudBackupService(gateway: _FailingGateway()),
+      canUseCloudBackup: () => true,
     );
 
     expect(controller.formatPayloadSize(512), '512 B');

@@ -92,7 +92,7 @@ class PendingServerSubscriptionVerificationRepository
     // TODO(iap): Fetch latest entitlement from backend / App Store Server API.
     return VerifiedEntitlement(
       outcome: SubscriptionVerificationOutcome.verificationUnavailable,
-      reason: '订阅状态同步服务尚未接入',
+      reason: '订阅校验服务暂不可用',
     );
   }
 }

@@ -21,6 +21,7 @@ import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/fuel/state/fuel_store.dart';
 import 'package:asset_ledger/features/maintenance/state/maintenance_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
+import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -142,6 +143,58 @@ void main() {
       await store.deleteByDeviceId(3);
       expect(repository.listAllCalls, 1);
       expect(store.records.map((item) => item.id).toList(), [4]);
+    });
+
+    test('legacy save cannot bypass the Free 30 record limit', () async {
+      final repository = _CountingTimingRepository(
+        seed: List.generate(
+          30,
+          (index) => TimingRecord(
+            id: index + 1,
+            deviceId: 2,
+            startDate: 20260301 + index,
+            contact: 'A',
+            site: 'Yard',
+            type: TimingType.hours,
+            startMeter: index.toDouble(),
+            endMeter: index + 1.0,
+            hours: 1,
+            income: 100,
+          ),
+        ),
+      );
+      final store = TimingStore(
+        repository,
+        canCreateMoreTimingRecords: (currentCount) => currentCount < 30,
+      );
+
+      await store.loadAll();
+
+      await expectLater(
+        store.save(
+          TimingRecord(
+            deviceId: 3,
+            startDate: 20260401,
+            contact: 'B',
+            site: 'Yard',
+            type: TimingType.hours,
+            startMeter: 31,
+            endMeter: 32,
+            hours: 1,
+            income: 100,
+          ),
+        ),
+        throwsA(
+          isA<TimingRecordLimitExceededException>().having(
+            (error) => error.currentCount,
+            'currentCount',
+            30,
+          ),
+        ),
+      );
+
+      expect(repository.savedCalculationHistories, isEmpty);
+      expect(store.records, hasLength(30));
     });
   });
 

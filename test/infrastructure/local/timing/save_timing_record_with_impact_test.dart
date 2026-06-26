@@ -330,6 +330,52 @@ void main() {
       expect(await _timingRecordCount(db), 31);
     });
 
+    test('免费版已有 29 条时两个并发新增最多只成功一个', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      await _seedTimingRecords(
+        db,
+        count: 29,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+      );
+
+      Future<bool> attemptSave({
+        required int startDate,
+        required double startMeter,
+      }) async {
+        try {
+          await useCase.execute(
+            editing: null,
+            record: TimingRecord(
+              deviceId: deviceId,
+              startDate: startDate,
+              projectId: 'project:alpha',
+              contact: '甲方',
+              site: 'alpha',
+              type: TimingType.hours,
+              startMeter: startMeter,
+              endMeter: startMeter + 1,
+              hours: 1,
+              income: 100,
+            ),
+          );
+          return true;
+        } on TimingRecordLimitExceededException {
+          return false;
+        }
+      }
+
+      final results = await Future.wait([
+        attemptSave(startDate: 20260620, startMeter: 100),
+        attemptSave(startDate: 20260621, startMeter: 200),
+      ]);
+
+      expect(results.where((success) => success), hasLength(1));
+      expect(await _timingRecordCount(db), 30);
+    });
+
     test('Pro 或 Max 权益允许 30 条以上继续新增', () async {
       final db = await AppDatabase.database;
       final deviceId = await _seedDevice(db);

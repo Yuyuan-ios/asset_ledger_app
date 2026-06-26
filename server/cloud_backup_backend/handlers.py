@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from auth import Authenticator
 from config import ENCODING_AES_GCM, ENCODING_PLAINTEXT, ENCRYPTION_META_FIELDS, KIND_VALUE, MAX_PAYLOAD_BYTES, MAX_REQUEST_BYTES, SUPPORTED_FORMAT_VERSION, VERSION_UPGRADE_GATE, AppConfig
+from entitlements import CloudBackupEntitlementVerifier, FailClosedCloudBackupEntitlementVerifier, build_cloud_backup_entitlement_verifier_from_env, cloud_backup_requires_max_error
 from http_helpers import HttpError, duration_ms_since, error_response, json_response, log_backup_event, log_internal_error, read_json_body, request_id_from_headers
 from object_store import AliyunOssObjectStore, FileObjectStore, StorageError
 from rate_limit import SlidingWindowRateLimiter
@@ -28,6 +29,7 @@ class BackupApp:
         account_key_secret: str = "",
         max_payload_bytes: int = MAX_PAYLOAD_BYTES,
         max_request_bytes: int = MAX_REQUEST_BYTES,
+        entitlement_verifier: Optional[CloudBackupEntitlementVerifier] = None,
     ):
         self.metadata_store = metadata_store
         self.object_store = object_store
@@ -39,6 +41,9 @@ class BackupApp:
         self.account_key_secret = account_key_secret
         self.max_payload_bytes = max_payload_bytes
         self.max_request_bytes = max_request_bytes
+        self.entitlement_verifier = (
+            entitlement_verifier or FailClosedCloudBackupEntitlementVerifier()
+        )
 
     @classmethod
     def from_env(cls) -> "BackupApp":
@@ -63,12 +68,21 @@ class BackupApp:
             account_key_secret=config.account_key_secret,
             max_payload_bytes=config.max_payload_bytes,
             max_request_bytes=config.max_request_bytes,
+            entitlement_verifier=build_cloud_backup_entitlement_verifier_from_env(),
         )
 
     def authenticate(self, handler: http.server.BaseHTTPRequestHandler) -> str:
         user_id = self.authenticator.authenticate(handler.headers.get("authorization"))
         self.rate_limiter.check(user_id)
         return user_id
+
+    def require_max_entitlement(self, user_id: str) -> None:
+        try:
+            self.entitlement_verifier.require_max(user_id)
+        except HttpError:
+            raise
+        except Exception as exc:
+            raise cloud_backup_requires_max_error() from exc
 
     def issue_account_backup_key(self, user_id: str) -> str:
         """派生 per-account 的稳定高熵备份秘密(账号绑定客户端加密的密钥材料)。
@@ -356,6 +370,7 @@ class BackupRequestHandler(http.server.BaseHTTPRequestHandler):
                 return
             user_id = self.app.authenticate(self)
             if method == "GET" and path == "/v1/account/backup-key":
+                self.app.require_max_entitlement(user_id)
                 json_response(
                     self,
                     200,
@@ -363,14 +378,17 @@ class BackupRequestHandler(http.server.BaseHTTPRequestHandler):
                 )
                 return
             if method == "POST" and path == "/v1/backups":
+                self.app.require_max_entitlement(user_id)
                 envelope = read_json_body(self, self.app.max_request_bytes)
                 backup_id = self.app.create_backup(user_id, envelope)
                 json_response(self, 200, {"backup_id": backup_id})
                 return
             if method == "GET" and path == "/v1/backups":
+                self.app.require_max_entitlement(user_id)
                 json_response(self, 200, {"backups": self.app.list_backups(user_id)})
                 return
             if method == "GET" and path.startswith("/v1/backups/"):
+                self.app.require_max_entitlement(user_id)
                 backup_id = urllib.parse.unquote(path[len("/v1/backups/") :])
                 if not backup_id:
                     raise HttpError(404, "not_found", "backup not found")

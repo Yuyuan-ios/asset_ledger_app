@@ -83,6 +83,33 @@ Optional JWT hardening:
 - `FLEET_BACKUP_AUTH_JWT_ISSUER`: expected `iss` claim.
 - `FLEET_BACKUP_AUTH_JWT_AUDIENCE`: expected `aud` claim.
 
+## Max Entitlement
+
+Bearer auth only identifies the account. Every cloud-backup API also requires a
+server-side Max entitlement check before backup-key issuance, upload, list, or
+download. Production must configure a trusted HTTPS entitlement source:
+
+```bash
+FLEET_BACKUP_ENTITLEMENT_VERIFICATION_URL=https://api.example.com/v1/subscriptions/entitlement
+FLEET_BACKUP_ENTITLEMENT_BEARER_TOKEN=replace-with-server-to-server-token
+```
+
+The verifier sends the authenticated `userId` server-to-server and accepts only
+JSON that proves Max, such as `{"entitlementTier":"max"}` or
+`{"canUseCloudBackup":true}`. Free, Pro, unknown, expired, malformed, or
+unconfigured entitlement states fail closed. Without a configured entitlement
+source, authenticated cloud-backup requests return `403 cloud_backup_requires_max`.
+
+For local or test-only smoke checks, a static allow-list can be enabled only
+when `APP_ENV` is `test`, `local`, or `development`:
+
+```bash
+APP_ENV=local
+FLEET_BACKUP_MAX_ENTITLED_USERS_JSON='["test-user"]'
+```
+
+Do not enable the static allow-list in production.
+
 ## Account Backup Key Issuer
 
 Set `FLEET_BACKUP_ACCOUNT_KEY_SECRET` to a separate 32+ character random value.
