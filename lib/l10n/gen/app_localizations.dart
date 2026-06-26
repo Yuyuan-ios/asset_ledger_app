@@ -3048,6 +3048,36 @@ abstract class AppLocalizations {
   /// **'从 App Store 恢复已购买权益'**
   String get deviceRestorePurchasesSubtitle;
 
+  /// 设备模块:恢复购买结果-Pro 已恢复
+  ///
+  /// In zh, this message translates to:
+  /// **'已恢复 Pro 订阅'**
+  String get deviceRestoreResultRestoredPro;
+
+  /// 设备模块:恢复购买结果-Max 已恢复
+  ///
+  /// In zh, this message translates to:
+  /// **'已恢复 Max 订阅'**
+  String get deviceRestoreResultRestoredMax;
+
+  /// 设备模块:恢复购买结果-无可恢复购买
+  ///
+  /// In zh, this message translates to:
+  /// **'未发现可恢复的购买'**
+  String get deviceRestoreResultNoPurchase;
+
+  /// 设备模块:恢复购买失败结果
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复失败：{reason}'**
+  String deviceRestoreResultFailed(String reason);
+
+  /// 设备模块:恢复购买服务不可用结果
+  ///
+  /// In zh, this message translates to:
+  /// **'订阅服务暂不可用：{reason}'**
+  String deviceRestoreResultUnavailable(String reason);
+
   /// 设备模块:数据安全分组
   ///
   /// In zh, this message translates to:

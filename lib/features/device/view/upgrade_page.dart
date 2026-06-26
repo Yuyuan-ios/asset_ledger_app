@@ -12,6 +12,7 @@ import '../../../tokens/mapper/core_tokens.dart';
 import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/subscription.dart';
 import 'privacy_page.dart';
+import 'subscription_restore_feedback.dart';
 import 'terms_page.dart';
 
 enum _UpgradePlan { pro, max }
@@ -77,7 +78,9 @@ class _UpgradePageState extends State<UpgradePage> {
   }
 
   Future<void> _restorePurchases() async {
-    await _subscriptionController.restorePurchases();
+    final outcome = await _subscriptionController.restorePurchases();
+    if (!mounted) return;
+    showSubscriptionRestoreSnackBar(context, outcome);
   }
 
   Future<void> _openTermsPage() async {

@@ -26,6 +26,54 @@ enum SubscriptionStatus {
 
 enum SubscriptionProductKind { pro, max }
 
+enum SubscriptionRestoreOutcomeKind {
+  restoredPro,
+  restoredMax,
+  noActivePurchase,
+  failed,
+  unavailable,
+}
+
+@immutable
+class SubscriptionRestoreOutcome {
+  const SubscriptionRestoreOutcome.restoredPro()
+    : kind = SubscriptionRestoreOutcomeKind.restoredPro,
+      reason = null;
+
+  const SubscriptionRestoreOutcome.restoredMax()
+    : kind = SubscriptionRestoreOutcomeKind.restoredMax,
+      reason = null;
+
+  const SubscriptionRestoreOutcome.noActivePurchase()
+    : kind = SubscriptionRestoreOutcomeKind.noActivePurchase,
+      reason = null;
+
+  const SubscriptionRestoreOutcome.failed([this.reason])
+    : kind = SubscriptionRestoreOutcomeKind.failed;
+
+  const SubscriptionRestoreOutcome.unavailable([this.reason])
+    : kind = SubscriptionRestoreOutcomeKind.unavailable;
+
+  final SubscriptionRestoreOutcomeKind kind;
+  final String? reason;
+
+  @override
+  bool operator ==(Object other) {
+    return other is SubscriptionRestoreOutcome &&
+        other.kind == kind &&
+        other.reason == reason;
+  }
+
+  @override
+  int get hashCode => Object.hash(kind, reason);
+
+  @override
+  String toString() {
+    final detail = reason == null ? '' : ', reason: $reason';
+    return 'SubscriptionRestoreOutcome($kind$detail)';
+  }
+}
+
 class SubscriptionSnapshot {
   const SubscriptionSnapshot({
     required this.status,
@@ -278,7 +326,7 @@ class SubscriptionService {
     }
   }
 
-  static Future<void> restorePurchases() async {
+  static Future<SubscriptionRestoreOutcome> restorePurchases() async {
     _setSnapshot(
       snapshot.copyWith(
         status: SubscriptionStatus.pending,
@@ -303,16 +351,49 @@ class SubscriptionService {
             .fetchCurrentEntitlement();
         await _applyVerificationResult(entitlement);
       }
+      return _restoreOutcomeFromSnapshot(snapshot);
     } catch (error) {
+      final message = '恢复购买失败：$error';
       _setSnapshot(
         snapshot.copyWith(
           status: SubscriptionStatus.free,
           isEntitlementVerified: false,
           isRestoring: false,
-          errorMessage: '恢复购买失败：$error',
+          errorMessage: message,
         ),
       );
+      return SubscriptionRestoreOutcome.failed(message);
     }
+  }
+
+  static SubscriptionRestoreOutcome _restoreOutcomeFromSnapshot(
+    SubscriptionSnapshot snapshot,
+  ) {
+    if (snapshot.allowsMaxFeatures) {
+      return const SubscriptionRestoreOutcome.restoredMax();
+    }
+    if (snapshot.allowsProFeatures) {
+      return const SubscriptionRestoreOutcome.restoredPro();
+    }
+
+    final reason = snapshot.errorMessage?.trim();
+    if (reason != null && reason.isNotEmpty) {
+      if (_isUnavailableRestoreReason(reason)) {
+        return SubscriptionRestoreOutcome.unavailable(reason);
+      }
+      return SubscriptionRestoreOutcome.failed(reason);
+    }
+
+    return const SubscriptionRestoreOutcome.noActivePurchase();
+  }
+
+  static bool _isUnavailableRestoreReason(String reason) {
+    final normalized = reason.toLowerCase();
+    return normalized.contains('暂不可用') ||
+        normalized.contains('同步请求失败') ||
+        normalized.contains('unavailable') ||
+        normalized.contains('service unavailable') ||
+        normalized.contains('server unavailable');
   }
 
   static Future<bool> _handleRestorePurchaseUpdates(

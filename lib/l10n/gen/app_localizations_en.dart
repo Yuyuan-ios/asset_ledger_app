@@ -1784,6 +1784,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Restore purchased entitlements from the App Store';
 
   @override
+  String get deviceRestoreResultRestoredPro => 'Pro subscription restored';
+
+  @override
+  String get deviceRestoreResultRestoredMax => 'Max subscription restored';
+
+  @override
+  String get deviceRestoreResultNoPurchase => 'No purchases to restore';
+
+  @override
+  String deviceRestoreResultFailed(String reason) {
+    return 'Restore failed: $reason';
+  }
+
+  @override
+  String deviceRestoreResultUnavailable(String reason) {
+    return 'Subscription service unavailable: $reason';
+  }
+
+  @override
   String get deviceDataSecuritySectionTitle => 'Data safety';
 
   @override

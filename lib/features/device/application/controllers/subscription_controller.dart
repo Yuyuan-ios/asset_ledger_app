@@ -35,7 +35,8 @@ class SubscriptionController {
     return SubscriptionService.buySelectedProduct(kind);
   }
 
-  Future<void> restorePurchases() => SubscriptionService.restorePurchases();
+  Future<SubscriptionRestoreOutcome> restorePurchases() =>
+      SubscriptionService.restorePurchases();
 
   Future<bool> openPrivacyPolicy() =>
       SupportFeedbackService.openPrivacyPolicy();

@@ -198,8 +198,9 @@ void main() {
         ),
       ];
 
-      await SubscriptionService.restorePurchases();
+      final outcome = await SubscriptionService.restorePurchases();
 
+      expect(outcome, const SubscriptionRestoreOutcome.restoredPro());
       expect(SubscriptionService.snapshot.status, SubscriptionStatus.activePro);
       expect(SubscriptionService.allowsProFeatures, isTrue);
       expect(verificationRepository.verifiedPurchases, hasLength(1));
@@ -236,8 +237,9 @@ void main() {
           ),
         ];
 
-        await SubscriptionService.restorePurchases();
+        final outcome = await SubscriptionService.restorePurchases();
 
+        expect(outcome, const SubscriptionRestoreOutcome.restoredMax());
         expect(
           SubscriptionService.snapshot.status,
           SubscriptionStatus.activeMax,
@@ -256,8 +258,9 @@ void main() {
           outcome: SubscriptionVerificationOutcome.noActiveEntitlement,
         );
 
-        await SubscriptionService.restorePurchases();
+        final outcome = await SubscriptionService.restorePurchases();
 
+        expect(outcome, const SubscriptionRestoreOutcome.noActivePurchase());
         expect(
           SubscriptionService.snapshot.status,
           SubscriptionStatus.noActiveEntitlement,
@@ -265,6 +268,41 @@ void main() {
         expect(SubscriptionService.snapshot.isRestoring, isFalse);
         expect(verificationRepository.currentFetchCount, 1);
         expect(verificationRepository.verifiedPurchases, isEmpty);
+      },
+    );
+
+    test('restore returns failed outcome for verification failure', () async {
+      verificationRepository.currentResult = VerifiedEntitlement(
+        outcome: SubscriptionVerificationOutcome.verificationFailed,
+        reason: 'invalid receipt',
+      );
+
+      final outcome = await SubscriptionService.restorePurchases();
+
+      expect(
+        outcome,
+        const SubscriptionRestoreOutcome.failed('invalid receipt'),
+      );
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.free);
+      expect(SubscriptionService.snapshot.errorMessage, 'invalid receipt');
+    });
+
+    test(
+      'restore returns unavailable outcome for verification outage',
+      () async {
+        verificationRepository.currentResult = VerifiedEntitlement(
+          outcome: SubscriptionVerificationOutcome.verificationUnavailable,
+          reason: 'server unavailable',
+        );
+
+        final outcome = await SubscriptionService.restorePurchases();
+
+        expect(
+          outcome,
+          const SubscriptionRestoreOutcome.unavailable('server unavailable'),
+        );
+        expect(SubscriptionService.snapshot.status, SubscriptionStatus.free);
+        expect(SubscriptionService.snapshot.errorMessage, 'server unavailable');
       },
     );
 
@@ -283,12 +321,24 @@ void main() {
         restoreGatewayTimeout: const Duration(milliseconds: 1),
       );
 
-      await SubscriptionService.restorePurchases();
+      final outcome = await SubscriptionService.restorePurchases();
 
+      expect(outcome, const SubscriptionRestoreOutcome.restoredPro());
       expect(SubscriptionService.snapshot.status, SubscriptionStatus.activePro);
       expect(SubscriptionService.allowsProFeatures, isTrue);
       expect(verificationRepository.currentFetchCount, 1);
       expect(verificationRepository.verifiedPurchases, isEmpty);
+    });
+
+    test('restore catch branch returns failed outcome', () async {
+      storeGateway.restoreError = StateError('store restore failed');
+
+      final outcome = await SubscriptionService.restorePurchases();
+
+      expect(outcome.kind, SubscriptionRestoreOutcomeKind.failed);
+      expect(outcome.reason, contains('恢复购买失败：Bad state'));
+      expect(SubscriptionService.snapshot.status, SubscriptionStatus.free);
+      expect(SubscriptionService.snapshot.errorMessage, outcome.reason);
     });
 
     test('purchased but verificationFailed does not unlock pro', () async {
@@ -598,6 +648,7 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   String? lastRestoreApplicationUserName;
   List<PurchaseDetails> restoredPurchases = const <PurchaseDetails>[];
   Completer<List<PurchaseDetails>>? restoreCompleter;
+  Object? restoreError;
   var restoreCallCount = 0;
 
   @override
@@ -625,6 +676,8 @@ class FakeSubscriptionStoreGateway implements SubscriptionStoreGateway {
   }) async {
     restoreCallCount++;
     lastRestoreApplicationUserName = applicationUserName;
+    final error = restoreError;
+    if (error != null) throw error;
     final completer = restoreCompleter;
     if (completer != null) return completer.future;
     return restoredPurchases;

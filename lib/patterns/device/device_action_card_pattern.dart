@@ -11,13 +11,15 @@ class DeviceActionCard extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.trailingIcon,
+    this.trailing,
   });
 
   final String title;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String? subtitle;
   final Widget? leading;
   final IconData? trailingIcon;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +65,10 @@ class DeviceActionCard extends StatelessWidget {
             ],
           ),
         ),
-        if (trailingIcon != null) ...[
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          trailing!,
+        ] else if (trailingIcon != null) ...[
           const SizedBox(width: 8),
           Icon(
             trailingIcon,

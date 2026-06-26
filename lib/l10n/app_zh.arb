@@ -2458,6 +2458,38 @@
   "@deviceRestorePurchasesSubtitle": {
     "description": "设备模块:恢复购买说明"
   },
+  "deviceRestoreResultRestoredPro": "已恢复 Pro 订阅",
+  "@deviceRestoreResultRestoredPro": {
+    "description": "设备模块:恢复购买结果-Pro 已恢复"
+  },
+  "deviceRestoreResultRestoredMax": "已恢复 Max 订阅",
+  "@deviceRestoreResultRestoredMax": {
+    "description": "设备模块:恢复购买结果-Max 已恢复"
+  },
+  "deviceRestoreResultNoPurchase": "未发现可恢复的购买",
+  "@deviceRestoreResultNoPurchase": {
+    "description": "设备模块:恢复购买结果-无可恢复购买"
+  },
+  "deviceRestoreResultFailed": "恢复失败：{reason}",
+  "@deviceRestoreResultFailed": {
+    "description": "设备模块:恢复购买失败结果",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "订阅服务端未返回有效授权"
+      }
+    }
+  },
+  "deviceRestoreResultUnavailable": "订阅服务暂不可用：{reason}",
+  "@deviceRestoreResultUnavailable": {
+    "description": "设备模块:恢复购买服务不可用结果",
+    "placeholders": {
+      "reason": {
+        "type": "String",
+        "example": "同步请求失败"
+      }
+    }
+  },
   "deviceDataSecuritySectionTitle": "数据安全",
   "@deviceDataSecuritySectionTitle": {
     "description": "设备模块:数据安全分组"

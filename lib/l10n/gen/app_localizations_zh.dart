@@ -1650,6 +1650,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceRestorePurchasesSubtitle => '从 App Store 恢复已购买权益';
 
   @override
+  String get deviceRestoreResultRestoredPro => '已恢复 Pro 订阅';
+
+  @override
+  String get deviceRestoreResultRestoredMax => '已恢复 Max 订阅';
+
+  @override
+  String get deviceRestoreResultNoPurchase => '未发现可恢复的购买';
+
+  @override
+  String deviceRestoreResultFailed(String reason) {
+    return '恢复失败：$reason';
+  }
+
+  @override
+  String deviceRestoreResultUnavailable(String reason) {
+    return '订阅服务暂不可用：$reason';
+  }
+
+  @override
   String get deviceDataSecuritySectionTitle => '数据安全';
 
   @override

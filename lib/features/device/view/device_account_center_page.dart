@@ -9,6 +9,7 @@ import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../domain/entities/subscription.dart';
 import 'device_account_status.dart';
+import 'subscription_restore_feedback.dart';
 
 class AccountCenterPage extends StatefulWidget {
   const AccountCenterPage({
@@ -32,7 +33,7 @@ class AccountCenterPage extends StatefulWidget {
   final ValueListenable<SubscriptionSnapshot> subscriptionListenable;
   final Future<PhoneLoginSession> Function() onOpenPhoneLogin;
   final VoidCallback onOpenUpgradePage;
-  final Future<void> Function() onRestorePurchases;
+  final Future<SubscriptionRestoreOutcome> Function() onRestorePurchases;
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
@@ -150,7 +151,7 @@ class _AccountCenterContent extends StatelessWidget {
   final SubscriptionSnapshot subscription;
   final VoidCallback onOpenPhoneLogin;
   final VoidCallback onOpenUpgradePage;
-  final Future<void> Function() onRestorePurchases;
+  final Future<SubscriptionRestoreOutcome> Function() onRestorePurchases;
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
@@ -159,6 +160,12 @@ class _AccountCenterContent extends StatelessWidget {
   final bool syncConflictReviewAvailable;
   final bool cloudBackupAvailable;
   final String cloudBackupUnavailableMessage;
+
+  Future<void> _restorePurchases(BuildContext context) async {
+    final outcome = await onRestorePurchases();
+    if (!context.mounted) return;
+    showSubscriptionRestoreSnackBar(context, outcome);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +214,15 @@ class _AccountCenterContent extends StatelessWidget {
               title: l10n.deviceRestorePurchasesAction,
               subtitle: l10n.deviceRestorePurchasesSubtitle,
               leading: const _AccountCenterIcon(Icons.restore_page_outlined),
-              onTap: onRestorePurchases,
+              trailing: subscription.isRestoring
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: subscription.isRestoring
+                  ? null
+                  : () => _restorePurchases(context),
             ),
           ],
         ),

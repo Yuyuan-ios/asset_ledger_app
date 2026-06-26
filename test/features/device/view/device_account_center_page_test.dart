@@ -261,7 +261,7 @@ void main() {
               );
             },
             onOpenUpgradePage: () {},
-            onRestorePurchases: () async {},
+            onRestorePurchases: _noopRestorePurchases,
             onOpenLocalBackup: () {},
             onOpenLocalRestore: () {},
             onOpenSyncInfo: () {},
@@ -313,7 +313,7 @@ void main() {
             return const PhoneLoginSession.skipped();
           },
           onOpenUpgradePage: () {},
-          onRestorePurchases: () async {},
+          onRestorePurchases: _noopRestorePurchases,
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
@@ -358,7 +358,7 @@ void main() {
           onOpenPhoneLogin: () async =>
               const PhoneLoginSession.unauthenticated(),
           onOpenUpgradePage: () {},
-          onRestorePurchases: () async {},
+          onRestorePurchases: _noopRestorePurchases,
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
@@ -384,6 +384,7 @@ void main() {
         ),
       );
       addTearDown(subscription.dispose);
+      var restoreTapped = false;
 
       await tester.pumpWidget(
         _localizedApp(
@@ -398,7 +399,10 @@ void main() {
             onOpenPhoneLogin: () async =>
                 const PhoneLoginSession.unauthenticated(),
             onOpenUpgradePage: () {},
-            onRestorePurchases: () async {},
+            onRestorePurchases: () async {
+              restoreTapped = true;
+              return const SubscriptionRestoreOutcome.noActivePurchase();
+            },
             onOpenLocalBackup: () {},
             onOpenLocalRestore: () {},
             onOpenSyncInfo: () {},
@@ -409,8 +413,57 @@ void main() {
 
       expect(find.textContaining('正在等待 App Store 交易结果'), findsWidgets);
       expect(find.textContaining('免费版'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.tap(find.text('恢复购买'));
+      await tester.pump();
+
+      expect(restoreTapped, isFalse);
     },
   );
+
+  for (final restoreCase in _restoreOutcomeCases) {
+    testWidgets(
+      'account center shows restore result snackbar for ${restoreCase.name}',
+      (WidgetTester tester) async {
+        final subscription = ValueNotifier<SubscriptionSnapshot>(
+          const SubscriptionSnapshot(
+            status: SubscriptionStatus.free,
+            products: <SubscriptionProductKind, ProductDetails>{},
+          ),
+        );
+        addTearDown(subscription.dispose);
+
+        await tester.pumpWidget(
+          _localizedApp(
+            home: AccountCenterPage(
+              loginSession: const PhoneLoginSession(
+                loggedIn: true,
+                privacyAccepted: true,
+                phoneNumber: '13800138000',
+                authToken: 'token',
+              ),
+              subscriptionListenable: subscription,
+              onOpenPhoneLogin: () async =>
+                  const PhoneLoginSession.unauthenticated(),
+              onOpenUpgradePage: () {},
+              onRestorePurchases: () async => restoreCase.outcome,
+              onOpenLocalBackup: () {},
+              onOpenLocalRestore: () {},
+              onOpenSyncInfo: () {},
+              onOpenCloudBackup: () {},
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('恢复购买'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+
+        expect(find.text(restoreCase.expectedZh), findsOneWidget);
+      },
+    );
+  }
 
   testWidgets('account center marks cloud backup as Pro-only for free users', (
     WidgetTester tester,
@@ -436,7 +489,7 @@ void main() {
           onOpenPhoneLogin: () async =>
               const PhoneLoginSession.unauthenticated(),
           onOpenUpgradePage: () {},
-          onRestorePurchases: () async {},
+          onRestorePurchases: _noopRestorePurchases,
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
@@ -476,7 +529,7 @@ void main() {
           onOpenPhoneLogin: () async =>
               const PhoneLoginSession.unauthenticated(),
           onOpenUpgradePage: () {},
-          onRestorePurchases: () async {},
+          onRestorePurchases: _noopRestorePurchases,
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
@@ -523,7 +576,7 @@ void main() {
           onOpenPhoneLogin: () async =>
               const PhoneLoginSession.unauthenticated(),
           onOpenUpgradePage: () {},
-          onRestorePurchases: () async {},
+          onRestorePurchases: _noopRestorePurchases,
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
@@ -564,7 +617,7 @@ void main() {
           onOpenPhoneLogin: () async =>
               const PhoneLoginSession.unauthenticated(),
           onOpenUpgradePage: () {},
-          onRestorePurchases: () async {},
+          onRestorePurchases: _noopRestorePurchases,
           onOpenLocalBackup: () {},
           onOpenLocalRestore: () {},
           onOpenSyncInfo: () {},
@@ -601,3 +654,47 @@ Widget _localizedApp({required Widget home}) {
     home: home,
   );
 }
+
+Future<SubscriptionRestoreOutcome> _noopRestorePurchases() async {
+  return const SubscriptionRestoreOutcome.noActivePurchase();
+}
+
+class _RestoreOutcomeCase {
+  const _RestoreOutcomeCase({
+    required this.name,
+    required this.outcome,
+    required this.expectedZh,
+  });
+
+  final String name;
+  final SubscriptionRestoreOutcome outcome;
+  final String expectedZh;
+}
+
+const _restoreOutcomeCases = [
+  _RestoreOutcomeCase(
+    name: 'restored pro',
+    outcome: SubscriptionRestoreOutcome.restoredPro(),
+    expectedZh: '已恢复 Pro 订阅',
+  ),
+  _RestoreOutcomeCase(
+    name: 'restored max',
+    outcome: SubscriptionRestoreOutcome.restoredMax(),
+    expectedZh: '已恢复 Max 订阅',
+  ),
+  _RestoreOutcomeCase(
+    name: 'no active purchase',
+    outcome: SubscriptionRestoreOutcome.noActivePurchase(),
+    expectedZh: '未发现可恢复的购买',
+  ),
+  _RestoreOutcomeCase(
+    name: 'failed',
+    outcome: SubscriptionRestoreOutcome.failed('订阅服务端未返回有效授权'),
+    expectedZh: '恢复失败：订阅服务端未返回有效授权',
+  ),
+  _RestoreOutcomeCase(
+    name: 'unavailable',
+    outcome: SubscriptionRestoreOutcome.unavailable('同步请求失败'),
+    expectedZh: '订阅服务暂不可用：同步请求失败',
+  ),
+];

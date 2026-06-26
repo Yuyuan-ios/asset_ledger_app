@@ -15,6 +15,7 @@ import '../application/controllers/local_backup_controller.dart';
 import '../application/controllers/subscription_controller.dart';
 import '../domain/entities/device.dart';
 import '../domain/entities/local_backup_entities.dart';
+import '../domain/entities/subscription.dart';
 import '../../../features/account/state/account_payment_store.dart';
 import '../../../features/account/state/account_store.dart';
 import '../../../features/account/state/project_rate_store.dart';
@@ -273,8 +274,8 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
     return ledger.incomeFen;
   }
 
-  Future<void> _restorePurchases() async {
-    await _subscriptionController.restorePurchases();
+  Future<SubscriptionRestoreOutcome> _restorePurchases() {
+    return _subscriptionController.restorePurchases();
   }
 
   @override

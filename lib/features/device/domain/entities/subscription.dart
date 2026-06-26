@@ -1,2 +1,7 @@
 export '../../../../data/services/subscription_service.dart'
-    show SubscriptionProductKind, SubscriptionSnapshot, SubscriptionStatus;
+    show
+        SubscriptionProductKind,
+        SubscriptionRestoreOutcome,
+        SubscriptionRestoreOutcomeKind,
+        SubscriptionSnapshot,
+        SubscriptionStatus;
