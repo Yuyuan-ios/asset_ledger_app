@@ -226,6 +226,150 @@ void main() {
       expect(await db.query('sync_outbox'), isEmpty);
       expect(await db.query('entity_sync_meta'), isEmpty);
     });
+
+    test('免费版已有 29 条时允许新增第 30 条', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      await _seedTimingRecords(
+        db,
+        count: 29,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+      );
+
+      final result = await useCase.execute(
+        editing: null,
+        record: TimingRecord(
+          deviceId: deviceId,
+          startDate: 20260620,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          type: TimingType.hours,
+          startMeter: 100,
+          endMeter: 101,
+          hours: 1,
+          income: 100,
+        ),
+      );
+
+      expect(result.savedRecord.id, isNotNull);
+      expect(await _timingRecordCount(db), 30);
+    });
+
+    test('免费版已有 30 条时拒绝新增且不写入脏数据', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      await _seedTimingRecords(
+        db,
+        count: 30,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+      );
+
+      await expectLater(
+        useCase.execute(
+          editing: null,
+          record: TimingRecord(
+            deviceId: deviceId,
+            startDate: 20260620,
+            projectId: 'project:alpha',
+            contact: '甲方',
+            site: 'alpha',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 101,
+            hours: 1,
+            income: 100,
+          ),
+        ),
+        throwsA(
+          isA<TimingRecordLimitExceededException>()
+              .having((error) => error.currentCount, 'currentCount', 30)
+              .having((error) => error.limit, 'limit', 30),
+        ),
+      );
+
+      expect(await _timingRecordCount(db), 30);
+      expect(await db.query('sync_outbox'), isEmpty);
+      expect(await db.query('entity_sync_meta'), isEmpty);
+    });
+
+    test('免费版已有 31 条历史数据时拒绝继续新增但保留历史数据', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      await _seedTimingRecords(
+        db,
+        count: 31,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+      );
+
+      await expectLater(
+        useCase.execute(
+          editing: null,
+          record: TimingRecord(
+            deviceId: deviceId,
+            startDate: 20260620,
+            projectId: 'project:alpha',
+            contact: '甲方',
+            site: 'alpha',
+            type: TimingType.hours,
+            startMeter: 100,
+            endMeter: 101,
+            hours: 1,
+            income: 100,
+          ),
+        ),
+        throwsA(isA<TimingRecordLimitExceededException>()),
+      );
+
+      expect(await _timingRecordCount(db), 31);
+    });
+
+    test('Pro 或 Max 权益允许 30 条以上继续新增', () async {
+      final db = await AppDatabase.database;
+      final deviceId = await _seedDevice(db);
+      await _seedProject(db, projectId: 'project:alpha');
+      await _seedTimingRecords(
+        db,
+        count: 31,
+        deviceId: deviceId,
+        projectId: 'project:alpha',
+      );
+      final entitledUseCase = LocalSaveTimingRecordWithImpactUseCase(
+        timingRepository: timingRepository,
+        timingCalculationHistoryRepository: calculationHistoryRepository,
+        mergeRepository: mergeRepository,
+        deviceRepository: deviceRepository,
+        projectRateRepository: projectRateRepository,
+        projectResolver: projectResolver,
+        impactService: impactService,
+        canCreateMoreTimingRecords: (_) => true,
+        now: () => DateTime.utc(2026, 5, 26, 12),
+      );
+
+      await entitledUseCase.execute(
+        editing: null,
+        record: TimingRecord(
+          deviceId: deviceId,
+          startDate: 20260620,
+          projectId: 'project:alpha',
+          contact: '甲方',
+          site: 'alpha',
+          type: TimingType.hours,
+          startMeter: 100,
+          endMeter: 101,
+          hours: 1,
+          income: 100,
+        ),
+      );
+
+      expect(await _timingRecordCount(db), 32);
+    });
   });
 
   group('executeWithExecutor 外部事务入口', () {
@@ -2629,6 +2773,34 @@ Future<TimingRecord> _seedTimingRecord(
   );
   final id = await db.insert('timing_records', record.toMap());
   return record.copyWith(id: id);
+}
+
+Future<void> _seedTimingRecords(
+  Database db, {
+  required int count,
+  required int deviceId,
+  required String projectId,
+}) async {
+  for (var index = 0; index < count; index++) {
+    await _seedTimingRecord(
+      db,
+      deviceId: deviceId,
+      projectId: projectId,
+      contact: '甲方',
+      site: projectId.split(':').last,
+      hours: 1,
+      income: 100,
+      startDate: 20260501 + index,
+      startMeter: index.toDouble(),
+    );
+  }
+}
+
+Future<int> _timingRecordCount(Database db) async {
+  final rows = await db.rawQuery(
+    'SELECT COUNT(*) AS count FROM timing_records',
+  );
+  return (rows.single['count'] as num?)?.toInt() ?? 0;
 }
 
 Future<void> _insertTimingRow(

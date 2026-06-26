@@ -630,6 +630,14 @@
   "@timingEntrySaveFailure": {
     "description": "计时模块:计时记录保存失败的通用 toast"
   },
+  "timingEntryLimitProTitle": "需要升级 Pro",
+  "@timingEntryLimitProTitle": {
+    "description": "计时模块:免费版计时记录达到上限提示标题"
+  },
+  "timingEntryLimitProMessage": "免费版最多支持 30 条计时记录。升级 Pro 后可继续新增和维护更多计时记录。",
+  "@timingEntryLimitProMessage": {
+    "description": "计时模块:免费版计时记录达到上限提示正文"
+  },
   "timingEntryDeletePrecheckFailure": "删除前检查失败，请重试",
   "@timingEntryDeletePrecheckFailure": {
     "description": "计时模块:计时记录删除前影响检查失败的 toast"
@@ -2398,7 +2406,7 @@
   "@deviceAccountLoggedOutTitle": {
     "description": "设备模块:账户中心未登录标题"
   },
-  "deviceAccountAuthLoggedOutSubtitle": "登录后可备份、恢复与同步数据",
+  "deviceAccountAuthLoggedOutSubtitle": "登录后可使用云端备份与恢复",
   "@deviceAccountAuthLoggedOutSubtitle": {
     "description": "设备模块:账户中心未登录状态说明"
   },
@@ -2419,6 +2427,10 @@
   "deviceEntitlementPro": "Pro 已开通",
   "@deviceEntitlementPro": {
     "description": "设备模块:Pro 权益状态"
+  },
+  "deviceEntitlementMax": "Max 已开通",
+  "@deviceEntitlementMax": {
+    "description": "设备模块:Max 权益状态"
   },
   "deviceEntitlementFree": "免费版",
   "@deviceEntitlementFree": {
@@ -2453,6 +2465,34 @@
   "deviceUpgradeProTitle": "升级 Pro，支持持续维护",
   "@deviceUpgradeProTitle": {
     "description": "设备模块:升级 Pro 入口"
+  },
+  "deviceUpgradeProSubtitle": "解除计时记录 30 条限制",
+  "@deviceUpgradeProSubtitle": {
+    "description": "设备模块:升级 Pro 副标题"
+  },
+  "deviceUpgradeProPrice": "6 元/年",
+  "@deviceUpgradeProPrice": {
+    "description": "设备模块:Pro 价格展示"
+  },
+  "deviceUpgradeProAction": "升级 Pro",
+  "@deviceUpgradeProAction": {
+    "description": "设备模块:升级 Pro 按钮"
+  },
+  "deviceUpgradeMaxTitle": "升级 Max，开启云端备份",
+  "@deviceUpgradeMaxTitle": {
+    "description": "设备模块:升级 Max 入口"
+  },
+  "deviceUpgradeMaxSubtitle": "包含 Pro 权益，支持云端备份与恢复",
+  "@deviceUpgradeMaxSubtitle": {
+    "description": "设备模块:升级 Max 副标题"
+  },
+  "deviceUpgradeMaxPrice": "24 元/年",
+  "@deviceUpgradeMaxPrice": {
+    "description": "设备模块:Max 价格展示"
+  },
+  "deviceUpgradeMaxAction": "升级 Max",
+  "@deviceUpgradeMaxAction": {
+    "description": "设备模块:升级 Max 按钮"
   },
   "deviceRestorePurchasesAction": "恢复购买",
   "@deviceRestorePurchasesAction": {
@@ -2502,41 +2542,41 @@
   "@deviceCloudBackupTitle": {
     "description": "设备模块:云端备份标题"
   },
-  "deviceCloudBackupAuthedSubtitle": "上传当前数据或从云端恢复",
+  "deviceCloudBackupAuthedSubtitle": "Max 功能，可上传当前数据并在需要时恢复",
   "@deviceCloudBackupAuthedSubtitle": {
     "description": "设备模块:已登录云端备份说明"
   },
-  "deviceCloudBackupLoginSubtitle": "登录后可保存与恢复云端备份",
+  "deviceCloudBackupLoginSubtitle": "登录后可使用云端备份与恢复",
   "@deviceCloudBackupLoginSubtitle": {
     "description": "设备模块:未登录云端备份说明"
   },
-  "deviceCloudBackupProSubtitle": "Pro 订阅可用，升级后可保存与恢复云端备份",
-  "@deviceCloudBackupProSubtitle": {
-    "description": "设备模块:免费版云端备份说明"
+  "deviceCloudBackupMaxSubtitle": "Max 功能，可上传当前数据并在需要时恢复",
+  "@deviceCloudBackupMaxSubtitle": {
+    "description": "设备模块:云端备份 Max 功能说明"
   },
-  "deviceCloudBackupProTitle": "需要升级 Pro",
-  "@deviceCloudBackupProTitle": {
-    "description": "设备模块:云端备份升级提示标题"
+  "deviceCloudBackupMaxTitle": "需要升级 Max",
+  "@deviceCloudBackupMaxTitle": {
+    "description": "设备模块:云端备份升级 Max 提示标题"
   },
-  "deviceCloudBackupProMessage": "云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。",
-  "@deviceCloudBackupProMessage": {
-    "description": "设备模块:云端备份升级提示正文"
+  "deviceCloudBackupMaxMessage": "云端备份与恢复是 Max 功能。升级 Max 后可上传当前数据，并可在需要时从云端恢复。",
+  "@deviceCloudBackupMaxMessage": {
+    "description": "设备模块:云端备份升级 Max 提示正文"
   },
-  "deviceCloudBackupRequiresPro": "云端备份是 Pro 功能，请升级后再使用。",
-  "@deviceCloudBackupRequiresPro": {
-    "description": "设备模块:云端备份命中 Pro 门禁时的失败文案(controller 返回 cloud_backup_requires_pro,view 映射)"
+  "deviceCloudBackupRequiresMax": "云端备份与恢复是 Max 功能。请升级 Max 后再使用。",
+  "@deviceCloudBackupRequiresMax": {
+    "description": "设备模块:云端备份命中 Max 门禁时的失败文案(controller 返回 cloud_backup_requires_max,view 映射)"
   },
   "deviceCloudBackupNotConfigured": "云端备份服务暂未配置",
   "@deviceCloudBackupNotConfigured": {
     "description": "设备模块:云端备份服务未配置时的兜底文案(controller 返回 cloud_backup_not_configured 且无 server 文案,view 映射)"
   },
-  "deviceManualBackupTitle": "手动本地备份",
+  "deviceManualBackupTitle": "导出当前数据",
   "@deviceManualBackupTitle": {
-    "description": "设备模块:手动本地备份标题"
+    "description": "设备模块:导出当前数据标题"
   },
-  "deviceManualBackupSubtitle": "导出当前数据，便于保存与迁移",
+  "deviceManualBackupSubtitle": "导出本机数据，便于保存与迁移",
   "@deviceManualBackupSubtitle": {
-    "description": "设备模块:手动本地备份说明"
+    "description": "设备模块:导出当前数据说明"
   },
   "deviceLocalRestoreTitle": "本地恢复",
   "@deviceLocalRestoreTitle": {
@@ -2546,6 +2586,14 @@
   "@deviceLocalRestoreSubtitle": {
     "description": "设备模块:本地恢复说明"
   },
+  "deviceCloudRestoreTitle": "云端恢复",
+  "@deviceCloudRestoreTitle": {
+    "description": "设备模块:云端恢复标题"
+  },
+  "deviceCloudRestoreSubtitle": "Max 功能，可从云端备份恢复数据",
+  "@deviceCloudRestoreSubtitle": {
+    "description": "设备模块:云端恢复 Max 功能说明"
+  },
   "deviceSyncInfoTitle": "多端同步说明",
   "@deviceSyncInfoTitle": {
     "description": "设备模块:多端同步说明标题"
@@ -2554,7 +2602,7 @@
   "@deviceSyncInfoSubtitle": {
     "description": "设备模块:多端同步说明副标题"
   },
-  "deviceSyncInfoMessage": "云端备份未来用于保存数据与换机恢复；多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。",
+  "deviceSyncInfoMessage": "云端备份用于保存数据与换机恢复。多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。",
   "@deviceSyncInfoMessage": {
     "description": "设备模块:多端同步说明正文"
   },
@@ -2676,7 +2724,7 @@
   },
   "deviceManualBackupDialogMessage": "导出一份当前数据备份文件。你可以仅保存在本机，也可以立即分享或保存到其他位置。",
   "@deviceManualBackupDialogMessage": {
-    "description": "设备模块:手动本地备份弹窗说明"
+    "description": "设备模块:导出当前数据弹窗说明"
   },
   "deviceBackupOnlyAction": "仅备份",
   "@deviceBackupOnlyAction": {
@@ -2944,11 +2992,11 @@
   "@deviceUpgradeUnitYear": {
     "description": "设备模块:年度订阅单位"
   },
-  "deviceUpgradeProBody": "解锁基础 Pro 功能，订阅有效期内可用。",
+  "deviceUpgradeProBody": "解除计时记录 30 条限制，适合长期持续记账和计时。",
   "@deviceUpgradeProBody": {
     "description": "设备模块:Pro 计划说明"
   },
-  "deviceUpgradeMaxBody": "更高等级权益，包含 Pro 能力，并为后续高级能力预留。",
+  "deviceUpgradeMaxBody": "包含 Pro 权益，支持云端备份与恢复。",
   "@deviceUpgradeMaxBody": {
     "description": "设备模块:Max 计划说明"
   },

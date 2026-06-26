@@ -98,7 +98,7 @@ class DeviceFleetProviders {
         availability: CloudBackupAvailability.available(
           usesBusinessApiFallback: cloudBackupEndpoint.usesBusinessApiFallback,
         ),
-        allowsCloudBackup: () => SubscriptionService.allowsProFeatures,
+        canUseCloudBackup: () => SubscriptionService.canUseCloudBackup,
         service: CloudBackupService(
           gateway: HttpCloudBackupGateway(cloudClient),
           // 账号绑定客户端加密(OSS 只存密文）:密钥由后端

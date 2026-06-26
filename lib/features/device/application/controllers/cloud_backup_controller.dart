@@ -5,7 +5,7 @@ import '../../../../infrastructure/cloud/cloud_backup_gateway.dart';
 /// 云端备份失败的结果 code（application 层常量）。用户可见文案不在本层产出：
 /// `errorMessage` / `message` 仅承载 server 下发文案或留空，由 view 层据 code
 /// 映射 AppLocalizations（参照 [SupportEntryOutcome] 的 code→l10n 模式）。
-const cloudBackupRequiresProCode = 'cloud_backup_requires_pro';
+const cloudBackupRequiresMaxCode = 'cloud_backup_requires_max';
 const cloudBackupNotConfiguredCode = 'cloud_backup_not_configured';
 
 bool _allowCloudBackupByDefault() => true;
@@ -43,17 +43,17 @@ class CloudBackupController {
   const CloudBackupController({
     required CloudBackupService service,
     this.availability = const CloudBackupAvailability.available(),
-    bool Function() allowsCloudBackup = _allowCloudBackupByDefault,
+    bool Function() canUseCloudBackup = _allowCloudBackupByDefault,
   }) : _service = service,
-       _allowsCloudBackup = allowsCloudBackup;
+       _canUseCloudBackup = canUseCloudBackup;
 
   CloudBackupController.unavailable(String? message)
     : _service = null,
       availability = CloudBackupAvailability.unavailable(message),
-      _allowsCloudBackup = _allowCloudBackupByDefault;
+      _canUseCloudBackup = _allowCloudBackupByDefault;
 
   final CloudBackupService? _service;
-  final bool Function() _allowsCloudBackup;
+  final bool Function() _canUseCloudBackup;
   final CloudBackupAvailability availability;
 
   bool get isAvailable => availability.isAvailable;
@@ -73,11 +73,11 @@ class CloudBackupController {
         ),
       );
     }
-    if (!_allowsCloudBackup()) {
+    if (!_canUseCloudBackup()) {
       return Future.value(
         CloudBackupUploadResult(
           success: false,
-          errorCode: cloudBackupRequiresProCode,
+          errorCode: cloudBackupRequiresMaxCode,
           errorMessage: null,
         ),
       );
@@ -94,10 +94,10 @@ class CloudBackupController {
         errorMessage: availability.message,
       );
     }
-    if (!_allowsCloudBackup()) {
+    if (!_canUseCloudBackup()) {
       return CloudBackupListResult(
         success: false,
-        errorCode: cloudBackupRequiresProCode,
+        errorCode: cloudBackupRequiresMaxCode,
         errorMessage: null,
       );
     }
@@ -127,12 +127,12 @@ class CloudBackupController {
         ),
       );
     }
-    if (!_allowsCloudBackup()) {
+    if (!_canUseCloudBackup()) {
       return Future.value(
         BackupRestoreResult.failure(
-          // requires-pro 不带文案,errorCode 权威。
+          // requires-max 不带文案,errorCode 权威。
           message: '',
-          errorCode: cloudBackupRequiresProCode,
+          errorCode: cloudBackupRequiresMaxCode,
         ),
       );
     }

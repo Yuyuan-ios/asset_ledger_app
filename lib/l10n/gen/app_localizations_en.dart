@@ -519,6 +519,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timingEntrySaveFailure => 'Save failed. Try again';
 
   @override
+  String get timingEntryLimitProTitle => 'Pro required';
+
+  @override
+  String get timingEntryLimitProMessage =>
+      'The free plan supports up to 30 timing records. Upgrade to Pro to keep adding and maintaining more timing records.';
+
+  @override
   String get timingEntryDeletePrecheckFailure =>
       'Delete check failed. Try again';
 
@@ -1724,7 +1731,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceAccountCenterLoggedOutSubtitle =>
-      'Not logged in · Log in to back up and sync';
+      'Not logged in · Log in for cloud backup';
 
   @override
   String deviceAccountCenterLoggedInSubtitle(String entitlement) {
@@ -1747,7 +1754,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceAccountAuthLoggedOutSubtitle =>
-      'Log in to back up, restore, and sync data';
+      'Log in to use cloud backup and restore';
 
   @override
   String deviceAccountAuthTailSubtitle(String tail, String entitlement) {
@@ -1756,6 +1763,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceEntitlementPro => 'Pro active';
+
+  @override
+  String get deviceEntitlementMax => 'Max active';
 
   @override
   String get deviceEntitlementFree => 'Free plan';
@@ -1778,6 +1788,28 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceUpgradeProTitle =>
       'Upgrade to Pro and support ongoing maintenance';
+
+  @override
+  String get deviceUpgradeProSubtitle => 'Remove the 30 timing record limit';
+
+  @override
+  String get deviceUpgradeProPrice => '6 yuan/year';
+
+  @override
+  String get deviceUpgradeProAction => 'Upgrade to Pro';
+
+  @override
+  String get deviceUpgradeMaxTitle => 'Upgrade to Max for cloud backup';
+
+  @override
+  String get deviceUpgradeMaxSubtitle =>
+      'Includes Pro, with cloud backup and restore';
+
+  @override
+  String get deviceUpgradeMaxPrice => '24 yuan/year';
+
+  @override
+  String get deviceUpgradeMaxAction => 'Upgrade to Max';
 
   @override
   String get deviceRestorePurchasesAction => 'Restore purchases';
@@ -1813,37 +1845,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceCloudBackupAuthedSubtitle =>
-      'Upload current data or restore from cloud';
+      'Max feature. Upload current data and restore it when needed';
 
   @override
   String get deviceCloudBackupLoginSubtitle =>
-      'Log in to save and restore cloud backups';
+      'Log in to use cloud backup and restore';
 
   @override
-  String get deviceCloudBackupProSubtitle =>
-      'Available with Pro. Upgrade to save and restore cloud backups';
+  String get deviceCloudBackupMaxSubtitle =>
+      'Max feature. Upload current data and restore it when needed';
 
   @override
-  String get deviceCloudBackupProTitle => 'Pro required';
+  String get deviceCloudBackupMaxTitle => 'Max required';
 
   @override
-  String get deviceCloudBackupProMessage =>
-      'Cloud backup is a Pro feature. Upgrade to upload current data and restore from cloud.';
+  String get deviceCloudBackupMaxMessage =>
+      'Cloud backup and restore are Max features. Upgrade to Max to upload current data and restore it when needed.';
 
   @override
-  String get deviceCloudBackupRequiresPro =>
-      'Cloud backup is a Pro feature. Please upgrade to use it.';
+  String get deviceCloudBackupRequiresMax =>
+      'Cloud backup and restore are Max features. Upgrade to Max to use them.';
 
   @override
   String get deviceCloudBackupNotConfigured =>
       'Cloud backup service is not configured yet';
 
   @override
-  String get deviceManualBackupTitle => 'Manual local backup';
+  String get deviceManualBackupTitle => 'Export current data';
 
   @override
   String get deviceManualBackupSubtitle =>
-      'Export current data for saving or migration';
+      'Export this device\'s data for saving or migration';
 
   @override
   String get deviceLocalRestoreTitle => 'Local restore';
@@ -1851,6 +1883,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceLocalRestoreSubtitle =>
       'Restore this device from a backup file';
+
+  @override
+  String get deviceCloudRestoreTitle => 'Cloud restore';
+
+  @override
+  String get deviceCloudRestoreSubtitle =>
+      'Max feature. Restore data from a cloud backup';
 
   @override
   String get deviceSyncInfoTitle => 'Multi-device sync';
@@ -2167,11 +2206,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceUpgradeProBody =>
-      'Unlock core Pro features while your subscription is active.';
+      'Remove the 30 timing record limit for long-term tracking.';
 
   @override
   String get deviceUpgradeMaxBody =>
-      'Higher-tier entitlement with Pro features included and room for future advanced capabilities.';
+      'Includes Pro, plus cloud backup and restore.';
 
   @override
   String get deviceUpgradeLoadingProduct => 'Loading from App Store';

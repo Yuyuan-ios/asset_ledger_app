@@ -26,6 +26,8 @@ enum SubscriptionStatus {
 
 enum SubscriptionProductKind { pro, max }
 
+enum SubscriptionEffectivePlan { free, pro, max }
+
 enum SubscriptionRestoreOutcomeKind {
   restoredPro,
   restoredMax,
@@ -75,6 +77,8 @@ class SubscriptionRestoreOutcome {
 }
 
 class SubscriptionSnapshot {
+  static const int freeTimingRecordLimit = 30;
+
   const SubscriptionSnapshot({
     required this.status,
     required this.products,
@@ -110,7 +114,7 @@ class SubscriptionSnapshot {
   final DateTime? lastSyncedAt;
   final String? errorMessage;
 
-  bool get allowsProFeatures {
+  bool get _hasVerifiedProEntitlement {
     if (!isEntitlementVerified) return false;
     return entitlementTier.includesPro &&
         (status == SubscriptionStatus.activePro ||
@@ -119,12 +123,41 @@ class SubscriptionSnapshot {
             status == SubscriptionStatus.inGracePeriodMax);
   }
 
-  bool get allowsMaxFeatures {
+  bool get _hasVerifiedMaxEntitlement {
     if (!isEntitlementVerified) return false;
     return entitlementTier.includesMax &&
         (status == SubscriptionStatus.activeMax ||
             status == SubscriptionStatus.inGracePeriodMax);
   }
+
+  SubscriptionEffectivePlan get effectivePlan {
+    if (_hasVerifiedMaxEntitlement) return SubscriptionEffectivePlan.max;
+    if (_hasVerifiedProEntitlement) return SubscriptionEffectivePlan.pro;
+    return SubscriptionEffectivePlan.free;
+  }
+
+  bool get isProActive => effectivePlan != SubscriptionEffectivePlan.free;
+
+  bool get isMaxActive => effectivePlan == SubscriptionEffectivePlan.max;
+
+  bool get allowsProFeatures => isProActive;
+
+  bool get allowsMaxFeatures => isMaxActive;
+
+  bool get canUseUnlimitedTimingRecords => isProActive;
+
+  bool canCreateMoreTimingRecords(int currentCount) {
+    if (canUseUnlimitedTimingRecords) return true;
+    return currentCount < freeTimingRecordLimit;
+  }
+
+  bool get canUseCloudBackup => isMaxActive;
+
+  bool get canUseCloudRestore => isMaxActive;
+
+  bool get canUseLocalExport => true;
+
+  bool get canUseLocalRestore => true;
 
   bool get canUseCustomAvatar => allowsProFeatures;
 
@@ -201,6 +234,27 @@ class SubscriptionService {
   static bool get allowsProFeatures => snapshot.allowsProFeatures;
 
   static bool get allowsMaxFeatures => snapshot.allowsMaxFeatures;
+
+  static SubscriptionEffectivePlan get effectivePlan => snapshot.effectivePlan;
+
+  static bool get isProActive => snapshot.isProActive;
+
+  static bool get isMaxActive => snapshot.isMaxActive;
+
+  static bool get canUseUnlimitedTimingRecords =>
+      snapshot.canUseUnlimitedTimingRecords;
+
+  static bool canCreateMoreTimingRecords(int currentCount) {
+    return snapshot.canCreateMoreTimingRecords(currentCount);
+  }
+
+  static bool get canUseCloudBackup => snapshot.canUseCloudBackup;
+
+  static bool get canUseCloudRestore => snapshot.canUseCloudRestore;
+
+  static bool get canUseLocalExport => snapshot.canUseLocalExport;
+
+  static bool get canUseLocalRestore => snapshot.canUseLocalRestore;
 
   static Future<void> init() async {
     if (!_initialized) {

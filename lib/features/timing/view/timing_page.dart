@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../core/utils/form_feedback.dart';
 import '../../../core/utils/store_feedback.dart';
+import '../../device/application/controllers/subscription_controller.dart';
+import '../../device/domain/entities/subscription.dart';
 import '../../device/domain/services/device_label.dart';
 import '../../device/domain/services/device_lookup.dart';
 import '../../../core/errors/external_work_errors.dart';
@@ -43,6 +45,7 @@ import '../../device/application/device_meter_resolver.dart';
 import '../../account/model/account_view_model.dart';
 import '../../account/model/project_title_formatter.dart';
 import '../../device/application/device_editor_initial_device_resolver.dart';
+import '../../device/view/upgrade_page.dart';
 
 class TimingPage extends StatefulWidget {
   const TimingPage({
@@ -62,6 +65,7 @@ class TimingPage extends StatefulWidget {
 
 class _TimingPageState extends State<TimingPage> {
   static const int _minChartYear = 2025;
+  static const _subscriptionController = SubscriptionController();
 
   late int _targetYear;
   late int _targetMonth;
@@ -404,6 +408,10 @@ class _TimingPageState extends State<TimingPage> {
   Future<void> _openTimingEditor({TimingRecord? editing}) async {
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
+    if (editing == null) {
+      final allowed = await _ensureCanCreateTimingRecord(timingStore);
+      if (!allowed || !mounted) return;
+    }
     final rateStore = context.read<ProjectRateStore>();
     final formKey = GlobalKey<TimingDetailContentState>();
     final actionController = _actionController();
@@ -526,6 +534,10 @@ class _TimingPageState extends State<TimingPage> {
                 record: record,
                 calculationHistories: calculationHistories,
               );
+            } on TimingRecordLimitExceededException {
+              if (!mounted || !sheetContext.mounted) return;
+              await _showTimingRecordLimitDialog(timingStore);
+              return;
             } catch (error) {
               if (!mounted || !sheetContext.mounted) return;
               final message = _saveFailureMessage(error, timingStore);
@@ -569,7 +581,40 @@ class _TimingPageState extends State<TimingPage> {
     );
   }
 
+  Future<bool> _ensureCanCreateTimingRecord(TimingStore timingStore) async {
+    if (_subscriptionController.canCreateMoreTimingRecords(
+      timingStore.records.length,
+    )) {
+      return true;
+    }
+    return _showTimingRecordLimitDialog(timingStore);
+  }
+
+  Future<bool> _showTimingRecordLimitDialog(TimingStore timingStore) async {
+    final l10n = AppLocalizations.of(context);
+    final upgrade = await showAppConfirmDialog(
+      context: context,
+      title: l10n.timingEntryLimitProTitle,
+      content: l10n.timingEntryLimitProMessage,
+      cancelText: l10n.deviceCancelAction,
+      confirmText: l10n.deviceUpgradeProAction,
+    );
+    if (!upgrade || !mounted) return false;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            const UpgradePage(initialPlan: SubscriptionProductKind.pro),
+      ),
+    );
+    return _subscriptionController.canCreateMoreTimingRecords(
+      timingStore.records.length,
+    );
+  }
+
   String _saveFailureMessage(Object error, TimingStore timingStore) {
+    if (error is TimingRecordLimitExceededException) {
+      return AppLocalizations.of(context).timingEntryLimitProMessage;
+    }
     if (error is SaveTimingRecordOperationException) {
       return formValidationMessage(_friendlySaveFailureReason(error.message));
     }
@@ -584,6 +629,9 @@ class _TimingPageState extends State<TimingPage> {
 
   String _friendlySaveFailureReason(String message) {
     final trimmed = message.trim();
+    if (trimmed == TimingRecordLimitExceededException.code) {
+      return AppLocalizations.of(context).timingEntryLimitProMessage;
+    }
     // 校验器内部以“分摊截止日期”措辞抛出；UI 统一为“结束日”语义。
     // “结束日不能晚于下一条同设备记录日期”已是面向用户文案，原样透传。
     if (trimmed == '分摊截止日期必须晚于计时日期') {

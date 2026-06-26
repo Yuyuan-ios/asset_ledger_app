@@ -10,7 +10,9 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
   set _isCloudBackupBusy(bool value);
   Future<PhoneLoginSession> _loadLoginSession();
   Future<PhoneLoginSession> _openPhoneLogin();
-  Future<void> _openUpgradePage();
+  Future<void> _openUpgradePage({
+    SubscriptionProductKind initialPlan = SubscriptionProductKind.pro,
+  });
   Future<void> _showAccountSyncPlaceholder({
     required String title,
     required String message,
@@ -20,6 +22,22 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
   Future<void> _openCloudBackup() async {
     if (_isCloudBackupBusy) return;
 
+    final ready = await _ensureCloudBackupReady();
+    if (!ready || !mounted) return;
+
+    await _uploadCloudBackup();
+  }
+
+  Future<void> _openCloudRestore() async {
+    if (_isCloudBackupBusy) return;
+
+    final ready = await _ensureCloudBackupReady();
+    if (!ready || !mounted) return;
+
+    await _restoreCloudBackup();
+  }
+
+  Future<bool> _ensureCloudBackupReady() async {
     if (!_cloudBackupController.isAvailable) {
       await _showAccountSyncPlaceholder(
         title: _l10n.deviceCloudBackupUnavailableTitle,
@@ -27,81 +45,40 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
             _cloudBackupController.serverUnavailableMessage ??
             _l10n.deviceCloudBackupNotConfigured,
       );
-      return;
+      return false;
     }
 
     var session = await _loadLoginSession();
-    if (!mounted) return;
+    if (!mounted) return false;
     if (!session.isAuthenticated) {
       session = await _openPhoneLogin();
-      if (!mounted) return;
+      if (!mounted) return false;
       if (!session.isAuthenticated) {
         await _showAccountSyncPlaceholder(
           title: _l10n.deviceLoginRequiredTitle,
           message: _l10n.deviceCloudBackupLoginRequiredMessage,
         );
-        return;
+        return false;
       }
     }
 
     final canUseCloudBackup = await _ensureCloudBackupEntitlement();
-    if (!canUseCloudBackup || !mounted) return;
-
-    final action = await _chooseCloudBackupAction();
-    if (action == null || !mounted) return;
-    switch (action) {
-      case _CloudBackupAction.uploadCurrent:
-        await _uploadCloudBackup();
-        break;
-      case _CloudBackupAction.restoreFromCloud:
-        await _restoreCloudBackup();
-        break;
-    }
+    return canUseCloudBackup && mounted;
   }
 
   Future<bool> _ensureCloudBackupEntitlement() {
-    return requireProFeature(
+    return requireEntitledFeature(
       context,
-      title: _l10n.deviceCloudBackupProTitle,
-      message: _l10n.deviceCloudBackupProMessage,
+      title: _l10n.deviceCloudBackupMaxTitle,
+      message: _l10n.deviceCloudBackupMaxMessage,
       isAllowed:
-          _DevicePageState._subscriptionController.snapshot.allowsProFeatures,
+          _DevicePageState._subscriptionController.snapshot.canUseCloudBackup,
       isAllowedAfterUpgrade: () =>
-          _DevicePageState._subscriptionController.snapshot.allowsProFeatures,
-      openUpgrade: (_) => _openUpgradePage(),
-      confirmText: _l10n.deviceUpgradeNowTitle,
+          _DevicePageState._subscriptionController.snapshot.canUseCloudBackup,
+      openUpgrade: (_) =>
+          _openUpgradePage(initialPlan: SubscriptionProductKind.max),
+      confirmText: _l10n.deviceUpgradeMaxAction,
       cancelText: _l10n.deviceCancelAction,
-    );
-  }
-
-  Future<_CloudBackupAction?> _chooseCloudBackupAction() {
-    return showDialog<_CloudBackupAction>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(_l10n.deviceCloudBackupTitle),
-          content: Text(_l10n.deviceCloudBackupChooseMessage),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(_l10n.deviceCancelAction),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(
-                dialogContext,
-              ).pop(_CloudBackupAction.restoreFromCloud),
-              child: Text(_l10n.deviceCloudRestoreAction),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(
-                dialogContext,
-              ).pop(_CloudBackupAction.uploadCurrent),
-              child: Text(_l10n.deviceCloudUploadAction),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -740,7 +717,7 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
     // (云端 message 已留空,errorCode 权威);本地恢复保留其 result.message 文案。
     final errorCode = result.errorCode;
     final isCloudFailure =
-        errorCode == cloudBackupRequiresProCode ||
+        errorCode == cloudBackupRequiresMaxCode ||
         errorCode == cloudBackupNotConfiguredCode;
     final body = isCloudFailure
         ? _cloudBackupFailureText(
@@ -762,7 +739,7 @@ mixin _DeviceBackupDialogs on State<DevicePage> {
 }
 
 /// 把云端备份失败的结果 code 映射为本地化展示文案。
-/// requires-pro → 本地化 Pro 提示;not-configured → server 文案兜底 l10n;
+/// requires-max → 本地化 Max 提示;not-configured → server 文案兜底 l10n;
 /// 其余(service/gateway 错误码)→ server/result 文案兜底 [generic]。
 String _cloudBackupFailureText(
   AppLocalizations l10n, {
@@ -770,8 +747,8 @@ String _cloudBackupFailureText(
   String? serverMessage,
   required String generic,
 }) {
-  if (errorCode == cloudBackupRequiresProCode) {
-    return l10n.deviceCloudBackupRequiresPro;
+  if (errorCode == cloudBackupRequiresMaxCode) {
+    return l10n.deviceCloudBackupRequiresMax;
   }
   if (errorCode == cloudBackupNotConfiguredCode) {
     return serverMessage ?? l10n.deviceCloudBackupNotConfigured;

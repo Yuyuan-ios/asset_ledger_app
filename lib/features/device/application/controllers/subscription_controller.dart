@@ -15,6 +15,10 @@ class SubscriptionController {
 
   bool get canUseCustomAvatar => SubscriptionService.canUseCustomAvatar;
 
+  bool canCreateMoreTimingRecords(int currentCount) {
+    return SubscriptionService.canCreateMoreTimingRecords(currentCount);
+  }
+
   bool get canUsePurchaseFlow => isPurchaseFlowAvailable(
     config: SubscriptionConfig.fromEnvironment,
     useLocalIapVerification: kUseLocalIapVerification,

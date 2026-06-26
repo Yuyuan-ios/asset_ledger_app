@@ -60,6 +60,23 @@ class TimingRecordSaveStaleException implements Exception {
   String toString() => 'TimingRecordSaveStaleException: $message';
 }
 
+class TimingRecordLimitExceededException implements Exception {
+  static const String code = 'timing_record_limit_exceeded';
+
+  const TimingRecordLimitExceededException({
+    required this.currentCount,
+    this.limit = 30,
+  });
+
+  final int currentCount;
+  final int limit;
+
+  String get message => code;
+
+  @override
+  String toString() => 'TimingRecordLimitExceededException: $message';
+}
+
 /// 事务化保存计时记录的执行结果。
 class SaveTimingRecordWithImpactResult {
   const SaveTimingRecordWithImpactResult({

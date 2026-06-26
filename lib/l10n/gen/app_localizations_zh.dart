@@ -438,6 +438,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get timingEntrySaveFailure => '保存失败，请重试';
 
   @override
+  String get timingEntryLimitProTitle => '需要升级 Pro';
+
+  @override
+  String get timingEntryLimitProMessage =>
+      '免费版最多支持 30 条计时记录。升级 Pro 后可继续新增和维护更多计时记录。';
+
+  @override
   String get timingEntryDeletePrecheckFailure => '删除前检查失败，请重试';
 
   @override
@@ -1616,7 +1623,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceAccountLoggedOutTitle => '未登录';
 
   @override
-  String get deviceAccountAuthLoggedOutSubtitle => '登录后可备份、恢复与同步数据';
+  String get deviceAccountAuthLoggedOutSubtitle => '登录后可使用云端备份与恢复';
 
   @override
   String deviceAccountAuthTailSubtitle(String tail, String entitlement) {
@@ -1625,6 +1632,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceEntitlementPro => 'Pro 已开通';
+
+  @override
+  String get deviceEntitlementMax => 'Max 已开通';
 
   @override
   String get deviceEntitlementFree => '免费版';
@@ -1645,6 +1655,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceUpgradeProTitle => '升级 Pro，支持持续维护';
+
+  @override
+  String get deviceUpgradeProSubtitle => '解除计时记录 30 条限制';
+
+  @override
+  String get deviceUpgradeProPrice => '6 元/年';
+
+  @override
+  String get deviceUpgradeProAction => '升级 Pro';
+
+  @override
+  String get deviceUpgradeMaxTitle => '升级 Max，开启云端备份';
+
+  @override
+  String get deviceUpgradeMaxSubtitle => '包含 Pro 权益，支持云端备份与恢复';
+
+  @override
+  String get deviceUpgradeMaxPrice => '24 元/年';
+
+  @override
+  String get deviceUpgradeMaxAction => '升级 Max';
 
   @override
   String get deviceRestorePurchasesAction => '恢复购买';
@@ -1678,37 +1709,44 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceCloudBackupTitle => '云端备份';
 
   @override
-  String get deviceCloudBackupAuthedSubtitle => '上传当前数据或从云端恢复';
+  String get deviceCloudBackupAuthedSubtitle => 'Max 功能，可上传当前数据并在需要时恢复';
 
   @override
-  String get deviceCloudBackupLoginSubtitle => '登录后可保存与恢复云端备份';
+  String get deviceCloudBackupLoginSubtitle => '登录后可使用云端备份与恢复';
 
   @override
-  String get deviceCloudBackupProSubtitle => 'Pro 订阅可用，升级后可保存与恢复云端备份';
+  String get deviceCloudBackupMaxSubtitle => 'Max 功能，可上传当前数据并在需要时恢复';
 
   @override
-  String get deviceCloudBackupProTitle => '需要升级 Pro';
+  String get deviceCloudBackupMaxTitle => '需要升级 Max';
 
   @override
-  String get deviceCloudBackupProMessage => '云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。';
+  String get deviceCloudBackupMaxMessage =>
+      '云端备份与恢复是 Max 功能。升级 Max 后可上传当前数据，并可在需要时从云端恢复。';
 
   @override
-  String get deviceCloudBackupRequiresPro => '云端备份是 Pro 功能，请升级后再使用。';
+  String get deviceCloudBackupRequiresMax => '云端备份与恢复是 Max 功能。请升级 Max 后再使用。';
 
   @override
   String get deviceCloudBackupNotConfigured => '云端备份服务暂未配置';
 
   @override
-  String get deviceManualBackupTitle => '手动本地备份';
+  String get deviceManualBackupTitle => '导出当前数据';
 
   @override
-  String get deviceManualBackupSubtitle => '导出当前数据，便于保存与迁移';
+  String get deviceManualBackupSubtitle => '导出本机数据，便于保存与迁移';
 
   @override
   String get deviceLocalRestoreTitle => '本地恢复';
 
   @override
   String get deviceLocalRestoreSubtitle => '从备份文件恢复本机数据';
+
+  @override
+  String get deviceCloudRestoreTitle => '云端恢复';
+
+  @override
+  String get deviceCloudRestoreSubtitle => 'Max 功能，可从云端备份恢复数据';
 
   @override
   String get deviceSyncInfoTitle => '多端同步说明';
@@ -1718,7 +1756,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceSyncInfoMessage =>
-      '云端备份未来用于保存数据与换机恢复；多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。';
+      '云端备份用于保存数据与换机恢复。多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。';
 
   @override
   String get deviceCloudBackupUnavailableTitle => '云端备份服务暂未配置';
@@ -1994,10 +2032,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceUpgradeUnitYear => '年';
 
   @override
-  String get deviceUpgradeProBody => '解锁基础 Pro 功能，订阅有效期内可用。';
+  String get deviceUpgradeProBody => '解除计时记录 30 条限制，适合长期持续记账和计时。';
 
   @override
-  String get deviceUpgradeMaxBody => '更高等级权益，包含 Pro 能力，并为后续高级能力预留。';
+  String get deviceUpgradeMaxBody => '包含 Pro 权益，支持云端备份与恢复。';
 
   @override
   String get deviceUpgradeLoadingProduct =>

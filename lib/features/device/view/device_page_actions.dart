@@ -5,6 +5,7 @@ import '../../../core/config/support_feedback_config.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../application/controllers/device_action_controller.dart';
 import '../domain/entities/device.dart';
+import '../domain/entities/subscription.dart';
 import '../../../features/device/state/device_store.dart';
 import '../../../components/feedback/app_confirm_dialog.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -129,14 +130,19 @@ class DevicePageActions {
       case SupportEntryOutcome.emailFallback:
         return l10n.deviceSupportEmailFallback;
       case SupportEntryOutcome.unavailable:
-        return l10n.deviceSupportUnavailable(SupportFeedbackConfig.supportEmail);
+        return l10n.deviceSupportUnavailable(
+          SupportFeedbackConfig.supportEmail,
+        );
     }
   }
 
-  static Future<void> openUpgradePage(BuildContext context) async {
-    await Navigator.of(
-      context,
-    ).push<void>(MaterialPageRoute(builder: (_) => const UpgradePage()));
+  static Future<void> openUpgradePage(
+    BuildContext context, {
+    SubscriptionProductKind initialPlan = SubscriptionProductKind.pro,
+  }) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => UpgradePage(initialPlan: initialPlan)),
+    );
   }
 
   static Future<void> deactivateDevice({

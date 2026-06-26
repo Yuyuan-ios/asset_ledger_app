@@ -878,6 +878,18 @@ abstract class AppLocalizations {
   /// **'保存失败，请重试'**
   String get timingEntrySaveFailure;
 
+  /// 计时模块:免费版计时记录达到上限提示标题
+  ///
+  /// In zh, this message translates to:
+  /// **'需要升级 Pro'**
+  String get timingEntryLimitProTitle;
+
+  /// 计时模块:免费版计时记录达到上限提示正文
+  ///
+  /// In zh, this message translates to:
+  /// **'免费版最多支持 30 条计时记录。升级 Pro 后可继续新增和维护更多计时记录。'**
+  String get timingEntryLimitProMessage;
+
   /// 计时模块:计时记录删除前影响检查失败的 toast
   ///
   /// In zh, this message translates to:
@@ -2991,7 +3003,7 @@ abstract class AppLocalizations {
   /// 设备模块:账户中心未登录状态说明
   ///
   /// In zh, this message translates to:
-  /// **'登录后可备份、恢复与同步数据'**
+  /// **'登录后可使用云端备份与恢复'**
   String get deviceAccountAuthLoggedOutSubtitle;
 
   /// 设备模块:账户中心带手机号尾号状态说明
@@ -3005,6 +3017,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Pro 已开通'**
   String get deviceEntitlementPro;
+
+  /// 设备模块:Max 权益状态
+  ///
+  /// In zh, this message translates to:
+  /// **'Max 已开通'**
+  String get deviceEntitlementMax;
 
   /// 设备模块:免费版权益状态
   ///
@@ -3041,6 +3059,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'升级 Pro，支持持续维护'**
   String get deviceUpgradeProTitle;
+
+  /// 设备模块:升级 Pro 副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'解除计时记录 30 条限制'**
+  String get deviceUpgradeProSubtitle;
+
+  /// 设备模块:Pro 价格展示
+  ///
+  /// In zh, this message translates to:
+  /// **'6 元/年'**
+  String get deviceUpgradeProPrice;
+
+  /// 设备模块:升级 Pro 按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'升级 Pro'**
+  String get deviceUpgradeProAction;
+
+  /// 设备模块:升级 Max 入口
+  ///
+  /// In zh, this message translates to:
+  /// **'升级 Max，开启云端备份'**
+  String get deviceUpgradeMaxTitle;
+
+  /// 设备模块:升级 Max 副标题
+  ///
+  /// In zh, this message translates to:
+  /// **'包含 Pro 权益，支持云端备份与恢复'**
+  String get deviceUpgradeMaxSubtitle;
+
+  /// 设备模块:Max 价格展示
+  ///
+  /// In zh, this message translates to:
+  /// **'24 元/年'**
+  String get deviceUpgradeMaxPrice;
+
+  /// 设备模块:升级 Max 按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'升级 Max'**
+  String get deviceUpgradeMaxAction;
 
   /// 设备模块:恢复购买入口
   ///
@@ -3099,38 +3159,38 @@ abstract class AppLocalizations {
   /// 设备模块:已登录云端备份说明
   ///
   /// In zh, this message translates to:
-  /// **'上传当前数据或从云端恢复'**
+  /// **'Max 功能，可上传当前数据并在需要时恢复'**
   String get deviceCloudBackupAuthedSubtitle;
 
   /// 设备模块:未登录云端备份说明
   ///
   /// In zh, this message translates to:
-  /// **'登录后可保存与恢复云端备份'**
+  /// **'登录后可使用云端备份与恢复'**
   String get deviceCloudBackupLoginSubtitle;
 
-  /// 设备模块:免费版云端备份说明
+  /// 设备模块:云端备份 Max 功能说明
   ///
   /// In zh, this message translates to:
-  /// **'Pro 订阅可用，升级后可保存与恢复云端备份'**
-  String get deviceCloudBackupProSubtitle;
+  /// **'Max 功能，可上传当前数据并在需要时恢复'**
+  String get deviceCloudBackupMaxSubtitle;
 
-  /// 设备模块:云端备份升级提示标题
+  /// 设备模块:云端备份升级 Max 提示标题
   ///
   /// In zh, this message translates to:
-  /// **'需要升级 Pro'**
-  String get deviceCloudBackupProTitle;
+  /// **'需要升级 Max'**
+  String get deviceCloudBackupMaxTitle;
 
-  /// 设备模块:云端备份升级提示正文
+  /// 设备模块:云端备份升级 Max 提示正文
   ///
   /// In zh, this message translates to:
-  /// **'云端备份是 Pro 功能，升级后可上传当前数据并从云端恢复。'**
-  String get deviceCloudBackupProMessage;
+  /// **'云端备份与恢复是 Max 功能。升级 Max 后可上传当前数据，并可在需要时从云端恢复。'**
+  String get deviceCloudBackupMaxMessage;
 
-  /// 设备模块:云端备份命中 Pro 门禁时的失败文案(controller 返回 cloud_backup_requires_pro,view 映射)
+  /// 设备模块:云端备份命中 Max 门禁时的失败文案(controller 返回 cloud_backup_requires_max,view 映射)
   ///
   /// In zh, this message translates to:
-  /// **'云端备份是 Pro 功能，请升级后再使用。'**
-  String get deviceCloudBackupRequiresPro;
+  /// **'云端备份与恢复是 Max 功能。请升级 Max 后再使用。'**
+  String get deviceCloudBackupRequiresMax;
 
   /// 设备模块:云端备份服务未配置时的兜底文案(controller 返回 cloud_backup_not_configured 且无 server 文案,view 映射)
   ///
@@ -3138,16 +3198,16 @@ abstract class AppLocalizations {
   /// **'云端备份服务暂未配置'**
   String get deviceCloudBackupNotConfigured;
 
-  /// 设备模块:手动本地备份标题
+  /// 设备模块:导出当前数据标题
   ///
   /// In zh, this message translates to:
-  /// **'手动本地备份'**
+  /// **'导出当前数据'**
   String get deviceManualBackupTitle;
 
-  /// 设备模块:手动本地备份说明
+  /// 设备模块:导出当前数据说明
   ///
   /// In zh, this message translates to:
-  /// **'导出当前数据，便于保存与迁移'**
+  /// **'导出本机数据，便于保存与迁移'**
   String get deviceManualBackupSubtitle;
 
   /// 设备模块:本地恢复标题
@@ -3161,6 +3221,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'从备份文件恢复本机数据'**
   String get deviceLocalRestoreSubtitle;
+
+  /// 设备模块:云端恢复标题
+  ///
+  /// In zh, this message translates to:
+  /// **'云端恢复'**
+  String get deviceCloudRestoreTitle;
+
+  /// 设备模块:云端恢复 Max 功能说明
+  ///
+  /// In zh, this message translates to:
+  /// **'Max 功能，可从云端备份恢复数据'**
+  String get deviceCloudRestoreSubtitle;
 
   /// 设备模块:多端同步说明标题
   ///
@@ -3177,7 +3249,7 @@ abstract class AppLocalizations {
   /// 设备模块:多端同步说明正文
   ///
   /// In zh, this message translates to:
-  /// **'云端备份未来用于保存数据与换机恢复；多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。'**
+  /// **'云端备份用于保存数据与换机恢复。多端同步是多台设备之间的实时数据同步，当前版本暂不支持自动多端同步。'**
   String get deviceSyncInfoMessage;
 
   /// 设备模块:云端备份未配置标题
@@ -3330,7 +3402,7 @@ abstract class AppLocalizations {
   /// **'备份文件已生成，但无法打开分享面板。你仍可在本地备份列表中找到它。'**
   String get deviceLocalBackupShareUnavailableMessage;
 
-  /// 设备模块:手动本地备份弹窗说明
+  /// 设备模块:导出当前数据弹窗说明
   ///
   /// In zh, this message translates to:
   /// **'导出一份当前数据备份文件。你可以仅保存在本机，也可以立即分享或保存到其他位置。'**
@@ -3688,13 +3760,13 @@ abstract class AppLocalizations {
   /// 设备模块:Pro 计划说明
   ///
   /// In zh, this message translates to:
-  /// **'解锁基础 Pro 功能，订阅有效期内可用。'**
+  /// **'解除计时记录 30 条限制，适合长期持续记账和计时。'**
   String get deviceUpgradeProBody;
 
   /// 设备模块:Max 计划说明
   ///
   /// In zh, this message translates to:
-  /// **'更高等级权益，包含 Pro 能力，并为后续高级能力预留。'**
+  /// **'包含 Pro 权益，支持云端备份与恢复。'**
   String get deviceUpgradeMaxBody;
 
   /// 设备模块:等待订阅商品信息

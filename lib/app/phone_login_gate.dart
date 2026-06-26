@@ -425,7 +425,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                     width: 520,
                     height: 72,
                     child: Text(
-                      '登录后可用于云端备份和同步管理\n您的账本数据。',
+                      '登录后可用于云端备份与恢复\n您的账本数据。',
                       textAlign: TextAlign.center,
                       strutStyle: _loginStrut(28, 36, scale),
                       style: _loginTextStyle(

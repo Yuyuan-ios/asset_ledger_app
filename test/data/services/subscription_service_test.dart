@@ -37,21 +37,50 @@ void main() {
     test('status model controls capability flags', () {
       SubscriptionService.setStatusForTest(SubscriptionStatus.activePro);
 
+      expect(SubscriptionService.effectivePlan, SubscriptionEffectivePlan.pro);
+      expect(SubscriptionService.isProActive, isTrue);
+      expect(SubscriptionService.isMaxActive, isFalse);
       expect(SubscriptionService.canUseCustomAvatar, isTrue);
       expect(SubscriptionService.allowsProFeatures, isTrue);
       expect(SubscriptionService.allowsMaxFeatures, isFalse);
+      expect(SubscriptionService.canUseUnlimitedTimingRecords, isTrue);
+      expect(SubscriptionService.canCreateMoreTimingRecords(31), isTrue);
+      expect(SubscriptionService.canUseCloudBackup, isFalse);
+      expect(SubscriptionService.canUseCloudRestore, isFalse);
+      expect(SubscriptionService.canUseLocalExport, isTrue);
+      expect(SubscriptionService.canUseLocalRestore, isTrue);
 
       SubscriptionService.setStatusForTest(SubscriptionStatus.activeMax);
 
+      expect(SubscriptionService.effectivePlan, SubscriptionEffectivePlan.max);
+      expect(SubscriptionService.isProActive, isTrue);
+      expect(SubscriptionService.isMaxActive, isTrue);
       expect(SubscriptionService.canUseCustomAvatar, isTrue);
       expect(SubscriptionService.allowsProFeatures, isTrue);
       expect(SubscriptionService.allowsMaxFeatures, isTrue);
+      expect(SubscriptionService.canUseUnlimitedTimingRecords, isTrue);
+      expect(SubscriptionService.canCreateMoreTimingRecords(31), isTrue);
+      expect(SubscriptionService.canUseCloudBackup, isTrue);
+      expect(SubscriptionService.canUseCloudRestore, isTrue);
+      expect(SubscriptionService.canUseLocalExport, isTrue);
+      expect(SubscriptionService.canUseLocalRestore, isTrue);
 
       SubscriptionService.setStatusForTest(SubscriptionStatus.free);
 
+      expect(SubscriptionService.effectivePlan, SubscriptionEffectivePlan.free);
+      expect(SubscriptionService.isProActive, isFalse);
+      expect(SubscriptionService.isMaxActive, isFalse);
       expect(SubscriptionService.canUseCustomAvatar, isFalse);
       expect(SubscriptionService.allowsProFeatures, isFalse);
       expect(SubscriptionService.allowsMaxFeatures, isFalse);
+      expect(SubscriptionService.canUseUnlimitedTimingRecords, isFalse);
+      expect(SubscriptionService.canCreateMoreTimingRecords(29), isTrue);
+      expect(SubscriptionService.canCreateMoreTimingRecords(30), isFalse);
+      expect(SubscriptionService.canCreateMoreTimingRecords(31), isFalse);
+      expect(SubscriptionService.canUseCloudBackup, isFalse);
+      expect(SubscriptionService.canUseCloudRestore, isFalse);
+      expect(SubscriptionService.canUseLocalExport, isTrue);
+      expect(SubscriptionService.canUseLocalRestore, isTrue);
     });
 
     test('pending and revoked states do not unlock pro capabilities', () {

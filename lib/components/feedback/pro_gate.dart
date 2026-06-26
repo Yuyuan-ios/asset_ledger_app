@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/radius.dart';
 import '../../core/foundation/spacing.dart';
 
-Future<bool> requireProFeature(
+Future<bool> requireEntitledFeature(
   BuildContext context, {
   required String title,
   required String message,
@@ -40,6 +40,28 @@ Future<bool> requireProFeature(
   if (goUpgrade != true || !context.mounted) return false;
   await openUpgrade(context);
   return isAllowedAfterUpgrade();
+}
+
+Future<bool> requireProFeature(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required bool isAllowed,
+  required bool Function() isAllowedAfterUpgrade,
+  required Future<void> Function(BuildContext context) openUpgrade,
+  String confirmText = '去升级',
+  String cancelText = '取消',
+}) {
+  return requireEntitledFeature(
+    context,
+    title: title,
+    message: message,
+    isAllowed: isAllowed,
+    isAllowedAfterUpgrade: isAllowedAfterUpgrade,
+    openUpgrade: openUpgrade,
+    confirmText: confirmText,
+    cancelText: cancelText,
+  );
 }
 
 // =====================================================================

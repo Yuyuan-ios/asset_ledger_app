@@ -64,9 +64,9 @@ String _subscriptionEntitlementLabel(
       subscription.status == SubscriptionStatus.pending) {
     return l10n.deviceUpgradeTransactionPending;
   }
-  return subscription.allowsProFeatures
-      ? l10n.deviceEntitlementPro
-      : l10n.deviceEntitlementFree;
+  if (subscription.isMaxActive) return l10n.deviceEntitlementMax;
+  if (subscription.isProActive) return l10n.deviceEntitlementPro;
+  return l10n.deviceEntitlementFree;
 }
 
 String? _phoneTail(String? phoneNumber) {

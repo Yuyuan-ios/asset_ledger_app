@@ -17,6 +17,13 @@ import 'terms_page.dart';
 
 enum _UpgradePlan { pro, max }
 
+_UpgradePlan _upgradePlanFromProductKind(SubscriptionProductKind kind) {
+  return switch (kind) {
+    SubscriptionProductKind.pro => _UpgradePlan.pro,
+    SubscriptionProductKind.max => _UpgradePlan.max,
+  };
+}
+
 extension on _UpgradePlan {
   SubscriptionProductKind get productKind {
     return switch (this) {
@@ -56,7 +63,12 @@ extension on _UpgradePlan {
 }
 
 class UpgradePage extends StatefulWidget {
-  const UpgradePage({super.key});
+  const UpgradePage({
+    super.key,
+    this.initialPlan = SubscriptionProductKind.pro,
+  });
+
+  final SubscriptionProductKind initialPlan;
 
   @override
   State<UpgradePage> createState() => _UpgradePageState();
@@ -65,11 +77,12 @@ class UpgradePage extends StatefulWidget {
 class _UpgradePageState extends State<UpgradePage> {
   static const _subscriptionController = SubscriptionController();
 
-  _UpgradePlan _selectedPlan = _UpgradePlan.pro;
+  late _UpgradePlan _selectedPlan;
 
   @override
   void initState() {
     super.initState();
+    _selectedPlan = _upgradePlanFromProductKind(widget.initialPlan);
     Future.microtask(_subscriptionController.init);
   }
 
@@ -215,9 +228,9 @@ class _UpgradePageState extends State<UpgradePage> {
             ? l10n.deviceUpgradeButtonSubscribed
             : selectedProduct == null
             ? l10n.deviceUpgradeButtonUnavailable
-            : _selectedPlan == _UpgradePlan.max && snapshot.allowsProFeatures
-            ? l10n.deviceUpgradeButtonUpgradeMax
-            : l10n.deviceUpgradeButtonContinue;
+            : _selectedPlan == _UpgradePlan.max
+            ? l10n.deviceUpgradeMaxAction
+            : l10n.deviceUpgradeProAction;
 
         return Scaffold(
           backgroundColor: DeviceTokens.upgradePageBg,

@@ -23,6 +23,8 @@ class AccountCenterPage extends StatefulWidget {
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
     required this.onOpenCloudBackup,
+    this.onOpenMaxUpgradePage,
+    this.onOpenCloudRestore,
     this.onOpenSyncConflictReview,
     this.syncConflictReviewAvailable = false,
     this.cloudBackupAvailable = true,
@@ -33,11 +35,13 @@ class AccountCenterPage extends StatefulWidget {
   final ValueListenable<SubscriptionSnapshot> subscriptionListenable;
   final Future<PhoneLoginSession> Function() onOpenPhoneLogin;
   final VoidCallback onOpenUpgradePage;
+  final VoidCallback? onOpenMaxUpgradePage;
   final Future<SubscriptionRestoreOutcome> Function() onRestorePurchases;
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenCloudBackup;
+  final VoidCallback? onOpenCloudRestore;
   final VoidCallback? onOpenSyncConflictReview;
   final bool syncConflictReviewAvailable;
   final bool cloudBackupAvailable;
@@ -106,11 +110,16 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
                       subscription: subscription,
                       onOpenPhoneLogin: _openPhoneLogin,
                       onOpenUpgradePage: widget.onOpenUpgradePage,
+                      onOpenMaxUpgradePage:
+                          widget.onOpenMaxUpgradePage ??
+                          widget.onOpenUpgradePage,
                       onRestorePurchases: widget.onRestorePurchases,
                       onOpenLocalBackup: widget.onOpenLocalBackup,
                       onOpenLocalRestore: widget.onOpenLocalRestore,
                       onOpenSyncInfo: widget.onOpenSyncInfo,
                       onOpenCloudBackup: widget.onOpenCloudBackup,
+                      onOpenCloudRestore:
+                          widget.onOpenCloudRestore ?? widget.onOpenCloudBackup,
                       onOpenSyncConflictReview: widget.onOpenSyncConflictReview,
                       syncConflictReviewAvailable:
                           widget.syncConflictReviewAvailable,
@@ -136,11 +145,13 @@ class _AccountCenterContent extends StatelessWidget {
     required this.subscription,
     required this.onOpenPhoneLogin,
     required this.onOpenUpgradePage,
+    required this.onOpenMaxUpgradePage,
     required this.onRestorePurchases,
     required this.onOpenLocalBackup,
     required this.onOpenLocalRestore,
     required this.onOpenSyncInfo,
     required this.onOpenCloudBackup,
+    required this.onOpenCloudRestore,
     required this.onOpenSyncConflictReview,
     required this.syncConflictReviewAvailable,
     required this.cloudBackupAvailable,
@@ -151,11 +162,13 @@ class _AccountCenterContent extends StatelessWidget {
   final SubscriptionSnapshot subscription;
   final VoidCallback onOpenPhoneLogin;
   final VoidCallback onOpenUpgradePage;
+  final VoidCallback onOpenMaxUpgradePage;
   final Future<SubscriptionRestoreOutcome> Function() onRestorePurchases;
   final VoidCallback onOpenLocalBackup;
   final VoidCallback onOpenLocalRestore;
   final VoidCallback onOpenSyncInfo;
   final VoidCallback onOpenCloudBackup;
+  final VoidCallback onOpenCloudRestore;
   final VoidCallback? onOpenSyncConflictReview;
   final bool syncConflictReviewAvailable;
   final bool cloudBackupAvailable;
@@ -205,10 +218,17 @@ class _AccountCenterContent extends StatelessWidget {
           children: [
             DeviceActionCard(
               title: l10n.deviceUpgradeProTitle,
-              subtitle: purchaseEntitlementSubtitle(l10n, subscription),
+              subtitle: l10n.deviceUpgradeProSubtitle,
               leading: const _UpgradeLeadingIcon(),
-              trailingIcon: Icons.chevron_right,
+              trailing: _PriceLabel(l10n.deviceUpgradeProPrice),
               onTap: onOpenUpgradePage,
+            ),
+            DeviceActionCard(
+              title: l10n.deviceUpgradeMaxTitle,
+              subtitle: l10n.deviceUpgradeMaxSubtitle,
+              leading: const _UpgradeLeadingIcon(),
+              trailing: _PriceLabel(l10n.deviceUpgradeMaxPrice),
+              onTap: onOpenMaxUpgradePage,
             ),
             DeviceActionCard(
               title: l10n.deviceRestorePurchasesAction,
@@ -232,9 +252,21 @@ class _AccountCenterContent extends StatelessWidget {
           children: [
             DeviceActionCard(
               title: l10n.deviceCloudBackupTitle,
-              subtitle: _cloudBackupSubtitle(l10n),
+              subtitle: _cloudBackupSubtitle(
+                l10n,
+                actionSubtitle: l10n.deviceCloudBackupMaxSubtitle,
+              ),
               leading: const _AccountCenterIcon(Icons.cloud_upload_outlined),
               onTap: onOpenCloudBackup,
+            ),
+            DeviceActionCard(
+              title: l10n.deviceCloudRestoreTitle,
+              subtitle: _cloudBackupSubtitle(
+                l10n,
+                actionSubtitle: l10n.deviceCloudRestoreSubtitle,
+              ),
+              leading: const _AccountCenterIcon(Icons.cloud_download_outlined),
+              onTap: onOpenCloudRestore,
             ),
             DeviceActionCard(
               title: l10n.deviceManualBackupTitle,
@@ -267,15 +299,44 @@ class _AccountCenterContent extends StatelessWidget {
     );
   }
 
-  String _cloudBackupSubtitle(AppLocalizations l10n) {
+  String _cloudBackupSubtitle(
+    AppLocalizations l10n, {
+    required String actionSubtitle,
+  }) {
     if (!cloudBackupAvailable) return cloudBackupUnavailableMessage;
     if (!loginSession.isAuthenticated) {
       return l10n.deviceCloudBackupLoginSubtitle;
     }
-    if (!subscription.allowsProFeatures) {
-      return l10n.deviceCloudBackupProSubtitle;
-    }
-    return l10n.deviceCloudBackupAuthedSubtitle;
+    return actionSubtitle;
+  }
+}
+
+class _PriceLabel extends StatelessWidget {
+  const _PriceLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.brand,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Icon(
+          Icons.chevron_right,
+          size: DeviceActionCardTokens.trailingIconSize,
+          color: DeviceTokens.actionCardTrailingIconColor,
+        ),
+      ],
+    );
   }
 }
 

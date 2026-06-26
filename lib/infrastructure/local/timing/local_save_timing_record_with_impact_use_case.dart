@@ -17,6 +17,7 @@ import '../../../data/repositories/timing_repository.dart';
 import '../../../data/services/account_service.dart';
 import '../../../data/services/project_resolver.dart';
 import '../../../data/services/project_rate_snapshot_planner.dart';
+import '../../../data/services/subscription_service.dart';
 import '../../../features/account/domain/services/project_finance_calculator.dart';
 import '../../../features/timing/use_cases/save_timing_record_allocation_cutoff_validator.dart';
 import '../../../features/timing/use_cases/save_timing_record_with_impact_use_case.dart';
@@ -60,6 +61,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     ProjectDeviceRateSyncEnqueuer? projectDeviceRateSyncEnqueuer,
     TimingRecordSyncEnqueuer? timingRecordSyncEnqueuer,
     SyncActorProvider? actorProvider,
+    bool Function(int currentCount)? canCreateMoreTimingRecords,
     DateTime Function()? now,
   }) : _timingRepository = timingRepository,
        _timingCalculationHistoryRepository = timingCalculationHistoryRepository,
@@ -89,6 +91,9 @@ class LocalSaveTimingRecordWithImpactUseCase
              entitySyncMetaRepository: entitySyncMetaRepository,
            ),
        _actorProvider = actorProvider,
+       _canCreateMoreTimingRecords =
+           canCreateMoreTimingRecords ??
+           SubscriptionService.canCreateMoreTimingRecords,
        _now = now ?? DateTime.now;
 
   final SqfliteTimingRepository _timingRepository;
@@ -104,6 +109,7 @@ class LocalSaveTimingRecordWithImpactUseCase
   final ProjectDeviceRateSyncEnqueuer _projectDeviceRateSyncEnqueuer;
   final TimingRecordSyncEnqueuer _timingRecordSyncEnqueuer;
   final SyncActorProvider? _actorProvider;
+  final bool Function(int currentCount) _canCreateMoreTimingRecords;
   final DateTime Function() _now;
 
   @override
@@ -161,6 +167,7 @@ class LocalSaveTimingRecordWithImpactUseCase
     if (editing != null && editingRecordId == null) {
       throw const TimingRecordSaveStaleException('编辑模式下计时记录必须带 id');
     }
+    await _ensureCanCreateTimingRecordWithExecutor(txn, editing: editing);
     await _validateAllocationCutoffWithExecutor(
       txn,
       record: preparation.recordToSave,
@@ -352,6 +359,16 @@ class LocalSaveTimingRecordWithImpactUseCase
         settlementRevoked: settlementRevoked,
       ),
     );
+  }
+
+  Future<void> _ensureCanCreateTimingRecordWithExecutor(
+    DatabaseExecutor txn, {
+    required TimingRecord? editing,
+  }) async {
+    if (editing != null) return;
+    final currentCount = await _timingRepository.countAllWithExecutor(txn);
+    if (_canCreateMoreTimingRecords(currentCount)) return;
+    throw TimingRecordLimitExceededException(currentCount: currentCount);
   }
 
   Future<void> _enqueueSyncForSavedRecord(

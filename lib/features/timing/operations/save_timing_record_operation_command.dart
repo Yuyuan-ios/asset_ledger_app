@@ -148,6 +148,14 @@ class SaveTimingRecordOperationCommand {
         userMessage: error.message,
         error: error.code,
       );
+    } on TimingRecordLimitExceededException catch (error) {
+      return OperationExecutionResult.failure(
+        operationId: preview.operationId,
+        operationType: OperationType.saveTimingRecord,
+        affectedEntities: preview.affectedEntities,
+        userMessage: TimingRecordLimitExceededException.code,
+        error: error.toString(),
+      );
     } catch (error) {
       return OperationExecutionResult.failure(
         operationId: preview.operationId,
@@ -209,6 +217,17 @@ class SaveTimingRecordOperationCommand {
           affectedEntities: preview.affectedEntities,
           userMessage: error.message,
           error: error.code,
+          auditId: auditOutcome.auditId,
+        );
+      }
+      if (businessError is TimingRecordLimitExceededException) {
+        final error = businessError;
+        return OperationExecutionResult.failure(
+          operationId: preview.operationId,
+          operationType: OperationType.saveTimingRecord,
+          affectedEntities: preview.affectedEntities,
+          userMessage: TimingRecordLimitExceededException.code,
+          error: error.toString(),
           auditId: auditOutcome.auditId,
         );
       }

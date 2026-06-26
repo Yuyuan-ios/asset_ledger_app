@@ -275,10 +275,16 @@ void main() {
       expect(find.text('手机号登录'), findsOneWidget);
       expect(find.text('购买权益'), findsOneWidget);
       expect(find.text('升级 Pro，支持持续维护'), findsOneWidget);
+      expect(find.text('解除计时记录 30 条限制'), findsOneWidget);
+      expect(find.text('6 元/年'), findsOneWidget);
+      expect(find.text('升级 Max，开启云端备份'), findsOneWidget);
+      expect(find.text('包含 Pro 权益，支持云端备份与恢复'), findsOneWidget);
+      expect(find.text('24 元/年'), findsOneWidget);
       expect(find.text('恢复购买'), findsOneWidget);
       expect(find.text('云端备份'), findsOneWidget);
-      expect(find.text('登录后可保存与恢复云端备份'), findsOneWidget);
-      expect(find.text('手动本地备份'), findsOneWidget);
+      expect(find.text('云端恢复'), findsOneWidget);
+      expect(find.text('登录后可使用云端备份与恢复'), findsNWidgets(3));
+      expect(find.text('导出当前数据'), findsOneWidget);
       expect(find.text('本地恢复'), findsOneWidget);
       expect(find.text('多端同步说明'), findsOneWidget);
 
@@ -465,7 +471,7 @@ void main() {
     );
   }
 
-  testWidgets('account center marks cloud backup as Pro-only for free users', (
+  testWidgets('account center marks cloud backup as Max-only for free users', (
     WidgetTester tester,
   ) async {
     final subscription = ValueNotifier<SubscriptionSnapshot>(
@@ -499,7 +505,9 @@ void main() {
     );
 
     expect(find.text('云端备份'), findsOneWidget);
-    expect(find.text('Pro 订阅可用，升级后可保存与恢复云端备份'), findsOneWidget);
+    expect(find.text('云端恢复'), findsOneWidget);
+    expect(find.text('Max 功能，可上传当前数据并在需要时恢复'), findsOneWidget);
+    expect(find.text('Max 功能，可从云端备份恢复数据'), findsOneWidget);
     expect(find.text('上传当前数据或从云端恢复'), findsNothing);
   });
 
@@ -543,7 +551,7 @@ void main() {
     );
 
     expect(find.text('云端备份'), findsOneWidget);
-    expect(find.text('云端备份服务暂未配置'), findsOneWidget);
+    expect(find.text('云端备份服务暂未配置'), findsNWidgets(2));
 
     await tester.tap(find.text('云端备份'));
     await tester.pump();

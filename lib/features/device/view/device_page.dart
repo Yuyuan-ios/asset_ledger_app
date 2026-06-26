@@ -55,8 +55,6 @@ class DevicePage extends StatefulWidget {
 
 enum _ManualBackupAction { backupOnly, backupAndShare }
 
-enum _CloudBackupAction { uploadCurrent, restoreFromCloud }
-
 // =====================================================================
 // ============================== 三、State：仅做 UI 状态与交互 ==============================
 // =====================================================================
@@ -204,10 +202,16 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
   }
 
   @override
-  Future<void> _openUpgradePage() async {
-    await DevicePageActions.openUpgradePage(context);
+  Future<void> _openUpgradePage({
+    SubscriptionProductKind initialPlan = SubscriptionProductKind.pro,
+  }) async {
+    await DevicePageActions.openUpgradePage(context, initialPlan: initialPlan);
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _openMaxUpgradePage() {
+    return _openUpgradePage(initialPlan: SubscriptionProductKind.max);
   }
 
   Future<void> _openLifecyclePaybackSheet(DeviceBusinessLedger ledger) async {
@@ -352,12 +356,14 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
               loginSession: _loginSession,
               subscriptionListenable: _subscriptionController.notifier,
               onOpenPhoneLogin: _openPhoneLogin,
-              onOpenUpgradePage: _openUpgradePage,
+              onOpenUpgradePage: () => _openUpgradePage(),
+              onOpenMaxUpgradePage: _openMaxUpgradePage,
               onRestorePurchases: _restorePurchases,
               onOpenLocalBackup: _openLocalBackup,
               onOpenLocalRestore: _openLocalRestorePreview,
               onOpenSyncInfo: _openSyncInfoPlaceholder,
               onOpenCloudBackup: _openCloudBackup,
+              onOpenCloudRestore: _openCloudRestore,
               onOpenSyncConflictReview: _openSyncConflictReview,
               syncConflictReviewAvailable: syncRuntime?.isAvailable ?? false,
               cloudBackupAvailable: _cloudBackupController.isAvailable,
@@ -425,7 +431,7 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
       l10n: l10n,
       devices: activeDevices,
       handlers: DevicePageSectionHandlers(
-        onOpenUpgradePage: _openUpgradePage,
+        onOpenUpgradePage: () => _openUpgradePage(),
         onOpenAccountCenter: _openAccountCenter,
         accountCenterSubtitle: deviceAccountCenterSubtitle(
           l10n: l10n,

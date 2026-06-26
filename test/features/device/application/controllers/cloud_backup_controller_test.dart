@@ -28,38 +28,41 @@ void main() {
     },
   );
 
-  test('unavailable controller with no server message leaves text empty', () async {
-    final controller = CloudBackupController.unavailable(null);
+  test(
+    'unavailable controller with no server message leaves text empty',
+    () async {
+      final controller = CloudBackupController.unavailable(null);
 
-    final upload = await controller.uploadCurrent();
-    final restore = await controller.restoreFromCloud('backup-1');
+      final upload = await controller.uploadCurrent();
+      final restore = await controller.restoreFromCloud('backup-1');
 
-    expect(controller.serverUnavailableMessage, isNull);
-    expect(upload.errorCode, cloudBackupNotConfiguredCode);
-    expect(upload.errorMessage, isNull);
-    expect(restore.errorCode, cloudBackupNotConfiguredCode);
-    expect(restore.message, isEmpty);
-  });
+      expect(controller.serverUnavailableMessage, isNull);
+      expect(upload.errorCode, cloudBackupNotConfiguredCode);
+      expect(upload.errorMessage, isNull);
+      expect(restore.errorCode, cloudBackupNotConfiguredCode);
+      expect(restore.message, isEmpty);
+    },
+  );
 
-  test('pro entitlement gate fails closed before calling a gateway', () async {
+  test('max entitlement gate fails closed before calling a gateway', () async {
     final controller = CloudBackupController(
       service: CloudBackupService(gateway: _FailingGateway()),
-      allowsCloudBackup: () => false,
+      canUseCloudBackup: () => false,
     );
 
     final upload = await controller.uploadCurrent();
     final list = await controller.listRemote();
     final restore = await controller.restoreFromCloud('backup-1');
 
-    // requires-pro 不带文案：errorCode 权威，文案由 view 层映射 l10n。
+    // requires-max 不带文案：errorCode 权威，文案由 view 层映射 l10n。
     expect(upload.success, isFalse);
-    expect(upload.errorCode, cloudBackupRequiresProCode);
+    expect(upload.errorCode, cloudBackupRequiresMaxCode);
     expect(upload.errorMessage, isNull);
     expect(list.success, isFalse);
-    expect(list.errorCode, cloudBackupRequiresProCode);
+    expect(list.errorCode, cloudBackupRequiresMaxCode);
     expect(list.errorMessage, isNull);
     expect(restore.success, isFalse);
-    expect(restore.errorCode, cloudBackupRequiresProCode);
+    expect(restore.errorCode, cloudBackupRequiresMaxCode);
     expect(restore.message, isEmpty);
   });
 
