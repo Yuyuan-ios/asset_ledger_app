@@ -122,8 +122,14 @@ from subscription_audit_log import (
     RAW_EVENT_LOG,
     SubscriptionAuditLog,
 )
+from integrity_audit_trail import INTEGRITY_AUDIT_LOG, IntegrityAuditTrail
 from subscription_authority_resolver import SubscriptionAuthorityResolver
 from subscription_event_ordering import SubscriptionEventOrdering
+from subscription_event_hash_chain import (
+    GENESIS_EVENT_HASH,
+    ChainVerificationResult,
+    EventHashChain,
+)
 from subscription_event_model import (
     EVENT_EXPIRE,
     EVENT_PURCHASE,
@@ -138,12 +144,27 @@ from subscription_event_store import (
     SubscriptionEventAppendResult,
     SubscriptionEventReplay,
     SubscriptionEventStore,
+    SubscriptionLedgerIntegrityError,
+    TamperEvidentEventStore,
 )
-from entitlement_projection_store import EntitlementProjectionStore
+from entitlement_projection_store import EntitlementProjectionStore, PROJECTION_CACHE_ONLY_NOTICE
+from subscription_integrity_verifier import (
+    FINAL_VERDICT_COMPROMISED,
+    FINAL_VERDICT_VERIFIED,
+    LEDGER_STATUS_COMPROMISED,
+    LEDGER_STATUS_IMMUTABLE,
+    REPLAY_STATUS_TRUSTED,
+    REPLAY_STATUS_UNTRUSTED,
+    IntegrityVerifier,
+    LedgerIntegrityReport,
+    VerificationResult,
+)
+from replay_verification_engine_v2 import ReplayVerificationEngineV2
 from subscription_replay_engine import (
     EntitlementState,
     ProductReplayState,
     ReplayDecision,
+    SubscriptionProjectionDriftError,
     SubscriptionReplayEngine,
 )
 from subscription_gateway import (
@@ -202,6 +223,7 @@ __all__ = [
     "Authenticator",
     "AppleAdapter",
     "ChannelVerificationResult",
+    "ChainVerificationResult",
     "ConfigMigrationError",
     "DEFAULT_ALLOWED_BUNDLE_ID",
     "DEFAULT_ALLOWED_PRODUCTS",
@@ -237,6 +259,7 @@ __all__ = [
     "OPPO_CHANNEL",
     "PaymentChannelAdapter",
     "ProductReplayState",
+    "PROJECTION_CACHE_ONLY_NOTICE",
     "PROCESSED_EVENT_LOG",
     "PRO_YEARLY_PRODUCT_ID",
     "ProviderSubscriptionState",
@@ -248,6 +271,9 @@ __all__ = [
     "RESPONSE_FIELDS",
     "RequestValidator",
     "ReplayDecision",
+    "ReplayVerificationEngineV2",
+    "REPLAY_STATUS_TRUSTED",
+    "REPLAY_STATUS_UNTRUSTED",
     "RblViolation",
     "RuntimeSystemContextSigner",
     "RuntimeWriteContext",
@@ -268,12 +294,16 @@ __all__ = [
     "SubscriptionEventOrdering",
     "SubscriptionEventReplay",
     "SubscriptionEventStore",
+    "SubscriptionLedgerIntegrityError",
+    "SubscriptionProjectionDriftError",
     "SubscriptionGatewayService",
     "SubscriptionReconciliationWorker",
     "SubscriptionReplayEngine",
     "SubscriptionStateMachine",
+    "TamperEvidentEventStore",
     "VALID_ENTITLEMENT_TIERS",
     "VALID_OUTCOMES",
+    "VerificationResult",
     "VIVO_CHANNEL",
     "XIAOMI_CHANNEL",
     "EVENT_EXPIRE",
@@ -327,3 +357,13 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    "EventHashChain",
+    "FINAL_VERDICT_COMPROMISED",
+    "FINAL_VERDICT_VERIFIED",
+    "GENESIS_EVENT_HASH",
+    "INTEGRITY_AUDIT_LOG",
+    "IntegrityAuditTrail",
+    "IntegrityVerifier",
+    "LEDGER_STATUS_COMPROMISED",
+    "LEDGER_STATUS_IMMUTABLE",
+    "LedgerIntegrityReport",

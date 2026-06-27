@@ -7,7 +7,7 @@ from entitlement_projection_store import EntitlementProjectionStore
 from subscription_audit_log import SubscriptionAuditLog
 from runtime_write_firewall import RBL_VIOLATION_LOG, RblViolation
 from subscription_event_model import event_type_for_payload, payload_hash
-from subscription_event_store import SubscriptionEventStore
+from subscription_event_store import SubscriptionEventStore, SubscriptionLedgerIntegrityError
 from subscription_replay_engine import SubscriptionReplayEngine
 from subscription_state_machine import (
     STATE_ACTIVE,
@@ -168,6 +168,7 @@ class SubscriptionReconciliationWorker:
             provider_state.authority_score,
             current_state.authority_score if current_state else 0,
         )
+        self._ensure_ledger_integrity_before_correction(event.user_id)
         append_result = self.event_store.append_with_result(
             event,
             authority_score=correction_authority,
@@ -234,6 +235,20 @@ class SubscriptionReconciliationWorker:
             event_time=provider_state.event_time,
             source="reconciliation",
         )
+
+    def _ensure_ledger_integrity_before_correction(self, user_id: str) -> None:
+        integrity_result = self.replay_engine.integrity_verifier.verify_user_chain(user_id)
+        self.replay_engine.integrity_audit_trail.record_integrity_check(
+            integrity_result,
+            user_id=user_id,
+        )
+        if not integrity_result.chain_valid:
+            self.replay_engine.integrity_audit_trail.record_tamper_attempt(
+                user_id=user_id,
+                result=integrity_result,
+                reason="reconciliation_integrity_gate_failed",
+            )
+            raise SubscriptionLedgerIntegrityError(integrity_result)
 
 
 def _status_for_state(state: str) -> str:

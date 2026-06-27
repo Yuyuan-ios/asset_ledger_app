@@ -7,8 +7,14 @@ from http_helpers import utc_now_iso
 from runtime_write_firewall import REPLAY_ENGINE_WRITER_SOURCE, RblViolation, RuntimeWriteContext
 
 
+PROJECTION_CACHE_ONLY_NOTICE = (
+    "CACHE ONLY: entitlement projection is derived from the verified event ledger "
+    "and must never be treated as source of truth."
+)
+
+
 class EntitlementProjectionStore:
-    """Disposable projection writer for replay-derived entitlement state."""
+    """CACHE ONLY disposable projection writer for replay-derived entitlement state."""
 
     def __init__(self, store: Any):
         self.store = store

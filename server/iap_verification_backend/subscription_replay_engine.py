@@ -5,13 +5,16 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from entitlement_projection_store import EntitlementProjectionStore
+from integrity_audit_trail import IntegrityAuditTrail
 from runtime_write_firewall import RuntimeWriteContext
+from subscription_event_hash_chain import EventHashChain
 from subscription_event_model import (
     SubscriptionEvent,
     event_kind_for_subscription_event,
     state_for_subscription_event,
 )
-from subscription_event_store import SubscriptionEventStore
+from subscription_event_store import SubscriptionEventStore, SubscriptionLedgerIntegrityError
+from subscription_integrity_verifier import IntegrityVerifier
 from subscription_state_machine import STATE_NONE, SubscriptionStateMachine
 from verifier import EntitlementRecord
 
@@ -98,8 +101,12 @@ class EntitlementState:
         }
 
 
+class SubscriptionProjectionDriftError(RuntimeError):
+    pass
+
+
 class SubscriptionReplayEngine:
-    """Deterministically rebuilds entitlement projection from event log only."""
+    """Verifiably rebuilds disposable entitlement projection from event log only."""
 
     def __init__(
         self,
@@ -108,11 +115,17 @@ class SubscriptionReplayEngine:
         projection_store: EntitlementProjectionStore,
         entitlement_engine: Any,
         state_machine: Optional[SubscriptionStateMachine] = None,
+        integrity_verifier: Optional[IntegrityVerifier] = None,
+        integrity_audit_trail: Optional[IntegrityAuditTrail] = None,
     ):
         self.event_store = event_store
         self.projection_store = projection_store
         self.entitlement_engine = entitlement_engine
         self.state_machine = state_machine or SubscriptionStateMachine()
+        self.integrity_verifier = integrity_verifier or IntegrityVerifier(event_store)
+        self.integrity_audit_trail = integrity_audit_trail or IntegrityAuditTrail(
+            projection_store.store
+        )
 
     def replay(
         self,
@@ -121,8 +134,31 @@ class SubscriptionReplayEngine:
         update_projection: bool = True,
         events: Optional[list[SubscriptionEvent]] = None,
     ) -> EntitlementState:
-        replay_events = events if events is not None else self.event_store.get_events(user_id)
+        replay_events = events if events is not None else _unchecked_events_for_replay(
+            self.event_store,
+            user_id,
+        )
+        integrity_result = (
+            self.integrity_verifier.verify_events(
+                EventHashChain.chain_order(replay_events),
+                user_id=user_id,
+            )
+            if events is not None
+            else self.integrity_verifier.verify_user_chain(user_id)
+        )
+        self.integrity_audit_trail.record_integrity_check(
+            integrity_result,
+            user_id=user_id,
+        )
+        if not integrity_result.chain_valid:
+            self.integrity_audit_trail.record_tamper_attempt(
+                user_id=user_id,
+                result=integrity_result,
+            )
+            raise SubscriptionLedgerIntegrityError(integrity_result)
         state = self._replay_events(user_id, replay_events)
+        projection_diff_before = self.projection_store.diff(user_id, state)
+        projection_diff_after: Optional[dict[str, Any]] = None
         if update_projection:
             context = RuntimeWriteContext.replay_engine(
                 operation="replay_projection_update",
@@ -130,6 +166,23 @@ class SubscriptionReplayEngine:
                 transaction_id=str(state.last_replayed_event_id or ""),
             )
             self.projection_store.write_projection(state, context=context)
+            projection_diff_after = self.projection_store.diff(user_id, state)
+            if not projection_diff_after.get("matches", False):
+                self.integrity_audit_trail.record_replay_verification(
+                    user_id=user_id,
+                    integrity_result=integrity_result,
+                    projection_diff_before=projection_diff_before,
+                    projection_diff_after=projection_diff_after,
+                )
+                raise SubscriptionProjectionDriftError(
+                    "projection remained inconsistent after verified replay"
+                )
+        self.integrity_audit_trail.record_replay_verification(
+            user_id=user_id,
+            integrity_result=integrity_result,
+            projection_diff_before=projection_diff_before,
+            projection_diff_after=projection_diff_after,
+        )
         return state
 
     def replay_all(self, *, update_projection: bool = True) -> dict[str, EntitlementState]:
@@ -421,3 +474,13 @@ def _first_text(payload: Any, *keys: str) -> Optional[str]:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def _unchecked_events_for_replay(
+    event_store: SubscriptionEventStore,
+    user_id: str,
+) -> list[SubscriptionEvent]:
+    getter = getattr(event_store, "get_events_unchecked", None)
+    if getter is not None:
+        return list(getter(user_id))
+    return list(event_store.get_events(user_id))

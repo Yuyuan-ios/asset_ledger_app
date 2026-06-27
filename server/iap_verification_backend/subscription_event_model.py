@@ -46,6 +46,8 @@ class SubscriptionEvent:
     raw_payload: Mapping[str, Any]
     source: Optional[str] = None
     event_version: Optional[int] = None
+    previous_event_hash: Optional[str] = None
+    current_event_hash: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> "SubscriptionEvent":
@@ -67,6 +69,8 @@ class SubscriptionEvent:
             event_version=(
                 int(row["event_version"]) if row["event_version"] is not None else None
             ),
+            previous_event_hash=_optional_row_text(row, "previous_event_hash"),
+            current_event_hash=_optional_row_text(row, "current_event_hash"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -83,6 +87,8 @@ class SubscriptionEvent:
             "transactionId": self.transaction_id,
             "source": self.source,
             "eventVersion": self.event_version,
+            "previousEventHash": self.previous_event_hash,
+            "currentEventHash": self.current_event_hash,
             "rawPayload": dict(self.raw_payload),
         }
 
@@ -96,6 +102,17 @@ def canonical_payload_json(payload: Mapping[str, Any]) -> str:
 
 def payload_hash(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(canonical_payload_json(payload).encode("utf-8")).hexdigest()
+
+
+def _optional_row_text(row: Mapping[str, Any], key: str) -> Optional[str]:
+    try:
+        value = row[key]
+    except (KeyError, IndexError):
+        return None
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def event_type_for_payload(raw_payload: Mapping[str, Any]) -> str:

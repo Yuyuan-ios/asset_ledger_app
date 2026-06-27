@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import os
 import sqlite3
@@ -23,6 +24,8 @@ from app import (  # noqa: E402
     DEFAULT_ALLOWED_PRODUCTS,
     ENTITLEMENT_CHANGE_LOG,
     ENTITLEMENT_BINDING_POLICIES,
+    FINAL_VERDICT_COMPROMISED,
+    FINAL_VERDICT_VERIFIED,
     EXTERNAL_CLIENT_TOKEN_REQUIRED,
     GOOGLE_PLAY_CHANNEL,
     HUAWEI_CHANNEL,
@@ -51,6 +54,7 @@ from app import (  # noqa: E402
     EntitlementBindingPolicy,
     HttpError,
     IapVerificationApp,
+    IntegrityVerifier,
     PurchaseEvent,
     IapVerificationRequestHandler,
     RequestValidator,
@@ -58,7 +62,11 @@ from app import (  # noqa: E402
     RuntimeWriteContext,
     RuntimeWriteFirewall,
     SecurityViolation,
+    EventHashChain,
+    SubscriptionEvent,
+    SubscriptionLedgerIntegrityError,
     SubscriptionReconciliationWorker,
+    PROJECTION_CACHE_ONLY_NOTICE,
     signature_for_payload,
 )
 from handlers import redact_app_account_token_values  # noqa: E402
@@ -1521,6 +1529,198 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         )
         self.assertTrue(body["projectionDiffAfter"]["matches"])
 
+    def test_scp_v3_hash_chain_tamper_detection(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-v3-tamper"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-tamper-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        verifier = IntegrityVerifier(app.gateway_service.event_store)
+
+        valid = verifier.verify_user_chain(user_id)
+        self.assertTrue(valid.chain_valid)
+        self.assertFalse(valid.tamper_detected)
+        self.assertEqual(valid.final_verdict, FINAL_VERDICT_VERIFIED)
+
+        _tamper_event_payload(
+            app.store.db_path,
+            "ledger-v3-tamper-active",
+            normalizedStatus="expired",
+        )
+        compromised = verifier.verify_user_chain(user_id)
+
+        self.assertFalse(compromised.chain_valid)
+        self.assertTrue(compromised.tamper_detected)
+        self.assertEqual(compromised.broken_event_index, 0)
+        self.assertEqual(compromised.final_verdict, FINAL_VERDICT_COMPROMISED)
+        with self.assertRaises(SubscriptionLedgerIntegrityError):
+            app.gateway_service.event_store.get_events(user_id)
+
+    def test_scp_v3_insertion_attack_breaks_hash_chain(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-v3-insert"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-insert-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-insert-expired",
+                status="expired",
+                eventTime="2026-06-27T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        _insert_middle_subscription_event(app.store.db_path, user_id)
+        report = IntegrityVerifier(app.gateway_service.event_store).verify_user_chain(user_id)
+
+        self.assertFalse(report.chain_valid)
+        self.assertTrue(report.tamper_detected)
+        self.assertEqual(report.broken_event_index, 2)
+        with self.assertRaises(SubscriptionLedgerIntegrityError):
+            app.gateway_service.replay_engine.replay(user_id, update_projection=False)
+
+    def test_scp_v3_replay_integrity_validation_blocks_broken_chain(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-v3-replay"
+        self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-replay-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        replayed = app.gateway_service.replay_engine.replay(user_id, update_projection=True)
+        self.assertEqual(replayed.current_entitlement.outcome, "verifiedActiveMax")
+        self.assertIn("CACHE ONLY", PROJECTION_CACHE_ONLY_NOTICE)
+
+        _corrupt_current_event_hash(app.store.db_path, "ledger-v3-replay-active")
+
+        with self.assertRaises(SubscriptionLedgerIntegrityError):
+            app.gateway_service.replay_engine.replay(user_id, update_projection=True)
+
+    def test_scp_v3_silent_corruption_detection(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-v3-corruption"
+        self.request(
+            "POST",
+            "/iap/webhooks/vivo",
+            body=gateway_body(
+                VIVO_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-corruption-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        _corrupt_current_event_hash(app.store.db_path, "ledger-v3-corruption-active")
+        report = IntegrityVerifier(app.gateway_service.event_store).verify_global_ledger()
+
+        self.assertFalse(report.chain_valid)
+        self.assertTrue(report.tamper_detected)
+        self.assertEqual(report.broken_user_id, user_id)
+        self.assertEqual(report.final_verdict, FINAL_VERDICT_COMPROMISED)
+
+    def test_scp_v3_global_ledger_detects_forged_new_user_genesis(self):
+        app = self._app_with_gateway()
+        self.request(
+            "POST",
+            "/iap/webhooks/vivo",
+            body=gateway_body(
+                VIVO_CHANNEL,
+                user_id="user-ledger-v3-global-seed",
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-global-seed-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        _insert_forged_new_user_genesis(app.store.db_path)
+        report = IntegrityVerifier(app.gateway_service.event_store).verify_global_ledger()
+
+        self.assertFalse(report.chain_valid)
+        self.assertTrue(report.tamper_detected)
+        self.assertEqual(report.broken_user_id, "user-ledger-v3-forged-new")
+        self.assertEqual(report.broken_event_index, 1)
+
+    def test_scp_v3_reconciliation_aborts_when_ledger_integrity_invalid(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-v3-reconcile"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-v3-reconcile-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        before_events = app.gateway_service.event_store.get_events_unchecked(user_id)
+        _tamper_event_payload(
+            app.store.db_path,
+            "ledger-v3-reconcile-active",
+            latestTransactionId="ledger-v3-reconcile-forged",
+        )
+        worker = SubscriptionReconciliationWorker(
+            store=app.store,
+            provider_verifiers={
+                OPPO_CHANNEL: FixedProviderVerifier(
+                    ProviderSubscriptionState(
+                        state=STATE_EXPIRED,
+                        channel=OPPO_CHANNEL,
+                        transaction_id="ledger-v3-reconcile-correction",
+                        event_time="2026-06-27T12:00:00Z",
+                    )
+                )
+            },
+            entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
+        )
+
+        with self.assertRaises(SubscriptionLedgerIntegrityError):
+            worker.reconcile_active_entitlements(system_job=True)
+
+        after_events = app.gateway_service.event_store.get_events_unchecked(user_id)
+        self.assertEqual(len(after_events), len(before_events))
+        self.assertEqual(
+            app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID).state,
+            STATE_ACTIVE,
+        )
+
     def test_rbl_legacy_handler_write_uses_gateway_context(self):
         app = self._app_with_authenticator()
         contexts = []
@@ -2142,6 +2342,205 @@ def internal_entitlement_body(
         "required_capability": required_capability,
         "required_plan": required_plan,
     }
+
+
+def _tamper_event_payload(db_path, transaction_id, **updates):
+    _drop_subscription_event_guards(db_path)
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            row = conn.execute(
+                """
+                SELECT raw_payload_json
+                FROM iap_subscription_events
+                WHERE transaction_id = ?
+                """,
+                (transaction_id,),
+            ).fetchone()
+            payload = json.loads(row[0])
+            payload.update(updates)
+            conn.execute(
+                """
+                UPDATE iap_subscription_events
+                SET raw_payload_json = ?
+                WHERE transaction_id = ?
+                """,
+                (_canonical_json(payload), transaction_id),
+            )
+
+
+def _corrupt_current_event_hash(db_path, transaction_id):
+    _drop_subscription_event_guards(db_path)
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.execute(
+                """
+                UPDATE iap_subscription_events
+                SET current_event_hash = ?
+                WHERE transaction_id = ?
+                """,
+                ("f" * 64, transaction_id),
+            )
+
+
+def _insert_middle_subscription_event(db_path, user_id):
+    _drop_subscription_event_guards(db_path)
+    with closing(sqlite3.connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        with conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM iap_subscription_events
+                WHERE user_id = ?
+                ORDER BY event_id ASC
+                """,
+                (user_id,),
+            ).fetchall()
+            first = rows[0]
+            second = rows[1]
+            inserted_event_id = int(second["event_id"])
+            conn.execute(
+                """
+                UPDATE iap_subscription_events
+                SET event_id = ?
+                WHERE event_id = ?
+                """,
+                (inserted_event_id + 1, inserted_event_id),
+            )
+            payload = {
+                "appAccountToken": "gateway:inserted-event",
+                "eventType": "RENEW",
+                "normalizedStatus": "active",
+                "originalTransactionId": "ledger-v3-insert-forged-original",
+                "latestTransactionId": "ledger-v3-insert-forged",
+                "environment": str(first["channel"]),
+                "source": "forged_middle_insert",
+            }
+            previous_hash = str(first["current_event_hash"])
+            payload_digest = _payload_hash(payload)
+            forged_event = SubscriptionEvent(
+                event_id=inserted_event_id,
+                user_id=str(first["user_id"]),
+                product_id=str(first["product_id"]),
+                channel=str(first["channel"]),
+                event_type="RENEW",
+                authority_score=int(first["authority_score"]),
+                event_time="2026-06-26T12:00:00Z",
+                server_time="2026-06-26T12:00:00Z",
+                payload_hash=payload_digest,
+                transaction_id="ledger-v3-insert-forged",
+                raw_payload=payload,
+                source="forged_middle_insert",
+                event_version=None,
+                previous_event_hash=previous_hash,
+            )
+            current_hash = EventHashChain.compute_hash(forged_event, previous_hash)
+            conn.execute(
+                """
+                INSERT INTO iap_subscription_events (
+                  event_id, user_id, product_id, channel, event_type,
+                  authority_score, event_time, server_time, payload_hash,
+                  transaction_id, source, event_version, raw_payload_json,
+                  previous_event_hash, current_event_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    inserted_event_id,
+                    forged_event.user_id,
+                    forged_event.product_id,
+                    forged_event.channel,
+                    forged_event.event_type,
+                    forged_event.authority_score,
+                    forged_event.event_time,
+                    forged_event.server_time,
+                    forged_event.payload_hash,
+                    forged_event.transaction_id,
+                    forged_event.source,
+                    forged_event.event_version,
+                    _canonical_json(payload),
+                    previous_hash,
+                    current_hash,
+                ),
+            )
+
+
+def _insert_forged_new_user_genesis(db_path):
+    _drop_subscription_event_guards(db_path)
+    payload = {
+        "appAccountToken": "gateway:forged-new-user",
+        "eventType": "PURCHASE",
+        "normalizedStatus": "active",
+        "originalTransactionId": "ledger-v3-forged-new-original",
+        "latestTransactionId": "ledger-v3-forged-new",
+        "environment": VIVO_CHANNEL,
+        "source": "forged_new_user_genesis",
+    }
+    previous_hash = "0" * 64
+    payload_digest = _payload_hash(payload)
+    forged_event = SubscriptionEvent(
+        event_id=0,
+        user_id="user-ledger-v3-forged-new",
+        product_id=PRO_YEARLY_PRODUCT_ID,
+        channel=VIVO_CHANNEL,
+        event_type="PURCHASE",
+        authority_score=100,
+        event_time="2026-06-26T12:00:00Z",
+        server_time="2026-06-26T12:00:00Z",
+        payload_hash=payload_digest,
+        transaction_id="ledger-v3-forged-new",
+        raw_payload=payload,
+        source="forged_new_user_genesis",
+        event_version=None,
+        previous_event_hash=previous_hash,
+    )
+    current_hash = EventHashChain.compute_hash(forged_event, previous_hash)
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO iap_subscription_events (
+                  user_id, product_id, channel, event_type,
+                  authority_score, event_time, server_time, payload_hash,
+                  transaction_id, source, event_version, raw_payload_json,
+                  previous_event_hash, current_event_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    forged_event.user_id,
+                    forged_event.product_id,
+                    forged_event.channel,
+                    forged_event.event_type,
+                    forged_event.authority_score,
+                    forged_event.event_time,
+                    forged_event.server_time,
+                    forged_event.payload_hash,
+                    forged_event.transaction_id,
+                    forged_event.source,
+                    forged_event.event_version,
+                    _canonical_json(payload),
+                    previous_hash,
+                    current_hash,
+                ),
+            )
+
+
+def _drop_subscription_event_guards(db_path):
+    with closing(sqlite3.connect(db_path)) as conn:
+        with conn:
+            for trigger_name in (
+                "guard_iap_subscription_events_insert",
+                "prevent_iap_subscription_events_update",
+                "prevent_iap_subscription_events_delete",
+            ):
+                conn.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+
+
+def _payload_hash(payload):
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def _canonical_json(payload):
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
 class FixedProviderVerifier:
