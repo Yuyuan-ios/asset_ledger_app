@@ -9,7 +9,7 @@ from auth import require_text
 from config import MAX_YEARLY_PRODUCT_ID, PRO_YEARLY_PRODUCT_ID
 from http_helpers import HttpError
 from runtime_write_firewall import RuntimeWriteContext, RuntimeWriteFirewall
-from storage import EntitlementStore, PurchaseTransactionReplay
+from subscription_storage_gateway import EntitlementDBGateway, PurchaseTransactionReplay
 from subscription_audit_log import SubscriptionAuditLog
 from subscription_authority_resolver import SubscriptionAuthorityResolver
 from subscription_event_ordering import SubscriptionEventOrdering
@@ -74,7 +74,7 @@ class PaymentChannelAdapter(Protocol):
 class EntitlementEngine:
     """Pure entitlement decision engine for verified purchase events."""
 
-    def __init__(self, store: EntitlementStore, allowed_products: tuple[str, ...]):
+    def __init__(self, store: EntitlementDBGateway, allowed_products: tuple[str, ...]):
         self.store = store
         self.allowed_products = tuple(allowed_products)
 
@@ -166,7 +166,7 @@ class EntitlementEngine:
 class SubscriptionGatewayService:
     def __init__(
         self,
-        store: EntitlementStore,
+        store: EntitlementDBGateway,
         adapters: Mapping[str, PaymentChannelAdapter],
         entitlement_engine: EntitlementEngine,
         authority_resolver: Optional[SubscriptionAuthorityResolver] = None,

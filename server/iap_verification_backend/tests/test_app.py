@@ -754,7 +754,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                 expires_at="2020-01-01T00:00:00.000Z",
             ),
             user_id="user-expired",
-            write_context=RuntimeWriteContext.internal_admin_job(
+            write_context=app.store.internal_admin_write_context(
                 operation="test_fixture_expired_entitlement",
                 user_id="user-expired",
                 product_id=MAX_YEARLY_PRODUCT_ID,
@@ -1181,7 +1181,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
             event_version=1,
             channel=OPPO_CHANNEL,
             transaction_id="scp-reconcile-drift",
-            write_context=RuntimeWriteContext.internal_admin_job(
+            write_context=app.store.internal_admin_write_context(
                 operation="test_fixture_subscription_state_drift",
                 user_id=user_id,
                 product_id=MAX_YEARLY_PRODUCT_ID,
@@ -1255,35 +1255,49 @@ class IapVerificationBackendTestCase(unittest.TestCase):
     def test_rbl_legacy_handler_write_uses_gateway_context(self):
         app = self._app_with_authenticator()
         contexts = []
-        original_before_write = app.store.before_write
+        original_execute_write = app.store.execute_write
 
-        def spy_before_write(context, *, table_name, operation, conn):
+        def spy_execute_write(conn, sql, parameters=(), *, table_name, operation, context=None):
             active_context = context or RuntimeWriteFirewall.current_context()
-            contexts.append(
-                (None if active_context is None else active_context.source, table_name, operation)
-            )
-            return original_before_write(
-                context,
+            if table_name in {"iap_entitlements", "iap_subscription_state"}:
+                contexts.append(
+                    (None if active_context is None else active_context.source, table_name, operation)
+                )
+            return original_execute_write(
+                conn,
+                sql,
+                parameters,
                 table_name=table_name,
                 operation=operation,
-                conn=conn,
+                context=context,
             )
 
-        app.store.before_write = spy_before_write
+        app.store.execute_write = spy_execute_write
+        original_commit = app.gateway_service.commit_legacy_apple_record
 
-        status, body = self.verify_purchase(
-            "fake:max-active",
-            MAX_TOKEN,
-            MAX_YEARLY_PRODUCT_ID,
-            app=app,
-            authorization="Bearer login-token-a",
-        )
+        with mock.patch.object(
+            app.gateway_service,
+            "commit_legacy_apple_record",
+            wraps=original_commit,
+        ) as commit_spy:
+            status, body = self.verify_purchase(
+                "fake:max-active",
+                MAX_TOKEN,
+                MAX_YEARLY_PRODUCT_ID,
+                app=app,
+                authorization="Bearer login-token-a",
+            )
 
         self.assertEqual(status, 200)
+        self.assertTrue(commit_spy.called)
         self.assert_contract_response(body, "verifiedActiveMax", "max")
         self.assertTrue(contexts)
         self.assertEqual({source for source, _, _ in contexts}, {"subscription_gateway.py"})
         self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
+
+    def test_pwpi_import_bypass_attempt_fails(self):
+        with self.assertRaisesRegex(RuntimeError, "forbidden storage import"):
+            __import__("storage")
 
     def test_rbl_storage_direct_entitlement_write_is_blocked_and_audited(self):
         record = EntitlementRecord(
@@ -1305,37 +1319,99 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(len(violations), 1)
         self.assertEqual(violations[0]["reason"], "rbl_blocked_upsert_entitlement_iap_entitlements")
 
-    def test_rbl_db_direct_insert_is_noop_and_audited(self):
+    def test_pwpi_direct_sql_execution_without_gateway_fails(self):
         token = "00000000-0000-4000-8000-000000009002"
         with closing(sqlite3.connect(self.store.db_path)) as conn:
-            conn.execute(
-                """
-                INSERT INTO iap_entitlements (
-                  app_account_token, entitlement_tier, original_transaction_id,
-                  latest_transaction_id, product_id, environment, expires_at,
-                  revoked_at, outcome, updated_at, user_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    token,
-                    "pro",
-                    "rbl-db-direct-original",
-                    "rbl-db-direct-latest",
-                    PRO_YEARLY_PRODUCT_ID,
-                    "Sandbox",
-                    "2099-01-01T00:00:00.000Z",
-                    None,
-                    "verifiedActivePro",
-                    "2026-06-27T00:00:00.000Z",
-                    "user-rbl-db-direct",
-                ),
-            )
-            conn.commit()
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute(
+                    """
+                    INSERT INTO iap_entitlements (
+                      app_account_token, entitlement_tier, original_transaction_id,
+                      latest_transaction_id, product_id, environment, expires_at,
+                      revoked_at, outcome, updated_at, user_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        token,
+                        "pro",
+                        "rbl-db-direct-original",
+                        "rbl-db-direct-latest",
+                        PRO_YEARLY_PRODUCT_ID,
+                        "Sandbox",
+                        "2099-01-01T00:00:00.000Z",
+                        None,
+                        "verifiedActivePro",
+                        "2026-06-27T00:00:00.000Z",
+                        "user-rbl-db-direct",
+                    ),
+                )
+
+        self.assertIsNone(self.store.get_entitlement(token))
+
+    def test_pwpi_dbgateway_execute_write_without_context_is_blocked_and_audited(self):
+        token = "00000000-0000-4000-8000-000000009003"
+        with closing(sqlite3.connect(self.store.db_path)) as conn:
+            with self.assertRaisesRegex(RblViolation, "RBL VIOLATION"):
+                self.store.execute_write(
+                    conn,
+                    """
+                    INSERT INTO iap_entitlements (
+                      app_account_token, entitlement_tier, original_transaction_id,
+                      latest_transaction_id, product_id, environment, expires_at,
+                      revoked_at, outcome, updated_at, user_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        token,
+                        "pro",
+                        "rbl-dbgateway-direct-original",
+                        "rbl-dbgateway-direct-latest",
+                        PRO_YEARLY_PRODUCT_ID,
+                        "Sandbox",
+                        "2099-01-01T00:00:00.000Z",
+                        None,
+                        "verifiedActivePro",
+                        "2026-06-27T00:00:00.000Z",
+                        "user-rbl-dbgateway-direct",
+                    ),
+                    table_name="iap_entitlements",
+                    operation="direct_sql_attempt",
+                )
 
         self.assertIsNone(self.store.get_entitlement(token))
         violations = self.store.list_subscription_audit_log(RBL_VIOLATION_LOG)
         self.assertEqual(len(violations), 1)
-        self.assertEqual(violations[0]["reason"], "rbl_blocked_direct_insert_iap_entitlements")
+        self.assertEqual(violations[0]["reason"], "rbl_blocked_execute_write_iap_entitlements")
+
+    def test_pwpi_fake_system_job_injection_is_rejected(self):
+        record = EntitlementRecord(
+            outcome="verifiedActivePro",
+            entitlement_tier="pro",
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            app_account_token="00000000-0000-4000-8000-000000009004",
+            original_transaction_id="rbl-fake-system-original",
+            latest_transaction_id="rbl-fake-system-latest",
+            environment="Sandbox",
+            expires_at="2099-01-01T00:00:00.000Z",
+        )
+        forged_context = RuntimeWriteContext(
+            source="subscription_reconciliation_worker.py",
+            operation="forged_reconciliation_repair",
+            actor="reconciliation_worker",
+            user_id="user-rbl-fake-system",
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            transaction_id="rbl-fake-system-latest",
+            system_job=True,
+        )
+
+        with self.assertRaisesRegex(RblViolation, "RBL VIOLATION"):
+            self.store.upsert_entitlement(
+                record,
+                user_id="user-rbl-fake-system",
+                write_context=forged_context,
+            )
+
+        self.assertIsNone(self.store.get_entitlement(record.app_account_token))
 
     def test_rbl_gateway_write_is_allowed(self):
         app = self._app_with_gateway()

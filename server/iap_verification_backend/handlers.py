@@ -29,7 +29,7 @@ from http_helpers import (
     read_json_body,
     request_id_from_headers,
 )
-from storage import EntitlementClaimConflict, EntitlementStore
+from subscription_storage_gateway import EntitlementClaimConflict, EntitlementDBGateway
 from payment_channel_adapters import (
     build_default_payment_channel_adapters,
     normalize_channel_name,
@@ -61,7 +61,7 @@ def redact_app_account_token_values(message: str) -> str:
 class IapVerificationApp:
     def __init__(
         self,
-        store: EntitlementStore,
+        store: EntitlementDBGateway,
         validator: RequestValidator,
         verifier: AppleVerifier,
         max_request_bytes: int = MAX_REQUEST_BYTES,
@@ -99,7 +99,7 @@ class IapVerificationApp:
         config = AppConfig.from_env()
         verifier = build_verifier_from_config(config)
         return cls(
-            store=EntitlementStore(config.database_path),
+            store=EntitlementDBGateway(config.database_path),
             validator=RequestValidator(config.allowed_products, config.allowed_bundle_id),
             verifier=verifier,
             max_request_bytes=config.max_request_bytes,

@@ -9,8 +9,12 @@ from typing import Any, Optional
 
 from db_entitlement_guard import DbEntitlementGuard
 from http_helpers import utc_now_iso
+from import_firewall import assert_storage_import_allowed, install_import_firewall
 from runtime_write_firewall import RblViolation, RuntimeWriteContext, RuntimeWriteFirewall
 from verifier import EntitlementRecord
+
+install_import_firewall()
+assert_storage_import_allowed()
 
 
 class EntitlementClaimConflict(Exception):
@@ -62,8 +66,11 @@ ENTITLEMENT_BINDING_POLICIES = (
 
 
 class EntitlementStore:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, db_gateway: Any):
+        if db_gateway is None:
+            raise RuntimeError("RBL PHYSICAL ENFORCEMENT: storage requires EntitlementDBGateway")
         self.db_path = db_path
+        self._db_gateway = db_gateway
         parent = os.path.dirname(os.path.abspath(db_path))
         if parent:
             os.makedirs(parent, exist_ok=True)
@@ -72,7 +79,27 @@ class EntitlementStore:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        DbEntitlementGuard.register_connection(conn)
         return conn
+
+    def _execute_write(
+        self,
+        conn: sqlite3.Connection,
+        sql: str,
+        parameters: tuple[Any, ...],
+        *,
+        table_name: str,
+        operation: str,
+        context: Optional[RuntimeWriteContext] = None,
+    ) -> sqlite3.Cursor:
+        return self._db_gateway.execute_write(
+            conn,
+            sql,
+            parameters,
+            table_name=table_name,
+            operation=operation,
+            context=context,
+        )
 
     def _init_schema(self) -> None:
         with closing(self._connect()) as conn:
@@ -282,67 +309,65 @@ class EntitlementStore:
                 conn=conn,
             )
             with conn:
-                with DbEntitlementGuard.scoped_write(
+                if persisted.user_id:
+                    existing_app_token_user_id = _normalize_user_id(
+                        self._claim_user_id_for_app_account_token(
+                            conn,
+                            persisted.app_account_token,
+                        )
+                    )
+                    if existing_app_token_user_id and existing_app_token_user_id != persisted.user_id:
+                        raise EntitlementClaimConflict(
+                            "app account token is already bound to another user"
+                        )
+                if persisted.user_id and persisted.original_transaction_id:
+                    existing_original_user_id = _normalize_user_id(
+                        self._claim_user_id_for_original_transaction(
+                            conn,
+                            persisted.original_transaction_id,
+                        )
+                    )
+                    if existing_original_user_id and existing_original_user_id != persisted.user_id:
+                        raise EntitlementClaimConflict(
+                            "original transaction is already bound to another user"
+                        )
+                self._execute_write(
                     conn,
-                    active_context,
+                    """
+                    INSERT INTO iap_entitlements (
+                      app_account_token, entitlement_tier, original_transaction_id,
+                      latest_transaction_id, product_id, environment, expires_at,
+                      revoked_at, outcome, updated_at, user_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(app_account_token) DO UPDATE SET
+                      entitlement_tier = excluded.entitlement_tier,
+                      original_transaction_id = excluded.original_transaction_id,
+                      latest_transaction_id = excluded.latest_transaction_id,
+                      product_id = excluded.product_id,
+                      environment = excluded.environment,
+                      expires_at = excluded.expires_at,
+                      revoked_at = excluded.revoked_at,
+                      outcome = excluded.outcome,
+                      updated_at = excluded.updated_at,
+                      user_id = COALESCE(NULLIF(TRIM(iap_entitlements.user_id), ''), excluded.user_id)
+                    """,
+                    (
+                        persisted.app_account_token,
+                        persisted.entitlement_tier,
+                        persisted.original_transaction_id,
+                        persisted.latest_transaction_id,
+                        persisted.product_id,
+                        persisted.environment,
+                        persisted.expires_at,
+                        persisted.revoked_at,
+                        persisted.outcome,
+                        persisted.updated_at,
+                        persisted.user_id,
+                    ),
                     table_name="iap_entitlements",
                     operation="upsert_entitlement",
-                ):
-                    if persisted.user_id:
-                        existing_app_token_user_id = _normalize_user_id(
-                            self._claim_user_id_for_app_account_token(
-                                conn,
-                                persisted.app_account_token,
-                            )
-                        )
-                        if existing_app_token_user_id and existing_app_token_user_id != persisted.user_id:
-                            raise EntitlementClaimConflict(
-                                "app account token is already bound to another user"
-                            )
-                    if persisted.user_id and persisted.original_transaction_id:
-                        existing_original_user_id = _normalize_user_id(
-                            self._claim_user_id_for_original_transaction(
-                                conn,
-                                persisted.original_transaction_id,
-                            )
-                        )
-                        if existing_original_user_id and existing_original_user_id != persisted.user_id:
-                            raise EntitlementClaimConflict(
-                                "original transaction is already bound to another user"
-                            )
-                    conn.execute(
-                        """
-                        INSERT INTO iap_entitlements (
-                          app_account_token, entitlement_tier, original_transaction_id,
-                          latest_transaction_id, product_id, environment, expires_at,
-                          revoked_at, outcome, updated_at, user_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(app_account_token) DO UPDATE SET
-                          entitlement_tier = excluded.entitlement_tier,
-                          original_transaction_id = excluded.original_transaction_id,
-                          latest_transaction_id = excluded.latest_transaction_id,
-                          product_id = excluded.product_id,
-                          environment = excluded.environment,
-                          expires_at = excluded.expires_at,
-                          revoked_at = excluded.revoked_at,
-                          outcome = excluded.outcome,
-                          updated_at = excluded.updated_at,
-                          user_id = COALESCE(NULLIF(TRIM(iap_entitlements.user_id), ''), excluded.user_id)
-                        """,
-                        (
-                            persisted.app_account_token,
-                            persisted.entitlement_tier,
-                            persisted.original_transaction_id,
-                            persisted.latest_transaction_id,
-                            persisted.product_id,
-                            persisted.environment,
-                            persisted.expires_at,
-                            persisted.revoked_at,
-                            persisted.outcome,
-                            persisted.updated_at,
-                            persisted.user_id,
-                        ),
-                    )
+                    context=active_context,
+                )
         return self.get_entitlement(persisted.app_account_token) or persisted
 
     def get_entitlement(self, app_account_token: str) -> Optional[EntitlementRecord]:
@@ -431,7 +456,8 @@ class EntitlementStore:
                     raise PurchaseTransactionReplay(
                         "transaction_id already exists with a different payload"
                     )
-                conn.execute(
+                self._execute_write(
+                    conn,
                     """
                     INSERT INTO iap_purchase_transactions (
                       transaction_id, channel, user_id, product_id,
@@ -447,6 +473,8 @@ class EntitlementStore:
                         normalized_tier,
                         utc_now_iso(),
                     ),
+                    table_name="iap_purchase_transactions",
+                    operation="record_purchase_transaction",
                 )
         return True
 
@@ -499,39 +527,37 @@ class EntitlementStore:
                 conn=conn,
             )
             with conn:
-                with DbEntitlementGuard.scoped_write(
+                self._execute_write(
                     conn,
-                    active_context,
+                    """
+                    INSERT INTO iap_subscription_state (
+                      user_id, product_id, state, authority_score, event_time,
+                      event_version, channel, transaction_id, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, product_id) DO UPDATE SET
+                      state = excluded.state,
+                      authority_score = excluded.authority_score,
+                      event_time = excluded.event_time,
+                      event_version = excluded.event_version,
+                      channel = excluded.channel,
+                      transaction_id = excluded.transaction_id,
+                      updated_at = excluded.updated_at
+                    """,
+                    (
+                        normalized_user_id,
+                        normalized_product_id,
+                        normalized_state,
+                        normalized_authority_score,
+                        _normalize_optional_text(event_time),
+                        normalized_event_version,
+                        normalized_channel,
+                        normalized_transaction_id,
+                        updated_at,
+                    ),
                     table_name="iap_subscription_state",
                     operation="upsert_subscription_state",
-                ):
-                    conn.execute(
-                        """
-                        INSERT INTO iap_subscription_state (
-                          user_id, product_id, state, authority_score, event_time,
-                          event_version, channel, transaction_id, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(user_id, product_id) DO UPDATE SET
-                          state = excluded.state,
-                          authority_score = excluded.authority_score,
-                          event_time = excluded.event_time,
-                          event_version = excluded.event_version,
-                          channel = excluded.channel,
-                          transaction_id = excluded.transaction_id,
-                          updated_at = excluded.updated_at
-                        """,
-                        (
-                            normalized_user_id,
-                            normalized_product_id,
-                            normalized_state,
-                            normalized_authority_score,
-                            _normalize_optional_text(event_time),
-                            normalized_event_version,
-                            normalized_channel,
-                            normalized_transaction_id,
-                            updated_at,
-                        ),
-                    )
+                    context=active_context,
+                )
         record = self.get_subscription_state(normalized_user_id, normalized_product_id)
         if record is None:
             raise sqlite3.DatabaseError("subscription state write failed")
@@ -541,7 +567,8 @@ class EntitlementStore:
         normalized_user_id = _normalize_required(user_id, "user_id")
         with closing(self._connect()) as conn:
             with conn:
-                conn.execute(
+                self._execute_write(
+                    conn,
                     """
                     INSERT INTO iap_subscription_event_versions (user_id, version)
                     VALUES (?, 1)
@@ -549,6 +576,8 @@ class EntitlementStore:
                       version = version + 1
                     """,
                     (normalized_user_id,),
+                    table_name="iap_subscription_event_versions",
+                    operation="next_subscription_event_version",
                 )
                 row = conn.execute(
                     """
@@ -577,7 +606,8 @@ class EntitlementStore:
     ) -> int:
         with closing(self._connect()) as conn:
             with conn:
-                cursor = conn.execute(
+                cursor = self._execute_write(
+                    conn,
                     """
                     INSERT INTO iap_subscription_audit_log (
                       log_type, user_id, product_id, channel, authority_score,
@@ -599,6 +629,8 @@ class EntitlementStore:
                         _normalize_required(reason, "reason"),
                         _normalize_required(raw_payload_json, "raw_payload_json"),
                     ),
+                    table_name="iap_subscription_audit_log",
+                    operation="append_subscription_audit_log",
                 )
                 return int(cursor.lastrowid)
 

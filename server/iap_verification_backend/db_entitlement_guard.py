@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import sqlite3
 from typing import Iterator, Optional
 
@@ -8,7 +9,6 @@ from http_helpers import utc_now_iso
 from runtime_write_firewall import RBL_VIOLATION_LOG, RuntimeWriteContext
 
 
-GUARD_TABLE = "iap_runtime_write_guard"
 PROTECTED_TABLES = (
     "iap_entitlements",
     "iap_subscription_state",
@@ -16,33 +16,17 @@ PROTECTED_TABLES = (
     "entitlement_table",
 )
 
+_ACTIVE_DB_WRITE_CONTEXT: contextvars.ContextVar[Optional[RuntimeWriteContext]] = (
+    contextvars.ContextVar("fleet_ledger_active_db_write_context", default=None)
+)
+
 
 class DbEntitlementGuard:
-    """SQLite soft guard for entitlement/state table mutation."""
+    """Connection-local SQLite guard for entitlement/state table mutation."""
 
     @staticmethod
     def install(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {GUARD_TABLE} (
-              id INTEGER PRIMARY KEY CHECK (id = 1),
-              active INTEGER NOT NULL DEFAULT 0,
-              source TEXT,
-              operation TEXT,
-              table_name TEXT,
-              actor TEXT,
-              updated_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            f"""
-            INSERT OR IGNORE INTO {GUARD_TABLE} (
-              id, active, source, operation, table_name, actor, updated_at
-            ) VALUES (1, 0, NULL, NULL, NULL, NULL, ?)
-            """,
-            (utc_now_iso(),),
-        )
+        DbEntitlementGuard.register_connection(conn)
         existing_tables = {
             str(row["name"])
             for row in conn.execute(
@@ -56,6 +40,10 @@ class DbEntitlementGuard:
                 DbEntitlementGuard._install_table_triggers(conn, table_name)
 
     @staticmethod
+    def register_connection(conn: sqlite3.Connection) -> None:
+        conn.create_function("rbl_write_allowed", 2, DbEntitlementGuard._write_allowed)
+
+    @staticmethod
     @contextlib.contextmanager
     def scoped_write(
         conn: sqlite3.Connection,
@@ -64,55 +52,13 @@ class DbEntitlementGuard:
         table_name: str,
         operation: str,
     ) -> Iterator[None]:
-        DbEntitlementGuard.enable(conn, context, table_name=table_name, operation=operation)
+        token = _ACTIVE_DB_WRITE_CONTEXT.set(
+            context.for_table(table_name)
+        )
         try:
             yield
         finally:
-            DbEntitlementGuard.disable(conn)
-
-    @staticmethod
-    def enable(
-        conn: sqlite3.Connection,
-        context: RuntimeWriteContext,
-        *,
-        table_name: str,
-        operation: str,
-    ) -> None:
-        conn.execute(
-            f"""
-            UPDATE {GUARD_TABLE}
-            SET active = 1,
-                source = ?,
-                operation = ?,
-                table_name = ?,
-                actor = ?,
-                updated_at = ?
-            WHERE id = 1
-            """,
-            (
-                context.source,
-                operation,
-                table_name,
-                context.actor,
-                utc_now_iso(),
-            ),
-        )
-
-    @staticmethod
-    def disable(conn: sqlite3.Connection) -> None:
-        conn.execute(
-            f"""
-            UPDATE {GUARD_TABLE}
-            SET active = 0,
-                source = NULL,
-                operation = NULL,
-                table_name = NULL,
-                actor = NULL,
-                updated_at = ?
-            WHERE id = 1
-            """,
-            (utc_now_iso(),),
-        )
+            _ACTIVE_DB_WRITE_CONTEXT.reset(token)
 
     @staticmethod
     def log_block(
@@ -165,7 +111,7 @@ class DbEntitlementGuard:
                 f"""
                 CREATE TRIGGER {trigger_name}
                 BEFORE {operation.upper()} ON {table_name}
-                WHEN COALESCE((SELECT active FROM {GUARD_TABLE} WHERE id = 1), 0) != 1
+                WHEN rbl_write_allowed('{table_name}', '{operation}') != 1
                 BEGIN
                   INSERT INTO iap_subscription_audit_log (
                     log_type, user_id, product_id, channel, authority_score,
@@ -185,10 +131,21 @@ class DbEntitlementGuard:
                     'rbl_blocked_direct_{operation}_{table_name}',
                     '{{"rblViolation":"direct_{operation}","table":"{table_name}"}}'
                   );
-                  SELECT RAISE(IGNORE);
+                  SELECT RAISE(FAIL, 'RBL VIOLATION: direct DB write blocked');
                 END
                 """
             )
+
+    @staticmethod
+    def _write_allowed(table_name: str, operation: str) -> int:
+        context = _ACTIVE_DB_WRITE_CONTEXT.get()
+        if context is None:
+            return 0
+        if context.table != table_name:
+            return 0
+        if not isinstance(operation, str) or not operation.strip():
+            return 0
+        return 1
 
     @staticmethod
     def _trigger_user_expr(table_name: str, row_prefix: str) -> str:
