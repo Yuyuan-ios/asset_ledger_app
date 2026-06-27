@@ -3,6 +3,7 @@ import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/layout/bottom_sheet_shell_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/bottom_sheet_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/color_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,6 +64,91 @@ void main() {
       expect(find.text('下一步：创建压路机设备'), findsOneWidget);
     },
   );
+
+  testWidgets('brand search header pins while the type card scrolls away', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        home: const DeviceAvatarSelectPage(initialTypeId: 'excavator'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final typeCard = find.byKey(const Key('device-avatar-type-card-container'));
+    final searchHeader = find.byKey(const Key('device-brand-search-header'));
+    final scrollView = find.byKey(
+      const PageStorageKey<String>('device-avatar-brand-scroll'),
+    );
+    final initialSearchTop = tester.getTopLeft(searchHeader).dy;
+
+    expect(initialSearchTop, greaterThan(tester.getTopLeft(typeCard).dy));
+
+    await tester.drag(scrollView, const Offset(0, -180));
+    await tester.pumpAndSettle();
+
+    expect(searchHeader, findsOneWidget);
+    final pinnedSearchTop = tester.getTopLeft(searchHeader).dy;
+    expect(pinnedSearchTop, lessThan(initialSearchTop));
+    expect(pinnedSearchTop, moreOrLessEquals(kToolbarHeight, epsilon: 8));
+  });
+
+  testWidgets('empty brand search creates a custom brand from the query', (
+    tester,
+  ) async {
+    AvatarSelectionResult? result;
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () async {
+                result = await Navigator.of(context)
+                    .push<AvatarSelectionResult>(
+                      MaterialPageRoute(
+                        builder: (_) => const DeviceAvatarSelectPage(
+                          initialTypeId: 'excavator',
+                        ),
+                      ),
+                    );
+              },
+              child: const Text('打开选择页'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开选择页'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'b');
+    await tester.pumpAndSettle();
+    final searchFieldElement = tester.element(find.byType(TextField));
+
+    await tester.enterText(find.byType(TextField), 'zzzxcustom');
+    await tester.pumpAndSettle();
+    expect(
+      identical(searchFieldElement, tester.element(find.byType(TextField))),
+      isTrue,
+    );
+
+    const emptyHintText = '未找到相关品牌，可直接点击下方‘下一步：创建挖掘机设备’按钮，直接创建自定义品牌';
+    expect(find.text(emptyHintText), findsOneWidget);
+    expect(find.text('使用自定义品牌'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+
+    final emptyHint = tester.widget<Text>(find.text(emptyHintText));
+    expect(emptyHint.style?.fontSize, TimingTokens.emptyStateTitleFontSize);
+    expect(emptyHint.style?.color, TimingColors.textSecondary);
+
+    await tester.tap(find.widgetWithText(FilledButton, '下一步：创建挖掘机设备'));
+    await tester.pumpAndSettle();
+
+    expect(result?.brandValue, 'zzzxcustom');
+    expect(result?.equipmentType.name, 'excavator');
+    expect(result?.deviceTypeId, 'excavator');
+  });
 }
 
 Finder _deviceTypeCardMaterial() {

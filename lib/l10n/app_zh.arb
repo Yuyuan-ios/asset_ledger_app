@@ -1946,6 +1946,13 @@
   "@deviceBrandSearchEmptyTitle": {
     "description": "设备模块:品牌搜索无结果"
   },
+  "deviceBrandSearchEmptyCreateHint": "未找到相关品牌，可直接点击下方‘{ctaLabel}’按钮，直接创建自定义品牌",
+  "@deviceBrandSearchEmptyCreateHint": {
+    "description": "设备模块:品牌搜索无结果时引导直接创建自定义品牌",
+    "placeholders": {
+      "ctaLabel": { "type": "String" }
+    }
+  },
   "deviceBrandEmptyForType": "暂未收录{type}品牌，可使用自定义品牌",
   "@deviceBrandEmptyForType": {
     "description": "设备模块:该类型无品牌库空态",

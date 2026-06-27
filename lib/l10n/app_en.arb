@@ -416,6 +416,7 @@
   "deviceBrandSectionTitle": "Select brand",
   "deviceBrandSearchHint": "Search brand / enter custom",
   "deviceBrandSearchEmptyTitle": "No matching brand",
+  "deviceBrandSearchEmptyCreateHint": "No matching brand. Tap \"{ctaLabel}\" below to create a custom brand directly.",
   "deviceBrandEmptyForType": "No {type} brands yet — use a custom brand",
   "deviceBrandUseCustom": "Use custom brand",
   "deviceBrandResetNotice": "Switched to {type}; brand reset",

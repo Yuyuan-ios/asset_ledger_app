@@ -1450,6 +1450,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceBrandSearchEmptyTitle => 'No matching brand';
 
   @override
+  String deviceBrandSearchEmptyCreateHint(String ctaLabel) {
+    return 'No matching brand. Tap \"$ctaLabel\" below to create a custom brand directly.';
+  }
+
+  @override
   String deviceBrandEmptyForType(String type) {
     return 'No $type brands yet — use a custom brand';
   }

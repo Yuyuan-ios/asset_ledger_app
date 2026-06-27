@@ -61,12 +61,20 @@ class BrandPickerGrouped extends StatelessWidget {
   /// 可选的滚动头部，例如品牌搜索框。
   final Widget? header;
 
+  /// 当筛选后没有品牌时展示的滚动内容。
+  final Widget? empty;
+
+  /// 是否由组件自身提供滚动；为 false 时可嵌入外层 CustomScrollView。
+  final bool scrollable;
+
   const BrandPickerGrouped({
     super.key,
     required this.selectedBrandValue,
     required this.onSelected,
     required this.groups,
     this.header,
+    this.empty,
+    this.scrollable = true,
     this.crossAxisCount = DeviceTokens.brandPickerDefaultCrossAxisCount,
     this.avatarRadius = DeviceTokens.brandPickerDefaultAvatarRadius,
     this.spacing = DeviceTokens.brandPickerDefaultGridSpacing,
@@ -75,16 +83,12 @@ class BrandPickerGrouped extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ListView(
-      // ListView 自己滚动，所以内部 GridView 必须禁用滚动（见 _BrandGrid）
-      padding: const EdgeInsets.symmetric(
-        horizontal: DeviceTokens.brandPickerListPadHorizontal,
-        vertical: DeviceTokens.brandPickerListPadVertical,
-      ),
-      children: [
-        ?header,
+    final hasAnyBrand = groups.values.any((items) => items.isNotEmpty);
+    final children = <Widget>[
+      ?header,
 
-        // 按枚举顺序输出分组：国家标题 + grid
+      // 按枚举顺序输出分组：国家标题 + grid
+      if (hasAnyBrand) ...[
         for (final c in BrandCountry.values)
           if (groups[c]!.isNotEmpty) ...[
             _CountryHeader(title: _countryLabel(l10n, c)),
@@ -108,7 +112,26 @@ class BrandPickerGrouped extends StatelessWidget {
               height: DeviceTokens.brandPickerCountryGroupBottomGap,
             ),
           ],
-      ],
+      ] else
+        ?empty,
+    ];
+    const padding = EdgeInsets.symmetric(
+      horizontal: DeviceTokens.brandPickerListPadHorizontal,
+      vertical: DeviceTokens.brandPickerListPadVertical,
+    );
+    if (!scrollable) {
+      return Padding(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      );
+    }
+    return ListView(
+      // ListView 自己滚动，所以内部 GridView 必须禁用滚动（见 _BrandGrid）
+      padding: padding,
+      children: children,
     );
   }
 

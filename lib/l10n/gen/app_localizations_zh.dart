@@ -1330,6 +1330,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceBrandSearchEmptyTitle => '未找到相关品牌';
 
   @override
+  String deviceBrandSearchEmptyCreateHint(String ctaLabel) {
+    return '未找到相关品牌，可直接点击下方‘$ctaLabel’按钮，直接创建自定义品牌';
+  }
+
+  @override
   String deviceBrandEmptyForType(String type) {
     return '暂未收录$type品牌，可使用自定义品牌';
   }

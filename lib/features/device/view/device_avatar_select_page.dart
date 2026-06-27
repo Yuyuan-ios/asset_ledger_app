@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../components/layout/pinned_header_delegate.dart';
 import '../../../core/foundation/app_typography.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/entities/device.dart';
@@ -8,9 +9,9 @@ import '../model/brand_catalog.dart';
 import '../model/device_type_catalog.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
-import '../../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../../tokens/mapper/core_tokens.dart';
+import '../../../tokens/mapper/timing_tokens.dart';
 import 'device_avatar_select_view_data.dart';
 
 /// 选择页返回结果。
@@ -37,6 +38,7 @@ class _Dim {
   static const double typeIconTileRadius = 12;
   static const double ctaHeight = 52;
   static const double ctaRadius = 26;
+  static const double searchPinnedHeaderHeight = 68;
   static const double sheetTypeIcon = 40;
 }
 
@@ -98,12 +100,20 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
         DeviceTypeCatalog.defaultType;
     _selectedBrandValue = widget.initialBrandValue;
     _hasPickedBrand = (_selectedBrandValue ?? '').trim().isNotEmpty;
+    _brandSearchCtrl.addListener(_syncBrandQueryFromController);
   }
 
   @override
   void dispose() {
+    _brandSearchCtrl.removeListener(_syncBrandQueryFromController);
     _brandSearchCtrl.dispose();
     super.dispose();
+  }
+
+  void _syncBrandQueryFromController() {
+    final next = _brandSearchCtrl.text;
+    if (next == _brandQuery) return;
+    setState(() => _brandQuery = next);
   }
 
   bool _brandBelongsToType(String? brandValue, DeviceTypeDef type) {
@@ -154,41 +164,14 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
     });
   }
 
-  Future<void> _useCustomBrand() async {
-    final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(
-      text: (_selectedBrandValue ?? '').trim(),
+  String _confirmBrandValue() {
+    final query = _brandSearchCtrl.text.trim();
+    final viewData = DeviceAvatarSelectViewData.forType(
+      _selectedType,
+      query: query,
     );
-    final value = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(l10n.deviceBrandCustomDialogTitle),
-          content: SheetTextFieldPattern(
-            controller: controller,
-            autofocus: true,
-            labelText: l10n.deviceBrandCustomDialogHint,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(l10n.deviceCancelAction),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-              child: Text(l10n.deviceBrandCustomConfirm),
-            ),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    if (value != null && value.isNotEmpty) {
-      setState(() {
-        _selectedBrandValue = value;
-        _hasPickedBrand = true;
-      });
-    }
+    if (query.isNotEmpty && !viewData.hasAnyBrand) return query;
+    return (_selectedBrandValue ?? '').trim();
   }
 
   void _confirm() {
@@ -208,7 +191,7 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
     }
     Navigator.of(context).pop(
       AvatarSelectionResult(
-        brandValue: (_selectedBrandValue ?? '').trim(),
+        brandValue: _confirmBrandValue(),
         equipmentType: _selectedType.equipmentType ?? EquipmentType.excavator,
         deviceTypeId: _selectedType.id,
       ),
@@ -241,35 +224,58 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              SpaceTokens.pagePadding,
-              SpaceTokens.sm,
-              SpaceTokens.pagePadding,
-              SpaceTokens.md,
-            ),
-            child: _DeviceTypeCard(type: _selectedType, onTap: _openTypeSheet),
-          ),
-          const Divider(height: 1, color: AppColors.divider),
           Expanded(
-            child: viewData.hasAnyBrand
-                ? BrandPickerGrouped(
-                    header: _BrandSectionHeader(
-                      controller: _brandSearchCtrl,
-                      horizontalPadding: 0,
-                      onChanged: (v) => setState(() => _brandQuery = v),
+            child: CustomScrollView(
+              key: const PageStorageKey<String>('device-avatar-brand-scroll'),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    key: const Key('device-avatar-type-card-container'),
+                    padding: const EdgeInsets.fromLTRB(
+                      SpaceTokens.pagePadding,
+                      SpaceTokens.sm,
+                      SpaceTokens.pagePadding,
+                      SpaceTokens.md,
+                    ),
+                    child: _DeviceTypeCard(
+                      type: _selectedType,
+                      onTap: _openTypeSheet,
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: Divider(height: 1, color: AppColors.divider),
+                ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: PinnedHeaderDelegate(
+                    height: _Dim.searchPinnedHeaderHeight,
+                    child: ColoredBox(
+                      color: AppColors.scaffoldBg,
+                      child: _BrandSectionHeader(
+                        key: const Key('device-brand-search-header'),
+                        controller: _brandSearchCtrl,
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: BrandPickerGrouped(
+                    scrollable: false,
+                    empty: SizedBox(
+                      height: MediaQuery.sizeOf(context).height * 0.32,
+                      child: _BrandEmptyState(
+                        typeName: _selectedType.name(l10n),
+                        isSearchMiss: viewData.typeHasBrandLibrary,
+                      ),
                     ),
                     groups: viewData.groups,
                     selectedBrandValue: _selectedBrandValue,
                     onSelected: _onBrandTap,
-                  )
-                : _BrandScrollableEmptyState(
-                    controller: _brandSearchCtrl,
-                    typeName: _selectedType.name(l10n),
-                    isSearchMiss: viewData.typeHasBrandLibrary,
-                    onChanged: (v) => setState(() => _brandQuery = v),
-                    onUseCustom: _useCustomBrand,
                   ),
+                ),
+              ],
+            ),
           ),
           _BottomCta(type: _selectedType, onPressed: _confirm),
         ],
@@ -360,29 +366,22 @@ class _DeviceTypeCard extends StatelessWidget {
 }
 
 class _BrandSectionHeader extends StatelessWidget {
-  const _BrandSectionHeader({
-    required this.controller,
-    required this.onChanged,
-    this.horizontalPadding = SpaceTokens.pagePadding,
-  });
+  const _BrandSectionHeader({super.key, required this.controller});
 
   final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        horizontalPadding,
+      padding: const EdgeInsets.fromLTRB(
+        SpaceTokens.pagePadding,
         SpaceTokens.md,
-        horizontalPadding,
+        SpaceTokens.pagePadding,
         SpaceTokens.sm,
       ),
       child: TextField(
         controller: controller,
-        onChanged: onChanged,
         decoration: InputDecoration(
           isDense: true,
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
@@ -404,86 +403,30 @@ class _BrandSectionHeader extends StatelessWidget {
   }
 }
 
-class _BrandScrollableEmptyState extends StatelessWidget {
-  const _BrandScrollableEmptyState({
-    required this.controller,
-    required this.typeName,
-    required this.isSearchMiss,
-    required this.onChanged,
-    required this.onUseCustom,
-  });
-
-  final TextEditingController controller;
-  final String typeName;
-  final bool isSearchMiss;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onUseCustom;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(
-        horizontal: DeviceTokens.brandPickerListPadHorizontal,
-        vertical: DeviceTokens.brandPickerListPadVertical,
-      ),
-      children: [
-        _BrandSectionHeader(
-          controller: controller,
-          horizontalPadding: 0,
-          onChanged: onChanged,
-        ),
-        SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.32,
-          child: _BrandEmptyState(
-            typeName: typeName,
-            isSearchMiss: isSearchMiss,
-            onUseCustom: onUseCustom,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _BrandEmptyState extends StatelessWidget {
-  const _BrandEmptyState({
-    required this.typeName,
-    required this.isSearchMiss,
-    required this.onUseCustom,
-  });
+  const _BrandEmptyState({required this.typeName, required this.isSearchMiss});
 
   final String typeName;
   final bool isSearchMiss;
-  final VoidCallback onUseCustom;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final ctaLabel = l10n.deviceCreateNextCta(typeName);
     final title = isSearchMiss
-        ? l10n.deviceBrandSearchEmptyTitle
+        ? l10n.deviceBrandSearchEmptyCreateHint(ctaLabel)
         : l10n.deviceBrandEmptyForType(typeName);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(SpaceTokens.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySecondary(context),
-            ),
-            const SizedBox(height: SpaceTokens.md),
-            OutlinedButton.icon(
-              onPressed: onUseCustom,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text(l10n.deviceBrandUseCustom),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brand,
-                side: const BorderSide(color: AppColors.brand),
-              ),
-            ),
-          ],
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodySecondary(
+            context,
+            fontSize: TimingTokens.emptyStateTitleFontSize,
+            color: TimingColors.textSecondary,
+          ),
         ),
       ),
     );

@@ -2493,6 +2493,12 @@ abstract class AppLocalizations {
   /// **'未找到相关品牌'**
   String get deviceBrandSearchEmptyTitle;
 
+  /// 设备模块:品牌搜索无结果时引导直接创建自定义品牌
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关品牌，可直接点击下方‘{ctaLabel}’按钮，直接创建自定义品牌'**
+  String deviceBrandSearchEmptyCreateHint(String ctaLabel);
+
   /// 设备模块:该类型无品牌库空态
   ///
   /// In zh, this message translates to:
