@@ -10,6 +10,7 @@ import 'package:asset_ledger/patterns/fuel/fuel_efficiency_summary_pattern.dart'
 import 'package:asset_ledger/patterns/fuel/fuel_recent_records_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_supplier_filter_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/device_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/fuel_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/summary_card_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -149,6 +150,16 @@ void main() {
     expect(find.text('13.5 h'), findsOneWidget);
     expect(find.text('4.0 L/h'), findsOneWidget);
     expect(find.text('40.0 ¥/h'), findsOneWidget);
+
+    final hoursToLitersGap =
+        tester.getTopLeft(find.text('4.0 L/h')).dx -
+        tester.getTopRight(find.text('13.5 h')).dx;
+    final litersToCostGap =
+        tester.getTopLeft(find.text('40.0 ¥/h')).dx -
+        tester.getTopRight(find.text('4.0 L/h')).dx;
+
+    expect(hoursToLitersGap, FuelTokens.summaryMetricColumnGap);
+    expect(litersToCostGap, FuelTokens.summaryMetricColumnGap);
   });
 
   testWidgets('renders fuel efficiency lifecycle divider only when provided', (

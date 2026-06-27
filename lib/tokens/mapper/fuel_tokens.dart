@@ -21,10 +21,7 @@ class FuelTokens {
   static const double efficiencyCardHeight = 240; // 设备效率卡高度（对齐计时图表卡）
   static const double summaryInnerGap = 12; // 大卡片内上下子容器间距
   static const double summaryTotalValueLeftGap = 8; // 年度总计标题与数值间距
-  static const double summaryHoursColumnWidth = 58; // 右侧总计时列固定宽度（右对齐）
-  static const double summaryLitersColumnWidth = 60; // 右侧 L/h 列固定宽度（右对齐）
-  static const double summaryCostColumnWidth = 70; // 右侧 ¥/h 列固定宽度（右对齐）
-  static const double summaryMetricColumnGap = 0; // 右侧两列之间的固定间距
+  static const double summaryMetricColumnGap = 18; // 设备效率行右侧指标文字之间的可见间距
   static const double efficiencySingleItemTitleGap = 30; // 单设备时：标题到内容行的垂直间距
   static const double efficiencyListBottomPadding = 4; // 设备效率区滚动列表底部留白
 }

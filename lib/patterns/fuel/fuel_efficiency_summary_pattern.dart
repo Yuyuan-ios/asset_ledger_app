@@ -115,32 +115,11 @@ class FuelEfficiencySummary extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: FuelTokens.summaryHoursColumnWidth,
-                      child: Text(
-                        totalTimingText,
-                        textAlign: TextAlign.right,
-                        style: metricStyle,
-                      ),
-                    ),
+                    Text(totalTimingText, style: metricStyle),
                     const SizedBox(width: FuelTokens.summaryMetricColumnGap),
-                    SizedBox(
-                      width: FuelTokens.summaryLitersColumnWidth,
-                      child: Text(
-                        litersText,
-                        textAlign: TextAlign.right,
-                        style: metricStyle,
-                      ),
-                    ),
+                    Text(litersText, style: metricStyle),
                     const SizedBox(width: FuelTokens.summaryMetricColumnGap),
-                    SizedBox(
-                      width: FuelTokens.summaryCostColumnWidth,
-                      child: Text(
-                        costText,
-                        textAlign: TextAlign.right,
-                        style: metricStyle,
-                      ),
-                    ),
+                    Text(costText, style: metricStyle),
                   ],
                 ),
               ],
