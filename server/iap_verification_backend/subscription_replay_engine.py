@@ -8,6 +8,12 @@ from entitlement_projection_store import EntitlementProjectionStore
 from integrity_audit_trail import IntegrityAuditTrail
 from runtime_write_firewall import RuntimeWriteContext
 from subscription_event_hash_chain import EventHashChain
+from subscription_event_explainer import (
+    EventExplanation,
+    ExplanationIntegrityError,
+    SubscriptionEventExplainer,
+)
+from subscription_event_explanation_store import SubscriptionEventExplanationStore
 from subscription_event_model import (
     SubscriptionEvent,
     event_kind_for_subscription_event,
@@ -62,6 +68,7 @@ class EntitlementState:
     decisions: list[ReplayDecision]
     last_replayed_event_id: int
     current_entitlement: Optional[EntitlementRecord]
+    explanations: list[EventExplanation] = dataclasses.field(default_factory=list)
 
     def current_entitlement_body(self) -> dict[str, Any]:
         if self.current_entitlement is None:
@@ -98,6 +105,7 @@ class EntitlementState:
                 for product_id, product_state in sorted(self.product_states.items())
             },
             "decisions": [decision.to_dict() for decision in self.decisions],
+            "explanations": [explanation.to_dict() for explanation in self.explanations],
         }
 
 
@@ -117,6 +125,8 @@ class SubscriptionReplayEngine:
         state_machine: Optional[SubscriptionStateMachine] = None,
         integrity_verifier: Optional[IntegrityVerifier] = None,
         integrity_audit_trail: Optional[IntegrityAuditTrail] = None,
+        event_explainer: Optional[SubscriptionEventExplainer] = None,
+        explanation_store: Optional[SubscriptionEventExplanationStore] = None,
     ):
         self.event_store = event_store
         self.projection_store = projection_store
@@ -126,6 +136,8 @@ class SubscriptionReplayEngine:
         self.integrity_audit_trail = integrity_audit_trail or IntegrityAuditTrail(
             projection_store.store
         )
+        self.event_explainer = event_explainer or SubscriptionEventExplainer()
+        self.explanation_store = explanation_store
 
     def replay(
         self,
@@ -157,6 +169,13 @@ class SubscriptionReplayEngine:
             )
             raise SubscriptionLedgerIntegrityError(integrity_result)
         state = self._replay_events(user_id, replay_events)
+        explanations = self._explain_replay_events(
+            replay_events,
+            state.decisions,
+            integrity_result=integrity_result,
+            persist=events is None,
+        )
+        state = dataclasses.replace(state, explanations=explanations)
         projection_diff_before = self.projection_store.diff(user_id, state)
         projection_diff_after: Optional[dict[str, Any]] = None
         if update_projection:
@@ -194,6 +213,46 @@ class SubscriptionReplayEngine:
     def projection_diff(self, user_id: str) -> dict[str, Any]:
         state = self.replay(user_id, update_projection=False)
         return self.projection_store.diff(user_id, state)
+
+    def _explain_replay_events(
+        self,
+        events: list[SubscriptionEvent],
+        decisions: list[ReplayDecision],
+        *,
+        integrity_result: Any,
+        persist: bool,
+    ) -> list[EventExplanation]:
+        sorted_events = sorted(events, key=_event_sort_key)
+        events_by_id = {event.event_id: event for event in sorted_events}
+        decision_event_ids = {decision.event_id for decision in decisions}
+        missing_decisions = sorted(set(events_by_id) - decision_event_ids)
+        if missing_decisions:
+            raise ExplanationIntegrityError(
+                f"missing replay decision for events {missing_decisions}"
+            )
+        explanations: list[EventExplanation] = []
+        for decision in decisions:
+            event = events_by_id.get(decision.event_id)
+            if event is None:
+                raise ExplanationIntegrityError(
+                    f"replay decision references unknown event {decision.event_id}"
+                )
+            explanation = self.event_explainer.explain(
+                event,
+                {
+                    "decision": decision,
+                    "integrity_result": integrity_result,
+                    "replay_verified": True,
+                },
+            )
+            if explanation.state_transition.get("new_state") != decision.new_state:
+                raise ExplanationIntegrityError(
+                    f"explanation state mismatch for event {decision.event_id}"
+                )
+            explanations.append(explanation)
+            if persist and self.explanation_store is not None:
+                self.explanation_store.store_explanation(decision.event_id, explanation)
+        return explanations
 
     def _replay_events(
         self,

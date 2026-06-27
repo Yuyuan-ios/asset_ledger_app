@@ -14,6 +14,8 @@ from subscription_storage_gateway import (
 from subscription_audit_log import SubscriptionAuditLog
 from subscription_authority_resolver import SubscriptionAuthorityResolver
 from subscription_event_ordering import SubscriptionEventOrdering
+from subscription_event_explainer import ExplanationIntegrityError, SubscriptionEventExplainer
+from subscription_event_explanation_store import SubscriptionEventExplanationStore
 from subscription_event_model import (
     event_kind_for_subscription_event,
     event_type_for_payload,
@@ -191,6 +193,8 @@ class SubscriptionGatewayService:
         state_machine: Optional[SubscriptionStateMachine] = None,
         audit_log: Optional[SubscriptionAuditLog] = None,
         event_store: Optional[SubscriptionEventStore] = None,
+        event_explainer: Optional[SubscriptionEventExplainer] = None,
+        explanation_store: Optional[SubscriptionEventExplanationStore] = None,
         projection_store: Optional[EntitlementProjectionStore] = None,
         replay_engine: Optional[SubscriptionReplayEngine] = None,
     ):
@@ -202,12 +206,16 @@ class SubscriptionGatewayService:
         self.state_machine = state_machine or SubscriptionStateMachine()
         self.audit_log = audit_log or SubscriptionAuditLog(store)
         self.event_store = event_store or SubscriptionEventStore(store)
+        self.event_explainer = event_explainer or SubscriptionEventExplainer()
+        self.explanation_store = explanation_store or SubscriptionEventExplanationStore(store)
         self.projection_store = projection_store or EntitlementProjectionStore(store)
         self.replay_engine = replay_engine or SubscriptionReplayEngine(
             event_store=self.event_store,
             projection_store=self.projection_store,
             entitlement_engine=self.entitlement_engine,
             state_machine=self.state_machine,
+            event_explainer=self.event_explainer,
+            explanation_store=self.explanation_store,
         )
 
     def receive_purchase_event(
@@ -253,6 +261,7 @@ class SubscriptionGatewayService:
             ) from exc
         if not append_result.appended:
             record = self.store.get_latest_entitlement_for_user(event.user_id)
+            self.replay_engine.replay(event.user_id, update_projection=False)
             self.audit_log.record_processed_event(
                 event,
                 authority_score=authority.authority_score,
@@ -409,6 +418,65 @@ class SubscriptionGatewayService:
             )
         return persisted
 
+    def explain_user(self, user_id: str) -> dict[str, Any]:
+        replayed = self.replay_engine.replay(user_id, update_projection=False)
+        explanations = self.explanation_store.get_explanation(user_id)
+        coverage_report = self.explanation_coverage_report(user_id)
+        if coverage_report["missing_explanation_list"]:
+            raise ExplanationIntegrityError(
+                "missing explanations for events "
+                f"{coverage_report['missing_explanation_list']}"
+            )
+        latest_reason = (
+            explanations[-1].explanation_text
+            if explanations
+            else "No subscription events have been recorded."
+        )
+        return {
+            "user_id": user_id,
+            "current_state": _current_state_for_replayed(replayed),
+            "event_explanations": [
+                explanation.to_dict() for explanation in explanations
+            ],
+            "latest_reason": latest_reason,
+            "decision_trace": _decision_trace(explanations),
+            "explanation_coverage_report": coverage_report,
+        }
+
+    def explain_event(self, event_id: int) -> Optional[dict[str, Any]]:
+        explanation = self.explanation_store.get_explanation_by_event(event_id)
+        if explanation is not None:
+            return explanation.to_dict()
+        event = self.event_store.get_event_by_id(event_id)
+        if event is None:
+            return None
+        self.replay_engine.replay(event.user_id, update_projection=False)
+        explanation = self.explanation_store.get_explanation_by_event(event_id)
+        if explanation is None:
+            raise ExplanationIntegrityError(
+                f"missing explanation after replay for event {event_id}"
+            )
+        return explanation.to_dict()
+
+    def explanation_coverage_report(self, user_id: Optional[str] = None) -> dict[str, Any]:
+        events = (
+            self.event_store.get_events(user_id)
+            if user_id is not None
+            else self.event_store.get_all_events()
+        )
+        event_ids = {event.event_id for event in events}
+        explained_event_ids = self.explanation_store.explained_event_ids(user_id)
+        missing = sorted(event_ids - explained_event_ids)
+        total = len(event_ids)
+        explained = total - len(missing)
+        percent = 100.0 if total == 0 else round((explained / total) * 100, 2)
+        return {
+            "events_with_explanation_percent": percent,
+            "total_events": total,
+            "explained_events": explained,
+            "missing_explanation_list": missing,
+        }
+
     def _adapter_for_channel(self, channel: str) -> PaymentChannelAdapter:
         normalized = require_text(channel, "channel", max_length=64)
         adapter = self.adapters.get(normalized)
@@ -455,6 +523,37 @@ def _optional_raw_text(raw_payload: Mapping[str, Any], key: str) -> Optional[str
     if not isinstance(value, str) or not value.strip():
         return None
     return value.strip()
+
+
+def _current_state_for_replayed(replayed: Any) -> str:
+    current = replayed.current_entitlement
+    if current is None:
+        return STATE_NONE
+    for product_state in replayed.product_states.values():
+        record = product_state.record
+        if record is None:
+            continue
+        if (
+            record.latest_transaction_id == current.latest_transaction_id
+            and record.product_id == current.product_id
+        ):
+            return product_state.state
+    return STATE_NONE
+
+
+def _decision_trace(explanations: list[Any]) -> list[dict[str, Any]]:
+    trace = []
+    for explanation in explanations:
+        transition = explanation.state_transition
+        trace.append(
+            {
+                "event_id": explanation.event_id,
+                "event_type": explanation.event_type,
+                "rule_applied": explanation.rule_applied,
+                "outcome": transition.get("new_state"),
+            }
+        )
+    return trace
 
 
 def _app_account_token_for_event(event: PurchaseEvent) -> str:

@@ -37,6 +37,7 @@ from payment_channel_adapters import (
 from subscription_audit_log import SubscriptionAuditLog
 from subscription_authority_resolver import SubscriptionAuthorityResolver
 from subscription_event_ordering import SubscriptionEventOrdering
+from subscription_event_explainer import ExplanationIntegrityError
 from subscription_gateway import EntitlementEngine, SubscriptionGatewayService
 from subscription_state_machine import SubscriptionStateMachine
 from verifier import (
@@ -264,6 +265,47 @@ class IapVerificationApp:
             "projectionDiffAfter": diff_after,
         }
 
+    def internal_billing_explain(
+        self,
+        user_id: str,
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
+        self._authenticate_internal_entitlement_request(authorization_header)
+        stable_user_id = require_stable_user_id(
+            user_id,
+            auth_plane=self.internal_entitlement_auth_plane,
+        )
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
+        return self.gateway_service.explain_user(stable_user_id)
+
+    def internal_billing_explain_event(
+        self,
+        event_id: str,
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
+        self._authenticate_internal_entitlement_request(authorization_header)
+        try:
+            normalized_event_id = int(event_id)
+        except ValueError as exc:
+            raise HttpError(400, "invalid_event_id", "event_id must be an integer") from exc
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
+        explanation = self.gateway_service.explain_event(normalized_event_id)
+        if explanation is None:
+            raise HttpError(404, "event_not_found", "subscription event was not found")
+        return explanation
+
     def current_entitlement(self, query: Mapping[str, List[str]]) -> Dict[str, str]:
         raw_token = last_query_value(query, "appAccountToken")
         app_account_token = self.validator.validate_current_entitlement_query(raw_token)
@@ -481,9 +523,43 @@ class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
                     ),
                 )
                 return
+            explain_event_prefix = "/internal/v3/billing/explain/event/"
+            if method == "GET" and path.startswith(explain_event_prefix):
+                event_id = urllib.parse.unquote(path[len(explain_event_prefix) :])
+                json_response(
+                    self,
+                    200,
+                    self.app.internal_billing_explain_event(
+                        event_id,
+                        self.headers.get("Authorization"),
+                    ),
+                )
+                return
+            explain_prefix = "/internal/v3/billing/explain/"
+            if method == "GET" and path.startswith(explain_prefix):
+                user_id = urllib.parse.unquote(path[len(explain_prefix) :])
+                json_response(
+                    self,
+                    200,
+                    self.app.internal_billing_explain(
+                        user_id,
+                        self.headers.get("Authorization"),
+                    ),
+                )
+                return
             raise HttpError(404, "not_found", "endpoint not found")
         except HttpError as exc:
             error_response(self, exc)
+        except ExplanationIntegrityError:
+            log_internal_error(request_id, method, path)
+            error_response(
+                self,
+                HttpError(
+                    500,
+                    "explanation_integrity_failure",
+                    "EXPLANATION INTEGRITY FAILURE",
+                ),
+            )
         except Exception:
             log_internal_error(request_id, method, path)
             error_response(self, HttpError(500, "internal_error", "internal server error"))

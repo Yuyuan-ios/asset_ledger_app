@@ -222,6 +222,21 @@ class TamperEvidentEventStore:
         with closing(self._connect()) as conn:
             return self._get_all_events_for_conn(conn)
 
+    def get_event_by_id(self, event_id: int) -> Optional[SubscriptionEvent]:
+        with closing(self._connect()) as conn:
+            self._raise_if_invalid_global_ledger(conn)
+            row = conn.execute(
+                """
+                SELECT *
+                FROM iap_subscription_events
+                WHERE event_id = ?
+                """,
+                (int(event_id),),
+            ).fetchone()
+        if row is None:
+            return None
+        return SubscriptionEvent.from_row(row)
+
     def list_user_ids(self) -> list[str]:
         with closing(self._connect()) as conn:
             return self._list_user_ids_for_conn(conn)

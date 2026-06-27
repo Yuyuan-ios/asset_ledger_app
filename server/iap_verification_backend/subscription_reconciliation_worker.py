@@ -6,6 +6,8 @@ from typing import Any, Mapping, Optional, Protocol
 from entitlement_projection_store import EntitlementProjectionStore
 from subscription_audit_log import SubscriptionAuditLog
 from runtime_write_firewall import RBL_VIOLATION_LOG, RblViolation
+from subscription_event_explainer import SubscriptionEventExplainer
+from subscription_event_explanation_store import SubscriptionEventExplanationStore
 from subscription_event_model import event_type_for_payload, payload_hash
 from subscription_event_store import SubscriptionEventStore, SubscriptionLedgerIntegrityError
 from subscription_replay_engine import SubscriptionReplayEngine
@@ -53,6 +55,8 @@ class SubscriptionReconciliationWorker:
         state_machine: Optional[SubscriptionStateMachine] = None,
         audit_log: Optional[SubscriptionAuditLog] = None,
         event_store: Optional[SubscriptionEventStore] = None,
+        event_explainer: Optional[SubscriptionEventExplainer] = None,
+        explanation_store: Optional[SubscriptionEventExplanationStore] = None,
         replay_engine: Optional[SubscriptionReplayEngine] = None,
     ):
         self.store = store
@@ -61,11 +65,15 @@ class SubscriptionReconciliationWorker:
         self.state_machine = state_machine or SubscriptionStateMachine()
         self.audit_log = audit_log or SubscriptionAuditLog(store)
         self.event_store = event_store or SubscriptionEventStore(store)
+        self.event_explainer = event_explainer or SubscriptionEventExplainer()
+        self.explanation_store = explanation_store or SubscriptionEventExplanationStore(store)
         self.replay_engine = replay_engine or SubscriptionReplayEngine(
             event_store=self.event_store,
             projection_store=EntitlementProjectionStore(store),
             entitlement_engine=self.entitlement_engine,
             state_machine=self.state_machine,
+            event_explainer=self.event_explainer,
+            explanation_store=self.explanation_store,
         )
 
     def reconcile_active_entitlements(self, *, system_job: bool = False) -> dict[str, int]:

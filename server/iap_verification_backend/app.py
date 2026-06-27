@@ -140,6 +140,15 @@ from subscription_event_model import (
     Event,
     SubscriptionEvent,
 )
+from subscription_event_explainer import (
+    EventExplanation,
+    ExplanationIntegrityError,
+    SubscriptionEventExplainer,
+)
+from subscription_event_explanation_store import (
+    SubscriptionEventExplanationStore,
+    SubscriptionExplanationConflict,
+)
 from subscription_event_store import (
     SubscriptionEventAppendResult,
     SubscriptionEventReplay,
@@ -235,6 +244,7 @@ __all__ = [
     "EntitlementRecord",
     "EntitlementEngine",
     "EntitlementProjectionStore",
+    "EventExplanation",
     "ENTITLEMENT_CHANGE_LOG",
     "EntitlementBindingPolicy",
     "ENTITLEMENT_BINDING_POLICIES",
@@ -243,6 +253,7 @@ __all__ = [
     "EntitlementState",
     "ENVIRONMENT_PRODUCTION",
     "ENVIRONMENT_SANDBOX",
+    "ExplanationIntegrityError",
     "HttpError",
     "HttpTokenIntrospector",
     "IapVerificationApp",
@@ -291,9 +302,12 @@ __all__ = [
     "SubscriptionAuthorityResolver",
     "SubscriptionEvent",
     "SubscriptionEventAppendResult",
+    "SubscriptionEventExplainer",
+    "SubscriptionEventExplanationStore",
     "SubscriptionEventOrdering",
     "SubscriptionEventReplay",
     "SubscriptionEventStore",
+    "SubscriptionExplanationConflict",
     "SubscriptionLedgerIntegrityError",
     "SubscriptionProjectionDriftError",
     "SubscriptionGatewayService",

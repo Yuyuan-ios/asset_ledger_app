@@ -1529,6 +1529,378 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         )
         self.assertTrue(body["projectionDiffAfter"]["matches"])
 
+    def test_bol_explanation_consistency_matches_replay_transition(self):
+        app = self._app_with_gateway()
+        user_id = "user-bol-consistency"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="bol-consistency-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        event = app.gateway_service.event_store.get_events(user_id)[0]
+
+        replayed = app.gateway_service.replay_engine.replay(user_id, update_projection=False)
+        decision = replayed.decision_for_event_id(event.event_id)
+        explanation = app.gateway_service.explanation_store.get_explanation_by_event(
+            event.event_id
+        )
+
+        self.assertIsNotNone(decision)
+        self.assertIsNotNone(explanation)
+        self.assertEqual(
+            explanation.state_transition,
+            {
+                "previous_state": decision.previous_state,
+                "new_state": decision.new_state,
+            },
+        )
+        self.assertTrue(explanation.integrity_context["hash_verified"])
+        self.assertTrue(explanation.integrity_context["replay_verified"])
+        self.assertEqual(explanation.event_type, "PURCHASE")
+
+    def test_bol_authority_explanation_includes_high_authority_override_reason(self):
+        app = self._app_with_gateway()
+        user_id = "user-bol-authority"
+        self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="bol-authority-low-grace",
+                status="grace",
+                source="verify",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="bol-authority-high-active",
+                source="webhook",
+                eventTime="2026-06-27T10:00:00Z",
+            ),
+            app=app,
+        )
+        high_event = app.gateway_service.event_store.get_events(user_id)[-1]
+
+        explanation = app.gateway_service.explanation_store.get_explanation_by_event(
+            high_event.event_id
+        )
+
+        self.assertEqual(explanation.state_transition["previous_state"], STATE_GRACE)
+        self.assertEqual(explanation.state_transition["new_state"], STATE_ACTIVE)
+        self.assertEqual(explanation.authority_context["authority_score"], 90)
+        self.assertIn("override_reason", explanation.authority_context)
+        self.assertIn("High authority XIAOMI event", explanation.authority_context["override_reason"])
+        self.assertIn("moved entitlement from GRACE to ACTIVE", explanation.causal_reason)
+
+    def test_bol_reconciliation_correction_event_has_explanation(self):
+        app = self._app_with_gateway()
+        user_id = "user-bol-reconciliation"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="bol-reconciliation-initial",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        worker = SubscriptionReconciliationWorker(
+            store=app.store,
+            provider_verifiers={
+                OPPO_CHANNEL: FixedProviderVerifier(
+                    ProviderSubscriptionState(
+                        state=STATE_EXPIRED,
+                        channel=OPPO_CHANNEL,
+                        transaction_id="bol-reconciliation-correction",
+                        event_time="2026-06-27T10:00:00Z",
+                    )
+                )
+            },
+            entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
+        )
+
+        result = worker.reconcile_active_entitlements(system_job=True)
+
+        events = app.gateway_service.event_store.get_events(user_id)
+        correction = events[-1]
+        explanation = app.gateway_service.explanation_store.get_explanation_by_event(
+            correction.event_id
+        )
+        self.assertEqual(result["repaired"], 1)
+        self.assertEqual(correction.source, "reconciliation")
+        self.assertEqual(explanation.trigger_source, "reconcile")
+        self.assertIn("Provider reconciliation detected entitlement drift", explanation.causal_reason)
+        self.assertEqual(explanation.state_transition["new_state"], STATE_GRACE)
+
+    def test_bol_explanations_are_deterministic_when_events_are_shuffled(self):
+        app = self._app_with_gateway()
+        user_id = "user-bol-deterministic"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="bol-deterministic-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="bol-deterministic-expired",
+                status="expired",
+                eventTime="2026-06-27T10:00:00Z",
+            ),
+            app=app,
+        )
+        events = app.gateway_service.event_store.get_events(user_id)
+
+        normal = app.gateway_service.replay_engine.replay(
+            user_id,
+            update_projection=False,
+            events=events,
+        )
+        shuffled = app.gateway_service.replay_engine.replay(
+            user_id,
+            update_projection=False,
+            events=list(reversed(events)),
+        )
+
+        self.assertEqual(
+            [explanation.to_dict() for explanation in normal.explanations],
+            [explanation.to_dict() for explanation in shuffled.explanations],
+        )
+
+    def test_bol_event_trace_is_complete_and_internal_explain_apis_return_chain(self):
+        app = self._app_with_gateway(internal_entitlement_token="internal-token")
+        user_id = "user-bol-trace"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="bol-trace-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="bol-trace-renew",
+                eventType="RENEW",
+                eventTime="2026-06-27T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        coverage = app.gateway_service.explanation_coverage_report(user_id)
+        status, body = self.request(
+            "GET",
+            f"/internal/v3/billing/explain/{user_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+        event_id = app.gateway_service.event_store.get_events(user_id)[0].event_id
+        event_status, event_body = self.request(
+            "GET",
+            f"/internal/v3/billing/explain/event/{event_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+
+        self.assertEqual(coverage["events_with_explanation_percent"], 100.0)
+        self.assertEqual(coverage["missing_explanation_list"], [])
+        self.assertEqual(status, 200)
+        self.assertEqual(body["user_id"], user_id)
+        self.assertEqual(body["current_state"], STATE_ACTIVE)
+        self.assertEqual(len(body["event_explanations"]), 2)
+        self.assertEqual(len(body["decision_trace"]), 2)
+        self.assertEqual(body["explanation_coverage_report"]["missing_explanation_list"], [])
+        self.assertIn("Rule applied", body["latest_reason"])
+        self.assertEqual(event_status, 200)
+        self.assertEqual(event_body["event_id"], event_id)
+        self.assertEqual(
+            [step["stage"] for step in event_body["decision_chain"]],
+            ["event", "authority", "ordering", "state_machine", "entitlement_engine"],
+        )
+
+    def test_bol_explain_apis_require_internal_service_token(self):
+        app = self._app_with_gateway(internal_entitlement_token="internal-token")
+
+        missing_status, missing_body = self.request(
+            "GET",
+            "/internal/v3/billing/explain/user-bol-auth",
+            app=app,
+        )
+        client_status, client_body = self.request(
+            "GET",
+            "/internal/v3/billing/explain/user-bol-auth",
+            app=app,
+            headers={"Authorization": "Bearer login-token-a"},
+        )
+
+        self.assertEqual(missing_status, 401)
+        self.assertEqual(missing_body["error"]["code"], "unauthorized")
+        self.assertEqual(client_status, 401)
+        self.assertEqual(client_body["error"]["code"], "unauthorized")
+
+    def test_bol_explain_api_does_not_leak_purchase_token_or_signature(self):
+        app = self._app_with_gateway(internal_entitlement_token="internal-token")
+        user_id = "user-bol-sensitive"
+        purchase_token = "google-purchase-token-secret-001"
+        webhook_body = {
+            "channel": GOOGLE_PLAY_CHANNEL,
+            "user_id": user_id,
+            "product_id": MAX_YEARLY_PRODUCT_ID,
+            "purchaseToken": purchase_token,
+            "status": "active",
+            "eventTime": "2026-06-26T10:00:00Z",
+        }
+        signature = signature_for_payload(webhook_body, gateway_secrets()[GOOGLE_PLAY_CHANNEL])
+        webhook_body["signature"] = signature
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=webhook_body,
+            app=app,
+        )
+
+        user_status, user_body = self.request(
+            "GET",
+            f"/internal/v3/billing/explain/{user_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+        event_id = app.gateway_service.event_store.get_events(user_id)[0].event_id
+        event_status, event_body = self.request(
+            "GET",
+            f"/internal/v3/billing/explain/event/{event_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+        serialized = json.dumps(
+            {"user": user_body, "event": event_body},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+        self.assertEqual(user_status, 200)
+        self.assertEqual(event_status, 200)
+        self.assertNotIn(purchase_token, serialized)
+        self.assertNotIn(signature, serialized)
+        self.assertNotIn("purchaseToken", serialized)
+        self.assertNotIn("transaction_id", serialized)
+        self.assertNotIn("transactionId", serialized)
+        self.assertNotIn("signature", serialized)
+
+    def test_bol_explain_api_does_not_mutate_billing_state(self):
+        app = self._app_with_gateway(internal_entitlement_token="internal-token")
+        user_id = "user-bol-read-only"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="bol-read-only-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        events_before = [
+            event.to_dict() for event in app.gateway_service.event_store.get_events(user_id)
+        ]
+        state_before = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        entitlement_before = app.store.get_latest_entitlement_for_user(user_id)
+        projection_before = app.store.get_entitlement_projection(user_id)
+
+        status, _ = self.request(
+            "GET",
+            f"/internal/v3/billing/explain/{user_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+
+        events_after = [
+            event.to_dict() for event in app.gateway_service.event_store.get_events(user_id)
+        ]
+        state_after = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        entitlement_after = app.store.get_latest_entitlement_for_user(user_id)
+        projection_after = app.store.get_entitlement_projection(user_id)
+        self.assertEqual(status, 200)
+        self.assertEqual(events_after, events_before)
+        self.assertEqual(state_after, state_before)
+        self.assertEqual(entitlement_after.to_response_body(), entitlement_before.to_response_body())
+        self.assertEqual(projection_after, projection_before)
+
+    def test_bol_explanation_store_is_append_only(self):
+        app = self._app_with_gateway()
+        user_id = "user-bol-append-only"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="bol-append-only-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        event = app.gateway_service.event_store.get_events(user_id)[0]
+
+        with closing(sqlite3.connect(app.store.db_path)) as conn:
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute(
+                    """
+                    UPDATE iap_subscription_event_explanations
+                    SET explanation_json = ?
+                    WHERE event_id = ?
+                    """,
+                    ("{}", event.event_id),
+                )
+            conn.rollback()
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute(
+                    "DELETE FROM iap_subscription_event_explanations WHERE event_id = ?",
+                    (event.event_id,),
+                )
+
     def test_scp_v3_hash_chain_tamper_detection(self):
         app = self._app_with_gateway()
         user_id = "user-ledger-v3-tamper"
