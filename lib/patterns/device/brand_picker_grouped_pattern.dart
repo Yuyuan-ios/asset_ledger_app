@@ -58,11 +58,15 @@ class BrandPickerGrouped extends StatelessWidget {
   /// 按国家分好组的品牌数据（由页面层准备）
   final Map<BrandCountry, List<BrandItem>> groups;
 
+  /// 可选的滚动头部，例如品牌搜索框。
+  final Widget? header;
+
   const BrandPickerGrouped({
     super.key,
     required this.selectedBrandValue,
     required this.onSelected,
     required this.groups,
+    this.header,
     this.crossAxisCount = DeviceTokens.brandPickerDefaultCrossAxisCount,
     this.avatarRadius = DeviceTokens.brandPickerDefaultAvatarRadius,
     this.spacing = DeviceTokens.brandPickerDefaultGridSpacing,
@@ -78,6 +82,8 @@ class BrandPickerGrouped extends StatelessWidget {
         vertical: DeviceTokens.brandPickerListPadVertical,
       ),
       children: [
+        ?header,
+
         // 按枚举顺序输出分组：国家标题 + grid
         for (final c in BrandCountry.values)
           if (groups[c]!.isNotEmpty) ...[

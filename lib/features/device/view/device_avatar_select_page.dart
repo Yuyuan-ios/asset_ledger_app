@@ -9,6 +9,7 @@ import '../model/device_type_catalog.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
 import '../../../patterns/layout/sheet_text_field_pattern.dart';
+import '../../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_avatar_select_view_data.dart';
 
@@ -31,11 +32,11 @@ class AvatarSelectionResult {
 // 页面内尺寸常量。
 // TODO(device-type-selector): 实验毕业后迁入 DeviceTokens。
 class _Dim {
-  static const double typeCardRadius = 14;
+  static const double typeCardRadius = 8;
   static const double typeIconTile = 48;
   static const double typeIconTileRadius = 12;
   static const double ctaHeight = 52;
-  static const double ctaRadius = 14;
+  static const double ctaRadius = 26;
   static const double sheetTypeIcon = 40;
 }
 
@@ -250,20 +251,23 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
             child: _DeviceTypeCard(type: _selectedType, onTap: _openTypeSheet),
           ),
           const Divider(height: 1, color: AppColors.divider),
-          _BrandSectionHeader(
-            controller: _brandSearchCtrl,
-            onChanged: (v) => setState(() => _brandQuery = v),
-          ),
           Expanded(
             child: viewData.hasAnyBrand
                 ? BrandPickerGrouped(
+                    header: _BrandSectionHeader(
+                      controller: _brandSearchCtrl,
+                      horizontalPadding: 0,
+                      onChanged: (v) => setState(() => _brandQuery = v),
+                    ),
                     groups: viewData.groups,
                     selectedBrandValue: _selectedBrandValue,
                     onSelected: _onBrandTap,
                   )
-                : _BrandEmptyState(
+                : _BrandScrollableEmptyState(
+                    controller: _brandSearchCtrl,
                     typeName: _selectedType.name(l10n),
                     isSearchMiss: viewData.typeHasBrandLibrary,
+                    onChanged: (v) => setState(() => _brandQuery = v),
                     onUseCustom: _useCustomBrand,
                   ),
           ),
@@ -359,19 +363,21 @@ class _BrandSectionHeader extends StatelessWidget {
   const _BrandSectionHeader({
     required this.controller,
     required this.onChanged,
+    this.horizontalPadding = SpaceTokens.pagePadding,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        SpaceTokens.pagePadding,
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
         SpaceTokens.md,
-        SpaceTokens.pagePadding,
+        horizontalPadding,
         SpaceTokens.sm,
       ),
       child: TextField(
@@ -394,6 +400,47 @@ class _BrandSectionHeader extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BrandScrollableEmptyState extends StatelessWidget {
+  const _BrandScrollableEmptyState({
+    required this.controller,
+    required this.typeName,
+    required this.isSearchMiss,
+    required this.onChanged,
+    required this.onUseCustom,
+  });
+
+  final TextEditingController controller;
+  final String typeName;
+  final bool isSearchMiss;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onUseCustom;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DeviceTokens.brandPickerListPadHorizontal,
+        vertical: DeviceTokens.brandPickerListPadVertical,
+      ),
+      children: [
+        _BrandSectionHeader(
+          controller: controller,
+          horizontalPadding: 0,
+          onChanged: onChanged,
+        ),
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.32,
+          child: _BrandEmptyState(
+            typeName: typeName,
+            isSearchMiss: isSearchMiss,
+            onUseCustom: onUseCustom,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -495,18 +542,23 @@ class _BottomCta extends StatelessWidget {
             onPressed: onPressed,
             style: FilledButton.styleFrom(
               backgroundColor: available
-                  ? AppColors.primaryActionCapsule
-                  : AppColors.primaryActionCapsule.withValues(alpha: 0.35),
+                  ? AppColors.brand
+                  : AppColors.brand.withValues(alpha: 0.35),
+              foregroundColor: SheetColors.actionOn,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(_Dim.ctaRadius),
+              ),
+              textStyle: const TextStyle(
+                fontSize: BottomSheetTokens.actionTextSize,
+                fontWeight: FontWeight.w400,
               ),
             ),
             child: Text(
               label,
-              style: AppTypography.body(
+              style: AppTypography.actionText(
                 context,
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
+                color: SheetColors.actionOn,
+                fontSize: BottomSheetTokens.actionTextSize,
               ),
             ),
           ),
