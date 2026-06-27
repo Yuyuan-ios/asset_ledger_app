@@ -309,9 +309,24 @@ void main() {
       expect(find.text('批量修改'), findsNothing);
       expect(find.text('解除合并'), findsOneWidget);
       expect(_containerWithColor(AppColors.brand), findsOneWidget);
-      expect(_coloredBoxWithColor(SheetColors.fieldBorder), findsNWidgets(2));
+      expect(
+        _coloredBoxWithColor(AppColors.brandOutlineActionPressed),
+        findsOneWidget,
+      );
+      expect(
+        _coloredBoxWithColor(AppColors.primaryActionCapsule),
+        findsOneWidget,
+      );
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.edit_outlined)).color,
+        AppColors.brand,
+      );
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.delete_outline)).color,
+        SheetColors.actionOn,
+      );
 
       await tester.tap(find.byIcon(Icons.edit_outlined));
       await tester.pump();

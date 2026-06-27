@@ -112,7 +112,8 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
             if (showEditButton)
               _buildPaymentAction(
                 icon: Icons.edit_outlined,
-                backgroundColor: SheetColors.fieldBorder,
+                backgroundColor: _paymentEditActionBackground,
+                iconColor: _paymentEditActionIcon,
                 onPressed: rawPayment != null
                     ? () => onEditPayment(rawPayment)
                     : () => onEditPaymentDisplayItem?.call(item),
@@ -120,7 +121,8 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
             if (showDeleteButton)
               _buildPaymentAction(
                 icon: Icons.delete_outline,
-                backgroundColor: SheetColors.fieldBorder,
+                backgroundColor: _paymentDeleteActionBackground,
+                iconColor: _paymentDeleteActionIcon,
                 onPressed: rawPayment != null
                     ? () => onDeletePayment(rawPayment)
                     : () => onDeletePaymentDisplayItem?.call(item),
@@ -134,6 +136,7 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
   Widget _buildPaymentAction({
     required IconData icon,
     required Color backgroundColor,
+    required Color iconColor,
     required VoidCallback? onPressed,
   }) {
     return SizedBox(
@@ -143,11 +146,7 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
         color: backgroundColor,
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-            icon,
-            size: 21,
-            color: AccountTokens.projectDetailActionColor,
-          ),
+          icon: Icon(icon, size: 21, color: iconColor),
         ),
       ),
     );
