@@ -30,8 +30,8 @@ const _projectActionPillBorder = AppColors.brand;
 const _projectActionPillText = SheetColors.actionOn;
 const _paymentEditActionBackground = AppColors.brandOutlineActionPressed;
 const _paymentEditActionIcon = AppColors.brand;
-const _paymentDeleteActionBackground = SheetColors.fieldBackground;
-const _paymentDeleteActionIcon = SheetColors.muted;
+const _paymentDeleteActionBackground = Color(0xFFF9D1AD);
+const _paymentDeleteActionIcon = AppColors.brand;
 const _moneyEpsilon = 0.000001;
 
 class ProjectAccountDetailRateRow {
