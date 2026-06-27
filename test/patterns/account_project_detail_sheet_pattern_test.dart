@@ -313,10 +313,7 @@ void main() {
         _coloredBoxWithColor(AppColors.brandOutlineActionPressed),
         findsOneWidget,
       );
-      expect(
-        _coloredBoxWithColor(AppColors.primaryActionCapsule),
-        findsOneWidget,
-      );
+      expect(_coloredBoxWithColor(SheetColors.fieldBackground), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(find.byIcon(Icons.delete_outline), findsOneWidget);
       expect(
@@ -325,7 +322,7 @@ void main() {
       );
       expect(
         tester.widget<Icon>(find.byIcon(Icons.delete_outline)).color,
-        SheetColors.actionOn,
+        SheetColors.muted,
       );
 
       await tester.tap(find.byIcon(Icons.edit_outlined));

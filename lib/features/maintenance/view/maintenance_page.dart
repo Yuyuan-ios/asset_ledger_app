@@ -318,7 +318,14 @@ class _MaintenancePageState extends State<MaintenancePage> {
           // 公共支出
           if (summary.publicTotal > 0) ...[
             const SizedBox(height: 4),
-            const Divider(height: 1, thickness: 1, color: TimingColors.divider),
+            const Padding(
+              padding: EdgeInsets.only(left: SummaryCardTokens.rowLeftInset),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: TimingColors.divider,
+              ),
+            ),
             const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.only(
@@ -341,7 +348,10 @@ class _MaintenancePageState extends State<MaintenancePage> {
             ),
           ],
 
-          const Divider(height: 16, color: TimingColors.divider),
+          const Padding(
+            padding: EdgeInsets.only(left: SummaryCardTokens.rowLeftInset),
+            child: Divider(height: 16, color: TimingColors.divider),
+          ),
 
           // 合计
           Row(
