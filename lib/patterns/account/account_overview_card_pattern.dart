@@ -212,7 +212,10 @@ class _OverviewDeviceReceivableSection extends StatelessWidget {
               AccountTokens.overviewRightPaddingBottom,
             ),
             child: items.isEmpty
-                ? Text(l10n.accountNoDeviceData, style: emptyStyle)
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(l10n.accountNoDeviceData, style: emptyStyle),
+                  )
                 : _OverviewLegendList(items: items),
           ),
         ),
@@ -224,19 +227,16 @@ class _OverviewDeviceReceivableSection extends StatelessWidget {
 class _OverviewLegendList extends StatelessWidget {
   const _OverviewLegendList({required this.items});
 
-  static const double _singleLegendTopPadding = 18;
+  static const Alignment _upperThirdLeft = Alignment(-1, -2 / 3);
 
   final List<_DeviceReceivable> items;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: items.length == 1 ? _singleLegendTopPadding : 0,
-        ),
-        child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             for (final item in items) ...[
               _OverviewLegendRow(item: item),
@@ -244,8 +244,23 @@ class _OverviewLegendList extends StatelessWidget {
                 const SizedBox(height: AccountTokens.overviewLegendRowGap),
             ],
           ],
-        ),
-      ),
+        );
+
+        if (!constraints.hasBoundedHeight) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: content,
+          );
+        }
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Align(alignment: _upperThirdLeft, child: content),
+          ),
+        );
+      },
     );
   }
 }

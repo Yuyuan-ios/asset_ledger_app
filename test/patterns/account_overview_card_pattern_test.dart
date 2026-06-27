@@ -118,6 +118,101 @@ void main() {
       expect(find.textContaining('外协应收'), findsNothing);
     },
   );
+
+  testWidgets('centers no device data message in device section', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 390,
+              child: AccountOverviewCard(
+                vm: AccountOverviewVm(
+                  totalReceivable: 0,
+                  totalReceived: 0,
+                  totalRemaining: 0,
+                  totalRatio: null,
+                  netCashReceived: 0,
+                  deviceReceivables: const [],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final emptyMessage = find.text('暂无设备数据');
+    final divider = find.byType(Divider);
+    final donutLabel = find.text('已收-开支');
+
+    expect(emptyMessage, findsOneWidget);
+    expect(
+      tester.getCenter(emptyMessage).dy,
+      greaterThan(tester.getBottomLeft(divider).dy + 40),
+    );
+    expect(
+      (tester.getCenter(emptyMessage).dy - tester.getCenter(donutLabel).dy)
+          .abs(),
+      lessThan(24),
+    );
+  });
+
+  testWidgets('places device legend list near upper third in device section', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 390,
+              child: AccountOverviewCard(
+                vm: AccountOverviewVm(
+                  totalReceivable: 3000,
+                  totalReceived: 0,
+                  totalRemaining: 3000,
+                  totalRatio: 0,
+                  netCashReceived: 0,
+                  deviceReceivables: const [
+                    AccountDeviceReceivable(
+                      deviceId: 1,
+                      name: 'HITACHI 1#',
+                      amount: 1000,
+                    ),
+                    AccountDeviceReceivable(
+                      deviceId: 2,
+                      name: 'SANY 2#',
+                      amount: 2000,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final divider = find.byType(Divider);
+    final donutLabel = find.text('已收-开支');
+    final firstDevice = find.text('HITACHI 1#');
+    final lastDevice = find.text('SANY 2#');
+    final legendCenterY =
+        (tester.getTopLeft(firstDevice).dy +
+            tester.getBottomLeft(lastDevice).dy) /
+        2;
+
+    expect(firstDevice, findsOneWidget);
+    expect(lastDevice, findsOneWidget);
+    expect(
+      tester.getTopLeft(firstDevice).dy,
+      greaterThan(tester.getBottomLeft(divider).dy + 12),
+    );
+    expect(legendCenterY, lessThan(tester.getCenter(donutLabel).dy - 12));
+  });
 }
 
 Widget _localizedApp({required Widget home}) {
