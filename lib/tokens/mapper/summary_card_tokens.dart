@@ -42,7 +42,9 @@ class SummaryCardTokens {
   }
 
   // ===== 油电/维保页：统计卡共享排版 =====
-  static const double cardPadding = 24; // 统计卡内容内边距（油电/维保统一）
+  static const double cardPadding = 24; // 统计卡垂直内边距（油电/维保统一）
+  static const double cardHorizontalPadding = 12; // 统计卡左右内边距（对齐计时/账户）
+  static const double cardVerticalPadding = cardPadding; // 统计卡上下内边距
   static const double titleFontSize = 15; // 统计卡标题字号
   static const double titleToContentGap = 10; // 标题与内容间距
   static const double rowLeftInset = 16; // 内容行左侧内边距

@@ -247,9 +247,8 @@ void main() {
       tester.widget<Text>(find.text('结束工作时间')).style?.color,
       SheetColors.fieldLabel,
     );
-    expect(_findBoxBorderColor(SheetColors.fieldBorder), findsNothing);
-    expect(SheetColors.segmentBackground, SheetColors.segmentBorder);
-    expect(_findSegmentContainersWithBorder(), findsNothing);
+    expect(_findBoxBorderColor(SheetColors.fieldBorder), findsWidgets);
+    expect(_findSegmentContainersWithBorder(), findsWidgets);
     expect(_findBoxColor(SheetColors.meterBackground), findsNWidgets(2));
     expect(TimingTokens.segmentHeight, SheetTokens.fieldHeight);
     expect(TimingTokens.segmentItemHeight, 44);
@@ -1232,7 +1231,7 @@ Finder _findSegmentContainersWithBorder() {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration &&
-        decoration.color == SheetColors.segmentBackground &&
+        decoration.color == SheetColors.fieldBackground &&
         decoration.border != null;
   });
 }

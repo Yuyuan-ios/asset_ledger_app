@@ -13,7 +13,10 @@ class FuelSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SummaryCardSurface(
       height: height,
-      padding: const EdgeInsets.all(SummaryCardTokens.cardPadding),
+      padding: const EdgeInsets.symmetric(
+        horizontal: SummaryCardTokens.cardHorizontalPadding,
+        vertical: SummaryCardTokens.cardVerticalPadding,
+      ),
       child: child,
     );
   }

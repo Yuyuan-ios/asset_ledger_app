@@ -320,16 +320,24 @@ class _MaintenancePageState extends State<MaintenancePage> {
             const SizedBox(height: 4),
             const Divider(height: 1, thickness: 1, color: TimingColors.divider),
             const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.maintenancePublicExpenseLabel,
-                    style: nameStyle,
+            Padding(
+              padding: const EdgeInsets.only(
+                left: SummaryCardTokens.rowLeftInset,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.maintenancePublicExpenseLabel,
+                      style: nameStyle,
+                    ),
                   ),
-                ),
-                Text(FormatUtils.money(summary.publicTotal), style: valueStyle),
-              ],
+                  Text(
+                    FormatUtils.money(summary.publicTotal),
+                    style: valueStyle,
+                  ),
+                ],
+              ),
             ),
           ],
 
