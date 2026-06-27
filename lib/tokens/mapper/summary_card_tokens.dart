@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'color_tokens.dart';
+import 'radius_tokens.dart';
 
 class SummaryCardTokens {
   // ===== 主页上方卡片：共享视觉 chrome =====
   static const Color cardBackground = SheetColors.background; // 卡片背景色
-  static const double cardRadius = 12; // 卡片圆角（对齐计时卡片）
+  static const double cardRadius = RadiusTokens.card; // 卡片圆角（对齐计时卡片）
   static const Color cardBorderColor = TimingColors.cardBorder; // 卡片边框色
   static const double cardBorderWidth = 0; // 卡片边框粗细
   static const Color cardShadowColor = Color(0x00000000); // 卡片阴影色

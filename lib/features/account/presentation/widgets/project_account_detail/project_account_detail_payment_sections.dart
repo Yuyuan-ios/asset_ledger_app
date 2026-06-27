@@ -38,11 +38,11 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
         right: AccountTokens.projectDetailSectionHorizontalPadding,
         bottom: AccountTokens.projectCardBottomMargin,
       ),
-      child: Container(
+      child: RecordCardSurface(
         height: 66,
-        width: double.infinity,
         clipBehavior: Clip.antiAlias,
-        decoration: _cardDecoration(),
+        border: _projectRecordCardBorder(),
+        boxShadow: _projectRecordCardShadows(),
         child: Row(
           children: [
             Expanded(

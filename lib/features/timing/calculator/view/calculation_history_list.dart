@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // 禁止 timing/ 等已迁移模块直接调用 TextStyle 构造器。
 import '../../../../core/foundation/typography.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../tokens/mapper/radius_tokens.dart';
 import '../../domain/entities/timing_entities.dart';
 
 import '../model/staged_timing_calculation_history.dart';
@@ -177,7 +178,7 @@ class _AppliedBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: _appliedBackground,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(RadiusTokens.pill),
         border: Border.all(color: _appliedBorder),
       ),
       child: Text(

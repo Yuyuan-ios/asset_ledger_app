@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'account_tokens.dart';
 import 'color_tokens.dart';
+import 'radius_tokens.dart';
 import 'summary_card_tokens.dart';
 
 class DevicePageLayoutTokens {
@@ -36,7 +37,7 @@ class DeviceActionCardTokens {
   const DeviceActionCardTokens._();
 
   static const double height = 48;
-  static const double radius = SummaryCardTokens.cardRadius;
+  static const double radius = RadiusTokens.rowCard;
   static const double horizontalPadding = 4;
   static const double leadingGap = 10;
   static const double titleFontSize = 16;

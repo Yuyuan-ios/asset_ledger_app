@@ -4,7 +4,6 @@ import 'package:asset_ledger/patterns/account/account_project_list_pattern.dart'
 import 'package:asset_ledger/patterns/account/account_project_section_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/account_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
-import 'package:asset_ledger/tokens/mapper/summary_card_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -611,7 +610,7 @@ void main() {
     expect(find.text('实收 ¥1200 / ¥1260'), findsNothing);
     expect(find.text('已结清 · 核销 ¥60'), findsNothing);
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
-    expect(_summaryCardContainers(), findsNWidgets(3));
+    expect(_recordCardContainers(), findsNWidgets(3));
     expect(_containerWithBorder(const Color(0x4D000000)), findsNothing);
     expect(_settledCelebrationIcons(), findsNWidgets(2));
 
@@ -987,7 +986,7 @@ void main() {
     expect(find.text('待计算'), findsNothing);
 
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsOneWidget);
-    expect(_summaryCardContainers(), findsOneWidget);
+    expect(_recordCardContainers(), findsOneWidget);
     expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsNothing);
     expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
     expect(_containerWithColor(const Color(0xFF459A63)), findsOneWidget);
@@ -1201,7 +1200,7 @@ void main() {
       ),
     );
 
-    final projectCards = _summaryCardContainers();
+    final projectCards = _recordCardContainers();
     expect(projectCards, findsNWidgets(2));
     final ownedCardRect = tester.getRect(projectCards.first);
     final externalCardRect = tester.getRect(
@@ -1366,14 +1365,15 @@ Finder _containerWithBorder(Color color) {
   });
 }
 
-Finder _summaryCardContainers() {
+Finder _recordCardContainers() {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration &&
-        decoration.color == SummaryCardTokens.cardBackground &&
-        decoration.border == SummaryCardTokens.cardBorder &&
-        decoration.borderRadius == SummaryCardTokens.cardBorderRadius &&
-        decoration.boxShadow == SummaryCardTokens.cardShadows;
+        decoration.color == SheetColors.background &&
+        decoration.border == null &&
+        decoration.borderRadius ==
+            BorderRadius.circular(RadiusTokens.recordCard) &&
+        decoration.boxShadow == null;
   });
 }
 

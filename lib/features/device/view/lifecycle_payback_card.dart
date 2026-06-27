@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/foundation/typography.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../../patterns/layout/summary_card_surface.dart';
 import '../../../tokens/mapper/device_tokens.dart';
+import '../../../tokens/mapper/radius_tokens.dart';
 import '../domain/services/lifecycle_payback_calculator.dart';
 import 'lifecycle_payback_l10n.dart';
 
@@ -13,7 +15,7 @@ const double _minVisibleSegmentWidth =
 const double _operationSummaryWidth = 168;
 
 Color _businessLedgerMutedText() {
-  return DeviceTokens.actionCardTitleColor.withValues(alpha: 0.56);
+  return LifecyclePaybackTokens.textPrimary.withValues(alpha: 0.56);
 }
 
 class LifecyclePaybackCard extends StatelessWidget {
@@ -52,77 +54,58 @@ class LifecyclePaybackCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: _semanticsLabel(l10n, result),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(DeviceActionCardTokens.radius),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: DeviceActionCardTokens.backgroundColor,
-              borderRadius: BorderRadius.circular(
-                DeviceActionCardTokens.radius,
-              ),
-              border: Border.all(
-                color: LifecyclePaybackTokens.hairline,
-                width: 0.5,
-              ),
+      child: SummaryCardSurface(
+        onTap: onTap,
+        padding: const EdgeInsets.all(16),
+        border: Border.all(color: LifecyclePaybackTokens.hairline, width: 0.5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MetaRow(
+              deviceName: deviceName,
+              operatedHours: operatedHours,
+              operationItems: operationItems,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _MetaRow(
-                  deviceName: deviceName,
-                  operatedHours: operatedHours,
-                  operationItems: operationItems,
+            const SizedBox(height: 8),
+            _FinancialRow(result: result, initialCostFen: initialCostFen),
+            const SizedBox(height: 14),
+            PaybackSegmentBar(result: result),
+            if (!result.isCostUnset) ...[
+              const SizedBox(height: 12),
+              _Legend(result: result),
+            ] else ...[
+              const SizedBox(height: 10),
+              Text(
+                l10n.deviceLifecycleSetCostAction,
+                style: AppTypography.caption(
+                  context,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: LifecyclePaybackTokens.textSecondary,
                 ),
-                const SizedBox(height: 8),
-                _FinancialRow(result: result, initialCostFen: initialCostFen),
-                const SizedBox(height: 14),
-                PaybackSegmentBar(result: result),
-                if (!result.isCostUnset) ...[
-                  const SizedBox(height: 12),
-                  _Legend(result: result),
-                ] else ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    l10n.deviceLifecycleSetCostAction,
-                    style: AppTypography.caption(
-                      context,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: LifecyclePaybackTokens.textSecondary,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                const Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: LifecyclePaybackTokens.hairline,
-                ),
-                const SizedBox(height: 12),
-                _Footer(
-                  result: result,
-                  pendingReceivableFen: pendingReceivableFen,
-                ),
-                if (!result.isCostUnset) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.deviceLifecycleNetProfitFormula,
-                    style: AppTypography.caption(
-                      context,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: _businessLedgerMutedText(),
-                    ),
-                  ),
-                ],
-              ],
+              ),
+            ],
+            const SizedBox(height: 14),
+            const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: LifecyclePaybackTokens.hairline,
             ),
-          ),
+            const SizedBox(height: 12),
+            _Footer(result: result, pendingReceivableFen: pendingReceivableFen),
+            if (!result.isCostUnset) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.deviceLifecycleNetProfitFormula,
+                style: AppTypography.caption(
+                  context,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: _businessLedgerMutedText(),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -559,7 +542,7 @@ class _Footer extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: LifecyclePaybackTokens.pendingReceivable,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(RadiusTokens.pill),
             ),
             child: Text(
               l10n.deviceLifecyclePendingReceivableLabel(

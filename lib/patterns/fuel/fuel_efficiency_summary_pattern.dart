@@ -6,6 +6,7 @@ import '../../core/foundation/typography.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/fuel_tokens.dart';
+import '../../tokens/mapper/radius_tokens.dart';
 import '../../tokens/mapper/summary_card_tokens.dart';
 
 class FuelEfficiencySummary extends StatelessWidget {
@@ -85,7 +86,9 @@ class FuelEfficiencySummary extends StatelessWidget {
                     height: 8,
                     decoration: BoxDecoration(
                       color: markerColor,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(
+                        RadiusTokens.decoration,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),

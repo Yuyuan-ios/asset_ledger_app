@@ -5,10 +5,9 @@ import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
-import '../layout/summary_card_surface.dart';
+import '../layout/record_card_surface.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
-import '../../tokens/mapper/summary_card_tokens.dart';
 import 'account_project_card_vm.dart';
 
 const Color _settledCardBg = SheetColors.background;
@@ -20,7 +19,7 @@ const Color _externalWorkBadgeText = Color(0xFF3F8F5F);
 const Color _externalWorkValueText = Color(0xFF2F6F49);
 const double _externalWorkAvatarTopInset = 4;
 const double _externalWorkCardTopPadding =
-    _externalWorkAvatarTopInset - SummaryCardTokens.cardBorderWidth;
+    _externalWorkAvatarTopInset - AccountTokens.projectCardBorderWidth;
 const double _externalWorkCardBottomPadding = 6;
 const double _externalWorkCardMetricTopGap = 12;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
@@ -299,16 +298,14 @@ class AccountProjectList extends StatelessWidget {
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;
-              return SummaryCardSurface(
+              return RecordCardSurface(
                 margin: const EdgeInsets.only(
                   bottom: AccountTokens.projectCardBottomMargin,
                 ),
                 constraints: BoxConstraints(
                   minHeight: isCompact ? 0 : AccountTokens.projectCardMinHeight,
                 ),
-                color: isSettled
-                    ? _settledCardBg
-                    : SummaryCardTokens.cardBackground,
+                color: isSettled ? _settledCardBg : SheetColors.background,
                 onTap: () => onTap(p),
                 padding: EdgeInsets.only(
                   left: AccountTokens.projectCardPaddingHorizontal,
@@ -530,7 +527,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       height: 1,
       color: _externalWorkValueText,
     );
-    return SummaryCardSurface(
+    return RecordCardSurface(
       key: Key('account-external-work-card-${project.importBatchId}'),
       margin: const EdgeInsets.only(
         bottom: AccountTokens.projectCardBottomMargin,

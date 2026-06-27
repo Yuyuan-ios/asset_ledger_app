@@ -8,6 +8,7 @@ import '../../features/timing/view_models/external_work_records_view_model.dart'
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
+import '../layout/record_card_surface.dart';
 
 const double _externalWorkEmptyTitleFontSize = 16;
 const double _externalWorkEmptySubtitleFontSize = 15;
@@ -199,7 +200,6 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
   }
 }
 
-const double _externalWorkGroupRadius = 8;
 const double _externalWorkInnerDividerLeftInset =
     TimingTokens.recordRowPaddingLeft +
     TimingTokens.recordAvatarSize +
@@ -214,18 +214,15 @@ class _ExternalWorkRecordGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(_externalWorkGroupRadius),
-      child: ColoredBox(
-        color: SheetColors.background,
-        child: Column(
-          children: [
-            for (var index = 0; index < rows.length; index += 1) ...[
-              if (index > 0) const _ExternalWorkInnerDivider(),
-              rows[index],
-            ],
+    return RecordCardSurface(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index += 1) ...[
+            if (index > 0) const _ExternalWorkInnerDivider(),
+            rows[index],
           ],
-        ),
+        ],
       ),
     );
   }

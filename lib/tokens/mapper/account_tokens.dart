@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'color_tokens.dart';
+import 'radius_tokens.dart';
 import 'summary_card_tokens.dart';
 
 class AccountTokens {
@@ -95,7 +96,7 @@ class AccountTokens {
 
   // ===== 账户页：项目卡片 =====
   static const double projectCardMinHeight = 104; // 项目卡片最小高度（继续轻微收缩底部留白）
-  static const double projectCardRadius = 6; // 项目卡片圆角
+  static const double projectCardRadius = RadiusTokens.recordCard; // 项目卡片圆角
   static const double projectCardBorderWidth = 0; // 项目卡片描边
   static const double projectCardBottomMargin = 8; // 项目卡片之间的垂直间距
   static const double projectCardPaddingHorizontal = 8; // 项目卡片左右内边距
@@ -125,7 +126,8 @@ class AccountTokens {
   static const double projectCardProgressBottomGap = 8; // 进度条与卡片底边间距
   static const double projectCardProgressHeight = 8; // 进度条高度
   static const double projectCardProgressFillHeight = 6; // 进度条有效高度
-  static const double projectCardProgressRadius = 2; // 进度条圆角
+  static const double projectCardProgressRadius =
+      RadiusTokens.decoration; // 进度条圆角
   static const double projectCardShadowBlur = 0; // 项目卡片阴影模糊
   static const double projectCardShadowOffsetX = 0; // 项目卡片阴影右移
   static const double projectCardShadowOffsetY = 0; // 项目卡片阴影下移
@@ -173,7 +175,8 @@ class AccountTokens {
   static const double projectDetailProgressTextSize = 14; // 进度文字字号
   static const double projectDetailProgressLeftInset = 8; // 进度文案左侧内边距
   static const double projectDetailProgressHeight = 6; // 进度条高度
-  static const double projectDetailProgressRadius = 2; // 进度条圆角
+  static const double projectDetailProgressRadius =
+      RadiusTokens.decoration; // 进度条圆角
   static const double projectDetailDividerTopGap = 12; // 进度条到分割线间距
   static const double projectDetailSectionTitleTopGap = 16; // 顶部分割线到下节标题
   static const double projectDetailSectionTitleSize = 15; // 下节标题字号

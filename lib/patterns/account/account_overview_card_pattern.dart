@@ -10,6 +10,7 @@ import '../layout/phone_page_layout.dart';
 import '../layout/summary_card_surface.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
+import '../../tokens/mapper/radius_tokens.dart';
 import '../../tokens/mapper/spacing_tokens.dart';
 
 const Offset _overviewChartShadowOffset = Offset(3, 4);
@@ -431,7 +432,7 @@ class _OverviewLegendRow extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(
             color: item.color,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(RadiusTokens.decoration),
           ),
         ),
         const SizedBox(width: 6),

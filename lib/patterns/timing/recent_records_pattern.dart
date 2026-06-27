@@ -10,6 +10,7 @@ import '../../components/feedback/app_records_empty_hint.dart';
 import '../../components/layout/pinned_header_delegate.dart';
 import '../../features/account/model/project_title_formatter.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../layout/record_card_surface.dart';
 
 part 'timing_recent_records_slivers.dart';
 

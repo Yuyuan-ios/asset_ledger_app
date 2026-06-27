@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../tokens/mapper/summary_card_tokens.dart';
+import '../../tokens/mapper/color_tokens.dart';
+import '../../tokens/mapper/radius_tokens.dart';
 
-class SummaryCardSurface extends StatelessWidget {
-  const SummaryCardSurface({
+class RecordCardSurface extends StatelessWidget {
+  const RecordCardSurface({
     super.key,
     required this.child,
     this.width = double.infinity,
@@ -11,8 +12,10 @@ class SummaryCardSurface extends StatelessWidget {
     this.margin,
     this.padding,
     this.constraints,
-    this.color = SummaryCardTokens.cardBackground,
+    this.color = SheetColors.background,
     this.border,
+    this.boxShadow,
+    this.clipBehavior,
     this.onTap,
   });
 
@@ -24,7 +27,12 @@ class SummaryCardSurface extends StatelessWidget {
   final BoxConstraints? constraints;
   final Color color;
   final BoxBorder? border;
+  final List<BoxShadow>? boxShadow;
+  final Clip? clipBehavior;
   final VoidCallback? onTap;
+
+  static BorderRadius get borderRadius =>
+      BorderRadius.circular(RadiusTokens.recordCard);
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +45,7 @@ class SummaryCardSurface extends StatelessWidget {
         : Material(
             type: MaterialType.transparency,
             child: InkWell(
-              borderRadius: SummaryCardTokens.cardBorderRadius,
+              borderRadius: borderRadius,
               onTap: onTap,
               child: paddedChild,
             ),
@@ -48,10 +56,14 @@ class SummaryCardSurface extends StatelessWidget {
       height: height,
       margin: margin,
       constraints: constraints,
-      clipBehavior: onTap == null ? Clip.none : Clip.antiAlias,
-      decoration: SummaryCardTokens.cardDecoration(
+      clipBehavior:
+          clipBehavior ?? (onTap == null ? Clip.none : Clip.antiAlias),
+      decoration: BoxDecoration(
         color: color,
-      ).copyWith(border: border ?? SummaryCardTokens.cardBorder),
+        border: border,
+        borderRadius: borderRadius,
+        boxShadow: boxShadow,
+      ),
       child: content,
     );
   }

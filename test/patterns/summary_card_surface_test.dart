@@ -34,6 +34,27 @@ void main() {
     await tester.tap(find.text('content'));
     expect(taps, 1);
   });
+
+  testWidgets('allows a surface-specific border', (tester) async {
+    final border = Border.all(color: Colors.red, width: 0.5);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SummaryCardSurface(
+            border: border,
+            child: const Text('content'),
+          ),
+        ),
+      ),
+    );
+
+    final surface = tester.widget<Container>(_summarySurfaceContainer());
+    final decoration = surface.decoration as BoxDecoration;
+
+    expect(decoration.border, border);
+    expect(decoration.borderRadius, SummaryCardTokens.cardBorderRadius);
+  });
 }
 
 Finder _summarySurfaceContainer() {

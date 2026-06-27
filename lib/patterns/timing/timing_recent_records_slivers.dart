@@ -124,7 +124,6 @@ String _recordDeviceSubtitle(Device? device, String deviceIndexText) {
   return '$brand$separator$deviceIndexText';
 }
 
-const double _recordGroupRadius = 8;
 const double _recordInnerDividerLeftInset =
     TimingTokens.recordRowPaddingLeft +
     TimingTokens.recordAvatarSize +
@@ -138,18 +137,15 @@ class _RecordGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(_recordGroupRadius),
-      child: ColoredBox(
-        color: SheetColors.background,
-        child: Column(
-          children: [
-            for (var index = 0; index < rows.length; index += 1) ...[
-              if (index > 0) const _RecordInnerDivider(),
-              rows[index],
-            ],
+    return RecordCardSurface(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index += 1) ...[
+            if (index > 0) const _RecordInnerDivider(),
+            rows[index],
           ],
-        ),
+        ],
       ),
     );
   }

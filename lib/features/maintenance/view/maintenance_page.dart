@@ -267,7 +267,9 @@ class _MaintenancePageState extends State<MaintenancePage> {
                     height: 8,
                     decoration: BoxDecoration(
                       color: markerColor,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(
+                        RadiusTokens.decoration,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),

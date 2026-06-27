@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/foundation/typography.dart';
+import '../../../../../tokens/mapper/radius_tokens.dart';
 
 const _settlementPillBackground = Color(0xFFE4F6EF);
 const _settlementPillBorder = Color(0xFF77C8A5);
@@ -31,14 +32,14 @@ class ProjectAccountSettlementPill extends StatelessWidget {
 
     return InkWell(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(RadiusTokens.pill),
       child: Container(
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(RadiusTokens.pill),
           border: Border.all(color: borderColor),
         ),
         child: Text(

@@ -6,6 +6,7 @@ import '../../data/models/device.dart';
 import '../../features/device/model/device_type_catalog.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/device_tokens.dart';
+import '../layout/summary_card_surface.dart';
 
 /// 返回设备的"序号 label"（如 `1#`）。计算由 feature/device 层完成
 /// （封装 DeviceLabel.indexOnly），让本 pattern 不再直接依赖 data/services。
@@ -51,15 +52,12 @@ class DeviceManagementGrid extends StatelessWidget {
         final crossSpacing =
             DeviceManagementGridTokens.crossSpacing + (extraWidth * 0.06);
 
-        return Container(
+        return SummaryCardSurface(
           key: const ValueKey<String>('device-management-grid-card'),
           height: gridHeight,
-          decoration: BoxDecoration(
-            color: DeviceTokens.managementGridBackgroundColor,
-            border: Border.all(color: DeviceTokens.managementGridBorderColor),
-            borderRadius: BorderRadius.circular(
-              DeviceManagementGridTokens.borderRadius,
-            ),
+          color: DeviceTokens.managementGridBackgroundColor,
+          border: Border.all(
+            color: DeviceTokens.managementGridBorderColor,
           ),
           child: GridView.builder(
             physics: const NeverScrollableScrollPhysics(),

@@ -77,13 +77,13 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       padding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
       ),
-      child: Container(
-        width: double.infinity,
+      child: RecordCardSurface(
         padding: const EdgeInsets.symmetric(
           horizontal: AccountTokens.projectCardPaddingHorizontal,
           vertical: AccountTokens.projectCardPaddingTop,
         ),
-        decoration: _cardDecoration(),
+        border: _projectRecordCardBorder(),
+        boxShadow: _projectRecordCardShadows(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -339,12 +339,12 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
     return InkWell(
       onTap: onAddPayment,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(RadiusTokens.pill),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _addPaymentPillBackground,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(RadiusTokens.pill),
           border: Border.all(color: _addPaymentPillBorder),
         ),
         child: Text(
@@ -399,12 +399,12 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
     return InkWell(
       onTap: onBatchEditRate,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(RadiusTokens.pill),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: _projectActionPillBackground,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(RadiusTokens.pill),
           border: Border.all(color: _projectActionPillBorder),
         ),
         child: Text(
@@ -473,13 +473,13 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
       padding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
       ),
-      child: Container(
-        width: double.infinity,
+      child: RecordCardSurface(
         padding: const EdgeInsets.symmetric(
           horizontal: AccountTokens.projectCardPaddingHorizontal,
           vertical: AccountTokens.projectCardPaddingTop,
         ),
-        decoration: _progressCardDecoration(),
+        border: _projectRecordCardBorder(),
+        boxShadow: _projectRecordCardShadows(),
         child: Column(
           children: [
             SizedBox(
@@ -656,50 +656,26 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     );
   }
 
-  BoxDecoration _cardDecoration() {
-    return BoxDecoration(
-      color: SheetColors.background,
-      border: Border.all(
-        color: AccountTokens.projectCardBorderColor,
-        width: AccountTokens.projectCardBorderWidth,
-      ),
-      borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(
-            alpha: AccountTokens.projectCardShadowOpacity,
-          ),
-          blurRadius: AccountTokens.projectCardShadowBlur,
-          offset: const Offset(
-            AccountTokens.projectCardShadowOffsetX,
-            AccountTokens.projectCardShadowOffsetY,
-          ),
-        ),
-      ],
+  BoxBorder _projectRecordCardBorder() {
+    return Border.all(
+      color: AccountTokens.projectCardBorderColor,
+      width: AccountTokens.projectCardBorderWidth,
     );
   }
 
-  BoxDecoration _progressCardDecoration() {
-    return BoxDecoration(
-      color: SheetColors.background,
-      border: Border.all(
-        color: AccountTokens.projectCardBorderColor,
-        width: AccountTokens.projectCardBorderWidth,
-      ),
-      borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(
-            alpha: AccountTokens.projectCardShadowOpacity,
-          ),
-          blurRadius: AccountTokens.projectCardShadowBlur,
-          offset: const Offset(
-            AccountTokens.projectCardShadowOffsetX,
-            AccountTokens.projectCardShadowOffsetY,
-          ),
+  List<BoxShadow> _projectRecordCardShadows() {
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(
+          alpha: AccountTokens.projectCardShadowOpacity,
         ),
-      ],
-    );
+        blurRadius: AccountTokens.projectCardShadowBlur,
+        offset: const Offset(
+          AccountTokens.projectCardShadowOffsetX,
+          AccountTokens.projectCardShadowOffsetY,
+        ),
+      ),
+    ];
   }
 
   String _fallbackSiteLabel() {

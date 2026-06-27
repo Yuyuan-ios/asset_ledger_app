@@ -6,9 +6,11 @@ import '../../core/money/amount_policy.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../layout/record_card_surface.dart';
 import '../layout/sheet_text_field_pattern.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
+import '../../tokens/mapper/radius_tokens.dart';
 
 const _addPayablePillBackground = AccountTokens.projectCardProgressFill;
 const _addPayablePillBorder = AppColors.textPrimary;
@@ -380,14 +382,14 @@ class _AddPayablePillButton extends StatelessWidget {
 
     return InkWell(
       onTap: null,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(RadiusTokens.pill),
       child: Opacity(
         opacity: 0.46,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: _addPayablePillBackground,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(RadiusTokens.pill),
             border: Border.all(color: _addPayablePillBorder),
           ),
           child: Text(
@@ -414,39 +416,32 @@ class _Card extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
         horizontal: AccountTokens.projectDetailSectionHorizontalPadding,
       ),
-      child: Container(
-        width: double.infinity,
+      child: RecordCardSurface(
         padding: const EdgeInsets.symmetric(
           horizontal: AccountTokens.projectCardPaddingHorizontal,
           vertical: AccountTokens.projectCardPaddingTop,
         ),
-        decoration: const BoxDecoration(
-          color: SheetColors.background,
-          borderRadius: BorderRadius.all(
-            Radius.circular(AccountTokens.projectCardRadius),
+        border: const Border.fromBorderSide(
+          BorderSide(
+            color: AccountTokens.projectCardBorderColor,
+            width: AccountTokens.projectCardBorderWidth,
           ),
-          border: Border.fromBorderSide(
-            BorderSide(
-              color: AccountTokens.projectCardBorderColor,
-              width: AccountTokens.projectCardBorderWidth,
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color.fromRGBO(
-                0,
-                0,
-                0,
-                AccountTokens.projectCardShadowOpacity,
-              ),
-              blurRadius: AccountTokens.projectCardShadowBlur,
-              offset: Offset(
-                AccountTokens.projectCardShadowOffsetX,
-                AccountTokens.projectCardShadowOffsetY,
-              ),
-            ),
-          ],
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(
+              0,
+              0,
+              0,
+              AccountTokens.projectCardShadowOpacity,
+            ),
+            blurRadius: AccountTokens.projectCardShadowBlur,
+            offset: Offset(
+              AccountTokens.projectCardShadowOffsetX,
+              AccountTokens.projectCardShadowOffsetY,
+            ),
+          ),
+        ],
         child: child,
       ),
     );

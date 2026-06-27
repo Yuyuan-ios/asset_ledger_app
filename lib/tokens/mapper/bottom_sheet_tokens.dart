@@ -1,3 +1,5 @@
+import 'radius_tokens.dart';
+
 class BottomSheetTokens {
   // ===== 通用底部弹窗：开合动画 =====
   static const Duration animationDuration = Duration(milliseconds: 500);
@@ -7,7 +9,7 @@ class BottomSheetTokens {
   static const double heightFactor = 0.92;
   static const double minHeightFactor = 0.2;
   static const double maxHeightFactor = 0.98;
-  static const double radius = 16;
+  static const double radius = RadiusTokens.sheet;
 
   // ===== 通用弹窗壳：内容区与把手间距 =====
   static const double outerHPadding = 8;
