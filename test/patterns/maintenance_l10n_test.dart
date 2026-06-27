@@ -1,9 +1,12 @@
 import 'package:asset_ledger/components/feedback/app_confirm_dialog.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/data/models/maintenance_record.dart';
 import 'package:asset_ledger/features/maintenance/view/maintenance_records_section.dart';
+import 'package:asset_ledger/features/maintenance/view/maintenance_page_view_data.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/maintenance/maintenance_detail_content_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/radius_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,6 +69,46 @@ void main() {
     expect(find.text('Recent records (0)'), findsOneWidget);
     expect(find.text('No records'), findsOneWidget);
     expect(find.text('Tap + at the top right to create'), findsOneWidget);
+  });
+
+  testWidgets('maintenance records list uses record card radius', (
+    tester,
+  ) async {
+    final record = MaintenanceRecord(
+      id: 1,
+      deviceId: 1,
+      ymd: 20260627,
+      item: '保养',
+      amount: 880,
+    );
+
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: MaintenanceRecordsContent(
+          rows: [
+            MaintenanceRecordRowVM(
+              record: record,
+              title: 'HITACHI 1#',
+              subtitle: '保养',
+              dateText: '2026.06.27',
+              amountText: '¥880',
+            ),
+          ],
+          onEdit: (_) {},
+          onConfirmDelete: (_) async => false,
+          onDelete: (_) {},
+        ),
+      ),
+    );
+
+    final card = tester.widget<Container>(_recordCardContainers().first);
+    final decoration = card.decoration as BoxDecoration;
+
+    expect(
+      decoration.borderRadius,
+      BorderRadius.circular(RadiusTokens.recordCard),
+    );
   });
 
   testWidgets('renders maintenance delete dialog strings in English', (
@@ -168,4 +211,13 @@ String _collectUiCopy(WidgetTester tester) {
     }
   }
   return parts.where((part) => part.isNotEmpty).join('\n');
+}
+
+Finder _recordCardContainers() {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    return decoration is BoxDecoration &&
+        decoration.borderRadius ==
+            BorderRadius.circular(RadiusTokens.recordCard);
+  });
 }

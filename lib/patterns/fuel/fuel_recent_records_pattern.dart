@@ -10,6 +10,7 @@ import '../../core/utils/display_text_formatter.dart';
 import '../../core/utils/format_utils.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
+import '../layout/record_card_surface.dart';
 import '../timing/records_title_pattern.dart';
 
 typedef DeleteFuelRecordCallback = Future<bool> Function(FuelLog log);
@@ -136,32 +137,35 @@ class FuelRecordsListContent extends StatelessWidget {
       flat.addAll(entry.value);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < flat.length; i++) ...[
-          if (i == 0 || flat[i].date != flat[i - 1].date)
-            const Divider(
-              height: TimingTokens.recordDividerThickness,
-              thickness: TimingTokens.recordDividerThickness,
-              color: TimingColors.divider,
+    return RecordCardSurface(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < flat.length; i++) ...[
+            if (i == 0 || flat[i].date != flat[i - 1].date)
+              const Divider(
+                height: TimingTokens.recordDividerThickness,
+                thickness: TimingTokens.recordDividerThickness,
+                color: TimingColors.divider,
+              ),
+            _FuelRecordRow(
+              log: flat[i],
+              leadingBuilder: leadingBuilder,
+              titleBuilder: (l) => DisplayTextFormatter.joinParts([
+                titleBuilder(l),
+                FormatUtils.date(l.date),
+              ]),
+              subtitleBuilder: subtitleBuilder,
+              onTap: () => onTap(flat[i]),
+              onConfirmDelete: onConfirmDelete == null
+                  ? null
+                  : () => onConfirmDelete!(flat[i]),
+              onDelete: onDelete == null ? null : () => onDelete!(flat[i]),
             ),
-          _FuelRecordRow(
-            log: flat[i],
-            leadingBuilder: leadingBuilder,
-            titleBuilder: (l) => DisplayTextFormatter.joinParts([
-              titleBuilder(l),
-              FormatUtils.date(l.date),
-            ]),
-            subtitleBuilder: subtitleBuilder,
-            onTap: () => onTap(flat[i]),
-            onConfirmDelete: onConfirmDelete == null
-                ? null
-                : () => onConfirmDelete!(flat[i]),
-            onDelete: onDelete == null ? null : () => onDelete!(flat[i]),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

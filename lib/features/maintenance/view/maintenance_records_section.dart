@@ -8,6 +8,7 @@ import '../domain/entities/maintenance_entities.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
 import '../../../tokens/mapper/timing_tokens.dart';
+import '../../../patterns/layout/record_card_surface.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import 'maintenance_page_view_data.dart';
 
@@ -102,99 +103,114 @@ class MaintenanceRecordsContent extends StatelessWidget {
             ),
           )
         else
-          for (var index = 0; index < rows.length; index++) ...[
-            const Divider(
-              height: TimingTokens.recordDividerThickness,
-              thickness: TimingTokens.recordDividerThickness,
-              color: TimingColors.divider,
-            ),
-            Builder(
-              builder: (context) {
-                final row = rows[index];
-                final record = row.record;
+          RecordCardSurface(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var index = 0; index < rows.length; index++) ...[
+                  const Divider(
+                    height: TimingTokens.recordDividerThickness,
+                    thickness: TimingTokens.recordDividerThickness,
+                    color: TimingColors.divider,
+                  ),
+                  Builder(
+                    builder: (context) {
+                      final row = rows[index];
+                      final record = row.record;
 
-                final content = Material(
-                  color: SheetColors.background,
-                  child: InkWell(
-                    onTap: () => onEdit(record),
-                    child: SizedBox(
-                      height: TimingTokens.recordRowHeight,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          TimingTokens.recordRowPaddingLeft,
-                          0,
-                          TimingTokens.recordRowPaddingRight,
-                          0,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      final content = Material(
+                        color: SheetColors.background,
+                        child: InkWell(
+                          onTap: () => onEdit(record),
+                          child: SizedBox(
+                            height: TimingTokens.recordRowHeight,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                TimingTokens.recordRowPaddingLeft,
+                                0,
+                                TimingTokens.recordRowPaddingRight,
+                                0,
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    row.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: rowTitleStyle,
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          row.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: rowTitleStyle,
+                                        ),
+                                        const SizedBox(
+                                          height:
+                                              TimingTokens.recordSubTitleTopGap,
+                                        ),
+                                        Text(
+                                          row.subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: rowSubtitleStyle,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(
-                                    height: TimingTokens.recordSubTitleTopGap,
+                                    width: TimingTokens.recordValueLeftGap,
                                   ),
-                                  Text(
-                                    row.subtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: rowSubtitleStyle,
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(row.dateText, style: rowValueStyle),
+                                      const SizedBox(
+                                        height:
+                                            TimingTokens.recordValueBottomGap,
+                                      ),
+                                      Text(
+                                        row.amountText,
+                                        style: rowAmountStyle,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(
-                              width: TimingTokens.recordValueLeftGap,
-                            ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(row.dateText, style: rowValueStyle),
-                                const SizedBox(
-                                  height: TimingTokens.recordValueBottomGap,
-                                ),
-                                Text(row.amountText, style: rowAmountStyle),
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                );
+                      );
 
-                return Dismissible(
-                  key: ValueKey(
-                    'maintenance-${record.id ?? '${record.ymd}-${record.deviceId}-${record.item}-${record.effectiveAmountFen}'}',
+                      return Dismissible(
+                        key: ValueKey(
+                          'maintenance-${record.id ?? '${record.ymd}-${record.deviceId}-${record.item}-${record.effectiveAmountFen}'}',
+                        ),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          color: Colors.red.shade500,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.lg,
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                          ),
+                        ),
+                        confirmDismiss: (_) => onConfirmDelete(record),
+                        onDismissed: (_) => onDelete(record),
+                        child: content,
+                      );
+                    },
                   ),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Colors.red.shade500,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpace.lg,
-                    ),
-                    child: const Icon(
-                      Icons.delete_outline,
-                      color: Colors.white,
-                    ),
-                  ),
-                  confirmDismiss: (_) => onConfirmDelete(record),
-                  onDismissed: (_) => onDelete(record),
-                  child: content,
-                );
-              },
+                ],
+              ],
             ),
-          ],
+          ),
       ],
     );
   }
