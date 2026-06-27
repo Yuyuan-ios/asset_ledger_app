@@ -229,7 +229,7 @@ class _AgreementCheckPainter extends CustomPainter {
     final radius = math.min(size.width, size.height) / 2;
     final center = Offset(size.width / 2, size.height / 2);
     if (accepted) {
-      paint.color = const Color(0xFFC85D20);
+      paint.color = AppColors.brand;
       canvas.drawCircle(center, radius, paint);
       final checkPaint = Paint()
         ..color = Colors.white
@@ -246,7 +246,7 @@ class _AgreementCheckPainter extends CustomPainter {
       paint.color = Colors.white.withValues(alpha: 0.45);
       canvas.drawCircle(center, radius, paint);
       final borderPaint = Paint()
-        ..color = const Color(0xFFC85D20).withValues(alpha: 0.55)
+        ..color = AppColors.brand.withValues(alpha: 0.55)
         ..strokeWidth = 2 * (size.width / 38)
         ..style = PaintingStyle.stroke;
       canvas.drawCircle(

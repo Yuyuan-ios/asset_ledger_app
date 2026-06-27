@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../../core/foundation/radius.dart';
 import '../../core/foundation/spacing.dart';
+import '../../tokens/mapper/color_tokens.dart';
 
 Future<bool> requireEntitledFeature(
   BuildContext context, {
@@ -117,9 +118,9 @@ class ProGate extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(AppSpace.md),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.orange.shade300),
+          border: Border.all(color: AppColors.brand),
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          color: Colors.orange.shade50,
+          color: AppColors.brand.withValues(alpha: 0.10),
         ),
         child: fallback,
       ),

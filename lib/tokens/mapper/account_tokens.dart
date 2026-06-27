@@ -69,10 +69,10 @@ class AccountTokens {
   static const double overviewPieLabelRadiusRatio = 0.6; // 百分比文字半径比例
   static const double overviewPieLabelMinRatio = 0.15; // 小于该比例不显示文字
 
-  // ===== 账户页：设备用色（冷色系色板，避免误用红/绿）=====
+  // ===== 账户页：设备用色（冷色 + 品牌橙，避免误用红/绿）=====
   static const Color overviewDeviceColorSky = Color(0xFF6FA7D8); // 柔和钢蓝
   static const Color overviewDeviceColorIndigo = Color(0xFF6F7FB8); // 灰调靛蓝
-  static const Color overviewDeviceColorAmber = Color(0xFFC9A45A); // 柔和琥珀
+  static const Color overviewDeviceColorAmber = AppColors.brand; // 品牌橙
   static const Color overviewDeviceColorViolet = Color(0xFF9A84B7); // 灰调紫
   static const Color overviewDeviceColorSlate = Color(0xFF8B949E); // 石板灰
   static const List<Color> overviewChartPalette = <Color>[
@@ -118,9 +118,9 @@ class AccountTokens {
   static const Color projectCardMultiRateBadgeBackground = Color(0xFFF1EDFF);
   static const Color projectCardMultiRateBadgeBorder = Color(0xFFDED5FF);
   static const Color projectCardMultiRateBadgeText = Color(0xFF5E4AA8);
-  static const Color projectCardRentBadgeBackground = Color(0xFFFFF2DF);
-  static const Color projectCardRentBadgeBorder = Color(0xFFF0D8AF);
-  static const Color projectCardRentBadgeText = Color(0xFF7A5418);
+  static const Color projectCardRentBadgeBackground = AppColors.brand;
+  static const Color projectCardRentBadgeBorder = AppColors.brand;
+  static const Color projectCardRentBadgeText = SheetColors.actionOn;
   static const double projectCardStatusFontSize = 14; // 实收/剩余字号
   static const double projectCardProgressTopGap = 0; // 文字区与进度条间距
   static const double projectCardProgressBottomGap = 8; // 进度条与卡片底边间距
@@ -156,7 +156,7 @@ class AccountTokens {
   static const FontWeight projectDetailProjectNameWeight =
       FontWeight.w400; // 项目名字重
   static const double projectDetailActionSize = 14; // 操作按钮字号
-  static const Color projectDetailActionColor = Color(0xFFE68E22); // Figma 橙色
+  static const Color projectDetailActionColor = AppColors.brand; // 品牌橙
   static const double projectDetailActionRightInset = 14; // 操作列右侧对齐边界
   static const double projectDetailBatchActionWidth = 72; // “批量修改”操作区宽度
   static const double projectDetailRowHeight = 40; // 单价行高度

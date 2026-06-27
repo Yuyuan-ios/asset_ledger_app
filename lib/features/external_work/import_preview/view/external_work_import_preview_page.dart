@@ -7,6 +7,7 @@ import '../../../../core/foundation/spacing.dart';
 import '../../../../core/foundation/typography.dart';
 import '../../../../data/share/jztshare/project_external_work_import_preview.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../tokens/mapper/core_tokens.dart';
 import '../use_cases/confirm_external_work_import_use_case.dart';
 import '../use_cases/prepare_external_work_import_preview_use_case.dart';
 import '../view_model/external_work_import_preview_copy.dart';
@@ -338,7 +339,7 @@ class _StatusChip extends StatelessWidget {
     final color = switch (status) {
       ExternalWorkDuplicateStatus.none => Colors.green,
       ExternalWorkDuplicateStatus.sameOriginFingerprintAlreadyImported =>
-        Colors.orange,
+        AppColors.brand,
       ExternalWorkDuplicateStatus.sameShareAlreadyImported ||
       ExternalWorkDuplicateStatus.sameSourceRecordAlreadyImported => Colors.red,
     };

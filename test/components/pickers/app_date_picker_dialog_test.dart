@@ -72,12 +72,12 @@ void main() {
     expect(weekdayDecoration.color, isNull);
 
     final monthTitle = tester.widget<Text>(find.text('2026年6月'));
-    expect(monthTitle.style?.color, const Color(0xFFB9854D));
+    expect(monthTitle.style?.color, AppColors.brand);
 
     final sundayLabel = tester.widget<Text>(
       find.byKey(const ValueKey('jzt-date-picker-weekday-日')),
     );
-    expect(sundayLabel.style?.color, const Color(0xFFB9854D));
+    expect(sundayLabel.style?.color, AppColors.brand);
 
     final accentLineFinder = find
         .byKey(const ValueKey('jzt-date-picker-month-accent-line'))
@@ -87,7 +87,7 @@ void main() {
       find.byKey(const ValueKey('jzt-date-picker-month-divider-line')).first,
     );
     expect(tester.getSize(accentLineFinder).width, greaterThanOrEqualTo(96));
-    expect(accentLine.color, const Color(0xFFB9854D));
+    expect(accentLine.color, AppColors.brand);
     expect(dividerLine.color, const Color(0xFFE3DCCF));
   });
 

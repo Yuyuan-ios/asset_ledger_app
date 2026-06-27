@@ -25,9 +25,9 @@ part '../../features/account/presentation/widgets/project_account_detail/project
 const _addPaymentPillBackground = AccountTokens.projectCardProgressFill;
 const _addPaymentPillBorder = AppColors.textPrimary;
 const _addPaymentPillText = SheetColors.actionOn;
-const _projectActionPillBackground = Color(0xFFF5F2EE);
-const _projectActionPillBorder = Color(0xFFD8C8B8);
-const _projectActionPillText = Color(0xFF7A5A3A);
+const _projectActionPillBackground = AppColors.brand;
+const _projectActionPillBorder = AppColors.brand;
+const _projectActionPillText = SheetColors.actionOn;
 const _moneyEpsilon = 0.000001;
 
 class ProjectAccountDetailRateRow {

@@ -308,7 +308,8 @@ void main() {
       );
       expect(find.text('批量修改'), findsNothing);
       expect(find.text('解除合并'), findsOneWidget);
-      expect(_containerWithColor(const Color(0xFFF5F2EE)), findsOneWidget);
+      expect(_containerWithColor(AppColors.brand), findsOneWidget);
+      expect(_coloredBoxWithColor(SheetColors.fieldBorder), findsNWidgets(2));
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(find.byIcon(Icons.delete_outline), findsOneWidget);
 
@@ -1328,6 +1329,12 @@ Finder _containerWithColor(Color color) {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration && decoration.color == color;
+  });
+}
+
+Finder _coloredBoxWithColor(Color color) {
+  return find.byWidgetPredicate((widget) {
+    return widget is ColoredBox && widget.color == color;
   });
 }
 

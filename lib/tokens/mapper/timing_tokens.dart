@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'color_tokens.dart';
+import 'sheet_tokens.dart';
 import 'summary_card_tokens.dart';
 
 /// Timing 弹窗专用 token（仅放业务特有，不放通用 sheet/field）
@@ -103,11 +104,12 @@ class TimingTokens {
   static const int addressFieldFlex = 201; // 双列里“使用地址/工地”所占 flex
 
   // ===== 计时弹窗：工时/租金分段选择器 =====
-  static const double segmentHeight = 42; // 工时/租金分段控件总高度
+  static const double segmentHeight = SheetTokens.fieldHeight; // 工时/租金分段控件总高度
   static const double segmentInset = 2; // 分段控件外壳内边距
-  static const double segmentItemHeight = 38; // 单个分段项高度
-  static const double segmentRadius = 6; // 分段控件圆角
-  static const double segmentTextSize = 16; // 分段项文本字号
+  static const double segmentItemHeight =
+      segmentHeight - segmentInset * 2; // 单个分段项高度
+  static const double segmentRadius = 4; // 分段控件圆角
+  static const double segmentTextSize = SheetTokens.fieldTextSize; // 分段项文本字号
   static const double segmentCheckSize = 14; // 选中态勾号字号
   static const double segmentCheckRightGap = 6; // 选中态勾号与文字间距
 
@@ -145,7 +147,7 @@ class TimingTokens {
   static const double meterSelectedTextSize = 20; // 当前选中数字字号
   static const double meterUnselectedTextSize = 18; // 未选中数字字号
   static const double meterContainerHeight = 55; // 码表父容器高度（开始/结束共用）
-  static const double meterContainerRadius = 8; // 码表整体输入框圆角
+  static const double meterContainerRadius = 12; // 码表整体输入框圆角
   static const double meterContainerHPadding = 8; // 码表整体输入框水平内边距
   static const double meterContainerVPadding = 8; // 码表整体输入框垂直内边距
   static const double meterGap = 10; // 数字位之间标准间距

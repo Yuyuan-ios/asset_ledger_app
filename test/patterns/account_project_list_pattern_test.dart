@@ -747,12 +747,12 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('台班(租金)')).style?.color,
-      const Color(0xFF7A5418),
+      SheetColors.actionOn,
     );
 
     expect(_badgeWithColor(const Color(0xFFEAF2FA)), findsOneWidget);
     expect(_badgeWithColor(const Color(0xFFF1EDFF)), findsOneWidget);
-    expect(_badgeWithColor(const Color(0xFFFFF2DF)), findsOneWidget);
+    expect(_badgeWithColor(AppColors.brand), findsOneWidget);
   });
 
   testWidgets('compact project list hides the full price and total-hours row', (

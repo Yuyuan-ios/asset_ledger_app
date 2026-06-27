@@ -361,7 +361,7 @@ class DeviceTokens {
 
   // Upgrade page
   static const Color upgradeHeaderBg = Color(0xFFEDEAFF);
-  static const Color upgradePageBg = Color(0xFFFF7F2A);
+  static const Color upgradePageBg = AppColors.brand;
   static const Color upgradeSurface = Color(0xFFFFFFFF);
   static const Color upgradeAccent = Color(0xFF5B3FDE);
   static const Color upgradeHeaderTitleColor = Color(0xFF000000);

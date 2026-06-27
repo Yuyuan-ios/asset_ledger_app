@@ -4,6 +4,7 @@ import '../../components/buttons/app_primary_button.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../../tokens/mapper/core_tokens.dart';
 
 /// 防溢出的地址摘要：去重 + 取前 [maxShown] 个用 “、” 连接，超出再加 “...”。
 /// 风格对齐项目标题地址展示（如 “鲜滩、尚义...”）。
@@ -282,7 +283,7 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
         const SizedBox(height: AppSpace.sm),
         Text(
           l10n.timingExternalWorkSettledHint,
-          style: AppTypography.caption(context, color: Colors.orange.shade800),
+          style: AppTypography.caption(context, color: AppColors.brand),
         ),
       ],
     ];

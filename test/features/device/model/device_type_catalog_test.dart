@@ -2,6 +2,7 @@ import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/features/device/model/brand_catalog.dart';
 import 'package:asset_ledger/features/device/model/device_create_flow.dart';
 import 'package:asset_ledger/features/device/model/device_type_catalog.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -187,7 +188,10 @@ void main() {
             svg,
             width: 24,
             height: 24,
-            colorFilter: const ColorFilter.mode(Colors.orange, BlendMode.srcIn),
+            colorFilter: const ColorFilter.mode(
+              AppColors.brand,
+              BlendMode.srcIn,
+            ),
           ),
         ),
       );

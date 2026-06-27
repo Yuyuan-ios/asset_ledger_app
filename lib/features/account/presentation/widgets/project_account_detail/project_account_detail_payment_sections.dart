@@ -112,7 +112,7 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
             if (showEditButton)
               _buildPaymentAction(
                 icon: Icons.edit_outlined,
-                backgroundColor: const Color(0xFFFFF7F0),
+                backgroundColor: SheetColors.fieldBorder,
                 onPressed: rawPayment != null
                     ? () => onEditPayment(rawPayment)
                     : () => onEditPaymentDisplayItem?.call(item),
@@ -120,7 +120,7 @@ extension ProjectAccountDetailPaymentSections on ProjectAccountDetailContent {
             if (showDeleteButton)
               _buildPaymentAction(
                 icon: Icons.delete_outline,
-                backgroundColor: const Color(0xFFFFF0E6),
+                backgroundColor: SheetColors.fieldBorder,
                 onPressed: rawPayment != null
                     ? () => onDeletePayment(rawPayment)
                     : () => onDeletePaymentDisplayItem?.call(item),

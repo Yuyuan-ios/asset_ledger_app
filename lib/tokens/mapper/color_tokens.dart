@@ -11,10 +11,10 @@ class AppColors {
   static const Color cardBorder = Color(0xFFB48A55); // 卡片边框色
 
   static const Color textPrimary = Color(0xFF2B2B2B); // 主文字色
-  static const Color brandOutlineAction = Color(0xFFEE8736); // 品牌辅助描边按钮文字
+  static const Color brandOutlineAction = brand; // 品牌辅助描边按钮文字
   static const Color brandOutlineActionBorder = textPrimary; // 品牌辅助描边按钮边框
-  static const Color brandOutlineActionBackground = Color(
-    0xFFFFF7F0,
+  static final Color brandOutlineActionBackground = brand.withValues(
+    alpha: 0.08,
   ); // 品牌辅助描边按钮浅橙背景
   static const Color brandOutlineActionPressed = Color(
     0xFFFCE8D6,
@@ -35,7 +35,7 @@ class TimingColors {
       AppColors.brandOutlineAction; // 外协详情关联按钮文字
   static const Color externalWorkLinkActionBorder =
       AppColors.brandOutlineActionBorder; // 外协详情关联按钮边框
-  static const Color externalWorkLinkActionBackground =
+  static final Color externalWorkLinkActionBackground =
       AppColors.brandOutlineActionBackground; // 外协详情关联按钮浅橙背景
   static const Color externalWorkLinkActionPressed =
       AppColors.brandOutlineActionPressed; // 按下态
@@ -53,7 +53,7 @@ class SheetColors {
   static const Color textPrimary = Color(0xFF1C1C1E); // 弹窗主文字
   static const Color textDim = Color(0xFF888888); // 弹窗弱文字
   static const Color segmentBackground = segmentBorder; // 分段背景
-  static const Color segmentSelected = Color(0xFFE68E22); // 分段选中
+  static const Color segmentSelected = AppColors.brand; // 分段选中
   static const Color segmentBorder = fieldBorder; // 分段边框
   static const Color meterBackground = Color(0xCC000000); // 码表背景
   static const Color meterText = Color(0xFFFFFFFF); // 码表数字/符号文字

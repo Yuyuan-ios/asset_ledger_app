@@ -8,6 +8,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../tokens/mapper/color_tokens.dart';
 
 // =====================================================================
 // ============================== 二、BrandAvatar（品牌头像渲染） ==============================
@@ -32,9 +33,9 @@ class BrandAvatar extends StatelessWidget {
   static const Color _sanyTop = Color(0xFFF04B5D);
   static const Color _sanyCenter = Color(0xFFE23D4F);
   static const Color _sanyBottom = Color(0xFFC93043);
-  static const Color _hitachiTop = Color(0xFFF49A31);
-  static const Color _hitachiCenter = Color(0xFFE98222);
-  static const Color _hitachiBottom = Color(0xFFD46C18);
+  static const Color _hitachiTop = AppColors.brand;
+  static const Color _hitachiCenter = AppColors.brand;
+  static const Color _hitachiBottom = AppColors.brand;
   static const Color _fallbackTop = Color(0xFF9A9188);
   static const Color _fallbackCenter = Color(0xFF8A8178);
   static const Color _fallbackBottom = Color(0xFF706860);
@@ -43,7 +44,7 @@ class BrandAvatar extends StatelessWidget {
   static const Color _highlightTop = Color(0x38FFFFFF);
   static const Color _highlightBottom = Color(0x00FFFFFF);
   static const Color _bottomShade = Color(0x14000000);
-  static const Color _shadowColor = Color(0x38643C14);
+  static final Color _shadowColor = AppColors.brand.withValues(alpha: 0.22);
   static const double _softBlurSigma = 0.22;
 
   // -------------------------------------------------------------------
@@ -129,7 +130,7 @@ class BrandAvatar extends StatelessWidget {
         decoration: BoxDecoration(
           color: center,
           shape: BoxShape.circle,
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
               color: _shadowColor,
               blurRadius: 7,
@@ -229,7 +230,7 @@ class BrandAvatar extends StatelessWidget {
       width: diameter,
       height: diameter,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(

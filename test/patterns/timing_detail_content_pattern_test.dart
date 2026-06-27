@@ -9,6 +9,7 @@ import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_detail_content_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/sheet_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -249,7 +250,11 @@ void main() {
     expect(_findBoxBorderColor(SheetColors.fieldBorder), findsWidgets);
     expect(SheetColors.segmentBackground, SheetColors.segmentBorder);
     expect(_findBoxColor(SheetColors.meterBackground), findsNWidgets(2));
-    expect(TimingTokens.segmentRadius, 6);
+    expect(TimingTokens.segmentHeight, SheetTokens.fieldHeight);
+    expect(TimingTokens.segmentItemHeight, 44);
+    expect(TimingTokens.segmentRadius, 4);
+    expect(TimingTokens.segmentTextSize, SheetTokens.fieldTextSize);
+    expect(TimingTokens.meterContainerRadius, 12);
   });
 
   testWidgets(

@@ -12,12 +12,16 @@ import '../../tokens/mapper/timing_tokens.dart';
 // 默认日期窗口：相对“今年”的滚动 3 年窗（去年 1 月 1 日 ～ 明年 12 月 31 日）。
 // 改为相对当前年后，跨年不再失效，并可回填/编辑去年的旧记录。窗口共 36 个自然月。
 final DateTime jztDatePickerFirstDate = DateTime(DateTime.now().year - 1, 1, 1);
-final DateTime jztDatePickerLastDate = DateTime(DateTime.now().year + 1, 12, 31);
+final DateTime jztDatePickerLastDate = DateTime(
+  DateTime.now().year + 1,
+  12,
+  31,
+);
 
 const _monthCount = 36;
 const _weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
 const _datePickerWarmDivider = Color(0xFFE3DCCF);
-const _datePickerWarmAccent = Color(0xFFB9854D);
+const _datePickerWarmAccent = AppColors.brand;
 const _datePickerRangeFill = Color(0xFFEDEBE8);
 const _calendarGridHorizontalPadding = AppSpace.lg + AppSpace.md;
 const _monthSectionGap = 0.0;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 // 代替按键的 textStyle 直接 TextStyle 构造。
 import '../../../../core/foundation/typography.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../tokens/mapper/core_tokens.dart';
 
 const _keyHeight = 62.0;
 const _keyRadius = 20.0;
@@ -12,8 +13,8 @@ const _digitBackground = Color(0xFF242424);
 const _digitText = Color(0xFFF2F2F2);
 const _neutralBackground = Color(0xFF2D2D2D);
 const _neutralText = Color(0xFFD0C8BE);
-const _operatorText = Color(0xFFF58220);
-const _equalBackground = Color(0xFFF58220);
+const _operatorText = AppColors.brand;
+const _equalBackground = AppColors.brand;
 
 enum _KeyTone { digit, neutral, operator }
 
