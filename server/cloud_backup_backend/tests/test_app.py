@@ -566,6 +566,30 @@ class EntitlementVerifierTestCase(unittest.TestCase):
                     "subscription_verification_unavailable",
                 )
 
+    def test_http_verifier_treats_auth_and_not_found_as_requires_max(self):
+        cases = [401, 403, 404]
+
+        for status_code in cases:
+            with self.subTest(status_code=status_code):
+                verifier = HttpCloudBackupEntitlementVerifier(
+                    "https://api.example.test/entitlement",
+                    bearer_token="server-token",
+                )
+                with mock.patch(
+                    "entitlements.urllib.request.urlopen",
+                    side_effect=urllib.error.HTTPError(
+                        "https://api.example.test/entitlement",
+                        status_code,
+                        "denied",
+                        {},
+                        None,
+                    ),
+                ):
+                    with self.assertRaises(HttpError) as error:
+                        verifier.require_max("user-a")
+                self.assertEqual(error.exception.status, 403)
+                self.assertEqual(error.exception.code, "cloud_backup_requires_max")
+
     def test_http_verifier_malformed_json_fails_closed_as_unavailable(self):
         verifier = HttpCloudBackupEntitlementVerifier(
             "https://api.example.test/entitlement",

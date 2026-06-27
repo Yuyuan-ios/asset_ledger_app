@@ -98,7 +98,37 @@ void main() {
         client.lastPostBody?['serverVerificationData'],
         'server-${SubscriptionService.proYearlyProductId}',
       );
+      expect(client.lastPostHeaders, isNull);
     });
+
+    test(
+      'verify-purchase sends Authorization when login token is available',
+      () async {
+        final client = FakeVerificationHttpClient(
+          postResponse: const SubscriptionHttpResponse(
+            statusCode: 200,
+            body:
+                '{"outcome":"verifiedActiveMax","entitlementTier":"max","productId":"com.yuyuan.assetledger.max.yearly"}',
+          ),
+        );
+        final repository = HttpAppleSubscriptionVerificationRepository(
+          config: configured,
+          httpClient: client,
+          identityStore: MemoryIdentityStore(
+            '00000000-0000-4000-8000-000000000457',
+          ),
+          accessTokenProvider: () async => 'login-token-1',
+        );
+
+        await repository.verifyPurchase(
+          purchaseDetails(productId: SubscriptionService.maxYearlyProductId),
+        );
+
+        expect(client.lastPostHeaders, {
+          'authorization': 'Bearer login-token-1',
+        });
+      },
+    );
 
     test(
       'verify-purchase uses signed transaction appAccountToken and persists server token',
@@ -222,7 +252,34 @@ void main() {
         client.lastGetUri?.queryParameters['appAccountToken'],
         '00000000-0000-4000-8000-000000000789',
       );
+      expect(client.lastGetHeaders, isNull);
     });
+
+    test(
+      'current-entitlement sends Authorization when login token is available',
+      () async {
+        final client = FakeVerificationHttpClient(
+          getResponse: const SubscriptionHttpResponse(
+            statusCode: 200,
+            body: '{"outcome":"noActiveEntitlement","entitlementTier":"none"}',
+          ),
+        );
+        final repository = HttpAppleSubscriptionVerificationRepository(
+          config: configured,
+          httpClient: client,
+          identityStore: MemoryIdentityStore(
+            '00000000-0000-4000-8000-000000000790',
+          ),
+          accessTokenProvider: () async => 'login-token-2',
+        );
+
+        await repository.fetchCurrentEntitlement();
+
+        expect(client.lastGetHeaders, {
+          'authorization': 'Bearer login-token-2',
+        });
+      },
+    );
 
     test('unknown outcome safely fails', () async {
       final client = FakeVerificationHttpClient(
@@ -419,6 +476,8 @@ class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {
   Uri? lastPostUri;
   Uri? lastGetUri;
   Map<String, Object?>? lastPostBody;
+  Map<String, String>? lastPostHeaders;
+  Map<String, String>? lastGetHeaders;
   var postCallCount = 0;
   var getCallCount = 0;
 
@@ -426,11 +485,13 @@ class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {
   Future<SubscriptionHttpResponse> postJson(
     Uri uri,
     Map<String, Object?> body, {
+    Map<String, String>? headers,
     required Duration timeout,
   }) async {
     postCallCount++;
     lastPostUri = uri;
     lastPostBody = body;
+    lastPostHeaders = headers;
     final error = postError;
     if (error != null) throw error;
     return postResponse ??
@@ -440,10 +501,12 @@ class FakeVerificationHttpClient implements SubscriptionVerificationHttpClient {
   @override
   Future<SubscriptionHttpResponse> getJson(
     Uri uri, {
+    Map<String, String>? headers,
     required Duration timeout,
   }) async {
     getCallCount++;
     lastGetUri = uri;
+    lastGetHeaders = headers;
     final error = getError;
     if (error != null) throw error;
     return getResponse ??

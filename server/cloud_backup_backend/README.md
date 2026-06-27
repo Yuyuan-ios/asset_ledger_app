@@ -91,7 +91,7 @@ download. Production must configure a trusted HTTPS entitlement source:
 
 ```bash
 APP_ENV=production
-CLOUD_BACKUP_ENTITLEMENT_URL=https://api.example.com/v1/subscriptions/entitlement
+CLOUD_BACKUP_ENTITLEMENT_URL=https://api.example.com/internal/v1/entitlements/verify
 CLOUD_BACKUP_ENTITLEMENT_TOKEN=replace-with-server-to-server-token
 CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS=5
 CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_SECONDS=60
@@ -101,7 +101,7 @@ The verifier posts the authenticated `user_id` server-to-server with
 `required_capability:"cloud_backup"` and `required_plan:"max"`, authenticated by
 `Authorization: Bearer <CLOUD_BACKUP_ENTITLEMENT_TOKEN>`. It accepts only JSON
 that explicitly proves active Max entitlement, for example
-`{"entitlementTier":"max","active":true}` or an equivalent nested
+`{"allowed":true,"entitlementTier":"max","entitlementActive":true}` or an equivalent nested
 entitlement/subscription object. Free, Pro, expired, unknown, missing fields,
 malformed JSON, non-2xx service errors, timeouts, or exceptions fail closed.
 

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import http.server
+import hmac
 import re
+import sqlite3
 import time
 import urllib.parse
 from typing import Any, Dict, List, Mapping, Optional
 
 from apple_verifier import build_real_apple_verifier_from_config
-from auth import RequestValidator
+from auth import Authenticator, RequestValidator, require_text
 from config import MAX_REQUEST_BYTES, AppConfig
 from http_helpers import (
     HttpError,
@@ -19,7 +21,7 @@ from http_helpers import (
     read_json_body,
     request_id_from_headers,
 )
-from storage import EntitlementStore
+from storage import EntitlementClaimConflict, EntitlementStore
 from verifier import (
     AppleServerApiVerifierPlaceholder,
     AppleVerificationFailed,
@@ -46,11 +48,15 @@ class IapVerificationApp:
         validator: RequestValidator,
         verifier: AppleVerifier,
         max_request_bytes: int = MAX_REQUEST_BYTES,
+        authenticator: Optional[Authenticator] = None,
+        internal_entitlement_token: Optional[str] = None,
     ):
         self.store = store
         self.validator = validator
         self.verifier = verifier
         self.max_request_bytes = max_request_bytes
+        self.authenticator = authenticator
+        self.internal_entitlement_token = internal_entitlement_token
 
     @classmethod
     def from_env(cls) -> "IapVerificationApp":
@@ -61,9 +67,15 @@ class IapVerificationApp:
             validator=RequestValidator(config.allowed_products, config.allowed_bundle_id),
             verifier=verifier,
             max_request_bytes=config.max_request_bytes,
+            authenticator=Authenticator.from_env(),
+            internal_entitlement_token=config.internal_entitlement_token,
         )
 
-    def verify_purchase(self, body: Mapping[str, Any]) -> Dict[str, str]:
+    def verify_purchase(
+        self,
+        body: Mapping[str, Any],
+        authorization_header: Optional[str] = None,
+    ) -> Dict[str, str]:
         started = time.monotonic()
         status = "ok"
         failure_reason: Optional[str] = None
@@ -71,6 +83,7 @@ class IapVerificationApp:
         apple_verification_status: Optional[str] = None
         apple_verification_statuses: Optional[str] = None
         request = self.validator.validate_purchase_body(body)
+        user_id = self._authenticate_optional_bearer(authorization_header)
         result: EntitlementRecord
         try:
             result = self.verifier.verify_purchase(request)
@@ -85,11 +98,19 @@ class IapVerificationApp:
             apple_verification_statuses = exc.apple_verification_statuses
             result = self.store.upsert_entitlement(verification_failed_record(request))
         else:
-            result = self.store.upsert_entitlement(result)
+            try:
+                result = self.store.upsert_entitlement(result, user_id=user_id)
+            except EntitlementClaimConflict as exc:
+                raise HttpError(
+                    409,
+                    "subscription_bound_to_other_user",
+                    "subscription is already bound to another account",
+                ) from exc
         finally:
             fields: Dict[str, object] = {
                 "op": "verify_purchase",
                 "has_app_account_token": bool(request.app_account_token),
+                "has_user_binding": user_id is not None,
                 "product_id": request.product_id,
                 "server_verification_data_format": classify_verification_data(
                     request.server_verification_data
@@ -107,6 +128,35 @@ class IapVerificationApp:
                     fields["apple_verification_statuses"] = apple_verification_statuses
             log_iap_event(fields)
         return result.to_response_body()
+
+    def internal_entitlement_verify(
+        self,
+        body: Mapping[str, Any],
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        self._authenticate_internal_entitlement_request(authorization_header)
+        user_id = require_text(body.get("user_id"), "user_id", max_length=256)
+        required_capability = require_text(
+            body.get("required_capability"),
+            "required_capability",
+            max_length=64,
+        )
+        if required_capability != "cloud_backup":
+            raise HttpError(400, "invalid_required_capability", "required_capability must be cloud_backup")
+        required_plan = require_text(body.get("required_plan"), "required_plan", max_length=32)
+        if required_plan != "max":
+            raise HttpError(400, "invalid_required_plan", "required_plan must be max")
+        try:
+            record = self.store.get_latest_max_entitlement_for_user(user_id)
+            if record is None:
+                record = self.store.get_latest_entitlement_for_user(user_id)
+        except sqlite3.Error as exc:
+            raise HttpError(
+                503,
+                "subscription_verification_unavailable",
+                "Subscription verification is currently unavailable.",
+            ) from exc
+        return internal_entitlement_response(record)
 
     def current_entitlement(self, query: Mapping[str, List[str]]) -> Dict[str, str]:
         raw_token = last_query_value(query, "appAccountToken")
@@ -129,6 +179,31 @@ class IapVerificationApp:
             refreshed = self.store.upsert_entitlement(refreshed)
         return refreshed.to_response_body()
 
+    def _authenticate_optional_bearer(self, authorization_header: Optional[str]) -> Optional[str]:
+        if authorization_header is None or not authorization_header.strip():
+            return None
+        authenticator = self.authenticator
+        if authenticator is None:
+            raise HttpError(401, "unauthorized", "token is not accepted")
+        return authenticator.authenticate(authorization_header)
+
+    def _authenticate_internal_entitlement_request(
+        self,
+        authorization_header: Optional[str],
+    ) -> None:
+        expected = self.internal_entitlement_token
+        if not expected:
+            raise HttpError(
+                503,
+                "internal_entitlement_unconfigured",
+                "internal entitlement verification is not configured",
+            )
+        if not authorization_header or not authorization_header.startswith("Bearer "):
+            raise HttpError(401, "unauthorized", "Bearer token is required")
+        token = authorization_header[len("Bearer ") :].strip()
+        if not hmac.compare_digest(token, expected):
+            raise HttpError(401, "unauthorized", "token is not accepted")
+
 
 def last_query_value(query: Mapping[str, List[str]], key: str) -> Optional[str]:
     values = query.get(key)
@@ -144,6 +219,62 @@ def classify_verification_data(value: str) -> str:
     if stripped.count(".") == 2:
         return "jws"
     return "non_jws"
+
+
+def internal_entitlement_response(record: Optional[EntitlementRecord]) -> Dict[str, object]:
+    if record is None:
+        return {
+            "allowed": False,
+            "entitlementTier": "none",
+            "entitlementActive": False,
+            "status": "none",
+            "reason": "requires_max",
+        }
+
+    tier = record.entitlement_tier
+    if tier == "none":
+        tier = tier_from_product_id(record.product_id) or "none"
+    status = internal_status_for_outcome(record.outcome)
+    max_is_active = (
+        record.entitlement_tier == "max"
+        and record.outcome in {"verifiedActiveMax", "verifiedGracePeriodMax"}
+    )
+    if max_is_active:
+        return {
+            "allowed": True,
+            "entitlementTier": "max",
+            "entitlementActive": True,
+            "status": "active",
+        }
+    return {
+        "allowed": False,
+        "entitlementTier": tier,
+        "entitlementActive": False,
+        "status": status,
+        "reason": "requires_max",
+    }
+
+
+def tier_from_product_id(product_id: Optional[str]) -> Optional[str]:
+    if product_id is None:
+        return None
+    if product_id.endswith(".max.yearly"):
+        return "max"
+    if product_id.endswith(".pro.yearly"):
+        return "pro"
+    return None
+
+
+def internal_status_for_outcome(outcome: str) -> str:
+    if outcome in {"verifiedActivePro", "verifiedActiveMax"}:
+        return "active"
+    if outcome in {"verifiedGracePeriodPro", "verifiedGracePeriodMax"}:
+        return "grace"
+    if outcome == "billingRetry":
+        return "billing_retry"
+    if outcome == "noActiveEntitlement":
+        return "none"
+    return outcome
 
 
 def build_verifier_from_config(config: AppConfig) -> AppleVerifier:
@@ -188,11 +319,26 @@ class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
                 return
             if method == "POST" and path == "/iap/apple/verify-purchase":
                 body = read_json_body(self, self.app.max_request_bytes)
-                json_response(self, 200, self.app.verify_purchase(body))
+                json_response(
+                    self,
+                    200,
+                    self.app.verify_purchase(body, self.headers.get("Authorization")),
+                )
                 return
             if method == "GET" and path == "/iap/apple/current-entitlement":
                 query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
                 json_response(self, 200, self.app.current_entitlement(query))
+                return
+            if method == "POST" and path == "/internal/v1/entitlements/verify":
+                body = read_json_body(self, self.app.max_request_bytes)
+                json_response(
+                    self,
+                    200,
+                    self.app.internal_entitlement_verify(
+                        body,
+                        self.headers.get("Authorization"),
+                    ),
+                )
                 return
             raise HttpError(404, "not_found", "endpoint not found")
         except HttpError as exc:

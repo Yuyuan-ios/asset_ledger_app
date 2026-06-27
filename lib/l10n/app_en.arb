@@ -520,7 +520,7 @@
   "deviceCloudBackupMaxSubtitle": "Max feature. Upload current data and restore it when needed",
   "deviceCloudBackupMaxTitle": "Max required",
   "deviceCloudBackupMaxMessage": "Cloud backup and restore are Max features. Upgrade to Max to upload current data and restore it when needed.",
-  "deviceCloudBackupRequiresMax": "Cloud backup and restore are Max features. Upgrade to Max to use them.",
+  "deviceCloudBackupRequiresMax": "Cloud backup and restore require Max. If already purchased, log in and restore purchases, then try again.",
   "deviceCloudBackupNotConfigured": "Cloud backup service is not configured yet",
   "deviceManualBackupTitle": "Export current data",
   "deviceManualBackupSubtitle": "Export this device's data for saving or migration",

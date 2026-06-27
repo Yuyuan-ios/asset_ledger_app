@@ -1864,7 +1864,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceCloudBackupRequiresMax =>
-      'Cloud backup and restore are Max features. Upgrade to Max to use them.';
+      'Cloud backup and restore require Max. If already purchased, log in and restore purchases, then try again.';
 
   @override
   String get deviceCloudBackupNotConfigured =>

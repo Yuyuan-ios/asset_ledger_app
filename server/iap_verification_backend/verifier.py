@@ -69,6 +69,7 @@ class EntitlementRecord:
     expires_at: Optional[str] = None
     revoked_at: Optional[str] = None
     updated_at: Optional[str] = None
+    user_id: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.outcome not in VALID_OUTCOMES:
@@ -108,6 +109,7 @@ class EntitlementRecord:
             expires_at=row["expires_at"],
             revoked_at=row["revoked_at"],
             updated_at=row["updated_at"],
+            user_id=row["user_id"] if "user_id" in row.keys() else None,
         )
 
 

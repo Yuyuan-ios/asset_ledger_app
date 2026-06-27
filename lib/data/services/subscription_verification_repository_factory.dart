@@ -1,6 +1,7 @@
 import '../../core/config/subscription_config.dart';
 import 'http_apple_subscription_verification_repository.dart';
 import 'local_test_subscription_verification_repository.dart';
+import 'subscription_login_token_provider.dart';
 import 'subscription_verification_repository.dart';
 
 /// Enables local entitlement verification for TestFlight / sandbox IAP smoke tests.
@@ -23,5 +24,9 @@ createDefaultSubscriptionVerificationRepository({
     return const PendingServerSubscriptionVerificationRepository();
   }
 
-  return HttpAppleSubscriptionVerificationRepository(config: config);
+  return HttpAppleSubscriptionVerificationRepository(
+    config: config,
+    accessTokenProvider: () =>
+        const SharedPreferencesSubscriptionLoginTokenProvider().call(),
+  );
 }

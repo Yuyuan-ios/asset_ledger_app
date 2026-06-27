@@ -3189,7 +3189,7 @@ abstract class AppLocalizations {
   /// 设备模块:云端备份命中 Max 门禁时的失败文案(controller 返回 cloud_backup_requires_max,view 映射)
   ///
   /// In zh, this message translates to:
-  /// **'云端备份与恢复是 Max 功能。请升级 Max 后再使用。'**
+  /// **'云端备份与恢复需要 Max。若已购买，请登录并恢复购买后再试。'**
   String get deviceCloudBackupRequiresMax;
 
   /// 设备模块:云端备份服务未配置时的兜底文案(controller 返回 cloud_backup_not_configured 且无 server 文案,view 映射)

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Generates stable app account tokens for App Store subscription verification.
@@ -20,16 +21,60 @@ abstract class SubscriptionIdentityStore {
   Future<void> clear();
 }
 
-/// SharedPreferences-backed identity store for App Store subscription requests.
+abstract class SubscriptionSecureTokenStore {
+  Future<String?> read();
+
+  Future<void> write(String token);
+
+  Future<void> delete();
+}
+
+class MethodChannelSubscriptionSecureTokenStore
+    implements SubscriptionSecureTokenStore {
+  const MethodChannelSubscriptionSecureTokenStore({
+    MethodChannel channel = const MethodChannel(
+      'com.yuyuan.assetledger/subscription_identity',
+    ),
+  }) : _channel = channel;
+
+  final MethodChannel _channel;
+
+  @override
+  Future<String?> read() async {
+    final token = await _channel.invokeMethod<String>('getAppAccountToken');
+    if (token == null || token.trim().isEmpty) return null;
+    return token.trim();
+  }
+
+  @override
+  Future<void> write(String token) async {
+    await _channel.invokeMethod<void>('setAppAccountToken', token);
+  }
+
+  @override
+  Future<void> delete() async {
+    await _channel.invokeMethod<void>('deleteAppAccountToken');
+  }
+}
+
+/// Persistent identity store for App Store subscription requests.
+///
+/// iOS stores the token in Keychain through a platform channel. Older
+/// SharedPreferences values are migrated once and kept only as a fallback when
+/// the secure channel is unavailable.
 class SharedPreferencesSubscriptionIdentityStore
     implements SubscriptionIdentityStore {
   SharedPreferencesSubscriptionIdentityStore({
     AppAccountTokenGenerator tokenGenerator = generateAppAccountToken,
-  }) : _tokenGenerator = tokenGenerator;
+    SubscriptionSecureTokenStore secureTokenStore =
+        const MethodChannelSubscriptionSecureTokenStore(),
+  }) : _tokenGenerator = tokenGenerator,
+       _secureTokenStore = secureTokenStore;
 
-  static const _appAccountTokenKey = 'subscription.appAccountToken';
+  static const appAccountTokenKey = 'subscription.appAccountToken';
 
   final AppAccountTokenGenerator _tokenGenerator;
+  final SubscriptionSecureTokenStore _secureTokenStore;
 
   /// Generates a UUID v4 token accepted by StoreKit as `appAccountToken`.
   static String generateAppAccountToken() {
@@ -54,16 +99,27 @@ class SharedPreferencesSubscriptionIdentityStore
 
     final token = _tokenGenerator();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_appAccountTokenKey, token);
+    if (await _tryWriteSecureToken(token)) {
+      await prefs.remove(appAccountTokenKey);
+    } else {
+      await prefs.setString(appAccountTokenKey, token);
+    }
     return token;
   }
 
   @override
   Future<String?> readAppAccountToken() async {
+    final secureToken = await _tryReadSecureToken();
+    if (secureToken != null) return secureToken;
+
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_appAccountTokenKey);
+    final token = prefs.getString(appAccountTokenKey);
     if (token == null || token.trim().isEmpty) return null;
-    return token;
+    final normalized = token.trim();
+    if (await _tryWriteSecureToken(normalized)) {
+      await prefs.remove(appAccountTokenKey);
+    }
+    return normalized;
   }
 
   @override
@@ -71,12 +127,48 @@ class SharedPreferencesSubscriptionIdentityStore
     final normalized = token.trim();
     if (normalized.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_appAccountTokenKey, normalized);
+    if (await _tryWriteSecureToken(normalized)) {
+      await prefs.remove(appAccountTokenKey);
+    } else {
+      await prefs.setString(appAccountTokenKey, normalized);
+    }
   }
 
   @override
   Future<void> clear() async {
+    await _tryDeleteSecureToken();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_appAccountTokenKey);
+    await prefs.remove(appAccountTokenKey);
+  }
+
+  Future<String?> _tryReadSecureToken() async {
+    try {
+      return await _secureTokenStore.read();
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  Future<bool> _tryWriteSecureToken(String token) async {
+    try {
+      await _secureTokenStore.write(token);
+      return true;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<void> _tryDeleteSecureToken() async {
+    try {
+      await _secureTokenStore.delete();
+    } on MissingPluginException {
+      return;
+    } on PlatformException {
+      return;
+    }
   }
 }

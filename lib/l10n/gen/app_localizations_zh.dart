@@ -1725,7 +1725,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '云端备份与恢复是 Max 功能。升级 Max 后可上传当前数据，并可在需要时从云端恢复。';
 
   @override
-  String get deviceCloudBackupRequiresMax => '云端备份与恢复是 Max 功能。请升级 Max 后再使用。';
+  String get deviceCloudBackupRequiresMax => '云端备份与恢复需要 Max。若已购买，请登录并恢复购买后再试。';
 
   @override
   String get deviceCloudBackupNotConfigured => '云端备份服务暂未配置';

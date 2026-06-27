@@ -27,7 +27,16 @@ from apple_verifier import (
     build_real_apple_verifier_from_config,
     map_apple_subscription_state,
 )
-from auth import REQUIRED_PURCHASE_FIELDS, RequestValidator, optional_text, require_text, validate_app_account_token
+from auth import (
+    REQUIRED_PURCHASE_FIELDS,
+    Authenticator,
+    HttpTokenIntrospector,
+    RequestValidator,
+    base64url_encode,
+    optional_text,
+    require_text,
+    validate_app_account_token,
+)
 from config import (
     DEFAULT_ALLOWED_BUNDLE_ID,
     DEFAULT_ALLOWED_PRODUCTS,
@@ -98,6 +107,7 @@ __all__ = [
     "AppleVerifier",
     "AppConfig",
     "AppStoreServerAppleVerifier",
+    "Authenticator",
     "DEFAULT_ALLOWED_BUNDLE_ID",
     "DEFAULT_ALLOWED_PRODUCTS",
     "DEFAULT_APPLE_REQUEST_TIMEOUT_SECONDS",
@@ -110,6 +120,7 @@ __all__ = [
     "ENVIRONMENT_PRODUCTION",
     "ENVIRONMENT_SANDBOX",
     "HttpError",
+    "HttpTokenIntrospector",
     "IapVerificationApp",
     "IapVerificationHttpServer",
     "IapVerificationRequestHandler",
@@ -127,6 +138,7 @@ __all__ = [
     "SignedApplePayloadVerifier",
     "VALID_ENTITLEMENT_TIERS",
     "VALID_OUTCOMES",
+    "base64url_encode",
     "build_real_apple_verifier_from_config",
     "build_server_from_env",
     "build_verifier_from_config",

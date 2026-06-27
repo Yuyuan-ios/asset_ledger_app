@@ -14,16 +14,19 @@ class HttpAppleSubscriptionVerificationRepository
     SubscriptionConfig config = SubscriptionConfig.fromEnvironment,
     SubscriptionVerificationHttpClient? httpClient,
     SubscriptionIdentityStore? identityStore,
+    Future<String?> Function()? accessTokenProvider,
     String? bundleId,
   }) : _config = config,
        _httpClient = httpClient ?? DartIoSubscriptionVerificationHttpClient(),
        _identityStore =
            identityStore ?? SharedPreferencesSubscriptionIdentityStore(),
+       _accessTokenProvider = accessTokenProvider,
        _bundleId = bundleId;
 
   final SubscriptionConfig _config;
   final SubscriptionVerificationHttpClient _httpClient;
   final SubscriptionIdentityStore _identityStore;
+  final Future<String?> Function()? _accessTokenProvider;
   final String? _bundleId;
 
   @override
@@ -52,6 +55,7 @@ class HttpAppleSubscriptionVerificationRepository
       final response = await _httpClient.postJson(
         uri,
         request.toJson(),
+        headers: await _authHeaders(),
         timeout: _config.requestTimeout,
       );
       final entitlement = _entitlementFromResponse(
@@ -80,6 +84,7 @@ class HttpAppleSubscriptionVerificationRepository
           .readOrCreateAppAccountToken();
       final response = await _httpClient.getJson(
         _uriWithAppAccountToken(uri, appAccountToken),
+        headers: await _authHeaders(),
         timeout: _config.requestTimeout,
       );
       final entitlement = _entitlementFromResponse(response, null);
@@ -171,6 +176,14 @@ class HttpAppleSubscriptionVerificationRepository
     return RegExp(
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
     ).hasMatch(value.trim());
+  }
+
+  Future<Map<String, String>?> _authHeaders() async {
+    final provider = _accessTokenProvider;
+    if (provider == null) return null;
+    final token = (await provider())?.trim();
+    if (token == null || token.isEmpty) return null;
+    return {HttpHeaders.authorizationHeader: 'Bearer $token'};
   }
 }
 
@@ -351,11 +364,13 @@ abstract class SubscriptionVerificationHttpClient {
   Future<SubscriptionHttpResponse> postJson(
     Uri uri,
     Map<String, Object?> body, {
+    Map<String, String>? headers,
     required Duration timeout,
   });
 
   Future<SubscriptionHttpResponse> getJson(
     Uri uri, {
+    Map<String, String>? headers,
     required Duration timeout,
   });
 }
@@ -376,18 +391,31 @@ class DartIoSubscriptionVerificationHttpClient
   Future<SubscriptionHttpResponse> postJson(
     Uri uri,
     Map<String, Object?> body, {
+    Map<String, String>? headers,
     required Duration timeout,
   }) async {
     final encoded = jsonEncode(body);
-    return _sendJson(method: 'POST', uri: uri, timeout: timeout, body: encoded);
+    return _sendJson(
+      method: 'POST',
+      uri: uri,
+      timeout: timeout,
+      body: encoded,
+      headers: headers,
+    );
   }
 
   @override
   Future<SubscriptionHttpResponse> getJson(
     Uri uri, {
+    Map<String, String>? headers,
     required Duration timeout,
   }) async {
-    return _sendJson(method: 'GET', uri: uri, timeout: timeout);
+    return _sendJson(
+      method: 'GET',
+      uri: uri,
+      timeout: timeout,
+      headers: headers,
+    );
   }
 
   Future<SubscriptionHttpResponse> _sendJson({
@@ -395,6 +423,7 @@ class DartIoSubscriptionVerificationHttpClient
     required Uri uri,
     required Duration timeout,
     String? body,
+    Map<String, String>? headers,
   }) async {
     final client = HttpClient();
     client.connectionTimeout = timeout;
@@ -402,6 +431,7 @@ class DartIoSubscriptionVerificationHttpClient
       final request = await client.openUrl(method, uri).timeout(timeout);
       request.headers.contentType = ContentType.json;
       request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
+      headers?.forEach(request.headers.set);
       if (body != null) {
         request.write(body);
       }

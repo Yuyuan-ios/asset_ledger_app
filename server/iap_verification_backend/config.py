@@ -107,6 +107,7 @@ class AppConfig:
     allowed_products: Tuple[str, ...]
     max_request_bytes: int
     apple_request_timeout_seconds: int
+    internal_entitlement_token: Optional[str]
     apple_credentials: AppleCredentialConfig
 
     @classmethod
@@ -125,6 +126,9 @@ class AppConfig:
             apple_request_timeout_seconds=env_int(
                 "FLEET_IAP_APPLE_REQUEST_TIMEOUT_SECONDS",
                 DEFAULT_APPLE_REQUEST_TIMEOUT_SECONDS,
+            ),
+            internal_entitlement_token=non_empty_string(
+                os.environ.get("IAP_INTERNAL_ENTITLEMENT_TOKEN")
             ),
             apple_credentials=AppleCredentialConfig.from_env(),
         )
