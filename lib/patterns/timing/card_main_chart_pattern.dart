@@ -3,6 +3,7 @@ import '../../core/foundation/typography.dart';
 import '../../features/timing/model/timing_chart_data.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../layout/phone_page_layout.dart';
+import '../layout/summary_card_surface.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 
@@ -64,154 +65,137 @@ class CardMainChart extends StatelessWidget {
           wideGrowthFactor: 0.35,
         );
 
-        return Container(
+        return SummaryCardSurface(
           height: TimingTokens.chartCardHeight,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: SheetColors.background,
-            borderRadius: BorderRadius.circular(TimingTokens.chartCardRadius),
-            border: Border.all(
-              color: TimingColors.cardBorder,
-              width: TimingTokens.chartCardBorderWidth,
-            ),
+          padding: const EdgeInsets.fromLTRB(
+            TimingTokens.chartPaddingLeft,
+            TimingTokens.chartPaddingTop,
+            TimingTokens.chartPaddingRight,
+            TimingTokens.chartPaddingBottom,
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              TimingTokens.chartPaddingLeft,
-              TimingTokens.chartPaddingTop,
-              TimingTokens.chartPaddingRight,
-              TimingTokens.chartPaddingBottom,
-            ),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxChartContentWidth),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: TimingTokens.chartHeaderHeight,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxChartContentWidth),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: TimingTokens.chartHeaderHeight,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: canGoPrevYear ? onPrevYear : null,
+                          child: Text('<', style: arrowStyle),
+                        ),
+                        Text(
+                          l10n.timingChartYearLabel(data.year),
+                          style: yearStyle,
+                        ),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: canGoNextYear ? onNextYear : null,
+                          child: Text(
+                            '>',
+                            style: AppTypography.body(
+                              context,
+                              fontSize: TimingTokens.chartArrowFontSize,
+                              height: 1,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(
+                    height: TimingTokens.chartDividerThickness,
+                    thickness: TimingTokens.chartDividerThickness,
+                    color: TimingColors.divider,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: TimingTokens.chartPlotTopPadding,
+                      ),
+                      child: Column(
                         children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: canGoPrevYear ? onPrevYear : null,
-                            child: Text('<', style: arrowStyle),
+                          Expanded(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: List.generate(data.monthLabels.length, (
+                                index,
+                              ) {
+                                return Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Container(
+                                            width: TimingTokens.chartBarWidth,
+                                            height: data.incomeBars[index],
+                                            color: TimingColors.chartIncome,
+                                          ),
+                                          const SizedBox(
+                                            width: TimingTokens.chartBarPairGap,
+                                          ),
+                                          Container(
+                                            width: TimingTokens.chartBarWidth,
+                                            height: data.expenseBars[index],
+                                            color: TimingColors.expense,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(
+                                        height: TimingTokens.chartMonthTopGap,
+                                      ),
+                                      Text(
+                                        data.monthLabels[index],
+                                        style: monthStyle,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ),
                           ),
-                          Text(
-                            l10n.timingChartYearLabel(data.year),
-                            style: yearStyle,
+                          const SizedBox(
+                            height: TimingTokens.chartLegendTopGap,
                           ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: canGoNextYear ? onNextYear : null,
-                            child: Text(
-                              '>',
-                              style: AppTypography.body(
-                                context,
-                                fontSize: TimingTokens.chartArrowFontSize,
-                                height: 1,
-                                color: AppColors.textPrimary,
-                              ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _Legend(
+                                  label: l10n.timingChartIncomeLegend,
+                                  swatchColor: TimingColors.chartIncome,
+                                  valueLabel:
+                                      l10n.timingChartNetIncomeValueLabel,
+                                  value: data.netIncomeText,
+                                ),
+                                const SizedBox(
+                                  width: TimingTokens.chartLegendGap,
+                                ),
+                                _Legend(
+                                  label: l10n.timingChartExpenseLabel,
+                                  swatchColor: TimingColors.expense,
+                                  valueLabel: l10n.timingChartExpenseLabel,
+                                  value: data.totalExpenseText,
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(
-                      height: TimingTokens.chartDividerThickness,
-                      thickness: TimingTokens.chartDividerThickness,
-                      color: TimingColors.divider,
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          top: TimingTokens.chartPlotTopPadding,
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: List.generate(
-                                  data.monthLabels.length,
-                                  (index) {
-                                    return Expanded(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.end,
-                                            children: [
-                                              Container(
-                                                width:
-                                                    TimingTokens.chartBarWidth,
-                                                height: data.incomeBars[index],
-                                                color: TimingColors.chartIncome,
-                                              ),
-                                              const SizedBox(
-                                                width: TimingTokens
-                                                    .chartBarPairGap,
-                                              ),
-                                              Container(
-                                                width:
-                                                    TimingTokens.chartBarWidth,
-                                                height: data.expenseBars[index],
-                                                color: TimingColors.expense,
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(
-                                            height:
-                                                TimingTokens.chartMonthTopGap,
-                                          ),
-                                          Text(
-                                            data.monthLabels[index],
-                                            style: monthStyle,
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(
-                              height: TimingTokens.chartLegendTopGap,
-                            ),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _Legend(
-                                    label: l10n.timingChartIncomeLegend,
-                                    swatchColor: TimingColors.chartIncome,
-                                    valueLabel:
-                                        l10n.timingChartNetIncomeValueLabel,
-                                    value: data.netIncomeText,
-                                  ),
-                                  const SizedBox(
-                                    width: TimingTokens.chartLegendGap,
-                                  ),
-                                  _Legend(
-                                    label: l10n.timingChartExpenseLabel,
-                                    swatchColor: TimingColors.expense,
-                                    valueLabel: l10n.timingChartExpenseLabel,
-                                    value: data.totalExpenseText,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

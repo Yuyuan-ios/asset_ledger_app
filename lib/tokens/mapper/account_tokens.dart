@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'color_tokens.dart';
+import 'summary_card_tokens.dart';
 
 class AccountTokens {
   // ===== 账户页：页面容器与整体间距（对齐计时页）=====
@@ -12,12 +13,16 @@ class AccountTokens {
 
   // ===== 账户页：总览卡片 =====
   static const double overviewCardHeight = 300; // 总览卡片高度
-  static const double overviewCardRadius = 12; // 总览卡片圆角
-  static const double overviewCardBorderWidth = 0; // 总览卡片边框宽度
-  static const double overviewCardShadowBlur = 0; // 总览卡片阴影模糊
-  static const double overviewCardShadowOffsetX = 0; // 总览卡片阴影右移
-  static const double overviewCardShadowOffsetY = 0; // 总览卡片阴影下移
-  static const double overviewCardShadowOpacity = 0.3; // 总览卡片阴影透明度
+  static const double overviewCardRadius =
+      SummaryCardTokens.cardRadius; // 总览卡片圆角
+  static const double overviewCardBorderWidth =
+      SummaryCardTokens.cardBorderWidth; // 总览卡片边框宽度
+  static const double overviewCardShadowBlur =
+      SummaryCardTokens.cardShadowBlur; // 总览卡片阴影模糊
+  static const double overviewCardShadowOffsetX =
+      SummaryCardTokens.cardShadowOffsetX; // 总览卡片阴影右移
+  static const double overviewCardShadowOffsetY =
+      SummaryCardTokens.cardShadowOffsetY; // 总览卡片阴影下移
   static const double overviewCardPaddingLeft = 12; // 总览卡片左内边距
   static const double overviewCardPaddingTop = 0; // 总览卡片上内边距
   static const double overviewCardPaddingRight = 12; // 总览卡片右内边距
@@ -26,7 +31,8 @@ class AccountTokens {
   static const FontWeight overviewTitleWeight = FontWeight.w700; // 总览标题字重
   static const double overviewTitleLetterSpacing = 0; // 总览标题字间距
   static const double overviewDividerThickness = 1; // 总览标题分割线厚度
-  static const Color overviewCardBorderColor = Color(0x4D000000); // 30% 黑色描边
+  static const Color overviewCardBorderColor =
+      SummaryCardTokens.cardBorderColor; // 总览卡片边框色
 
   // ===== 账户页：总览卡片中部（圆环图 + 设备列表）=====
   static const double overviewMiddleTopGap = 0; // 标题到中部图表间距

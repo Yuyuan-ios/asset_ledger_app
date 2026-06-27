@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'color_tokens.dart';
+import 'summary_card_tokens.dart';
 
 /// Timing 弹窗专用 token（仅放业务特有，不放通用 sheet/field）
 class TimingTokens {
@@ -30,8 +31,9 @@ class TimingTokens {
 
   // ===== 计时主页：年度图表卡片 =====
   static const double chartCardHeight = 240; // 图表卡片高度
-  static const double chartCardRadius = 12; // 图表卡片圆角
-  static const double chartCardBorderWidth = 1; // 图表卡片边框宽度
+  static const double chartCardRadius = SummaryCardTokens.cardRadius; // 图表卡片圆角
+  static const double chartCardBorderWidth =
+      SummaryCardTokens.cardBorderWidth; // 图表卡片边框宽度
   static const double chartPaddingLeft = 12; // 图表卡片左内边距
   static const double chartPaddingTop = 4; // 图表卡片上内边距
   static const double chartPaddingRight = 12; // 图表卡片右内边距

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../tokens/mapper/core_tokens.dart';
+import '../layout/summary_card_surface.dart';
 import '../../tokens/mapper/summary_card_tokens.dart';
 
 class FuelSummaryCard extends StatelessWidget {
@@ -11,18 +11,9 @@ class FuelSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return SummaryCardSurface(
       height: height,
       padding: const EdgeInsets.all(SummaryCardTokens.cardPadding),
-      decoration: BoxDecoration(
-        color: SheetColors.background,
-        border: Border.all(
-          color: TimingColors.cardBorder,
-          width: SummaryCardTokens.cardBorderWidth,
-        ),
-        borderRadius: BorderRadius.circular(SummaryCardTokens.cardRadius),
-      ),
       child: child,
     );
   }

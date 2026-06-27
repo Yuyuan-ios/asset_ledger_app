@@ -7,6 +7,7 @@ import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../layout/phone_page_layout.dart';
+import '../layout/summary_card_surface.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 import '../../tokens/mapper/spacing_tokens.dart';
@@ -68,36 +69,13 @@ class AccountOverviewCard extends StatelessWidget {
           wideGrowthFactor: 0.45,
         );
 
-        return Container(
-          width: double.infinity,
+        return SummaryCardSurface(
           height: AccountTokens.overviewCardHeight,
           padding: const EdgeInsets.fromLTRB(
             AccountTokens.overviewCardPaddingLeft,
             AccountTokens.overviewCardPaddingTop,
             AccountTokens.overviewCardPaddingRight,
             AccountTokens.overviewCardPaddingBottom,
-          ),
-          decoration: BoxDecoration(
-            color: SheetColors.background,
-            border: Border.all(
-              color: AccountTokens.overviewCardBorderColor,
-              width: AccountTokens.overviewCardBorderWidth,
-            ),
-            borderRadius: BorderRadius.circular(
-              AccountTokens.overviewCardRadius,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: AccountTokens.overviewCardShadowOpacity,
-                ),
-                blurRadius: AccountTokens.overviewCardShadowBlur,
-                offset: const Offset(
-                  AccountTokens.overviewCardShadowOffsetX,
-                  AccountTokens.overviewCardShadowOffsetY,
-                ),
-              ),
-            ],
           ),
           child: Align(
             alignment: Alignment.topCenter,

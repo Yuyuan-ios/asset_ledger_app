@@ -5,22 +5,22 @@ import '../../core/foundation/typography.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../layout/summary_card_surface.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
+import '../../tokens/mapper/summary_card_tokens.dart';
 import 'account_project_card_vm.dart';
 
 const Color _settledCardBg = SheetColors.background;
-const Color _settledCardBorder = AccountTokens.projectCardBorderColor;
 const Color _settledCheckBlue = Color(0xFF4AAFD8);
 const Color _settledTextGreen = Color(0xFF3F8F5D);
 const Color _externalWorkCardBg = SheetColors.background;
-const Color _externalWorkCardBorder = Color(0xFFD9EDE3);
 const Color _externalWorkBadgeBg = Color(0xFFE4F4EA);
 const Color _externalWorkBadgeText = Color(0xFF3F8F5F);
 const Color _externalWorkValueText = Color(0xFF2F6F49);
 const double _externalWorkAvatarTopInset = 4;
 const double _externalWorkCardTopPadding =
-    _externalWorkAvatarTopInset - AccountTokens.projectCardBorderWidth;
+    _externalWorkAvatarTopInset - SummaryCardTokens.cardBorderWidth;
 const double _externalWorkCardBottomPadding = 6;
 const double _externalWorkCardMetricTopGap = 12;
 const Key _externalWorkAvatarKey = Key('account-external-work-avatar');
@@ -299,215 +299,179 @@ class AccountProjectList extends StatelessWidget {
               final resolvedStatusStyle = isSettled
                   ? statusStyle?.copyWith(color: _settledTextGreen)
                   : statusStyle;
-              return Container(
+              return SummaryCardSurface(
                 margin: const EdgeInsets.only(
                   bottom: AccountTokens.projectCardBottomMargin,
                 ),
                 constraints: BoxConstraints(
                   minHeight: isCompact ? 0 : AccountTokens.projectCardMinHeight,
                 ),
-                decoration: BoxDecoration(
-                  color: isSettled ? _settledCardBg : SheetColors.background,
-                  border: Border.all(
-                    color: isSettled
-                        ? _settledCardBorder
-                        : AccountTokens.projectCardBorderColor,
-                    width: AccountTokens.projectCardBorderWidth,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    AccountTokens.projectCardRadius,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: AccountTokens.projectCardShadowOpacity,
-                      ),
-                      blurRadius: AccountTokens.projectCardShadowBlur,
-                      offset: const Offset(
-                        AccountTokens.projectCardShadowOffsetX,
-                        AccountTokens.projectCardShadowOffsetY,
-                      ),
-                    ),
-                  ],
+                color: isSettled
+                    ? _settledCardBg
+                    : SummaryCardTokens.cardBackground,
+                onTap: () => onTap(p),
+                padding: EdgeInsets.only(
+                  left: AccountTokens.projectCardPaddingHorizontal,
+                  right: AccountTokens.projectCardPaddingHorizontal,
+                  top: AccountTokens.projectCardPaddingTop,
+                  bottom: isCompact
+                      ? AccountTokens.projectCardProgressBottomGap
+                      : 0,
                 ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(
-                    AccountTokens.projectCardRadius,
-                  ),
-                  onTap: () => onTap(p),
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: AccountTokens.projectCardPaddingHorizontal,
-                      right: AccountTokens.projectCardPaddingHorizontal,
-                      top: AccountTokens.projectCardPaddingTop,
-                      bottom: isCompact
-                          ? AccountTokens.projectCardProgressBottomGap
-                          : 0,
-                    ),
-                    child: Column(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      vm.titleText,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: titleStyle,
-                                    ),
-                                  ),
-                                  if (vm.hasLinkedExternalWork) ...[
-                                    const SizedBox(width: 6),
-                                    LinkedExternalWorkBadge(
-                                      key:
-                                          _accountProjectLinkedExternalWorkBadgeKey,
-                                      borderColor: isSettled
-                                          ? _settledCardBg
-                                          : SheetColors.background,
-                                    ),
-                                  ],
-                                  if (isSettled) ...[
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      Icons.verified_rounded,
-                                      size: 18,
-                                      color: _settledCheckBlue,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(
-                              width: AccountTokens.projectCardTitleDateGap,
-                            ),
-                            Flexible(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      vm.topRightText,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.right,
-                                      style: dateStyle,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(
-                          height: AccountTokens.projectCardSectionGap,
-                        ),
-                        if (!isCompact) ...[
-                          Row(
+                        Expanded(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Container(
-                                constraints: const BoxConstraints(
-                                  minWidth: AccountTokens.projectCardChipWidth,
-                                  maxWidth: 220,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeStyle.backgroundColor,
-                                  border: Border.all(
-                                    color: badgeStyle.borderColor,
-                                  ),
-                                  borderRadius: BorderRadius.circular(
-                                    AccountTokens.projectCardChipRadius,
-                                  ),
-                                ),
+                              Flexible(
                                 child: Text(
-                                  priceText,
+                                  vm.titleText,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  softWrap: false,
-                                  style: chipStyle?.copyWith(
-                                    color: badgeStyle.textColor,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: titleStyle,
                                 ),
                               ),
-                              if (totalHoursText != null) ...[
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _totalHoursWithExportAction(
-                                    context: context,
-                                    project: p,
-                                    totalHoursText: totalHoursText,
-                                    style: totalHoursStyle,
-                                    showExport: showExport,
-                                  ),
+                              if (vm.hasLinkedExternalWork) ...[
+                                const SizedBox(width: 6),
+                                LinkedExternalWorkBadge(
+                                  key:
+                                      _accountProjectLinkedExternalWorkBadgeKey,
+                                  borderColor: isSettled
+                                      ? _settledCardBg
+                                      : SheetColors.background,
+                                ),
+                              ],
+                              if (isSettled) ...[
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 18,
+                                  color: _settledCheckBlue,
                                 ),
                               ],
                             ],
                           ),
-                          const SizedBox(
-                            height: AccountTokens.projectCardRateToStatusGap,
-                          ),
-                        ],
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _receivedText(vm, resolvedStatusStyle),
-                            ),
-                            const SizedBox(width: 8),
-                            _settlementStatus(context, vm, resolvedStatusStyle),
-                          ],
                         ),
                         const SizedBox(
-                          height: AccountTokens.projectCardProgressTopGap,
+                          width: AccountTokens.projectCardTitleDateGap,
                         ),
-                        SizedBox(
-                          height: AccountTokens.projectCardProgressHeight,
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Stack(
-                              children: [
-                                Container(
-                                  height: AccountTokens
-                                      .projectCardProgressFillHeight,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AccountTokens.projectCardProgressTrack,
-                                    borderRadius: BorderRadius.circular(
-                                      AccountTokens.projectCardProgressRadius,
-                                    ),
-                                  ),
+                        Flexible(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  vm.topRightText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: dateStyle,
                                 ),
-                                FractionallySizedBox(
-                                  widthFactor: displayProgress,
-                                  child: Container(
-                                    height: AccountTokens
-                                        .projectCardProgressFillHeight,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          AccountTokens.projectCardProgressFill,
-                                      borderRadius: BorderRadius.circular(
-                                        AccountTokens.projectCardProgressRadius,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: AccountTokens.projectCardSectionGap),
+                    if (!isCompact) ...[
+                      Row(
+                        children: [
+                          Container(
+                            constraints: const BoxConstraints(
+                              minWidth: AccountTokens.projectCardChipWidth,
+                              maxWidth: 220,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeStyle.backgroundColor,
+                              border: Border.all(color: badgeStyle.borderColor),
+                              borderRadius: BorderRadius.circular(
+                                AccountTokens.projectCardChipRadius,
+                              ),
+                            ),
+                            child: Text(
+                              priceText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: chipStyle?.copyWith(
+                                color: badgeStyle.textColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (totalHoursText != null) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _totalHoursWithExportAction(
+                                context: context,
+                                project: p,
+                                totalHoursText: totalHoursText,
+                                style: totalHoursStyle,
+                                showExport: showExport,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(
+                        height: AccountTokens.projectCardRateToStatusGap,
+                      ),
+                    ],
+                    Row(
+                      children: [
+                        Expanded(child: _receivedText(vm, resolvedStatusStyle)),
+                        const SizedBox(width: 8),
+                        _settlementStatus(context, vm, resolvedStatusStyle),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: AccountTokens.projectCardProgressTopGap,
+                    ),
+                    SizedBox(
+                      height: AccountTokens.projectCardProgressHeight,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Stack(
+                          children: [
+                            Container(
+                              height:
+                                  AccountTokens.projectCardProgressFillHeight,
+                              decoration: BoxDecoration(
+                                color: AccountTokens.projectCardProgressTrack,
+                                borderRadius: BorderRadius.circular(
+                                  AccountTokens.projectCardProgressRadius,
+                                ),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: displayProgress,
+                              child: Container(
+                                height:
+                                    AccountTokens.projectCardProgressFillHeight,
+                                decoration: BoxDecoration(
+                                  color: AccountTokens.projectCardProgressFill,
+                                  borderRadius: BorderRadius.circular(
+                                    AccountTokens.projectCardProgressRadius,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -566,7 +530,7 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       height: 1,
       color: _externalWorkValueText,
     );
-    final Widget card = Container(
+    return SummaryCardSurface(
       key: Key('account-external-work-card-${project.importBatchId}'),
       margin: const EdgeInsets.only(
         bottom: AccountTokens.projectCardBottomMargin,
@@ -574,110 +538,75 @@ class _ExternalWorkProjectCard extends StatelessWidget {
       constraints: BoxConstraints(
         minHeight: isCompact ? 0 : AccountTokens.projectCardMinHeight,
       ),
-      decoration: BoxDecoration(
-        color: _externalWorkCardBg,
-        border: Border.all(
-          color: _externalWorkCardBorder,
-          width: AccountTokens.projectCardBorderWidth,
-        ),
-        borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: AccountTokens.projectCardShadowOpacity,
-            ),
-            blurRadius: AccountTokens.projectCardShadowBlur,
-            offset: const Offset(
-              AccountTokens.projectCardShadowOffsetX,
-              AccountTokens.projectCardShadowOffsetY,
-            ),
-          ),
-        ],
+      color: _externalWorkCardBg,
+      onTap: onTap,
+      padding: EdgeInsets.fromLTRB(
+        AccountTokens.projectCardPaddingHorizontal,
+        _externalWorkCardTopPadding,
+        AccountTokens.projectCardPaddingHorizontal,
+        _externalWorkCardBottomPadding,
       ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          AccountTokens.projectCardPaddingHorizontal,
-          _externalWorkCardTopPadding,
-          AccountTokens.projectCardPaddingHorizontal,
-          _externalWorkCardBottomPadding,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _ExternalWorkAvatar(
-                  isCompact: isCompact,
-                  linked: project.linked,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    project.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  FormatUtils.date(project.minYmd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _ExternalWorkAvatar(isCompact: isCompact, linked: project.linked),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  project.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
-                  style: dateStyle,
+                  style: titleStyle,
                 ),
-              ],
-            ),
-            SizedBox(height: isCompact ? 10 : _externalWorkCardMetricTopGap),
-            Row(
-              children: [
-                Expanded(
-                  child: _ExternalWorkMetric(
-                    label: l10n.accountExternalPayableLabel,
-                    value: FormatUtils.money(project.payable),
-                    valueStyle: metricValueStyle,
-                    labelStyle: metricLabelStyle,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                FormatUtils.date(project.minYmd),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: dateStyle,
+              ),
+            ],
+          ),
+          SizedBox(height: isCompact ? 10 : _externalWorkCardMetricTopGap),
+          Row(
+            children: [
+              Expanded(
+                child: _ExternalWorkMetric(
+                  label: l10n.accountExternalPayableLabel,
+                  value: FormatUtils.money(project.payable),
+                  valueStyle: metricValueStyle,
+                  labelStyle: metricLabelStyle,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _ExternalWorkMetric(
-                    label: l10n.accountExternalReceivableLabel,
-                    value: FormatUtils.money(project.receivable),
-                    valueStyle: metricValueStyle,
-                    labelStyle: metricLabelStyle,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ExternalWorkMetric(
+                  label: l10n.accountExternalReceivableLabel,
+                  value: FormatUtils.money(project.receivable),
+                  valueStyle: metricValueStyle,
+                  labelStyle: metricLabelStyle,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _ExternalWorkMetric(
-                    label: l10n.accountGrossProfitLabel,
-                    value: FormatUtils.money(project.profit),
-                    valueStyle: metricValueStyle,
-                    labelStyle: metricLabelStyle,
-                    alignEnd: true,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ExternalWorkMetric(
+                  label: l10n.accountGrossProfitLabel,
+                  value: FormatUtils.money(project.profit),
+                  valueStyle: metricValueStyle,
+                  labelStyle: metricLabelStyle,
+                  alignEnd: true,
                 ),
-              ],
-            ),
-            const SizedBox(height: AccountTokens.projectCardProgressTopGap),
-            _ExternalWorkPayableProgressBar(
-              paidRatio: project.payablePaidRatio,
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (onTap == null) return card;
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AccountTokens.projectCardRadius),
-        child: card,
+              ),
+            ],
+          ),
+          const SizedBox(height: AccountTokens.projectCardProgressTopGap),
+          _ExternalWorkPayableProgressBar(paidRatio: project.payablePaidRatio),
+        ],
       ),
     );
   }

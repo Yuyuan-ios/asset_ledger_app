@@ -4,6 +4,7 @@ import 'package:asset_ledger/patterns/account/account_project_list_pattern.dart'
 import 'package:asset_ledger/patterns/account/account_project_section_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/account_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/summary_card_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -610,7 +611,8 @@ void main() {
     expect(find.text('实收 ¥1200 / ¥1260'), findsNothing);
     expect(find.text('已结清 · 核销 ¥60'), findsNothing);
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsNWidgets(3));
-    expect(_containerWithBorder(const Color(0x4D000000)), findsNWidgets(3));
+    expect(_summaryCardContainers(), findsNWidgets(3));
+    expect(_containerWithBorder(const Color(0x4D000000)), findsNothing);
     expect(_settledCelebrationIcons(), findsNWidgets(2));
 
     final settledIcons = tester.widgetList<Icon>(_settledCheckIcons()).toList();
@@ -985,7 +987,8 @@ void main() {
     expect(find.text('待计算'), findsNothing);
 
     expect(_containerWithColor(const Color(0xFFFFFFFF)), findsOneWidget);
-    expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsOneWidget);
+    expect(_summaryCardContainers(), findsOneWidget);
+    expect(_containerWithBorder(const Color(0xFFD9EDE3)), findsNothing);
     expect(_containerWithColor(const Color(0xFFE4F4EA)), findsWidgets);
     expect(_containerWithColor(const Color(0xFF459A63)), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFF06161)), findsOneWidget);
@@ -1198,9 +1201,9 @@ void main() {
       ),
     );
 
-    final ownedCardRect = tester.getRect(
-      _containerWithBorder(const Color(0x4D000000)),
-    );
+    final projectCards = _summaryCardContainers();
+    expect(projectCards, findsNWidgets(2));
+    final ownedCardRect = tester.getRect(projectCards.first);
     final externalCardRect = tester.getRect(
       find.byKey(const Key('account-external-work-card-external-batch-height')),
     );
@@ -1358,6 +1361,17 @@ Finder _containerWithBorder(Color color) {
     return decoration is BoxDecoration &&
         decoration.border is Border &&
         (decoration.border as Border).top.color == color;
+  });
+}
+
+Finder _summaryCardContainers() {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    return decoration is BoxDecoration &&
+        decoration.color == SummaryCardTokens.cardBackground &&
+        decoration.border == SummaryCardTokens.cardBorder &&
+        decoration.borderRadius == SummaryCardTokens.cardBorderRadius &&
+        decoration.boxShadow == SummaryCardTokens.cardShadows;
   });
 }
 
