@@ -133,6 +133,10 @@ class AppleAdapter:
             or request.app_account_token,
             signature=request.server_verification_data,
             raw_payload=raw_payload,
+            event_time=_first_text(payload, "eventTime", "event_time")
+            or request.transaction_date,
+            source=_first_text(payload, "authoritySource", "eventSource", "source")
+            or request.source,
         )
 
     def getUserId(self, payload: Mapping[str, Any]) -> str:
@@ -198,6 +202,14 @@ class SignedWebhookAdapter:
                 "expiresAt": verification.expires_at,
                 "revokedAt": verification.revoked_at,
                 "environment": verification.environment,
+                "source": _first_text(
+                    payload,
+                    "authoritySource",
+                    "eventSource",
+                    "source",
+                    "sourceType",
+                    fallback="webhook",
+                ),
             }
         )
         return PurchaseEvent(
@@ -207,6 +219,23 @@ class SignedWebhookAdapter:
             transaction_id=self._transaction_id(payload),
             signature=require_text(payload.get("signature"), "signature", max_length=512),
             raw_payload=raw_payload,
+            event_time=_first_text(
+                payload,
+                "eventTime",
+                "event_time",
+                "serverTime",
+                "server_time",
+                "transactionDate",
+                "transaction_date",
+            ),
+            source=_first_text(
+                payload,
+                "authoritySource",
+                "eventSource",
+                "source",
+                "sourceType",
+                fallback="webhook",
+            ),
         )
 
     def getUserId(self, payload: Mapping[str, Any]) -> str:

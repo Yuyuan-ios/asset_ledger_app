@@ -34,7 +34,11 @@ from payment_channel_adapters import (
     build_default_payment_channel_adapters,
     normalize_channel_name,
 )
+from subscription_audit_log import SubscriptionAuditLog
+from subscription_authority_resolver import SubscriptionAuthorityResolver
+from subscription_event_ordering import SubscriptionEventOrdering
 from subscription_gateway import EntitlementEngine, SubscriptionGatewayService
+from subscription_state_machine import SubscriptionStateMachine
 from verifier import (
     AppleServerApiVerifierPlaceholder,
     AppleVerificationFailed,
@@ -84,6 +88,10 @@ class IapVerificationApp:
                 self.store,
                 self.validator.allowed_products,
             ),
+            authority_resolver=SubscriptionAuthorityResolver(),
+            ordering_layer=SubscriptionEventOrdering(self.store),
+            state_machine=SubscriptionStateMachine(),
+            audit_log=SubscriptionAuditLog(self.store),
         )
 
     @classmethod

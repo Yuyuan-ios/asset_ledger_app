@@ -9,6 +9,18 @@ from auth import require_text
 from config import MAX_YEARLY_PRODUCT_ID, PRO_YEARLY_PRODUCT_ID
 from http_helpers import HttpError
 from storage import EntitlementStore, PurchaseTransactionReplay
+from subscription_audit_log import SubscriptionAuditLog
+from subscription_authority_resolver import SubscriptionAuthorityResolver
+from subscription_event_ordering import SubscriptionEventOrdering
+from subscription_state_machine import (
+    STATE_ACTIVE,
+    STATE_EXPIRED,
+    STATE_GRACE,
+    STATE_NONE,
+    STATE_REVOKED,
+    StateTransitionResult,
+    SubscriptionStateMachine,
+)
 from verifier import EntitlementRecord, OUTCOME_TO_TIER
 
 
@@ -20,6 +32,9 @@ class PurchaseEvent:
     transaction_id: str
     signature: Optional[str]
     raw_payload: Mapping[str, Any]
+    event_time: Optional[str] = None
+    source: Optional[str] = None
+    event_version: Optional[int] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -56,19 +71,23 @@ class PaymentChannelAdapter(Protocol):
 
 
 class EntitlementEngine:
-    """Single entitlement source for all verified purchase events."""
+    """Pure entitlement decision engine for verified purchase events."""
 
     def __init__(self, store: EntitlementStore, allowed_products: tuple[str, ...]):
         self.store = store
         self.allowed_products = tuple(allowed_products)
 
-    def apply(self, event: PurchaseEvent) -> EntitlementRecord:
-        record = self.record_for_event(event)
-        return self.store.upsert_entitlement(record, user_id=event.user_id)
+    def apply(self, event: PurchaseEvent, *, state: Optional[str] = None) -> EntitlementRecord:
+        return self.record_for_event(event, state=state)
 
-    def record_for_event(self, event: PurchaseEvent) -> EntitlementRecord:
+    def record_for_event(
+        self,
+        event: PurchaseEvent,
+        *,
+        state: Optional[str] = None,
+    ) -> EntitlementRecord:
         tier = self._tier_for_product_id(event.product_id)
-        outcome = self._outcome_for_event(event, tier)
+        outcome = self._outcome_for_event(event, tier, state=state)
         raw = event.raw_payload
         return EntitlementRecord(
             outcome=outcome,
@@ -93,7 +112,34 @@ class EntitlementEngine:
             return "max"
         return "none"
 
-    def _outcome_for_event(self, event: PurchaseEvent, tier: str) -> str:
+    def _outcome_for_event(
+        self,
+        event: PurchaseEvent,
+        tier: str,
+        *,
+        state: Optional[str] = None,
+    ) -> str:
+        if state == STATE_ACTIVE:
+            if tier == "max":
+                return "verifiedActiveMax"
+            if tier == "pro":
+                return "verifiedActivePro"
+            return "noActiveEntitlement"
+        if state == STATE_GRACE:
+            if tier == "max":
+                return "verifiedGracePeriodMax"
+            if tier == "pro":
+                return "verifiedGracePeriodPro"
+            return "noActiveEntitlement"
+        if state == STATE_REVOKED:
+            return "revoked"
+        if state == STATE_EXPIRED:
+            if _normalized_status(event.raw_payload) == "billing_retry":
+                return "billingRetry"
+            return "expired"
+        if state == STATE_NONE:
+            return "noActiveEntitlement"
+
         status = _normalized_status(event.raw_payload)
         if status == "active":
             if tier == "max":
@@ -122,10 +168,18 @@ class SubscriptionGatewayService:
         store: EntitlementStore,
         adapters: Mapping[str, PaymentChannelAdapter],
         entitlement_engine: EntitlementEngine,
+        authority_resolver: Optional[SubscriptionAuthorityResolver] = None,
+        ordering_layer: Optional[SubscriptionEventOrdering] = None,
+        state_machine: Optional[SubscriptionStateMachine] = None,
+        audit_log: Optional[SubscriptionAuditLog] = None,
     ):
         self.store = store
         self.adapters = dict(adapters)
         self.entitlement_engine = entitlement_engine
+        self.authority_resolver = authority_resolver or SubscriptionAuthorityResolver()
+        self.ordering_layer = ordering_layer or SubscriptionEventOrdering(store)
+        self.state_machine = state_machine or SubscriptionStateMachine()
+        self.audit_log = audit_log or SubscriptionAuditLog(store)
 
     def receive_purchase_event(
         self,
@@ -144,7 +198,28 @@ class SubscriptionGatewayService:
             verification,
             server_user_id=server_user_id,
         )
-        record_preview = self.entitlement_engine.record_for_event(event)
+        current_state = self.store.get_subscription_state(event.user_id, event.product_id)
+        requested_state = _state_for_event(event)
+        authority = self.authority_resolver.resolve(event, current_state)
+        self.audit_log.record_raw_event(
+            event,
+            authority_score=authority.authority_score,
+        )
+        if requested_state is None:
+            self.audit_log.record_processed_event(
+                event,
+                authority_score=authority.authority_score,
+                previous_state=current_state.state if current_state else STATE_NONE,
+                new_state=current_state.state if current_state else STATE_NONE,
+                reason="undecidable_purchase_status",
+            )
+            record = self.store.get_latest_entitlement_for_user(event.user_id)
+            return self._response("ignored", event, record)
+
+        record_preview = self.entitlement_engine.record_for_event(
+            event,
+            state=requested_state,
+        )
         payload_hash = _payload_hash(payload)
         try:
             is_new = self.store.record_purchase_transaction(
@@ -163,8 +238,69 @@ class SubscriptionGatewayService:
             ) from exc
         if not is_new:
             record = self.store.get_latest_entitlement_for_user(event.user_id)
+            self.audit_log.record_processed_event(
+                event,
+                authority_score=authority.authority_score,
+                previous_state=current_state.state if current_state else STATE_NONE,
+                new_state=current_state.state if current_state else STATE_NONE,
+                reason="duplicate_transaction_ignored",
+            )
             return self._response("ignored", event, record)
-        record = self.forward_to_entitlement_engine(event)
+
+        if not authority.accepted:
+            record = self.store.get_latest_entitlement_for_user(event.user_id)
+            self.audit_log.record_processed_event(
+                event,
+                authority_score=authority.authority_score,
+                previous_state=current_state.state if current_state else STATE_NONE,
+                new_state=current_state.state if current_state else STATE_NONE,
+                reason=authority.reason,
+            )
+            return self._response("ignored", event, record)
+
+        ordering = self.ordering_layer.evaluate(event, current_state)
+        if not ordering.accepted:
+            record = self.store.get_latest_entitlement_for_user(event.user_id)
+            self.audit_log.record_processed_event(
+                dataclasses.replace(
+                    event,
+                    event_time=ordering.event_time,
+                    event_version=ordering.event_version,
+                ),
+                authority_score=authority.authority_score,
+                previous_state=current_state.state if current_state else STATE_NONE,
+                new_state=current_state.state if current_state else STATE_NONE,
+                reason=ordering.reason,
+            )
+            return self._response("ignored", event, record)
+
+        event = dataclasses.replace(
+            event,
+            event_time=ordering.event_time,
+            event_version=ordering.event_version,
+        )
+        previous_state = current_state.state if current_state else STATE_NONE
+        transition = self.state_machine.transition(
+            previous_state,
+            requested_state,
+            event_kind=_event_kind_for_event(event, previous_state),
+        )
+        if transition.safe_no_op:
+            record = self.store.get_latest_entitlement_for_user(event.user_id)
+            self.audit_log.record_processed_event(
+                event,
+                authority_score=authority.authority_score,
+                previous_state=transition.previous_state,
+                new_state=transition.new_state,
+                reason=transition.reason,
+            )
+            return self._response("ignored", event, record)
+
+        record = self.forward_to_entitlement_engine(
+            event,
+            transition=transition,
+            authority_score=authority.authority_score,
+        )
         status = "applied" if record.entitlement_tier != "none" else "rejected"
         return self._response(status, event, record)
 
@@ -185,8 +321,40 @@ class SubscriptionGatewayService:
     ) -> PurchaseEvent:
         return adapter.parse(payload, verification, server_user_id=server_user_id)
 
-    def forward_to_entitlement_engine(self, event: PurchaseEvent) -> EntitlementRecord:
-        return self.entitlement_engine.apply(event)
+    def forward_to_entitlement_engine(
+        self,
+        event: PurchaseEvent,
+        *,
+        transition: StateTransitionResult,
+        authority_score: int,
+    ) -> EntitlementRecord:
+        record = self.entitlement_engine.apply(event, state=transition.new_state)
+        persisted = self.store.upsert_entitlement(record, user_id=event.user_id)
+        self.store.upsert_subscription_state(
+            user_id=event.user_id,
+            product_id=event.product_id,
+            state=transition.new_state,
+            authority_score=authority_score,
+            event_time=event.event_time,
+            event_version=event.event_version or 0,
+            channel=event.channel,
+            transaction_id=event.transaction_id,
+        )
+        self.audit_log.record_processed_event(
+            event,
+            authority_score=authority_score,
+            previous_state=transition.previous_state,
+            new_state=transition.new_state,
+            reason=transition.reason,
+        )
+        self.audit_log.record_entitlement_change(
+            event,
+            authority_score=authority_score,
+            previous_state=transition.previous_state,
+            new_state=transition.new_state,
+            reason="entitlement_state_applied",
+        )
+        return persisted
 
     def _adapter_for_channel(self, channel: str) -> PaymentChannelAdapter:
         normalized = require_text(channel, "channel", max_length=64)
@@ -232,6 +400,30 @@ def _normalized_status(raw_payload: Mapping[str, Any]) -> str:
         "cancelled": "revoked",
     }
     return aliases.get(normalized, normalized)
+
+
+def _state_for_event(event: PurchaseEvent) -> Optional[str]:
+    status = _normalized_status(event.raw_payload)
+    if status == "active":
+        return STATE_ACTIVE
+    if status == "grace":
+        return STATE_GRACE
+    if status in {"billing_retry", "expired"}:
+        return STATE_EXPIRED
+    if status == "revoked":
+        return STATE_REVOKED
+    return None
+
+
+def _event_kind_for_event(event: PurchaseEvent, previous_state: str) -> str:
+    for key in ("eventType", "event_type", "notificationType", "subtype"):
+        value = event.raw_payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower().replace("-", "_")
+    status = _normalized_status(event.raw_payload)
+    if status == "active" and previous_state == STATE_NONE:
+        return "initial_purchase"
+    return "status_update"
 
 
 def _optional_raw_text(raw_payload: Mapping[str, Any], key: str) -> Optional[str]:

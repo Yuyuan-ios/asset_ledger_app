@@ -21,6 +21,7 @@ from app import (  # noqa: E402
     ConfigMigrationError,
     DEFAULT_ALLOWED_BUNDLE_ID,
     DEFAULT_ALLOWED_PRODUCTS,
+    ENTITLEMENT_CHANGE_LOG,
     ENTITLEMENT_BINDING_POLICIES,
     EXTERNAL_CLIENT_TOKEN_REQUIRED,
     GOOGLE_PLAY_CHANNEL,
@@ -28,7 +29,13 @@ from app import (  # noqa: E402
     MAX_YEARLY_PRODUCT_ID,
     OPPO_CHANNEL,
     PRO_YEARLY_PRODUCT_ID,
+    PROCESSED_EVENT_LOG,
+    ProviderSubscriptionState,
     RESPONSE_FIELDS,
+    RAW_EVENT_LOG,
+    STATE_ACTIVE,
+    STATE_EXPIRED,
+    STATE_GRACE,
     VIVO_CHANNEL,
     VALID_ENTITLEMENT_TIERS,
     VALID_OUTCOMES,
@@ -47,6 +54,7 @@ from app import (  # noqa: E402
     IapVerificationRequestHandler,
     RequestValidator,
     SecurityViolation,
+    SubscriptionReconciliationWorker,
     signature_for_payload,
 )
 from handlers import redact_app_account_token_values  # noqa: E402
@@ -1026,6 +1034,238 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                 self.assertEqual(record.entitlement_tier, "max")
                 self.assertEqual(record.outcome, "verifiedActiveMax")
 
+    def test_scp_reordered_webhook_cannot_overwrite_newer_state(self):
+        app = self._app_with_gateway()
+        user_id = "user-scp-reorder"
+
+        newer_status, newer_body = self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="scp-reorder-newer",
+                eventTime="2026-06-26T12:00:00Z",
+            ),
+            app=app,
+        )
+        older_status, older_body = self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="scp-reorder-older",
+                status="expired",
+                eventTime="2026-06-25T12:00:00Z",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(newer_status, 200)
+        self.assertEqual(newer_body["gatewayStatus"], "applied")
+        self.assertEqual(older_status, 200)
+        self.assertEqual(older_body["gatewayStatus"], "ignored")
+        entitlement = app.store.get_latest_entitlement_for_user(user_id)
+        state = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        processed = app.store.list_subscription_audit_log(PROCESSED_EVENT_LOG)
+        self.assertEqual(entitlement.entitlement_tier, "max")
+        self.assertEqual(entitlement.outcome, "verifiedActiveMax")
+        self.assertEqual(state.state, STATE_ACTIVE)
+        self.assertIn("stale_event_ignored", {entry["reason"] for entry in processed})
+
+    def test_scp_lower_authority_verify_cannot_override_webhook_state(self):
+        app = self._app_with_gateway()
+        user_id = "user-scp-authority"
+
+        high_status, _ = self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="scp-authority-high",
+                source="webhook",
+                eventTime="2026-06-26T12:00:00Z",
+            ),
+            app=app,
+        )
+        low_status, low_body = self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="scp-authority-low",
+                status="expired",
+                source="verify",
+                eventTime="2026-06-27T12:00:00Z",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(high_status, 200)
+        self.assertEqual(low_status, 200)
+        self.assertEqual(low_body["gatewayStatus"], "ignored")
+        entitlement = app.store.get_latest_entitlement_for_user(user_id)
+        state = app.store.get_subscription_state(user_id, PRO_YEARLY_PRODUCT_ID)
+        processed = app.store.list_subscription_audit_log(PROCESSED_EVENT_LOG)
+        self.assertEqual(entitlement.outcome, "verifiedActivePro")
+        self.assertEqual(state.authority_score, 90)
+        self.assertIn("lower_authority_event_ignored", {entry["reason"] for entry in processed})
+
+    def test_scp_replay_with_different_payload_cannot_override_state(self):
+        app = self._app_with_gateway()
+        user_id = "user-scp-replay"
+        first = gateway_body(
+            VIVO_CHANNEL,
+            user_id=user_id,
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            transaction_id="scp-replay-tx",
+            eventTime="2026-06-26T12:00:00Z",
+        )
+        replay = gateway_body(
+            VIVO_CHANNEL,
+            user_id=user_id,
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            transaction_id="scp-replay-tx",
+            status="expired",
+            eventTime="2026-06-27T12:00:00Z",
+        )
+
+        first_status, _ = self.request("POST", "/iap/webhooks/vivo", body=first, app=app)
+        replay_status, replay_body = self.request("POST", "/iap/webhooks/vivo", body=replay, app=app)
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(replay_status, 409)
+        self.assertEqual(replay_body["error"]["code"], "replay_attack")
+        entitlement = app.store.get_latest_entitlement_for_user(user_id)
+        state = app.store.get_subscription_state(user_id, PRO_YEARLY_PRODUCT_ID)
+        self.assertEqual(entitlement.outcome, "verifiedActivePro")
+        self.assertEqual(state.state, STATE_ACTIVE)
+
+    def test_scp_reconciliation_repairs_active_provider_drift(self):
+        app = self._app_with_gateway()
+        user_id = "user-scp-reconcile"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="scp-reconcile-initial",
+            ),
+            app=app,
+        )
+        app.store.upsert_subscription_state(
+            user_id=user_id,
+            product_id=MAX_YEARLY_PRODUCT_ID,
+            state=STATE_EXPIRED,
+            authority_score=90,
+            event_time=None,
+            event_version=1,
+            channel=OPPO_CHANNEL,
+            transaction_id="scp-reconcile-drift",
+        )
+        worker = SubscriptionReconciliationWorker(
+            store=app.store,
+            provider_verifiers={
+                OPPO_CHANNEL: FixedProviderVerifier(
+                    ProviderSubscriptionState(
+                        state=STATE_ACTIVE,
+                        channel=OPPO_CHANNEL,
+                        transaction_id="scp-reconcile-provider",
+                        event_time="2026-06-27T12:00:00Z",
+                    )
+                )
+            },
+            entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
+        )
+
+        result = worker.reconcile_active_entitlements()
+
+        state = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        entitlement = app.store.get_latest_entitlement_for_user(user_id)
+        changes = app.store.list_subscription_audit_log(ENTITLEMENT_CHANGE_LOG)
+        self.assertEqual(result["repaired"], 1)
+        self.assertEqual(state.state, STATE_ACTIVE)
+        self.assertEqual(entitlement.outcome, "verifiedActiveMax")
+        self.assertIn("reconciliation_upgrade", {entry["reason"] for entry in changes})
+
+    def test_scp_reconciliation_downgrade_enters_grace(self):
+        app = self._app_with_gateway()
+        user_id = "user-scp-downgrade"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="scp-downgrade-initial",
+            ),
+            app=app,
+        )
+        worker = SubscriptionReconciliationWorker(
+            store=app.store,
+            provider_verifiers={
+                OPPO_CHANNEL: FixedProviderVerifier(
+                    ProviderSubscriptionState(
+                        state=STATE_EXPIRED,
+                        channel=OPPO_CHANNEL,
+                        transaction_id="scp-downgrade-provider",
+                        event_time="2026-06-27T12:00:00Z",
+                    )
+                )
+            },
+            entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
+        )
+
+        result = worker.reconcile_active_entitlements()
+
+        state = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        entitlement = app.store.get_latest_entitlement_for_user(user_id)
+        changes = app.store.list_subscription_audit_log(ENTITLEMENT_CHANGE_LOG)
+        self.assertEqual(result["repaired"], 1)
+        self.assertEqual(state.state, STATE_GRACE)
+        self.assertEqual(entitlement.outcome, "verifiedGracePeriodMax")
+        self.assertIn("reconciliation_downgrade_to_grace", {entry["reason"] for entry in changes})
+
+    def test_scp_audit_log_is_append_only(self):
+        app = self._app_with_gateway()
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id="user-scp-audit",
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="scp-audit-tx",
+            ),
+            app=app,
+        )
+        logs = app.store.list_subscription_audit_log()
+
+        self.assertGreaterEqual(len(logs), 3)
+        self.assertEqual(logs[0]["log_type"], RAW_EVENT_LOG)
+        with closing(sqlite3.connect(app.store.db_path)) as conn:
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute(
+                    "UPDATE iap_subscription_audit_log SET reason = ? WHERE id = ?",
+                    ("mutated", logs[0]["id"]),
+                )
+            conn.rollback()
+            with self.assertRaises(sqlite3.DatabaseError):
+                conn.execute(
+                    "DELETE FROM iap_subscription_audit_log WHERE id = ?",
+                    (logs[0]["id"],),
+                )
+
     def test_internal_entitlement_db_error_fails_closed_as_503(self):
         app = IapVerificationApp(
             store=DbErrorEntitlementStore(),
@@ -1356,6 +1596,14 @@ def internal_entitlement_body(
         "required_capability": required_capability,
         "required_plan": required_plan,
     }
+
+
+class FixedProviderVerifier:
+    def __init__(self, provider_state):
+        self.provider_state = provider_state
+
+    def verify(self, *, user_id, product_id, current_entitlement):
+        return self.provider_state
 
 
 class DiagnosticFailureVerifier:

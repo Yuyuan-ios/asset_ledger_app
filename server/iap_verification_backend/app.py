@@ -104,12 +104,32 @@ from payment_channel_adapters import (
     signature_for_payload,
 )
 from storage import ENTITLEMENT_BINDING_POLICIES, EntitlementBindingPolicy, EntitlementStore
+from subscription_audit_log import (
+    ENTITLEMENT_CHANGE_LOG,
+    PROCESSED_EVENT_LOG,
+    RAW_EVENT_LOG,
+    SubscriptionAuditLog,
+)
+from subscription_authority_resolver import SubscriptionAuthorityResolver
+from subscription_event_ordering import SubscriptionEventOrdering
 from subscription_gateway import (
     ChannelVerificationResult,
     EntitlementEngine,
     PaymentChannelAdapter,
     PurchaseEvent,
     SubscriptionGatewayService,
+)
+from subscription_reconciliation_worker import (
+    ProviderSubscriptionState,
+    SubscriptionReconciliationWorker,
+)
+from subscription_state_machine import (
+    STATE_ACTIVE,
+    STATE_EXPIRED,
+    STATE_GRACE,
+    STATE_NONE,
+    STATE_REVOKED,
+    SubscriptionStateMachine,
 )
 from verifier import (
     OUTCOME_TO_TIER,
@@ -158,6 +178,7 @@ __all__ = [
     "DecodedAppleTransaction",
     "EntitlementRecord",
     "EntitlementEngine",
+    "ENTITLEMENT_CHANGE_LOG",
     "EntitlementBindingPolicy",
     "ENTITLEMENT_BINDING_POLICIES",
     "EntitlementStore",
@@ -178,16 +199,29 @@ __all__ = [
     "OfficialSubscriptionStatusClient",
     "OPPO_CHANNEL",
     "PaymentChannelAdapter",
+    "PROCESSED_EVENT_LOG",
     "PRO_YEARLY_PRODUCT_ID",
+    "ProviderSubscriptionState",
     "PurchaseEvent",
     "PurchaseVerificationRequest",
+    "RAW_EVENT_LOG",
     "REQUIRED_PURCHASE_FIELDS",
     "RESPONSE_FIELDS",
     "RequestValidator",
     "SecurityViolation",
     "SignedApplePayloadVerifier",
     "SignedWebhookAdapter",
+    "STATE_ACTIVE",
+    "STATE_EXPIRED",
+    "STATE_GRACE",
+    "STATE_NONE",
+    "STATE_REVOKED",
+    "SubscriptionAuditLog",
+    "SubscriptionAuthorityResolver",
+    "SubscriptionEventOrdering",
     "SubscriptionGatewayService",
+    "SubscriptionReconciliationWorker",
+    "SubscriptionStateMachine",
     "VALID_ENTITLEMENT_TIERS",
     "VALID_OUTCOMES",
     "VIVO_CHANNEL",
