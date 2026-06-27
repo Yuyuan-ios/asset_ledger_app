@@ -1,6 +1,6 @@
 import 'package:asset_ledger/components/fields/sheet_input_decoration.dart';
 import 'package:asset_ledger/patterns/layout/sheet_text_field_pattern.dart';
-import 'package:asset_ledger/tokens/mapper/radius_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/sheet_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,10 +29,14 @@ void main() {
     expect(decoration.filled, isFalse);
     expect(decoration.fillColor, isNull);
     expect(decoration.floatingLabelBehavior, FloatingLabelBehavior.always);
+    expect(decoration.labelStyle?.color, SheetColors.fieldLabel);
+    expect(decoration.labelStyle?.color, const Color(0xB0000000));
     expect(SheetTokens.fieldRadius, RadiusTokens.input);
 
     final border = decoration.border as OutlineInputBorder;
     expect(border.borderRadius, BorderRadius.circular(RadiusTokens.input));
+    expect(border.borderSide.color, SheetColors.fieldBorder);
+    expect(border.borderSide.color, const Color(0x1A000000));
   });
 
   testWidgets('selects zero-like numeric values on tap', (

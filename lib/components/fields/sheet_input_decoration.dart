@@ -27,7 +27,7 @@ InputDecoration buildSheetInputDecoration(
   final labelStyle = AppTypography.bodySecondary(
     context,
     fontSize: SheetTokens.fieldLabelSize,
-    color: SheetColors.textPrimary,
+    color: SheetColors.fieldLabel,
   );
   final defaultHintStyle = AppTypography.bodySecondary(
     context,

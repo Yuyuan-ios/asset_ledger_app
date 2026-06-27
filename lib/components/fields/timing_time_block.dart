@@ -110,7 +110,7 @@ class _TimingTimeBlockState extends State<TimingTimeBlock> {
     final labelStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.meterLabelSize,
-      color: SheetColors.textPrimary,
+      color: SheetColors.fieldLabel,
     );
     final dotStyle = AppTypography.body(
       context,

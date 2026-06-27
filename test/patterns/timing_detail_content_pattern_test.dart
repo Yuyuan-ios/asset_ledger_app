@@ -8,6 +8,8 @@ import 'package:asset_ledger/components/pickers/app_date_picker_dialog.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/timing/timing_detail_content_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -235,6 +237,18 @@ void main() {
     expect(uiCopy, contains('开始工作时间'));
     expect(uiCopy, contains('结束工作时间'));
     expect(find.byTooltip('工时计算依据'), findsOneWidget);
+
+    expect(
+      tester.widget<Text>(find.text('开始工作时间')).style?.color,
+      SheetColors.fieldLabel,
+    );
+    expect(
+      tester.widget<Text>(find.text('结束工作时间')).style?.color,
+      SheetColors.fieldLabel,
+    );
+    expect(_findBoxBorderColor(SheetColors.fieldBorder), findsWidgets);
+    expect(_findBoxColor(SheetColors.meterBackground), findsWidgets);
+    expect(TimingTokens.segmentRadius, 8);
   });
 
   testWidgets(
@@ -515,7 +529,7 @@ void main() {
       final uiCopy = collectUiCopy(tester);
       expect(uiCopy, isNot(contains('结束日')));
       expect(uiCopy, isNot(contains('只影响收入图表月份分布，不改变项目总应收')));
-      expect(find.text('2026.03.15 - 03.18'), findsOneWidget);
+      expect(find.text('2026.03.15 - 2026.03.18'), findsOneWidget);
 
       await key.currentState!.submit();
       await tester.pumpAndSettle();
@@ -594,7 +608,7 @@ void main() {
 
     expect(
       find.text(
-        '${formatDateForInput(startDate)} - ${compactDateForInput(endDate)}',
+        '${formatDateForInput(startDate)} - ${formatDateForInput(endDate)}',
       ),
       findsOneWidget,
     );
@@ -1014,7 +1028,7 @@ void main() {
     final uiCopy = collectUiCopy(tester);
     expect(uiCopy, isNot(contains('结束日')));
     expect(uiCopy, isNot(contains('仅用于记录展示，不影响收入和结清。')));
-    expect(find.text('2026.03.15 - 03.18'), findsOneWidget);
+    expect(find.text('2026.03.15 - 2026.03.18'), findsOneWidget);
 
     await key.currentState!.submit();
     await tester.pumpAndSettle();
@@ -1188,8 +1202,21 @@ String formatDateForInput(DateTime date) {
   return '${date.year}.$month.$day';
 }
 
-String compactDateForInput(DateTime date) {
-  final month = date.month.toString().padLeft(2, '0');
-  final day = date.day.toString().padLeft(2, '0');
-  return '$month.$day';
+Finder _findBoxColor(Color color) {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    return decoration is BoxDecoration && decoration.color == color;
+  });
+}
+
+Finder _findBoxBorderColor(Color color) {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    final border = decoration is BoxDecoration ? decoration.border : null;
+    return border is Border &&
+        border.top.color == color &&
+        border.right.color == color &&
+        border.bottom.color == color &&
+        border.left.color == color;
+  });
 }

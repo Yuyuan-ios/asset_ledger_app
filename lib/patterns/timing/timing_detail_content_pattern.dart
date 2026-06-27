@@ -534,7 +534,12 @@ class TimingDetailContentState extends State<TimingDetailContent> {
 
   void _syncDateText() {
     final startYmd = FormatUtils.ymdFromDate(_selectedDate);
-    _dateCtrl.text = FormatUtils.compactDateRange(startYmd, _selectedEndYmd());
+    _dateCtrl.text = _detailDateRangeText(startYmd, _selectedEndYmd());
+  }
+
+  String _detailDateRangeText(int startYmd, int? endYmd) {
+    if (endYmd == null || endYmd <= startYmd) return FormatUtils.date(startYmd);
+    return '${FormatUtils.date(startYmd)} - ${FormatUtils.date(endYmd)}';
   }
 
   int? _selectedEndYmd() {
