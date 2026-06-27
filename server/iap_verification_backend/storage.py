@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from contextlib import closing
+from enum import Enum
 from typing import Optional
 
 from http_helpers import utc_now_iso
@@ -11,6 +12,19 @@ from verifier import EntitlementRecord
 
 class EntitlementClaimConflict(Exception):
     pass
+
+
+class EntitlementBindingPolicy(str, Enum):
+    BIND_ONLY_IF_UNBOUND = "BIND_ONLY_IF_UNBOUND"
+    NEVER_OVERWRITE_DIFFERENT_USER = "NEVER_OVERWRITE_DIFFERENT_USER"
+    TRANSACTION_IS_VERIFICATION_ONLY = "TRANSACTION_IS_VERIFICATION_ONLY"
+
+
+ENTITLEMENT_BINDING_POLICIES = (
+    EntitlementBindingPolicy.BIND_ONLY_IF_UNBOUND,
+    EntitlementBindingPolicy.NEVER_OVERWRITE_DIFFERENT_USER,
+    EntitlementBindingPolicy.TRANSACTION_IS_VERIFICATION_ONLY,
+)
 
 
 class EntitlementStore:
@@ -83,7 +97,10 @@ class EntitlementStore:
         user_id: Optional[str] = None,
     ) -> EntitlementRecord:
         updated_at = record.updated_at or utc_now_iso()
-        normalized_user_id = _normalize_user_id(user_id) or _normalize_user_id(record.user_id)
+        # Only a server-verified login-bound user_id may bind an entitlement.
+        # transaction.appAccountToken and record.user_id are verification data,
+        # not account-binding authority.
+        normalized_user_id = _normalize_user_id(user_id)
         persisted = EntitlementRecord(
             outcome=record.outcome,
             entitlement_tier=record.entitlement_tier,
@@ -99,14 +116,25 @@ class EntitlementStore:
         )
         with closing(self._connect()) as conn:
             with conn:
+                if persisted.user_id:
+                    existing_app_token_user_id = _normalize_user_id(
+                        self._claim_user_id_for_app_account_token(
+                            conn,
+                            persisted.app_account_token,
+                        )
+                    )
+                    if existing_app_token_user_id and existing_app_token_user_id != persisted.user_id:
+                        raise EntitlementClaimConflict(
+                            "app account token is already bound to another user"
+                        )
                 if persisted.user_id and persisted.original_transaction_id:
-                    existing_user_id = _normalize_user_id(
+                    existing_original_user_id = _normalize_user_id(
                         self._claim_user_id_for_original_transaction(
                             conn,
                             persisted.original_transaction_id,
                         )
                     )
-                    if existing_user_id and existing_user_id != persisted.user_id:
+                    if existing_original_user_id and existing_original_user_id != persisted.user_id:
                         raise EntitlementClaimConflict(
                             "original transaction is already bound to another user"
                         )
@@ -127,7 +155,7 @@ class EntitlementStore:
                       revoked_at = excluded.revoked_at,
                       outcome = excluded.outcome,
                       updated_at = excluded.updated_at,
-                      user_id = COALESCE(excluded.user_id, iap_entitlements.user_id)
+                      user_id = COALESCE(NULLIF(TRIM(iap_entitlements.user_id), ''), excluded.user_id)
                     """,
                     (
                         persisted.app_account_token,
@@ -215,6 +243,26 @@ class EntitlementStore:
             LIMIT 1
             """,
             (original_transaction_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return row["user_id"]
+
+    def _claim_user_id_for_app_account_token(
+        self,
+        conn: sqlite3.Connection,
+        app_account_token: str,
+    ) -> Optional[str]:
+        row = conn.execute(
+            """
+            SELECT user_id
+            FROM iap_entitlements
+            WHERE app_account_token = ?
+              AND user_id IS NOT NULL
+              AND TRIM(user_id) != ''
+            LIMIT 1
+            """,
+            (app_account_token,),
         ).fetchone()
         if row is None:
             return None

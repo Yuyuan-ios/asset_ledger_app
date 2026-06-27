@@ -12,13 +12,18 @@ import urllib.error
 from unittest import mock
 
 from app import (
+    AccountIdentityResolver,
     AppConfig,
+    AuthPlane,
     Authenticator,
     BackupApp,
     BackupMetadataStore,
+    ConfigMigrationError,
+    EXTERNAL_CLIENT_TOKEN_REQUIRED,
     FileObjectStore,
     HttpError,
     HttpCloudBackupEntitlementVerifier,
+    SecurityViolation,
     SlidingWindowRateLimiter,
     StaticMaxUserEntitlementVerifier,
     StorageError,
@@ -293,15 +298,30 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(error.exception.status, 401)
 
     def test_accepts_injected_token_introspection(self):
-        authenticator = Authenticator(introspector=lambda token: f"user-for-{token}")
+        calls = []
+
+        def introspector(token):
+            calls.append(token)
+            return f"user-for-{token}"
+
+        authenticator = Authenticator(introspector=introspector)
 
         self.assertEqual(
             authenticator.authenticate("Bearer opaque-token"),
             "user-for-opaque-token",
         )
+        self.assertEqual(
+            authenticator.authenticate("Bearer opaque-token"),
+            "user-for-opaque-token",
+        )
+        self.assertEqual(calls, ["opaque-token"])
+        self.assertEqual(authenticator.auth_plane, AuthPlane.USER)
 
     def test_introspection_errors_fail_closed(self):
+        calls = []
+
         def inactive(_token):
+            calls.append(_token)
             raise HttpError(401, "invalid_token", "token is not accepted")
 
         authenticator = Authenticator(introspector=inactive)
@@ -309,6 +329,35 @@ class BackendTestCase(unittest.TestCase):
         with self.assertRaises(HttpError) as error:
             authenticator.authenticate("Bearer opaque-token")
         self.assertEqual(error.exception.status, 401)
+        with self.assertRaises(HttpError):
+            authenticator.authenticate("Bearer opaque-token")
+        self.assertEqual(calls, ["opaque-token", "opaque-token"])
+
+    def test_account_identity_resolver_keeps_user_id_stable_across_token_refresh(self):
+        authenticator = Authenticator(
+            dev_tokens={
+                "token-a-v1": "user-a",
+                "token-a-v2": "user-a",
+            }
+        )
+
+        self.assertEqual(authenticator.authenticate("Bearer token-a-v1"), "user-a")
+        self.assertEqual(authenticator.authenticate("Bearer token-a-v2"), "user-a")
+
+    def test_account_identity_resolver_exposes_stable_user_id_contract(self):
+        resolver = AccountIdentityResolver(lambda token: f"user-{token}")
+
+        self.assertEqual(resolver.getStableUserId("a"), "user-a")
+
+    def test_client_plane_is_blocked_from_auth_operations(self):
+        self.assertFalse(EXTERNAL_CLIENT_TOKEN_REQUIRED)
+        with self.assertRaisesRegex(SecurityViolation, "CLIENT token plane"):
+            AccountIdentityResolver(lambda token: f"user-{token}", auth_plane=AuthPlane.CLIENT)
+
+        authenticator = Authenticator(dev_tokens={"client-token": "user-client"})
+        authenticator.auth_plane = AuthPlane.CLIENT
+        with self.assertRaisesRegex(SecurityViolation, "CLIENT token plane"):
+            authenticator.authenticate("Bearer client-token")
 
     def test_rejects_payload_hash_mismatch(self):
         envelope = make_envelope()
@@ -417,6 +466,17 @@ class BackendTestCase(unittest.TestCase):
         self.assertEqual(config.max_request_bytes, 2048)
         self.assertEqual(config.account_key_secret, "x" * 48)
 
+    def test_deprecated_env_keys_raise_migration_error(self):
+        auth_key = "FLEET" + "_BACKUP_AUTH_HS256_SECRET"
+        with _patched_env(clear=True, **{auth_key: "old-secret"}):
+            with self.assertRaisesRegex(ConfigMigrationError, "USER_AUTH_HS256_SECRET"):
+                AppConfig.from_env()
+
+        service_key = "FLEET" + "_BACKUP_ENTITLEMENT_BEARER_TOKEN"
+        with _patched_env(clear=True, **{service_key: "old-token"}):
+            with self.assertRaisesRegex(ConfigMigrationError, "SERVICE_INTERNAL_TOKEN"):
+                AppConfig.from_env()
+
     def test_app_config_rejects_request_limit_below_payload_limit(self):
         with _patched_env(
             FLEET_BACKUP_MAX_PAYLOAD_BYTES="2048",
@@ -436,7 +496,7 @@ class BackendTestCase(unittest.TestCase):
             APP_ENV="production",
             CLOUD_BACKUP_ENTITLEMENT_URL="https://api.example.test/entitlement",
         ):
-            with self.assertRaisesRegex(ValueError, "CLOUD_BACKUP_ENTITLEMENT_TOKEN"):
+            with self.assertRaisesRegex(ValueError, "SERVICE_INTERNAL_TOKEN"):
                 build_cloud_backup_entitlement_verifier_from_env()
 
     def test_unset_app_env_defaults_to_production_entitlement_config(self):
@@ -472,13 +532,14 @@ class BackendTestCase(unittest.TestCase):
             clear=True,
             APP_ENV="production",
             CLOUD_BACKUP_ENTITLEMENT_URL="https://api.example.test/entitlement",
-            CLOUD_BACKUP_ENTITLEMENT_TOKEN="server-token",
+            SERVICE_INTERNAL_TOKEN="server-token",
             CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS="3",
             CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_SECONDS="7",
         ):
             verifier = build_cloud_backup_entitlement_verifier_from_env()
 
         self.assertIsInstance(verifier, HttpCloudBackupEntitlementVerifier)
+        self.assertEqual(verifier.auth_plane, AuthPlane.SERVICE)
         self.assertEqual(verifier.timeout_seconds, 3)
         self.assertEqual(verifier.cache_ttl_seconds, 7)
 
@@ -493,7 +554,7 @@ class EntitlementVerifierTestCase(unittest.TestCase):
 
         verifier = HttpCloudBackupEntitlementVerifier(
             "https://api.example.test/entitlement",
-            bearer_token="server-token",
+            service_internal_token="server-token",
             timeout_seconds=2,
         )
 
@@ -524,7 +585,7 @@ class EntitlementVerifierTestCase(unittest.TestCase):
             with self.subTest(response=response):
                 verifier = HttpCloudBackupEntitlementVerifier(
                     "https://api.example.test/entitlement",
-                    bearer_token="server-token",
+                    service_internal_token="server-token",
                 )
                 with mock.patch(
                     "entitlements.urllib.request.urlopen",
@@ -552,7 +613,7 @@ class EntitlementVerifierTestCase(unittest.TestCase):
             with self.subTest(side_effect=type(side_effect).__name__):
                 verifier = HttpCloudBackupEntitlementVerifier(
                     "https://api.example.test/entitlement",
-                    bearer_token="server-token",
+                    service_internal_token="server-token",
                 )
                 with mock.patch(
                     "entitlements.urllib.request.urlopen",
@@ -573,7 +634,7 @@ class EntitlementVerifierTestCase(unittest.TestCase):
             with self.subTest(status_code=status_code):
                 verifier = HttpCloudBackupEntitlementVerifier(
                     "https://api.example.test/entitlement",
-                    bearer_token="server-token",
+                    service_internal_token="server-token",
                 )
                 with mock.patch(
                     "entitlements.urllib.request.urlopen",
@@ -593,7 +654,7 @@ class EntitlementVerifierTestCase(unittest.TestCase):
     def test_http_verifier_malformed_json_fails_closed_as_unavailable(self):
         verifier = HttpCloudBackupEntitlementVerifier(
             "https://api.example.test/entitlement",
-            bearer_token="server-token",
+            service_internal_token="server-token",
         )
 
         with mock.patch(
@@ -922,6 +983,17 @@ class BackendHttpTestCase(unittest.TestCase):
 
         self.assertEqual(status, 403)
         self.assertEqual(response["error"]["code"], "cloud_backup_requires_max")
+
+    def test_http_cloud_backup_does_not_trust_external_client_token(self):
+        status, response = self.request(
+            "GET",
+            "/v1/backups",
+            authorization="Bearer external-client-token",
+            headers={"X-Subscription-Tier": "max"},
+        )
+
+        self.assertEqual(status, 401)
+        self.assertEqual(response["error"]["code"], "unauthorized")
 
     def test_all_current_cloud_backup_routes_hit_max_guard(self):
         cases = [

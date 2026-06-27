@@ -174,7 +174,7 @@ class AppStoreServerAppleVerifierTestCase(unittest.TestCase):
     def test_unknown_product_from_signed_payload_is_rejected(self):
         signed_verifier = FakeSignedPayloadVerifier(
             transactions={
-                "request-jws": transaction("txn-request", product_id="com.yuyuan.assetledger.legacy.monthly"),
+                "request-jws": transaction("txn-request", product_id="com.yuyuan.assetledger.retired.monthly"),
             },
         )
         verifier = AppStoreServerAppleVerifier(
@@ -185,7 +185,7 @@ class AppStoreServerAppleVerifierTestCase(unittest.TestCase):
         )
 
         with self.assertRaises(AppleVerificationFailed):
-            verifier.verify_purchase(purchase_request(product_id="com.yuyuan.assetledger.legacy.monthly"))
+            verifier.verify_purchase(purchase_request(product_id="com.yuyuan.assetledger.retired.monthly"))
 
     def test_request_transaction_without_app_account_token_uses_request_token(self):
         verifier, _, _ = make_verifier(

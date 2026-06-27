@@ -16,8 +16,13 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
 from app import (  # noqa: E402
+    AccountIdentityResolver,
+    AuthPlane,
+    ConfigMigrationError,
     DEFAULT_ALLOWED_BUNDLE_ID,
     DEFAULT_ALLOWED_PRODUCTS,
+    ENTITLEMENT_BINDING_POLICIES,
+    EXTERNAL_CLIENT_TOKEN_REQUIRED,
     MAX_YEARLY_PRODUCT_ID,
     PRO_YEARLY_PRODUCT_ID,
     RESPONSE_FIELDS,
@@ -29,9 +34,12 @@ from app import (  # noqa: E402
     Authenticator,
     EntitlementStore,
     EntitlementRecord,
+    EntitlementBindingPolicy,
+    HttpError,
     IapVerificationApp,
     IapVerificationRequestHandler,
     RequestValidator,
+    SecurityViolation,
 )
 from handlers import redact_app_account_token_values  # noqa: E402
 from verifier import AppleVerificationFailed, FakeAppleVerifier  # noqa: E402
@@ -226,6 +234,49 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         record = app.store.get_entitlement(MAX_TOKEN)
         self.assertEqual(record.user_id, "user-a")
 
+    def test_account_identity_resolver_keeps_user_id_stable_across_calls_and_refresh(self):
+        authenticator = Authenticator(
+            dev_tokens={
+                "login-token-a-v1": "user-a",
+                "login-token-a-v2": "user-a",
+            }
+        )
+
+        self.assertEqual(authenticator.authenticate("Bearer login-token-a-v1"), "user-a")
+        self.assertEqual(authenticator.authenticate("Bearer login-token-a-v1"), "user-a")
+        self.assertEqual(authenticator.authenticate("Bearer login-token-a-v2"), "user-a")
+        self.assertEqual(authenticator.auth_plane, AuthPlane.USER)
+
+    def test_account_identity_resolver_does_not_cache_invalid_tokens(self):
+        calls = []
+
+        def inactive(token):
+            calls.append(token)
+            raise HttpError(401, "invalid_token", "token is not accepted")
+
+        authenticator = Authenticator(introspector=inactive)
+
+        with self.assertRaises(HttpError):
+            authenticator.authenticate("Bearer invalid-token")
+        with self.assertRaises(HttpError):
+            authenticator.authenticate("Bearer invalid-token")
+        self.assertEqual(calls, ["invalid-token", "invalid-token"])
+
+    def test_account_identity_resolver_exposes_stable_user_id_contract(self):
+        resolver = AccountIdentityResolver(lambda token: f"user-{token}")
+
+        self.assertEqual(resolver.getStableUserId("a"), "user-a")
+
+    def test_client_plane_is_blocked_from_auth_operations(self):
+        self.assertFalse(EXTERNAL_CLIENT_TOKEN_REQUIRED)
+        with self.assertRaisesRegex(SecurityViolation, "CLIENT token plane"):
+            AccountIdentityResolver(lambda token: f"user-{token}", auth_plane=AuthPlane.CLIENT)
+
+        authenticator = Authenticator(dev_tokens={"client-token": "user-client"})
+        authenticator.auth_plane = AuthPlane.CLIENT
+        with self.assertRaisesRegex(SecurityViolation, "CLIENT token plane"):
+            authenticator.authenticate("Bearer client-token")
+
     def test_verify_purchase_with_invalid_authorization_returns_401_without_binding(self):
         app = self._app_with_authenticator()
 
@@ -304,6 +355,69 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(second_status, 409)
         self.assertEqual(body["error"]["code"], "subscription_bound_to_other_user")
         self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
+
+    def test_existing_app_account_token_binding_rejects_other_user(self):
+        app = self._app_with_authenticator(verifier=FixedOriginalVerifier())
+        first_status, _ = self.verify_purchase(
+            "fixed:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-a",
+        )
+
+        second_status, body = self.verify_purchase(
+            "fixed:max-grace",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-b",
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 409)
+        self.assertEqual(body["error"]["code"], "subscription_bound_to_other_user")
+        self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
+
+    def test_fallback_transaction_user_id_cannot_overwrite_existing_binding(self):
+        app = self._app_with_authenticator(verifier=FallbackUserVerifier("user-b"))
+        first_status, _ = self.verify_purchase(
+            "fake:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-a",
+        )
+        second_status, body = self.verify_purchase(
+            "fake:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 200)
+        self.assert_contract_response(body, "verifiedActiveMax", "max")
+        self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
+
+    def test_apple_mismatch_fallback_user_id_must_not_bind(self):
+        app = IapVerificationApp(
+            store=self.store,
+            validator=RequestValidator(DEFAULT_ALLOWED_PRODUCTS, DEFAULT_ALLOWED_BUNDLE_ID),
+            verifier=FallbackUserVerifier("user-from-transaction-token"),
+            max_request_bytes=64 * 1024,
+        )
+
+        status, body = self.verify_purchase(
+            "fake:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assert_contract_response(body, "verifiedActiveMax", "max")
+        self.assertIsNone(app.store.get_entitlement(MAX_TOKEN).user_id)
 
     def test_failed_purchase_log_is_redacted_and_includes_reason(self):
         with self.assertLogs("fleet_ledger.iap_verification", level="INFO") as logs:
@@ -395,6 +509,59 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(missing_body["error"]["code"], "unauthorized")
         self.assertEqual(wrong_status, 401)
         self.assertEqual(wrong_body["error"]["code"], "unauthorized")
+        self.assertEqual(app.internal_entitlement_auth_plane, AuthPlane.SERVICE)
+
+    def test_user_auth_token_cannot_access_internal_entitlement_endpoint(self):
+        app = self._app_with_authenticator(internal_entitlement_token="service-token")
+
+        status, body = self.request(
+            "POST",
+            "/internal/v1/entitlements/verify",
+            body=internal_entitlement_body("user-a"),
+            app=app,
+            headers={"Authorization": "Bearer login-token-a"},
+        )
+
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+
+    def test_service_internal_token_cannot_bind_purchase_as_user_auth(self):
+        app = self._app_with_authenticator(internal_entitlement_token="service-token")
+
+        status, body = self.verify_purchase(
+            "fake:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer service-token",
+        )
+
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+        self.assertIsNone(app.store.get_entitlement(MAX_TOKEN))
+
+    def test_external_client_token_cannot_bind_or_override_entitlement(self):
+        app = self._app_with_authenticator(verifier=FixedOriginalVerifier())
+        first_status, _ = self.verify_purchase(
+            "fixed:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-a",
+        )
+
+        second_status, body = self.verify_purchase(
+            "fixed:max-grace",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer external-client-token",
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 401)
+        self.assertEqual(body["error"]["code"], "unauthorized")
+        self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
 
     def test_internal_entitlement_endpoint_validates_body(self):
         app = self._app_with_authenticator(internal_entitlement_token="internal-token")
@@ -671,7 +838,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
             "/iap/apple/verify-purchase",
             body=purchase_body(
                 fake_token="fake:pro-active",
-                product_id="com.yuyuan.assetledger.legacy.monthly",
+                product_id="com.yuyuan.assetledger.retired.monthly",
             ),
         )
 
@@ -757,8 +924,8 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                     (
                         PRO_TOKEN,
                         "pro",
-                        "legacy-original-1",
-                        "legacy-latest-1",
+                        "historical-original-1",
+                        "historical-latest-1",
                         PRO_YEARLY_PRODUCT_ID,
                         "Sandbox",
                         "2099-01-01T00:00:00.000Z",
@@ -772,7 +939,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         record = migrated.get_entitlement(PRO_TOKEN)
 
         self.assertIsNotNone(record)
-        self.assertEqual(record.original_transaction_id, "legacy-original-1")
+        self.assertEqual(record.original_transaction_id, "historical-original-1")
         self.assertIsNone(record.user_id)
         with closing(sqlite3.connect(db_path)) as conn:
             columns = {row[1] for row in conn.execute("PRAGMA table_info(iap_entitlements)").fetchall()}
@@ -786,7 +953,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
             FLEET_IAP_ALLOWED_PRODUCTS=f"{PRO_YEARLY_PRODUCT_ID},{MAX_YEARLY_PRODUCT_ID}",
             FLEET_IAP_MAX_REQUEST_BYTES="4096",
             FLEET_IAP_APPLE_REQUEST_TIMEOUT_SECONDS="7",
-            IAP_INTERNAL_ENTITLEMENT_TOKEN="internal-token",
+            SERVICE_INTERNAL_TOKEN="internal-token",
         ):
             config = AppConfig.from_env()
 
@@ -802,12 +969,33 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(config.apple_credentials.root_certificate_paths, ())
         self.assertIsNone(config.apple_credentials.app_apple_id)
 
+    def test_deprecated_env_keys_raise_migration_error(self):
+        auth_key = "FLEET" + "_IAP_AUTH_HS256_SECRET"
+        with _patched_env(**{auth_key: "old-secret"}):
+            with self.assertRaisesRegex(ConfigMigrationError, "USER_AUTH_HS256_SECRET"):
+                AppConfig.from_env()
+
+        service_key = "IAP" + "_INTERNAL_ENTITLEMENT_TOKEN"
+        with _patched_env(**{service_key: "old-token"}):
+            with self.assertRaisesRegex(ConfigMigrationError, "SERVICE_INTERNAL_TOKEN"):
+                AppConfig.from_env()
+
     def test_app_config_rejects_products_outside_contract_allowlist(self):
         with _patched_env(
-            FLEET_IAP_ALLOWED_PRODUCTS=f"{PRO_YEARLY_PRODUCT_ID},com.yuyuan.assetledger.legacy.monthly",
+            FLEET_IAP_ALLOWED_PRODUCTS=f"{PRO_YEARLY_PRODUCT_ID},com.yuyuan.assetledger.retired.monthly",
         ):
             with self.assertRaises(ValueError):
                 AppConfig.from_env()
+
+    def test_entitlement_binding_policy_constants_are_explicit(self):
+        self.assertEqual(
+            ENTITLEMENT_BINDING_POLICIES,
+            (
+                EntitlementBindingPolicy.BIND_ONLY_IF_UNBOUND,
+                EntitlementBindingPolicy.NEVER_OVERWRITE_DIFFERENT_USER,
+                EntitlementBindingPolicy.TRANSACTION_IS_VERIFICATION_ONLY,
+            ),
+        )
 
     def test_main_configures_logging_before_serving(self):
         calls = []
@@ -890,6 +1078,27 @@ class FixedOriginalVerifier:
             latest_transaction_id=request.purchase_id,
             environment="Sandbox",
             expires_at="2099-01-01T00:00:00.000Z",
+        )
+
+    def refresh_current_entitlement(self, record):
+        return record
+
+
+class FallbackUserVerifier:
+    def __init__(self, fallback_user_id):
+        self.fallback_user_id = fallback_user_id
+
+    def verify_purchase(self, request):
+        return EntitlementRecord(
+            outcome="verifiedActiveMax",
+            entitlement_tier="max",
+            product_id=request.product_id,
+            app_account_token=request.app_account_token,
+            original_transaction_id="fallback-original-1",
+            latest_transaction_id=request.purchase_id,
+            environment="Sandbox",
+            expires_at="2099-01-01T00:00:00.000Z",
+            user_id=self.fallback_user_id,
         )
 
     def refresh_current_entitlement(self, record):

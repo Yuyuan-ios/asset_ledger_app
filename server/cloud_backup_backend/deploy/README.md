@@ -5,7 +5,8 @@ These files are deployment aids only. They do not contain production secrets.
 ## ECS install
 
 Upload `server/cloud_backup_backend/` to `/opt/fleet-ledger-cloud-backup` on ECS,
-then run:
+and copy `server/common/` to `/opt/fleet-ledger-cloud-backup/common/` or
+`/opt/common/`, then run:
 
 ```bash
 cd /opt/fleet-ledger-cloud-backup
@@ -22,9 +23,13 @@ deployments; losing or rotating it makes existing encrypted backups
 unrecoverable.
 
 Production and staging must also set `CLOUD_BACKUP_ENTITLEMENT_URL` and
-`CLOUD_BACKUP_ENTITLEMENT_TOKEN`. The service fails fast without a server-side
+`SERVICE_INTERNAL_TOKEN`. The service fails fast without a server-side
 Max entitlement source, and local static entitlement lists are not allowed in
 production.
+
+This deployment is a breaking env migration. Deprecated auth and entitlement
+aliases are rejected by `ConfigMigrationError`; clean the env file using the
+deprecated-name block in `env.example` before starting systemd.
 
 ## Nginx
 

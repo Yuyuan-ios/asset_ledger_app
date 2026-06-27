@@ -4,12 +4,20 @@ import http.server
 import hmac
 import re
 import sqlite3
+import sys
 import time
 import urllib.parse
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
+
+_SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVER_ROOT))
 
 from apple_verifier import build_real_apple_verifier_from_config
 from auth import Authenticator, RequestValidator, require_text
+from common.auth_identity.auth_planes import AuthPlane
+from common.auth_identity.resolver import ensure_auth_operation_allowed, require_stable_user_id
 from config import MAX_REQUEST_BYTES, AppConfig
 from http_helpers import (
     HttpError,
@@ -57,6 +65,7 @@ class IapVerificationApp:
         self.max_request_bytes = max_request_bytes
         self.authenticator = authenticator
         self.internal_entitlement_token = internal_entitlement_token
+        self.internal_entitlement_auth_plane = AuthPlane.SERVICE
 
     @classmethod
     def from_env(cls) -> "IapVerificationApp":
@@ -134,8 +143,12 @@ class IapVerificationApp:
         body: Mapping[str, Any],
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
         self._authenticate_internal_entitlement_request(authorization_header)
-        user_id = require_text(body.get("user_id"), "user_id", max_length=256)
+        user_id = require_stable_user_id(
+            body.get("user_id"),
+            auth_plane=self.internal_entitlement_auth_plane,
+        )
         required_capability = require_text(
             body.get("required_capability"),
             "required_capability",
@@ -191,6 +204,7 @@ class IapVerificationApp:
         self,
         authorization_header: Optional[str],
     ) -> None:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
         expected = self.internal_entitlement_token
         if not expected:
             raise HttpError(

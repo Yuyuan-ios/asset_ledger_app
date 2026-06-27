@@ -14,6 +14,25 @@ KIND_VALUE = "cloud_backup"
 ENCODING_PLAINTEXT = "plaintext"
 ENCODING_AES_GCM = "aes-256-gcm"
 VERSION_POLICY_PATH_ENV = "FLEET_BACKUP_VERSION_POLICY_PATH"
+EXTERNAL_CLIENT_TOKEN_REQUIRED = False
+
+
+def _env_name(*parts: str) -> str:
+    return "".join(parts)
+
+
+DEPRECATED_ENV_REPLACEMENTS = {
+    _env_name("FLEET", "_BACKUP", "_AUTH", "_HS256", "_SECRET"): "USER_AUTH_HS256_SECRET",
+    _env_name("FLEET", "_BACKUP", "_AUTH", "_JWT", "_ISSUER"): "USER_AUTH_JWT_ISSUER",
+    _env_name("FLEET", "_BACKUP", "_AUTH", "_JWT", "_AUDIENCE"): "USER_AUTH_JWT_AUDIENCE",
+    _env_name("FLEET", "_BACKUP", "_AUTH", "_INTROSPECTION", "_URL"): "USER_AUTH_INTROSPECTION_URL",
+    _env_name("FLEET", "_BACKUP", "_AUTH", "_INTROSPECTION", "_BEARER", "_TOKEN"): "USER_AUTH_INTROSPECTION_SERVICE_TOKEN",
+    _env_name("FLEET", "_BACKUP", "_ENTITLEMENT", "_VERIFICATION", "_URL"): "CLOUD_BACKUP_ENTITLEMENT_URL",
+    _env_name("CLOUD", "_BACKUP", "_ENTITLEMENT", "_TOKEN"): "SERVICE_INTERNAL_TOKEN",
+    _env_name("FLEET", "_BACKUP", "_ENTITLEMENT", "_BEARER", "_TOKEN"): "SERVICE_INTERNAL_TOKEN",
+    _env_name("FLEET", "_BACKUP", "_ENTITLEMENT", "_TIMEOUT", "_SECONDS"): "CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS",
+    _env_name("FLEET", "_BACKUP", "_MAX", "_ENTITLED", "_USERS", "_JSON"): "CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON",
+}
 ENCRYPTION_META_FIELDS = (
     "algo",
     "kdf",
@@ -23,6 +42,27 @@ ENCRYPTION_META_FIELDS = (
     "plaintext_sha256",
     "plaintext_bytes",
 )
+
+
+class ConfigMigrationError(RuntimeError):
+    pass
+
+
+def assert_no_deprecated_env_keys() -> None:
+    configured = [
+        name
+        for name in sorted(DEPRECATED_ENV_REPLACEMENTS)
+        if os.environ.get(name, "").strip()
+    ]
+    if not configured:
+        return
+    replacements = ", ".join(
+        f"{name} -> {DEPRECATED_ENV_REPLACEMENTS[name]}" for name in configured
+    )
+    raise ConfigMigrationError(
+        "Deprecated environment key(s) are not supported. "
+        f"Migrate before startup: {replacements}"
+    )
 
 
 def env_int(name: str, default: int, *, minimum: int = 1) -> int:
@@ -159,6 +199,7 @@ class AppConfig:
 
     @classmethod
     def from_env(cls) -> "AppConfig":
+        assert_no_deprecated_env_keys()
         max_payload_bytes = env_int("FLEET_BACKUP_MAX_PAYLOAD_BYTES", MAX_PAYLOAD_BYTES)
         max_request_bytes = env_int("FLEET_BACKUP_MAX_REQUEST_BYTES", MAX_REQUEST_BYTES)
         if max_request_bytes < max_payload_bytes:

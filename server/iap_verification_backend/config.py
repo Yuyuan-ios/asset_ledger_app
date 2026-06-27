@@ -13,6 +13,44 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8010
 MAX_REQUEST_BYTES = 1024 * 1024
 DEFAULT_APPLE_REQUEST_TIMEOUT_SECONDS = 10
+SERVICE_INTERNAL_TOKEN_ENV = "SERVICE_INTERNAL_TOKEN"
+EXTERNAL_CLIENT_TOKEN_REQUIRED = False
+
+
+def _env_name(*parts: str) -> str:
+    return "".join(parts)
+
+
+DEPRECATED_ENV_REPLACEMENTS = {
+    _env_name("FLEET", "_IAP", "_AUTH", "_HS256", "_SECRET"): "USER_AUTH_HS256_SECRET",
+    _env_name("FLEET", "_IAP", "_AUTH", "_JWT", "_ISSUER"): "USER_AUTH_JWT_ISSUER",
+    _env_name("FLEET", "_IAP", "_AUTH", "_JWT", "_AUDIENCE"): "USER_AUTH_JWT_AUDIENCE",
+    _env_name("FLEET", "_IAP", "_AUTH", "_INTROSPECTION", "_URL"): "USER_AUTH_INTROSPECTION_URL",
+    _env_name("FLEET", "_IAP", "_AUTH", "_INTROSPECTION", "_TOKEN"): "USER_AUTH_INTROSPECTION_SERVICE_TOKEN",
+    _env_name("FLEET", "_IAP", "_AUTH", "_TIMEOUT", "_SECONDS"): "USER_AUTH_TIMEOUT_SECONDS",
+    _env_name("IAP", "_INTERNAL", "_ENTITLEMENT", "_TOKEN"): "SERVICE_INTERNAL_TOKEN",
+}
+
+
+class ConfigMigrationError(RuntimeError):
+    pass
+
+
+def assert_no_deprecated_env_keys() -> None:
+    configured = [
+        name
+        for name in sorted(DEPRECATED_ENV_REPLACEMENTS)
+        if os.environ.get(name, "").strip()
+    ]
+    if not configured:
+        return
+    replacements = ", ".join(
+        f"{name} -> {DEPRECATED_ENV_REPLACEMENTS[name]}" for name in configured
+    )
+    raise ConfigMigrationError(
+        "Deprecated environment key(s) are not supported. "
+        f"Migrate before startup: {replacements}"
+    )
 
 
 def env_int(name: str, default: int, *, minimum: int = 1) -> int:
@@ -112,6 +150,7 @@ class AppConfig:
 
     @classmethod
     def from_env(cls) -> "AppConfig":
+        assert_no_deprecated_env_keys()
         allowed_products = validate_allowed_products(
             env_csv("FLEET_IAP_ALLOWED_PRODUCTS", DEFAULT_ALLOWED_PRODUCTS)
         )
@@ -128,7 +167,7 @@ class AppConfig:
                 DEFAULT_APPLE_REQUEST_TIMEOUT_SECONDS,
             ),
             internal_entitlement_token=non_empty_string(
-                os.environ.get("IAP_INTERNAL_ENTITLEMENT_TOKEN")
+                os.environ.get(SERVICE_INTERNAL_TOKEN_ENV)
             ),
             apple_credentials=AppleCredentialConfig.from_env(),
         )

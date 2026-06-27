@@ -8,6 +8,19 @@ to IAP-S2.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVER_ROOT))
+
+from common.auth_identity.auth_planes import AuthPlane
+from common.auth_identity.resolver import (
+    AccountIdentityResolver,
+    SecurityViolation,
+    require_stable_user_id,
+)
 from apple_verifier import (
     APPLE_STATUS_ACTIVE,
     APPLE_STATUS_BILLING_GRACE_PERIOD,
@@ -48,6 +61,8 @@ from config import (
     PRO_YEARLY_PRODUCT_ID,
     AppleCredentialConfig,
     AppConfig,
+    ConfigMigrationError,
+    EXTERNAL_CLIENT_TOKEN_REQUIRED,
     env_csv,
     env_int,
     env_optional_int,
@@ -75,7 +90,7 @@ from http_helpers import (
     request_id_from_headers,
     utc_now_iso,
 )
-from storage import EntitlementStore
+from storage import ENTITLEMENT_BINDING_POLICIES, EntitlementBindingPolicy, EntitlementStore
 from verifier import (
     OUTCOME_TO_TIER,
     RESPONSE_FIELDS,
@@ -107,7 +122,10 @@ __all__ = [
     "AppleVerifier",
     "AppConfig",
     "AppStoreServerAppleVerifier",
+    "AccountIdentityResolver",
+    "AuthPlane",
     "Authenticator",
+    "ConfigMigrationError",
     "DEFAULT_ALLOWED_BUNDLE_ID",
     "DEFAULT_ALLOWED_PRODUCTS",
     "DEFAULT_APPLE_REQUEST_TIMEOUT_SECONDS",
@@ -116,6 +134,8 @@ __all__ = [
     "DecodedAppleRenewalInfo",
     "DecodedAppleTransaction",
     "EntitlementRecord",
+    "EntitlementBindingPolicy",
+    "ENTITLEMENT_BINDING_POLICIES",
     "EntitlementStore",
     "ENVIRONMENT_PRODUCTION",
     "ENVIRONMENT_SANDBOX",
@@ -135,6 +155,7 @@ __all__ = [
     "REQUIRED_PURCHASE_FIELDS",
     "RESPONSE_FIELDS",
     "RequestValidator",
+    "SecurityViolation",
     "SignedApplePayloadVerifier",
     "VALID_ENTITLEMENT_TIERS",
     "VALID_OUTCOMES",
@@ -148,6 +169,7 @@ __all__ = [
     "env_int",
     "env_optional_int",
     "error_response",
+    "EXTERNAL_CLIENT_TOKEN_REQUIRED",
     "json_response",
     "last_query_value",
     "log_iap_event",
@@ -159,6 +181,7 @@ __all__ = [
     "optional_text",
     "read_json_body",
     "request_id_from_headers",
+    "require_stable_user_id",
     "require_text",
     "utc_now_iso",
     "validate_app_account_token",

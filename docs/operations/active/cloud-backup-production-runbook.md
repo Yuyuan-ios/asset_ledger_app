@@ -24,10 +24,10 @@ App 把**手机登录的 `authToken`** 作为 `Authorization: Bearer` 发往 `ba
 只验证账号服务（`api.yuyuan.net.cn`）签发的那枚。所以上线前必须确认：
 
 1. 账号服务**已部署并在发 token**（IAP base URL 已配置，说明业务后端在线——需确认它确实签发登录 token）。
-2. 备份后端用下面**二选一**方式验证该 token（`env`，详见后端 README「Auth」节）：
-   - **HS256 共享密钥**：`FLEET_BACKUP_AUTH_HS256_SECRET` 填**与账号服务签 token 完全相同**的 HS256 secret。
+2. 备份后端用下面**二选一**方式验证该 token（`env`，详见后端 README「User Auth」节）：
+   - **HS256 共享密钥**：`USER_AUTH_HS256_SECRET` 填**与账号服务签 token 完全相同**的 HS256 secret。
      适用：登录 token 是自包含 JWT。token 须含 `sub`/`user_id`/`phone` 之一。
-   - **introspection**：`FLEET_BACKUP_AUTH_INTROSPECTION_URL` 指向账号服务的校验端点。
+   - **introspection**：`USER_AUTH_INTROSPECTION_URL` 指向账号服务的校验端点。
      适用：登录 token 是不透明串。
    > 决策点：先确认账号服务签的是 JWT 还是 opaque token，再选模式。**两者都没配 = 所有上传返回 401。**
 
@@ -61,21 +61,26 @@ App 把**手机登录的 `authToken`** 作为 `Authorization: Bearer` 发往 `ba
 
 ```bash
 # 1) 上传 server/cloud_backup_backend/ 到 /opt/fleet-ledger-cloud-backup
-# 2) 跑 installer（建用户/venv/目录/systemd/0600 env 文件；占位符未替换前不会启动）
+# 2) 复制 server/common/ 到 /opt/fleet-ledger-cloud-backup/common/ 或 /opt/common/
+# 3) 跑 installer（建用户/venv/目录/systemd/0600 env 文件；占位符未替换前不会启动）
 cd /opt/fleet-ledger-cloud-backup
 sudo bash deploy/install_on_ecs.sh
 ```
 
 填 `/etc/fleet-ledger-cloud-backup.env`（root:root, 0600），替换全部 `replace-with-*`：
 
-- [ ] `FLEET_BACKUP_AUTH_HS256_SECRET` **或** introspection 组（见 0.1）
+- [ ] `USER_AUTH_HS256_SECRET` **或** introspection 组（见 0.1）
 - [ ] `FLEET_BACKUP_ACCOUNT_KEY_SECRET`（见 0.2，**生成后立刻离线备份**）
-- [ ] `CLOUD_BACKUP_ENTITLEMENT_URL` + `CLOUD_BACKUP_ENTITLEMENT_TOKEN`
+- [ ] `CLOUD_BACKUP_ENTITLEMENT_URL` + `SERVICE_INTERNAL_TOKEN`
       （服务端 Max 权益校验；生产/预发缺任一项会启动失败）
 - [ ] `ALIYUN_OSS_*` / `ALIBABA_CLOUD_ACCESS_KEY_*`（见 1）；`FLEET_BACKUP_STORAGE=oss`
 - [ ] 确认**无** `FLEET_BACKUP_DEV_TOKENS_JSON`，且无
-      `CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON` / `FLEET_BACKUP_MAX_ENTITLED_USERS_JSON`
+      `CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON`
       （生产严禁 dev token 和本地 Max allowlist）
+- [ ] 完成 breaking env migration：只保留 `USER_AUTH_*`、
+      `SERVICE_INTERNAL_TOKEN` 与 `CLOUD_BACKUP_ENTITLEMENT_URL` 新命名；
+      若 env 文件仍含 deprecated block 内任一旧命名，启动会直接
+      `ConfigMigrationError`
 
 ```bash
 systemctl enable --now fleet-ledger-cloud-backup
@@ -120,7 +125,7 @@ flutter build ipa --release --dart-define-from-file=dart_defines/production.json
 
 - [ ] 0.1 账号服务在线 & 备份后端能验证其 token（HS256 共享 / introspection 二选一已配）
 - [ ] 0.2 `FLEET_BACKUP_ACCOUNT_KEY_SECRET` 已生成、已离线备份、确认永不轮换
-- [ ] 服务端 Max entitlement 已配置：`CLOUD_BACKUP_ENTITLEMENT_URL` + `CLOUD_BACKUP_ENTITLEMENT_TOKEN`
+- [ ] 服务端 Max entitlement 已配置：`CLOUD_BACKUP_ENTITLEMENT_URL` + `SERVICE_INTERNAL_TOKEN`
 - [ ] 0.3 `backup-api` 子域 ICP 备案已覆盖
 - [ ] OSS 私有桶 + 最小权限 RAM、AK/SK 仅在后端 env
 - [ ] DNS + TLS 就位，`/healthz` 200

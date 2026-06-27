@@ -27,6 +27,11 @@ if [[ ! -f "$APP_DIR/app.py" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$APP_DIR/common/auth_identity/resolver.py" && ! -f "$(dirname "$APP_DIR")/common/auth_identity/resolver.py" ]]; then
+  echo "Missing shared auth module. Copy server/common/ into $APP_DIR/common/ or $(dirname "$APP_DIR")/common/." >&2
+  exit 1
+fi
+
 python3 -m venv "$APP_DIR/.venv"
 chown -R "$SERVICE_USER:$SERVICE_GROUP" "$APP_DIR/.venv"
 runuser -u "$SERVICE_USER" -- "$APP_DIR/.venv/bin/python" -m pip install --upgrade pip

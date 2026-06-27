@@ -41,6 +41,7 @@ Python 3.9+ is enough. No third-party packages are required.
 ```bash
 cd /opt/fleet-ledger-cloud-backup
 cp env.example .env
+# ensure server/common is available as ./common or ../common
 # edit .env, then:
 set -a
 . ./.env
@@ -55,20 +56,39 @@ test builds may fall back to `FLEET_LEDGER_API_BASE_URL`; release builds must
 not rely on that fallback unless the production API host has already been
 verified to serve `/v1/backups`.
 
-## Auth
+## Trust Model
+
+The backend separates token use into three auth planes:
+
+- `USER_AUTH_TOKEN`: the app login bearer token on public cloud-backup APIs.
+  The backend validates it and resolves a stable FleetLedger account `user_id`.
+- `SERVICE_INTERNAL_TOKEN`: server-to-server authority for CloudBackup -> IAP
+  internal entitlement verification. Internal endpoints must use this plane.
+- `EXTERNAL_CLIENT_TOKEN`: Flutter/App-only client identity. This backend does
+  not accept it as server authority and never uses it for entitlement or
+  account binding. `EXTERNAL_CLIENT_TOKEN_REQUIRED = False` is a config
+  statement only; there is no runtime token fallback.
+
+`user_id` means the unique FleetLedger account identity. It is not a session
+identity, not a device identity, and not an Apple `appAccountToken`. Token
+refresh must resolve back to the same `user_id` for the same account.
+
+## User Auth
 
 Production should configure one of these:
 
-- `FLEET_BACKUP_AUTH_HS256_SECRET`: same HS256 secret used by the account
+- `USER_AUTH_HS256_SECRET`: same HS256 secret used by the account
   service that issues the phone-login token. The token must contain one of
   `sub`, `user_id`, or `phone`, and may contain `exp`.
-- `FLEET_BACKUP_AUTH_INTROSPECTION_URL`: HTTPS endpoint on the account service
+- `USER_AUTH_INTROSPECTION_URL`: HTTPS endpoint on the account service
   for opaque login tokens. The backend posts `{"token":"..."}` and accepts
   JSON containing `active:true` or `ok:true` plus one of `sub`, `user_id`,
   `phone`, or `user.id`.
 
-`FLEET_BACKUP_AUTH_INTROSPECTION_BEARER_TOKEN` is optional for server-to-server
-authorization to the introspection endpoint.
+`USER_AUTH_INTROSPECTION_SERVICE_TOKEN` is optional server-to-server
+authorization to the introspection endpoint. Successful token -> `user_id`
+resolutions are cached briefly by digest only; failed resolutions are not
+cached.
 
 For one-machine smoke tests only, set:
 
@@ -80,8 +100,12 @@ Do not enable dev tokens in production.
 
 Optional JWT hardening:
 
-- `FLEET_BACKUP_AUTH_JWT_ISSUER`: expected `iss` claim.
-- `FLEET_BACKUP_AUTH_JWT_AUDIENCE`: expected `aud` claim.
+- `USER_AUTH_JWT_ISSUER`: expected `iss` claim.
+- `USER_AUTH_JWT_AUDIENCE`: expected `aud` claim.
+
+Breaking migration required: deprecated auth env names are rejected at startup
+with `ConfigMigrationError`. Use only `USER_AUTH_*`; the deprecated names are
+listed in `env.example` for operator cleanup.
 
 ## Max Entitlement
 
@@ -92,14 +116,14 @@ download. Production must configure a trusted HTTPS entitlement source:
 ```bash
 APP_ENV=production
 CLOUD_BACKUP_ENTITLEMENT_URL=https://api.example.com/internal/v1/entitlements/verify
-CLOUD_BACKUP_ENTITLEMENT_TOKEN=replace-with-server-to-server-token
+SERVICE_INTERNAL_TOKEN=replace-with-cloud-backup-to-iap-token
 CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS=5
 CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_SECONDS=60
 ```
 
 The verifier posts the authenticated `user_id` server-to-server with
 `required_capability:"cloud_backup"` and `required_plan:"max"`, authenticated by
-`Authorization: Bearer <CLOUD_BACKUP_ENTITLEMENT_TOKEN>`. It accepts only JSON
+`Authorization: Bearer <SERVICE_INTERNAL_TOKEN>`. It accepts only JSON
 that explicitly proves active Max entitlement, for example
 `{"allowed":true,"entitlementTier":"max","entitlementActive":true}` or an equivalent nested
 entitlement/subscription object. Free, Pro, expired, unknown, missing fields,
@@ -113,11 +137,10 @@ Response semantics:
   JSON: `503 subscription_verification_unavailable`.
 
 Production and staging fail fast at startup if `CLOUD_BACKUP_ENTITLEMENT_URL` or
-`CLOUD_BACKUP_ENTITLEMENT_TOKEN` is missing. If `APP_ENV` is unset, the backend
-treats it as production for this entitlement check. The old
-`FLEET_BACKUP_ENTITLEMENT_VERIFICATION_URL` and
-`FLEET_BACKUP_ENTITLEMENT_BEARER_TOKEN` names are still read as compatibility
-fallbacks, but new deployments should use the `CLOUD_BACKUP_*` names above.
+`SERVICE_INTERNAL_TOKEN` is missing. If `APP_ENV` is unset, the backend
+treats it as production for this entitlement check. Deprecated service-plane
+aliases are rejected at startup with `ConfigMigrationError`; migrate to
+`CLOUD_BACKUP_ENTITLEMENT_URL` and `SERVICE_INTERNAL_TOKEN`.
 
 For local or test-only smoke checks, a static allow-list can be enabled only
 when `APP_ENV` is `test`, `local`, or `development`:
@@ -149,11 +172,23 @@ Deployment checklist:
 
 - Set `APP_ENV=production` or `APP_ENV=staging`.
 - Set `CLOUD_BACKUP_ENTITLEMENT_URL` to an HTTPS account/subscription endpoint.
-- Set `CLOUD_BACKUP_ENTITLEMENT_TOKEN` to a server-to-server token.
+- Set `SERVICE_INTERNAL_TOKEN` to the CloudBackup -> IAP server-to-server token.
 - Confirm no `CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON` or
-  `FLEET_BACKUP_MAX_ENTITLED_USERS_JSON` is present in production.
+  static entitlement allowlist variables are present in production.
 - Confirm Free, Pro, expired, and entitlement-service-unavailable states fail
   closed before enabling cloud backup for users.
+
+Env migration checklist:
+
+- Replace deprecated auth variables with the `USER_AUTH_*` names in
+  `env.example`.
+- Replace deprecated service-to-service entitlement variables with
+  `CLOUD_BACKUP_ENTITLEMENT_URL` and `SERVICE_INTERNAL_TOKEN`.
+- Remove deprecated static entitlement allowlist variables from production
+  env files; use `CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON` only for explicit
+  local/test smoke checks.
+- Confirm startup fails with `ConfigMigrationError` if any deprecated name
+  remains set.
 
 ## Account Backup Key Issuer
 
@@ -206,7 +241,7 @@ Production requirements:
 ## Test
 
 ```bash
-python3 -m py_compile app.py handlers.py entitlements.py tests/test_app.py
+python3 -m py_compile app.py handlers.py entitlements.py tests/test_app.py ../common/auth_identity/resolver.py
 python3 -m unittest discover -s tests
 ```
 

@@ -11,6 +11,13 @@ dependencies so it can run on a small ECS or lightweight application server.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVER_ROOT))
+
 from auth import (
     Authenticator,
     HttpTokenIntrospector,
@@ -19,7 +26,14 @@ from auth import (
     base64url_encode,
     extract_user_id,
 )
+from common.auth_identity.auth_planes import AuthPlane
+from common.auth_identity.resolver import (
+    AccountIdentityResolver,
+    SecurityViolation,
+    require_stable_user_id,
+)
 from config import (
+    EXTERNAL_CLIENT_TOKEN_REQUIRED,
     DEFAULT_PORT,
     ENCODING_AES_GCM,
     ENCODING_PLAINTEXT,
@@ -31,6 +45,7 @@ from config import (
     VERSION_POLICY_PATH_ENV,
     VERSION_UPGRADE_GATE,
     AppConfig,
+    ConfigMigrationError,
     VersionPolicySource,
     VersionUpgradeGate,
     env_int,
@@ -79,6 +94,8 @@ from storage import BackupMetadata, BackupMetadataStore, ClosingSQLiteConnection
 __all__ = [
     "AliyunOssObjectStore",
     "AppConfig",
+    "AccountIdentityResolver",
+    "AuthPlane",
     "Authenticator",
     "BackupApp",
     "BackupHttpServer",
@@ -112,6 +129,9 @@ __all__ = [
     "VERSION_UPGRADE_GATE",
     "VersionPolicySource",
     "VersionUpgradeGate",
+    "ConfigMigrationError",
+    "EXTERNAL_CLIENT_TOKEN_REQUIRED",
+    "SecurityViolation",
     "audience_matches",
     "base64url_decode",
     "base64url_encode",
@@ -135,6 +155,7 @@ __all__ = [
     "parse_semver",
     "read_json_body",
     "request_id_from_headers",
+    "require_stable_user_id",
     "subscription_verification_unavailable_error",
     "validate_envelope",
 ]

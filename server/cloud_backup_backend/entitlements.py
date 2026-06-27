@@ -2,23 +2,28 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
 import time
+from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional, Protocol
 
+_SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVER_ROOT))
+
+from common.auth_identity.auth_planes import AuthPlane
+from common.auth_identity.resolver import ensure_auth_operation_allowed, require_stable_user_id
+from config import assert_no_deprecated_env_keys
 from http_helpers import HttpError
 
 
 CLOUD_BACKUP_ENTITLEMENT_URL_ENV = "CLOUD_BACKUP_ENTITLEMENT_URL"
-CLOUD_BACKUP_ENTITLEMENT_TOKEN_ENV = "CLOUD_BACKUP_ENTITLEMENT_TOKEN"
+SERVICE_INTERNAL_TOKEN_ENV = "SERVICE_INTERNAL_TOKEN"
 CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_ENV = "CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS"
 CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_ENV = "CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_SECONDS"
 CLOUD_BACKUP_MAX_ENTITLED_USERS_ENV = "CLOUD_BACKUP_MAX_ENTITLED_USERS_JSON"
-LEGACY_ENTITLEMENT_URL_ENV = "FLEET_BACKUP_ENTITLEMENT_VERIFICATION_URL"
-LEGACY_ENTITLEMENT_TOKEN_ENV = "FLEET_BACKUP_ENTITLEMENT_BEARER_TOKEN"
-LEGACY_ENTITLEMENT_TIMEOUT_ENV = "FLEET_BACKUP_ENTITLEMENT_TIMEOUT_SECONDS"
-LEGACY_MAX_ENTITLED_USERS_ENV = "FLEET_BACKUP_MAX_ENTITLED_USERS_JSON"
 CLOUD_BACKUP_REQUIRES_MAX_CODE = "cloud_backup_requires_max"
 CLOUD_BACKUP_REQUIRES_MAX_MESSAGE = "Cloud backup requires Max subscription."
 SUBSCRIPTION_VERIFICATION_UNAVAILABLE_CODE = "subscription_verification_unavailable"
@@ -68,21 +73,27 @@ class HttpCloudBackupEntitlementVerifier:
         self,
         url: str,
         *,
-        bearer_token: str,
+        service_internal_token: Optional[str] = None,
+        bearer_token: Optional[str] = None,
         timeout_seconds: int = 5,
         cache_ttl_seconds: int = 0,
     ):
         if not url.startswith("https://"):
             raise ValueError(f"{CLOUD_BACKUP_ENTITLEMENT_URL_ENV} must be https")
-        if not bearer_token.strip():
-            raise ValueError(f"{CLOUD_BACKUP_ENTITLEMENT_TOKEN_ENV} is required")
+        token = (service_internal_token or bearer_token or "").strip()
+        if not token:
+            raise ValueError(f"{SERVICE_INTERNAL_TOKEN_ENV} is required")
         self.url = url
-        self.bearer_token = bearer_token.strip()
+        self.service_internal_token = token
+        self.auth_plane = AuthPlane.SERVICE
+        ensure_auth_operation_allowed(self.auth_plane)
         self.timeout_seconds = timeout_seconds
         self.cache_ttl_seconds = cache_ttl_seconds
         self._allow_cache: Dict[str, float] = {}
 
     def require_max(self, user_id: str) -> None:
+        ensure_auth_operation_allowed(self.auth_plane)
+        user_id = require_stable_user_id(user_id, auth_plane=self.auth_plane)
         if self._has_cached_allow(user_id):
             return
         body = json.dumps(
@@ -99,7 +110,7 @@ class HttpCloudBackupEntitlementVerifier:
             method="POST",
             headers={
                 "Accept": "application/json",
-                "Authorization": f"Bearer {self.bearer_token}",
+                "Authorization": f"Bearer {self.service_internal_token}",
                 "Content-Type": "application/json",
             },
         )
@@ -157,13 +168,11 @@ def subscription_verification_unavailable_error() -> HttpError:
 
 
 def build_cloud_backup_entitlement_verifier_from_env() -> CloudBackupEntitlementVerifier:
+    assert_no_deprecated_env_keys()
     app_env = cloud_backup_app_env()
-    url = _env_first(CLOUD_BACKUP_ENTITLEMENT_URL_ENV, LEGACY_ENTITLEMENT_URL_ENV)
-    bearer_token = _env_first(CLOUD_BACKUP_ENTITLEMENT_TOKEN_ENV, LEGACY_ENTITLEMENT_TOKEN_ENV)
-    raw_static_users = _env_first(
-        CLOUD_BACKUP_MAX_ENTITLED_USERS_ENV,
-        LEGACY_MAX_ENTITLED_USERS_ENV,
-    )
+    url = os.environ.get(CLOUD_BACKUP_ENTITLEMENT_URL_ENV, "").strip()
+    service_internal_token = os.environ.get(SERVICE_INTERNAL_TOKEN_ENV, "").strip()
+    raw_static_users = os.environ.get(CLOUD_BACKUP_MAX_ENTITLED_USERS_ENV, "").strip()
 
     if app_env in PRODUCTION_APP_ENVS:
         if raw_static_users:
@@ -176,23 +185,20 @@ def build_cloud_backup_entitlement_verifier_from_env() -> CloudBackupEntitlement
                 f"{CLOUD_BACKUP_ENTITLEMENT_URL_ENV} is required when APP_ENV "
                 "is production, prod, staging, or unset"
             )
-        if not bearer_token:
+        if not service_internal_token:
             raise ValueError(
-                f"{CLOUD_BACKUP_ENTITLEMENT_TOKEN_ENV} is required when APP_ENV "
+                f"{SERVICE_INTERNAL_TOKEN_ENV} is required when APP_ENV "
                 "is production, prod, staging, or unset"
             )
 
     if url:
-        if not bearer_token:
-            raise ValueError(f"{CLOUD_BACKUP_ENTITLEMENT_TOKEN_ENV} is required")
-        timeout = _env_int_first(
-            [CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_ENV, LEGACY_ENTITLEMENT_TIMEOUT_ENV],
-            5,
-        )
-        cache_ttl = _env_int_first([CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_ENV], 0, minimum=0)
+        if not service_internal_token:
+            raise ValueError(f"{SERVICE_INTERNAL_TOKEN_ENV} is required")
+        timeout = _env_int(CLOUD_BACKUP_ENTITLEMENT_TIMEOUT_ENV, 5)
+        cache_ttl = _env_int(CLOUD_BACKUP_ENTITLEMENT_CACHE_TTL_ENV, 0, minimum=0)
         return HttpCloudBackupEntitlementVerifier(
             url,
-            bearer_token=bearer_token,
+            service_internal_token=service_internal_token,
             timeout_seconds=timeout,
             cache_ttl_seconds=cache_ttl,
         )
@@ -278,14 +284,6 @@ def _env_first(*names: str) -> str:
         if raw:
             return raw
     return ""
-
-
-def _env_int_first(names: Iterable[str], default: int, *, minimum: int = 1) -> int:
-    for name in names:
-        raw = os.environ.get(name, "").strip()
-        if raw:
-            return _env_int(name, default, minimum=minimum)
-    return default
 
 
 def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
