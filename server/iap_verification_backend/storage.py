@@ -200,6 +200,22 @@ class EntitlementStore:
                 )
                 conn.execute(
                     """
+                    CREATE TABLE IF NOT EXISTS iap_entitlement_projections (
+                      user_id TEXT PRIMARY KEY,
+                      current_entitlement_json TEXT NOT NULL,
+                      last_replayed_event_id INTEGER NOT NULL,
+                      computed_at TEXT NOT NULL
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_iap_entitlement_projections_computed_at
+                    ON iap_entitlement_projections(computed_at)
+                    """
+                )
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS iap_subscription_event_versions (
                       user_id TEXT PRIMARY KEY,
                       version INTEGER NOT NULL
@@ -562,6 +578,83 @@ class EntitlementStore:
         if record is None:
             raise sqlite3.DatabaseError("subscription state write failed")
         return record
+
+    def upsert_entitlement_projection(
+        self,
+        *,
+        user_id: str,
+        current_entitlement_json: str,
+        last_replayed_event_id: int,
+        computed_at: str,
+        write_context: Optional[RuntimeWriteContext] = None,
+    ) -> dict[str, Any]:
+        normalized_user_id = _normalize_required(user_id, "user_id")
+        normalized_json = _normalize_required(
+            current_entitlement_json,
+            "current_entitlement_json",
+        )
+        normalized_event_id = int(last_replayed_event_id)
+        normalized_computed_at = _normalize_required(computed_at, "computed_at")
+        with closing(self._connect()) as conn:
+            active_context = self.before_write(
+                write_context,
+                table_name="iap_entitlement_projections",
+                operation="upsert_entitlement_projection",
+                conn=conn,
+            )
+            with conn:
+                self._execute_write(
+                    conn,
+                    """
+                    INSERT INTO iap_entitlement_projections (
+                      user_id, current_entitlement_json,
+                      last_replayed_event_id, computed_at
+                    ) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                      current_entitlement_json = excluded.current_entitlement_json,
+                      last_replayed_event_id = excluded.last_replayed_event_id,
+                      computed_at = excluded.computed_at
+                    """,
+                    (
+                        normalized_user_id,
+                        normalized_json,
+                        normalized_event_id,
+                        normalized_computed_at,
+                    ),
+                    table_name="iap_entitlement_projections",
+                    operation="upsert_entitlement_projection",
+                    context=active_context,
+                )
+        projection = self.get_entitlement_projection(normalized_user_id)
+        if projection is None:
+            raise sqlite3.DatabaseError("entitlement projection write failed")
+        return projection
+
+    def get_entitlement_projection(self, user_id: str) -> Optional[dict[str, Any]]:
+        normalized_user_id = _normalize_required(user_id, "user_id")
+        with closing(self._connect()) as conn:
+            with conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM iap_entitlement_projections
+                    WHERE user_id = ?
+                    """,
+                    (normalized_user_id,),
+                ).fetchone()
+        return dict(row) if row is not None else None
+
+    def list_entitlement_projections(self) -> list[dict[str, Any]]:
+        with closing(self._connect()) as conn:
+            with conn:
+                rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM iap_entitlement_projections
+                    ORDER BY user_id ASC
+                    """
+                ).fetchall()
+        return [dict(row) for row in rows]
 
     def next_subscription_event_version(self, user_id: str) -> int:
         normalized_user_id = _normalize_required(user_id, "user_id")

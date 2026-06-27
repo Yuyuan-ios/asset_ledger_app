@@ -154,6 +154,29 @@ class EntitlementDBGateway:
             write_context=write_context,
         )
 
+    def upsert_entitlement_projection(
+        self,
+        *,
+        user_id: str,
+        current_entitlement_json: str,
+        last_replayed_event_id: int,
+        computed_at: str,
+        write_context: Optional[RuntimeWriteContext] = None,
+    ) -> dict[str, Any]:
+        return self._store.upsert_entitlement_projection(
+            user_id=user_id,
+            current_entitlement_json=current_entitlement_json,
+            last_replayed_event_id=last_replayed_event_id,
+            computed_at=computed_at,
+            write_context=write_context,
+        )
+
+    def get_entitlement_projection(self, user_id: str) -> Optional[dict[str, Any]]:
+        return self._store.get_entitlement_projection(user_id)
+
+    def list_entitlement_projections(self) -> list[dict[str, Any]]:
+        return self._store.list_entitlement_projections()
+
     def next_subscription_event_version(self, user_id: str) -> int:
         return self._store.next_subscription_event_version(user_id)
 

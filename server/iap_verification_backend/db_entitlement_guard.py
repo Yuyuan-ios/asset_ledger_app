@@ -11,6 +11,7 @@ from runtime_write_firewall import RBL_VIOLATION_LOG, RuntimeWriteContext
 
 PROTECTED_TABLES = (
     "iap_entitlements",
+    "iap_entitlement_projections",
     "iap_subscription_state",
     "subscription_state",
     "entitlement_table",
@@ -149,7 +150,12 @@ class DbEntitlementGuard:
 
     @staticmethod
     def _trigger_user_expr(table_name: str, row_prefix: str) -> str:
-        if table_name in {"iap_entitlements", "iap_subscription_state", "subscription_state"}:
+        if table_name in {
+            "iap_entitlements",
+            "iap_entitlement_projections",
+            "iap_subscription_state",
+            "subscription_state",
+        }:
             return f"COALESCE(NULLIF(TRIM({row_prefix}.user_id), ''), 'rbl-unknown-user')"
         return "'rbl-unknown-user'"
 

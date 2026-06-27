@@ -16,6 +16,7 @@ from gateway_single_writer_enforcer import GATEWAY_WRITER_SOURCE, SingleWriterEn
 
 RBL_VIOLATION_LOG = "rbl_violation_log"
 RECONCILIATION_WRITER_SOURCE = "subscription_reconciliation_worker.py"
+REPLAY_ENGINE_WRITER_SOURCE = "subscription_replay_engine.py"
 INTERNAL_ADMIN_WRITER_SOURCE = "internal_system_admin_job"
 
 
@@ -77,6 +78,27 @@ class RuntimeWriteContext:
         )
 
     @classmethod
+    def replay_engine(
+        cls,
+        *,
+        operation: str,
+        user_id: Optional[str] = None,
+        product_id: Optional[str] = None,
+        transaction_id: Optional[str] = None,
+    ) -> "RuntimeWriteContext":
+        return RuntimeSystemContextSigner.seal(
+            cls(
+                source=REPLAY_ENGINE_WRITER_SOURCE,
+                operation=operation,
+                actor="subscription_replay_engine",
+                user_id=user_id,
+                product_id=product_id,
+                transaction_id=transaction_id,
+                system_job=True,
+            )
+        )
+
+    @classmethod
     def internal_admin_job(
         cls,
         *,
@@ -119,6 +141,7 @@ class RuntimeSystemContextSigner:
     _allowed_callers = {
         GATEWAY_WRITER_SOURCE: {"subscription_gateway.py"},
         RECONCILIATION_WRITER_SOURCE: {"subscription_reconciliation_worker.py"},
+        REPLAY_ENGINE_WRITER_SOURCE: {"subscription_replay_engine.py"},
         INTERNAL_ADMIN_WRITER_SOURCE: {"subscription_storage_gateway.py"},
     }
 
@@ -186,10 +209,7 @@ class RuntimeWriteFirewall:
             return False
         if context.explicit_admin and context.system_job:
             return RuntimeSystemContextSigner.verify(context)
-        if context.source == GATEWAY_WRITER_SOURCE:
-            SingleWriterEnforcer.assert_writer(context)
-            return RuntimeSystemContextSigner.verify(context)
-        if context.source == RECONCILIATION_WRITER_SOURCE and context.system_job:
+        if context.source == REPLAY_ENGINE_WRITER_SOURCE and context.system_job:
             return RuntimeSystemContextSigner.verify(context)
         return False
 

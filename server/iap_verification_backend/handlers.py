@@ -77,22 +77,27 @@ class IapVerificationApp:
         self.authenticator = authenticator
         self.internal_entitlement_token = internal_entitlement_token
         self.internal_entitlement_auth_plane = AuthPlane.SERVICE
-        self.gateway_service = gateway_service or SubscriptionGatewayService(
-            store=self.store,
-            adapters=build_default_payment_channel_adapters(
-                self.validator,
-                self.verifier,
-                channel_signature_secrets,
-            ),
-            entitlement_engine=EntitlementEngine(
-                self.store,
-                self.validator.allowed_products,
-            ),
-            authority_resolver=SubscriptionAuthorityResolver(),
-            ordering_layer=SubscriptionEventOrdering(self.store),
-            state_machine=SubscriptionStateMachine(),
-            audit_log=SubscriptionAuditLog(self.store),
-        )
+        if gateway_service is not None:
+            self.gateway_service = gateway_service
+        elif hasattr(self.store, "db_path"):
+            self.gateway_service = SubscriptionGatewayService(
+                store=self.store,
+                adapters=build_default_payment_channel_adapters(
+                    self.validator,
+                    self.verifier,
+                    channel_signature_secrets,
+                ),
+                entitlement_engine=EntitlementEngine(
+                    self.store,
+                    self.validator.allowed_products,
+                ),
+                authority_resolver=SubscriptionAuthorityResolver(),
+                ordering_layer=SubscriptionEventOrdering(self.store),
+                state_machine=SubscriptionStateMachine(),
+                audit_log=SubscriptionAuditLog(self.store),
+            )
+        else:
+            self.gateway_service = None
 
     @classmethod
     def from_env(cls) -> "IapVerificationApp":
@@ -179,6 +184,12 @@ class IapVerificationApp:
         authorization_header: Optional[str] = None,
     ) -> Dict[str, object]:
         server_user_id = None
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
         if normalize_channel_name(channel) == "apple":
             server_user_id = self._authenticate_optional_bearer(authorization_header)
             if server_user_id is None:
@@ -221,6 +232,37 @@ class IapVerificationApp:
                 "Subscription verification is currently unavailable.",
             ) from exc
         return internal_entitlement_response(record)
+
+    def internal_ledger_replay(
+        self,
+        user_id: str,
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
+        self._authenticate_internal_entitlement_request(authorization_header)
+        stable_user_id = require_stable_user_id(
+            user_id,
+            auth_plane=self.internal_entitlement_auth_plane,
+        )
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
+        replay_engine = self.gateway_service.replay_engine
+        event_store = self.gateway_service.event_store
+        before_state = replay_engine.replay(stable_user_id, update_projection=False)
+        diff_before = replay_engine.projection_store.diff(stable_user_id, before_state)
+        replayed = replay_engine.replay(stable_user_id, update_projection=True)
+        diff_after = replay_engine.projection_store.diff(stable_user_id, replayed)
+        return {
+            "userId": stable_user_id,
+            "events": [event.to_dict() for event in event_store.get_events(stable_user_id)],
+            "reconstructedState": replayed.to_dict(),
+            "projectionDiffBefore": diff_before,
+            "projectionDiffAfter": diff_after,
+        }
 
     def current_entitlement(self, query: Mapping[str, List[str]]) -> Dict[str, str]:
         raw_token = last_query_value(query, "appAccountToken")
@@ -423,6 +465,18 @@ class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
                     200,
                     self.app.internal_entitlement_verify(
                         body,
+                        self.headers.get("Authorization"),
+                    ),
+                )
+                return
+            ledger_prefix = "/internal/v2/ledger/replay/"
+            if method == "GET" and path.startswith(ledger_prefix):
+                user_id = urllib.parse.unquote(path[len(ledger_prefix) :])
+                json_response(
+                    self,
+                    200,
+                    self.app.internal_ledger_replay(
+                        user_id,
                         self.headers.get("Authorization"),
                     ),
                 )

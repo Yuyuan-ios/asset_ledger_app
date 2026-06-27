@@ -1208,10 +1208,11 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         state = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
         entitlement = app.store.get_latest_entitlement_for_user(user_id)
         changes = app.store.list_subscription_audit_log(ENTITLEMENT_CHANGE_LOG)
-        self.assertEqual(result["repaired"], 1)
+        self.assertEqual(result["repaired"], 0)
+        self.assertEqual(result["skipped"], 1)
         self.assertEqual(state.state, STATE_ACTIVE)
         self.assertEqual(entitlement.outcome, "verifiedActiveMax")
-        self.assertIn("reconciliation_upgrade", {entry["reason"] for entry in changes})
+        self.assertNotIn("reconciliation_upgrade", {entry["reason"] for entry in changes})
 
     def test_scp_reconciliation_downgrade_enters_grace(self):
         app = self._app_with_gateway()
@@ -1251,6 +1252,274 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(state.state, STATE_GRACE)
         self.assertEqual(entitlement.outcome, "verifiedGracePeriodMax")
         self.assertIn("reconciliation_downgrade_to_grace", {entry["reason"] for entry in changes})
+
+    def test_scp_v2_replay_is_deterministic_when_events_are_shuffled(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-deterministic"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-deterministic-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-deterministic-expired",
+                status="expired",
+                eventTime="2026-06-27T10:00:00Z",
+            ),
+            app=app,
+        )
+        events = app.gateway_service.event_store.get_events(user_id)
+
+        normal = app.gateway_service.replay_engine.replay(
+            user_id,
+            update_projection=False,
+            events=events,
+        )
+        shuffled = app.gateway_service.replay_engine.replay(
+            user_id,
+            update_projection=False,
+            events=list(reversed(events)),
+        )
+
+        self.assertEqual(normal.current_entitlement_body(), shuffled.current_entitlement_body())
+        self.assertEqual(normal.to_dict()["productStates"], shuffled.to_dict()["productStates"])
+
+    def test_scp_v2_event_history_integrity_matches_projection(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-integrity"
+        self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-integrity-active",
+                source="webhook",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        snapshots = app.gateway_service.replay_engine.replay_all(update_projection=True)
+        diff = app.gateway_service.replay_engine.projection_diff(user_id)
+
+        self.assertIn(user_id, snapshots)
+        self.assertTrue(diff["matches"])
+        self.assertEqual(
+            app.store.get_entitlement_projection(user_id)["last_replayed_event_id"],
+            app.gateway_service.event_store.get_events(user_id)[-1].event_id,
+        )
+
+    def test_scp_v2_tampered_projection_is_overwritten_by_replay(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-tamper"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-tamper-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        current = app.store.get_latest_entitlement_for_user(user_id)
+        tampered = EntitlementRecord(
+            outcome="expired",
+            entitlement_tier="none",
+            product_id=current.product_id,
+            app_account_token=current.app_account_token,
+            original_transaction_id=current.original_transaction_id,
+            latest_transaction_id="ledger-tamper-forged",
+            environment=current.environment,
+            expires_at="2020-01-01T00:00:00.000Z",
+        )
+        context = app.store.internal_admin_write_context(
+            operation="test_tamper_projection",
+            user_id=user_id,
+            product_id=MAX_YEARLY_PRODUCT_ID,
+            transaction_id="ledger-tamper-forged",
+        )
+        app.store.upsert_entitlement(tampered, user_id=user_id, write_context=context)
+        app.store.upsert_subscription_state(
+            user_id=user_id,
+            product_id=MAX_YEARLY_PRODUCT_ID,
+            state=STATE_EXPIRED,
+            authority_score=1,
+            event_time="2026-06-27T10:00:00Z",
+            event_version=999,
+            channel=OPPO_CHANNEL,
+            transaction_id="ledger-tamper-forged",
+            write_context=context,
+        )
+
+        replayed = app.gateway_service.replay_engine.replay(user_id, update_projection=True)
+
+        self.assertEqual(replayed.current_entitlement.outcome, "verifiedActiveMax")
+        self.assertEqual(app.store.get_latest_entitlement_for_user(user_id).outcome, "verifiedActiveMax")
+        self.assertEqual(
+            app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID).state,
+            STATE_ACTIVE,
+        )
+
+    def test_scp_v2_reconciliation_emits_correction_event_not_direct_fix(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-reconciliation-event"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-reconciliation-initial",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        contexts = []
+        original_execute_write = app.store.execute_write
+
+        def spy_execute_write(conn, sql, parameters=(), *, table_name, operation, context=None):
+            active_context = context or RuntimeWriteFirewall.current_context()
+            if table_name in {"iap_entitlements", "iap_subscription_state"}:
+                contexts.append(None if active_context is None else active_context.source)
+            return original_execute_write(
+                conn,
+                sql,
+                parameters,
+                table_name=table_name,
+                operation=operation,
+                context=context,
+            )
+
+        app.store.execute_write = spy_execute_write
+        worker = SubscriptionReconciliationWorker(
+            store=app.store,
+            provider_verifiers={
+                OPPO_CHANNEL: FixedProviderVerifier(
+                    ProviderSubscriptionState(
+                        state=STATE_EXPIRED,
+                        channel=OPPO_CHANNEL,
+                        transaction_id="ledger-reconciliation-correction",
+                        event_time="2026-06-27T10:00:00Z",
+                    )
+                )
+            },
+            entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
+        )
+        before_events = app.gateway_service.event_store.get_events(user_id)
+
+        result = worker.reconcile_active_entitlements(system_job=True)
+
+        after_events = app.gateway_service.event_store.get_events(user_id)
+        self.assertEqual(result["repaired"], 1)
+        self.assertEqual(len(after_events), len(before_events) + 1)
+        self.assertEqual(after_events[-1].source, "reconciliation")
+        self.assertEqual(after_events[-1].event_type, "EXPIRE")
+        self.assertEqual(
+            app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID).state,
+            STATE_GRACE,
+        )
+        self.assertEqual(set(contexts), {"subscription_replay_engine.py"})
+
+    def test_scp_v2_full_system_rebuild_recovers_from_event_store_only(self):
+        app = self._app_with_gateway()
+        user_id = "user-ledger-rebuild"
+        self.request(
+            "POST",
+            "/iap/webhooks/vivo",
+            body=gateway_body(
+                VIVO_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-rebuild-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+        context = app.store.internal_admin_write_context(
+            operation="test_clear_projection_for_rebuild",
+            user_id=user_id,
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            transaction_id="ledger-rebuild-clear",
+        )
+        with closing(app.store._store._connect()) as conn:
+            with conn:
+                for table_name in (
+                    "iap_entitlements",
+                    "iap_subscription_state",
+                    "iap_entitlement_projections",
+                ):
+                    app.store.execute_write(
+                        conn,
+                        f"DELETE FROM {table_name}",
+                        (),
+                        table_name=table_name,
+                        operation="test_clear_projection_for_rebuild",
+                        context=context,
+                    )
+
+        self.assertIsNone(app.store.get_latest_entitlement_for_user(user_id))
+
+        app.gateway_service.replay_engine.replay_all(update_projection=True)
+
+        self.assertEqual(
+            app.store.get_latest_entitlement_for_user(user_id).outcome,
+            "verifiedActivePro",
+        )
+        self.assertEqual(
+            app.store.get_subscription_state(user_id, PRO_YEARLY_PRODUCT_ID).state,
+            STATE_ACTIVE,
+        )
+
+    def test_scp_v2_internal_ledger_replay_api_returns_diff_and_events(self):
+        app = self._app_with_gateway(internal_entitlement_token="internal-token")
+        user_id = "user-ledger-api"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="ledger-api-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        status, body = self.request(
+            "GET",
+            f"/internal/v2/ledger/replay/{user_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["userId"], user_id)
+        self.assertEqual(len(body["events"]), 1)
+        self.assertEqual(
+            body["reconstructedState"]["currentEntitlement"]["outcome"],
+            "verifiedActiveMax",
+        )
+        self.assertTrue(body["projectionDiffAfter"]["matches"])
 
     def test_rbl_legacy_handler_write_uses_gateway_context(self):
         app = self._app_with_authenticator()
@@ -1292,7 +1561,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertTrue(commit_spy.called)
         self.assert_contract_response(body, "verifiedActiveMax", "max")
         self.assertTrue(contexts)
-        self.assertEqual({source for source, _, _ in contexts}, {"subscription_gateway.py"})
+        self.assertEqual({source for source, _, _ in contexts}, {"subscription_replay_engine.py"})
         self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
 
     def test_pwpi_import_bypass_attempt_fails(self):
