@@ -2,11 +2,20 @@ import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_management_grid_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/device_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/summary_card_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('device card radii align with summary card surface', () {
+    expect(DeviceActionCardTokens.radius, SummaryCardTokens.cardRadius);
+    expect(
+      DeviceManagementGridTokens.borderRadius,
+      SummaryCardTokens.cardRadius,
+    );
+  });
+
   testWidgets('uses one-row height for zero to four devices', (tester) async {
     for (final count in [0, 1, 4]) {
       await _pumpGrid(tester, _devices(count));

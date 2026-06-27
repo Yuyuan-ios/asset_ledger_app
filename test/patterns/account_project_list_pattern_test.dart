@@ -1249,6 +1249,7 @@ void main() {
     expect(find.text('项目(5)'), findsOneWidget);
     expect(find.byTooltip('普通显示'), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFECECEC)), findsNothing);
+    expect(_projectHeaderBottomBorder(), findsNothing);
     expect(
       _densityLinesWithColor(TimingColors.textSecondary),
       findsNWidgets(3),
@@ -1282,6 +1283,7 @@ void main() {
 
     expect(find.text('项目(5)'), findsOneWidget);
     expect(_containerWithColor(const Color(0xFFECECEC)), findsNothing);
+    expect(_projectHeaderBottomBorder(), findsNothing);
     expect(_densityLinesWithColor(AppColors.textPrimary), findsNWidgets(3));
   });
 
@@ -1391,6 +1393,19 @@ Finder _densityLinesWithColor(Color color) {
         decoration is BoxDecoration &&
         decoration.color == color &&
         decoration.borderRadius == BorderRadius.circular(1.2);
+  });
+}
+
+Finder _projectHeaderBottomBorder() {
+  return find.byWidgetPredicate((widget) {
+    final decoration = widget is Container ? widget.decoration : null;
+    if (decoration is! BoxDecoration || decoration.border is! Border) {
+      return false;
+    }
+
+    final border = decoration.border! as Border;
+    return border.bottom.color == AppColors.divider &&
+        border.bottom.width == 0.5;
   });
 }
 

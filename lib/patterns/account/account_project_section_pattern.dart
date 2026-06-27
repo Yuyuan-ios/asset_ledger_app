@@ -31,11 +31,6 @@ class AccountProjectPinnedHeader extends StatelessWidget {
       color: AppColors.scaffoldBg,
       child: Container(
         height: AccountTokens.projectPinnedHeaderHeight,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: AppColors.divider, width: 0.5),
-          ),
-        ),
         padding: const EdgeInsets.only(bottom: AccountTokens.projectListTopGap),
         child: Row(
           children: [
