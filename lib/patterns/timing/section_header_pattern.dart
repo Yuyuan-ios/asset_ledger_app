@@ -15,11 +15,13 @@ class SectionHeader extends StatelessWidget {
   final double addButtonHorizontalPadding;
   final double addButtonTextSize;
   final double addButtonTextLineHeight;
+  final bool showAddButton;
 
   const SectionHeader({
     super.key,
     this.title,
     this.onAdd,
+    this.showAddButton = true,
     this.horizontalPadding = TimingTokens.headerHorizontalPadding,
     this.bottomPadding = TimingTokens.headerBottomPadding,
     this.titleSize = TimingTokens.headerTitleSize,
@@ -60,22 +62,25 @@ class SectionHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(effectiveTitle, style: titleStyle),
-          SizedBox(
-            height: addButtonHeight,
-            child: FilledButton(
-              onPressed: onAdd,
-              style: FilledButton.styleFrom(
-                backgroundColor: TimingTokens.headerAddButtonBackground,
-                elevation: 0,
-                shape: const StadiumBorder(),
-                padding: EdgeInsets.symmetric(
-                  horizontal: addButtonHorizontalPadding,
+          if (showAddButton)
+            SizedBox(
+              height: addButtonHeight,
+              child: FilledButton(
+                onPressed: onAdd,
+                style: FilledButton.styleFrom(
+                  backgroundColor: TimingTokens.headerAddButtonBackground,
+                  elevation: 0,
+                  shape: const StadiumBorder(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: addButtonHorizontalPadding,
+                  ),
+                  textStyle: addButtonStyle,
                 ),
-                textStyle: addButtonStyle,
+                child: Text(l10n.commonCreateAction),
               ),
-              child: Text(l10n.commonCreateAction),
-            ),
-          ),
+            )
+          else
+            SizedBox(height: addButtonHeight),
         ],
       ),
     );

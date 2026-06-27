@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../components/feedback/store_error_banner.dart';
+import '../../../l10n/gen/app_localizations.dart';
 import '../../../patterns/device/device_page_header_search_pattern.dart';
 import '../../../patterns/layout/phone_page_layout.dart';
+import '../../../patterns/timing/section_header_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 
 class DevicePageContent extends StatelessWidget {
@@ -34,21 +36,31 @@ class DevicePageContent extends StatelessWidget {
 
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: ListView(
-                padding: const EdgeInsets.only(
-                  top: 0,
-                  bottom: DeviceTokens.pageBottomPadding,
-                ),
+              child: Column(
                 children: [
-                  const DevicePageHeaderSearch(),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: DeviceTokens.loadErrorTopGap),
-                    StoreErrorBanner(
-                      message: errorMessage!,
-                      onRetry: isLoading ? null : onRetryLoad,
+                  SectionHeader(
+                    title: AppLocalizations.of(context).devicePageTitle,
+                    showAddButton: false,
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(
+                        top: 0,
+                        bottom: DeviceTokens.pageBottomPadding,
+                      ),
+                      children: [
+                        const DevicePageHeaderSearch(showTitle: false),
+                        if (errorMessage != null) ...[
+                          const SizedBox(height: DeviceTokens.loadErrorTopGap),
+                          StoreErrorBanner(
+                            message: errorMessage!,
+                            onRetry: isLoading ? null : onRetryLoad,
+                          ),
+                        ],
+                        ...sections,
+                      ],
                     ),
-                  ],
-                  ...sections,
+                  ),
                 ],
               ),
             );

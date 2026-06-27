@@ -3,13 +3,19 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
-import '../../tokens/mapper/timing_tokens.dart';
+import '../timing/section_header_pattern.dart';
 
 class DevicePageHeaderSearch extends StatelessWidget {
-  const DevicePageHeaderSearch({super.key, this.title, this.searchHint});
+  const DevicePageHeaderSearch({
+    super.key,
+    this.title,
+    this.searchHint,
+    this.showTitle = true,
+  });
 
   final String? title;
   final String? searchHint;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -18,27 +24,8 @@ class DevicePageHeaderSearch extends StatelessWidget {
     final resolvedSearchHint = searchHint ?? l10n.deviceSearchHint;
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            TimingTokens.headerHorizontalPadding,
-            0,
-            TimingTokens.headerHorizontalPadding,
-            TimingTokens.headerBottomPadding,
-          ),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              resolvedTitle,
-              style: AppTypography.pageTitle(
-                context,
-                fontSize: TimingTokens.headerTitleSize,
-                fontWeight: FontWeight.w700,
-                height: TimingTokens.headerTitleLineHeight,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ),
+        if (showTitle)
+          SectionHeader(title: resolvedTitle, showAddButton: false),
         const SizedBox(height: DevicePageLayoutTokens.headerToSearchGap),
         Container(
           height: DevicePageLayoutTokens.searchFieldHeight,

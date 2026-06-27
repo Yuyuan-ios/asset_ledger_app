@@ -3,6 +3,7 @@ import 'package:asset_ledger/features/device/domain/services/device_business_led
 import 'package:asset_ledger/features/device/domain/services/lifecycle_payback_calculator.dart';
 import 'package:asset_ledger/features/device/view/device_business_ledger_section.dart';
 import 'package:asset_ledger/features/device/view/device_editor_dialog.dart';
+import 'package:asset_ledger/features/device/view/device_page_content.dart';
 import 'package:asset_ledger/features/device/view/privacy_page.dart';
 import 'package:asset_ledger/features/device/view/terms_page.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
@@ -37,6 +38,7 @@ void main() {
     expect(uiCopy, contains('搜索'));
     expect(uiCopy, contains('设备编号'));
     expect(uiCopy, contains('暂无在用设备，请先去“设备”页新增'));
+    expect(uiCopy, isNot(contains('+ 新建')));
   });
 
   testWidgets('renders device page and ledger strings in English', (
@@ -79,6 +81,7 @@ void main() {
     expect(uiCopy, contains('Received principal'));
     expect(uiCopy, contains('Estimated resale residual'));
     expect(uiCopy, contains('Payback gap'));
+    expect(uiCopy, isNot(contains('+ New')));
     expect(uiCopy, isNot(contains('Surplus')));
     expect(uiCopy, isNot(contains('Income ¥1550 · 2.5h, 3trips')));
     expect(uiCopy, isNot(contains('1 project · Pending ¥450')));
@@ -117,6 +120,45 @@ void main() {
     await tester.pump();
 
     expect(openedDeviceId, 1);
+  });
+
+  testWidgets('device page pins title while search scrolls with content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedScaffoldApp(
+        locale: const Locale('zh'),
+        home: DevicePageContent(
+          errorMessage: null,
+          isLoading: false,
+          onRetryLoad: () {},
+          sections: List.generate(
+            12,
+            (index) => SizedBox(height: 80, child: Text('设备占位 $index')),
+          ),
+        ),
+      ),
+    );
+
+    final titleFinder = find.text('设备');
+    final searchFinder = find.text('搜索');
+
+    expect(titleFinder, findsOneWidget);
+    expect(searchFinder, findsOneWidget);
+    expect(find.text('+ 新建'), findsNothing);
+
+    final titleTopBefore = tester.getTopLeft(titleFinder).dy;
+    final searchTopBefore = tester.getTopLeft(searchFinder).dy;
+
+    await tester.drag(find.byType(ListView), const Offset(0, -280));
+    await tester.pump();
+
+    expect(tester.getTopLeft(titleFinder).dy, titleTopBefore);
+    if (searchFinder.evaluate().isEmpty) {
+      expect(searchFinder, findsNothing);
+    } else {
+      expect(tester.getTopLeft(searchFinder).dy, lessThan(searchTopBefore));
+    }
   });
 
   testWidgets('renders device editor strings in English', (tester) async {
