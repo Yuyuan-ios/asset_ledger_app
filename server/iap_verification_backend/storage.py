@@ -14,6 +14,10 @@ class EntitlementClaimConflict(Exception):
     pass
 
 
+class PurchaseTransactionReplay(Exception):
+    pass
+
+
 class EntitlementBindingPolicy(str, Enum):
     BIND_ONLY_IF_UNBOUND = "BIND_ONLY_IF_UNBOUND"
     NEVER_OVERWRITE_DIFFERENT_USER = "NEVER_OVERWRITE_DIFFERENT_USER"
@@ -88,6 +92,31 @@ class EntitlementStore:
                     """
                     CREATE INDEX IF NOT EXISTS idx_iap_entitlements_original_transaction_id
                     ON iap_entitlements(original_transaction_id)
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS iap_purchase_transactions (
+                      transaction_id TEXT PRIMARY KEY,
+                      channel TEXT NOT NULL,
+                      user_id TEXT NOT NULL,
+                      product_id TEXT NOT NULL,
+                      payload_hash TEXT NOT NULL,
+                      entitlement_tier TEXT NOT NULL,
+                      processed_at TEXT NOT NULL
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_iap_purchase_transactions_user_id
+                    ON iap_purchase_transactions(user_id)
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_iap_purchase_transactions_channel
+                    ON iap_purchase_transactions(channel)
                     """
                 )
 
@@ -227,6 +256,57 @@ class EntitlementStore:
                 ).fetchone()
         return EntitlementRecord.from_row(row) if row is not None else None
 
+    def record_purchase_transaction(
+        self,
+        *,
+        transaction_id: str,
+        channel: str,
+        user_id: str,
+        product_id: str,
+        payload_hash: str,
+        entitlement_tier: str,
+    ) -> bool:
+        normalized_transaction_id = _normalize_required(transaction_id, "transaction_id")
+        normalized_channel = _normalize_required(channel, "channel")
+        normalized_user_id = _normalize_required(user_id, "user_id")
+        normalized_product_id = _normalize_required(product_id, "product_id")
+        normalized_payload_hash = _normalize_required(payload_hash, "payload_hash")
+        normalized_tier = _normalize_required(entitlement_tier, "entitlement_tier")
+        with closing(self._connect()) as conn:
+            with conn:
+                existing = conn.execute(
+                    """
+                    SELECT payload_hash
+                    FROM iap_purchase_transactions
+                    WHERE transaction_id = ?
+                    """,
+                    (normalized_transaction_id,),
+                ).fetchone()
+                if existing is not None:
+                    if existing["payload_hash"] == normalized_payload_hash:
+                        return False
+                    raise PurchaseTransactionReplay(
+                        "transaction_id already exists with a different payload"
+                    )
+                conn.execute(
+                    """
+                    INSERT INTO iap_purchase_transactions (
+                      transaction_id, channel, user_id, product_id,
+                      payload_hash, entitlement_tier, processed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        normalized_transaction_id,
+                        normalized_channel,
+                        normalized_user_id,
+                        normalized_product_id,
+                        normalized_payload_hash,
+                        normalized_tier,
+                        utc_now_iso(),
+                    ),
+                )
+        return True
+
     def _claim_user_id_for_original_transaction(
         self,
         conn: sqlite3.Connection,
@@ -274,3 +354,9 @@ def _normalize_user_id(user_id: Optional[str]) -> Optional[str]:
         return None
     normalized = user_id.strip()
     return normalized or None
+
+
+def _normalize_required(value: str, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} is required")
+    return value.strip()

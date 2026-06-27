@@ -30,6 +30,11 @@ from http_helpers import (
     request_id_from_headers,
 )
 from storage import EntitlementClaimConflict, EntitlementStore
+from payment_channel_adapters import (
+    build_default_payment_channel_adapters,
+    normalize_channel_name,
+)
+from subscription_gateway import EntitlementEngine, SubscriptionGatewayService
 from verifier import (
     AppleServerApiVerifierPlaceholder,
     AppleVerificationFailed,
@@ -58,6 +63,8 @@ class IapVerificationApp:
         max_request_bytes: int = MAX_REQUEST_BYTES,
         authenticator: Optional[Authenticator] = None,
         internal_entitlement_token: Optional[str] = None,
+        channel_signature_secrets: Optional[Mapping[str, str]] = None,
+        gateway_service: Optional[SubscriptionGatewayService] = None,
     ):
         self.store = store
         self.validator = validator
@@ -66,6 +73,18 @@ class IapVerificationApp:
         self.authenticator = authenticator
         self.internal_entitlement_token = internal_entitlement_token
         self.internal_entitlement_auth_plane = AuthPlane.SERVICE
+        self.gateway_service = gateway_service or SubscriptionGatewayService(
+            store=self.store,
+            adapters=build_default_payment_channel_adapters(
+                self.validator,
+                self.verifier,
+                channel_signature_secrets,
+            ),
+            entitlement_engine=EntitlementEngine(
+                self.store,
+                self.validator.allowed_products,
+            ),
+        )
 
     @classmethod
     def from_env(cls) -> "IapVerificationApp":
@@ -137,6 +156,23 @@ class IapVerificationApp:
                     fields["apple_verification_statuses"] = apple_verification_statuses
             log_iap_event(fields)
         return result.to_response_body()
+
+    def receive_purchase_event(
+        self,
+        channel: str,
+        body: Mapping[str, Any],
+        authorization_header: Optional[str] = None,
+    ) -> Dict[str, object]:
+        server_user_id = None
+        if normalize_channel_name(channel) == "apple":
+            server_user_id = self._authenticate_optional_bearer(authorization_header)
+            if server_user_id is None:
+                raise HttpError(401, "unauthorized", "Bearer token is required")
+        return self.gateway_service.receive_purchase_event(
+            normalize_channel_name(channel),
+            body,
+            server_user_id=server_user_id,
+        )
 
     def internal_entitlement_verify(
         self,
@@ -342,6 +378,30 @@ class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
             if method == "GET" and path == "/iap/apple/current-entitlement":
                 query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
                 json_response(self, 200, self.app.current_entitlement(query))
+                return
+            gateway_prefix = "/iap/gateway/"
+            if method == "POST" and path.startswith(gateway_prefix):
+                channel = path[len(gateway_prefix) :].split("/", 1)[0]
+                body = read_json_body(self, self.app.max_request_bytes)
+                json_response(
+                    self,
+                    200,
+                    self.app.receive_purchase_event(
+                        channel,
+                        body,
+                        self.headers.get("Authorization"),
+                    ),
+                )
+                return
+            webhook_prefix = "/iap/webhooks/"
+            if method == "POST" and path.startswith(webhook_prefix):
+                channel = path[len(webhook_prefix) :].split("/", 1)[0]
+                body = read_json_body(self, self.app.max_request_bytes)
+                json_response(
+                    self,
+                    200,
+                    self.app.receive_purchase_event(channel, body),
+                )
                 return
             if method == "POST" and path == "/internal/v1/entitlements/verify":
                 body = read_json_body(self, self.app.max_request_bytes)

@@ -14,6 +14,21 @@ checks also bind verified subscriptions to the logged-in FleetLedger `user_id`.
     appAccountToken-only flow remains available and `user_id` stays null.
 - `GET /iap/apple/current-entitlement?appAccountToken=...`
   - AppAccountToken lookup kept for existing clients.
+- `POST /iap/gateway/apple/purchase`
+  - Body: the same App Store purchase verification payload.
+  - Auth: `Authorization: Bearer <app-login-token>`.
+  - New unified gateway path for account-bound Apple purchases. The legacy
+    `/iap/apple/verify-purchase` endpoint remains available for existing iOS
+    clients.
+- `POST /iap/webhooks/{channel}`
+  - Server-to-server callback endpoint for `google_play`, `oppo`, `xiaomi`,
+    `huawei`, and `vivo`.
+  - Body includes `channel`, `user_id`, `product_id`, `transaction_id`,
+    `status`, and `signature`.
+  - The backend verifies the channel signature, normalizes the payload to a
+    `PurchaseEvent`, rejects replayed `transaction_id` values with different
+    payloads, ignores exact duplicates, and forwards only normalized events to
+    the entitlement engine.
 - `POST /internal/v1/entitlements/verify`
   - Auth: `Authorization: Bearer <SERVICE_INTERNAL_TOKEN>`.
   - Body:
@@ -71,6 +86,25 @@ only the server-verified login bearer token. Apple transaction
 are read-only verification inputs and must not create or overwrite account
 binding.
 
+## Unified Subscription Gateway
+
+All new payment channels follow the same server-side flow:
+
+```text
+PurchaseEvent -> channel signature verification -> normalized PurchaseEvent -> EntitlementEngine.apply(event)
+```
+
+Adapters only verify and parse channel payloads. They do not decide whether a
+user receives Free, Pro, or Max. `EntitlementEngine` maps the verified
+`product_id` to the entitlement tier and applies purchase status consistently
+across Apple, Google Play, OPPO, Xiaomi, Huawei, and Vivo.
+
+The gateway ignores client-declared plan fields such as `plan=max`; only the
+verified `product_id` and normalized purchase status can affect entitlement.
+`iap_purchase_transactions.transaction_id` is the replay and idempotency guard:
+exact duplicate payloads are ignored, while reused transaction ids with changed
+payloads are rejected.
+
 ## Internal Entitlement Contract
 
 Cloud backup should call:
@@ -114,6 +148,11 @@ Important variables:
 - `USER_AUTH_TIMEOUT_SECONDS`: introspection timeout, default 5 seconds.
 - `USER_AUTH_IDENTITY_CACHE_TTL_SECONDS`: successful token -> `user_id` cache
   TTL, default 900 seconds. Failed resolutions are not cached.
+- `FLEET_IAP_GOOGLE_PLAY_SIGNATURE_SECRET`,
+  `FLEET_IAP_OPPO_SIGNATURE_SECRET`, `FLEET_IAP_XIAOMI_SIGNATURE_SECRET`,
+  `FLEET_IAP_HUAWEI_SIGNATURE_SECRET`, and
+  `FLEET_IAP_VIVO_SIGNATURE_SECRET`: required before accepting the
+  corresponding channel webhook. Missing secrets fail closed.
 
 Breaking migration required: deprecated auth and internal entitlement env names
 are rejected at startup with `ConfigMigrationError`. Use only `USER_AUTH_*` and
@@ -132,6 +171,6 @@ Env migration checklist:
 ## Test
 
 ```bash
-python3 -m py_compile app.py handlers.py storage.py auth.py tests/test_app.py ../common/auth_identity/resolver.py
+python3 -m py_compile app.py handlers.py storage.py auth.py verifier.py payment_channel_adapters.py subscription_gateway.py tests/test_app.py ../common/auth_identity/resolver.py
 python3 -m unittest discover -s tests
 ```

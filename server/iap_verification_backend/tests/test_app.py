@@ -23,23 +23,31 @@ from app import (  # noqa: E402
     DEFAULT_ALLOWED_PRODUCTS,
     ENTITLEMENT_BINDING_POLICIES,
     EXTERNAL_CLIENT_TOKEN_REQUIRED,
+    GOOGLE_PLAY_CHANNEL,
+    HUAWEI_CHANNEL,
     MAX_YEARLY_PRODUCT_ID,
+    OPPO_CHANNEL,
     PRO_YEARLY_PRODUCT_ID,
     RESPONSE_FIELDS,
+    VIVO_CHANNEL,
     VALID_ENTITLEMENT_TIERS,
     VALID_OUTCOMES,
+    XIAOMI_CHANNEL,
     AppleServerApiVerifierPlaceholder,
     AppConfig,
     AppStoreServerAppleVerifier,
     Authenticator,
+    EntitlementEngine,
     EntitlementStore,
     EntitlementRecord,
     EntitlementBindingPolicy,
     HttpError,
     IapVerificationApp,
+    PurchaseEvent,
     IapVerificationRequestHandler,
     RequestValidator,
     SecurityViolation,
+    signature_for_payload,
 )
 from handlers import redact_app_account_token_values  # noqa: E402
 from verifier import AppleVerificationFailed, FakeAppleVerifier  # noqa: E402
@@ -130,6 +138,25 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                 }
             ),
             internal_entitlement_token=kwargs.get("internal_entitlement_token"),
+        )
+
+    def _app_with_gateway(self, **kwargs):
+        return IapVerificationApp(
+            store=kwargs.get("store", self.store),
+            validator=RequestValidator(DEFAULT_ALLOWED_PRODUCTS, DEFAULT_ALLOWED_BUNDLE_ID),
+            verifier=kwargs.get("verifier", FakeAppleVerifier()),
+            max_request_bytes=64 * 1024,
+            authenticator=Authenticator(
+                dev_tokens={
+                    "login-token-a": "user-a",
+                    "login-token-max": "user-max",
+                }
+            ),
+            internal_entitlement_token=kwargs.get("internal_entitlement_token"),
+            channel_signature_secrets=kwargs.get(
+                "channel_signature_secrets",
+                gateway_secrets(),
+            ),
         )
 
     def test_healthz_is_unauthenticated(self):
@@ -751,6 +778,254 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                 self.assertEqual(response_body["status"], status)
                 self.assertEqual(response_body["reason"], "requires_max")
 
+    def test_gateway_apple_max_success_reuses_existing_ios_verifier(self):
+        app = self._app_with_gateway()
+
+        status, body = self.request(
+            "POST",
+            "/iap/gateway/apple/purchase",
+            body=purchase_body(
+                fake_token="fake:max-active",
+                app_account_token=MAX_TOKEN,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+            ),
+            app=app,
+            headers={"Authorization": "Bearer login-token-max"},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "applied")
+        self.assertEqual(body["entitlement"]["outcome"], "verifiedActiveMax")
+        self.assertEqual(body["entitlement"]["entitlementTier"], "max")
+        self.assertEqual(body["event"]["userId"], "user-max")
+        self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-max")
+
+    def test_gateway_google_pro_success(self):
+        app = self._app_with_gateway()
+
+        status, body = self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id="user-google",
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="google-tx-1",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "applied")
+        self.assertEqual(body["entitlement"]["entitlementTier"], "pro")
+        self.assertEqual(body["entitlement"]["outcome"], "verifiedActivePro")
+
+    def test_gateway_oppo_max_webhook_success(self):
+        app = self._app_with_gateway()
+
+        status, body = self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id="user-oppo",
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="oppo-tx-1",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "applied")
+        self.assertEqual(body["entitlement"]["entitlementTier"], "max")
+        self.assertEqual(body["entitlement"]["outcome"], "verifiedActiveMax")
+
+    def test_gateway_xiaomi_pro_webhook_success(self):
+        app = self._app_with_gateway()
+
+        status, body = self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id="user-xiaomi",
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="xiaomi-tx-1",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "applied")
+        self.assertEqual(body["entitlement"]["entitlementTier"], "pro")
+        self.assertEqual(body["entitlement"]["outcome"], "verifiedActivePro")
+
+    def test_gateway_huawei_expired_webhook_is_rejected_without_unlock(self):
+        app = self._app_with_gateway(internal_entitlement_token="internal-token")
+
+        status, body = self.request(
+            "POST",
+            "/iap/webhooks/huawei",
+            body=gateway_body(
+                HUAWEI_CHANNEL,
+                user_id="user-huawei",
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="huawei-tx-1",
+                status="expired",
+                expires_at="2020-01-01T00:00:00.000Z",
+            ),
+            app=app,
+        )
+        entitlement_status, entitlement_body = self.request(
+            "POST",
+            "/internal/v1/entitlements/verify",
+            body=internal_entitlement_body("user-huawei"),
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "rejected")
+        self.assertEqual(body["entitlement"]["outcome"], "expired")
+        self.assertEqual(body["entitlement"]["entitlementTier"], "none")
+        self.assertEqual(entitlement_status, 200)
+        self.assertEqual(entitlement_body["allowed"], False)
+        self.assertEqual(entitlement_body["status"], "expired")
+
+    def test_gateway_vivo_replay_attack_is_rejected(self):
+        app = self._app_with_gateway()
+        first_body = gateway_body(
+            VIVO_CHANNEL,
+            user_id="user-vivo",
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            transaction_id="vivo-tx-1",
+        )
+        replay_body = gateway_body(
+            VIVO_CHANNEL,
+            user_id="user-vivo",
+            product_id=MAX_YEARLY_PRODUCT_ID,
+            transaction_id="vivo-tx-1",
+        )
+
+        first_status, first_response = self.request(
+            "POST",
+            "/iap/webhooks/vivo",
+            body=first_body,
+            app=app,
+        )
+        replay_status, replay_response = self.request(
+            "POST",
+            "/iap/webhooks/vivo",
+            body=replay_body,
+            app=app,
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(first_response["entitlement"]["entitlementTier"], "pro")
+        self.assertEqual(replay_status, 409)
+        self.assertEqual(replay_response["error"]["code"], "replay_attack")
+        self.assertEqual(
+            app.store.get_latest_entitlement_for_user("user-vivo").entitlement_tier,
+            "pro",
+        )
+
+    def test_gateway_duplicate_transaction_id_is_ignored(self):
+        app = self._app_with_gateway()
+        body = gateway_body(
+            GOOGLE_PLAY_CHANNEL,
+            user_id="user-duplicate",
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            transaction_id="duplicate-tx-1",
+        )
+
+        first_status, first_response = self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=body,
+            app=app,
+        )
+        second_status, second_response = self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=body,
+            app=app,
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(first_response["gatewayStatus"], "applied")
+        self.assertEqual(second_status, 200)
+        self.assertEqual(second_response["gatewayStatus"], "ignored")
+        self.assertEqual(second_response["entitlement"]["entitlementTier"], "pro")
+
+    def test_gateway_invalid_signature_is_rejected(self):
+        app = self._app_with_gateway()
+        body = gateway_body(
+            OPPO_CHANNEL,
+            user_id="user-invalid-signature",
+            product_id=MAX_YEARLY_PRODUCT_ID,
+            transaction_id="invalid-signature-tx-1",
+        )
+        body["signature"] = "sha256=invalid"
+
+        status, response = self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=body,
+            app=app,
+        )
+
+        self.assertEqual(status, 401)
+        self.assertEqual(response["error"]["code"], "invalid_signature")
+        self.assertIsNone(app.store.get_latest_entitlement_for_user("user-invalid-signature"))
+
+    def test_gateway_client_fake_plan_max_is_ignored(self):
+        app = self._app_with_gateway()
+
+        status, body = self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id="user-fake-plan",
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="fake-plan-tx-1",
+                plan="max",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "applied")
+        self.assertEqual(body["entitlement"]["productId"], PRO_YEARLY_PRODUCT_ID)
+        self.assertEqual(body["entitlement"]["entitlementTier"], "pro")
+
+    def test_entitlement_engine_maps_product_ids_consistently_across_channels(self):
+        engine = EntitlementEngine(self.store, DEFAULT_ALLOWED_PRODUCTS)
+        channels = (
+            "apple",
+            GOOGLE_PLAY_CHANNEL,
+            OPPO_CHANNEL,
+            XIAOMI_CHANNEL,
+            HUAWEI_CHANNEL,
+            VIVO_CHANNEL,
+        )
+
+        for index, channel in enumerate(channels, start=1):
+            with self.subTest(channel=channel):
+                record = engine.apply(
+                    PurchaseEvent(
+                        user_id=f"user-engine-{index}",
+                        channel=channel,
+                        product_id=MAX_YEARLY_PRODUCT_ID,
+                        transaction_id=f"engine-tx-{index}",
+                        signature="verified",
+                        raw_payload={"normalizedStatus": "active"},
+                    )
+                )
+
+                self.assertEqual(record.entitlement_tier, "max")
+                self.assertEqual(record.outcome, "verifiedActiveMax")
+
     def test_internal_entitlement_db_error_fails_closed_as_503(self):
         app = IapVerificationApp(
             store=DbErrorEntitlementStore(),
@@ -1035,6 +1310,40 @@ def purchase_body(
         "appAccountToken": app_account_token,
         "bundleId": DEFAULT_ALLOWED_BUNDLE_ID,
     }
+
+
+def gateway_secrets():
+    return {
+        GOOGLE_PLAY_CHANNEL: "google-secret",
+        OPPO_CHANNEL: "oppo-secret",
+        XIAOMI_CHANNEL: "xiaomi-secret",
+        HUAWEI_CHANNEL: "huawei-secret",
+        VIVO_CHANNEL: "vivo-secret",
+    }
+
+
+def gateway_body(
+    channel,
+    *,
+    user_id,
+    product_id,
+    transaction_id,
+    status="active",
+    expires_at=None,
+    **extra,
+):
+    body = {
+        "channel": channel,
+        "user_id": user_id,
+        "product_id": product_id,
+        "transaction_id": transaction_id,
+        "status": status,
+        **extra,
+    }
+    if expires_at is not None:
+        body["expiresAt"] = expires_at
+    body["signature"] = signature_for_payload(body, gateway_secrets()[channel])
+    return body
 
 
 def internal_entitlement_body(
