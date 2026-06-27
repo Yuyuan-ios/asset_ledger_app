@@ -20,7 +20,7 @@ void main() {
           expect(template.layoutFor(MeasureUnit.hour).usesMeter, isTrue);
           expect(template.layoutFor(MeasureUnit.hour).modeLabel, '工时');
           expect(template.layoutFor(MeasureUnit.hour).unitPriceLabel, '元/小时');
-          expect(template.layoutFor(MeasureUnit.rent).modeLabel, '租金(台班)');
+          expect(template.layoutFor(MeasureUnit.rent).modeLabel, '台班(租金)');
           expect(template.layoutFor(MeasureUnit.rent).unitPriceLabel, '元/台班');
         }
       },

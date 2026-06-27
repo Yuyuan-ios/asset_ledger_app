@@ -532,7 +532,7 @@ void main() {
       ),
     );
 
-    expect(find.text('租金(台班)'), findsOneWidget);
+    expect(find.text('台班(租金)'), findsOneWidget);
     expect(find.text('单价:—'), findsNothing);
     expect(find.text('总共:  0 h'), findsNothing);
   });
@@ -747,7 +747,7 @@ void main() {
       const Color(0xFF5E4AA8),
     );
     expect(
-      tester.widget<Text>(find.text('租金(台班)')).style?.color,
+      tester.widget<Text>(find.text('台班(租金)')).style?.color,
       const Color(0xFF7A5418),
     );
 
@@ -805,7 +805,7 @@ void main() {
     );
 
     expect(find.text('单价:¥180(多设备)'), findsNothing);
-    expect(find.text('租金(台班)'), findsNothing);
+    expect(find.text('台班(租金)'), findsNothing);
     expect(find.text('总共:  68 h'), findsNothing);
     expect(find.text('40.8%实收'), findsOneWidget);
     expect(find.text('项目总额 ¥12240'), findsOneWidget);

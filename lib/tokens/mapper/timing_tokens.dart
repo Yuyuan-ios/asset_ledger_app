@@ -106,7 +106,7 @@ class TimingTokens {
   static const double segmentHeight = 42; // 工时/租金分段控件总高度
   static const double segmentInset = 2; // 分段控件外壳内边距
   static const double segmentItemHeight = 38; // 单个分段项高度
-  static const double segmentRadius = 8; // 分段控件圆角
+  static const double segmentRadius = 6; // 分段控件圆角
   static const double segmentTextSize = 16; // 分段项文本字号
   static const double segmentCheckSize = 14; // 选中态勾号字号
   static const double segmentCheckRightGap = 6; // 选中态勾号与文字间距

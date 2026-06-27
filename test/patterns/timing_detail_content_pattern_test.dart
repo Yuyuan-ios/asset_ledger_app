@@ -247,8 +247,9 @@ void main() {
       SheetColors.fieldLabel,
     );
     expect(_findBoxBorderColor(SheetColors.fieldBorder), findsWidgets);
-    expect(_findBoxColor(SheetColors.meterBackground), findsWidgets);
-    expect(TimingTokens.segmentRadius, 8);
+    expect(SheetColors.segmentBackground, SheetColors.segmentBorder);
+    expect(_findBoxColor(SheetColors.meterBackground), findsNWidgets(2));
+    expect(TimingTokens.segmentRadius, 6);
   });
 
   testWidgets(
@@ -315,7 +316,7 @@ void main() {
     expect(uiCopy, isNot(contains('开始工作时间')));
     expect(uiCopy, isNot(contains('结束工作时间')));
 
-    await tester.tap(find.text('租金(台班)'));
+    await tester.tap(find.text('台班(租金)'));
     await tester.pumpAndSettle();
 
     uiCopy = collectUiCopy(tester);
@@ -970,7 +971,7 @@ void main() {
     await tapCalculatorEqualKey(tester);
     await closeCalculatorSheet(tester);
 
-    await tester.tap(find.text('租金(台班)'));
+    await tester.tap(find.text('台班(租金)'));
     await tester.pumpAndSettle();
     await key.currentState!.submit();
     await tester.pumpAndSettle();
@@ -1053,7 +1054,7 @@ void main() {
       },
     );
 
-    await tester.tap(find.text('租金(台班)'));
+    await tester.tap(find.text('台班(租金)'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, '联系人'), '新甲方');
     await tester.enterText(find.widgetWithText(TextField, '使用地址/工地'), '新工地');
@@ -1082,7 +1083,7 @@ void main() {
       },
     );
 
-    await tester.tap(find.text('租金(台班)'));
+    await tester.tap(find.text('台班(租金)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('选择日期'));
     await tester.pumpAndSettle();
@@ -1137,7 +1138,7 @@ void main() {
         },
       );
 
-      await tester.tap(find.text('租金(台班)'));
+      await tester.tap(find.text('台班(租金)'));
       await tester.pumpAndSettle();
       await key.currentState!.submit();
       await tester.pumpAndSettle();

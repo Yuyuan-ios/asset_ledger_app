@@ -52,7 +52,7 @@ class SheetColors {
   static const Color muted = Color(0xFF8E8E8E); // 弱图标/弱文字
   static const Color textPrimary = Color(0xFF1C1C1E); // 弹窗主文字
   static const Color textDim = Color(0xFF888888); // 弹窗弱文字
-  static const Color segmentBackground = Color(0xFFD4D9E0); // 分段背景
+  static const Color segmentBackground = segmentBorder; // 分段背景
   static const Color segmentSelected = Color(0xFFE68E22); // 分段选中
   static const Color segmentBorder = fieldBorder; // 分段边框
   static const Color meterBackground = Color(0xCC000000); // 码表背景

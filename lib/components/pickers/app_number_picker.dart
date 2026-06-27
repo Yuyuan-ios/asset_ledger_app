@@ -17,7 +17,7 @@ class AppNumberPicker extends StatefulWidget {
     this.width = TimingTokens.meterCellSize,
     this.itemExtent = TimingTokens.meterItemExtent,
     this.diameterRatio = TimingTokens.meterWheelDiameterRatio,
-    this.backgroundColor = SheetColors.meterBackground,
+    this.backgroundColor,
     this.textColor = SheetColors.meterText,
     this.backgroundMargin = EdgeInsets.zero,
     this.backgroundRadius = TimingTokens.digitCellRadius,
@@ -32,7 +32,7 @@ class AppNumberPicker extends StatefulWidget {
   final double width;
   final double itemExtent;
   final double diameterRatio;
-  final Color backgroundColor;
+  final Color? backgroundColor;
   final Color textColor;
   final EdgeInsets backgroundMargin;
   final double backgroundRadius;

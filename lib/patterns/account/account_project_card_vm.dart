@@ -90,7 +90,7 @@ class AccountProjectCardVmBuilder {
   static String _priceText(AccountProjectVM p) {
     final rate = p.minRate;
     if (rate == null) {
-      if (p.rentIncomeTotal > 0) return '租金(台班)';
+      if (p.rentIncomeTotal > 0) return '台班(租金)';
       return '单价:—';
     }
     if (p.isMultiDevice) {

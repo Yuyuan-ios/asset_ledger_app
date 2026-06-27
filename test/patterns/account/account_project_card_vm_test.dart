@@ -188,7 +188,7 @@ void main() {
       final vm = build(
         project(minRate: null, rentIncomeTotal: 22000, hoursByDevice: const {}),
       );
-      expect(vm.priceText, '租金(台班)');
+      expect(vm.priceText, '台班(租金)');
       expect(vm.priceBadgeKind, AccountProjectPriceBadgeKind.rent);
     });
 
