@@ -8,6 +8,7 @@ from typing import Any, Dict, Mapping, Optional, Protocol
 from auth import require_text
 from config import MAX_YEARLY_PRODUCT_ID, PRO_YEARLY_PRODUCT_ID
 from http_helpers import HttpError
+from runtime_write_firewall import RuntimeWriteContext, RuntimeWriteFirewall
 from storage import EntitlementStore, PurchaseTransactionReplay
 from subscription_audit_log import SubscriptionAuditLog
 from subscription_authority_resolver import SubscriptionAuthorityResolver
@@ -21,7 +22,7 @@ from subscription_state_machine import (
     StateTransitionResult,
     SubscriptionStateMachine,
 )
-from verifier import EntitlementRecord, OUTCOME_TO_TIER
+from verifier import EntitlementRecord, OUTCOME_TO_TIER, PurchaseVerificationRequest
 
 
 @dataclasses.dataclass(frozen=True)
@@ -329,17 +330,25 @@ class SubscriptionGatewayService:
         authority_score: int,
     ) -> EntitlementRecord:
         record = self.entitlement_engine.apply(event, state=transition.new_state)
-        persisted = self.store.upsert_entitlement(record, user_id=event.user_id)
-        self.store.upsert_subscription_state(
+        write_context = RuntimeWriteContext.gateway(
+            operation="gateway_apply_entitlement",
+            route="SubscriptionGatewayService.forward_to_entitlement_engine",
             user_id=event.user_id,
             product_id=event.product_id,
-            state=transition.new_state,
-            authority_score=authority_score,
-            event_time=event.event_time,
-            event_version=event.event_version or 0,
-            channel=event.channel,
             transaction_id=event.transaction_id,
         )
+        with RuntimeWriteFirewall.activate(write_context):
+            persisted = self.store.upsert_entitlement(record, user_id=event.user_id)
+            self.store.upsert_subscription_state(
+                user_id=event.user_id,
+                product_id=event.product_id,
+                state=transition.new_state,
+                authority_score=authority_score,
+                event_time=event.event_time,
+                event_version=event.event_version or 0,
+                channel=event.channel,
+                transaction_id=event.transaction_id,
+            )
         self.audit_log.record_processed_event(
             event,
             authority_score=authority_score,
@@ -353,6 +362,101 @@ class SubscriptionGatewayService:
             previous_state=transition.previous_state,
             new_state=transition.new_state,
             reason="entitlement_state_applied",
+        )
+        return persisted
+
+    def commit_legacy_apple_record(
+        self,
+        request: PurchaseVerificationRequest,
+        record: EntitlementRecord,
+        *,
+        server_user_id: Optional[str] = None,
+    ) -> EntitlementRecord:
+        event = _legacy_event_for_record(request, record, server_user_id=server_user_id)
+        current_state = self.store.get_subscription_state(event.user_id, event.product_id)
+        requested_state = _state_for_entitlement_record(record)
+        authority = self.authority_resolver.resolve(event, current_state)
+        self.audit_log.record_raw_event(event, authority_score=authority.authority_score)
+
+        if not authority.accepted:
+            self.audit_log.record_processed_event(
+                event,
+                authority_score=authority.authority_score,
+                previous_state=current_state.state if current_state else STATE_NONE,
+                new_state=current_state.state if current_state else STATE_NONE,
+                reason=authority.reason,
+            )
+            return self.store.get_entitlement(record.app_account_token) or record
+
+        ordering = self.ordering_layer.evaluate(event, current_state)
+        if not ordering.accepted:
+            self.audit_log.record_processed_event(
+                dataclasses.replace(
+                    event,
+                    event_time=ordering.event_time,
+                    event_version=ordering.event_version,
+                ),
+                authority_score=authority.authority_score,
+                previous_state=current_state.state if current_state else STATE_NONE,
+                new_state=current_state.state if current_state else STATE_NONE,
+                reason=ordering.reason,
+            )
+            return self.store.get_entitlement(record.app_account_token) or record
+
+        event = dataclasses.replace(
+            event,
+            event_time=ordering.event_time,
+            event_version=ordering.event_version,
+        )
+        previous_state = current_state.state if current_state else STATE_NONE
+        transition = self.state_machine.transition(
+            previous_state,
+            requested_state,
+            event_kind=_event_kind_for_event(event, previous_state),
+        )
+        if transition.safe_no_op:
+            self.audit_log.record_processed_event(
+                event,
+                authority_score=authority.authority_score,
+                previous_state=transition.previous_state,
+                new_state=transition.new_state,
+                reason=transition.reason,
+            )
+            return self.store.get_entitlement(record.app_account_token) or record
+
+        entitlement_user_id = server_user_id
+        write_context = RuntimeWriteContext.gateway(
+            operation="legacy_apple_gateway_commit",
+            route="/iap/apple/verify-purchase",
+            user_id=event.user_id,
+            product_id=event.product_id,
+            transaction_id=event.transaction_id,
+        )
+        with RuntimeWriteFirewall.activate(write_context):
+            persisted = self.store.upsert_entitlement(record, user_id=entitlement_user_id)
+            self.store.upsert_subscription_state(
+                user_id=event.user_id,
+                product_id=event.product_id,
+                state=transition.new_state,
+                authority_score=authority.authority_score,
+                event_time=event.event_time,
+                event_version=event.event_version or 0,
+                channel=event.channel,
+                transaction_id=event.transaction_id,
+            )
+        self.audit_log.record_processed_event(
+            event,
+            authority_score=authority.authority_score,
+            previous_state=transition.previous_state,
+            new_state=transition.new_state,
+            reason=transition.reason,
+        )
+        self.audit_log.record_entitlement_change(
+            event,
+            authority_score=authority.authority_score,
+            previous_state=transition.previous_state,
+            new_state=transition.new_state,
+            reason="legacy_entitlement_state_applied",
         )
         return persisted
 
@@ -448,3 +552,65 @@ def _app_account_token_for_event(event: PurchaseEvent) -> str:
 def _payload_hash(payload: Mapping[str, Any]) -> str:
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _state_for_entitlement_record(record: EntitlementRecord) -> str:
+    if record.outcome in {"verifiedActivePro", "verifiedActiveMax"}:
+        return STATE_ACTIVE
+    if record.outcome in {"verifiedGracePeriodPro", "verifiedGracePeriodMax"}:
+        return STATE_GRACE
+    if record.outcome == "revoked":
+        return STATE_REVOKED
+    if record.outcome in {"billingRetry", "expired"}:
+        return STATE_EXPIRED
+    return STATE_NONE
+
+
+def _legacy_event_for_record(
+    request: PurchaseVerificationRequest,
+    record: EntitlementRecord,
+    *,
+    server_user_id: Optional[str],
+) -> PurchaseEvent:
+    user_id = server_user_id or f"legacy-app-account:{request.app_account_token}"
+    transaction_id = (
+        record.latest_transaction_id
+        or request.purchase_id
+        or record.original_transaction_id
+        or request.app_account_token
+    )
+    return PurchaseEvent(
+        user_id=user_id,
+        channel="apple",
+        product_id=request.product_id,
+        transaction_id=transaction_id,
+        signature=request.server_verification_data,
+        raw_payload={
+            "appAccountToken": request.app_account_token,
+            "normalizedStatus": _legacy_status_for_record(record),
+            "originalTransactionId": record.original_transaction_id,
+            "latestTransactionId": record.latest_transaction_id,
+            "expiresAt": record.expires_at,
+            "revokedAt": record.revoked_at,
+            "environment": record.environment,
+            "source": request.source,
+            "legacyEndpoint": "/iap/apple/verify-purchase",
+            "authenticatedUserId": server_user_id or "",
+        },
+        event_time=None,
+        source=request.source,
+    )
+
+
+def _legacy_status_for_record(record: EntitlementRecord) -> str:
+    if record.outcome in {"verifiedActivePro", "verifiedActiveMax"}:
+        return "active"
+    if record.outcome in {"verifiedGracePeriodPro", "verifiedGracePeriodMax"}:
+        return "grace"
+    if record.outcome == "revoked":
+        return "revoked"
+    if record.outcome == "billingRetry":
+        return "billing_retry"
+    if record.outcome == "expired":
+        return "expired"
+    return "none"

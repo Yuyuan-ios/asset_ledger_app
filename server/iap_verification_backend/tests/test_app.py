@@ -33,6 +33,7 @@ from app import (  # noqa: E402
     ProviderSubscriptionState,
     RESPONSE_FIELDS,
     RAW_EVENT_LOG,
+    RBL_VIOLATION_LOG,
     STATE_ACTIVE,
     STATE_EXPIRED,
     STATE_GRACE,
@@ -53,6 +54,9 @@ from app import (  # noqa: E402
     PurchaseEvent,
     IapVerificationRequestHandler,
     RequestValidator,
+    RblViolation,
+    RuntimeWriteContext,
+    RuntimeWriteFirewall,
     SecurityViolation,
     SubscriptionReconciliationWorker,
     signature_for_payload,
@@ -750,6 +754,12 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                 expires_at="2020-01-01T00:00:00.000Z",
             ),
             user_id="user-expired",
+            write_context=RuntimeWriteContext.internal_admin_job(
+                operation="test_fixture_expired_entitlement",
+                user_id="user-expired",
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="max-expired-latest-1",
+            ),
         )
         self.verify_purchase(
             "fake:max-active",
@@ -1171,6 +1181,12 @@ class IapVerificationBackendTestCase(unittest.TestCase):
             event_version=1,
             channel=OPPO_CHANNEL,
             transaction_id="scp-reconcile-drift",
+            write_context=RuntimeWriteContext.internal_admin_job(
+                operation="test_fixture_subscription_state_drift",
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="scp-reconcile-drift",
+            ),
         )
         worker = SubscriptionReconciliationWorker(
             store=app.store,
@@ -1187,7 +1203,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
             entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
         )
 
-        result = worker.reconcile_active_entitlements()
+        result = worker.reconcile_active_entitlements(system_job=True)
 
         state = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
         entitlement = app.store.get_latest_entitlement_for_user(user_id)
@@ -1226,7 +1242,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
             entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
         )
 
-        result = worker.reconcile_active_entitlements()
+        result = worker.reconcile_active_entitlements(system_job=True)
 
         state = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
         entitlement = app.store.get_latest_entitlement_for_user(user_id)
@@ -1235,6 +1251,191 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(state.state, STATE_GRACE)
         self.assertEqual(entitlement.outcome, "verifiedGracePeriodMax")
         self.assertIn("reconciliation_downgrade_to_grace", {entry["reason"] for entry in changes})
+
+    def test_rbl_legacy_handler_write_uses_gateway_context(self):
+        app = self._app_with_authenticator()
+        contexts = []
+        original_before_write = app.store.before_write
+
+        def spy_before_write(context, *, table_name, operation, conn):
+            active_context = context or RuntimeWriteFirewall.current_context()
+            contexts.append(
+                (None if active_context is None else active_context.source, table_name, operation)
+            )
+            return original_before_write(
+                context,
+                table_name=table_name,
+                operation=operation,
+                conn=conn,
+            )
+
+        app.store.before_write = spy_before_write
+
+        status, body = self.verify_purchase(
+            "fake:max-active",
+            MAX_TOKEN,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-a",
+        )
+
+        self.assertEqual(status, 200)
+        self.assert_contract_response(body, "verifiedActiveMax", "max")
+        self.assertTrue(contexts)
+        self.assertEqual({source for source, _, _ in contexts}, {"subscription_gateway.py"})
+        self.assertEqual(app.store.get_entitlement(MAX_TOKEN).user_id, "user-a")
+
+    def test_rbl_storage_direct_entitlement_write_is_blocked_and_audited(self):
+        record = EntitlementRecord(
+            outcome="verifiedActivePro",
+            entitlement_tier="pro",
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            app_account_token="00000000-0000-4000-8000-000000009001",
+            original_transaction_id="rbl-storage-direct-original",
+            latest_transaction_id="rbl-storage-direct-latest",
+            environment="Sandbox",
+            expires_at="2099-01-01T00:00:00.000Z",
+        )
+
+        with self.assertRaisesRegex(RblViolation, "RBL VIOLATION"):
+            self.store.upsert_entitlement(record, user_id="user-rbl-direct")
+
+        self.assertIsNone(self.store.get_entitlement(record.app_account_token))
+        violations = self.store.list_subscription_audit_log(RBL_VIOLATION_LOG)
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0]["reason"], "rbl_blocked_upsert_entitlement_iap_entitlements")
+
+    def test_rbl_db_direct_insert_is_noop_and_audited(self):
+        token = "00000000-0000-4000-8000-000000009002"
+        with closing(sqlite3.connect(self.store.db_path)) as conn:
+            conn.execute(
+                """
+                INSERT INTO iap_entitlements (
+                  app_account_token, entitlement_tier, original_transaction_id,
+                  latest_transaction_id, product_id, environment, expires_at,
+                  revoked_at, outcome, updated_at, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    token,
+                    "pro",
+                    "rbl-db-direct-original",
+                    "rbl-db-direct-latest",
+                    PRO_YEARLY_PRODUCT_ID,
+                    "Sandbox",
+                    "2099-01-01T00:00:00.000Z",
+                    None,
+                    "verifiedActivePro",
+                    "2026-06-27T00:00:00.000Z",
+                    "user-rbl-db-direct",
+                ),
+            )
+            conn.commit()
+
+        self.assertIsNone(self.store.get_entitlement(token))
+        violations = self.store.list_subscription_audit_log(RBL_VIOLATION_LOG)
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0]["reason"], "rbl_blocked_direct_insert_iap_entitlements")
+
+    def test_rbl_gateway_write_is_allowed(self):
+        app = self._app_with_gateway()
+
+        status, body = self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id="user-rbl-gateway",
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="rbl-gateway-tx-1",
+            ),
+            app=app,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["gatewayStatus"], "applied")
+        self.assertEqual(
+            app.store.get_latest_entitlement_for_user("user-rbl-gateway").entitlement_tier,
+            "pro",
+        )
+        self.assertEqual(app.store.list_subscription_audit_log(RBL_VIOLATION_LOG), [])
+
+    def test_rbl_reconciliation_requires_system_job_flag(self):
+        app = self._app_with_gateway()
+        user_id = "user-rbl-reconcile"
+        self.request(
+            "POST",
+            "/iap/webhooks/oppo",
+            body=gateway_body(
+                OPPO_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="rbl-reconcile-initial",
+            ),
+            app=app,
+        )
+        worker = SubscriptionReconciliationWorker(
+            store=app.store,
+            provider_verifiers={
+                OPPO_CHANNEL: FixedProviderVerifier(
+                    ProviderSubscriptionState(
+                        state=STATE_EXPIRED,
+                        channel=OPPO_CHANNEL,
+                        transaction_id="rbl-reconcile-provider",
+                        event_time="2026-06-27T12:00:00Z",
+                    )
+                )
+            },
+            entitlement_engine=EntitlementEngine(app.store, DEFAULT_ALLOWED_PRODUCTS),
+        )
+
+        with self.assertRaisesRegex(RblViolation, "RBL VIOLATION"):
+            worker.reconcile_active_entitlements()
+        state_after_block = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        self.assertEqual(state_after_block.state, STATE_ACTIVE)
+        self.assertEqual(len(app.store.list_subscription_audit_log(RBL_VIOLATION_LOG)), 1)
+
+        result = worker.reconcile_active_entitlements(system_job=True)
+
+        state_after_job = app.store.get_subscription_state(user_id, MAX_YEARLY_PRODUCT_ID)
+        self.assertEqual(result["repaired"], 1)
+        self.assertEqual(state_after_job.state, STATE_GRACE)
+
+    def test_rbl_authority_state_cannot_be_bypassed_by_direct_storage_write(self):
+        app = self._app_with_gateway()
+        user_id = "user-rbl-authority"
+        status, _ = self.request(
+            "POST",
+            "/iap/webhooks/xiaomi",
+            body=gateway_body(
+                XIAOMI_CHANNEL,
+                user_id=user_id,
+                product_id=PRO_YEARLY_PRODUCT_ID,
+                transaction_id="rbl-authority-high",
+                source="webhook",
+                eventTime="2026-06-26T12:00:00Z",
+            ),
+            app=app,
+        )
+        self.assertEqual(status, 200)
+        downgrade = EntitlementRecord(
+            outcome="expired",
+            entitlement_tier="none",
+            product_id=PRO_YEARLY_PRODUCT_ID,
+            app_account_token="gateway:attempted-rbl-bypass",
+            original_transaction_id="rbl-bypass-original",
+            latest_transaction_id="rbl-bypass-latest",
+            environment=XIAOMI_CHANNEL,
+            expires_at="2020-01-01T00:00:00.000Z",
+        )
+
+        with self.assertRaisesRegex(RblViolation, "RBL VIOLATION"):
+            app.store.upsert_entitlement(downgrade, user_id=user_id)
+
+        entitlement = app.store.get_latest_entitlement_for_user(user_id)
+        state = app.store.get_subscription_state(user_id, PRO_YEARLY_PRODUCT_ID)
+        self.assertEqual(entitlement.outcome, "verifiedActivePro")
+        self.assertEqual(state.state, STATE_ACTIVE)
 
     def test_scp_audit_log_is_append_only(self):
         app = self._app_with_gateway()

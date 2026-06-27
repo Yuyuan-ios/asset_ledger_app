@@ -4,6 +4,10 @@ import dataclasses
 from typing import Any, Mapping, Optional, Protocol
 
 from subscription_audit_log import SubscriptionAuditLog
+from runtime_write_firewall import (
+    RECONCILIATION_WRITER_SOURCE,
+    RuntimeWriteContext,
+)
 from subscription_state_machine import (
     STATE_ACTIVE,
     STATE_EXPIRED,
@@ -54,7 +58,7 @@ class SubscriptionReconciliationWorker:
         self.state_machine = state_machine or SubscriptionStateMachine()
         self.audit_log = audit_log or SubscriptionAuditLog(store)
 
-    def reconcile_active_entitlements(self) -> dict[str, int]:
+    def reconcile_active_entitlements(self, *, system_job: bool = False) -> dict[str, int]:
         scanned = 0
         repaired = 0
         skipped = 0
@@ -76,7 +80,12 @@ class SubscriptionReconciliationWorker:
                 product_id=product_id,
                 current_entitlement=entitlement,
             )
-            if self._repair_from_provider_state(entitlement, current_state, provider_state):
+            if self._repair_from_provider_state(
+                entitlement,
+                current_state,
+                provider_state,
+                system_job=system_job,
+            ):
                 repaired += 1
             else:
                 skipped += 1
@@ -87,6 +96,8 @@ class SubscriptionReconciliationWorker:
         entitlement: Any,
         current_state: Optional[Any],
         provider_state: ProviderSubscriptionState,
+        *,
+        system_job: bool,
     ) -> bool:
         previous_state = current_state.state if current_state else STATE_ACTIVE
         requested_state = provider_state.state
@@ -128,7 +139,15 @@ class SubscriptionReconciliationWorker:
             )
             return False
         record = self.entitlement_engine.apply(event, state=transition.new_state)
-        self.store.upsert_entitlement(record, user_id=entitlement.user_id)
+        write_context = _reconciliation_write_context(
+            system_job=system_job,
+            event=event,
+        )
+        self.store.upsert_entitlement(
+            record,
+            user_id=entitlement.user_id,
+            write_context=write_context,
+        )
         self.store.upsert_subscription_state(
             user_id=event.user_id,
             product_id=event.product_id,
@@ -141,6 +160,7 @@ class SubscriptionReconciliationWorker:
             event_version=current_state.event_version if current_state else 0,
             channel=event.channel,
             transaction_id=event.transaction_id,
+            write_context=write_context,
         )
         self.audit_log.record_entitlement_change(
             event,
@@ -209,3 +229,26 @@ def _status_for_state(state: str) -> str:
     if state == STATE_REVOKED:
         return "revoked"
     return "expired"
+
+
+def _reconciliation_write_context(
+    *,
+    system_job: bool,
+    event: PurchaseEvent,
+) -> RuntimeWriteContext:
+    if system_job:
+        return RuntimeWriteContext.reconciliation_job(
+            operation="reconciliation_repair",
+            user_id=event.user_id,
+            product_id=event.product_id,
+            transaction_id=event.transaction_id,
+        )
+    return RuntimeWriteContext(
+        source=RECONCILIATION_WRITER_SOURCE,
+        operation="reconciliation_repair",
+        actor="reconciliation_worker",
+        user_id=event.user_id,
+        product_id=event.product_id,
+        transaction_id=event.transaction_id,
+        system_job=False,
+    )

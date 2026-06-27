@@ -90,6 +90,12 @@ from http_helpers import (
     request_id_from_headers,
     utc_now_iso,
 )
+from runtime_write_firewall import (
+    RBL_VIOLATION_LOG,
+    RblViolation,
+    RuntimeWriteContext,
+    RuntimeWriteFirewall,
+)
 from payment_channel_adapters import (
     APPLE_CHANNEL,
     GOOGLE_PLAY_CHANNEL,
@@ -205,9 +211,13 @@ __all__ = [
     "PurchaseEvent",
     "PurchaseVerificationRequest",
     "RAW_EVENT_LOG",
+    "RBL_VIOLATION_LOG",
     "REQUIRED_PURCHASE_FIELDS",
     "RESPONSE_FIELDS",
     "RequestValidator",
+    "RblViolation",
+    "RuntimeWriteContext",
+    "RuntimeWriteFirewall",
     "SecurityViolation",
     "SignedApplePayloadVerifier",
     "SignedWebhookAdapter",

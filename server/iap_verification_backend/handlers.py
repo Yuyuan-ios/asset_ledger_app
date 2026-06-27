@@ -132,10 +132,17 @@ class IapVerificationApp:
             has_transaction_app_account_token = exc.has_transaction_app_account_token
             apple_verification_status = exc.apple_verification_status
             apple_verification_statuses = exc.apple_verification_statuses
-            result = self.store.upsert_entitlement(verification_failed_record(request))
+            result = self.gateway_service.commit_legacy_apple_record(
+                request,
+                verification_failed_record(request),
+            )
         else:
             try:
-                result = self.store.upsert_entitlement(result, user_id=user_id)
+                result = self.gateway_service.commit_legacy_apple_record(
+                    request,
+                    result,
+                    server_user_id=user_id,
+                )
             except EntitlementClaimConflict as exc:
                 raise HttpError(
                     409,
@@ -232,8 +239,6 @@ class IapVerificationApp:
                 original_transaction_id=record.original_transaction_id,
                 environment=record.environment,
             ).to_response_body()
-        if refreshed != record:
-            refreshed = self.store.upsert_entitlement(refreshed)
         return refreshed.to_response_body()
 
     def _authenticate_optional_bearer(self, authorization_header: Optional[str]) -> Optional[str]:
