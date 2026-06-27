@@ -10,6 +10,7 @@ import 'package:asset_ledger/patterns/fuel/fuel_efficiency_summary_pattern.dart'
 import 'package:asset_ledger/patterns/fuel/fuel_recent_records_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_supplier_filter_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/device_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/summary_card_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -94,7 +95,34 @@ void main() {
       findsOneWidget,
     );
     expect(uiCopy, contains('Filter: supplier'));
-    expect(uiCopy, contains('Type a keyword to filter (optional)'));
+    expect(uiCopy, isNot(contains('Type a keyword to filter (optional)')));
+  });
+
+  testWidgets('renders dedicated fuel supplier filter field chrome', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: FuelSupplierFilter(
+          controller: TextEditingController(),
+          suggestionsBuilder: (_) => const <String>[],
+          onChanged: (_) {},
+          onSelected: (_) {},
+        ),
+      ),
+    );
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    final enabledBorder = textField.decoration?.enabledBorder;
+
+    expect(textField.decoration?.labelText, isNull);
+    expect(textField.decoration?.hintText, '筛选：供应人');
+    expect(enabledBorder, isA<OutlineInputBorder>());
+    expect(
+      (enabledBorder! as OutlineInputBorder).borderRadius,
+      BorderRadius.circular(8),
+    );
   });
 
   testWidgets('renders fuel efficiency total timing text', (tester) async {
@@ -187,6 +215,47 @@ void main() {
       tester.getSize(find.byKey(barKey)).height,
       LifecyclePaybackTokens.deviceEfficiencyBusinessSegmentDividerHeight,
     );
+  });
+
+  testWidgets('centers multiple fuel efficiency rows vertically', (
+    tester,
+  ) async {
+    final first = FuelEfficiencyAgg(deviceId: 1)
+      ..totalLiters = 40
+      ..totalCost = 400
+      ..totalHours = 10
+      ..totalTimingHours = 10;
+    final second = FuelEfficiencyAgg(deviceId: 2)
+      ..totalLiters = 12
+      ..totalCost = 120
+      ..totalHours = 6
+      ..totalTimingHours = 6;
+    const summaryKey = ValueKey('fuel-efficiency-summary');
+
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: SizedBox(
+          key: summaryKey,
+          height: 220,
+          child: FuelEfficiencySummary(
+            byDevice: {1: first, 2: second},
+            deviceNameOf: (id) => id == 1 ? 'SANY 1#' : 'CAT 2#',
+          ),
+        ),
+      ),
+    );
+
+    final titleBottom = tester.getBottomLeft(find.text('设备油电效率')).dy;
+    final bodyTop = titleBottom + SummaryCardTokens.titleToContentGap;
+    final bodyBottom = tester.getBottomLeft(find.byKey(summaryKey)).dy;
+    final bodyCenterY = bodyTop + (bodyBottom - bodyTop) / 2;
+    final rowsCenterY =
+        (tester.getTopLeft(find.text('SANY 1#')).dy +
+            tester.getBottomLeft(find.text('CAT 2#')).dy) /
+        2;
+
+    expect(rowsCenterY, closeTo(bodyCenterY, 6));
   });
 
   testWidgets('renders fuel delete dialog strings in English', (tester) async {

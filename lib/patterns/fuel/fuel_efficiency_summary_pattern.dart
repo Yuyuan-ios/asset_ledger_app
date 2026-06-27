@@ -166,6 +166,37 @@ class FuelEfficiencySummary extends StatelessWidget {
       );
     }
 
+    Widget buildScrollableRows() {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final rowList = Padding(
+            padding: const EdgeInsets.only(
+              bottom: FuelTokens.efficiencyListBottomPadding,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: ids.map(buildRow).toList(),
+            ),
+          );
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: SizedBox(
+                  width: constraints.hasBoundedWidth
+                      ? constraints.maxWidth
+                      : null,
+                  child: rowList,
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     final bodyChild = ids.length == 1
         ? Align(
             alignment: Alignment.topLeft,
@@ -179,14 +210,7 @@ class FuelEfficiencySummary extends StatelessWidget {
               ),
             ),
           )
-        : SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                bottom: FuelTokens.efficiencyListBottomPadding,
-              ),
-              child: Column(children: ids.map(buildRow).toList()),
-            ),
-          );
+        : buildScrollableRows();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
