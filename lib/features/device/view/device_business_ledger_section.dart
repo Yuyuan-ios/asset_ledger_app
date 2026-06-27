@@ -43,7 +43,7 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
             operatedHours: _operatedHours(ledger),
             operationItems: ledger.projects.length,
             initialCostFen: amountsFor?.call(ledger)?.initialCostFen,
-            netReceivedFen: _netReceivedFen(ledger),
+            netReceivedFen: lifecyclePaybackNetReceivedFen(ledger),
             estimatedResidualFen: amountsFor
                 ?.call(ledger)
                 ?.estimatedResidualFen,
@@ -61,15 +61,6 @@ class DeviceBusinessLedgerSection extends StatelessWidget {
       ledger.deviceName,
       l10n.deviceInactiveIndexLabel,
     );
-  }
-
-  int _netReceivedFen(DeviceBusinessLedger ledger) {
-    final receivedFen = ledger.projects.fold<int>(
-      0,
-      (sum, project) => sum + project.receivedFen,
-    );
-    if (ledger.projects.isNotEmpty || receivedFen != 0) return receivedFen;
-    return ledger.incomeFen;
   }
 
   int _pendingReceivableFen(DeviceBusinessLedger ledger) {

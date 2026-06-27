@@ -222,7 +222,7 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
     final result = await showLifecycleAmountSheet(
       context: context,
       deviceName: ledger.deviceName,
-      netReceivedFen: _netReceivedFen(ledger),
+      netReceivedFen: lifecyclePaybackNetReceivedFen(ledger),
       initialCostFen: current?.initialCostFen,
       estimatedResidualFen: current?.estimatedResidualFen,
     );
@@ -269,15 +269,6 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
       initialCostFen: initialCostFen,
       estimatedResidualFen: estimatedResidualFen,
     );
-  }
-
-  int _netReceivedFen(DeviceBusinessLedger ledger) {
-    final receivedFen = ledger.projects.fold<int>(
-      0,
-      (sum, project) => sum + project.receivedFen,
-    );
-    if (ledger.projects.isNotEmpty || receivedFen != 0) return receivedFen;
-    return ledger.incomeFen;
   }
 
   Future<SubscriptionRestoreOutcome> _restorePurchases() {

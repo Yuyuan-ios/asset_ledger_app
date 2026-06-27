@@ -1,5 +1,7 @@
 import 'package:asset_ledger/components/feedback/app_confirm_dialog.dart';
 import 'package:asset_ledger/data/models/device.dart';
+import 'package:asset_ledger/features/device/domain/services/lifecycle_payback_calculator.dart';
+import 'package:asset_ledger/features/device/view/lifecycle_payback_card.dart';
 import 'package:asset_ledger/features/fuel/model/fuel_efficiency_agg.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
@@ -7,6 +9,7 @@ import 'package:asset_ledger/patterns/fuel/fuel_detail_content_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_efficiency_summary_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_recent_records_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_supplier_filter_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/device_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -118,6 +121,72 @@ void main() {
     expect(find.text('13.5 h'), findsOneWidget);
     expect(find.text('4.0 L/h'), findsOneWidget);
     expect(find.text('40.0 ¥/h'), findsOneWidget);
+  });
+
+  testWidgets('renders fuel efficiency lifecycle divider only when provided', (
+    tester,
+  ) async {
+    final first = FuelEfficiencyAgg(deviceId: 1)
+      ..totalLiters = 40
+      ..totalCost = 400
+      ..totalHours = 10
+      ..totalTimingHours = 10;
+    final second = FuelEfficiencyAgg(deviceId: 2)
+      ..totalLiters = 12
+      ..totalCost = 120
+      ..totalHours = 6
+      ..totalTimingHours = 6;
+    final result = calculateLifecyclePayback(
+      const LifecyclePaybackInput(
+        initialCostFen: 80000,
+        netReceivedFen: 60000,
+        estimatedResidualFen: 60000,
+      ),
+    );
+    const dividerKey = ValueKey('fuel-efficiency-business-segment-divider-1');
+    const barKey = ValueKey('fuel-efficiency-business-segment-divider-bar-1');
+
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: SizedBox(
+          height: 180,
+          child: FuelEfficiencySummary(
+            byDevice: {1: first, 2: second},
+            deviceNameOf: (id) => id == 1 ? 'SANY 1#' : 'CAT 2#',
+            businessSegmentDividerBuilder: (id) {
+              if (id != 1) return null;
+              return DeviceLifecycleSegmentDivider(
+                key: dividerKey,
+                barKey: barKey,
+                result: result,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(dividerKey), findsOneWidget);
+    expect(find.byKey(barKey), findsOneWidget);
+    expect(tester.getSize(find.byKey(barKey)).height, 2);
+    expect(
+      tester
+          .getTopLeft(find.byKey(barKey))
+          .dy
+          .compareTo(tester.getBottomLeft(find.text('SANY 1#')).dy),
+      greaterThan(0),
+    );
+    expect(
+      find.byKey(const ValueKey('fuel-efficiency-business-segment-divider-2')),
+      findsNothing,
+    );
+    expect(find.byType(DeviceLifecycleSegmentDivider), findsOneWidget);
+    expect(result.surplusSegmentRatio, closeTo(1 / 3, 0.0001));
+    expect(
+      tester.getSize(find.byKey(barKey)).height,
+      LifecyclePaybackTokens.deviceEfficiencyBusinessSegmentDividerHeight,
+    );
   });
 
   testWidgets('renders fuel delete dialog strings in English', (tester) async {

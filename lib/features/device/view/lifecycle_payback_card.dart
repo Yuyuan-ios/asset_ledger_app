@@ -154,6 +154,43 @@ class PaybackSegmentBar extends StatelessWidget {
   }
 }
 
+class DeviceLifecycleSegmentDivider extends StatelessWidget {
+  const DeviceLifecycleSegmentDivider({
+    super.key,
+    required this.result,
+    this.barKey,
+  });
+
+  final LifecyclePaybackResult result;
+  final Key? barKey;
+
+  @override
+  Widget build(BuildContext context) {
+    if (result.isCostUnset) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        top:
+            LifecyclePaybackTokens.deviceEfficiencyBusinessSegmentDividerTopGap,
+        bottom: LifecyclePaybackTokens
+            .deviceEfficiencyBusinessSegmentDividerBottomGap,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(
+          LifecyclePaybackTokens.deviceEfficiencyBusinessSegmentDividerRadius,
+        ),
+        child: SizedBox(
+          key: barKey,
+          width: double.infinity,
+          height: LifecyclePaybackTokens
+              .deviceEfficiencyBusinessSegmentDividerHeight,
+          child: CustomPaint(painter: _PaybackSegmentPainter(result)),
+        ),
+      ),
+    );
+  }
+}
+
 class PaybackBarLayout {
   const PaybackBarLayout({
     required this.track,

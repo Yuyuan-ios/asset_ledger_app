@@ -2,6 +2,7 @@ import 'package:asset_ledger/features/device/domain/services/lifecycle_payback_c
 import 'package:asset_ledger/features/device/view/lifecycle_payback_card.dart';
 import 'package:asset_ledger/features/device/view/lifecycle_payback_l10n.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations_zh.dart';
+import 'package:asset_ledger/tokens/mapper/device_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -217,6 +218,99 @@ void main() {
       expect(layout.gapSegment, isNull);
       expect(layout.hasSurplusSegment, isFalse);
       expect(layout.segmentDividers, isEmpty);
+    });
+  });
+
+  group('DeviceLifecycleSegmentDivider', () {
+    testWidgets('uses mini divider tokens and lifecycle bar layout', (
+      tester,
+    ) async {
+      final result = calculateLifecyclePayback(
+        const LifecyclePaybackInput(
+          initialCostFen: 80000,
+          netReceivedFen: 60000,
+          estimatedResidualFen: 60000,
+        ),
+      );
+      const barKey = ValueKey('business-segment-divider-bar');
+
+      await tester.pumpWidget(
+        Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 120,
+            child: DeviceLifecycleSegmentDivider(
+              result: result,
+              barKey: barKey,
+            ),
+          ),
+        ),
+      );
+
+      final padding = tester.widget<Padding>(
+        find.descendant(
+          of: find.byType(DeviceLifecycleSegmentDivider),
+          matching: find.byType(Padding),
+        ),
+      );
+      final clip = tester.widget<ClipRRect>(find.byType(ClipRRect));
+      final layout = calculatePaybackBarLayout(
+        result: result,
+        size: const Size(120, 2),
+      );
+
+      expect(
+        padding.padding,
+        const EdgeInsets.only(
+          top: LifecyclePaybackTokens
+              .deviceEfficiencyBusinessSegmentDividerTopGap,
+          bottom: LifecyclePaybackTokens
+              .deviceEfficiencyBusinessSegmentDividerBottomGap,
+        ),
+      );
+      expect(
+        clip.borderRadius,
+        BorderRadius.circular(
+          LifecyclePaybackTokens.deviceEfficiencyBusinessSegmentDividerRadius,
+        ),
+      );
+      expect(tester.getSize(find.byKey(barKey)).height, 2);
+      expect(layout.receivedPrincipalSegment!.right, closeTo(20, 0.0001));
+      expect(layout.residualSegment!.right, closeTo(80, 0.0001));
+      expect(layout.surplusSegment!.right, closeTo(120, 0.0001));
+    });
+
+    testWidgets('hides completely when lifecycle cost is unset', (
+      tester,
+    ) async {
+      final result = calculateLifecyclePayback(
+        const LifecyclePaybackInput(
+          initialCostFen: null,
+          netReceivedFen: 60000,
+          estimatedResidualFen: 60000,
+        ),
+      );
+      const dividerKey = ValueKey('business-segment-divider');
+      const barKey = ValueKey('business-segment-divider-bar');
+
+      await tester.pumpWidget(
+        Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 120,
+            child: DeviceLifecycleSegmentDivider(
+              key: dividerKey,
+              result: result,
+              barKey: barKey,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(barKey), findsNothing);
+      expect(find.byType(Padding), findsNothing);
+      expect(find.byType(ClipRRect), findsNothing);
+      expect(tester.getSize(find.byKey(dividerKey)).height, 0);
     });
   });
 }

@@ -66,6 +66,20 @@ class DeviceBusinessLedger {
   final bool deviceIsActive;
 }
 
+/// Net received amount used by the lifecycle payback card/bar.
+///
+/// Project-level received amounts are authoritative when project histories
+/// exist. The legacy aggregate income fallback is kept for ledgers without
+/// project history so existing device-card behavior remains unchanged.
+int lifecyclePaybackNetReceivedFen(DeviceBusinessLedger ledger) {
+  final receivedFen = ledger.projects.fold<int>(
+    0,
+    (sum, project) => sum + project.receivedFen,
+  );
+  if (ledger.projects.isNotEmpty || receivedFen != 0) return receivedFen;
+  return ledger.incomeFen;
+}
+
 class DeviceBusinessLedgerUseCase {
   const DeviceBusinessLedgerUseCase({
     ComputeAccountSummaryUseCase accountSummaryUseCase =

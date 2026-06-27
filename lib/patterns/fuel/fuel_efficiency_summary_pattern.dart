@@ -9,14 +9,18 @@ import '../../tokens/mapper/fuel_tokens.dart';
 import '../../tokens/mapper/radius_tokens.dart';
 import '../../tokens/mapper/summary_card_tokens.dart';
 
+typedef FuelBusinessSegmentDividerBuilder = Widget? Function(int deviceId);
+
 class FuelEfficiencySummary extends StatelessWidget {
   final Map<int, FuelEfficiencyAgg> byDevice;
   final String Function(int deviceId) deviceNameOf;
+  final FuelBusinessSegmentDividerBuilder? businessSegmentDividerBuilder;
 
   const FuelEfficiencySummary({
     super.key,
     required this.byDevice,
     required this.deviceNameOf,
+    this.businessSegmentDividerBuilder,
   });
 
   @override
@@ -71,69 +75,77 @@ class FuelEfficiencySummary extends StatelessWidget {
       final totalTimingText = FormatUtils.hours(agg.totalTimingHours);
       final litersText = fmtRate(agg.litersPerHour, suffix: 'L/h');
       final costText = fmtRate(agg.costPerHour, suffix: '¥/h');
+      final segmentDivider = businessSegmentDividerBuilder?.call(id);
       return Padding(
-        padding: const EdgeInsets.only(
+        padding: EdgeInsets.only(
           left: SummaryCardTokens.rowLeftInset,
-          bottom: SummaryCardTokens.rowBottomGap,
+          bottom: segmentDivider == null ? SummaryCardTokens.rowBottomGap : 0,
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: markerColor,
-                      borderRadius: BorderRadius.circular(
-                        RadiusTokens.decoration,
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: markerColor,
+                          borderRadius: BorderRadius.circular(
+                            RadiusTokens.decoration,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: nameStyle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: FuelTokens.summaryHoursColumnWidth,
+                      child: Text(
+                        totalTimingText,
+                        textAlign: TextAlign.right,
+                        style: metricStyle,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: nameStyle,
+                    const SizedBox(width: FuelTokens.summaryMetricColumnGap),
+                    SizedBox(
+                      width: FuelTokens.summaryLitersColumnWidth,
+                      child: Text(
+                        litersText,
+                        textAlign: TextAlign.right,
+                        style: metricStyle,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: FuelTokens.summaryHoursColumnWidth,
-                  child: Text(
-                    totalTimingText,
-                    textAlign: TextAlign.right,
-                    style: metricStyle,
-                  ),
-                ),
-                const SizedBox(width: FuelTokens.summaryMetricColumnGap),
-                SizedBox(
-                  width: FuelTokens.summaryLitersColumnWidth,
-                  child: Text(
-                    litersText,
-                    textAlign: TextAlign.right,
-                    style: metricStyle,
-                  ),
-                ),
-                const SizedBox(width: FuelTokens.summaryMetricColumnGap),
-                SizedBox(
-                  width: FuelTokens.summaryCostColumnWidth,
-                  child: Text(
-                    costText,
-                    textAlign: TextAlign.right,
-                    style: metricStyle,
-                  ),
+                    const SizedBox(width: FuelTokens.summaryMetricColumnGap),
+                    SizedBox(
+                      width: FuelTokens.summaryCostColumnWidth,
+                      child: Text(
+                        costText,
+                        textAlign: TextAlign.right,
+                        style: metricStyle,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+            ?segmentDivider,
           ],
         ),
       );

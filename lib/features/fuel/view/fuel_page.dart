@@ -5,9 +5,13 @@ import '../../../components/feedback/store_action_feedback_l10n.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/store_feedback.dart';
 import '../../../core/foundation/typography.dart';
+import '../../account/state/account_payment_store.dart';
+import '../../account/state/account_store.dart';
+import '../../account/state/project_rate_store.dart';
 import '../domain/entities/fuel_entities.dart';
 import '../domain/services/fuel_suggestions.dart';
 import '../../../features/device/state/device_store.dart';
+import '../../device/view/lifecycle_payback_card.dart';
 import '../../../features/fuel/state/fuel_store.dart';
 import '../../../tokens/mapper/fuel_tokens.dart';
 import '../../../tokens/mapper/summary_card_tokens.dart';
@@ -54,10 +58,16 @@ class _FuelPageState extends State<FuelPage> {
     final fuelStore = context.read<FuelStore>();
     final deviceStore = context.read<DeviceStore>();
     final timingStore = context.read<TimingStore>();
+    final paymentStore = context.read<AccountPaymentStore>();
+    final rateStore = context.read<ProjectRateStore>();
+    final accountStore = context.read<AccountStore>();
     await Future.wait([
       fuelStore.loadAll(),
       deviceStore.loadAll(),
       timingStore.loadAll(),
+      paymentStore.loadAll(),
+      rateStore.loadAll(),
+      accountStore.loadAll(),
     ]);
   }
 
@@ -173,10 +183,16 @@ class _FuelPageState extends State<FuelPage> {
     final fuelStore = context.watch<FuelStore>();
     final deviceStore = context.watch<DeviceStore>();
     final timingStore = context.watch<TimingStore>();
+    final paymentStore = context.watch<AccountPaymentStore>();
+    final rateStore = context.watch<ProjectRateStore>();
+    final accountStore = context.watch<AccountStore>();
     final viewData = buildFuelPageViewData(
       fuelStore: fuelStore,
       deviceStore: deviceStore,
       timingStore: timingStore,
+      paymentStore: paymentStore,
+      rateStore: rateStore,
+      accountStore: accountStore,
       supplierFilter: _supplierFilter,
       inactiveDeviceIndexLabel: l10n.deviceInactiveIndexLabel,
     );
@@ -204,6 +220,17 @@ class _FuelPageState extends State<FuelPage> {
               deviceNameOf: (id) {
                 return viewData.deviceDisplayNameById[id] ??
                     l10n.fuelInactiveDeviceFallbackName(id);
+              },
+              businessSegmentDividerBuilder: (id) {
+                final result = viewData.lifecyclePaybackByDeviceId[id];
+                if (result == null || result.isCostUnset) return null;
+                return DeviceLifecycleSegmentDivider(
+                  key: ValueKey('fuel-efficiency-business-segment-divider-$id'),
+                  barKey: ValueKey(
+                    'fuel-efficiency-business-segment-divider-bar-$id',
+                  ),
+                  result: result,
+                );
               },
             ),
           ),

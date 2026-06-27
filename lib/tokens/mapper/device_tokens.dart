@@ -499,6 +499,10 @@ class LifecyclePaybackTokens {
   static const double barHeight = 36;
   static const double barDividerWidth = 2;
   static const double minVisibleSegmentWidth = 0.5;
+  static const double deviceEfficiencyBusinessSegmentDividerHeight = 2;
+  static const double deviceEfficiencyBusinessSegmentDividerRadius = 1;
+  static const double deviceEfficiencyBusinessSegmentDividerTopGap = 3;
+  static const double deviceEfficiencyBusinessSegmentDividerBottomGap = 8;
   static const double sheetActionHeight = 52;
   static const double sheetActionRadius = 26;
   static const double sheetCardRadius = AccountTokens.projectCardRadius;
