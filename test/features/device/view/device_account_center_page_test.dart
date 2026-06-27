@@ -6,7 +6,10 @@ import 'package:asset_ledger/features/device/domain/entities/device.dart';
 import 'package:asset_ledger/features/device/domain/services/device_business_ledger.dart';
 import 'package:asset_ledger/features/device/view/device_account_center_page.dart';
 import 'package:asset_ledger/features/device/view/device_page_sections.dart';
+import 'package:asset_ledger/features/device/view/device_subpage_app_bar.dart';
+import 'package:asset_ledger/features/device/view/device_subpage_route.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -295,6 +298,100 @@ void main() {
       expect(find.text('已登录'), findsOneWidget);
     },
   );
+
+  testWidgets('account center app bar matches section header metrics', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: AccountCenterPage(
+          loginSession: const PhoneLoginSession.unauthenticated(),
+          subscriptionListenable: subscription,
+          onOpenPhoneLogin: () async =>
+              const PhoneLoginSession.unauthenticated(),
+          onOpenUpgradePage: () {},
+          onRestorePurchases: _noopRestorePurchases,
+          onOpenLocalBackup: () {},
+          onOpenLocalRestore: () {},
+          onOpenSyncInfo: () {},
+          onOpenCloudBackup: () {},
+        ),
+      ),
+    );
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    final title = tester.widget<Text>(find.text('账户中心'));
+
+    expect(appBar.toolbarHeight, DeviceSubpageAppBar.toolbarHeight);
+    expect(appBar.centerTitle, isTrue);
+    expect(title.style?.fontSize, TimingTokens.headerTitleSize);
+    expect(title.style?.height, TimingTokens.headerTitleLineHeight);
+    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(
+      tester.getCenter(find.text('账户中心')).dx,
+      moreOrLessEquals(tester.getCenter(find.byType(AppBar)).dx, epsilon: 1),
+    );
+  });
+
+  testWidgets('account center supports right swipe back', (
+    WidgetTester tester,
+  ) async {
+    final subscription = ValueNotifier<SubscriptionSnapshot>(
+      const SubscriptionSnapshot(
+        status: SubscriptionStatus.free,
+        products: <SubscriptionProductKind, ProductDetails>{},
+      ),
+    );
+    addTearDown(subscription.dispose);
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () {
+                Navigator.of(context).push<void>(
+                  deviceSubpageRoute<void>(
+                    builder: (_) => AccountCenterPage(
+                      loginSession: const PhoneLoginSession.unauthenticated(),
+                      subscriptionListenable: subscription,
+                      onOpenPhoneLogin: () async =>
+                          const PhoneLoginSession.unauthenticated(),
+                      onOpenUpgradePage: () {},
+                      onRestorePurchases: _noopRestorePurchases,
+                      onOpenLocalBackup: () {},
+                      onOpenLocalRestore: () {},
+                      onOpenSyncInfo: () {},
+                      onOpenCloudBackup: () {},
+                    ),
+                  ),
+                );
+              },
+              child: const Text('打开账户中心'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开账户中心'));
+    await tester.pumpAndSettle();
+    expect(find.text('账户中心'), findsOneWidget);
+
+    await tester.dragFrom(const Offset(5, 300), const Offset(340, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('打开账户中心'), findsOneWidget);
+    expect(find.text('账户中心'), findsNothing);
+  });
 
   testWidgets('account center keeps login entry for skipped session', (
     WidgetTester tester,

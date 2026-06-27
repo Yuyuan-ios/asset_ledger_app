@@ -13,6 +13,8 @@ import '../../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../../../tokens/mapper/timing_tokens.dart';
 import 'device_avatar_select_view_data.dart';
+import 'device_subpage_app_bar.dart';
+import 'device_subpage_route.dart';
 
 /// 选择页返回结果。
 ///
@@ -48,25 +50,11 @@ Future<AvatarSelectionResult?> pushDeviceAvatarSelectPage(
   String? initialBrandValue,
 }) {
   return Navigator.of(context).push<AvatarSelectionResult>(
-    PageRouteBuilder<AvatarSelectionResult>(
-      transitionDuration: const Duration(
-        milliseconds: DeviceTokens.avatarPickerForwardDurationMs,
+    deviceSubpageRoute<AvatarSelectionResult>(
+      builder: (context) => DeviceAvatarSelectPage(
+        initialTypeId: DeviceTypeCatalog.fromEquipmentType(initialType).id,
+        initialBrandValue: initialBrandValue,
       ),
-      reverseTransitionDuration: const Duration(
-        milliseconds: DeviceTokens.avatarPickerReverseDurationMs,
-      ),
-      pageBuilder: (context, animation, secondaryAnimation) =>
-          DeviceAvatarSelectPage(
-            initialTypeId: DeviceTypeCatalog.fromEquipmentType(initialType).id,
-            initialBrandValue: initialBrandValue,
-          ),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final offset = Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).chain(CurveTween(curve: Curves.easeOutCubic));
-        return SlideTransition(position: animation.drive(offset), child: child);
-      },
     ),
   );
 }
@@ -205,80 +193,68 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
       _selectedType,
       query: _brandQuery,
     );
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
+    return DeviceSubpageSwipeBack(
+      child: Scaffold(
         backgroundColor: AppColors.scaffoldBg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          l10n.deviceTypeSelectTitle,
-          style: AppTypography.sectionTitle(
-            context,
-            fontSize: DeviceTokens.avatarPickerTitleFontSize,
-            fontWeight: DeviceTokens.avatarPickerTitleFontWeight,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: CustomScrollView(
-              key: const PageStorageKey<String>('device-avatar-brand-scroll'),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    key: const Key('device-avatar-type-card-container'),
-                    padding: const EdgeInsets.fromLTRB(
-                      SpaceTokens.pagePadding,
-                      SpaceTokens.sm,
-                      SpaceTokens.pagePadding,
-                      SpaceTokens.md,
-                    ),
-                    child: _DeviceTypeCard(
-                      type: _selectedType,
-                      onTap: _openTypeSheet,
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(
-                  child: Divider(height: 1, color: AppColors.divider),
-                ),
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: PinnedHeaderDelegate(
-                    height: _Dim.searchPinnedHeaderHeight,
-                    child: ColoredBox(
-                      color: AppColors.scaffoldBg,
-                      child: _BrandSectionHeader(
-                        key: const Key('device-brand-search-header'),
-                        controller: _brandSearchCtrl,
+        appBar: DeviceSubpageAppBar(title: l10n.deviceTypeSelectTitle),
+        body: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                key: const PageStorageKey<String>('device-avatar-brand-scroll'),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      key: const Key('device-avatar-type-card-container'),
+                      padding: const EdgeInsets.fromLTRB(
+                        SpaceTokens.pagePadding,
+                        SpaceTokens.sm,
+                        SpaceTokens.pagePadding,
+                        SpaceTokens.md,
+                      ),
+                      child: _DeviceTypeCard(
+                        type: _selectedType,
+                        onTap: _openTypeSheet,
                       ),
                     ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: BrandPickerGrouped(
-                    scrollable: false,
-                    empty: SizedBox(
-                      height: MediaQuery.sizeOf(context).height * 0.32,
-                      child: _BrandEmptyState(
-                        typeName: _selectedType.name(l10n),
-                        isSearchMiss: viewData.typeHasBrandLibrary,
+                  const SliverToBoxAdapter(
+                    child: Divider(height: 1, color: AppColors.divider),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: PinnedHeaderDelegate(
+                      height: _Dim.searchPinnedHeaderHeight,
+                      child: ColoredBox(
+                        color: AppColors.scaffoldBg,
+                        child: _BrandSectionHeader(
+                          key: const Key('device-brand-search-header'),
+                          controller: _brandSearchCtrl,
+                        ),
                       ),
                     ),
-                    groups: viewData.groups,
-                    selectedBrandValue: _selectedBrandValue,
-                    onSelected: _onBrandTap,
                   ),
-                ),
-              ],
+                  SliverToBoxAdapter(
+                    child: BrandPickerGrouped(
+                      scrollable: false,
+                      empty: SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.32,
+                        child: _BrandEmptyState(
+                          typeName: _selectedType.name(l10n),
+                          isSearchMiss: viewData.typeHasBrandLibrary,
+                        ),
+                      ),
+                      groups: viewData.groups,
+                      selectedBrandValue: _selectedBrandValue,
+                      onSelected: _onBrandTap,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _BottomCta(type: _selectedType, onPressed: _confirm),
-        ],
+            _BottomCta(type: _selectedType, onPressed: _confirm),
+          ],
+        ),
       ),
     );
   }

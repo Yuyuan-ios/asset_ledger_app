@@ -1,4 +1,5 @@
 import 'package:asset_ledger/features/device/view/device_avatar_select_page.dart';
+import 'package:asset_ledger/features/device/view/device_subpage_app_bar.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/layout/bottom_sheet_shell_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/bottom_sheet_tokens.dart';
@@ -9,6 +10,30 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('device avatar selector app bar matches section header metrics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        home: const DeviceAvatarSelectPage(initialTypeId: 'excavator'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    final title = tester.widget<Text>(find.text('选择设备类型与品牌'));
+
+    expect(appBar.toolbarHeight, DeviceSubpageAppBar.toolbarHeight);
+    expect(appBar.centerTitle, isTrue);
+    expect(title.style?.fontSize, TimingTokens.headerTitleSize);
+    expect(title.style?.height, TimingTokens.headerTitleLineHeight);
+    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(
+      tester.getCenter(find.text('选择设备类型与品牌')).dx,
+      moreOrLessEquals(tester.getCenter(find.byType(AppBar)).dx, epsilon: 1),
+    );
+  });
+
   testWidgets(
     'type sheet uses the shared AppBottomSheetShell and drives the CTA',
     (tester) async {
@@ -90,7 +115,37 @@ void main() {
     expect(searchHeader, findsOneWidget);
     final pinnedSearchTop = tester.getTopLeft(searchHeader).dy;
     expect(pinnedSearchTop, lessThan(initialSearchTop));
-    expect(pinnedSearchTop, moreOrLessEquals(kToolbarHeight, epsilon: 8));
+    expect(
+      pinnedSearchTop,
+      moreOrLessEquals(DeviceSubpageAppBar.toolbarHeight, epsilon: 8),
+    );
+  });
+
+  testWidgets('device avatar selector supports right swipe back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () => pushDeviceAvatarSelectPage(context),
+              child: const Text('打开选择页'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开选择页'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择设备类型与品牌'), findsOneWidget);
+
+    await tester.dragFrom(const Offset(5, 300), const Offset(340, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('打开选择页'), findsOneWidget);
+    expect(find.text('选择设备类型与品牌'), findsNothing);
   });
 
   testWidgets('empty brand search creates a custom brand from the query', (

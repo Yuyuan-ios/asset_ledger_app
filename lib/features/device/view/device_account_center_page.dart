@@ -9,6 +9,7 @@ import '../../../patterns/layout/phone_page_layout.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import '../domain/entities/subscription.dart';
 import 'device_account_status.dart';
+import 'device_subpage_app_bar.dart';
 import 'subscription_restore_feedback.dart';
 
 class AccountCenterPage extends StatefulWidget {
@@ -69,70 +70,62 @@ class _AccountCenterPageState extends State<AccountCenterPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppBar(
+    return DeviceSubpageSwipeBack(
+      child: Scaffold(
         backgroundColor: AppColors.scaffoldBg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          l10n.deviceAccountCenterTitle,
-          style: TextStyle(
-            fontSize: DeviceTokens.avatarPickerTitleFontSize,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = PhonePageLayout.resolveHorizontalPadding(
-              constraints.maxWidth,
-              basePadding: DeviceTokens.pageHorizontalPadding,
-            );
+        appBar: DeviceSubpageAppBar(title: l10n.deviceAccountCenterTitle),
+        body: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding =
+                  PhonePageLayout.resolveHorizontalPadding(
+                    constraints.maxWidth,
+                    basePadding: DeviceTokens.pageHorizontalPadding,
+                  );
 
-            return ListView(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                12,
-                horizontalPadding,
-                DeviceTokens.pageBottomPadding,
-              ),
-              children: [
-                ValueListenableBuilder<SubscriptionSnapshot>(
-                  valueListenable: widget.subscriptionListenable,
-                  builder: (context, subscription, _) {
-                    return _AccountCenterContent(
-                      loginSession: _loginSession,
-                      subscription: subscription,
-                      onOpenPhoneLogin: _openPhoneLogin,
-                      onOpenUpgradePage: widget.onOpenUpgradePage,
-                      onOpenMaxUpgradePage:
-                          widget.onOpenMaxUpgradePage ??
-                          widget.onOpenUpgradePage,
-                      onRestorePurchases: widget.onRestorePurchases,
-                      onOpenLocalBackup: widget.onOpenLocalBackup,
-                      onOpenLocalRestore: widget.onOpenLocalRestore,
-                      onOpenSyncInfo: widget.onOpenSyncInfo,
-                      onOpenCloudBackup: widget.onOpenCloudBackup,
-                      onOpenCloudRestore:
-                          widget.onOpenCloudRestore ?? widget.onOpenCloudBackup,
-                      onOpenSyncConflictReview: widget.onOpenSyncConflictReview,
-                      syncConflictReviewAvailable:
-                          widget.syncConflictReviewAvailable,
-                      cloudBackupAvailable: widget.cloudBackupAvailable,
-                      cloudBackupUnavailableMessage:
-                          widget.cloudBackupUnavailableMessage ??
-                          l10n.deviceCloudBackupNotConfigured,
-                    );
-                  },
+              return ListView(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  12,
+                  horizontalPadding,
+                  DeviceTokens.pageBottomPadding,
                 ),
-              ],
-            );
-          },
+                children: [
+                  ValueListenableBuilder<SubscriptionSnapshot>(
+                    valueListenable: widget.subscriptionListenable,
+                    builder: (context, subscription, _) {
+                      return _AccountCenterContent(
+                        loginSession: _loginSession,
+                        subscription: subscription,
+                        onOpenPhoneLogin: _openPhoneLogin,
+                        onOpenUpgradePage: widget.onOpenUpgradePage,
+                        onOpenMaxUpgradePage:
+                            widget.onOpenMaxUpgradePage ??
+                            widget.onOpenUpgradePage,
+                        onRestorePurchases: widget.onRestorePurchases,
+                        onOpenLocalBackup: widget.onOpenLocalBackup,
+                        onOpenLocalRestore: widget.onOpenLocalRestore,
+                        onOpenSyncInfo: widget.onOpenSyncInfo,
+                        onOpenCloudBackup: widget.onOpenCloudBackup,
+                        onOpenCloudRestore:
+                            widget.onOpenCloudRestore ??
+                            widget.onOpenCloudBackup,
+                        onOpenSyncConflictReview:
+                            widget.onOpenSyncConflictReview,
+                        syncConflictReviewAvailable:
+                            widget.syncConflictReviewAvailable,
+                        cloudBackupAvailable: widget.cloudBackupAvailable,
+                        cloudBackupUnavailableMessage:
+                            widget.cloudBackupUnavailableMessage ??
+                            l10n.deviceCloudBackupNotConfigured,
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

@@ -38,6 +38,7 @@ import 'device_page_sections.dart';
 import 'device_account_center_page.dart';
 import 'device_account_status.dart';
 import 'device_backup_widgets.dart';
+import 'device_subpage_route.dart';
 import '../../sync/sync_conflict_review_page.dart';
 
 // =====================================================================
@@ -335,42 +336,25 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
   Future<void> _openAccountCenter() async {
     final syncRuntime = context.read<SyncRuntime?>();
     await Navigator.of(context).push<void>(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(
-          milliseconds: DeviceTokens.avatarPickerForwardDurationMs,
+      deviceSubpageRoute<void>(
+        builder: (context) => AccountCenterPage(
+          loginSession: _loginSession,
+          subscriptionListenable: _subscriptionController.notifier,
+          onOpenPhoneLogin: _openPhoneLogin,
+          onOpenUpgradePage: () => _openUpgradePage(),
+          onOpenMaxUpgradePage: _openMaxUpgradePage,
+          onRestorePurchases: _restorePurchases,
+          onOpenLocalBackup: _openLocalBackup,
+          onOpenLocalRestore: _openLocalRestorePreview,
+          onOpenSyncInfo: _openSyncInfoPlaceholder,
+          onOpenCloudBackup: _openCloudBackup,
+          onOpenCloudRestore: _openCloudRestore,
+          onOpenSyncConflictReview: _openSyncConflictReview,
+          syncConflictReviewAvailable: syncRuntime?.isAvailable ?? false,
+          cloudBackupAvailable: _cloudBackupController.isAvailable,
+          cloudBackupUnavailableMessage:
+              _cloudBackupController.serverUnavailableMessage,
         ),
-        reverseTransitionDuration: const Duration(
-          milliseconds: DeviceTokens.avatarPickerReverseDurationMs,
-        ),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            AccountCenterPage(
-              loginSession: _loginSession,
-              subscriptionListenable: _subscriptionController.notifier,
-              onOpenPhoneLogin: _openPhoneLogin,
-              onOpenUpgradePage: () => _openUpgradePage(),
-              onOpenMaxUpgradePage: _openMaxUpgradePage,
-              onRestorePurchases: _restorePurchases,
-              onOpenLocalBackup: _openLocalBackup,
-              onOpenLocalRestore: _openLocalRestorePreview,
-              onOpenSyncInfo: _openSyncInfoPlaceholder,
-              onOpenCloudBackup: _openCloudBackup,
-              onOpenCloudRestore: _openCloudRestore,
-              onOpenSyncConflictReview: _openSyncConflictReview,
-              syncConflictReviewAvailable: syncRuntime?.isAvailable ?? false,
-              cloudBackupAvailable: _cloudBackupController.isAvailable,
-              cloudBackupUnavailableMessage:
-                  _cloudBackupController.serverUnavailableMessage,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final offset = Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).chain(CurveTween(curve: Curves.easeOutCubic));
-          return SlideTransition(
-            position: animation.drive(offset),
-            child: child,
-          );
-        },
       ),
     );
     if (!mounted) return;
