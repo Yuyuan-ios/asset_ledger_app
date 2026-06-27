@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
+import 'sheet_input_decoration.dart';
 
 // =====================================================================
 // ============================== AutoSuggestField（通用联想输入框） ==============================
@@ -100,16 +101,6 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
       },
 
       fieldViewBuilder: (context, textEditingController, focusNode, _) {
-        final hintStyle = AppTypography.bodySecondary(
-          context,
-          fontSize: SheetTokens.fieldTextSize,
-          color: SheetColors.hint,
-        );
-        final labelStyle = AppTypography.bodySecondary(
-          context,
-          fontSize: SheetTokens.fieldLabelSize,
-          color: SheetColors.textPrimary,
-        );
         final inputStyle =
             widget.textStyle ??
             AppTypography.body(
@@ -120,44 +111,16 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
 
         final baseDecoration =
             widget.decoration ??
-            InputDecoration(
+            buildSheetInputDecoration(
+              context,
               labelText: widget.label,
               hintText: widget.hint,
-              hintStyle: hintStyle,
-              labelStyle: labelStyle,
-              floatingLabelBehavior: FloatingLabelBehavior.never,
-              filled: true,
-              fillColor: SheetColors.fieldBackground,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: SheetTokens.fieldContentHPadding,
-                vertical: SheetTokens.fieldContentVPadding,
-              ),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
               suffixIcon: const Padding(
                 padding: EdgeInsets.only(
                   right: SheetTokens.fieldSuffixRightPadding,
                 ),
                 child: Icon(Icons.arrow_drop_down, color: SheetColors.muted),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-                borderSide: const BorderSide(
-                  color: SheetColors.fieldBorder,
-                  width: SheetTokens.fieldBorderWidth,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-                borderSide: const BorderSide(
-                  color: SheetColors.fieldBorder,
-                  width: SheetTokens.fieldBorderWidth,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-                borderSide: const BorderSide(
-                  color: SheetColors.fieldBorder,
-                  width: SheetTokens.fieldBorderWidth,
-                ),
               ),
             );
 

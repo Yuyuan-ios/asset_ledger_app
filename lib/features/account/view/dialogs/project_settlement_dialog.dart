@@ -7,6 +7,7 @@ import '../../domain/services/project_finance_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 
@@ -156,15 +157,11 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
               ],
             ),
             const SizedBox(height: SpaceTokens.sectionGap),
-            TextField(
+            SheetTextFieldPattern(
               controller: _reasonController,
               enabled: !_saving,
+              labelText: l10n.accountWriteOffReasonLabel,
               maxLines: 2,
-              decoration: InputDecoration(
-                labelText: l10n.accountWriteOffReasonLabel,
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
             ),
             const SizedBox(height: SpaceTokens.sectionGap),
             Text(l10n.accountSettlementHelper, style: helperStyle),

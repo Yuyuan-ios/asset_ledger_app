@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../components/fields/sheet_input_decoration.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
@@ -54,11 +55,6 @@ class DevicePickerPattern extends StatelessWidget {
     final labelText = vm.labelText ?? l10n.devicePickerLabel;
     final emptyHintText = vm.emptyHintText ?? l10n.devicePickerEmptyHint;
     final emptyLabelText = vm.emptyLabelText ?? l10n.devicePickerLabel;
-    final labelStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: SheetTokens.fieldLabelSize,
-      color: SheetColors.textPrimary,
-    );
     final hintStyle = AppTypography.bodySecondary(
       context,
       fontSize: SheetTokens.fieldTextSize,
@@ -81,24 +77,11 @@ class DevicePickerPattern extends StatelessWidget {
         items: const [],
         onChanged: null,
         style: hintStyle,
-        decoration: InputDecoration(
+        decoration: buildSheetInputDecoration(
+          context,
           labelText: emptyLabelText,
           floatingLabelBehavior: FloatingLabelBehavior.always,
-          labelStyle: labelStyle,
           hintStyle: hintStyle,
-          filled: true,
-          fillColor: SheetColors.fieldBackground,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: SheetTokens.fieldContentHPadding,
-            vertical: SheetTokens.fieldContentVPadding,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-            borderSide: const BorderSide(
-              color: SheetColors.fieldBorder,
-              width: SheetTokens.fieldBorderWidth,
-            ),
-          ),
         ),
       );
     }
@@ -120,25 +103,12 @@ class DevicePickerPattern extends StatelessWidget {
       onChanged: vm.onChanged,
       decoration:
           vm.decoration ??
-          InputDecoration(
+          buildSheetInputDecoration(
+            context,
             labelText: labelText,
             floatingLabelBehavior: FloatingLabelBehavior.always,
-            labelStyle: labelStyle,
             hintText: vm.hintText,
             hintStyle: hintStyle,
-            filled: true,
-            fillColor: SheetColors.fieldBackground,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: SheetTokens.fieldContentHPadding,
-              vertical: SheetTokens.fieldContentVPadding,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-              borderSide: const BorderSide(
-                color: SheetColors.fieldBorder,
-                width: SheetTokens.fieldBorderWidth,
-              ),
-            ),
           ),
     );
   }

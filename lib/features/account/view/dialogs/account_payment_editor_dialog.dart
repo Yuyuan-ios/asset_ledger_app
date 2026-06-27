@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/foundation/typography.dart';
 import '../../../../core/utils/form_feedback.dart';
 import '../../../../core/utils/format_utils.dart';
-import '../../../../core/utils/text_field_utils.dart';
 import '../../../../components/fields/app_date_field.dart';
 import '../../../../components/pickers/app_date_picker_dialog.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../domain/services/account_payment_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
@@ -145,24 +145,15 @@ class _AccountPaymentEditorDialogState
             const SizedBox(height: 10),
             SheetDateField(controller: _dateController, onPickDate: _pickDate),
             const SizedBox(height: SpaceTokens.sectionGap),
-            TextField(
+            SheetTextFieldPattern(
               controller: _amountController,
+              labelText: l10n.accountPaymentAmountIntegerLabel,
               keyboardType: TextInputType.number,
-              onTap: () => selectAllIfZeroLike(_amountController),
-              decoration: InputDecoration(
-                labelText: l10n.accountPaymentAmountIntegerLabel,
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
             ),
             const SizedBox(height: SpaceTokens.sectionGap),
-            TextField(
+            SheetTextFieldPattern(
               controller: _noteController,
-              decoration: InputDecoration(
-                labelText: l10n.accountNoteOptionalLabel,
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+              labelText: l10n.accountNoteOptionalLabel,
             ),
             const SizedBox(height: 10),
             Align(

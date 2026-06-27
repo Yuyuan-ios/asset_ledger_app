@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/layout/sheet_text_field_pattern.dart';
 
 class ProjectDetailShareButton extends StatelessWidget {
   const ProjectDetailShareButton({super.key, required this.onPressed});
@@ -82,15 +83,13 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
+          SheetTextFieldPattern(
             controller: _controller,
             autofocus: true,
             maxLength: _shareNameMaxLength,
-            decoration: InputDecoration(
-              labelText: l10n.accountShareNameLabel,
-              hintText: l10n.accountShareNameHint,
-              errorText: _error,
-            ),
+            labelText: l10n.accountShareNameLabel,
+            hintText: l10n.accountShareNameHint,
+            errorText: _error,
             onChanged: (_) {
               if (_error != null) setState(() => _error = null);
             },

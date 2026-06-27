@@ -6,6 +6,7 @@ import '../../core/money/amount_policy.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../layout/sheet_text_field_pattern.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 
@@ -590,15 +591,13 @@ class _ExternalCustomerRateDialogState
     final l10n = AppLocalizations.of(context);
     return AlertDialog(
       title: Text(l10n.accountExternalCustomerRateEditTitle),
-      content: TextField(
+      content: SheetTextFieldPattern(
         key: const Key('external-customer-rate-input'),
         controller: _controller,
         autofocus: true,
+        labelText: l10n.accountExternalCustomerRateInputHint,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          hintText: l10n.accountExternalCustomerRateInputHint,
-          errorText: _error,
-        ),
+        errorText: _error,
         onSubmitted: (_) => _submit(),
       ),
       actions: [

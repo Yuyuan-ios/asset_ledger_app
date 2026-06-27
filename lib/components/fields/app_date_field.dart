@@ -4,6 +4,7 @@ import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
 import '../../core/utils/format_utils.dart';
+import 'sheet_input_decoration.dart';
 
 const _sheetCalendarIconAsset = 'assets/icons/timing/calendar_icon.png';
 const _sheetDateFieldIconSize = 30.0;
@@ -35,36 +36,18 @@ class SheetDateField extends StatelessWidget {
       fontSize: SheetTokens.fieldTextSize,
       color: SheetColors.textPrimary,
     );
-    final hintStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: SheetTokens.fieldTextSize,
-      color: SheetColors.hint,
-    );
-    final labelStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: SheetTokens.fieldLabelSize,
-      color: SheetColors.textPrimary,
-    );
-
     return TextField(
       controller: controller,
       readOnly: true,
       enabled: enabled,
       onTap: enabled ? onPickDate : null,
       style: fieldStyle,
-      decoration: InputDecoration(
+      decoration: buildSheetInputDecoration(
+        context,
         labelText: label ?? FormatUtils.ymdInputLabel,
         hintText: hint ?? FormatUtils.ymdInputHint,
         helperText: helperText,
-        hintStyle: hintStyle,
-        labelStyle: labelStyle,
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        filled: true,
-        fillColor: SheetColors.fieldBackground,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: SheetTokens.fieldContentHPadding,
-          vertical: SheetTokens.fieldContentVPadding,
-        ),
         suffixIcon: IconButton(
           tooltip: tooltip,
           onPressed: enabled ? onPickDate : null,
@@ -75,27 +58,6 @@ class SheetDateField extends StatelessWidget {
             width: _sheetDateFieldIconSize,
             height: _sheetDateFieldIconSize,
             fit: BoxFit.contain,
-          ),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-          borderSide: const BorderSide(
-            color: SheetColors.fieldBorder,
-            width: SheetTokens.fieldBorderWidth,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-          borderSide: const BorderSide(
-            color: SheetColors.fieldBorder,
-            width: SheetTokens.fieldBorderWidth,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-          borderSide: const BorderSide(
-            color: SheetColors.fieldBorder,
-            width: SheetTokens.fieldBorderWidth,
           ),
         ),
         isDense: true,

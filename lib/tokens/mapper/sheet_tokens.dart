@@ -1,7 +1,9 @@
+import 'radius_tokens.dart';
+
 class SheetTokens {
   // ===== 通用表单字段：输入框基础样式 =====
   static const double fieldHeight = 48; // 通用输入框高度
-  static const double fieldRadius = 8; // 通用输入框圆角
+  static const double fieldRadius = RadiusTokens.input; // 通用输入框圆角
   static const double fieldBorderWidth = 0.9; // 通用输入框边框宽度
   static const double fieldTextSize = 18; // 通用输入框正文文字字号
   static const double fieldLabelSize = 14; // 通用输入框浮动标签字号

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/foundation/typography.dart';
-import '../../../../core/utils/text_field_utils.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 
@@ -87,26 +87,16 @@ class _AccountRateBatchDialogState extends State<AccountRateBatchDialog> {
             style: bodyStyle,
           ),
           const SizedBox(height: 10),
-          TextField(
+          SheetTextFieldPattern(
             controller: _diggingController,
+            labelText: l10n.accountDiggingBatchRateLabel,
             keyboardType: TextInputType.number,
-            onTap: () => selectAllIfZeroLike(_diggingController),
-            decoration: InputDecoration(
-              labelText: l10n.accountDiggingBatchRateLabel,
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
           ),
           const SizedBox(height: 10),
-          TextField(
+          SheetTextFieldPattern(
             controller: _breakingController,
+            labelText: l10n.accountBreakingBatchRateLabel,
             keyboardType: TextInputType.number,
-            onTap: () => selectAllIfZeroLike(_breakingController),
-            decoration: InputDecoration(
-              labelText: l10n.accountBreakingBatchRateLabel,
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
           ),
           const SizedBox(height: 10),
           Text(l10n.accountBatchRateHelper, style: helperStyle),
@@ -211,15 +201,10 @@ class _AccountRateSingleDialogState extends State<AccountRateSingleDialog> {
               const SizedBox(width: 10),
               SizedBox(
                 width: 140,
-                child: TextField(
+                child: SheetTextFieldPattern(
                   controller: _controller,
+                  labelText: l10n.accountSingleRateLabel,
                   keyboardType: TextInputType.number,
-                  onTap: () => selectAllIfZeroLike(_controller),
-                  decoration: InputDecoration(
-                    labelText: l10n.accountSingleRateLabel,
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
                 ),
               ),
             ],

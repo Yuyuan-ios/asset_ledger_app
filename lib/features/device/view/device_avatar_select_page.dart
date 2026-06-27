@@ -8,6 +8,7 @@ import '../model/brand_catalog.dart';
 import '../model/device_type_catalog.dart';
 import '../../../patterns/device/brand_picker_grouped_pattern.dart';
 import '../../../patterns/layout/bottom_sheet_shell_pattern.dart';
+import '../../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../../tokens/mapper/core_tokens.dart';
 import 'device_avatar_select_view_data.dart';
 
@@ -162,12 +163,10 @@ class _DeviceAvatarSelectPageState extends State<DeviceAvatarSelectPage> {
       builder: (ctx) {
         return AlertDialog(
           title: Text(l10n.deviceBrandCustomDialogTitle),
-          content: TextField(
+          content: SheetTextFieldPattern(
             controller: controller,
             autofocus: true,
-            decoration: InputDecoration(
-              hintText: l10n.deviceBrandCustomDialogHint,
-            ),
+            labelText: l10n.deviceBrandCustomDialogHint,
           ),
           actions: [
             TextButton(

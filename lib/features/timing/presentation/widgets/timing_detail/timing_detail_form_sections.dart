@@ -38,51 +38,13 @@ extension TimingDetailFormSections on TimingDetailContentState {
     String? label,
     Widget? suffixIcon,
   }) {
-    final hintStyle = AppTypography.bodySecondary(
+    return buildSheetInputDecoration(
       context,
-      fontSize: SheetTokens.fieldTextSize,
-      color: SheetColors.hint,
-    );
-    final labelStyle = AppTypography.bodySecondary(
-      context,
-      fontSize: SheetTokens.fieldLabelSize,
-      color: SheetColors.textPrimary,
-    );
-    return InputDecoration(
       hintText: hint,
-      hintStyle: hintStyle,
       labelText: label,
-      labelStyle: labelStyle,
       floatingLabelBehavior: label == null
           ? FloatingLabelBehavior.never
           : FloatingLabelBehavior.always,
-      filled: true,
-      fillColor: SheetColors.fieldBackground,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: SheetTokens.fieldContentHPadding,
-        vertical: SheetTokens.fieldContentVPadding,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-        borderSide: const BorderSide(
-          color: SheetColors.fieldBorder,
-          width: SheetTokens.fieldBorderWidth,
-        ),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-        borderSide: const BorderSide(
-          color: SheetColors.fieldBorder,
-          width: SheetTokens.fieldBorderWidth,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(SheetTokens.fieldRadius),
-        borderSide: const BorderSide(
-          color: SheetColors.fieldBorder,
-          width: SheetTokens.fieldBorderWidth,
-        ),
-      ),
       suffixIcon: suffixIcon,
     );
   }
