@@ -295,6 +295,8 @@ class IapVerificationApp:
             normalized_event_id = int(event_id)
         except ValueError as exc:
             raise HttpError(400, "invalid_event_id", "event_id must be an integer") from exc
+        if normalized_event_id <= 0:
+            raise HttpError(400, "invalid_event_id", "event_id must be positive")
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -305,6 +307,66 @@ class IapVerificationApp:
         if explanation is None:
             raise HttpError(404, "event_not_found", "subscription event was not found")
         return explanation
+
+    def internal_billing_graph(
+        self,
+        user_id: str,
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
+        self._authenticate_internal_entitlement_request(authorization_header)
+        stable_user_id = require_stable_user_id(
+            user_id,
+            auth_plane=self.internal_entitlement_auth_plane,
+        )
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
+        return self.gateway_service.get_decision_graph(stable_user_id)
+
+    def internal_billing_graph_event(
+        self,
+        event_id: str,
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
+        self._authenticate_internal_entitlement_request(authorization_header)
+        try:
+            normalized_event_id = int(event_id)
+        except ValueError as exc:
+            raise HttpError(400, "invalid_event_id", "event_id must be an integer") from exc
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
+        graph = self.gateway_service.get_decision_graph_for_event(normalized_event_id)
+        if graph is None:
+            raise HttpError(404, "event_not_found", "subscription event was not found")
+        return graph
+
+    def internal_billing_graph_summary(
+        self,
+        user_id: str,
+        authorization_header: Optional[str],
+    ) -> Dict[str, object]:
+        ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
+        self._authenticate_internal_entitlement_request(authorization_header)
+        stable_user_id = require_stable_user_id(
+            user_id,
+            auth_plane=self.internal_entitlement_auth_plane,
+        )
+        if self.gateway_service is None:
+            raise HttpError(
+                503,
+                "subscription_gateway_unavailable",
+                "Subscription gateway is currently unavailable.",
+            )
+        return self.gateway_service.get_decision_graph_summary(stable_user_id)
 
     def current_entitlement(self, query: Mapping[str, List[str]]) -> Dict[str, str]:
         raw_token = last_query_value(query, "appAccountToken")
@@ -543,6 +605,42 @@ class IapVerificationRequestHandler(http.server.BaseHTTPRequestHandler):
                     200,
                     self.app.internal_billing_explain(
                         user_id,
+                        self.headers.get("Authorization"),
+                    ),
+                )
+                return
+            graph_event_prefix = "/internal/v3/billing/graph/event/"
+            if method == "GET" and path.startswith(graph_event_prefix):
+                event_id = urllib.parse.unquote(path[len(graph_event_prefix) :])
+                json_response(
+                    self,
+                    200,
+                    self.app.internal_billing_graph_event(
+                        event_id,
+                        self.headers.get("Authorization"),
+                    ),
+                )
+                return
+            graph_prefix = "/internal/v3/billing/graph/"
+            if method == "GET" and path.startswith(graph_prefix):
+                graph_path = urllib.parse.unquote(path[len(graph_prefix) :])
+                summary_suffix = "/summary"
+                if graph_path.endswith(summary_suffix):
+                    user_id = graph_path[: -len(summary_suffix)]
+                    json_response(
+                        self,
+                        200,
+                        self.app.internal_billing_graph_summary(
+                            user_id,
+                            self.headers.get("Authorization"),
+                        ),
+                    )
+                    return
+                json_response(
+                    self,
+                    200,
+                    self.app.internal_billing_graph(
+                        graph_path,
                         self.headers.get("Authorization"),
                     ),
                 )

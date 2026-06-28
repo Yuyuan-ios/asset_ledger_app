@@ -149,6 +149,14 @@ from subscription_event_explanation_store import (
     SubscriptionEventExplanationStore,
     SubscriptionExplanationConflict,
 )
+from subscription_decision_graph import (
+    DecisionEdge,
+    DecisionGraph,
+    DecisionNode,
+)
+from subscription_decision_graph_builder import SubscriptionDecisionGraphBuilder
+from subscription_decision_graph_store import SubscriptionDecisionGraphStore
+from subscription_observability_sanitizer import sanitize_observability_payload
 from subscription_event_store import (
     SubscriptionEventAppendResult,
     SubscriptionEventReplay,
@@ -241,6 +249,9 @@ __all__ = [
     "DEFAULT_PORT",
     "DecodedAppleRenewalInfo",
     "DecodedAppleTransaction",
+    "DecisionEdge",
+    "DecisionGraph",
+    "DecisionNode",
     "EntitlementRecord",
     "EntitlementEngine",
     "EntitlementProjectionStore",
@@ -300,6 +311,8 @@ __all__ = [
     "SUBSCRIPTION_EVENT_TYPES",
     "SubscriptionAuditLog",
     "SubscriptionAuthorityResolver",
+    "SubscriptionDecisionGraphBuilder",
+    "SubscriptionDecisionGraphStore",
     "SubscriptionEvent",
     "SubscriptionEventAppendResult",
     "SubscriptionEventExplainer",
@@ -352,6 +365,7 @@ __all__ = [
     "require_stable_user_id",
     "require_text",
     "normalize_channel_name",
+    "sanitize_observability_payload",
     "signature_for_payload",
     "utc_now_iso",
     "validate_app_account_token",

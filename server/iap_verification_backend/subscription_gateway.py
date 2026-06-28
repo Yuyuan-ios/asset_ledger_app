@@ -24,6 +24,7 @@ from subscription_event_model import (
     state_for_subscription_event,
 )
 from subscription_event_store import SubscriptionEventReplay, SubscriptionEventStore
+from subscription_decision_graph_builder import SubscriptionDecisionGraphBuilder
 from entitlement_projection_store import EntitlementProjectionStore
 from subscription_replay_engine import SubscriptionReplayEngine
 from subscription_state_machine import (
@@ -458,6 +459,30 @@ class SubscriptionGatewayService:
             )
         return explanation.to_dict()
 
+    def get_decision_graph(self, user_id: str) -> dict[str, Any]:
+        return self._decision_graph_builder().build_for_user(user_id).to_dict()
+
+    def get_decision_graph_for_event(self, event_id: int) -> Optional[dict[str, Any]]:
+        try:
+            graph = self._decision_graph_builder().build_for_event(event_id)
+        except KeyError:
+            return None
+        return graph.to_dict()
+
+    def get_decision_graph_summary(self, user_id: str) -> dict[str, Any]:
+        graph = self._decision_graph_builder().build_for_user(user_id)
+        return {
+            "current_state": graph.current_state,
+            "current_tier": graph.current_tier,
+            "final_deciding_event_id": graph.summary.get("final_deciding_event_id"),
+            "applied_event_count": graph.summary.get("applied_event_count", 0),
+            "ignored_event_count": graph.summary.get("ignored_event_count", 0),
+            "rejected_event_count": graph.summary.get("rejected_event_count", 0),
+            "correction_event_count": graph.summary.get("correction_event_count", 0),
+            "warning_count": graph.summary.get("warning_count", 0),
+            "explanation_summary": graph.summary.get("explanation_summary"),
+        }
+
     def explanation_coverage_report(self, user_id: Optional[str] = None) -> dict[str, Any]:
         events = (
             self.event_store.get_events(user_id)
@@ -476,6 +501,13 @@ class SubscriptionGatewayService:
             "explained_events": explained,
             "missing_explanation_list": missing,
         }
+
+    def _decision_graph_builder(self) -> SubscriptionDecisionGraphBuilder:
+        return SubscriptionDecisionGraphBuilder(
+            event_store=self.event_store,
+            replay_engine=self.replay_engine,
+            explanation_store=self.explanation_store,
+        )
 
     def _adapter_for_channel(self, channel: str) -> PaymentChannelAdapter:
         normalized = require_text(channel, "channel", max_length=64)

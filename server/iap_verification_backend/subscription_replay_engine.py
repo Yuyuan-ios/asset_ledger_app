@@ -21,6 +21,7 @@ from subscription_event_model import (
 )
 from subscription_event_store import SubscriptionEventStore, SubscriptionLedgerIntegrityError
 from subscription_integrity_verifier import IntegrityVerifier
+from subscription_observability_sanitizer import sanitize_observability_payload
 from subscription_state_machine import STATE_NONE, SubscriptionStateMachine
 from verifier import EntitlementRecord
 
@@ -69,6 +70,7 @@ class EntitlementState:
     last_replayed_event_id: int
     current_entitlement: Optional[EntitlementRecord]
     explanations: list[EventExplanation] = dataclasses.field(default_factory=list)
+    replay_trace: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
     def current_entitlement_body(self) -> dict[str, Any]:
         if self.current_entitlement is None:
@@ -85,7 +87,7 @@ class EntitlementState:
         return None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        body = {
             "userId": self.user_id,
             "currentEntitlement": self.current_entitlement_body(),
             "lastReplayedEventId": self.last_replayed_event_id,
@@ -107,6 +109,9 @@ class EntitlementState:
             "decisions": [decision.to_dict() for decision in self.decisions],
             "explanations": [explanation.to_dict() for explanation in self.explanations],
         }
+        if self.replay_trace:
+            body["replayTrace"] = [dict(entry) for entry in self.replay_trace]
+        return body
 
 
 class SubscriptionProjectionDriftError(RuntimeError):
@@ -145,6 +150,7 @@ class SubscriptionReplayEngine:
         *,
         update_projection: bool = True,
         events: Optional[list[SubscriptionEvent]] = None,
+        include_trace: bool = False,
     ) -> EntitlementState:
         replay_events = events if events is not None else _unchecked_events_for_replay(
             self.event_store,
@@ -176,6 +182,16 @@ class SubscriptionReplayEngine:
             persist=events is None,
         )
         state = dataclasses.replace(state, explanations=explanations)
+        if include_trace:
+            state = dataclasses.replace(
+                state,
+                replay_trace=_replay_trace_entries(
+                    replay_events,
+                    state.decisions,
+                    explanations,
+                    integrity_result=integrity_result,
+                ),
+            )
         projection_diff_before = self.projection_store.diff(user_id, state)
         projection_diff_after: Optional[dict[str, Any]] = None
         if update_projection:
@@ -543,3 +559,82 @@ def _unchecked_events_for_replay(
     if getter is not None:
         return list(getter(user_id))
     return list(event_store.get_events(user_id))
+
+
+def _replay_trace_entries(
+    events: list[SubscriptionEvent],
+    decisions: list[ReplayDecision],
+    explanations: list[EventExplanation],
+    *,
+    integrity_result: Any,
+) -> list[dict[str, Any]]:
+    events_by_id = {event.event_id: event for event in events}
+    explanations_by_id = {explanation.event_id: explanation for explanation in explanations}
+    entries: list[dict[str, Any]] = []
+    for decision in decisions:
+        event = events_by_id[decision.event_id]
+        explanation = explanations_by_id.get(decision.event_id)
+        reason = str(decision.reason or "")
+        status = _trace_status(decision)
+        record = decision.record
+        entry = {
+            "event_id": decision.event_id,
+            "event_type": event.event_type,
+            "product_id": event.product_id,
+            "channel": event.channel,
+            "source": event.source,
+            "timestamp": event.event_time or event.server_time,
+            "payload_hash": event.payload_hash,
+            "hash_chain_position": event.event_id,
+            "previous_state": decision.previous_state,
+            "new_state": decision.new_state,
+            "applied": decision.applied,
+            "status": status,
+            "applied_rule": explanation.rule_applied
+            if explanation is not None
+            else f"replay: {reason}",
+            "authority_score": event.authority_score,
+            "ordering_result": "accepted" if decision.applied else reason,
+            "integrity_result": {
+                "chain_valid": bool(getattr(integrity_result, "chain_valid", False)),
+                "tamper_detected": bool(
+                    getattr(integrity_result, "tamper_detected", False)
+                ),
+                "payload_hash": event.payload_hash,
+                "hash_chain_position": event.event_id,
+            },
+            "entitlement_result": _trace_entitlement_result(decision),
+            "entitlement_tier": "none"
+            if record is None
+            else str(record.entitlement_tier),
+            "event_kind": event_kind_for_subscription_event(event, decision.previous_state),
+        }
+        if status == "ignored":
+            entry["ignored_reason"] = reason
+        elif not decision.applied:
+            entry["rejected_reason"] = reason
+        entries.append(sanitize_observability_payload(entry))
+    return entries
+
+
+def _trace_status(decision: ReplayDecision) -> str:
+    if decision.applied:
+        return "applied"
+    if decision.reason in {
+        "lower_authority_event_ignored",
+        "stale_event_ignored",
+        "ambiguous_equal_event_time",
+        "event_time_missing_cannot_override_timed_state",
+        "stale_event_version_ignored",
+        "duplicate_transaction_ignored",
+    }:
+        return "ignored"
+    return "rejected"
+
+
+def _trace_entitlement_result(decision: ReplayDecision) -> str:
+    if decision.record is not None:
+        return decision.record.outcome
+    if decision.applied:
+        return decision.new_state
+    return "no_state_change"
