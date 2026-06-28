@@ -313,7 +313,7 @@ void main() {
         _coloredBoxWithColor(AppColors.brandOutlineActionPressed),
         findsOneWidget,
       );
-      expect(_coloredBoxWithColor(const Color(0xFFF9D1AD)), findsOneWidget);
+      expect(_coloredBoxWithColor(const Color(0xFFFBDBC5)), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(find.byIcon(Icons.delete_outline), findsOneWidget);
       expect(

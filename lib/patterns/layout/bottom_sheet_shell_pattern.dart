@@ -43,7 +43,7 @@ Future<T?> openEditorSheet<T>({
   Color? cancelForegroundColor,
   bool footerEnabled = true,
   bool useSafeArea = true,
-  Color? backgroundColor,
+  Color? backgroundColor = SheetColors.background,
   bool scrollable = false,
   EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
   double dividerToContentGap = BottomSheetTokens.dividerToContentGap,

@@ -96,7 +96,6 @@ class _FuelPageState extends State<FuelPage> {
       title: editing == null
           ? l10n.fuelCreateSheetTitle
           : l10n.fuelEditSheetTitle,
-      useSafeArea: true,
       cancelText: l10n.fuelCancelAction,
       confirmText: l10n.fuelConfirmAction,
       onConfirm: () => formKey.currentState?.submit(),

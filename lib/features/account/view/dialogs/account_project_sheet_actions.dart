@@ -179,103 +179,91 @@ mixin _AccountPageProjectSheetActions
   }
 
   void _openProjectDetail(AccountProjectVM project) {
-    showAppBottomSheet<void>(
+    openEditorSheet<void>(
       context: context,
-      builder: (sheetContext) {
+      title: _l10n.accountProjectDetailTitle,
+      scrollable: true,
+      footerEnabled: false,
+      titleTrailingBuilder: (_) =>
+          ProjectDetailShareButton(onPressed: () => _openProjectShare(project)),
+      headerTrailingBuilder: (headerContext) => IconButton(
+        tooltip: _l10n.accountCloseTooltip,
+        icon: const Icon(Icons.close),
+        onPressed: () => Navigator.of(headerContext).maybePop(),
+      ),
+      childBuilder: (sheetContext) {
         void showSheetToast(String message) {
           if (!sheetContext.mounted) return;
           AppToast.show(sheetContext, message);
         }
 
-        return AppBottomSheetShell(
-          title: _l10n.accountProjectDetailTitle,
-          scrollable: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AccountTokens.projectDetailContentInset,
-          ),
-          footerEnabled: false,
-          titleTrailing: ProjectDetailShareButton(
-            onPressed: () => _openProjectShare(project),
-          ),
-          headerTrailing: IconButton(
-            tooltip: _l10n.accountCloseTooltip,
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(sheetContext).maybePop(),
-          ),
-          child:
-              Consumer5<
-                TimingStore,
-                DeviceStore,
-                AccountPaymentStore,
-                ProjectRateStore,
-                AccountStore
-              >(
-                builder:
-                    (
-                      context,
-                      timingStore,
-                      deviceStore,
-                      paymentStore,
-                      rateStore,
-                      accountStore,
-                      _,
-                    ) {
-                      final timing = timingStore.records;
-                      final devices = deviceStore.allDevices;
-                      final payments = paymentStore.records;
-                      final rates = rateStore.rates;
-                      final rawComputed = accountStore.compute(
-                        timingRecords: timing,
-                        devices: devices,
-                        rates: rates,
-                        payments: payments,
-                      );
-                      final externalWorkStore = context
-                          .watch<TimingExternalWorkStore?>();
-                      final externalRollup = rollupExternalWorkReceivable(
-                        externalWorkStore?.items ?? const [],
-                      );
-                      final computed = augmentComputedWithExternalWork(
-                        rawComputed,
-                        externalRollup,
-                      );
+        return Consumer5<
+          TimingStore,
+          DeviceStore,
+          AccountPaymentStore,
+          ProjectRateStore,
+          AccountStore
+        >(
+          builder:
+              (
+                context,
+                timingStore,
+                deviceStore,
+                paymentStore,
+                rateStore,
+                accountStore,
+                _,
+              ) {
+                final timing = timingStore.records;
+                final devices = deviceStore.allDevices;
+                final payments = paymentStore.records;
+                final rates = rateStore.rates;
+                final rawComputed = accountStore.compute(
+                  timingRecords: timing,
+                  devices: devices,
+                  rates: rates,
+                  payments: payments,
+                );
+                final externalWorkStore = context
+                    .watch<TimingExternalWorkStore?>();
+                final externalRollup = rollupExternalWorkReceivable(
+                  externalWorkStore?.items ?? const [],
+                );
+                final computed = augmentComputedWithExternalWork(
+                  rawComputed,
+                  externalRollup,
+                );
 
-                      return AccountProjectDetailSheet(
-                        projectId: project.effectiveProjectId,
-                        projectKey: project.projectKey,
-                        timingRecords: timing,
-                        allDevices: devices,
-                        allPayments: payments,
-                        allWriteOffs: accountStore.writeOffs,
-                        allRates: rates,
-                        allExternalWorkItems:
-                            externalWorkStore?.items ?? const [],
-                        computed: computed,
-                        settledProjectIds: accountStore.settledProjectIds,
-                        onBatchEditRate: _openBatchRateEditor,
-                        onEditDeviceRate: _openSingleRateEditor,
-                        onAddPayment: _openPaymentEditor,
-                        onEditPayment: _openPaymentEditor,
-                        onDeletePayment: _deletePayment,
-                        onDeleteWriteOff: (writeOff) => _revokeWriteOff(
-                          writeOff,
-                          feedbackToast: showSheetToast,
-                        ),
-                        onRevokeProjectWriteOff: (project) =>
-                            _revokeProjectWriteOff(
-                              project,
-                              feedbackToast: showSheetToast,
-                            ),
-                        onSettleProject: _openProjectSettlement,
-                        onDissolveMergeGroup: (project) =>
-                            _confirmDissolveMergeGroup(project, sheetContext),
-                        onAddMergedPayment: _openMergedPaymentEditor,
-                        onEditMergedPaymentBatch: _openMergedPaymentBatchEditor,
-                        onDeleteMergedPaymentBatch:
-                            _confirmDeleteMergedPaymentBatch,
-                      );
-                    },
-              ),
+                return AccountProjectDetailSheet(
+                  projectId: project.effectiveProjectId,
+                  projectKey: project.projectKey,
+                  timingRecords: timing,
+                  allDevices: devices,
+                  allPayments: payments,
+                  allWriteOffs: accountStore.writeOffs,
+                  allRates: rates,
+                  allExternalWorkItems: externalWorkStore?.items ?? const [],
+                  computed: computed,
+                  settledProjectIds: accountStore.settledProjectIds,
+                  onBatchEditRate: _openBatchRateEditor,
+                  onEditDeviceRate: _openSingleRateEditor,
+                  onAddPayment: _openPaymentEditor,
+                  onEditPayment: _openPaymentEditor,
+                  onDeletePayment: _deletePayment,
+                  onDeleteWriteOff: (writeOff) =>
+                      _revokeWriteOff(writeOff, feedbackToast: showSheetToast),
+                  onRevokeProjectWriteOff: (project) => _revokeProjectWriteOff(
+                    project,
+                    feedbackToast: showSheetToast,
+                  ),
+                  onSettleProject: _openProjectSettlement,
+                  onDissolveMergeGroup: (project) =>
+                      _confirmDissolveMergeGroup(project, sheetContext),
+                  onAddMergedPayment: _openMergedPaymentEditor,
+                  onEditMergedPaymentBatch: _openMergedPaymentBatchEditor,
+                  onDeleteMergedPaymentBatch: _confirmDeleteMergedPaymentBatch,
+                );
+              },
         );
       },
     );

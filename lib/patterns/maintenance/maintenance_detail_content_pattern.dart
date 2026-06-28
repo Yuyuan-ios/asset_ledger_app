@@ -13,6 +13,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/spacing_tokens.dart';
 
 import '../../data/models/device.dart';
@@ -252,78 +253,89 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 1) 公共支出开关（置顶）
-                  ExcludeFuelSwitchCard(
-                    value: _isPublicExpense,
-                    title: l10n.maintenancePublicExpenseLabel,
-                    description: _publicExpenseDescription(l10n),
-                    onChanged: (v) {
-                      setState(() {
-                        _isPublicExpense = v;
-                        if (v) _selectedDeviceId = null;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: SpaceTokens.md),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  BottomSheetTokens.outerHPadding,
+                  0,
+                  BottomSheetTokens.outerHPadding,
+                  0,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 1) 公共支出开关（置顶）
+                    ExcludeFuelSwitchCard(
+                      value: _isPublicExpense,
+                      title: l10n.maintenancePublicExpenseLabel,
+                      description: _publicExpenseDescription(l10n),
+                      onChanged: (v) {
+                        setState(() {
+                          _isPublicExpense = v;
+                          if (v) _selectedDeviceId = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: SpaceTokens.md),
 
-                  // 2) 设备（公共支出时灰掉）
-                  IgnorePointer(
-                    ignoring: _isPublicExpense,
-                    child: Opacity(
-                      opacity: _isPublicExpense ? 0.5 : 1.0,
-                      child: DevicePickerPattern(
-                        vm: DevicePickerVm(
-                          selectedId: _selectedDeviceId,
-                          items: widget.deviceItems,
-                          onChanged: (id) =>
-                              setState(() => _selectedDeviceId = id),
-                          labelText: l10n.maintenanceDeviceLabel,
-                          hintText: l10n.maintenanceDeviceHint,
-                          emptyHintText: l10n.maintenanceNoActiveDeviceHint,
-                          emptyLabelText: l10n.maintenanceDeviceLabel,
+                    // 2) 设备（公共支出时灰掉）
+                    IgnorePointer(
+                      ignoring: _isPublicExpense,
+                      child: Opacity(
+                        opacity: _isPublicExpense ? 0.5 : 1.0,
+                        child: DevicePickerPattern(
+                          vm: DevicePickerVm(
+                            selectedId: _selectedDeviceId,
+                            items: widget.deviceItems,
+                            onChanged: (id) =>
+                                setState(() => _selectedDeviceId = id),
+                            labelText: l10n.maintenanceDeviceLabel,
+                            hintText: l10n.maintenanceDeviceHint,
+                            emptyHintText: l10n.maintenanceNoActiveDeviceHint,
+                            emptyLabelText: l10n.maintenanceDeviceLabel,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: SpaceTokens.md),
+                    const SizedBox(height: SpaceTokens.md),
 
-                  // 3) 日期
-                  SheetDateField(controller: _dateCtrl, onPickDate: _pickDate),
-                  const SizedBox(height: SpaceTokens.md),
-
-                  // 4) 事项
-                  AutoSuggestField(
-                    controller: _itemCtrl,
-                    label: l10n.maintenanceItemRequiredLabel,
-                    hint: l10n.maintenanceItemHint,
-                    suggestionsBuilder: widget.itemSuggestions,
-                    onSelected: (v) => _itemCtrl.text = v,
-                  ),
-                  const SizedBox(height: SpaceTokens.md),
-
-                  // 5) 金额
-                  SheetTextFieldPattern(
-                    controller: _amountCtrl,
-                    labelText: l10n.maintenanceAmountYuanLabel,
-                    hintText: l10n.maintenanceAmountHint,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                    // 3) 日期
+                    SheetDateField(
+                      controller: _dateCtrl,
+                      onPickDate: _pickDate,
                     ),
-                    floatingLabelBehavior: FloatingLabelBehavior.always,
-                    selectAllOnTap: true,
-                  ),
-                  const SizedBox(height: SpaceTokens.md),
+                    const SizedBox(height: SpaceTokens.md),
 
-                  // 6) 备注
-                  SheetTextFieldPattern(
-                    controller: _noteCtrl,
-                    labelText: l10n.maintenanceNoteOptionalLabel,
-                    hintText: l10n.maintenanceNoteHint,
-                  ),
-                ],
+                    // 4) 事项
+                    AutoSuggestField(
+                      controller: _itemCtrl,
+                      label: l10n.maintenanceItemRequiredLabel,
+                      hint: l10n.maintenanceItemHint,
+                      suggestionsBuilder: widget.itemSuggestions,
+                      onSelected: (v) => _itemCtrl.text = v,
+                    ),
+                    const SizedBox(height: SpaceTokens.md),
+
+                    // 5) 金额
+                    SheetTextFieldPattern(
+                      controller: _amountCtrl,
+                      labelText: l10n.maintenanceAmountYuanLabel,
+                      hintText: l10n.maintenanceAmountHint,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      selectAllOnTap: true,
+                    ),
+                    const SizedBox(height: SpaceTokens.md),
+
+                    // 6) 备注
+                    SheetTextFieldPattern(
+                      controller: _noteCtrl,
+                      labelText: l10n.maintenanceNoteOptionalLabel,
+                      hintText: l10n.maintenanceNoteHint,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

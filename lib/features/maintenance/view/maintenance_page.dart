@@ -118,7 +118,6 @@ class _MaintenancePageState extends State<MaintenancePage> {
       title: editing == null
           ? l10n.maintenanceCreateSheetTitle
           : l10n.maintenanceEditSheetTitle,
-      useSafeArea: true,
       dividerToContentGap: 8,
       cancelText: l10n.maintenanceCancelAction,
       confirmText: l10n.maintenanceConfirmAction,
@@ -129,45 +128,42 @@ class _MaintenancePageState extends State<MaintenancePage> {
           AppToast.show(ctx, msg);
         }
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: MaintenanceDetailContent(
-            key: formKey,
-            editing: editing,
-            initialDeviceId: initialDeviceContext.deviceId,
-            deviceById: editorContext.deviceById,
-            deviceItems: editorContext.deviceItems,
-            itemSuggestions: itemSuggestions,
+        return MaintenanceDetailContent(
+          key: formKey,
+          editing: editing,
+          initialDeviceId: initialDeviceContext.deviceId,
+          deviceById: editorContext.deviceById,
+          deviceItems: editorContext.deviceItems,
+          itemSuggestions: itemSuggestions,
 
-            // 取消：Page 负责 pop
-            onCancel: () => Navigator.of(ctx).pop(),
+          // 取消：Page 负责 pop
+          onCancel: () => Navigator.of(ctx).pop(),
 
-            // toast：sheet 内校验和失败提示留在当前弹层。
-            onToast: sheetToast,
+          // toast：sheet 内校验和失败提示留在当前弹层。
+          onToast: sheetToast,
 
-            // ✅ 保存：Page 负责落库 + toast + pop（与 Account/Fuel/Timing 统一）
-            onSubmit: (record) async {
-              await maintenanceStore.save(record);
+          // ✅ 保存：Page 负责落库 + toast + pop（与 Account/Fuel/Timing 统一）
+          onSubmit: (record) async {
+            await maintenanceStore.save(record);
 
-              if (!mounted || !ctx.mounted) return;
+            if (!mounted || !ctx.mounted) return;
 
-              final feedback = storeActionFeedback(
-                maintenanceStore,
-                action: StoreActionKind.save,
-              );
-              final message = localizeStoreActionFeedback(
-                AppLocalizations.of(ctx),
-                feedback,
-              );
-              if (!feedback.isSuccess) {
-                sheetToast(message);
-                return;
-              }
-              _toast(message);
-              if (!ctx.mounted) return;
-              Navigator.of(ctx).pop();
-            },
-          ),
+            final feedback = storeActionFeedback(
+              maintenanceStore,
+              action: StoreActionKind.save,
+            );
+            final message = localizeStoreActionFeedback(
+              AppLocalizations.of(ctx),
+              feedback,
+            );
+            if (!feedback.isSuccess) {
+              sheetToast(message);
+              return;
+            }
+            _toast(message);
+            if (!ctx.mounted) return;
+            Navigator.of(ctx).pop();
+          },
         );
       },
     );

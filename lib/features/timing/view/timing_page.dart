@@ -46,7 +46,6 @@ import '../../account/model/account_view_model.dart';
 import '../../account/model/project_title_formatter.dart';
 import '../../device/application/device_editor_initial_device_resolver.dart';
 import '../../device/view/upgrade_page.dart';
-import '../../../tokens/mapper/core_tokens.dart';
 
 class TimingPage extends StatefulWidget {
   const TimingPage({
@@ -441,8 +440,6 @@ class _TimingPageState extends State<TimingPage> {
       title: editing == null
           ? l10n.timingEntryCreateSheetTitle
           : l10n.timingEntryEditSheetTitle,
-      useSafeArea: false,
-      backgroundColor: SheetColors.background,
       cancelText: editing == null
           ? l10n.timingEntryCancelAction
           : l10n.timingEntryDeleteRecordAction,

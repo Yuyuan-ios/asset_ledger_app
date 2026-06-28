@@ -70,7 +70,7 @@ void main() {
     );
   });
 
-  testWidgets('openEditorSheet can use an opaque sheet background', (
+  testWidgets('openEditorSheet defaults to an opaque sheet background', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -83,8 +83,6 @@ void main() {
                   openEditorSheet<void>(
                     context: pageContext,
                     title: '新建计时',
-                    useSafeArea: false,
-                    backgroundColor: SheetColors.background,
                     onConfirm: () {},
                     childBuilder: (_) => const SizedBox.shrink(),
                   );
@@ -137,8 +135,6 @@ void main() {
                   openEditorSheet<void>(
                     context: pageContext,
                     title: '新建计时',
-                    useSafeArea: false,
-                    backgroundColor: SheetColors.background,
                     onConfirm: () {},
                     childBuilder: (_) => const SizedBox.shrink(),
                   );
