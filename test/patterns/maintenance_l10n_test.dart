@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:asset_ledger/components/feedback/app_confirm_dialog.dart';
 import 'package:asset_ledger/data/models/device.dart';
 import 'package:asset_ledger/data/models/maintenance_record.dart';
@@ -6,6 +8,7 @@ import 'package:asset_ledger/features/maintenance/view/maintenance_page_view_dat
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/patterns/maintenance/maintenance_detail_content_pattern.dart';
+import 'package:asset_ledger/patterns/timing/exclude_fuel_switch_card_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/radius_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -24,7 +27,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final uiCopy = _collectUiCopy(tester);
-    expect(uiCopy, contains('公共支出（不属于任何设备）'));
+    expect(find.byType(ExcludeFuelSwitchCard), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsNothing);
+    expect(uiCopy, contains('公共支出'));
+    expect(uiCopy, contains('不属于任何设备'));
     expect(uiCopy, contains('事项（必填）'));
     expect(uiCopy, contains('例如：更换机油/保养/维修'));
     expect(uiCopy, contains('金额（元）'));
@@ -43,7 +49,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final uiCopy = _collectUiCopy(tester);
-    expect(uiCopy, contains('Shared cost (not tied to a device)'));
+    expect(uiCopy, contains('Shared cost'));
+    expect(uiCopy, contains('not tied to a device'));
     expect(uiCopy, contains('Service item (required)'));
     expect(uiCopy, contains('Example: oil change / service / repair'));
     expect(uiCopy, contains('Amount (CNY)'));
@@ -61,7 +68,7 @@ void main() {
           rows: const [],
           onEdit: (_) {},
           onConfirmDelete: (_) async => false,
-          onDelete: (_) {},
+          onDelete: (_) async => true,
         ),
       ),
     );
@@ -97,7 +104,7 @@ void main() {
           ],
           onEdit: (_) {},
           onConfirmDelete: (_) async => false,
-          onDelete: (_) {},
+          onDelete: (_) async => true,
         ),
       ),
     );
@@ -109,6 +116,102 @@ void main() {
       decoration.borderRadius,
       BorderRadius.circular(RadiusTokens.recordCard),
     );
+  });
+
+  testWidgets('maintenance records list only draws separators between rows', (
+    tester,
+  ) async {
+    final first = MaintenanceRecord(
+      id: 1,
+      deviceId: 1,
+      ymd: 20260628,
+      item: '保养',
+      amount: 1980,
+    );
+    final second = MaintenanceRecord(
+      id: 2,
+      deviceId: 1,
+      ymd: 20260627,
+      item: '维修',
+      amount: 980,
+    );
+
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: MaintenanceRecordsContent(
+          rows: [
+            MaintenanceRecordRowVM(
+              record: first,
+              title: 'HITACHI 1#',
+              subtitle: '保养',
+              dateText: '2026.06.28',
+              amountText: '¥1980',
+            ),
+            MaintenanceRecordRowVM(
+              record: second,
+              title: 'HITACHI 1#',
+              subtitle: '维修',
+              dateText: '2026.06.27',
+              amountText: '¥980',
+            ),
+          ],
+          onEdit: (_) {},
+          onConfirmDelete: (_) async => false,
+          onDelete: (_) async => true,
+        ),
+      ),
+    );
+
+    final listColumn = tester.widget<Column>(_recordListColumn());
+
+    expect(listColumn.children, hasLength(3));
+    expect(listColumn.children.first, isNot(isA<Divider>()));
+    expect(listColumn.children[1], isA<Divider>());
+    expect(find.byType(Divider), findsOneWidget);
+  });
+
+  testWidgets('maintenance dismissed row is removed before delete completes', (
+    tester,
+  ) async {
+    final deleteCompleter = Completer<bool>();
+    final record = MaintenanceRecord(
+      id: 1,
+      deviceId: 1,
+      ymd: 20260628,
+      item: '保养',
+      amount: 1980,
+    );
+
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: MaintenanceRecordsContent(
+          rows: [
+            MaintenanceRecordRowVM(
+              record: record,
+              title: 'HITACHI 1#',
+              subtitle: '保养',
+              dateText: '2026.06.28',
+              amountText: '¥1980',
+            ),
+          ],
+          onEdit: (_) {},
+          onConfirmDelete: (_) async => true,
+          onDelete: (_) => deleteCompleter.future,
+        ),
+      ),
+    );
+
+    await tester.drag(find.text('保养'), const Offset(-500, 0));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('保养'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    deleteCompleter.complete(true);
+    await tester.pump();
   });
 
   testWidgets('renders maintenance delete dialog strings in English', (
@@ -203,11 +306,6 @@ String _collectUiCopy(WidgetTester tester) {
         ..add(decoration.labelText ?? '')
         ..add(decoration.hintText ?? '')
         ..add(decoration.helperText ?? '');
-    } else if (widget is SwitchListTile) {
-      final title = widget.title;
-      if (title is Text) {
-        parts.add(title.data ?? title.textSpan?.toPlainText() ?? '');
-      }
     }
   }
   return parts.where((part) => part.isNotEmpty).join('\n');
@@ -219,5 +317,13 @@ Finder _recordCardContainers() {
     return decoration is BoxDecoration &&
         decoration.borderRadius ==
             BorderRadius.circular(RadiusTokens.recordCard);
+  });
+}
+
+Finder _recordListColumn() {
+  return find.byWidgetPredicate((widget) {
+    return widget is Column &&
+        widget.children.length == 3 &&
+        widget.children[1] is Divider;
   });
 }

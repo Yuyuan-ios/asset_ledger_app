@@ -196,16 +196,21 @@ class _MaintenancePageState extends State<MaintenancePage> {
     return ok == true;
   }
 
-  Future<void> _delete(MaintenanceRecord r) async {
-    if (r.id == null) return;
+  Future<bool> _delete(MaintenanceRecord r) async {
+    if (r.id == null) return false;
     final store = context.read<MaintenanceStore>();
 
-    await store.deleteById(r.id!);
+    try {
+      await store.deleteById(r.id!);
+    } catch (_) {
+      // BaseStore records the mapped failure; UI feedback is handled below.
+    }
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     final feedback = storeActionFeedback(store, action: StoreActionKind.delete);
     _toast(localizeStoreActionFeedback(AppLocalizations.of(context), feedback));
+    return feedback.isSuccess;
   }
 
   // =====================================================================

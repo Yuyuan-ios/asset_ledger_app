@@ -15,7 +15,6 @@ import 'package:flutter/material.dart';
 
 import '../../tokens/mapper/spacing_tokens.dart';
 
-import '../../core/foundation/typography.dart';
 import '../../data/models/device.dart';
 import '../../data/models/maintenance_record.dart';
 import '../../core/utils/form_feedback.dart';
@@ -27,6 +26,7 @@ import '../../components/fields/app_auto_suggest_field.dart';
 import '../../components/fields/app_date_field.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../components/pickers/app_date_picker_dialog.dart';
+import '../timing/exclude_fuel_switch_card_pattern.dart';
 
 // =====================================================================
 // ============================== 二、Content Widget ==============================
@@ -221,6 +221,21 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
   // ============================== 五、UI 小组件 ==============================
   // =====================================================================
 
+  String _publicExpenseDescription(AppLocalizations l10n) {
+    final title = l10n.maintenancePublicExpenseSwitchTitle;
+    final label = l10n.maintenancePublicExpenseLabel;
+    if (!title.startsWith(label)) return title;
+
+    final suffix = title.substring(label.length).trim();
+    if (suffix.length < 2) return title;
+    final wrapped =
+        (suffix.startsWith('（') && suffix.endsWith('）')) ||
+        (suffix.startsWith('(') && suffix.endsWith(')'));
+    if (!wrapped) return title;
+
+    return suffix.substring(1, suffix.length - 1);
+  }
+
   // =====================================================================
   // ============================== 六、build：表单内容 ==============================
   // =====================================================================
@@ -228,11 +243,6 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final switchTitleStyle = AppTypography.body(
-      context,
-      fontWeight: FontWeight.w500,
-      color: Colors.black,
-    );
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -246,13 +256,10 @@ class MaintenanceDetailContentState extends State<MaintenanceDetailContent> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 1) 公共支出开关（置顶）
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      l10n.maintenancePublicExpenseSwitchTitle,
-                      style: switchTitleStyle,
-                    ),
+                  ExcludeFuelSwitchCard(
                     value: _isPublicExpense,
+                    title: l10n.maintenancePublicExpenseLabel,
+                    description: _publicExpenseDescription(l10n),
                     onChanged: (v) {
                       setState(() {
                         _isPublicExpense = v;

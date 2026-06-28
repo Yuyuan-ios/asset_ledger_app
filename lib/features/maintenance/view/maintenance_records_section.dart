@@ -12,6 +12,17 @@ import '../../../patterns/layout/record_card_surface.dart';
 import '../../../patterns/timing/records_title_pattern.dart';
 import 'maintenance_page_view_data.dart';
 
+typedef DeleteMaintenanceRecordCallback =
+    Future<bool> Function(MaintenanceRecord record);
+
+String maintenanceRecentRecordKey(MaintenanceRecord record) {
+  return 'maintenance-${record.id ?? '${record.ymd}-${record.deviceId}-${record.item}-${record.effectiveAmountFen}'}';
+}
+
+Set<String> maintenanceRecentRecordKeys(List<MaintenanceRecordRowVM> rows) {
+  return rows.map((row) => maintenanceRecentRecordKey(row.record)).toSet();
+}
+
 class MaintenanceRecordsSection extends StatelessWidget {
   const MaintenanceRecordsSection({
     super.key,
@@ -24,7 +35,7 @@ class MaintenanceRecordsSection extends StatelessWidget {
   final List<MaintenanceRecordRowVM> rows;
   final ValueChanged<MaintenanceRecord> onEdit;
   final Future<bool> Function(MaintenanceRecord record) onConfirmDelete;
-  final ValueChanged<MaintenanceRecord> onDelete;
+  final DeleteMaintenanceRecordCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +59,7 @@ class MaintenanceRecordsSection extends StatelessWidget {
   }
 }
 
-class MaintenanceRecordsContent extends StatelessWidget {
+class MaintenanceRecordsContent extends StatefulWidget {
   const MaintenanceRecordsContent({
     super.key,
     required this.rows,
@@ -60,11 +71,42 @@ class MaintenanceRecordsContent extends StatelessWidget {
   final List<MaintenanceRecordRowVM> rows;
   final ValueChanged<MaintenanceRecord> onEdit;
   final Future<bool> Function(MaintenanceRecord record) onConfirmDelete;
-  final ValueChanged<MaintenanceRecord> onDelete;
+  final DeleteMaintenanceRecordCallback onDelete;
+
+  @override
+  State<MaintenanceRecordsContent> createState() =>
+      _MaintenanceRecordsContentState();
+}
+
+class _MaintenanceRecordsContentState extends State<MaintenanceRecordsContent> {
+  final Set<String> _locallyRemovedKeys = <String>{};
+
+  @override
+  void didUpdateWidget(covariant MaintenanceRecordsContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentKeys = maintenanceRecentRecordKeys(widget.rows);
+    _locallyRemovedKeys.removeWhere((key) => !currentKeys.contains(key));
+  }
+
+  Future<void> _deleteWithOptimisticRemove(MaintenanceRecord record) async {
+    final key = maintenanceRecentRecordKey(record);
+    setState(() => _locallyRemovedKeys.add(key));
+    final ok = await widget.onDelete(record);
+    if (!ok && mounted) {
+      setState(() => _locallyRemovedKeys.remove(key));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final visibleRows = widget.rows
+        .where(
+          (row) => !_locallyRemovedKeys.contains(
+            maintenanceRecentRecordKey(row.record),
+          ),
+        )
+        .toList();
     final rowTitleStyle = AppTypography.body(
       context,
       fontSize: TimingTokens.recordTitleFontSize,
@@ -94,7 +136,7 @@ class MaintenanceRecordsContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (rows.isEmpty)
+        if (visibleRows.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
             child: AppRecentRecordsEmptyState(
@@ -108,21 +150,22 @@ class MaintenanceRecordsContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var index = 0; index < rows.length; index++) ...[
-                  const Divider(
-                    height: TimingTokens.recordDividerThickness,
-                    thickness: TimingTokens.recordDividerThickness,
-                    color: TimingColors.divider,
-                  ),
+                for (var index = 0; index < visibleRows.length; index++) ...[
+                  if (index > 0)
+                    const Divider(
+                      height: TimingTokens.recordDividerThickness,
+                      thickness: TimingTokens.recordDividerThickness,
+                      color: TimingColors.divider,
+                    ),
                   Builder(
                     builder: (context) {
-                      final row = rows[index];
+                      final row = visibleRows[index];
                       final record = row.record;
 
                       final content = Material(
                         color: SheetColors.background,
                         child: InkWell(
-                          onTap: () => onEdit(record),
+                          onTap: () => widget.onEdit(record),
                           child: SizedBox(
                             height: TimingTokens.recordRowHeight,
                             child: Padding(
@@ -186,9 +229,7 @@ class MaintenanceRecordsContent extends StatelessWidget {
                       );
 
                       return Dismissible(
-                        key: ValueKey(
-                          'maintenance-${record.id ?? '${record.ymd}-${record.deviceId}-${record.item}-${record.effectiveAmountFen}'}',
-                        ),
+                        key: ValueKey(maintenanceRecentRecordKey(record)),
                         direction: DismissDirection.endToStart,
                         background: Container(
                           color: Colors.red.shade500,
@@ -201,8 +242,8 @@ class MaintenanceRecordsContent extends StatelessWidget {
                             color: Colors.white,
                           ),
                         ),
-                        confirmDismiss: (_) => onConfirmDelete(record),
-                        onDismissed: (_) => onDelete(record),
+                        confirmDismiss: (_) => widget.onConfirmDelete(record),
+                        onDismissed: (_) => _deleteWithOptimisticRemove(record),
                         child: content,
                       );
                     },

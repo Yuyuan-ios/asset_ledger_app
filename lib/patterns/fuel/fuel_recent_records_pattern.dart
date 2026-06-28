@@ -143,7 +143,7 @@ class FuelRecordsListContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < flat.length; i++) ...[
-            if (i == 0 || flat[i].date != flat[i - 1].date)
+            if (i > 0)
               const Divider(
                 height: TimingTokens.recordDividerThickness,
                 thickness: TimingTokens.recordDividerThickness,

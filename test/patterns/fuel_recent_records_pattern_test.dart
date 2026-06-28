@@ -74,6 +74,50 @@ void main() {
       BorderRadius.circular(RadiusTokens.recordCard),
     );
   });
+
+  testWidgets('fuel records list only draws separators between rows', (
+    WidgetTester tester,
+  ) async {
+    final first = FuelLog(
+      id: 1,
+      deviceId: 1,
+      date: 20260628,
+      supplier: '中石油',
+      liters: 220,
+      cost: 1980,
+    );
+    final second = FuelLog(
+      id: 2,
+      deviceId: 1,
+      date: 20260628,
+      supplier: '中石油',
+      liters: 120,
+      cost: 980,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FuelRecordsListContent(
+            logs: [first, second],
+            leadingBuilder: (_) => const SizedBox(width: 40, height: 40),
+            titleBuilder: (log) => log.supplier,
+            subtitleBuilder: (_) => 'HITACHI 1#',
+            onTap: (_) {},
+            onConfirmDelete: null,
+            onDelete: null,
+          ),
+        ),
+      ),
+    );
+
+    final listColumn = tester.widget<Column>(_recordListColumn());
+
+    expect(listColumn.children, hasLength(3));
+    expect(listColumn.children.first, isNot(isA<Divider>()));
+    expect(listColumn.children[1], isA<Divider>());
+    expect(find.byType(Divider), findsOneWidget);
+  });
 }
 
 Finder _recordCardContainers() {
@@ -82,5 +126,13 @@ Finder _recordCardContainers() {
     return decoration is BoxDecoration &&
         decoration.borderRadius ==
             BorderRadius.circular(RadiusTokens.recordCard);
+  });
+}
+
+Finder _recordListColumn() {
+  return find.byWidgetPredicate((widget) {
+    return widget is Column &&
+        widget.children.length == 3 &&
+        widget.children[1] is Divider;
   });
 }
