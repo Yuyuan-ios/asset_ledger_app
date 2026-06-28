@@ -58,6 +58,11 @@ hooks:
     sqlite3:
       source: system
 
+dependency_overrides:
+  # path_provider_foundation 2.6.0 uses objective_c native assets; current
+  # iOS device debug builds can embed the simulator objective_c.framework.
+  path_provider_foundation: 2.5.1
+
 flutter:
   uses-material-design: true
   # i18n:构建时由 l10n.yaml 生成 AppLocalizations(lib/l10n/gen)
