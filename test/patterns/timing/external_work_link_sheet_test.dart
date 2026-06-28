@@ -1,4 +1,5 @@
 import 'package:asset_ledger/components/buttons/app_primary_button.dart';
+import 'package:asset_ledger/core/foundation/spacing.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
 import 'package:asset_ledger/patterns/timing/external_work_link_sheet.dart';
 import 'package:flutter/material.dart';
@@ -50,12 +51,12 @@ void main() {
   const pkgXiantan = ExternalWorkLinkPackage(
     batchId: 'b1',
     optionTitle: '余远 · 鲜滩',
-    summaryDetail: 'Hitachi · 5条记录 · 239.0h',
+    summaryDetail: '5条记录 · 239.0h',
   );
   const pkgWuli = ExternalWorkLinkPackage(
     batchId: 'b2',
     optionTitle: '余远 · 五里山',
-    summaryDetail: 'CAT · 3条记录 · 120.0h',
+    summaryDetail: '3条记录 · 120.0h',
   );
 
   Future<void> pumpSheet(
@@ -107,18 +108,89 @@ void main() {
     expect(find.textContaining('合并'), findsNothing);
   });
 
+  testWidgets('package summary aligns to the right of package selection', (
+    tester,
+  ) async {
+    await pumpSheet(tester, packages: const [pkgXiantan, pkgWuli]);
+
+    final selectLabel = find.text('选择外协包');
+    final summaryLabel = find.text('外协包摘要');
+    final packageTitle = find.text('余远 · 鲜滩');
+    final summaryDetail = find.text('5条记录 · 239.0h');
+
+    expect(selectLabel, findsOneWidget);
+    expect(summaryLabel, findsOneWidget);
+    expect(packageTitle, findsOneWidget);
+    expect(summaryDetail, findsOneWidget);
+    expect(find.textContaining('Hitachi'), findsNothing);
+
+    final sheetRight =
+        tester.getTopRight(find.byType(ExternalWorkLinkSheet)).dx - AppSpace.lg;
+    final selectStyle = tester.widget<Text>(selectLabel).style;
+    final summaryLabelStyle = tester.widget<Text>(summaryLabel).style;
+    final packageTitleStyle = tester.widget<Text>(packageTitle).style;
+    final summaryDetailStyle = tester.widget<Text>(summaryDetail).style;
+
+    expect(
+      (tester.getTopLeft(summaryLabel).dy - tester.getTopLeft(selectLabel).dy)
+          .abs(),
+      lessThan(1),
+    );
+    expect(
+      tester.getTopLeft(summaryLabel).dx,
+      greaterThan(tester.getTopLeft(selectLabel).dx),
+    );
+    expect(tester.getTopRight(summaryLabel).dx, closeTo(sheetRight, 1));
+    expect(selectStyle?.fontSize, summaryLabelStyle?.fontSize);
+    expect(packageTitleStyle?.fontSize, summaryDetailStyle?.fontSize);
+    expect(
+      (tester.getCenter(summaryDetail).dy - tester.getCenter(packageTitle).dy)
+          .abs(),
+      lessThan(1),
+    );
+    expect(tester.getTopRight(summaryDetail).dx, closeTo(sheetRight, 1));
+  });
+
+  testWidgets('extra package summary lines stay above project selection', (
+    tester,
+  ) async {
+    const multiLinePackage = ExternalWorkLinkPackage(
+      batchId: 'b1',
+      optionTitle: '张俊 · 纵',
+      summaryDetail: '1条记录 · 50.0h\n2条记录 · 36.0h\n1条记录 · 8.0h',
+    );
+
+    await pumpSheet(tester, packages: const [multiLinePackage]);
+
+    final firstSummaryLine = find.text('1条记录 · 50.0h');
+    final thirdSummaryLine = find.text('1条记录 · 8.0h');
+    final projectLabel = find.text('选择要关联的项目');
+
+    expect(firstSummaryLine, findsOneWidget);
+    expect(thirdSummaryLine, findsOneWidget);
+    expect(projectLabel, findsOneWidget);
+    expect(
+      tester.getTopLeft(thirdSummaryLine).dy,
+      greaterThan(tester.getTopLeft(firstSummaryLine).dy),
+    );
+    expect(
+      tester.getTopLeft(projectLabel).dy,
+      greaterThan(tester.getBottomLeft(thirdSummaryLine).dy),
+    );
+  });
+
   testWidgets('switching package syncs the summary detail', (tester) async {
     await pumpSheet(tester, packages: const [pkgXiantan, pkgWuli]);
 
     // 默认选中第一个包。
-    expect(find.text('Hitachi · 5条记录 · 239.0h'), findsOneWidget);
-    expect(find.text('CAT · 3条记录 · 120.0h'), findsNothing);
+    expect(find.text('5条记录 · 239.0h'), findsOneWidget);
+    expect(find.text('3条记录 · 120.0h'), findsNothing);
 
     await tester.tap(find.byKey(const Key('external-work-link-package-b2')));
     await tester.pump();
 
-    expect(find.text('CAT · 3条记录 · 120.0h'), findsOneWidget);
-    expect(find.text('Hitachi · 5条记录 · 239.0h'), findsNothing);
+    expect(find.text('3条记录 · 120.0h'), findsOneWidget);
+    expect(find.text('5条记录 · 239.0h'), findsNothing);
   });
 
   testWidgets('single package is shown + selectable and confirmable', (
@@ -137,7 +209,7 @@ void main() {
 
     // 单包也显示"选择外协包"，且默认选中、摘要可见。
     expect(find.text('选择外协包'), findsOneWidget);
-    expect(find.text('Hitachi · 5条记录 · 239.0h'), findsOneWidget);
+    expect(find.text('5条记录 · 239.0h'), findsOneWidget);
 
     AppPrimaryButton confirm() => tester.widget<AppPrimaryButton>(
       find.byKey(const Key('external-work-link-confirm')),
@@ -176,7 +248,7 @@ void main() {
         ExternalWorkLinkPackage(
           batchId: 'b1',
           optionTitle: '余远 · 鲜滩',
-          summaryDetail: 'Hitachi · 5条记录 · 239.0h',
+          summaryDetail: '5条记录 · 239.0h',
           linkedProjectTitle: '李杰 · 鲜滩',
         ),
       ],
@@ -207,7 +279,7 @@ void main() {
         ExternalWorkLinkPackage(
           batchId: 'b1',
           optionTitle: 'Alex · River site',
-          summaryDetail: 'Hitachi · 2 records · 16.0h',
+          summaryDetail: '2 records · 16.0h',
         ),
       ],
       withCandidates: englishCandidates,
@@ -238,7 +310,7 @@ void main() {
         ExternalWorkLinkPackage(
           batchId: 'b2',
           optionTitle: 'Alex · Quarry',
-          summaryDetail: 'CAT · 1 record · 8.0h',
+          summaryDetail: '1 record · 8.0h',
           linkedProjectTitle: 'Project B',
         ),
       ],

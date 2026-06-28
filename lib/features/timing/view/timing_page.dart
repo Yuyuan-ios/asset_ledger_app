@@ -221,13 +221,11 @@ class _TimingPageState extends State<TimingPage> {
       site: siteSummary,
     );
 
-    final equipment = (batchItems.first.record.equipmentBrand ?? '').trim();
     final totalHoursMilli = batchItems.fold<int>(
       0,
       (sum, item) => sum + item.record.hoursMilli,
     );
     final summaryDetail = [
-      if (equipment.isNotEmpty) equipment,
       l10n.timingExternalWorkPackageRecordCount(batchItems.length),
       '${(totalHoursMilli / 1000).toStringAsFixed(1)}h',
     ].join(' · ');

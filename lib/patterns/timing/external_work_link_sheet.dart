@@ -37,7 +37,7 @@ class ExternalWorkLinkPackage {
   /// 选项标题：来源人 · 地址摘要（如 “余远 · 鲜滩”）。
   final String optionTitle;
 
-  /// 摘要次行：设备 · N条记录 · 累计工时。
+  /// 摘要次行：N条记录 · 累计工时。
   final String summaryDetail;
 
   final String batchId;
@@ -71,8 +71,9 @@ typedef ExternalWorkLinkUnlink = void Function(ExternalWorkLinkPackage package);
 
 /// “关联到项目”底部弹窗内容（阶段二骨架）。
 ///
-/// 顶部"选择外协包" → "外协包摘要"（随选择同步）→ "选择要关联的项目"，并通过
-/// 回调把 确认关联 / 解除关联 / 取消 交给上层。**不做任何写库**。
+/// 顶部"选择外协包"与"外协包摘要"并排展示（摘要随选择同步），再展示
+/// "选择要关联的项目"，并通过回调把 确认关联 / 解除关联 / 取消 交给上层。
+/// **不做任何写库**。
 class ExternalWorkLinkSheet extends StatefulWidget {
   const ExternalWorkLinkSheet({
     super.key,
@@ -156,36 +157,93 @@ class _ExternalWorkLinkSheetState extends State<ExternalWorkLinkSheet> {
 
   List<Widget> _buildScrollableBody(ExternalWorkLinkPackage? package) {
     final l10n = AppLocalizations.of(context);
+    final summaryLines = package == null
+        ? const <String>[]
+        : package.summaryDetail
+              .split('\n')
+              .map((line) => line.trim())
+              .where((line) => line.isNotEmpty)
+              .toList(growable: false);
+    final packageSummaryRowCount = widget.packages.length > summaryLines.length
+        ? widget.packages.length
+        : summaryLines.length;
+
     return [
       if (widget.packages.isNotEmpty) ...[
-        Text(
-          l10n.timingExternalWorkSelectPackage,
-          style: AppTypography.sectionTitle(context),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                l10n.timingExternalWorkSelectPackage,
+                style: AppTypography.sectionTitle(context),
+              ),
+            ),
+            if (package != null) ...[
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    l10n.timingExternalWorkPackageSummary,
+                    textAlign: TextAlign.right,
+                    style: AppTypography.sectionTitle(context),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: AppSpace.sm),
-        for (final pkg in widget.packages)
-          _RadioRow(
-            key: Key('external-work-link-package-${pkg.batchId}'),
-            title: pkg.optionTitle,
-            selected: pkg.batchId == _selectedBatchId,
-            onTap: () => setState(() => _selectedBatchId = pkg.batchId),
+        for (var i = 0; i < packageSummaryRowCount; i++)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: i < widget.packages.length
+                    ? _RadioRow(
+                        key: Key(
+                          'external-work-link-package-${widget.packages[i].batchId}',
+                        ),
+                        title: widget.packages[i].optionTitle,
+                        selected:
+                            widget.packages[i].batchId == _selectedBatchId,
+                        onTap: () => setState(
+                          () => _selectedBatchId = widget.packages[i].batchId,
+                        ),
+                      )
+                    : const SizedBox(height: 20 + AppSpace.sm * 2),
+              ),
+              if (package != null) ...[
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: i < summaryLines.length
+                      ? Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpace.sm,
+                            ),
+                            child: Text(
+                              summaryLines[i],
+                              textAlign: TextAlign.right,
+                              style: AppTypography.body(
+                                context,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ],
           ),
         const SizedBox(height: AppSpace.md),
       ],
       if (package != null) ...[
-        Text(
-          l10n.timingExternalWorkPackageSummary,
-          style: AppTypography.sectionTitle(context),
-        ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          package.summaryDetail,
-          style: AppTypography.caption(
-            context,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: AppSpace.md),
         if (package.isLinked)
           ..._buildLinkedContent(context, package)
         else

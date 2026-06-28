@@ -147,11 +147,11 @@ class TimingTokens {
       40; // 滚轮单项高度（CupertinoPicker itemExtent）
   static const double meterSelectedTextSize = 20; // 当前选中数字字号
   static const double meterUnselectedTextSize = 18; // 未选中数字字号
-  static const double meterContainerHeight = 55; // 码表父容器高度（开始/结束共用）
+  static const double meterContainerHeight = 50; // 码表父容器高度（开始/结束共用）
   static const double meterContainerRadius =
       RadiusTokens.recordCard; // 码表整体输入框圆角
   static const double meterContainerHPadding = 8; // 码表整体输入框水平内边距
-  static const double meterContainerVPadding = 8; // 码表整体输入框垂直内边距
+  static const double meterContainerVPadding = 5; // 码表整体输入框垂直内边距
   static const double meterGap = 10; // 数字位之间标准间距
   static const double meterDecimalGap = 8; // 小数点两侧额外间距
   static const double meterUnitLeftGap = 20; // 码表单位与数字滚轮的左间距

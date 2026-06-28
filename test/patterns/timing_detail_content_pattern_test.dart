@@ -250,10 +250,14 @@ void main() {
     expect(_findBoxBorderColor(SheetColors.fieldBorder), findsWidgets);
     expect(_findSegmentContainersWithBorder(), findsWidgets);
     expect(_findBoxColor(SheetColors.meterBackground), findsNWidgets(2));
+    expect(SheetColors.segmentBackground, SheetColors.background);
+    expect(SheetTokens.fieldHeight, 48);
     expect(TimingTokens.segmentHeight, SheetTokens.fieldHeight);
     expect(TimingTokens.segmentItemHeight, 44);
     expect(TimingTokens.segmentRadius, 4);
     expect(TimingTokens.segmentTextSize, SheetTokens.fieldTextSize);
+    expect(TimingTokens.meterContainerHeight, 50);
+    expect(TimingTokens.meterContainerVPadding, 5);
     expect(TimingTokens.meterContainerRadius, RadiusTokens.recordCard);
   });
 
@@ -1231,7 +1235,7 @@ Finder _findSegmentContainersWithBorder() {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     return decoration is BoxDecoration &&
-        decoration.color == SheetColors.fieldBackground &&
+        decoration.color == SheetColors.segmentBackground &&
         decoration.border != null;
   });
 }

@@ -559,8 +559,8 @@ void main() {
 
     // 弹窗标题。
     expect(find.text('关联到项目'), findsOneWidget);
-    // 外协包摘要次行（设备 · N条记录 · 累计工时）唯一存在于弹窗内。
-    expect(find.text('CAT · 1条记录 · 8.5h'), findsOneWidget);
+    // 外协包摘要次行（N条记录 · 累计工时）唯一存在于弹窗内。
+    expect(find.text('1条记录 · 8.5h'), findsOneWidget);
     // 不出现"合并X项目"。
     expect(find.textContaining('合并'), findsNothing);
     // 候选项目区已渲染（非空）。

@@ -250,7 +250,7 @@ class _TimingTwoOptionSegment extends StatelessWidget {
       height: resolvedHeight,
       padding: EdgeInsets.all(resolvedInset),
       decoration: BoxDecoration(
-        color: SheetColors.fieldBackground,
+        color: SheetColors.segmentBackground,
         borderRadius: BorderRadius.circular(resolvedRadius),
         border: Border.all(color: SheetColors.segmentBorder),
       ),
