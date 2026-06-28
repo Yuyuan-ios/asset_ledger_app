@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../components/fields/sheet_field_popup_controls.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
@@ -28,8 +29,45 @@ class FuelSupplierFilter extends StatefulWidget {
 class _FuelSupplierFilterState extends State<FuelSupplierFilter> {
   final FocusNode _focusNode = FocusNode();
 
+  bool get _hasOptions {
+    return widget.suggestionsBuilder(widget.controller.text.trim()).isNotEmpty;
+  }
+
+  bool get _suggestionsExpanded => _focusNode.hasFocus && _hasOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handlePopupStateChanged);
+    widget.controller.addListener(_handlePopupStateChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant FuelSupplierFilter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handlePopupStateChanged);
+      widget.controller.addListener(_handlePopupStateChanged);
+    }
+  }
+
+  void _handlePopupStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _toggleSuggestions() {
+    if (_suggestionsExpanded) {
+      _focusNode.unfocus();
+    } else {
+      _focusNode.requestFocus();
+    }
+    _handlePopupStateChanged();
+  }
+
   @override
   void dispose() {
+    widget.controller.removeListener(_handlePopupStateChanged);
+    _focusNode.removeListener(_handlePopupStateChanged);
     _focusNode.dispose();
     super.dispose();
   }
@@ -65,6 +103,7 @@ class _FuelSupplierFilterState extends State<FuelSupplierFilter> {
       onSelected: (value) {
         widget.onSelected(value);
         widget.onChanged(value);
+        _focusNode.unfocus();
       },
       fieldViewBuilder: (context, textEditingController, focusNode, _) {
         return TextField(
@@ -83,11 +122,9 @@ class _FuelSupplierFilterState extends State<FuelSupplierFilter> {
               horizontal: SheetTokens.fieldContentHPadding,
               vertical: SheetTokens.fieldContentVPadding,
             ),
-            suffixIcon: const Padding(
-              padding: EdgeInsets.only(
-                right: SheetTokens.fieldSuffixRightPadding,
-              ),
-              child: Icon(Icons.arrow_drop_down, color: SheetColors.muted),
+            suffixIcon: SheetFieldPopupToggleButton(
+              expanded: _suggestionsExpanded,
+              onPressed: _hasOptions ? _toggleSuggestions : null,
             ),
             border: border,
             enabledBorder: border,
@@ -102,6 +139,7 @@ class _FuelSupplierFilterState extends State<FuelSupplierFilter> {
         return Align(
           alignment: Alignment.topLeft,
           child: Material(
+            color: SheetColors.background,
             elevation: SheetTokens.suggestMenuElevation,
             borderRadius: BorderRadius.circular(SheetTokens.suggestMenuRadius),
             child: ConstrainedBox(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/foundation/typography.dart';
+import '../../components/fields/sheet_field_popup_controls.dart';
 import '../../components/fields/sheet_input_decoration.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../tokens/mapper/core_tokens.dart';
@@ -69,47 +70,79 @@ class DevicePickerPattern extends StatelessWidget {
         );
 
     if (vm.items.isEmpty) {
-      return DropdownButtonFormField<int>(
-        initialValue: null,
-        isExpanded: true,
-        hint: Text(emptyHintText, overflow: TextOverflow.ellipsis),
-        disabledHint: Text(emptyHintText, overflow: TextOverflow.ellipsis),
-        items: const [],
-        onChanged: null,
-        style: hintStyle,
-        decoration: buildSheetInputDecoration(
+      return DropdownMenu<int>(
+        enabled: false,
+        expandedInsets: EdgeInsets.zero,
+        requestFocusOnTap: false,
+        showTrailingIcon: false,
+        textStyle: hintStyle,
+        label: Text(emptyLabelText),
+        hintText: emptyHintText,
+        inputDecorationTheme: _inputDecorationTheme(
           context,
           labelText: emptyLabelText,
-          floatingLabelBehavior: FloatingLabelBehavior.always,
           hintStyle: hintStyle,
         ),
+        dropdownMenuEntries: const [],
       );
     }
 
-    return DropdownButtonFormField<int>(
-      initialValue: vm.selectedId,
-      isExpanded: true,
-      icon:
-          vm.icon ??
-          const Icon(Icons.arrow_drop_down, color: SheetColors.muted),
-      style: valueStyle,
-      items: vm.items.map((item) {
-        return DropdownMenuItem<int>(
+    return DropdownMenu<int>(
+      initialSelection: vm.selectedId,
+      expandedInsets: EdgeInsets.zero,
+      requestFocusOnTap: false,
+      textStyle: valueStyle,
+      label: Text(vm.decoration?.labelText ?? labelText),
+      hintText: vm.decoration?.hintText ?? vm.hintText,
+      trailingIcon: vm.icon ?? const SheetFieldPopupToggleIcon(expanded: false),
+      selectedTrailingIcon: const SheetFieldPopupToggleIcon(expanded: true),
+      menuStyle: sheetFieldPopupMenuStyle(),
+      dropdownMenuEntries: vm.items.map((item) {
+        return DropdownMenuEntry<int>(
           value: item.id,
+          label: item.label,
           enabled: item.enabled,
-          child: Text(item.label, overflow: TextOverflow.ellipsis),
         );
       }).toList(),
-      onChanged: vm.onChanged,
-      decoration:
-          vm.decoration ??
-          buildSheetInputDecoration(
-            context,
-            labelText: labelText,
-            floatingLabelBehavior: FloatingLabelBehavior.always,
-            hintText: vm.hintText,
-            hintStyle: hintStyle,
-          ),
+      onSelected: vm.onChanged,
+      inputDecorationTheme: _inputDecorationTheme(
+        context,
+        decoration: vm.decoration,
+        labelText: labelText,
+        hintText: vm.hintText,
+        hintStyle: hintStyle,
+      ),
+    );
+  }
+
+  InputDecorationThemeData _inputDecorationTheme(
+    BuildContext context, {
+    InputDecoration? decoration,
+    String? labelText,
+    String? hintText,
+    TextStyle? hintStyle,
+  }) {
+    final inputDecoration =
+        decoration ??
+        buildSheetInputDecoration(
+          context,
+          labelText: labelText,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          hintText: hintText,
+          hintStyle: hintStyle,
+        );
+    return InputDecorationThemeData(
+      labelStyle: inputDecoration.labelStyle,
+      floatingLabelBehavior:
+          inputDecoration.floatingLabelBehavior ?? FloatingLabelBehavior.always,
+      hintStyle: inputDecoration.hintStyle,
+      filled: inputDecoration.filled ?? false,
+      constraints: inputDecoration.constraints,
+      contentPadding: inputDecoration.contentPadding,
+      border: inputDecoration.border,
+      enabledBorder: inputDecoration.enabledBorder,
+      focusedBorder: inputDecoration.focusedBorder,
+      disabledBorder: inputDecoration.disabledBorder,
     );
   }
 }

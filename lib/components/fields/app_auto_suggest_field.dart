@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/foundation/typography.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/sheet_tokens.dart';
+import 'sheet_field_popup_controls.dart';
 import 'sheet_input_decoration.dart';
 
 // =====================================================================
@@ -67,14 +68,64 @@ class AutoSuggestField extends StatefulWidget {
 }
 
 class _AutoSuggestFieldState extends State<AutoSuggestField> {
-  FocusNode? _innerNode;
+  late final FocusNode _ownedNode;
+  FocusNode? _listenedNode;
 
-  FocusNode get _node => widget.focusNode ?? (_innerNode ??= FocusNode());
+  FocusNode get _node {
+    final node = widget.focusNode ?? _ownedNode;
+    _attachNode(node);
+    return node;
+  }
+
+  bool get _hasOptions {
+    final q = widget.controller.text.trim();
+    return widget.suggestionsBuilder(q).isNotEmpty;
+  }
+
+  bool get _suggestionsExpanded => _node.hasFocus && _hasOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownedNode = FocusNode();
+    _attachNode(widget.focusNode ?? _ownedNode);
+    widget.controller.addListener(_handlePopupStateChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant AutoSuggestField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handlePopupStateChanged);
+      widget.controller.addListener(_handlePopupStateChanged);
+    }
+    _attachNode(widget.focusNode ?? _ownedNode);
+  }
+
+  void _attachNode(FocusNode node) {
+    if (_listenedNode == node) return;
+    _listenedNode?.removeListener(_handlePopupStateChanged);
+    _listenedNode = node..addListener(_handlePopupStateChanged);
+  }
+
+  void _handlePopupStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _toggleSuggestions() {
+    if (_suggestionsExpanded) {
+      _node.unfocus();
+    } else {
+      _node.requestFocus();
+    }
+    _handlePopupStateChanged();
+  }
 
   @override
   void dispose() {
-    // 只释放内部创建的 FocusNode（外部传入的不归我们管）
-    _innerNode?.dispose();
+    widget.controller.removeListener(_handlePopupStateChanged);
+    _listenedNode?.removeListener(_handlePopupStateChanged);
+    _ownedNode.dispose();
     super.dispose();
   }
 
@@ -98,6 +149,7 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
       onSelected: (v) {
         widget.onSelected(v);
         widget.onChanged?.call(v);
+        _node.unfocus();
       },
 
       fieldViewBuilder: (context, textEditingController, focusNode, _) {
@@ -116,11 +168,9 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
               labelText: widget.label,
               hintText: widget.hint,
               floatingLabelBehavior: FloatingLabelBehavior.always,
-              suffixIcon: const Padding(
-                padding: EdgeInsets.only(
-                  right: SheetTokens.fieldSuffixRightPadding,
-                ),
-                child: Icon(Icons.arrow_drop_down, color: SheetColors.muted),
+              suffixIcon: SheetFieldPopupToggleButton(
+                expanded: _suggestionsExpanded,
+                onPressed: _hasOptions ? _toggleSuggestions : null,
               ),
             );
 
@@ -143,6 +193,7 @@ class _AutoSuggestFieldState extends State<AutoSuggestField> {
         return Align(
           alignment: Alignment.topLeft,
           child: Material(
+            color: SheetColors.background,
             elevation: widget.optionsElevation,
             borderRadius: widget.optionsBorderRadius,
             child: ConstrainedBox(

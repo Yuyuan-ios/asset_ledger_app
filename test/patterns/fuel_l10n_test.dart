@@ -9,8 +9,9 @@ import 'package:asset_ledger/patterns/fuel/fuel_detail_content_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_efficiency_summary_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_recent_records_pattern.dart';
 import 'package:asset_ledger/patterns/fuel/fuel_supplier_filter_pattern.dart';
-import 'package:asset_ledger/tokens/mapper/device_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/fuel_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/sheet_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/summary_card_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -124,6 +125,37 @@ void main() {
       (enabledBorder! as OutlineInputBorder).borderRadius,
       BorderRadius.circular(8),
     );
+  });
+
+  testWidgets('fuel supplier filter arrow toggles a white suggestion popup', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: FuelSupplierFilter(
+          controller: TextEditingController(),
+          suggestionsBuilder: (_) => const ['中石油', '中石化'],
+          onChanged: (_) {},
+          onSelected: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_drop_down));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.arrow_drop_up), findsOneWidget);
+    expect(find.text('中石油'), findsOneWidget);
+    expect(_whiteSuggestionPopupMaterials(), findsWidgets);
+
+    await tester.tap(find.byIcon(Icons.arrow_drop_up));
+    await tester.pumpAndSettle();
+
+    expect(find.text('中石油'), findsNothing);
+    expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
   });
 
   testWidgets('renders fuel efficiency total timing text', (tester) async {
@@ -355,4 +387,12 @@ String _collectUiCopy(WidgetTester tester) {
     }
   }
   return parts.where((part) => part.isNotEmpty).join('\n');
+}
+
+Finder _whiteSuggestionPopupMaterials() {
+  return find.byWidgetPredicate((widget) {
+    return widget is Material &&
+        widget.color == SheetColors.background &&
+        widget.elevation == SheetTokens.suggestMenuElevation;
+  });
 }

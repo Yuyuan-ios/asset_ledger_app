@@ -7,8 +7,10 @@ import 'package:asset_ledger/features/device/view/device_page_content.dart';
 import 'package:asset_ledger/features/device/view/privacy_page.dart';
 import 'package:asset_ledger/features/device/view/terms_page.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/components/fields/sheet_field_popup_controls.dart';
 import 'package:asset_ledger/patterns/device/device_page_header_search_pattern.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,6 +88,45 @@ void main() {
     expect(uiCopy, isNot(contains('Income ¥1550 · 2.5h, 3trips')));
     expect(uiCopy, isNot(contains('1 project · Pending ¥450')));
     expect(uiCopy, isNot(contains('设备经营')));
+  });
+
+  testWidgets('device picker reuses sheet popup arrows and white menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        locale: const Locale('zh'),
+        child: DevicePickerPattern(
+          vm: DevicePickerVm(
+            selectedId: 1,
+            items: const [
+              DevicePickerItemVm(id: 1, label: 'HITACHI 1#'),
+              DevicePickerItemVm(id: 2, label: 'SANY 1#'),
+            ],
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final menu = tester.widget<DropdownMenu<int>>(
+      find.byWidgetPredicate((widget) => widget is DropdownMenu<int>),
+    );
+
+    expect(menu.trailingIcon, isA<SheetFieldPopupToggleIcon>());
+    expect(menu.selectedTrailingIcon, isA<SheetFieldPopupToggleIcon>());
+    expect(
+      menu.menuStyle?.backgroundColor?.resolve({}),
+      SheetColors.background,
+    );
+
+    expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_drop_down));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.arrow_drop_up), findsOneWidget);
+    expect(find.text('SANY 1#'), findsOneWidget);
   });
 
   testWidgets('device business section opens lifecycle payback card', (
