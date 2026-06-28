@@ -1,5 +1,6 @@
 import 'package:asset_ledger/components/feedback/app_toast.dart';
 import 'package:asset_ledger/patterns/layout/bottom_sheet_shell_pattern.dart';
+import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -65,6 +66,49 @@ void main() {
         matching: find.byType(SnackBar),
       ),
       findsNothing,
+    );
+  });
+
+  testWidgets('openEditorSheet can use an opaque sheet background', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (pageContext) {
+              return FilledButton(
+                onPressed: () {
+                  openEditorSheet<void>(
+                    context: pageContext,
+                    title: '新建计时',
+                    useSafeArea: false,
+                    backgroundColor: SheetColors.background,
+                    onConfirm: () {},
+                    childBuilder: (_) => const SizedBox.shrink(),
+                  );
+                },
+                child: const Text('打开弹层'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开弹层'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建计时'), findsOneWidget);
+    expect(find.text('取消'), findsOneWidget);
+    expect(find.text('确定'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((widget) {
+        return widget is Material &&
+            widget.color == SheetColors.background &&
+            widget.borderRadius != null;
+      }),
+      findsOneWidget,
     );
   });
 }

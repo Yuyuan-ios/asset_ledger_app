@@ -43,6 +43,7 @@ Future<T?> openEditorSheet<T>({
   Color? cancelForegroundColor,
   bool footerEnabled = true,
   bool useSafeArea = true,
+  Color? backgroundColor,
   bool scrollable = false,
   EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
   double dividerToContentGap = BottomSheetTokens.dividerToContentGap,
@@ -55,6 +56,7 @@ Future<T?> openEditorSheet<T>({
         title: title,
         scrollable: scrollable,
         contentPadding: contentPadding,
+        backgroundColor: backgroundColor,
         dividerToContentGap: dividerToContentGap,
         onCancel: () {
           if (onCancel != null) {
