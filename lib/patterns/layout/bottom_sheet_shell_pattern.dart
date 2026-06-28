@@ -178,6 +178,12 @@ class AppBottomSheetShell extends StatelessWidget {
     final keyboardInset = media.viewInsets.bottom;
     final keyboardVisible = keyboardInset > 0;
     final hasFooter = footerEnabled && (onCancel != null || onConfirm != null);
+    final keyboardBottomGap = keyboardVisible
+        ? (keyboardInset - BottomSheetTokens.keyboardTopOverlap).clamp(
+            0.0,
+            keyboardInset,
+          )
+        : 0.0;
 
     final factor = initialHeightFactor.clamp(
       BottomSheetTokens.minHeightFactor,
@@ -280,16 +286,47 @@ class AppBottomSheetShell extends StatelessWidget {
       child: sheetContent,
     );
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: keyboardVisible
-            ? (keyboardInset - BottomSheetTokens.keyboardTopOverlap).clamp(
-                0.0,
-                keyboardInset,
-              )
-            : 0.0,
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        _BottomSheetKeyboardGapFill(
+          height: keyboardBottomGap,
+          backgroundColor: backgroundColor,
+        ),
+        Padding(
+          padding: EdgeInsets.only(bottom: keyboardBottomGap),
+          child: Align(alignment: Alignment.bottomCenter, child: sheet),
+        ),
+      ],
+    );
+  }
+}
+
+class _BottomSheetKeyboardGapFill extends StatelessWidget {
+  const _BottomSheetKeyboardGapFill({
+    required this.height,
+    required this.backgroundColor,
+  });
+
+  final double height;
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (height <= 0) return const SizedBox.shrink();
+
+    return IgnorePointer(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ColoredBox(
+          color: backgroundColor ?? GlassTokens.surfaceBottomBackground,
+          child: SizedBox(
+            key: const ValueKey('app-bottom-sheet-keyboard-gap-fill'),
+            width: double.infinity,
+            height: height,
+          ),
+        ),
       ),
-      child: Align(alignment: Alignment.bottomCenter, child: sheet),
     );
   }
 }
