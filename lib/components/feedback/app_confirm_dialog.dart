@@ -81,7 +81,7 @@ class AppAlertDialog extends StatelessWidget {
           sigmaY: GlassTokens.blur,
         ),
         child: AlertDialog(
-          backgroundColor: GlassTokens.surfaceBottomBackground,
+          backgroundColor: SheetColors.shellBackground,
           surfaceTintColor: Colors.transparent,
           title: Text(title, style: titleStyle),
           content: DefaultTextStyle.merge(
@@ -138,7 +138,7 @@ class AppConfirmDialog extends StatelessWidget {
           sigmaY: GlassTokens.blur,
         ),
         child: AlertDialog(
-          backgroundColor: GlassTokens.surfaceBottomBackground,
+          backgroundColor: SheetColors.shellBackground,
           surfaceTintColor: Colors.transparent,
           title: Text(title, style: titleStyle),
           content: DefaultTextStyle.merge(

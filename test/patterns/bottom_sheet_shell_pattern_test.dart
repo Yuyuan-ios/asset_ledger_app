@@ -70,7 +70,7 @@ void main() {
     );
   });
 
-  testWidgets('openEditorSheet defaults to an opaque sheet background', (
+  testWidgets('openEditorSheet defaults to the shared shell background', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -104,7 +104,7 @@ void main() {
     expect(
       find.byWidgetPredicate((widget) {
         return widget is Material &&
-            widget.color == SheetColors.background &&
+            widget.color == SheetColors.shellBackground &&
             widget.borderRadius != null;
       }),
       findsOneWidget,
@@ -162,6 +162,6 @@ void main() {
     final fill = tester.widget<ColoredBox>(
       find.ancestor(of: gap, matching: find.byType(ColoredBox)).first,
     );
-    expect(fill.color, SheetColors.background);
+    expect(fill.color, SheetColors.shellBackground);
   });
 }

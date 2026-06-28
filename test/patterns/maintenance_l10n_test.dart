@@ -34,7 +34,7 @@ void main() {
     expect(uiCopy, contains('事项（必填）'));
     expect(uiCopy, contains('例如：更换机油/保养/维修'));
     expect(uiCopy, contains('金额（元）'));
-    expect(uiCopy, contains('备注（可填）'));
+    expect(uiCopy, contains('备注（选填）'));
   });
 
   testWidgets('renders maintenance entry display strings in English', (

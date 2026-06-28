@@ -11,6 +11,7 @@ import 'package:asset_ledger/components/fields/sheet_field_popup_controls.dart';
 import 'package:asset_ledger/patterns/device/device_page_header_search_pattern.dart';
 import 'package:asset_ledger/patterns/device/device_picker_pattern.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
+import 'package:asset_ledger/tokens/mapper/sheet_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -115,9 +116,21 @@ void main() {
 
     expect(menu.trailingIcon, isA<SheetFieldPopupToggleIcon>());
     expect(menu.selectedTrailingIcon, isA<SheetFieldPopupToggleIcon>());
+    expect(menu.inputDecorationTheme?.filled, isTrue);
+    expect(menu.inputDecorationTheme?.fillColor, SheetColors.background);
     expect(
       menu.menuStyle?.backgroundColor?.resolve({}),
       SheetColors.background,
+    );
+    expect(
+      find.ancestor(
+        of: find.byWidget(menu),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is SizedBox && widget.height == SheetTokens.fieldHeight,
+        ),
+      ),
+      findsOneWidget,
     );
 
     expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);

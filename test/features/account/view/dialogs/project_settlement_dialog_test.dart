@@ -25,13 +25,13 @@ void main() {
     expect(find.text('结清项目'), findsOneWidget);
     expect(find.text('核销金额'), findsOneWidget);
     expect(find.text('¥60'), findsOneWidget);
-    expect(find.text('核销/减免原因（可填）'), findsOneWidget);
+    expect(find.text('核销/减免原因（选填）'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。'), findsOneWidget);
     expect(find.text('确认结清'), findsOneWidget);
 
     expect(find.text('本次实收金额'), findsNothing);
-    expect(find.text('备注（可填）'), findsNothing);
+    expect(find.text('备注（选填）'), findsNothing);
     expect(find.text('核销原因'), findsNothing);
     expect(find.text('甲方 + 一号工地'), findsNothing);
     expect(find.text('项目总额'), findsNothing);

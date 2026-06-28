@@ -999,7 +999,7 @@ void main() {
 
     expect(find.byTooltip('工时计算依据'), findsNothing);
     final hoursField = tester.widget<TextField>(
-      find.widgetWithText(TextField, '工时（小时，可空）'),
+      find.widgetWithText(TextField, '工时（小时，选填）'),
     );
     expect(hoursField.readOnly, isFalse);
     expect(hoursField.canRequestFocus, isTrue);

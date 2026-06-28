@@ -521,7 +521,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get timingEntryWorkHourBasisTooltip => '工时计算依据';
 
   @override
-  String get timingEntryOptionalZeroHint => '0.0（可空）';
+  String get timingEntryOptionalZeroHint => '0.0（选填）';
 
   @override
   String get timingEntryAmountYuanLabel => '金额（元）';
@@ -617,7 +617,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fuelSupplierFilterLabel => '筛选：供应人';
 
   @override
-  String get fuelSupplierFilterHint => '输入关键字即可过滤（可空）';
+  String get fuelSupplierFilterHint => '输入关键字即可过滤（选填）';
 
   @override
   String get maintenancePageTitle => '维保';
@@ -695,7 +695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maintenanceAmountHint => '例如：980.0';
 
   @override
-  String get maintenanceNoteOptionalLabel => '备注（可填）';
+  String get maintenanceNoteOptionalLabel => '备注（选填）';
 
   @override
   String get maintenanceNoteHint => '例如：含工时/含配件';
@@ -1028,7 +1028,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountWriteOffAmountLabel => '核销金额';
 
   @override
-  String get accountWriteOffReasonLabel => '核销/减免原因（可填）';
+  String get accountWriteOffReasonLabel => '核销/减免原因（选填）';
 
   @override
   String get accountSettlementHelper => '确认后，这笔待收将作为核销处理，不再计入待收，也不会算作实收。';
@@ -1102,7 +1102,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountPaymentAmountIntegerLabel => '金额（整数）';
 
   @override
-  String get accountNoteOptionalLabel => '备注（可填）';
+  String get accountNoteOptionalLabel => '备注（选填）';
 
   @override
   String accountPaymentReceivableReceivedLine(

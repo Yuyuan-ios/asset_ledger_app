@@ -436,7 +436,7 @@ void main() {
       await tester.tap(addPaymentButton);
       await tester.pumpAndSettle();
       await tester.enterText(_textFieldByLabel('金额（整数）'), '1500');
-      await tester.enterText(_textFieldByLabel('备注（可填）'), '微信收款');
+      await tester.enterText(_textFieldByLabel('备注（选填）'), '微信收款');
       await tester.tap(find.widgetWithText(FilledButton, '确定').last);
       await tester.pumpAndSettle();
 
@@ -800,12 +800,12 @@ void main() {
       '1500',
     );
     expect(
-      tester.widget<TextField>(_textFieldByLabel('备注（可填）')).controller?.text,
+      tester.widget<TextField>(_textFieldByLabel('备注（选填）')).controller?.text,
       '微信收款',
     );
 
     await tester.enterText(_textFieldByLabel('金额（整数）'), '1200');
-    await tester.enterText(_textFieldByLabel('备注（可填）'), '改收款');
+    await tester.enterText(_textFieldByLabel('备注（选填）'), '改收款');
     await tester.tap(find.widgetWithText(FilledButton, '确定').last);
     await tester.pumpAndSettle();
 

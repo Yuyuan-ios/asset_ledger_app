@@ -69,7 +69,7 @@ class DeviceEditorFieldsGroup extends StatelessWidget {
     String? hintText,
     TextStyle? hintStyle,
     TextInputType? keyboardType,
-    bool alwaysShowLabel = false,
+    bool alwaysShowLabel = true,
   }) {
     return SheetTextFieldPattern(
       controller: controller,

@@ -740,9 +740,9 @@
   "@timingEntryWorkHourBasisTooltip": {
     "description": "计时模块:计时录入表单打开工时计算器的图标 tooltip"
   },
-  "timingEntryOptionalZeroHint": "0.0（可空）",
+  "timingEntryOptionalZeroHint": "0.0（选填）",
   "@timingEntryOptionalZeroHint": {
-    "description": "计时模块:计时录入表单租金模式工时字段可空占位"
+    "description": "计时模块:计时录入表单租金模式工时字段选填占位"
   },
   "timingEntryAmountYuanLabel": "金额（元）",
   "@timingEntryAmountYuanLabel": {
@@ -878,7 +878,7 @@
   "@fuelSupplierFilterLabel": {
     "description": "油电模块:供应人筛选输入框标签"
   },
-  "fuelSupplierFilterHint": "输入关键字即可过滤（可空）",
+  "fuelSupplierFilterHint": "输入关键字即可过滤（选填）",
   "@fuelSupplierFilterHint": {
     "description": "油电模块:供应人筛选输入框占位"
   },
@@ -992,7 +992,7 @@
   "@maintenanceAmountHint": {
     "description": "维保模块:维保录入表单金额字段占位"
   },
-  "maintenanceNoteOptionalLabel": "备注（可填）",
+  "maintenanceNoteOptionalLabel": "备注（选填）",
   "@maintenanceNoteOptionalLabel": {
     "description": "维保模块:维保录入表单备注字段标签"
   },
@@ -1508,7 +1508,7 @@
   "@accountWriteOffAmountLabel": {
     "description": "账户模块:结清弹窗核销金额标签"
   },
-  "accountWriteOffReasonLabel": "核销/减免原因（可填）",
+  "accountWriteOffReasonLabel": "核销/减免原因（选填）",
   "@accountWriteOffReasonLabel": {
     "description": "账户模块:结清弹窗核销原因输入框标签"
   },
@@ -1622,7 +1622,7 @@
   "@accountPaymentAmountIntegerLabel": {
     "description": "账户模块:收款弹窗金额输入框标签"
   },
-  "accountNoteOptionalLabel": "备注（可填）",
+  "accountNoteOptionalLabel": "备注（选填）",
   "@accountNoteOptionalLabel": {
     "description": "账户模块:收款弹窗备注输入框标签"
   },

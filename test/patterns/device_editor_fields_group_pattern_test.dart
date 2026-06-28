@@ -81,6 +81,40 @@ void main() {
     expect(decoration.hintText, '不填写默认该设备没有破碎');
     expect(decoration.hintStyle?.fontSize, SheetTokens.fieldLabelSize);
   });
+
+  testWidgets('keeps optional model label floating when empty', (
+    WidgetTester tester,
+  ) async {
+    final baseMeterController = TextEditingController();
+    final unitPriceController = TextEditingController();
+    final breakingUnitPriceController = TextEditingController();
+    final modelController = TextEditingController();
+    addTearDown(baseMeterController.dispose);
+    addTearDown(unitPriceController.dispose);
+    addTearDown(breakingUnitPriceController.dispose);
+    addTearDown(modelController.dispose);
+
+    await tester.pumpWidget(
+      _localizedApp(
+        home: Scaffold(
+          body: DeviceEditorFieldsGroup(
+            baseMeterController: baseMeterController,
+            unitPriceController: unitPriceController,
+            breakingUnitPriceController: breakingUnitPriceController,
+            modelController: modelController,
+            equipmentType: EquipmentType.excavator,
+          ),
+        ),
+      ),
+    );
+
+    final fields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
+    final decoration = fields[3].decoration!;
+    expect(decoration.labelText, '型号（选填）');
+    expect(decoration.floatingLabelBehavior, FloatingLabelBehavior.always);
+  });
 }
 
 Widget _localizedApp({required Widget home}) {

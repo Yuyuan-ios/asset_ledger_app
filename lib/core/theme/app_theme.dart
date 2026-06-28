@@ -29,7 +29,7 @@ class AppTheme {
       scaffoldBackgroundColor: tokens.AppColors.scaffoldBg,
       dividerColor: tokens.AppColors.divider,
       dialogTheme: const DialogThemeData(
-        backgroundColor: tokens.SheetColors.background,
+        backgroundColor: tokens.SheetColors.shellBackground,
         surfaceTintColor: Colors.transparent,
         insetPadding: EdgeInsets.symmetric(
           horizontal: tokens.DialogTokens.insetHorizontal,

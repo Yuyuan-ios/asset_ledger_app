@@ -43,7 +43,9 @@ class TimingColors {
 
 /// Sheet 主题色
 class SheetColors {
-  static const Color background = Color(0xFFFFFFFF); // 弹窗背景
+  static const Color shellBackground =
+      AppColors.scaffoldBg; // Sheet/Dialog 整体背景
+  static const Color background = Color(0xFFFFFFFF); // 卡片/输入框面
   static const Color fieldBackground = Color(0xFFF3F4F6); // 输入框填充
   static const Color fieldBorder = Color(0x1A000000); // 输入框边框
   static const Color fieldLabel = Color(0xB0000000); // 输入框浮动标签

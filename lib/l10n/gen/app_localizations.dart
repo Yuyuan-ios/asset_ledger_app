@@ -1034,10 +1034,10 @@ abstract class AppLocalizations {
   /// **'工时计算依据'**
   String get timingEntryWorkHourBasisTooltip;
 
-  /// 计时模块:计时录入表单租金模式工时字段可空占位
+  /// 计时模块:计时录入表单租金模式工时字段选填占位
   ///
   /// In zh, this message translates to:
-  /// **'0.0（可空）'**
+  /// **'0.0（选填）'**
   String get timingEntryOptionalZeroHint;
 
   /// 计时模块:计时录入表单租金模式金额字段标签
@@ -1217,7 +1217,7 @@ abstract class AppLocalizations {
   /// 油电模块:供应人筛选输入框占位
   ///
   /// In zh, this message translates to:
-  /// **'输入关键字即可过滤（可空）'**
+  /// **'输入关键字即可过滤（选填）'**
   String get fuelSupplierFilterHint;
 
   /// 维保模块:维保页标题
@@ -1361,7 +1361,7 @@ abstract class AppLocalizations {
   /// 维保模块:维保录入表单备注字段标签
   ///
   /// In zh, this message translates to:
-  /// **'备注（可填）'**
+  /// **'备注（选填）'**
   String get maintenanceNoteOptionalLabel;
 
   /// 维保模块:维保录入表单备注字段占位
@@ -1949,7 +1949,7 @@ abstract class AppLocalizations {
   /// 账户模块:结清弹窗核销原因输入框标签
   ///
   /// In zh, this message translates to:
-  /// **'核销/减免原因（可填）'**
+  /// **'核销/减免原因（选填）'**
   String get accountWriteOffReasonLabel;
 
   /// 账户模块:结清弹窗说明
@@ -2075,7 +2075,7 @@ abstract class AppLocalizations {
   /// 账户模块:收款弹窗备注输入框标签
   ///
   /// In zh, this message translates to:
-  /// **'备注（可填）'**
+  /// **'备注（选填）'**
   String get accountNoteOptionalLabel;
 
   /// 账户模块:收款弹窗应收已收提示

@@ -70,47 +70,54 @@ class DevicePickerPattern extends StatelessWidget {
         );
 
     if (vm.items.isEmpty) {
-      return DropdownMenu<int>(
-        enabled: false,
-        expandedInsets: EdgeInsets.zero,
-        requestFocusOnTap: false,
-        showTrailingIcon: false,
-        textStyle: hintStyle,
-        label: Text(emptyLabelText),
-        hintText: emptyHintText,
-        inputDecorationTheme: _inputDecorationTheme(
-          context,
-          labelText: emptyLabelText,
-          hintStyle: hintStyle,
+      return SizedBox(
+        height: SheetTokens.fieldHeight,
+        child: DropdownMenu<int>(
+          enabled: false,
+          expandedInsets: EdgeInsets.zero,
+          requestFocusOnTap: false,
+          showTrailingIcon: false,
+          textStyle: hintStyle,
+          label: Text(emptyLabelText),
+          hintText: emptyHintText,
+          inputDecorationTheme: _inputDecorationTheme(
+            context,
+            labelText: emptyLabelText,
+            hintStyle: hintStyle,
+          ),
+          dropdownMenuEntries: const [],
         ),
-        dropdownMenuEntries: const [],
       );
     }
 
-    return DropdownMenu<int>(
-      initialSelection: vm.selectedId,
-      expandedInsets: EdgeInsets.zero,
-      requestFocusOnTap: false,
-      textStyle: valueStyle,
-      label: Text(vm.decoration?.labelText ?? labelText),
-      hintText: vm.decoration?.hintText ?? vm.hintText,
-      trailingIcon: vm.icon ?? const SheetFieldPopupToggleIcon(expanded: false),
-      selectedTrailingIcon: const SheetFieldPopupToggleIcon(expanded: true),
-      menuStyle: sheetFieldPopupMenuStyle(),
-      dropdownMenuEntries: vm.items.map((item) {
-        return DropdownMenuEntry<int>(
-          value: item.id,
-          label: item.label,
-          enabled: item.enabled,
-        );
-      }).toList(),
-      onSelected: vm.onChanged,
-      inputDecorationTheme: _inputDecorationTheme(
-        context,
-        decoration: vm.decoration,
-        labelText: labelText,
-        hintText: vm.hintText,
-        hintStyle: hintStyle,
+    return SizedBox(
+      height: SheetTokens.fieldHeight,
+      child: DropdownMenu<int>(
+        initialSelection: vm.selectedId,
+        expandedInsets: EdgeInsets.zero,
+        requestFocusOnTap: false,
+        textStyle: valueStyle,
+        label: Text(vm.decoration?.labelText ?? labelText),
+        hintText: vm.decoration?.hintText ?? vm.hintText,
+        trailingIcon:
+            vm.icon ?? const SheetFieldPopupToggleIcon(expanded: false),
+        selectedTrailingIcon: const SheetFieldPopupToggleIcon(expanded: true),
+        menuStyle: sheetFieldPopupMenuStyle(),
+        dropdownMenuEntries: vm.items.map((item) {
+          return DropdownMenuEntry<int>(
+            value: item.id,
+            label: item.label,
+            enabled: item.enabled,
+          );
+        }).toList(),
+        onSelected: vm.onChanged,
+        inputDecorationTheme: _inputDecorationTheme(
+          context,
+          decoration: vm.decoration,
+          labelText: labelText,
+          hintText: vm.hintText,
+          hintStyle: hintStyle,
+        ),
       ),
     );
   }
@@ -137,6 +144,7 @@ class DevicePickerPattern extends StatelessWidget {
           inputDecoration.floatingLabelBehavior ?? FloatingLabelBehavior.always,
       hintStyle: inputDecoration.hintStyle,
       filled: inputDecoration.filled ?? false,
+      fillColor: inputDecoration.fillColor,
       constraints: inputDecoration.constraints,
       contentPadding: inputDecoration.contentPadding,
       border: inputDecoration.border,

@@ -79,7 +79,7 @@ class TimingEntryTemplates {
   static const rentLayout = TimingEntryUnitLayout(
     unit: MeasureUnit.rent,
     modeLabel: '台班(租金)',
-    quantityLabel: '工时（小时，可空）',
+    quantityLabel: '工时（小时，选填）',
     unitPriceLabel: '元/台班',
     usesMeter: true,
   );
