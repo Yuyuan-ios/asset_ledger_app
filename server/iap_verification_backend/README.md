@@ -168,6 +168,75 @@ Env migration checklist:
 - Confirm startup fails with `ConfigMigrationError` if any deprecated name
   remains set.
 
+## Production Runtime Runbook
+
+The current ECS deployment uses:
+
+- App directory: `/opt/fleet-ledger-iap`
+- Service venv: `/opt/fleet-ledger-iap/venv`
+- Service unit: `fleet-ledger-iap.service`
+- Runtime command:
+  `/opt/fleet-ledger-iap/venv/bin/python /opt/fleet-ledger-iap/app.py`
+- Loopback listener: `127.0.0.1:8010`
+- Env file: `/etc/fleet-ledger/iap.env`
+
+Do not confuse this service with cloud sync. `127.0.0.1:8009` belongs to
+`fleet-ledger-cloud-sync.service`; BOL billing explain is part of
+`fleet-ledger-iap.service` on `8010`.
+
+The deployed artifact must include the shared package at
+`/opt/common/auth_identity/`, because the IAP backend adds `/opt` to
+`sys.path` before importing `common.auth_identity`. If the service restart logs
+`ModuleNotFoundError: No module named 'common'`, deploy that shared package
+before retrying the service restart.
+
+Rebuild the service venv without deleting secrets or data:
+
+```bash
+cd /opt/fleet-ledger-iap
+python3 -m venv venv
+sudo chown -R fleetiap:fleetiap venv
+sudo -u fleetiap ./venv/bin/python -m pip install --upgrade pip
+sudo -u fleetiap ./venv/bin/python -m pip install -r requirements.txt
+```
+
+`GET /internal/v3/billing/explain/{user_id}` and
+`GET /internal/v3/billing/explain/event/{event_id}` are internal-only BOL
+diagnostic APIs. They must not be added to a public nginx route without an
+explicit operations approval. Public nginx routes should continue to expose only
+the public IAP paths, such as `/fleet-ledger/iap/healthz` and
+`/fleet-ledger/iap/apple/`, to `127.0.0.1:8010`.
+
+Internal explain auth uses only `SERVICE_INTERNAL_TOKEN`. Generate it on the
+server, write it directly to `/etc/fleet-ledger/iap.env`, and never print,
+paste, commit, or screenshot the token value:
+
+```bash
+sudo cp /etc/fleet-ledger/iap.env \
+  /etc/fleet-ledger/iap.env.before-bol-auth-$(date +%Y%m%d-%H%M%S)
+sudo sh -c 'token=$(openssl rand -hex 32); printf "\nSERVICE_INTERNAL_TOKEN=%s\n" "$token" >> /etc/fleet-ledger/iap.env'
+sudo systemctl restart fleet-ledger-iap.service
+sudo systemctl is-active fleet-ledger-iap.service
+```
+
+Runtime smoke template:
+
+```bash
+sudo sh -c '. /etc/fleet-ledger/iap.env; curl -sS -o /tmp/bol-valid-body.txt -D /tmp/bol-valid-headers.txt -w "VALID=%{http_code}\n" -H "Authorization: Bearer $SERVICE_INTERNAL_TOKEN" http://127.0.0.1:8010/internal/v3/billing/explain/test-user'
+curl -sS -o /tmp/bol-invalid-body.txt -D /tmp/bol-invalid-headers.txt -w "INVALID=%{http_code}\n" -H "Authorization: Bearer definitely-wrong-token" http://127.0.0.1:8010/internal/v3/billing/explain/test-user
+grep -Eiq 'purchaseToken|signature|transaction_id|transactionId|bearer|secret|JWS' /tmp/bol-valid-body.txt \
+  && echo 'FAIL forbidden explain field present' \
+  || echo 'PASS no forbidden explain field'
+```
+
+Expected results:
+
+- Valid `SERVICE_INTERNAL_TOKEN`: `200` JSON or an explicit not-found JSON for
+  the requested user/event.
+- Missing, invalid, ordinary user, or client token: `401`.
+- No `500`, empty reply, raw webhook payload, JWS, purchase token, signature,
+  transaction id, bearer token, or secret in explain output.
+
 ## Test
 
 ```bash
