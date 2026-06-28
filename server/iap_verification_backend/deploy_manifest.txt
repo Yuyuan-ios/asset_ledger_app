@@ -1,0 +1,62 @@
+# FleetLedger IAP Deployment Manifest
+
+This manifest defines the files that may be synchronized to
+`/opt/fleet-ledger-iap` for the IAP verification backend. It is a safety
+checklist, not an auto-deploy script.
+
+## Target Runtime
+
+- IAP service: `fleet-ledger-iap.service`
+- IAP listener: `127.0.0.1:8010`
+- IAP code dir: `/opt/fleet-ledger-iap`
+- IAP venv: `/opt/fleet-ledger-iap/venv`
+- IAP entrypoint: `/opt/fleet-ledger-iap/app.py`
+- IAP env file: `/etc/fleet-ledger/iap.env`
+- Shared package dependency: `/opt/common`
+
+`fleet-ledger-cloud-sync.service` and `127.0.0.1:8009` are cloud-sync only.
+An IAP deployment must not restart or reconfigure them.
+
+## Allowed Sync Inputs
+
+- Top-level `*.py` files from `server/iap_verification_backend/`
+- `requirements.txt`
+- `env.example`
+- `README.md`
+- `deploy_manifest.txt`
+- `deploy/` assets
+- `scripts/` assets
+- `tests/` files, optional for server-side validation
+
+## Required Shared Dependency
+
+The deployed host must include `server/common/` as `/opt/common/`, including
+`/opt/common/auth_identity/`. Do not deploy only `/opt/fleet-ledger-iap` if
+`/opt/common` is missing.
+
+## Forbidden Sync Targets
+
+Do not overwrite or delete:
+
+- `/etc/fleet-ledger/iap.env`
+- Any `.env` file
+- Any `*.db`, `*.sqlite`, or `*.sqlite3` file
+- `/opt/fleet-ledger-iap/venv`
+- Any production secret, Apple key, receipt, JWS, or Authorization material
+- Any production database
+
+Do not use fixed `/tmp/bol_*` paths. Use a unique `mktemp -d` directory with a
+cleanup trap for temporary deployment files.
+
+## Deployment Guard Order
+
+1. Back up `/opt/fleet-ledger-iap`.
+2. Confirm `/opt/common` exists.
+3. Sync allowed source files only.
+4. Do not sync `.env`, database files, or `venv`.
+5. Run `bash scripts/predeploy_check.sh`.
+6. Run Python compile checks.
+7. Restart only `fleet-ledger-iap.service` after checks pass.
+8. Run `bash scripts/smoke_bol_runtime.sh`.
+9. Confirm public `/internal/v3/billing/explain/*` and
+   `/internal/v3/billing/graph/*` are `404` or unreachable.

@@ -170,27 +170,36 @@ Env migration checklist:
 
 ## Production Runtime Runbook
 
-The current ECS deployment uses:
+### Service Ownership
 
-- App directory: `/opt/fleet-ledger-iap`
-- Service venv: `/opt/fleet-ledger-iap/venv`
-- Service unit: `fleet-ledger-iap.service`
-- Runtime command:
+- `fleet-ledger-cloud-sync.service` owns `127.0.0.1:8009`.
+- `fleet-ledger-iap.service` owns `127.0.0.1:8010`.
+- BOL explain and graph APIs belong to the IAP service on `8010`.
+- Do not send BOL explain or graph smoke traffic to `8009`.
+- Do not restart `fleet-ledger-cloud-sync.service` during an IAP deployment.
+  `8009` is cloud-sync only.
+
+### Runtime Paths
+
+- IAP code dir: `/opt/fleet-ledger-iap`
+- IAP venv: `/opt/fleet-ledger-iap/venv`
+- IAP entrypoint: `/opt/fleet-ledger-iap/app.py`
+- Expected systemd `ExecStart`:
   `/opt/fleet-ledger-iap/venv/bin/python /opt/fleet-ledger-iap/app.py`
-- Loopback listener: `127.0.0.1:8010`
+- Shared package dir: `/opt/common`
 - Env file: `/etc/fleet-ledger/iap.env`
+- Loopback listener: `127.0.0.1:8010`
 
-Do not confuse this service with cloud sync. `127.0.0.1:8009` belongs to
-`fleet-ledger-cloud-sync.service`; BOL billing explain is part of
-`fleet-ledger-iap.service` on `8010`.
+### Venv Rebuild
 
-The deployed artifact must include the shared package at
-`/opt/common/auth_identity/`, because the IAP backend adds `/opt` to
-`sys.path` before importing `common.auth_identity`. If the service restart logs
-`ModuleNotFoundError: No module named 'common'`, deploy that shared package
-before retrying the service restart.
+Confirm the venv exists before changing it:
 
-Rebuild the service venv without deleting secrets or data:
+```bash
+test -x /opt/fleet-ledger-iap/venv/bin/python
+/opt/fleet-ledger-iap/venv/bin/python --version
+```
+
+Rebuild the service venv without deleting secrets, databases, or source files:
 
 ```bash
 cd /opt/fleet-ledger-iap
@@ -200,42 +209,133 @@ sudo -u fleetiap ./venv/bin/python -m pip install --upgrade pip
 sudo -u fleetiap ./venv/bin/python -m pip install -r requirements.txt
 ```
 
-`GET /internal/v3/billing/explain/{user_id}` and
-`GET /internal/v3/billing/explain/event/{event_id}` are internal-only BOL
-diagnostic APIs. They must not be added to a public nginx route without an
-explicit operations approval. Public nginx routes should continue to expose only
-the public IAP paths, such as `/fleet-ledger/iap/healthz` and
-`/fleet-ledger/iap/apple/`, to `127.0.0.1:8010`.
-
-Internal explain auth uses only `SERVICE_INTERNAL_TOKEN`. Generate it on the
-server, write it directly to `/etc/fleet-ledger/iap.env`, and never print,
-paste, commit, or screenshot the token value:
+Validate imports without printing secrets:
 
 ```bash
-sudo cp /etc/fleet-ledger/iap.env \
-  /etc/fleet-ledger/iap.env.before-bol-auth-$(date +%Y%m%d-%H%M%S)
-sudo sh -c 'token=$(openssl rand -hex 32); printf "\nSERVICE_INTERNAL_TOKEN=%s\n" "$token" >> /etc/fleet-ledger/iap.env'
-sudo systemctl restart fleet-ledger-iap.service
-sudo systemctl is-active fleet-ledger-iap.service
+cd /opt/fleet-ledger-iap
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/opt ./venv/bin/python - <<'PY'
+import jwt
+import app
+print("IAP_IMPORT_CHECK_PASS")
+PY
 ```
 
-Runtime smoke template:
+Do not create or use `/opt/fleet-ledger-iap-venv` as the new standard unless a
+separate migration explicitly approves that path.
+
+### Shared Package Dependency
+
+`/opt/common` is an IAP runtime dependency. The IAP backend adds `/opt` to
+`sys.path` before importing `common.auth_identity`.
+
+If the service logs `ModuleNotFoundError: No module named 'common'`, check that
+`/opt/common/auth_identity/` exists and that the runtime import path still
+includes `/opt`. Do not sync only `/opt/fleet-ledger-iap` and omit
+`/opt/common`.
+
+### Internal Auth
+
+Internal BOL APIs use only `SERVICE_INTERNAL_TOKEN`.
+
+- Store the token in `/etc/fleet-ledger/iap.env`.
+- Do not print, paste, commit, screenshot, or log the token value.
+- No token must return `401`.
+- Wrong token must return `401`.
+- Only a valid token may access:
+  - `/internal/v3/billing/explain/*`
+  - `/internal/v3/billing/graph/*`
+
+To check that the key is present without printing the value:
 
 ```bash
-sudo sh -c '. /etc/fleet-ledger/iap.env; curl -sS -o /tmp/bol-valid-body.txt -D /tmp/bol-valid-headers.txt -w "VALID=%{http_code}\n" -H "Authorization: Bearer $SERVICE_INTERNAL_TOKEN" http://127.0.0.1:8010/internal/v3/billing/explain/test-user'
-curl -sS -o /tmp/bol-invalid-body.txt -D /tmp/bol-invalid-headers.txt -w "INVALID=%{http_code}\n" -H "Authorization: Bearer definitely-wrong-token" http://127.0.0.1:8010/internal/v3/billing/explain/test-user
-grep -Eiq 'purchaseToken|signature|transaction_id|transactionId|bearer|secret|JWS' /tmp/bol-valid-body.txt \
-  && echo 'FAIL forbidden explain field present' \
-  || echo 'PASS no forbidden explain field'
+sudo grep -Eq '^[[:space:]]*(export[[:space:]]+)?SERVICE_INTERNAL_TOKEN[[:space:]]*=' /etc/fleet-ledger/iap.env
 ```
 
-Expected results:
+### Public Route Policy
 
-- Valid `SERVICE_INTERNAL_TOKEN`: `200` JSON or an explicit not-found JSON for
-  the requested user/event.
-- Missing, invalid, ordinary user, or client token: `401`.
-- No `500`, empty reply, raw webhook payload, JWS, purchase token, signature,
-  transaction id, bearer token, or secret in explain output.
+- Do not add public graph or explain nginx routes.
+- Public `/fleet-ledger/iap/*` should keep only existing public paths such as
+  healthz and Apple purchase/entitlement routes.
+- Public `/internal/v3/billing/explain/*` must be `404` or unreachable.
+- Public `/internal/v3/billing/graph/*` must be `404` or unreachable.
+
+### Smoke Endpoints
+
+Run the server-side smoke script from the deployed IAP app directory:
+
+```bash
+sudo bash /opt/fleet-ledger-iap/scripts/smoke_bol_runtime.sh
+```
+
+The smoke checks:
+
+- `8010` explain with no token returns `401`.
+- `8010` explain with a wrong token returns `401`.
+- `8010` explain with a valid token returns `200` or `404`, never `500`.
+- `8010` graph with no token returns `401`.
+- `8010` graph with a wrong token returns `401`.
+- `8010` graph with a valid token returns `200` or `404`, never `500`.
+- `8010` graph summary with a valid token returns `200` or `404`, never `500`.
+- Event graph smoke uses a numeric event id:
+  `/internal/v3/billing/graph/event/1`.
+- Non-numeric event ids should return `400`.
+- Missing numeric event ids should return `404`.
+- Smoke tests use numeric event ids to verify routing and auth.
+
+Public route checks should be run from a machine that reaches the public host:
+
+```bash
+curl -sS -o /dev/null -w "PUBLIC_EXPLAIN=%{http_code}\n" \
+  https://<host>/internal/v3/billing/explain/smoke-user
+curl -sS -o /dev/null -w "PUBLIC_GRAPH=%{http_code}\n" \
+  https://<host>/internal/v3/billing/graph/smoke-user
+```
+
+Both public checks should be `404` or unreachable. A `401` means the internal
+route is exposed publicly and must be treated as a routing failure.
+
+### Sensitive Leak Denylist
+
+BOL explain and graph responses must not contain:
+
+- `purchaseToken`
+- `signature`
+- `transaction_id`
+- `transactionId`
+- `bearer`
+- `secret`
+- `JWS`
+- `rawPayload`
+- `raw_payload`
+- `authorization`
+- `SERVICE_INTERNAL_TOKEN`
+
+The smoke script scans response bodies for this denylist without printing full
+response bodies.
+
+### Deployment Temp Files
+
+- Use `mktemp -d` for deployment temp files.
+- Use a unique FleetLedger/IAP prefix.
+- Always clean temp directories with `trap`.
+- Do not reuse fixed `/tmp/bol_*` paths.
+- Do not rely on polluted `/tmp` paths in deployment reports.
+
+Shell scripts should use:
+
+```bash
+TMP_DIR="$(mktemp -d /tmp/fleet-ledger-iap.XXXXXX)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+```
+
+### Deployment Guard
+
+Before deployment, back up `/opt/fleet-ledger-iap`, confirm `/opt/common`
+exists, and run `scripts/predeploy_check.sh`. A deploy operation must not
+overwrite `.env`, `.db`, `.sqlite`, `.sqlite3`, or `venv` content, must not
+delete server files, must not restart `fleet-ledger-cloud-sync.service`, and
+must only restart `fleet-ledger-iap.service` after compile checks pass. After a
+restart, run `scripts/smoke_bol_runtime.sh`.
 
 ## Test
 
