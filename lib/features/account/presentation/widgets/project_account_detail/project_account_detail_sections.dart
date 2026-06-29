@@ -1,6 +1,11 @@
 part of '../../../../../patterns/account/project_account_detail_content_pattern.dart';
 
 extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
+  static const double _hoursColumnWidth = 58;
+  static const double _amountColumnWidth = 62;
+  static const double _actionColumnWidth = 48;
+  static const double _hoursToAmountGap = 12;
+
   Widget _buildProjectCard({
     required AppLocalizations l10n,
     required List<ProjectAccountDetailRateRow> rows,
@@ -179,63 +184,20 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
           )
         : const SizedBox(width: 48, height: 36);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showHeader) ...[
-          _buildDeviceSectionHeader(
-            siteName: headerSiteName,
-            label: l10n.accountLocalDeviceLabel,
-            labelIcon: Icons.settings_outlined,
-            siteStyle: siteStyle,
-          ),
-          const SizedBox(height: AppSpace.xs),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                row.deviceLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: rowTextStyle,
-              ),
-            ),
-            const SizedBox(width: AppSpace.sm),
-            SizedBox(
-              width: 58,
-              child: Text(
-                _hoursText(row.hours),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                textAlign: TextAlign.right,
-                style: rowMetricStyle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 62,
-              child: Text(
-                FormatUtils.money(row.rate),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                textAlign: TextAlign.right,
-                style: rowMetricStyle,
-              ),
-            ),
-            const SizedBox(width: AppSpace.sm),
-            editButton,
-          ],
-        ),
-        if (showDivider) ...[
-          const SizedBox(height: 6),
-          const Divider(height: 1, color: TimingColors.cardBorder),
-          const SizedBox(height: 6),
-        ],
-      ],
+    return _buildDeviceDetailSection(
+      headerSiteName: headerSiteName,
+      headerLabel: l10n.accountLocalDeviceLabel,
+      headerIcon: Icons.settings_outlined,
+      rowLabel: row.deviceLabel,
+      hours: row.hours,
+      amountText: FormatUtils.money(row.rate),
+      action: editButton,
+      showHeader: showHeader,
+      showTopDivider: false,
+      showBottomDivider: showDivider,
+      siteStyle: siteStyle,
+      rowTextStyle: rowTextStyle,
+      rowMetricStyle: rowMetricStyle,
     );
   }
 
@@ -247,21 +209,70 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     required TextStyle? rowTextStyle,
     required TextStyle? rowMetricStyle,
   }) {
+    return _buildDeviceDetailSection(
+      headerSiteName: row.siteSummary,
+      headerLabel: l10n.accountExternalDeviceLabel,
+      headerIcon: Icons.settings_outlined,
+      rowLabel: _externalWorkRowLabel(row, l10n),
+      hours: row.hours,
+      showHeader: true,
+      showTopDivider: showTopDivider,
+      showBottomDivider: false,
+      siteStyle: siteStyle,
+      rowTextStyle: rowTextStyle,
+      rowMetricStyle: rowMetricStyle,
+    );
+  }
+
+  Widget _buildDeviceDetailSection({
+    required String? headerSiteName,
+    required String headerLabel,
+    required IconData headerIcon,
+    required String rowLabel,
+    required double hours,
+    String? amountText,
+    Widget? action,
+    required bool showHeader,
+    required bool showTopDivider,
+    required bool showBottomDivider,
+    required TextStyle? siteStyle,
+    required TextStyle? rowTextStyle,
+    required TextStyle? rowMetricStyle,
+  }) {
+    final amountSlot = amountText == null
+        ? const SizedBox(width: _amountColumnWidth)
+        : SizedBox(
+            width: _amountColumnWidth,
+            child: Text(
+              amountText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              textAlign: TextAlign.right,
+              style: rowMetricStyle,
+            ),
+          );
+    final actionSlot =
+        action ?? const SizedBox(width: _actionColumnWidth, height: 36);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showTopDivider) ...[
-          const SizedBox(height: 6),
-          const Divider(height: 1, color: TimingColors.cardBorder),
-          const SizedBox(height: 6),
+        if (showTopDivider) ..._deviceSectionDivider(),
+        if (showHeader) ...[
+          _buildDeviceSectionHeader(
+            siteName: headerSiteName,
+            label: headerLabel,
+            labelIcon: headerIcon,
+            siteStyle: siteStyle,
+          ),
+          const SizedBox(height: AppSpace.xs),
         ],
-        _buildExternalWorkHeader(row: row, siteStyle: siteStyle, l10n: l10n),
-        const SizedBox(height: AppSpace.xs),
         Row(
           children: [
             Expanded(
               child: Text(
-                _externalWorkRowLabel(row, l10n),
+                rowLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -270,9 +281,9 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
             ),
             const SizedBox(width: AppSpace.sm),
             SizedBox(
-              width: 58,
+              width: _hoursColumnWidth,
               child: Text(
-                _hoursText(row.hours),
+                _hoursText(hours),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -280,42 +291,23 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
                 style: rowMetricStyle,
               ),
             ),
+            const SizedBox(width: _hoursToAmountGap),
+            amountSlot,
+            const SizedBox(width: AppSpace.sm),
+            actionSlot,
           ],
         ),
+        if (showBottomDivider) ..._deviceSectionDivider(),
       ],
     );
   }
 
-  Widget _buildExternalWorkHeader({
-    required AccountProjectExternalWorkDetailRow row,
-    required TextStyle? siteStyle,
-    required AppLocalizations l10n,
-  }) {
-    final iconColor = AccountTokens.projectDetailActionColor;
-    return Row(
-      children: [
-        Icon(Icons.settings_outlined, size: 18, color: iconColor),
-        const SizedBox(width: 6),
-        Text(
-          l10n.accountExternalDeviceLabel,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
-          style: siteStyle,
-        ),
-        const SizedBox(width: 12),
-        // "分享人 · 地址" 分段省略；右侧没有固定按钮，让它吃满到卡片右边缘。
-        Expanded(
-          child: NameSiteInlineText(
-            name: row.sourceDisplayName,
-            site: row.siteSummary,
-            nameStyle: siteStyle,
-            siteStyle: siteStyle,
-            separatorStyle: siteStyle,
-          ),
-        ),
-      ],
-    );
+  List<Widget> _deviceSectionDivider() {
+    return const [
+      SizedBox(height: 6),
+      Divider(height: 1, color: TimingColors.cardBorder),
+      SizedBox(height: 6),
+    ];
   }
 
   String _externalWorkRowLabel(
@@ -324,7 +316,11 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
   ) {
     final summary = row.equipmentSummary.trim();
     final base = summary.isEmpty ? l10n.accountEquipmentMissing : summary;
-    return l10n.accountRecordCountLabel(base, row.recordCount);
+    final sourceName = row.sourceDisplayName.trim();
+    if (sourceName.isEmpty) {
+      return l10n.accountRecordCountLabel(base, row.recordCount);
+    }
+    return '$base·$sourceName';
   }
 
   Widget _buildAddPaymentPillButton({
@@ -345,7 +341,6 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
         decoration: BoxDecoration(
           color: _addPaymentPillBackground,
           borderRadius: BorderRadius.circular(RadiusTokens.pill),
-          border: Border.all(color: _addPaymentPillBorder),
         ),
         child: Text(
           l10n.accountAddPaymentAction,
@@ -365,50 +360,29 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
     final resolvedBatchActionText = batchActionText.isEmpty
         ? l10n.accountBatchEditAction
         : batchActionText;
-    if (batchActionText.isEmpty) {
-      final enabled = canEditRates;
-      final batchPillStyle = actionStyle.copyWith(
-        color: enabled ? AppColors.brandOutlineAction : SheetColors.muted,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-      );
-
-      return OutlinedButton(
-        onPressed: enabled ? onBatchEditRate : null,
-        style: appBrandOutlineActionButtonStyle(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          textStyle: batchPillStyle,
-        ),
-        child: Text(
-          resolvedBatchActionText,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
-          style: batchPillStyle,
-        ),
-      );
-    }
-
+    final decoratedBatchActionText = batchActionText.isEmpty
+        ? '× $resolvedBatchActionText'
+        : '÷ $resolvedBatchActionText';
+    final enabled = batchActionText.isNotEmpty || canEditRates;
     final pillStyle = actionStyle.copyWith(
-      color: _projectActionPillText,
+      color: enabled ? _projectActionPillText : SheetColors.muted,
       fontSize: 14,
       fontWeight: FontWeight.w600,
     );
 
     return InkWell(
-      onTap: onBatchEditRate,
+      onTap: enabled ? onBatchEditRate : null,
       borderRadius: BorderRadius.circular(RadiusTokens.pill),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: _projectActionPillBackground,
+          color: enabled
+              ? _projectActionPillBackground
+              : SheetColors.fieldBackground,
           borderRadius: BorderRadius.circular(RadiusTokens.pill),
-          border: Border.all(color: _projectActionPillBorder),
         ),
         child: Text(
-          resolvedBatchActionText,
+          decoratedBatchActionText,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -751,6 +725,8 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
 
     return Row(
       children: [
+        labelWidget,
+        const SizedBox(width: 12),
         Icon(Icons.location_on_outlined, size: 18, color: iconColor),
         const SizedBox(width: 6),
         Flexible(
@@ -762,9 +738,6 @@ extension ProjectAccountDetailContentSections on ProjectAccountDetailContent {
             style: siteStyle,
           ),
         ),
-        const SizedBox(width: 12),
-        // "本地设备" 标签是固定语义，不能被动态地址挤掉。
-        labelWidget,
       ],
     );
   }

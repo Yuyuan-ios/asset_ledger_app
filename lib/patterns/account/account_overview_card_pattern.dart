@@ -260,7 +260,7 @@ class _OverviewPaymentSummarySection extends StatelessWidget {
     );
     final externalHintStyle = AppTypography.caption(
       context,
-      fontSize: 11,
+      fontSize: AccountTokens.overviewLegendValueSize,
       height: 1,
       color: Colors.black.withValues(alpha: 0.54),
     );

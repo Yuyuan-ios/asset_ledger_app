@@ -34,7 +34,7 @@ class TimingColors {
   static const Color externalWorkLinkAction =
       AppColors.brandOutlineAction; // 外协详情关联按钮文字
   static const Color externalWorkLinkActionBorder =
-      AppColors.brandOutlineActionBorder; // 外协详情关联按钮边框
+      SheetColors.fieldBorder; // 外协详情关联按钮边框（对齐输入框）
   static final Color externalWorkLinkActionBackground =
       AppColors.brandOutlineActionBackground; // 外协详情关联按钮浅橙背景
   static const Color externalWorkLinkActionPressed =

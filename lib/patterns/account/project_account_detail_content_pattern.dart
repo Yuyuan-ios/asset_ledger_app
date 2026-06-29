@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../components/avatars/linked_external_work_badge.dart';
-import '../../components/buttons/app_brand_outline_action_button.dart';
 import '../../components/layout/name_site_inline_text.dart';
 import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
@@ -23,10 +22,8 @@ part '../../features/account/presentation/widgets/project_account_detail/project
 part '../../features/account/presentation/widgets/project_account_detail/project_account_detail_payment_sections.dart';
 
 const _addPaymentPillBackground = AccountTokens.projectCardProgressFill;
-const _addPaymentPillBorder = AppColors.textPrimary;
 const _addPaymentPillText = SheetColors.actionOn;
 const _projectActionPillBackground = AppColors.brand;
-const _projectActionPillBorder = AppColors.brand;
 const _projectActionPillText = SheetColors.actionOn;
 const _paymentEditActionBackground = AppColors.brandOutlineActionPressed;
 const _paymentEditActionIcon = AppColors.brand;

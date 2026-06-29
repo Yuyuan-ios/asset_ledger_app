@@ -86,6 +86,10 @@ void main() {
     final totalValueRight = tester.getTopRight(find.text('¥3000')).dx;
     final externalHintRight = tester.getTopRight(find.text('其中:外协应收 ¥2000')).dx;
     expect((externalHintRight - totalValueRight).abs(), lessThan(1));
+
+    final totalValue = tester.widget<Text>(find.text('¥3000'));
+    final externalHint = tester.widget<Text>(find.text('其中:外协应收 ¥2000'));
+    expect(externalHint.style?.fontSize, totalValue.style?.fontSize);
   });
 
   testWidgets(

@@ -189,7 +189,9 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
               height: 44,
               child: OutlinedButton(
                 onPressed: linkAction,
-                style: appBrandOutlineActionButtonStyle(),
+                style: appBrandOutlineActionButtonStyle(
+                  borderColor: TimingColors.externalWorkLinkActionBorder,
+                ),
                 child: Text(
                   vm.isLinked
                       ? l10n.timingExternalWorkUnlinkAction

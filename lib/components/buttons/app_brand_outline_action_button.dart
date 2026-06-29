@@ -8,6 +8,7 @@ ButtonStyle appBrandOutlineActionButtonStyle({
   MaterialTapTargetSize? tapTargetSize,
   TextStyle? textStyle,
   VisualDensity? visualDensity,
+  Color borderColor = AppColors.brandOutlineActionBorder,
 }) {
   return OutlinedButton.styleFrom(
     foregroundColor: AppColors.brandOutlineAction,
@@ -27,7 +28,7 @@ ButtonStyle appBrandOutlineActionButtonStyle({
     }),
     side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
       if (states.contains(WidgetState.disabled)) return null;
-      return const BorderSide(color: AppColors.brandOutlineActionBorder);
+      return BorderSide(color: borderColor);
     }),
     overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
       if (states.contains(WidgetState.disabled)) return null;

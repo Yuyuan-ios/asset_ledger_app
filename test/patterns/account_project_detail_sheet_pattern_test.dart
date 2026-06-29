@@ -270,6 +270,10 @@ void main() {
       expect(find.text('鲜滩'), findsWidgets);
       // 合并项目下每个地址块都展示 "⚙ 本地设备" 标签。
       expect(find.text('本地设备'), findsNWidgets(2));
+      expect(
+        tester.getTopLeft(find.text('本地设备').first).dx,
+        lessThan(tester.getTopLeft(find.text('尚义').first).dx),
+      );
       expect(find.text('HITACHI 1#'), findsNWidgets(2));
       expect(find.text('SANY 1#'), findsOneWidget);
       expect(find.text('64.9 h'), findsOneWidget);
@@ -300,14 +304,17 @@ void main() {
         SheetColors.actionOn,
       );
       expect(
-        _containerWithDecoration(
-          color: AccountTokens.projectCardProgressFill,
-          borderColor: AppColors.textPrimary,
+        find.ancestor(
+          of: find.text('+ 新增收款'),
+          matching: _containerWithDecoration(
+            color: AccountTokens.projectCardProgressFill,
+            hasBorder: false,
+          ),
         ),
         findsOneWidget,
       );
-      expect(find.text('批量修改'), findsNothing);
-      expect(find.text('解除合并'), findsOneWidget);
+      expect(find.text('× 批量修改'), findsNothing);
+      expect(find.text('÷ 解除合并'), findsOneWidget);
       expect(_containerWithColor(AppColors.brand), findsOneWidget);
       expect(
         _coloredBoxWithColor(AppColors.brandOutlineActionPressed),
@@ -349,7 +356,7 @@ void main() {
       expect(editedProject?.projectKey, shangyiKey);
       expect(editedProject?.projectKey, isNot('merge:1'));
 
-      await tester.tap(find.text('解除合并'));
+      await tester.tap(find.text('÷ 解除合并'));
       await tester.pump();
 
       expect(dissolvedProject?.mergeGroupId, 1);
@@ -381,7 +388,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('解除合并'), findsNothing);
+      expect(find.text('÷ 解除合并'), findsNothing);
     },
   );
 
@@ -446,26 +453,16 @@ void main() {
     expect(find.text('本地设备'), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
     expect(find.byIcon(Icons.location_on_outlined), findsNothing);
-    expect(find.text('批量修改'), findsOneWidget);
-    final batchButton = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, '批量修改'),
-    );
-    final batchButtonStyle = batchButton.style!;
+    expect(find.text('× 批量修改'), findsOneWidget);
     expect(
-      batchButtonStyle.foregroundColor?.resolve(<WidgetState>{}),
-      AppColors.brandOutlineAction,
-    );
-    expect(
-      batchButtonStyle.backgroundColor?.resolve(<WidgetState>{}),
-      AppColors.brandOutlineActionBackground,
-    );
-    expect(
-      batchButtonStyle.backgroundColor?.resolve({WidgetState.pressed}),
-      AppColors.brandOutlineActionPressed,
-    );
-    expect(
-      batchButtonStyle.side?.resolve(<WidgetState>{})?.color,
-      AppColors.brandOutlineActionBorder,
+      find.ancestor(
+        of: find.text('× 批量修改'),
+        matching: _containerWithDecoration(
+          color: AppColors.brand,
+          hasBorder: false,
+        ),
+      ),
+      findsOneWidget,
     );
     expect(find.text('+ 新增收款'), findsOneWidget);
     expect(find.text('结清'), findsOneWidget);
@@ -540,7 +537,7 @@ void main() {
     final badgeRect = tester.getRect(
       find.byKey(const Key('account-project-detail-linked-external-work')),
     );
-    final batchEditRect = tester.getRect(find.text('批量修改'));
+    final batchEditRect = tester.getRect(find.text('× 批量修改'));
 
     expect(badgeRect.left, greaterThan(siteRect.right));
     expect(badgeRect.left - siteRect.right, lessThan(16));
@@ -950,7 +947,7 @@ void main() {
   testWidgets(
     'normal project with linked external work shows local and external sections',
     (tester) async {
-      const linkedProjectId = 'project:linked-normal';
+      const linkedProjectId = shangyiProjectId;
       final normalKey = ProjectKey.buildKey(contact: '李洋', site: '天眉乐');
 
       await tester.pumpWidget(
@@ -1002,12 +999,29 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('本地设备'), findsOneWidget);
       expect(find.text('外协设备'), findsOneWidget);
-      // header: ⚙ 外协设备 + "余远 · 天眉乐" (拆分为 name / separator / site)
-      expect(find.text('余远'), findsOneWidget);
+      // header: ⚙ 外协设备 + 📍 地址；设备行显示品牌 + 外协姓名。
+      expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
       expect(find.text('天眉乐'), findsWidgets);
-      // 外协设备行：Hitachi·1条记录   7 h
-      expect(find.text('Hitachi·1条记录'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('外协设备')).dx,
+        lessThan(tester.getTopLeft(find.byIcon(Icons.location_on_outlined)).dx),
+      );
+      // 外协设备行：Hitachi·余远   7 h
+      expect(find.text('Hitachi·余远'), findsOneWidget);
+      final localHeaderGap =
+          tester.getTopLeft(find.text('HITACHI 1#').first).dy -
+          tester.getBottomLeft(find.text('本地设备')).dy;
+      final externalHeaderGap =
+          tester.getTopLeft(find.text('Hitachi·余远')).dy -
+          tester.getBottomLeft(find.text('外协设备')).dy;
+      expect((externalHeaderGap - localHeaderGap).abs(), lessThan(1));
       expect(find.text('7 h'), findsOneWidget);
+      expect(
+        (tester.getTopRight(find.text('7 h')).dx -
+                tester.getTopRight(find.text('64.9 h')).dx)
+            .abs(),
+        lessThan(1),
+      );
       // 外协设备 section 不渲染"修改"按钮（只有本地设备那一行才有）。
       expect(find.text('修改'), findsOneWidget);
     },
@@ -1067,9 +1081,9 @@ void main() {
       expect(find.text('本地设备'), findsNWidgets(2));
       expect(find.text('外协设备'), findsNWidgets(2));
       // 两个 batch 的设备摘要各一条。
-      expect(find.text('Hitachi·1条记录'), findsNWidgets(2));
+      expect(find.text('Hitachi·余远'), findsNWidgets(2));
       // 未关联的 batch 不会出现在外协 section 中。
-      expect(find.text('Sany·1条记录'), findsNothing);
+      expect(find.text('Sany·王五'), findsNothing);
     },
   );
 
@@ -1283,8 +1297,8 @@ void main() {
     expect(tester.takeException(), isNull);
     // 只保留 active batch；archived batch 不出现在外协设备明细中。
     expect(find.text('外协设备'), findsOneWidget);
-    expect(find.text('Sany·1条记录'), findsOneWidget);
-    expect(find.text('Hitachi·1条记录'), findsNothing);
+    expect(find.text('Sany·余远'), findsOneWidget);
+    expect(find.text('Hitachi·余远'), findsNothing);
   });
 }
 
@@ -1352,17 +1366,22 @@ Finder _coloredBoxWithColor(Color color) {
 
 Finder _containerWithDecoration({
   required Color color,
-  required Color borderColor,
+  Color? borderColor,
+  bool hasBorder = true,
 }) {
   return find.byWidgetPredicate((widget) {
     final decoration = widget is Container ? widget.decoration : null;
     final border = decoration is BoxDecoration ? decoration.border : null;
-    return decoration is BoxDecoration &&
-        decoration.color == color &&
-        border is Border &&
-        border.top.color == borderColor &&
-        border.right.color == borderColor &&
-        border.bottom.color == borderColor &&
-        border.left.color == borderColor;
+    if (decoration is! BoxDecoration || decoration.color != color) {
+      return false;
+    }
+    if (!hasBorder) return border == null;
+    final expectedBorderColor = borderColor;
+    if (expectedBorderColor == null) return border != null;
+    return border is Border &&
+        border.top.color == expectedBorderColor &&
+        border.right.color == expectedBorderColor &&
+        border.bottom.color == expectedBorderColor &&
+        border.left.color == expectedBorderColor;
   });
 }
