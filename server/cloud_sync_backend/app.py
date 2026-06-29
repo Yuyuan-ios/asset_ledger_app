@@ -11,6 +11,13 @@ backup service and does not expose any object-storage credentials to clients.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVER_ROOT))
+
 from auth import (
     Authenticator,
     HttpTokenIntrospector,
@@ -39,9 +46,13 @@ from config import (
     parse_semver,
 )
 from handlers import (
+    CLOUD_SYNC_ENTITLEMENT_TIMEOUT_ENV,
+    CLOUD_SYNC_ENTITLEMENT_URL_ENV,
+    SERVICE_INTERNAL_TOKEN_ENV,
     SyncApp,
     SyncHttpServer,
     SyncRequestHandler,
+    build_sync_entitlement_resolver_from_env,
     build_server_from_env,
     normalize_payload_json,
     parse_change,
@@ -50,7 +61,11 @@ from handlers import (
     reject_batch_too_large,
     require_int,
     require_text,
+    sync_app_env,
+    sync_entitlement_denied_error,
 )
+from common.entitlement_model import EntitlementAuthContext, EntitlementDecision, EntitlementTier, PaidEntitlementState
+from common.entitlement_resolver import EntitlementResolver, HttpPaidEntitlementStateProvider, paid_state_from_response
 from http_helpers import (
     LOGGER,
     HttpError,
@@ -70,12 +85,19 @@ from storage import IncomingChange, SyncStore, change_row_to_json
 __all__ = [
     "AppConfig",
     "Authenticator",
+    "CLOUD_SYNC_ENTITLEMENT_TIMEOUT_ENV",
+    "CLOUD_SYNC_ENTITLEMENT_URL_ENV",
     "DEFAULT_PORT",
     "DEFAULT_PULL_LIMIT",
     "DEFAULT_RATE_LIMIT_MAX_REQUESTS",
     "DEFAULT_RATE_LIMIT_WINDOW_SECONDS",
+    "EntitlementAuthContext",
+    "EntitlementDecision",
+    "EntitlementResolver",
+    "EntitlementTier",
     "HttpError",
     "HttpTokenIntrospector",
+    "HttpPaidEntitlementStateProvider",
     "IncomingChange",
     "LOGGER",
     "MAX_BATCH_CHANGES",
@@ -112,11 +134,14 @@ __all__ = [
     "parse_changes_body",
     "parse_query_int",
     "parse_semver",
+    "paid_state_from_response",
     "read_json_body",
     "reject_batch_too_large",
     "request_id_from_headers",
     "require_int",
     "require_text",
+    "sync_app_env",
+    "sync_entitlement_denied_error",
     "utc_now_iso",
 ]
 
@@ -131,3 +156,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    "PaidEntitlementState",
+    "SERVICE_INTERNAL_TOKEN_ENV",
+    "build_sync_entitlement_resolver_from_env",

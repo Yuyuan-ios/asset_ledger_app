@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import http.server
 import hmac
+import os
 import re
 import sqlite3
 import sys
@@ -18,6 +19,8 @@ from apple_verifier import build_real_apple_verifier_from_config
 from auth import Authenticator, RequestValidator, require_text
 from common.auth_identity.auth_planes import AuthPlane
 from common.auth_identity.resolver import ensure_auth_operation_allowed, require_stable_user_id
+from common.entitlement_model import EntitlementAuthContext, EntitlementDecision
+from common.entitlement_resolver import EntitlementResolver
 from config import MAX_REQUEST_BYTES, AppConfig
 from http_helpers import (
     HttpError,
@@ -70,6 +73,8 @@ class IapVerificationApp:
         internal_entitlement_token: Optional[str] = None,
         channel_signature_secrets: Optional[Mapping[str, str]] = None,
         gateway_service: Optional[SubscriptionGatewayService] = None,
+        entitlement_resolver: Optional[EntitlementResolver] = None,
+        app_env: Optional[str] = None,
     ):
         self.store = store
         self.validator = validator
@@ -78,6 +83,8 @@ class IapVerificationApp:
         self.authenticator = authenticator
         self.internal_entitlement_token = internal_entitlement_token
         self.internal_entitlement_auth_plane = AuthPlane.SERVICE
+        self.entitlement_resolver = entitlement_resolver or EntitlementResolver()
+        self.app_env = app_env or iap_app_env()
         if gateway_service is not None:
             self.gateway_service = gateway_service
         elif hasattr(self.store, "db_path"):
@@ -111,6 +118,7 @@ class IapVerificationApp:
             max_request_bytes=config.max_request_bytes,
             authenticator=Authenticator.from_env(),
             internal_entitlement_token=config.internal_entitlement_token,
+            app_env=iap_app_env(),
         )
 
     def verify_purchase(
@@ -217,14 +225,27 @@ class IapVerificationApp:
             "required_capability",
             max_length=64,
         )
-        if required_capability != "cloud_backup":
-            raise HttpError(400, "invalid_required_capability", "required_capability must be cloud_backup")
+        if required_capability not in {"cloud_backup", "sync"}:
+            raise HttpError(
+                400,
+                "invalid_required_capability",
+                "required_capability must be cloud_backup or sync",
+            )
         required_plan = require_text(body.get("required_plan"), "required_plan", max_length=32)
-        if required_plan != "max":
+        if required_capability == "cloud_backup" and required_plan != "max":
             raise HttpError(400, "invalid_required_plan", "required_plan must be max")
+        if required_capability == "sync" and required_plan not in {"paid", "pro", "max"}:
+            raise HttpError(
+                400,
+                "invalid_required_plan",
+                "required_plan must be paid, pro, or max",
+            )
         try:
-            record = self.store.get_latest_max_entitlement_for_user(user_id)
-            if record is None:
+            if required_plan == "max":
+                record = self.store.get_latest_max_entitlement_for_user(user_id)
+                if record is None:
+                    record = self.store.get_latest_entitlement_for_user(user_id)
+            else:
                 record = self.store.get_latest_entitlement_for_user(user_id)
         except sqlite3.Error as exc:
             raise HttpError(
@@ -232,7 +253,7 @@ class IapVerificationApp:
                 "subscription_verification_unavailable",
                 "Subscription verification is currently unavailable.",
             ) from exc
-        return internal_entitlement_response(record)
+        return internal_entitlement_response(record, required_plan=required_plan)
 
     def internal_ledger_replay(
         self,
@@ -240,11 +261,12 @@ class IapVerificationApp:
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
-        self._authenticate_internal_entitlement_request(authorization_header)
+        auth_context = self._authenticate_internal_entitlement_request(authorization_header)
         stable_user_id = require_stable_user_id(
             user_id,
             auth_plane=self.internal_entitlement_auth_plane,
         )
+        self._require_entitlement_decision(auth_context, "ledger_read", stable_user_id)
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -271,11 +293,12 @@ class IapVerificationApp:
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
-        self._authenticate_internal_entitlement_request(authorization_header)
+        auth_context = self._authenticate_internal_entitlement_request(authorization_header)
         stable_user_id = require_stable_user_id(
             user_id,
             auth_plane=self.internal_entitlement_auth_plane,
         )
+        self._require_entitlement_decision(auth_context, "observability", stable_user_id)
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -290,13 +313,14 @@ class IapVerificationApp:
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
-        self._authenticate_internal_entitlement_request(authorization_header)
+        auth_context = self._authenticate_internal_entitlement_request(authorization_header)
         try:
             normalized_event_id = int(event_id)
         except ValueError as exc:
             raise HttpError(400, "invalid_event_id", "event_id must be an integer") from exc
         if normalized_event_id <= 0:
             raise HttpError(400, "invalid_event_id", "event_id must be positive")
+        self._require_entitlement_decision(auth_context, "observability", event_id)
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -314,11 +338,12 @@ class IapVerificationApp:
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
-        self._authenticate_internal_entitlement_request(authorization_header)
+        auth_context = self._authenticate_internal_entitlement_request(authorization_header)
         stable_user_id = require_stable_user_id(
             user_id,
             auth_plane=self.internal_entitlement_auth_plane,
         )
+        self._require_entitlement_decision(auth_context, "observability", stable_user_id)
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -333,11 +358,12 @@ class IapVerificationApp:
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
-        self._authenticate_internal_entitlement_request(authorization_header)
+        auth_context = self._authenticate_internal_entitlement_request(authorization_header)
         try:
             normalized_event_id = int(event_id)
         except ValueError as exc:
             raise HttpError(400, "invalid_event_id", "event_id must be an integer") from exc
+        self._require_entitlement_decision(auth_context, "observability", event_id)
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -355,11 +381,12 @@ class IapVerificationApp:
         authorization_header: Optional[str],
     ) -> Dict[str, object]:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
-        self._authenticate_internal_entitlement_request(authorization_header)
+        auth_context = self._authenticate_internal_entitlement_request(authorization_header)
         stable_user_id = require_stable_user_id(
             user_id,
             auth_plane=self.internal_entitlement_auth_plane,
         )
+        self._require_entitlement_decision(auth_context, "observability", stable_user_id)
         if self.gateway_service is None:
             raise HttpError(
                 503,
@@ -398,7 +425,7 @@ class IapVerificationApp:
     def _authenticate_internal_entitlement_request(
         self,
         authorization_header: Optional[str],
-    ) -> None:
+    ) -> EntitlementAuthContext:
         ensure_auth_operation_allowed(self.internal_entitlement_auth_plane)
         expected = self.internal_entitlement_token
         if not expected:
@@ -412,6 +439,23 @@ class IapVerificationApp:
         token = authorization_header[len("Bearer ") :].strip()
         if not hmac.compare_digest(token, expected):
             raise HttpError(401, "unauthorized", "token is not accepted")
+        return EntitlementAuthContext(is_internal=True, operation="read")
+
+    def _require_entitlement_decision(
+        self,
+        auth_context: EntitlementAuthContext,
+        request_type: str,
+        user_id: str,
+    ) -> EntitlementDecision:
+        decision = self.entitlement_resolver.resolve(
+            auth_context,
+            request_type=request_type,
+            user_id=user_id,
+            env=self.app_env,
+        )
+        if not decision.allow:
+            raise iap_entitlement_denied_error(decision)
+        return decision
 
 
 def last_query_value(query: Mapping[str, List[str]], key: str) -> Optional[str]:
@@ -430,37 +474,45 @@ def classify_verification_data(value: str) -> str:
     return "non_jws"
 
 
-def internal_entitlement_response(record: Optional[EntitlementRecord]) -> Dict[str, object]:
+def internal_entitlement_response(
+    record: Optional[EntitlementRecord],
+    *,
+    required_plan: str = "max",
+) -> Dict[str, object]:
     if record is None:
         return {
             "allowed": False,
             "entitlementTier": "none",
             "entitlementActive": False,
             "status": "none",
-            "reason": "requires_max",
+            "reason": _required_plan_reason(required_plan),
         }
 
     tier = record.entitlement_tier
     if tier == "none":
         tier = tier_from_product_id(record.product_id) or "none"
     status = internal_status_for_outcome(record.outcome)
-    max_is_active = (
-        record.entitlement_tier == "max"
-        and record.outcome in {"verifiedActiveMax", "verifiedGracePeriodMax"}
-    )
-    if max_is_active:
+    if _record_matches_required_plan(record, required_plan) and status == "active":
         return {
             "allowed": True,
-            "entitlementTier": "max",
+            "entitlementTier": tier,
             "entitlementActive": True,
             "status": "active",
+        }
+    if _record_matches_required_plan(record, required_plan) and status == "grace":
+        return {
+            "allowed": True,
+            "entitlementTier": tier,
+            "entitlementActive": False,
+            "status": "grace",
+            "limits": {"readOnly": True},
         }
     return {
         "allowed": False,
         "entitlementTier": tier,
         "entitlementActive": False,
         "status": status,
-        "reason": "requires_max",
+        "reason": _required_plan_reason(required_plan),
     }
 
 
@@ -484,6 +536,45 @@ def internal_status_for_outcome(outcome: str) -> str:
     if outcome == "noActiveEntitlement":
         return "none"
     return outcome
+
+
+def _record_matches_required_plan(record: EntitlementRecord, required_plan: str) -> bool:
+    normalized = required_plan.strip().lower()
+    tier = record.entitlement_tier
+    if tier == "none":
+        tier = tier_from_product_id(record.product_id) or "none"
+    if normalized == "paid":
+        return tier in {"pro", "max"}
+    return tier == normalized
+
+
+def _required_plan_reason(required_plan: str) -> str:
+    normalized = required_plan.strip().lower()
+    if normalized == "paid":
+        return "requires_paid"
+    return f"requires_{normalized or 'paid'}"
+
+
+def iap_entitlement_denied_error(decision: EntitlementDecision) -> HttpError:
+    if decision.reason == "internal_cannot_override_entitlement_state":
+        return HttpError(
+            403,
+            "entitlement_override_forbidden",
+            "Internal token cannot override entitlement state.",
+        )
+    return HttpError(
+        403,
+        "entitlement_denied",
+        "Entitlement decision denied the request.",
+    )
+
+
+def iap_app_env() -> str:
+    return (
+        os.environ.get("APP_ENV", "").strip()
+        or os.environ.get("FLEET_APP_ENV", "").strip()
+        or "production"
+    ).lower()
 
 
 def build_verifier_from_config(config: AppConfig) -> AppleVerifier:

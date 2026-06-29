@@ -24,6 +24,8 @@ from app import (  # noqa: E402
     DEFAULT_ALLOWED_PRODUCTS,
     ENTITLEMENT_CHANGE_LOG,
     ENTITLEMENT_BINDING_POLICIES,
+    EntitlementAuthContext,
+    EntitlementDecision,
     FINAL_VERDICT_COMPROMISED,
     FINAL_VERDICT_VERIFIED,
     EXTERNAL_CLIENT_TOKEN_REQUIRED,
@@ -50,13 +52,16 @@ from app import (  # noqa: E402
     AppStoreServerAppleVerifier,
     Authenticator,
     EntitlementEngine,
+    EntitlementResolver,
     EntitlementStore,
     EntitlementRecord,
     EntitlementBindingPolicy,
+    EntitlementTier,
     HttpError,
     IapVerificationApp,
     IntegrityVerifier,
     PurchaseEvent,
+    PaidEntitlementState,
     IapVerificationRequestHandler,
     RequestValidator,
     RblViolation,
@@ -179,6 +184,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
                 "channel_signature_secrets",
                 gateway_secrets(),
             ),
+            entitlement_resolver=kwargs.get("entitlement_resolver"),
         )
 
     def test_healthz_is_unauthenticated(self):
@@ -186,6 +192,96 @@ class IapVerificationBackendTestCase(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(body, {"ok": True})
+
+    def test_entitlement_resolver_dev_mode_bypasses_all_apis_outside_production(self):
+        resolver = EntitlementResolver(default_paid_state=PaidEntitlementState.NONE)
+        context = EntitlementAuthContext(is_dev=True, operation="write")
+
+        for request_type in (
+            "sync",
+            "backup",
+            "observability",
+            "ledger_read",
+            "ledger_write",
+            "entitlement_override",
+        ):
+            with self.subTest(request_type=request_type):
+                decision = resolver.resolve(context, request_type, "dev-user", "dev")
+                self.assertTrue(decision.allow)
+                self.assertEqual(decision.tier, "DEV")
+                self.assertEqual(decision.reason, "dev_mode_bypass")
+
+        production_write = resolver.resolve(
+            context,
+            "ledger_write",
+            "dev-user",
+            "production",
+        )
+        self.assertFalse(production_write.allow)
+        self.assertEqual(
+            production_write.reason,
+            "dev_cannot_modify_production_ledger",
+        )
+
+    def test_entitlement_resolver_internal_allows_apis_but_denies_override(self):
+        resolver = EntitlementResolver(default_paid_state=PaidEntitlementState.NONE)
+        context = EntitlementAuthContext(is_internal=True, operation="write")
+
+        for request_type in ("sync", "backup", "observability"):
+            with self.subTest(request_type=request_type):
+                decision = resolver.resolve(context, request_type, "internal-user", "production")
+                self.assertTrue(decision.allow)
+                self.assertEqual(decision.tier, "INTERNAL")
+                self.assertEqual(decision.reason, "internal_service_access")
+
+        override = resolver.resolve(
+            context,
+            "entitlement_override",
+            "internal-user",
+            "production",
+        )
+        self.assertFalse(override.allow)
+        self.assertEqual(
+            override.reason,
+            "internal_cannot_override_entitlement_state",
+        )
+
+    def test_entitlement_resolver_paid_active_none_and_grace_states(self):
+        active = EntitlementResolver(
+            default_paid_state=PaidEntitlementState.ACTIVE,
+        )
+        none = EntitlementResolver(default_paid_state=PaidEntitlementState.NONE)
+        grace = EntitlementResolver(default_paid_state=PaidEntitlementState.GRACE)
+
+        self.assertTrue(
+            active.resolve({"operation": "write"}, "sync", "paid-user", "production").allow
+        )
+        self.assertTrue(
+            active.resolve({"operation": "write"}, "backup", "paid-user", "production").allow
+        )
+        self.assertFalse(
+            none.resolve({"operation": "read"}, "sync", "free-user", "production").allow
+        )
+        self.assertFalse(
+            none.resolve({"operation": "read"}, "backup", "free-user", "production").allow
+        )
+
+        read_decision = grace.resolve(
+            {"operation": "read"},
+            "sync",
+            "grace-user",
+            "production",
+        )
+        write_decision = grace.resolve(
+            {"operation": "write"},
+            "sync",
+            "grace-user",
+            "production",
+        )
+        self.assertTrue(read_decision.allow)
+        self.assertEqual(read_decision.limits, {"read_only": True})
+        self.assertFalse(write_decision.allow)
+        self.assertEqual(write_decision.reason, "paid_grace_read_only")
 
     def test_pro_active_purchase_persists_current_entitlement(self):
         status, body = self.verify_purchase("fake:pro-active")
@@ -636,7 +732,7 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         bad_capability_status, bad_capability_body = self.request(
             "POST",
             "/internal/v1/entitlements/verify",
-            body=internal_entitlement_body("user-a", required_capability="sync"),
+            body=internal_entitlement_body("user-a", required_capability="unknown"),
             app=app,
             headers=headers,
         )
@@ -698,7 +794,61 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(grace_status, 200)
         self.assertEqual(grace_body["allowed"], True)
         self.assertEqual(grace_body["entitlementTier"], "max")
-        self.assertEqual(grace_body["entitlementActive"], True)
+        self.assertEqual(grace_body["entitlementActive"], False)
+        self.assertEqual(grace_body["status"], "grace")
+        self.assertEqual(grace_body["limits"], {"readOnly": True})
+
+    def test_internal_entitlement_reports_sync_paid_active_and_grace_states(self):
+        app = self._app_with_authenticator(internal_entitlement_token="internal-token")
+        pro_active_token = "00000000-0000-4000-8000-000000000203"
+        max_grace_token = "00000000-0000-4000-8000-000000000204"
+        self.verify_purchase(
+            "fake:pro-active",
+            pro_active_token,
+            PRO_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-pro",
+        )
+        self.verify_purchase(
+            "fake:max-grace",
+            max_grace_token,
+            MAX_YEARLY_PRODUCT_ID,
+            app=app,
+            authorization="Bearer login-token-a",
+        )
+
+        active_status, active_body = self.request(
+            "POST",
+            "/internal/v1/entitlements/verify",
+            body=internal_entitlement_body(
+                "user-pro",
+                required_capability="sync",
+                required_plan="paid",
+            ),
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+        grace_status, grace_body = self.request(
+            "POST",
+            "/internal/v1/entitlements/verify",
+            body=internal_entitlement_body(
+                "user-a",
+                required_capability="sync",
+                required_plan="paid",
+            ),
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+
+        self.assertEqual(active_status, 200)
+        self.assertEqual(active_body["allowed"], True)
+        self.assertEqual(active_body["entitlementTier"], "pro")
+        self.assertEqual(active_body["status"], "active")
+        self.assertEqual(grace_status, 200)
+        self.assertEqual(grace_body["allowed"], True)
+        self.assertEqual(grace_body["entitlementTier"], "max")
+        self.assertEqual(grace_body["status"], "grace")
+        self.assertEqual(grace_body["limits"], {"readOnly": True})
 
     def test_internal_entitlement_prefers_user_max_over_newer_non_max_records(self):
         app = self._app_with_authenticator(internal_entitlement_token="internal-token")
@@ -1778,6 +1928,47 @@ class IapVerificationBackendTestCase(unittest.TestCase):
         self.assertEqual(missing_body["error"]["code"], "unauthorized")
         self.assertEqual(client_status, 401)
         self.assertEqual(client_body["error"]["code"], "unauthorized")
+
+    def test_bol_observability_routes_use_entitlement_resolver(self):
+        resolver = RecordingEntitlementResolver()
+        app = self._app_with_gateway(
+            internal_entitlement_token="internal-token",
+            entitlement_resolver=resolver,
+        )
+        user_id = "user-bol-entitlement-resolver"
+        self.request(
+            "POST",
+            "/iap/webhooks/google_play",
+            body=gateway_body(
+                GOOGLE_PLAY_CHANNEL,
+                user_id=user_id,
+                product_id=MAX_YEARLY_PRODUCT_ID,
+                transaction_id="bol-entitlement-resolver-active",
+                eventTime="2026-06-26T10:00:00Z",
+            ),
+            app=app,
+        )
+
+        explain_status, _ = self.request(
+            "GET",
+            f"/internal/v3/billing/explain/{user_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+        graph_status, _ = self.request(
+            "GET",
+            f"/internal/v3/billing/graph/{user_id}",
+            app=app,
+            headers={"Authorization": "Bearer internal-token"},
+        )
+
+        self.assertEqual(explain_status, 200)
+        self.assertEqual(graph_status, 200)
+        self.assertEqual(
+            [(call["request_type"], call["user_id"]) for call in resolver.calls],
+            [("observability", user_id), ("observability", user_id)],
+        )
+        self.assertTrue(all(call["auth_context"].is_internal for call in resolver.calls))
 
     def test_bol_explain_api_does_not_leak_purchase_token_or_signature(self):
         app = self._app_with_gateway(internal_entitlement_token="internal-token")
@@ -3440,6 +3631,26 @@ class FallbackUserVerifier:
 
     def refresh_current_entitlement(self, record):
         return record
+
+
+class RecordingEntitlementResolver:
+    def __init__(self):
+        self.calls = []
+
+    def resolve(self, auth_context, request_type, user_id, env):
+        self.calls.append(
+            {
+                "auth_context": auth_context,
+                "request_type": request_type,
+                "user_id": user_id,
+                "env": env,
+            }
+        )
+        return EntitlementDecision(
+            allow=True,
+            tier=EntitlementTier.INTERNAL,
+            reason="internal_service_access",
+        )
 
 
 class DbErrorEntitlementStore:

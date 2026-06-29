@@ -10,6 +10,9 @@ import uuid
 from typing import Any, Dict, List, Mapping, Optional
 
 from auth import Authenticator
+from common.entitlement_model import EntitlementAuthContext, EntitlementDecision, EntitlementSourceUnavailable, PaidEntitlementState
+from common.entitlement_policy_engine import LOCAL_ENVS
+from common.entitlement_resolver import EntitlementResolver
 from config import ENCODING_AES_GCM, ENCODING_PLAINTEXT, ENCRYPTION_META_FIELDS, KIND_VALUE, MAX_PAYLOAD_BYTES, MAX_REQUEST_BYTES, SUPPORTED_FORMAT_VERSION, VERSION_UPGRADE_GATE, AppConfig
 from entitlements import (
     CloudBackupEntitlementVerifier,
@@ -37,6 +40,8 @@ class BackupApp:
         max_payload_bytes: int = MAX_PAYLOAD_BYTES,
         max_request_bytes: int = MAX_REQUEST_BYTES,
         entitlement_verifier: Optional[CloudBackupEntitlementVerifier] = None,
+        entitlement_resolver: Optional[EntitlementResolver] = None,
+        app_env: Optional[str] = None,
     ):
         self.metadata_store = metadata_store
         self.object_store = object_store
@@ -51,6 +56,10 @@ class BackupApp:
         self.entitlement_verifier = (
             entitlement_verifier or FailClosedCloudBackupEntitlementVerifier()
         )
+        self.entitlement_resolver = entitlement_resolver or EntitlementResolver(
+            default_paid_state=PaidEntitlementState.NONE,
+        )
+        self.app_env = app_env or cloud_backup_app_env()
 
     @classmethod
     def from_env(cls) -> "BackupApp":
@@ -76,6 +85,7 @@ class BackupApp:
             max_payload_bytes=config.max_payload_bytes,
             max_request_bytes=config.max_request_bytes,
             entitlement_verifier=build_cloud_backup_entitlement_verifier_from_env(),
+            app_env=cloud_backup_app_env(),
         )
 
     def authenticate(self, handler: http.server.BaseHTTPRequestHandler) -> str:
@@ -98,6 +108,49 @@ class BackupApp:
         user_id = self.authenticate(handler)
         self.require_max_entitlement(user_id)
         return user_id
+
+    def require_backup_entitlement(
+        self,
+        user_id: str,
+        *,
+        operation: str,
+    ) -> EntitlementDecision:
+        try:
+            resolver_method = getattr(self.entitlement_verifier, "resolve_decision", None)
+            if callable(resolver_method):
+                decision = resolver_method(
+                    user_id,
+                    request_type="backup",
+                    operation=operation,
+                    env=self.app_env,
+                )
+            else:
+                context = EntitlementAuthContext(
+                    is_dev=self.app_env in LOCAL_ENVS,
+                    operation=operation,
+                )
+                decision = self.entitlement_resolver.resolve(
+                    context,
+                    request_type="backup",
+                    user_id=user_id,
+                    env=self.app_env,
+                )
+                if decision.tier.name == "PAID" and decision.reason == "paid_entitlement_required":
+                    self.require_max_entitlement(user_id)
+                    decision = EntitlementDecision(
+                        allow=True,
+                        tier=decision.tier,
+                        reason="paid_active",
+                    )
+        except HttpError:
+            raise
+        except EntitlementSourceUnavailable as exc:
+            raise subscription_verification_unavailable_error() from exc
+        except Exception as exc:
+            raise subscription_verification_unavailable_error() from exc
+        if not decision.allow:
+            raise cloud_backup_entitlement_denied_error(decision)
+        return decision
 
     def health_response(self) -> Dict[str, Any]:
         return {
@@ -410,7 +463,9 @@ class BackupRequestHandler(http.server.BaseHTTPRequestHandler):
         # Any current or future /v1/backups* or /v1/account/backup-key endpoint
         # must use this chain: Bearer auth -> server-side Max entitlement guard
         # -> concrete handler. Do not trust client subscription/plan headers.
-        user_id = self.app.require_authenticated_max_user(self)
+        user_id = self.app.authenticate(self)
+        operation = "write" if method == "POST" else "read"
+        self.app.require_backup_entitlement(user_id, operation=operation)
         if method == "GET" and path == "/v1/account/backup-key":
             json_response(
                 self,
@@ -444,6 +499,20 @@ def _is_cloud_backup_path(path: str) -> bool:
         path == "/v1/account/backup-key"
         or path == "/v1/backups"
         or path.startswith("/v1/backups/")
+    )
+
+
+def cloud_backup_entitlement_denied_error(decision: EntitlementDecision) -> HttpError:
+    if decision.reason == "paid_grace_read_only":
+        return HttpError(
+            403,
+            "entitlement_read_only",
+            "Entitlement is read-only during grace period.",
+        )
+    return HttpError(
+        403,
+        "cloud_backup_requires_max",
+        "Cloud backup requires Max subscription.",
     )
 
 

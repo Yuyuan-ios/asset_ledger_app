@@ -15,6 +15,8 @@ if str(_SERVER_ROOT) not in sys.path:
 
 from common.auth_identity.auth_planes import AuthPlane
 from common.auth_identity.resolver import ensure_auth_operation_allowed, require_stable_user_id
+from common.entitlement_model import EntitlementDecision, PaidEntitlementState
+from common.entitlement_resolver import EntitlementResolver, paid_state_from_response
 from config import assert_no_deprecated_env_keys
 from http_helpers import HttpError
 
@@ -96,10 +98,59 @@ class HttpCloudBackupEntitlementVerifier:
         user_id = require_stable_user_id(user_id, auth_plane=self.auth_plane)
         if self._has_cached_allow(user_id):
             return
+        if self.paid_state(user_id, request_type="backup") == PaidEntitlementState.ACTIVE:
+            self._cache_allow(user_id)
+            return
+        raise cloud_backup_requires_max_error()
+
+    def paid_state(
+        self,
+        user_id: str,
+        *,
+        request_type: str = "backup",
+    ) -> PaidEntitlementState:
+        ensure_auth_operation_allowed(self.auth_plane)
+        user_id = require_stable_user_id(user_id, auth_plane=self.auth_plane)
+        if request_type == "backup" and self._has_cached_allow(user_id):
+            return PaidEntitlementState.ACTIVE
+        decoded = self._fetch_entitlement_body(user_id, request_type=request_type)
+        state = paid_state_from_response(decoded, required_plan="max")
+        if request_type == "backup" and state == PaidEntitlementState.ACTIVE:
+            self._cache_allow(user_id)
+        return state
+
+    def resolve_decision(
+        self,
+        user_id: str,
+        *,
+        request_type: str,
+        operation: str,
+        env: str,
+    ) -> EntitlementDecision:
+        resolver = EntitlementResolver(
+            paid_state_provider=lambda candidate_user_id, candidate_request_type: self.paid_state(
+                candidate_user_id,
+                request_type=candidate_request_type,
+            ),
+        )
+        return resolver.resolve(
+            {"operation": operation},
+            request_type=request_type,
+            user_id=user_id,
+            env=env,
+        )
+
+    def _fetch_entitlement_body(
+        self,
+        user_id: str,
+        *,
+        request_type: str,
+    ) -> Mapping[str, Any]:
+        required_capability = "cloud_backup" if request_type == "backup" else request_type
         body = json.dumps(
             {
                 "user_id": user_id,
-                "required_capability": "cloud_backup",
+                "required_capability": required_capability,
                 "required_plan": "max",
             },
             separators=(",", ":"),
@@ -118,6 +169,7 @@ class HttpCloudBackupEntitlementVerifier:
             with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
+            _close_http_error(exc)
             if exc.code in (401, 403, 404):
                 raise cloud_backup_requires_max_error() from exc
             raise subscription_verification_unavailable_error() from exc
@@ -129,10 +181,7 @@ class HttpCloudBackupEntitlementVerifier:
             raise subscription_verification_unavailable_error() from exc
         if not isinstance(decoded, dict):
             raise subscription_verification_unavailable_error()
-        if _body_allows_cloud_backup(decoded):
-            self._cache_allow(user_id)
-            return
-        raise cloud_backup_requires_max_error()
+        return decoded
 
     def _has_cached_allow(self, user_id: str) -> bool:
         if self.cache_ttl_seconds <= 0:
@@ -297,3 +346,10 @@ def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
     if value < minimum:
         raise ValueError(f"{name} must be >= {minimum}")
     return value
+
+
+def _close_http_error(exc: urllib.error.HTTPError) -> None:
+    try:
+        exc.close()
+    except Exception:
+        return

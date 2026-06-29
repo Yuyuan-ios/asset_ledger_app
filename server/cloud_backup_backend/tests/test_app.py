@@ -20,9 +20,11 @@ from app import (
     BackupMetadataStore,
     ConfigMigrationError,
     EXTERNAL_CLIENT_TOKEN_REQUIRED,
+    EntitlementResolver,
     FileObjectStore,
     HttpError,
     HttpCloudBackupEntitlementVerifier,
+    PaidEntitlementState,
     SecurityViolation,
     SlidingWindowRateLimiter,
     StaticMaxUserEntitlementVerifier,
@@ -1035,6 +1037,65 @@ class BackendHttpTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(downloaded["kind"], "cloud_backup")
 
+    def test_paid_active_allows_cloud_backup_routes_through_resolver(self):
+        self.app.entitlement_verifier = _DecisionEntitlementVerifier(
+            PaidEntitlementState.ACTIVE,
+        )
+
+        status, key = self.request("GET", "/v1/account/backup-key", token="token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(key["backup_secret"]), 64)
+
+        status, uploaded = self.request("POST", "/v1/backups", token="token-a", body=make_envelope())
+        self.assertEqual(status, 200)
+        backup_id = uploaded["backup_id"]
+
+        status, listed = self.request("GET", "/v1/backups", token="token-a")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["backup_id"] for item in listed["backups"]], [backup_id])
+
+    def test_paid_none_denies_cloud_backup_routes_through_resolver(self):
+        self.app.entitlement_verifier = _DecisionEntitlementVerifier(
+            PaidEntitlementState.NONE,
+        )
+
+        cases = [
+            ("GET", "/v1/account/backup-key", None),
+            ("POST", "/v1/backups", make_envelope()),
+            ("GET", "/v1/backups", None),
+            ("GET", "/v1/backups/missing-backup-id", None),
+        ]
+        for method, path, body in cases:
+            with self.subTest(method=method, path=path):
+                status, response = self.request(method, path, token="token-a", body=body)
+                self.assertEqual(status, 403)
+                self.assertEqual(response["error"]["code"], "cloud_backup_requires_max")
+
+    def test_paid_grace_cloud_backup_is_read_only(self):
+        backup_id = self.app.create_backup("user-a", make_envelope())
+        self.app.entitlement_verifier = _DecisionEntitlementVerifier(
+            PaidEntitlementState.GRACE,
+        )
+
+        key_status, key = self.request("GET", "/v1/account/backup-key", token="token-a")
+        list_status, listed = self.request("GET", "/v1/backups", token="token-a")
+        download_status, downloaded = self.request("GET", f"/v1/backups/{backup_id}", token="token-a")
+        upload_status, upload_body = self.request(
+            "POST",
+            "/v1/backups",
+            token="token-a",
+            body=make_envelope(),
+        )
+
+        self.assertEqual(key_status, 200)
+        self.assertEqual(len(key["backup_secret"]), 64)
+        self.assertEqual(list_status, 200)
+        self.assertEqual([item["backup_id"] for item in listed["backups"]], [backup_id])
+        self.assertEqual(download_status, 200)
+        self.assertEqual(downloaded["kind"], "cloud_backup")
+        self.assertEqual(upload_status, 403)
+        self.assertEqual(upload_body["error"]["code"], "entitlement_read_only")
+
     def test_http_entitlement_verifier_exception_is_unavailable(self):
         self.app.entitlement_verifier = _ExplodingEntitlementVerifier()
 
@@ -1182,6 +1243,30 @@ class _UnavailableEntitlementVerifier:
             503,
             "subscription_verification_unavailable",
             "Subscription verification is currently unavailable.",
+        )
+
+
+class _DecisionEntitlementVerifier:
+    def __init__(self, paid_state):
+        self.paid_state = paid_state
+        self.calls = []
+
+    def require_max(self, user_id):
+        if self.paid_state == PaidEntitlementState.ACTIVE:
+            return None
+        raise HttpError(
+            403,
+            "cloud_backup_requires_max",
+            "Cloud backup requires Max subscription.",
+        )
+
+    def resolve_decision(self, user_id, *, request_type, operation, env):
+        self.calls.append((user_id, request_type, operation, env))
+        return EntitlementResolver(default_paid_state=self.paid_state).resolve(
+            {"operation": operation},
+            request_type=request_type,
+            user_id=user_id,
+            env=env,
         )
 
 

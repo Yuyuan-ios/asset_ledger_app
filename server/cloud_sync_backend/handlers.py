@@ -2,15 +2,29 @@ from __future__ import annotations
 
 import http.server
 import json
+import os
+import sys
 import time
 import urllib.parse
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
+
+_SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVER_ROOT))
 
 from auth import Authenticator
 from config import DEFAULT_PULL_LIMIT, MAX_BATCH_CHANGES, MAX_PULL_LIMIT, MAX_REQUEST_BYTES, VALID_OPERATIONS, AppConfig, VERSION_UPGRADE_GATE
+from common.entitlement_model import EntitlementAuthContext, EntitlementDecision, EntitlementSourceUnavailable, PaidEntitlementState
+from common.entitlement_policy_engine import LOCAL_ENVS
+from common.entitlement_resolver import EntitlementResolver, HttpPaidEntitlementStateProvider
 from http_helpers import HttpError, duration_ms_since, error_response, json_response, log_internal_error, log_sync_event, read_json_body, request_id_from_headers
 from rate_limit import SlidingWindowRateLimiter
 from storage import IncomingChange, SyncStore
+
+SERVICE_INTERNAL_TOKEN_ENV = "SERVICE_INTERNAL_TOKEN"
+CLOUD_SYNC_ENTITLEMENT_URL_ENV = "CLOUD_SYNC_ENTITLEMENT_URL"
+CLOUD_SYNC_ENTITLEMENT_TIMEOUT_ENV = "CLOUD_SYNC_ENTITLEMENT_TIMEOUT_SECONDS"
 
 
 class SyncApp:
@@ -22,6 +36,8 @@ class SyncApp:
         default_pull_limit: int = DEFAULT_PULL_LIMIT,
         max_pull_limit: int = MAX_PULL_LIMIT,
         rate_limiter: Optional[SlidingWindowRateLimiter] = None,
+        entitlement_resolver: Optional[EntitlementResolver] = None,
+        app_env: Optional[str] = None,
     ):
         self.store = store
         self.authenticator = authenticator
@@ -29,6 +45,10 @@ class SyncApp:
         self.default_pull_limit = default_pull_limit
         self.max_pull_limit = max_pull_limit
         self.rate_limiter = rate_limiter or SlidingWindowRateLimiter()
+        self.entitlement_resolver = entitlement_resolver or EntitlementResolver(
+            default_paid_state=PaidEntitlementState.ACTIVE,
+        )
+        self.app_env = app_env or sync_app_env()
 
     @classmethod
     def from_env(cls) -> "SyncApp":
@@ -43,6 +63,8 @@ class SyncApp:
                 max_requests=config.rate_limit_max_requests,
                 window_seconds=config.rate_limit_window_seconds,
             ),
+            entitlement_resolver=build_sync_entitlement_resolver_from_env(),
+            app_env=sync_app_env(),
         )
 
     def authenticate(self, handler: http.server.BaseHTTPRequestHandler) -> str:
@@ -50,6 +72,28 @@ class SyncApp:
 
     def check_rate_limit(self, account_id: Optional[str]) -> None:
         self.rate_limiter.check(account_id)
+
+    def require_sync_entitlement(self, account_id: str, operation: str) -> EntitlementDecision:
+        context = EntitlementAuthContext(
+            is_dev=self.app_env in LOCAL_ENVS,
+            operation=operation,
+        )
+        try:
+            decision = self.entitlement_resolver.resolve(
+                context,
+                request_type="sync",
+                user_id=account_id,
+                env=self.app_env,
+            )
+        except EntitlementSourceUnavailable as exc:
+            raise HttpError(
+                503,
+                "sync_entitlement_unavailable",
+                "Sync entitlement verification is currently unavailable.",
+            ) from exc
+        if not decision.allow:
+            raise sync_entitlement_denied_error(decision)
+        return decision
 
     def push_changes(self, account_id: str, body: Mapping[str, Any]) -> Dict[str, Any]:
         started = time.monotonic()
@@ -250,16 +294,19 @@ class SyncRequestHandler(http.server.BaseHTTPRequestHandler):
             if method == "POST" and path == "/sync/changes":
                 body = read_json_body(self, self.app.max_request_bytes)
                 reject_batch_too_large(body)
+                self.app.require_sync_entitlement(account_id, "write")
                 self.app.check_rate_limit(account_id)
                 json_response(self, 200, self.app.push_changes(account_id, body))
                 return
             if method == "GET" and path == "/sync/changes":
+                self.app.require_sync_entitlement(account_id, "read")
                 self.app.check_rate_limit(account_id)
                 query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
                 json_response(self, 200, self.app.pull_changes(account_id, query))
                 return
             if method == "POST" and path == "/sync/devices":
                 body = read_json_body(self, self.app.max_request_bytes)
+                self.app.require_sync_entitlement(account_id, "write")
                 self.app.check_rate_limit(account_id)
                 json_response(self, 200, self.app.register_device(account_id, body))
                 return
@@ -280,3 +327,54 @@ class SyncHttpServer(http.server.ThreadingHTTPServer):
 def build_server_from_env() -> SyncHttpServer:
     config = AppConfig.from_env()
     return SyncHttpServer((config.host, config.port), SyncApp.from_env())
+
+
+def sync_entitlement_denied_error(decision: EntitlementDecision) -> HttpError:
+    if decision.reason == "paid_grace_read_only":
+        return HttpError(
+            403,
+            "sync_read_only",
+            "Sync access is read-only during grace period.",
+        )
+    return HttpError(
+        403,
+        "sync_entitlement_required",
+        "Cloud sync requires an active subscription.",
+    )
+
+
+def build_sync_entitlement_resolver_from_env() -> EntitlementResolver:
+    app_env = sync_app_env()
+    url = os.environ.get(CLOUD_SYNC_ENTITLEMENT_URL_ENV, "").strip()
+    if not url:
+        if app_env in LOCAL_ENVS:
+            return EntitlementResolver(default_paid_state=PaidEntitlementState.ACTIVE)
+        return EntitlementResolver()
+    provider = HttpPaidEntitlementStateProvider(
+        url,
+        service_internal_token=os.environ.get(SERVICE_INTERNAL_TOKEN_ENV, "").strip(),
+        required_plans={"sync": "paid"},
+        timeout_seconds=_env_int(CLOUD_SYNC_ENTITLEMENT_TIMEOUT_ENV, 5),
+    )
+    return EntitlementResolver(paid_state_provider=provider)
+
+
+def sync_app_env() -> str:
+    return (
+        os.environ.get("APP_ENV", "").strip()
+        or os.environ.get("FLEET_APP_ENV", "").strip()
+        or "production"
+    ).lower()
+
+
+def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}")
+    return value

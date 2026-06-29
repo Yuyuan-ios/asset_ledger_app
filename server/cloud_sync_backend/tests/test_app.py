@@ -12,8 +12,10 @@ from unittest import mock
 from app import (
     AppConfig,
     Authenticator,
+    EntitlementResolver,
     HttpError,
     MAX_BATCH_CHANGES,
+    PaidEntitlementState,
     SlidingWindowRateLimiter,
     SyncApp,
     SyncStore,
@@ -279,6 +281,109 @@ class SyncBackendTestCase(unittest.TestCase):
         status, body = self.request("GET", "/sync/changes?since=0", token="unknown-token")
         self.assertEqual(status, 401)
         self.assertEqual(body["error"]["code"], "unauthorized")
+
+    def test_dev_mode_bypasses_sync_entitlement_for_all_routes(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(dev_tokens={"token-a": "account-a"}),
+            entitlement_resolver=EntitlementResolver(
+                default_paid_state=PaidEntitlementState.NONE,
+            ),
+            app_env="dev",
+        )
+
+        pull_status, pull_body = self.request("GET", "/sync/changes?since=0", token="token-a")
+        push_status, push_body = self.request(
+            "POST",
+            "/sync/changes",
+            token="token-a",
+            body={"changes": [make_change()]},
+        )
+        device_status, device_body = self.request(
+            "POST",
+            "/sync/devices",
+            token="token-a",
+            body={"device_id": "device-dev", "name": "Dev Device"},
+        )
+
+        self.assertEqual(pull_status, 200)
+        self.assertEqual(pull_body["changes"], [])
+        self.assertEqual(push_status, 200)
+        self.assertEqual(push_body["accepted"][0]["server_seq"], 1)
+        self.assertEqual(device_status, 200)
+        self.assertEqual(device_body["device_id"], "device-dev")
+
+    def test_paid_none_denies_sync_changes_and_devices(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(dev_tokens={"token-a": "account-a"}),
+            entitlement_resolver=EntitlementResolver(
+                default_paid_state=PaidEntitlementState.NONE,
+            ),
+            app_env="production",
+        )
+
+        cases = [
+            ("GET", "/sync/changes?since=0", None),
+            ("POST", "/sync/changes", {"changes": [make_change()]}),
+            ("POST", "/sync/devices", {"device_id": "device-none", "name": "None"}),
+        ]
+        for method, path, body in cases:
+            with self.subTest(method=method, path=path):
+                status, response = self.request(method, path, token="token-a", body=body)
+                self.assertEqual(status, 403)
+                self.assertEqual(response["error"]["code"], "sync_entitlement_required")
+
+    def test_paid_grace_sync_is_read_only(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(dev_tokens={"token-a": "account-a"}),
+            entitlement_resolver=EntitlementResolver(
+                default_paid_state=PaidEntitlementState.GRACE,
+            ),
+            app_env="production",
+        )
+
+        pull_status, pull_body = self.request("GET", "/sync/changes?since=0", token="token-a")
+        push_status, push_body = self.request(
+            "POST",
+            "/sync/changes",
+            token="token-a",
+            body={"changes": [make_change()]},
+        )
+        device_status, device_body = self.request(
+            "POST",
+            "/sync/devices",
+            token="token-a",
+            body={"device_id": "device-grace", "name": "Grace"},
+        )
+
+        self.assertEqual(pull_status, 200)
+        self.assertEqual(pull_body["changes"], [])
+        self.assertEqual(push_status, 403)
+        self.assertEqual(push_body["error"]["code"], "sync_read_only")
+        self.assertEqual(device_status, 403)
+        self.assertEqual(device_body["error"]["code"], "sync_read_only")
+
+    def test_paid_active_allows_sync_access(self):
+        self.app = SyncApp(
+            store=self.store,
+            authenticator=Authenticator(dev_tokens={"token-a": "account-a"}),
+            entitlement_resolver=EntitlementResolver(
+                default_paid_state=PaidEntitlementState.ACTIVE,
+            ),
+            app_env="production",
+        )
+
+        status, body = self.request(
+            "POST",
+            "/sync/changes",
+            token="token-a",
+            body={"changes": [make_change()]},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["accepted"][0]["server_seq"], 1)
 
     def test_rate_limiter_returns_429_after_authenticated_user_exceeds_limit(self):
         self.app = SyncApp(
