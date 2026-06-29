@@ -36,6 +36,8 @@ import '../../../l10n/gen/app_localizations.dart';
 
 import '../../../features/device/state/device_store.dart';
 import '../../../features/maintenance/state/maintenance_store.dart';
+import '../../account/state/account_store.dart';
+import '../../account/state/project_rate_store.dart';
 import '../../timing/state/timing_store.dart';
 import '../../../patterns/device/device_picker_items_builder.dart';
 import '../../device/application/device_editor_initial_device_resolver.dart';
@@ -71,7 +73,16 @@ class _MaintenancePageState extends State<MaintenancePage> {
   Future<void> _retryLoad() async {
     final store = context.read<MaintenanceStore>();
     final deviceStore = context.read<DeviceStore>();
-    await Future.wait([store.loadAll(), deviceStore.loadAll()]);
+    final timingStore = context.read<TimingStore>();
+    final rateStore = context.read<ProjectRateStore>();
+    final accountStore = context.read<AccountStore>();
+    await Future.wait([
+      store.loadAll(),
+      deviceStore.loadAll(),
+      timingStore.loadAll(),
+      rateStore.loadAll(),
+      accountStore.loadAll(),
+    ]);
   }
 
   // =====================================================================
@@ -260,31 +271,35 @@ class _MaintenancePageState extends State<MaintenancePage> {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: markerColor,
-                      borderRadius: BorderRadius.circular(
-                        RadiusTokens.decoration,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      deviceSummary.deviceName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: nameStyle,
-                    ),
-                  ),
-                ],
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: markerColor,
+                borderRadius: BorderRadius.circular(RadiusTokens.decoration),
               ),
             ),
+            const SizedBox(width: 6),
+            Flexible(
+              fit: FlexFit.loose,
+              child: Text(
+                deviceSummary.deviceName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: nameStyle,
+              ),
+            ),
+            if (deviceSummary.maintenanceRateText != null) ...[
+              const SizedBox(width: SummaryCardTokens.rowRateGap),
+              Text(
+                deviceSummary.maintenanceRateText!,
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                style: nameStyle,
+              ),
+            ],
+            const Spacer(),
             Text(FormatUtils.money(deviceSummary.amount), style: valueStyle),
           ],
         ),
@@ -377,10 +392,32 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final l10n = AppLocalizations.of(context);
     final store = context.watch<MaintenanceStore>();
     final deviceStore = context.watch<DeviceStore>();
+    final timingStore = context.watch<TimingStore>();
+    final rateStore = context.watch<ProjectRateStore>();
+    final accountStore = context.watch<AccountStore>();
+    final now = DateTime.now();
+    final nowYmd = FormatUtils.ymdFromDate(now);
+    final deviceReceivableFenByDevice = _deviceReceivableFenByDevice(
+      timingStore: timingStore,
+      deviceStore: deviceStore,
+      rateStore: rateStore,
+      accountStore: accountStore,
+      summaryYear: now.year,
+    );
+    final receivableError = firstStoreActionFailure([
+      timingStore,
+      rateStore,
+      accountStore,
+    ], action: StoreActionKind.read);
     final viewData = buildMaintenancePageViewData(
       maintenanceStore: store,
       deviceStore: deviceStore,
       inactiveDeviceIndexLabel: l10n.deviceInactiveIndexLabel,
+      deviceReceivableFenByDevice: deviceReceivableFenByDevice,
+      receivableLoading:
+          timingStore.loading || rateStore.loading || accountStore.loading,
+      receivableError: receivableError,
+      nowYmd: nowYmd,
     );
 
     final recordsContent = MaintenanceRecordsContent(
@@ -407,5 +444,25 @@ class _MaintenancePageState extends State<MaintenancePage> {
           : localizeStoreActionFeedback(l10n, viewData.error!),
       onRetry: _retryLoad,
     );
+  }
+
+  Map<int, int> _deviceReceivableFenByDevice({
+    required TimingStore timingStore,
+    required DeviceStore deviceStore,
+    required ProjectRateStore rateStore,
+    required AccountStore accountStore,
+    required int summaryYear,
+  }) {
+    final computed = accountStore.compute(
+      timingRecords: timingStore.records,
+      devices: deviceStore.allDevices,
+      rates: rateStore.rates,
+      payments: const [],
+      summaryYear: summaryYear,
+    );
+    return {
+      for (final item in computed.deviceReceivables)
+        item.deviceId: item.amountFen ?? (item.amount * 100).round(),
+    };
   }
 }

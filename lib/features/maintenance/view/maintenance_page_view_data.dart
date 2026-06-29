@@ -10,11 +10,13 @@ class MaintenanceDeviceSummaryVM {
     required this.deviceId,
     required this.deviceName,
     required this.amount,
+    required this.maintenanceRateText,
   });
 
   final int deviceId;
   final String deviceName;
   final double amount;
+  final String? maintenanceRateText;
 }
 
 class MaintenanceSummaryViewData {
@@ -69,15 +71,24 @@ MaintenancePageViewData buildMaintenancePageViewData({
   required MaintenanceStore maintenanceStore,
   required DeviceStore deviceStore,
   required String inactiveDeviceIndexLabel,
+  Map<int, int> deviceReceivableFenByDevice = const {},
+  bool receivableLoading = false,
+  StoreActionFeedback? receivableError,
+  int? nowYmd,
 }) {
-  final loading = maintenanceStore.loading || deviceStore.loading;
-  final error = firstStoreActionFailure([
-    maintenanceStore,
-    deviceStore,
-  ], action: StoreActionKind.read);
+  final loading =
+      maintenanceStore.loading || deviceStore.loading || receivableLoading;
+  final error =
+      firstStoreActionFailure([
+        maintenanceStore,
+        deviceStore,
+      ], action: StoreActionKind.read) ??
+      receivableError;
 
-  final nowYmd = FormatUtils.ymdFromDate(DateTime.now());
-  final summaryMap = maintenanceStore.currentYearSummary(nowYmd: nowYmd);
+  final resolvedNowYmd = nowYmd ?? FormatUtils.ymdFromDate(DateTime.now());
+  final summaryMap = maintenanceStore.currentYearSummary(
+    nowYmd: resolvedNowYmd,
+  );
 
   final publicTotal = summaryMap[null] ?? 0.0;
   final deviceIds = summaryMap.keys.whereType<int>().toList()..sort();
@@ -92,6 +103,10 @@ MaintenancePageViewData buildMaintenancePageViewData({
             missingFallback: '设备$id（已停用/不存在）',
           ),
           amount: summaryMap[id] ?? 0.0,
+          maintenanceRateText: maintenanceRateText(
+            maintenanceAmount: summaryMap[id] ?? 0.0,
+            receivableFen: deviceReceivableFenByDevice[id],
+          ),
         ),
       )
       .toList();
@@ -137,6 +152,17 @@ MaintenancePageViewData buildMaintenancePageViewData({
     summary: summary,
     rows: rows,
   );
+}
+
+String? maintenanceRateText({
+  required double maintenanceAmount,
+  required int? receivableFen,
+}) {
+  final maintenanceFen = (maintenanceAmount * 100).round();
+  if (maintenanceFen <= 0 || receivableFen == null || receivableFen <= 0) {
+    return null;
+  }
+  return FormatUtils.percent1(maintenanceFen / receivableFen);
 }
 
 String _deviceDisplayName({

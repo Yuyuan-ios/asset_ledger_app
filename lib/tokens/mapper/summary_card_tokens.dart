@@ -50,6 +50,7 @@ class SummaryCardTokens {
   static const double rowLeftInset = 16; // 内容行左侧内边距
   static const double rowBottomGap = 8; // 内容行间距
   static const double rowLabelFontSize = 14; // 内容行左侧标签字号
+  static const double rowRateGap = 48; // 内容行标签与中间费率间距
   static const double rowValueFontSize = 13; // 内容行右侧数值字号
   static const double totalLabelFontSize = 15; // 合计/年度总计标签字号
   static const double totalValueFontSize = 14; // 合计/年度总计数值字号
