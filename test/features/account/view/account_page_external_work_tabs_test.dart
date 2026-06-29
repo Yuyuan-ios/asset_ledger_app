@@ -117,6 +117,17 @@ void main() {
       expect(find.text('项目(1)'), findsOneWidget);
       expect(find.text('李杰 · 新村').hitTestable(), findsOneWidget);
       expect(find.text('外协项目').hitTestable(), findsNothing);
+
+      await tester.drag(find.byType(TabBarView), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('王强 · 已关联工地').hitTestable());
+      await tester.pumpAndSettle();
+
+      expect(find.text('外协详情'), findsOneWidget);
+      expect(
+        find.byKey(const Key('external-detail-linked-local-project')),
+        findsOneWidget,
+      );
     },
   );
 

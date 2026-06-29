@@ -66,6 +66,26 @@ void main() {
     expect(find.text('待计算'), findsNothing);
   });
 
+  testWidgets('linked project shows linked badge after title', (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        home: _sheetHost(
+          ExternalWorkDetailSheet(
+            project: _vm(customerUnitPriceFen: 25000, linked: true),
+            onEditCustomerRate: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('余远 · 五里山'), findsOneWidget);
+    expect(
+      find.byKey(const Key('external-detail-linked-local-project')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('已关联外协记录'), findsOneWidget);
+  });
+
   testWidgets('edit button fires onEditCustomerRate', (tester) async {
     var tapped = 0;
     await tester.pumpWidget(
@@ -158,7 +178,10 @@ void main() {
   });
 }
 
-AccountExternalWorkProjectVM _vm({required int? customerUnitPriceFen}) {
+AccountExternalWorkProjectVM _vm({
+  required int? customerUnitPriceFen,
+  bool linked = false,
+}) {
   final receivableFen = customerUnitPriceFen == null ? 180000 : 250000;
   final profitFen = receivableFen - 180000;
   return AccountExternalWorkProjectVM(
@@ -175,6 +198,8 @@ AccountExternalWorkProjectVM _vm({required int? customerUnitPriceFen}) {
     totalHoursMilli: 10000,
     customerUnitPriceFen: customerUnitPriceFen,
     sourceUnitPriceText: '¥180/h',
+    linked: linked,
+    linkedProjectId: linked ? 'project:linked' : null,
   );
 }
 

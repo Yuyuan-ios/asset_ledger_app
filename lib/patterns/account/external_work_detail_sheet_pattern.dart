@@ -4,6 +4,7 @@ import '../../core/foundation/spacing.dart';
 import '../../core/foundation/typography.dart';
 import '../../core/money/amount_policy.dart';
 import '../../core/utils/format_utils.dart';
+import '../../components/avatars/linked_external_work_badge.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
 import 'account_rate_input_dialog_pattern.dart';
@@ -136,11 +137,24 @@ class ExternalWorkDetailSheet extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      project.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: titleStyle,
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            project.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle,
+                          ),
+                        ),
+                        if (project.linked) ...[
+                          const SizedBox(width: 6),
+                          const LinkedExternalWorkBadge(
+                            key: Key('external-detail-linked-local-project'),
+                            borderColor: SheetColors.background,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(width: AppSpace.sm),
