@@ -125,6 +125,10 @@ void main() {
       expect(vm.yearGroups, hasLength(1));
       final sourceGroups = vm.yearGroups.single.sourceGroups;
       expect(sourceGroups, hasLength(2));
+      expect(sourceGroups.map((group) => group.sourceName).toList(), [
+        '余远',
+        '张三',
+      ]);
     });
 
     test('aggregateKeys / topLevelCount 与分组一致', () {

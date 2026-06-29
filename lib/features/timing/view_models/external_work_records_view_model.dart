@@ -54,8 +54,12 @@ class ExternalWorkYearGroupVm {
 }
 
 class ExternalWorkSourceGroupVm {
-  const ExternalWorkSourceGroupVm({required this.packages});
+  const ExternalWorkSourceGroupVm({
+    required this.sourceName,
+    required this.packages,
+  });
 
+  final String sourceName;
   final List<ExternalWorkPackageVm> packages;
 }
 
@@ -254,6 +258,7 @@ class ExternalWorkRecordsViewModelBuilder {
     return [
       for (final entry in grouped.entries)
         ExternalWorkSourceGroupVm(
+          sourceName: entry.value.first.displayName,
           packages: [for (final group in entry.value) group.toVm(text)],
         ),
     ];

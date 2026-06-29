@@ -39,9 +39,6 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
 
   return <Widget>[
     for (final yearGroup in vm.yearGroups) ...[
-      SliverToBoxAdapter(
-        child: _ExternalWorkYearHeader(label: text.yearLabel(yearGroup.year)),
-      ),
       for (
         var sourceIndex = 0;
         sourceIndex < yearGroup.sourceGroups.length;
@@ -49,6 +46,13 @@ List<Widget> buildTimingExternalWorkRecordSlivers({
       ) ...[
         if (sourceIndex > 0)
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _ExternalWorkYearHeaderDelegate(
+            yearLabel: text.yearLabel(yearGroup.year),
+            sourceName: yearGroup.sourceGroups[sourceIndex].sourceName,
+          ),
+        ),
         SliverToBoxAdapter(
           child: _ExternalWorkRecordGroupCard(
             rows: [
@@ -204,6 +208,13 @@ const double _externalWorkInnerDividerLeftInset =
     TimingTokens.recordRowPaddingLeft +
     TimingTokens.recordAvatarSize +
     TimingTokens.recordAvatarRightGap;
+const double _externalWorkYearHeaderExtent =
+    (TimingTokens.dateHeaderFontSize * TimingTokens.dateHeaderLineHeight) +
+    TimingTokens.recordDividerThickness +
+    TimingTokens.recordDividerThickness;
+const double _externalWorkYearHeaderPinnedProbeExtent = 0.01;
+const double _externalWorkYearHeaderDividerHorizontalInset = 12;
+const Color _externalWorkYearHeaderDividerColor = Color(0x66D9D9D9);
 const Color _externalWorkAvatarColor = Color(0xFFE9F0EB);
 const Color _externalWorkAvatarTextColor = Color(0xFF3F8059);
 
@@ -245,22 +256,96 @@ class _ExternalWorkInnerDivider extends StatelessWidget {
 }
 
 class _ExternalWorkYearHeader extends StatelessWidget {
-  const _ExternalWorkYearHeader({required this.label});
+  const _ExternalWorkYearHeader({
+    required this.yearLabel,
+    required this.sourceName,
+    required this.showSourceName,
+  });
 
-  final String label;
+  final String yearLabel;
+  final String sourceName;
+  final bool showSourceName;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: TimingTokens.dateHeaderLeftInset),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          fontSize: TimingTokens.dateHeaderFontSize,
-          color: AppColors.textPrimary,
-          height: TimingTokens.dateHeaderLineHeight,
-        ),
+    final normalizedSourceName = sourceName.trim();
+    final label = showSourceName && normalizedSourceName.isNotEmpty
+        ? '$yearLabel · $normalizedSourceName'
+        : yearLabel;
+    return ColoredBox(
+      color: AppColors.scaffoldBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: TimingTokens.dateHeaderLeftInset,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: TimingTokens.dateHeaderFontSize,
+                color: AppColors.textPrimary,
+                height: TimingTokens.dateHeaderLineHeight,
+              ),
+            ),
+          ),
+          const _ExternalWorkYearHeaderDivider(),
+        ],
       ),
+    );
+  }
+}
+
+class _ExternalWorkYearHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _ExternalWorkYearHeaderDelegate({
+    required this.yearLabel,
+    required this.sourceName,
+  });
+
+  final String yearLabel;
+  final String sourceName;
+
+  @override
+  double get minExtent => _externalWorkYearHeaderExtent;
+
+  @override
+  double get maxExtent =>
+      _externalWorkYearHeaderExtent + _externalWorkYearHeaderPinnedProbeExtent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return _ExternalWorkYearHeader(
+      yearLabel: yearLabel,
+      sourceName: sourceName,
+      showSourceName: shrinkOffset > 0 || overlapsContent,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _ExternalWorkYearHeaderDelegate oldDelegate) {
+    return yearLabel != oldDelegate.yearLabel ||
+        sourceName != oldDelegate.sourceName;
+  }
+}
+
+class _ExternalWorkYearHeaderDivider extends StatelessWidget {
+  const _ExternalWorkYearHeaderDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(
+      indent: _externalWorkYearHeaderDividerHorizontalInset,
+      endIndent: _externalWorkYearHeaderDividerHorizontalInset,
+      height: TimingTokens.recordDividerThickness,
+      thickness: TimingTokens.recordDividerThickness,
+      color: _externalWorkYearHeaderDividerColor,
     );
   }
 }

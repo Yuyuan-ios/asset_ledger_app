@@ -257,7 +257,8 @@ void main() {
           widget.runtimeType.toString() == '_ExternalWorkRecordGroupCard',
     );
 
-    expect(find.text('2026年'), findsOneWidget);
+    expect(find.text('2026年'), findsNWidgets(2));
+    expect(find.textContaining('2026年 ·'), findsNothing);
     expect(
       timingExternalWorkTopLevelCount([yuPackageA, zhangPackage, yuPackageB]),
       3,
@@ -470,6 +471,51 @@ void main() {
 
     expect(find.text('2026年'), findsOneWidget);
     expect(find.text('2027年'), findsNothing);
+  });
+
+  testWidgets('year header is pinned and uses recent-record divider style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host([
+        ...buildTimingExternalWorkRecordSlivers(
+          l10n: _zh,
+          items: [
+            _item(
+              batch: _batch(sourceDisplayName: '张俊'),
+              record: _record(collaboratorName: '张俊'),
+            ),
+          ],
+          expandedAggregateKeys: const {},
+          onToggleAggregate: (_) {},
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+      ]),
+    );
+
+    final header = tester.widget<SliverPersistentHeader>(
+      find.byType(SliverPersistentHeader),
+    );
+    expect(header.pinned, isTrue);
+    expect(find.text('2026年'), findsOneWidget);
+    expect(find.text('2026年 · 张俊'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Divider &&
+            widget.indent == 12 &&
+            widget.endIndent == 12 &&
+            widget.color == const Color(0x66D9D9D9),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -240));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026年'), findsNothing);
+    expect(find.text('2026年 · 张俊'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('2026年 · 张俊')).dy, 0);
   });
 
   testWidgets('linked package avatar adds a link badge only when linked', (

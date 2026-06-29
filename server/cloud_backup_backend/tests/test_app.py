@@ -27,6 +27,7 @@ from app import (
     PaidEntitlementState,
     SecurityViolation,
     SlidingWindowRateLimiter,
+    FailClosedCloudBackupEntitlementVerifier,
     StaticMaxUserEntitlementVerifier,
     StorageError,
     base64url_encode,
@@ -487,10 +488,14 @@ class BackendTestCase(unittest.TestCase):
             with self.assertRaises(ValueError):
                 AppConfig.from_env()
 
-    def test_production_entitlement_config_requires_url(self):
+    def test_production_entitlement_config_missing_uses_fail_closed_default(self):
         with _patched_env(clear=True, APP_ENV="production"):
-            with self.assertRaisesRegex(ValueError, "CLOUD_BACKUP_ENTITLEMENT_URL"):
-                build_cloud_backup_entitlement_verifier_from_env()
+            verifier = build_cloud_backup_entitlement_verifier_from_env()
+
+        self.assertIsInstance(verifier, FailClosedCloudBackupEntitlementVerifier)
+        with self.assertRaises(HttpError) as error:
+            verifier.require_max("user-max")
+        self.assertEqual(error.exception.status, 403)
 
     def test_production_entitlement_config_requires_token(self):
         with _patched_env(
@@ -503,8 +508,9 @@ class BackendTestCase(unittest.TestCase):
 
     def test_unset_app_env_defaults_to_production_entitlement_config(self):
         with _patched_env(clear=True):
-            with self.assertRaisesRegex(ValueError, "CLOUD_BACKUP_ENTITLEMENT_URL"):
-                build_cloud_backup_entitlement_verifier_from_env()
+            verifier = build_cloud_backup_entitlement_verifier_from_env()
+
+        self.assertIsInstance(verifier, FailClosedCloudBackupEntitlementVerifier)
 
     def test_production_rejects_static_entitlement_allowlist(self):
         with _patched_env(

@@ -229,16 +229,12 @@ def build_cloud_backup_entitlement_verifier_from_env() -> CloudBackupEntitlement
                 f"{CLOUD_BACKUP_MAX_ENTITLED_USERS_ENV} is not allowed when "
                 "APP_ENV is production, prod, or staging"
             )
+        if not url and not service_internal_token:
+            return FailClosedCloudBackupEntitlementVerifier()
         if not url:
-            raise ValueError(
-                f"{CLOUD_BACKUP_ENTITLEMENT_URL_ENV} is required when APP_ENV "
-                "is production, prod, staging, or unset"
-            )
+            raise ValueError(f"{CLOUD_BACKUP_ENTITLEMENT_URL_ENV} is required")
         if not service_internal_token:
-            raise ValueError(
-                f"{SERVICE_INTERNAL_TOKEN_ENV} is required when APP_ENV "
-                "is production, prod, staging, or unset"
-            )
+            raise ValueError(f"{SERVICE_INTERNAL_TOKEN_ENV} is required")
 
     if url:
         if not service_internal_token:
