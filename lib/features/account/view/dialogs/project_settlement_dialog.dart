@@ -7,8 +7,8 @@ import '../../domain/services/project_finance_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/use_cases/project_settlement_use_case.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/account/account_dialog_shell_pattern.dart';
 import '../../../../patterns/layout/sheet_text_field_pattern.dart';
-import '../../../../tokens/mapper/account_tokens.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
 
 class ProjectSettlementDialogInput {
@@ -117,12 +117,6 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final titleStyle = AppTypography.sectionTitle(
-      context,
-      fontSize: AccountTokens.projectDetailSectionTitleSize,
-      fontWeight: FontWeight.w700,
-      color: AppColors.textPrimary,
-    );
     final labelStyle = AppTypography.body(
       context,
       fontWeight: FontWeight.w500,
@@ -138,67 +132,54 @@ class _ProjectSettlementDialogState extends State<ProjectSettlementDialog> {
       color: Colors.grey.shade700,
     );
 
-    return AlertDialog(
-      title: Text(l10n.accountSettlementDialogTitle, style: titleStyle),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.accountWriteOffAmountLabel,
-                    style: labelStyle,
-                  ),
-                ),
-                Text(FormatUtils.money(_remaining), style: valueStyle),
-              ],
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            SheetTextFieldPattern(
-              controller: _reasonController,
-              enabled: !_saving,
-              labelText: l10n.accountWriteOffReasonLabel,
-              maxLines: 2,
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            Text(l10n.accountSettlementHelper, style: helperStyle),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _errorMessage!,
-                style: AppTypography.caption(
-                  context,
-                  color: Colors.red.shade700,
-                  fontWeight: FontWeight.w600,
-                ),
+    return AccountDialogShell(
+      title: l10n.accountSettlementDialogTitle,
+      cancelText: l10n.accountCancelAction,
+      confirmText: l10n.accountConfirmSettlementAction,
+      onCancel: _saving ? null : () => Navigator.of(context).pop(),
+      onConfirm: _saving ? null : _save,
+      confirmChild: _saving
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      scrollable: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(l10n.accountWriteOffAmountLabel, style: labelStyle),
               ),
+              Text(FormatUtils.money(_remaining), style: valueStyle),
             ],
-          ],
-        ),
-      ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
           ),
-          child: Text(l10n.accountCancelAction),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(l10n.accountConfirmSettlementAction),
-        ),
-      ],
+          const SizedBox(height: SpaceTokens.sectionGap),
+          SheetTextFieldPattern(
+            controller: _reasonController,
+            enabled: !_saving,
+            labelText: l10n.accountWriteOffReasonLabel,
+            maxLines: 2,
+          ),
+          const SizedBox(height: SpaceTokens.sectionGap),
+          Text(l10n.accountSettlementHelper, style: helperStyle),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _errorMessage!,
+              style: AppTypography.caption(
+                context,
+                color: Colors.red.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

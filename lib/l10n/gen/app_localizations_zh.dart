@@ -839,6 +839,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountExternalCustomerRateInputHint => '应收单价（元）';
 
   @override
+  String get accountExternalCustomerRateHelper =>
+      '提示：该应收单价仅用于计算外协项目的应收项目款和毛利，不影响应付项目款。';
+
+  @override
   String get accountExternalCustomerRateInvalid => '请输入有效金额';
 
   @override

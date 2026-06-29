@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/account/account_dialog_shell_pattern.dart';
 import '../../model/account_view_model.dart';
 import '../../model/project_title_formatter.dart';
 
@@ -32,9 +33,15 @@ class _DissolveMergeConfirmDialogState
       return ProjectTitleFormatter.fromProjectKey(key);
     }).toList();
 
-    return AlertDialog(
-      title: Text(l10n.accountDissolveConfirmTitle),
-      content: Column(
+    return AccountDialogShell(
+      title: l10n.accountDissolveConfirmTitle,
+      cancelText: l10n.accountCancelAction,
+      confirmText: _submitting
+          ? l10n.accountDissolvingAction
+          : l10n.accountDissolveMergeAction,
+      onCancel: _submitting ? null : () => Navigator.of(context).pop(false),
+      onConfirm: _submitting ? null : _confirm,
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -45,23 +52,6 @@ class _DissolveMergeConfirmDialogState
           Text(l10n.accountDissolveHelp),
         ],
       ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        TextButton(
-          onPressed: _submitting
-              ? null
-              : () => Navigator.of(context).pop(false),
-          child: Text(l10n.accountCancelAction),
-        ),
-        FilledButton(
-          onPressed: _submitting ? null : _confirm,
-          child: Text(
-            _submitting
-                ? l10n.accountDissolvingAction
-                : l10n.accountDissolveMergeAction,
-          ),
-        ),
-      ],
     );
   }
 

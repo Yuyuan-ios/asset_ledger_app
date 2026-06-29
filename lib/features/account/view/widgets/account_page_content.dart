@@ -30,7 +30,11 @@ class AccountPageContent extends StatelessWidget {
   final bool isCompactProjectList;
   final TabController projectAreaTabController;
   final VoidCallback onRetryLoad;
-  final Widget Function(AccountPageViewData viewData) projectAreaHeaderBuilder;
+  final Widget Function(
+    AccountPageViewData viewData, {
+    required bool isExternalWork,
+  })
+  projectAreaHeaderBuilder;
   final ValueChanged<AccountProjectVM> onOpenProjectDetail;
   final Future<void> Function(AccountProjectVM project)
   onExportProjectTimingWorklog;
@@ -114,19 +118,6 @@ class AccountPageContent extends StatelessWidget {
                               height: AccountTokens.projectTitleTopGap,
                             ),
                           ),
-                          SliverOverlapAbsorber(
-                            handle:
-                                NestedScrollView.sliverOverlapAbsorberHandleFor(
-                                  context,
-                                ),
-                            sliver: SliverPersistentHeader(
-                              pinned: true,
-                              delegate: PinnedHeaderDelegate(
-                                height: AccountTokens.projectPinnedHeaderHeight,
-                                child: projectAreaHeaderBuilder(viewData),
-                              ),
-                            ),
-                          ),
                         ];
                       },
                       body: TabBarView(
@@ -135,6 +126,10 @@ class AccountPageContent extends StatelessWidget {
                           _AccountProjectAreaTabBody(
                             storageKey: const PageStorageKey<String>(
                               'account-owned-projects-tab',
+                            ),
+                            header: projectAreaHeaderBuilder(
+                              viewData,
+                              isExternalWork: false,
                             ),
                             bottomSpacer: bottomSpacer,
                             child: AccountProjectList(
@@ -148,6 +143,10 @@ class AccountPageContent extends StatelessWidget {
                           _AccountProjectAreaTabBody(
                             storageKey: const PageStorageKey<String>(
                               'account-external-work-projects-tab',
+                            ),
+                            header: projectAreaHeaderBuilder(
+                              viewData,
+                              isExternalWork: true,
                             ),
                             bottomSpacer: bottomSpacer,
                             child: AccountProjectList(
@@ -177,11 +176,13 @@ class AccountPageContent extends StatelessWidget {
 class _AccountProjectAreaTabBody extends StatelessWidget {
   const _AccountProjectAreaTabBody({
     required this.storageKey,
+    required this.header,
     required this.child,
     required this.bottomSpacer,
   });
 
   final Key storageKey;
+  final Widget header;
   final Widget child;
   final double bottomSpacer;
 
@@ -190,8 +191,12 @@ class _AccountProjectAreaTabBody extends StatelessWidget {
     return CustomScrollView(
       key: storageKey,
       slivers: [
-        SliverOverlapInjector(
-          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: PinnedHeaderDelegate(
+            height: AccountTokens.projectPinnedHeaderHeight,
+            child: header,
+          ),
         ),
         SliverToBoxAdapter(child: child),
         SliverToBoxAdapter(

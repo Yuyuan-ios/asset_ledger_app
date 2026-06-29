@@ -204,10 +204,20 @@ void main() {
       text: '¥200',
       rowCenterY: rateCenterY,
     );
+    final totalCenterY = tester.getCenter(find.text('合计')).dy;
+    final totalAmountFinder = _textOnSameRow(
+      tester: tester,
+      text: '¥200',
+      rowCenterY: totalCenterY,
+    );
     final deviceText = tester.widget<Text>(summaryDeviceFinder);
 
     expect(rateText.style?.fontSize, deviceText.style?.fontSize);
     expect(rateText.style?.fontWeight, deviceText.style?.fontWeight);
+    expect(
+      tester.getTopRight(summaryAmountFinder).dx,
+      closeTo(tester.getTopRight(totalAmountFinder).dx, 1),
+    );
     expect(
       tester.getTopLeft(rateFinder).dx,
       greaterThan(

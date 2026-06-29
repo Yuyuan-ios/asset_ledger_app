@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/account/account_dialog_shell_pattern.dart';
 import '../../../../patterns/layout/sheet_text_field_pattern.dart';
 
 class ProjectDetailShareButton extends StatelessWidget {
@@ -77,9 +78,13 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      title: Text(l10n.accountShareProjectTitle),
-      content: Column(
+    return AccountDialogShell(
+      title: l10n.accountShareProjectTitle,
+      cancelText: l10n.accountCancelAction,
+      confirmText: l10n.accountGenerateSharePackageAction,
+      onCancel: () => Navigator.of(context).pop(),
+      onConfirm: _submit,
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -102,17 +107,6 @@ class _ProjectShareNameDialogState extends State<_ProjectShareNameDialog> {
           ),
         ],
       ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.accountCancelAction),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(l10n.accountGenerateSharePackageAction),
-        ),
-      ],
     );
   }
 }

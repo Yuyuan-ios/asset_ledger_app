@@ -1198,6 +1198,10 @@
   "@accountExternalCustomerRateInputHint": {
     "description": "账户模块:外协应收单价输入框占位"
   },
+  "accountExternalCustomerRateHelper": "提示：该应收单价仅用于计算外协项目的应收项目款和毛利，不影响应付项目款。",
+  "@accountExternalCustomerRateHelper": {
+    "description": "账户模块:外协应收单价编辑说明"
+  },
   "accountExternalCustomerRateInvalid": "请输入有效金额",
   "@accountExternalCustomerRateInvalid": {
     "description": "账户模块:外协应收单价输入校验错误"

@@ -272,6 +272,7 @@
   "accountExternalPaymentsEmpty": "Payment records coming soon",
   "accountExternalCustomerRateEditTitle": "Set receivable rate",
   "accountExternalCustomerRateInputHint": "Receivable rate (yuan)",
+  "accountExternalCustomerRateHelper": "Tip: this receivable rate is only used to calculate this external work project's receivable and profit. It does not change project payable.",
   "accountExternalCustomerRateInvalid": "Enter a valid amount",
   "accountProjectDetailTitle": "Project details",
   "accountCloseTooltip": "Close",

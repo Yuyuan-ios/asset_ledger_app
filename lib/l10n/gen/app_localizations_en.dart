@@ -931,6 +931,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountExternalCustomerRateInputHint => 'Receivable rate (yuan)';
 
   @override
+  String get accountExternalCustomerRateHelper =>
+      'Tip: this receivable rate is only used to calculate this external work project\'s receivable and profit. It does not change project payable.';
+
+  @override
   String get accountExternalCustomerRateInvalid => 'Enter a valid amount';
 
   @override

@@ -21,6 +21,7 @@ import 'package:asset_ledger/features/device/state/device_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_external_work_store.dart';
 import 'package:asset_ledger/features/timing/state/timing_store.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/patterns/account/account_dialog_shell_pattern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -119,6 +120,65 @@ void main() {
     },
   );
 
+  testWidgets('project area headers slide with their tab pages', (
+    tester,
+  ) async {
+    final timingStore = TimingStore(_FakeTimingRepository());
+    final deviceStore = DeviceStore(_FakeDeviceRepository());
+    final paymentStore = AccountPaymentStore(_FakePaymentRepository());
+    final rateStore = ProjectRateStore(_FakeRateRepository());
+    final accountStore = AccountStore();
+    final externalWorkStore = TimingExternalWorkStore(
+      importRepository: _FakeExternalImportRepository(),
+      recordRepository: _FakeExternalWorkRecordRepository(),
+    );
+
+    await Future.wait([
+      timingStore.loadAll(),
+      deviceStore.loadAll(),
+      paymentStore.loadAll(),
+      rateStore.loadAll(),
+      accountStore.loadAll(),
+      externalWorkStore.loadAll(),
+    ]);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<TimingStore>.value(value: timingStore),
+          ChangeNotifierProvider<DeviceStore>.value(value: deviceStore),
+          ChangeNotifierProvider<AccountPaymentStore>.value(
+            value: paymentStore,
+          ),
+          ChangeNotifierProvider<ProjectRateStore>.value(value: rateStore),
+          ChangeNotifierProvider<AccountStore>.value(value: accountStore),
+          ChangeNotifierProvider<TimingExternalWorkStore>.value(
+            value: externalWorkStore,
+          ),
+          ChangeNotifierProvider<AccountFilterStore>(
+            create: (_) => AccountFilterStore(),
+          ),
+        ],
+        child: _localizedAccountApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tabView = find.byType(TabBarView);
+    expect(
+      find.descendant(of: tabView, matching: find.text('项目(1)')),
+      findsOneWidget,
+    );
+
+    await tester.drag(tabView, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: tabView, matching: find.text('外协项目(2)')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'external detail updates receivable and profit after editing customer rate',
     (tester) async {
@@ -190,6 +250,25 @@ void main() {
         find.byKey(const Key('external-detail-edit-customer-rate')),
       );
       await tester.pumpAndSettle();
+      final rateDialog = find.byType(AccountDialogShell);
+      expect(
+        find.descendant(of: rateDialog, matching: find.text('余远 · 鲜滩、尚义')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: rateDialog,
+          matching: find.text('提示：该应收单价仅用于计算外协项目的应收项目款和毛利，不影响应付项目款。'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: rateDialog,
+          matching: find.widgetWithText(FilledButton, '确定'),
+        ),
+        findsOneWidget,
+      );
       await tester.enterText(
         find.byKey(const Key('external-customer-rate-input')),
         '7000',

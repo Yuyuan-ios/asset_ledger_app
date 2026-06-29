@@ -41,6 +41,7 @@ import 'package:asset_ledger/features/timing/use_cases/save_timing_record_with_i
 import 'package:asset_ledger/features/timing/use_cases/timing_merge_dissolve_port.dart';
 import 'package:asset_ledger/features/timing/view/timing_page.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
+import 'package:asset_ledger/tokens/mapper/bottom_sheet_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:asset_ledger/tokens/mapper/timing_tokens.dart';
 import 'package:flutter/material.dart';
@@ -665,6 +666,29 @@ void main() {
     expect(find.text('2026.05.13'), findsNothing);
     expect(find.text('8.5 h'), findsWidgets);
     expect(find.text('2.0 h'), findsNothing);
+    expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
+    final packageStatusLabel = tester.widget<Text>(find.text('当前状态'));
+    final packageReadOnlyNotice = tester.widget<Text>(
+      find.text('这条记录来自他人分享，当前不可编辑。'),
+    );
+    expect(
+      packageReadOnlyNotice.style?.fontSize,
+      packageStatusLabel.style?.fontSize,
+    );
+    expect(
+      packageReadOnlyNotice.style?.fontWeight,
+      packageStatusLabel.style?.fontWeight,
+    );
+    final packageLinkButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '关联到本地项目'),
+    );
+    final packageConfirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确定'),
+    );
+    expect(
+      packageLinkButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
+      packageConfirmButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
+    );
   });
 
   testWidgets('external work linked state controls link icon', (
@@ -760,6 +784,10 @@ void main() {
     expect(find.text('从分享包导入'), findsOneWidget);
     expect(find.text('分享人'), findsOneWidget);
     expect(find.text('王师傅分享包'), findsOneWidget);
+    final detailLabel = tester.widget<Text>(find.text('分享人'));
+    final detailValue = tester.widget<Text>(find.text('王师傅分享包'));
+    expect(detailLabel.style?.fontSize, detailValue.style?.fontSize);
+    expect(detailLabel.style?.fontWeight, detailValue.style?.fontWeight);
     expect(find.text('分享包'), findsNothing);
     expect(find.text('东区工地'), findsOneWidget);
     expect(find.text('CAT / 320D / 挖机'), findsOneWidget);
@@ -776,6 +804,13 @@ void main() {
     expect(find.text('2026-05-13T10:00:00.000Z'), findsOneWidget);
     expect(find.text('已关联'), findsOneWidget);
     expect(find.text('这条记录来自他人分享，当前不可编辑。'), findsOneWidget);
+    final currentStatusLabel = tester.widget<Text>(find.text('当前状态'));
+    final readOnlyNotice = tester.widget<Text>(find.text('这条记录来自他人分享，当前不可编辑。'));
+    expect(readOnlyNotice.style?.fontSize, currentStatusLabel.style?.fontSize);
+    expect(
+      readOnlyNotice.style?.fontWeight,
+      currentStatusLabel.style?.fontWeight,
+    );
     expect(find.text('不应展示的联系人'), findsNothing);
     expect(find.widgetWithText(OutlinedButton, '解除关联'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '关联到本地项目'), findsNothing);
@@ -813,6 +848,10 @@ void main() {
       find.widgetWithText(OutlinedButton, '关联到本地项目'),
     );
     final linkButtonStyle = linkButton.style!;
+    expect(
+      linkButtonStyle.textStyle?.resolve(<WidgetState>{})?.fontSize,
+      BottomSheetTokens.actionTextSize,
+    );
     expect(
       linkButtonStyle.foregroundColor?.resolve(<WidgetState>{}),
       TimingColors.externalWorkLinkAction,
@@ -864,6 +903,13 @@ void main() {
         find.widgetWithText(OutlinedButton, '解除关联'),
       );
       final unlinkButtonStyle = unlinkButton.style!;
+      final confirmButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '确定'),
+      );
+      expect(
+        unlinkButtonStyle.textStyle?.resolve(<WidgetState>{})?.fontSize,
+        confirmButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
+      );
       expect(
         unlinkButtonStyle.foregroundColor?.resolve(<WidgetState>{}),
         TimingColors.externalWorkLinkAction,

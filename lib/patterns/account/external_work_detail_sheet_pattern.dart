@@ -6,8 +6,8 @@ import '../../core/money/amount_policy.dart';
 import '../../core/utils/format_utils.dart';
 import '../../features/account/model/account_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
+import 'account_rate_input_dialog_pattern.dart';
 import '../layout/record_card_surface.dart';
-import '../layout/sheet_text_field_pattern.dart';
 import '../../tokens/mapper/account_tokens.dart';
 import '../../tokens/mapper/color_tokens.dart';
 import '../../tokens/mapper/radius_tokens.dart';
@@ -533,79 +533,48 @@ class _PayableProgressBar extends StatelessWidget {
 }
 
 /// 应收单价录入对话框：输入元，提交按 [Money.fromYuan] 转分。空输入=清除。
-class ExternalCustomerRateDialog extends StatefulWidget {
-  const ExternalCustomerRateDialog({super.key, this.initialFen});
+class ExternalCustomerRateDialog extends StatelessWidget {
+  const ExternalCustomerRateDialog({
+    super.key,
+    required this.itemLabel,
+    this.initialFen,
+  });
 
+  final String itemLabel;
   final int? initialFen;
 
-  @override
-  State<ExternalCustomerRateDialog> createState() =>
-      _ExternalCustomerRateDialogState();
-}
-
-class _ExternalCustomerRateDialogState
-    extends State<ExternalCustomerRateDialog> {
-  late final TextEditingController _controller;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    final initial = widget.initialFen;
-    _controller = TextEditingController(
-      text: initial == null ? '' : (initial / 100).toString(),
-    );
+  static String _initialText(int? fen) {
+    if (fen == null) return '';
+    if (fen % 100 == 0) return (fen ~/ 100).toString();
+    return (fen / 100).toString();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final l10n = AppLocalizations.of(context);
-    final text = _controller.text.trim();
+  ExternalCustomerRateResult? _parseResult(String text) {
     if (text.isEmpty) {
-      // 空输入 = 清除客户单价。
-      Navigator.of(context).pop(const ExternalCustomerRateResult(null));
-      return;
+      return const ExternalCustomerRateResult(null);
     }
     final yuan = double.tryParse(text);
-    if (yuan == null || yuan < 0) {
-      setState(() => _error = l10n.accountExternalCustomerRateInvalid);
-      return;
-    }
-    Navigator.of(
-      context,
-    ).pop(ExternalCustomerRateResult(Money.fromYuan(yuan).fen));
+    if (yuan == null || yuan < 0) return null;
+    return ExternalCustomerRateResult(Money.fromYuan(yuan).fen);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      title: Text(l10n.accountExternalCustomerRateEditTitle),
-      content: SheetTextFieldPattern(
-        key: const Key('external-customer-rate-input'),
-        controller: _controller,
-        autofocus: true,
-        labelText: l10n.accountExternalCustomerRateInputHint,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        errorText: _error,
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.accountCancelAction),
-        ),
-        TextButton(
-          key: const Key('external-customer-rate-confirm'),
-          onPressed: _submit,
-          child: Text(l10n.accountConfirmAction),
-        ),
-      ],
+    return AccountRateInputDialog<ExternalCustomerRateResult>(
+      title: l10n.accountExternalCustomerRateEditTitle,
+      itemLabel: itemLabel,
+      initialText: _initialText(initialFen),
+      fieldLabel: l10n.accountExternalCustomerRateInputHint,
+      helperText: l10n.accountExternalCustomerRateHelper,
+      cancelText: l10n.accountCancelAction,
+      confirmText: l10n.accountConfirmAction,
+      parseResult: _parseResult,
+      invalidText: l10n.accountExternalCustomerRateInvalid,
+      inputKey: const Key('external-customer-rate-input'),
+      confirmKey: const Key('external-customer-rate-confirm'),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      autofocus: true,
     );
   }
 }

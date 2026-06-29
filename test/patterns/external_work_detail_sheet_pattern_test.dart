@@ -118,7 +118,8 @@ void main() {
                 onPressed: () async {
                   result = await showDialog<ExternalCustomerRateResult>(
                     context: context,
-                    builder: (_) => const ExternalCustomerRateDialog(),
+                    builder: (_) =>
+                        const ExternalCustomerRateDialog(itemLabel: '余远 · 五里山'),
                   );
                 },
                 child: const Text('open'),
@@ -132,6 +133,9 @@ void main() {
     // 输入 250 → 25000 分。
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    expect(find.text('余远 · 五里山'), findsOneWidget);
+    expect(find.text('提示：该应收单价仅用于计算外协项目的应收项目款和毛利，不影响应付项目款。'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '确定'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('external-customer-rate-input')),
       '250',

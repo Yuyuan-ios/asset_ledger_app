@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../components/avatars/linked_external_work_badge.dart';
 import '../../components/buttons/app_brand_outline_action_button.dart';
 import '../../components/feedback/app_records_empty_hint.dart';
+import '../../core/foundation/typography.dart';
 import '../../features/timing/state/timing_external_work_store.dart';
 import '../../features/timing/view_models/external_work_records_view_model.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../../tokens/mapper/bottom_sheet_tokens.dart';
 import '../../tokens/mapper/core_tokens.dart';
 import '../../tokens/mapper/timing_tokens.dart';
 import '../layout/record_card_surface.dart';
@@ -176,31 +178,58 @@ class ExternalWorkRecordDetailContent extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            l10n.externalWorkRecordsReadOnlyNotice,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: TimingColors.textSecondary,
-              height: 1.35,
-            ),
+          _ExternalWorkReadOnlyNotice(
+            text: l10n.externalWorkRecordsReadOnlyNotice,
           ),
           if (linkAction != null) ...[
             const SizedBox(height: 14),
-            SizedBox(
-              height: 44,
-              child: OutlinedButton(
-                onPressed: linkAction,
-                style: appBrandOutlineActionButtonStyle(
-                  borderColor: TimingColors.externalWorkLinkActionBorder,
-                ),
-                child: Text(
-                  vm.isLinked
-                      ? l10n.timingExternalWorkUnlinkAction
-                      : l10n.externalWorkRecordsLinkAction,
-                ),
-              ),
+            _ExternalWorkDetailActionButton(
+              onPressed: linkAction,
+              label: vm.isLinked
+                  ? l10n.timingExternalWorkUnlinkAction
+                  : l10n.externalWorkRecordsLinkAction,
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ExternalWorkReadOnlyNotice extends StatelessWidget {
+  const _ExternalWorkReadOnlyNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ExternalWorkDetailText(text, color: TimingColors.textSecondary);
+  }
+}
+
+class _ExternalWorkDetailActionButton extends StatelessWidget {
+  const _ExternalWorkDetailActionButton({
+    required this.onPressed,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: appBrandOutlineActionButtonStyle(
+          borderColor: TimingColors.externalWorkLinkActionBorder,
+          textStyle: AppTypography.actionText(
+            context,
+            fontSize: BottomSheetTokens.actionTextSize,
+          ),
+        ),
+        child: Text(label),
       ),
     );
   }
@@ -719,7 +748,6 @@ class _ExternalWorkDetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -727,25 +755,33 @@ class _ExternalWorkDetailRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 76,
-            child: Text(
+            child: _ExternalWorkDetailText(
               label,
-              style: textTheme.bodySmall?.copyWith(
-                color: TimingColors.textSecondary,
-                height: 1.25,
-              ),
+              color: TimingColors.textSecondary,
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: textTheme.bodyMedium?.copyWith(
-                color: AppColors.textPrimary,
-                height: 1.25,
-              ),
-            ),
+            child: _ExternalWorkDetailText(value, color: AppColors.textPrimary),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ExternalWorkDetailText extends StatelessWidget {
+  const _ExternalWorkDetailText(this.data, {required this.color});
+
+  final String data;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      data,
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: color, height: 1.25),
     );
   }
 }

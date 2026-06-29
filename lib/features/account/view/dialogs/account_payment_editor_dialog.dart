@@ -6,13 +6,13 @@ import '../../../../core/utils/format_utils.dart';
 import '../../../../components/fields/app_date_field.dart';
 import '../../../../components/pickers/app_date_picker_dialog.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../../patterns/account/account_dialog_shell_pattern.dart';
 import '../../../../patterns/layout/sheet_text_field_pattern.dart';
 import '../../domain/entities/account_entities.dart';
 import '../../domain/services/account_payment_calculator.dart';
 import '../../../../features/account/model/account_view_model.dart';
 import '../../../../features/account/model/project_title_formatter.dart';
 import '../../../../tokens/mapper/core_tokens.dart';
-import '../../../../tokens/mapper/account_tokens.dart';
 
 class AccountPaymentEditorDialog extends StatefulWidget {
   const AccountPaymentEditorDialog({
@@ -107,12 +107,6 @@ class _AccountPaymentEditorDialogState
     final l10n = AppLocalizations.of(context);
     final project = widget.project;
     final editing = widget.editing;
-    final titleStyle = AppTypography.sectionTitle(
-      context,
-      fontSize: AccountTokens.projectDetailSectionTitleSize,
-      fontWeight: FontWeight.w700,
-      color: AppColors.textPrimary,
-    );
     final labelStyle = AppTypography.body(
       context,
       fontWeight: FontWeight.w500,
@@ -123,135 +117,123 @@ class _AccountPaymentEditorDialogState
       color: Colors.grey.shade700,
     );
 
-    return AlertDialog(
-      title: Text(
-        editing == null
-            ? l10n.accountPaymentCreateTitle
-            : l10n.accountPaymentEditTitle,
-        style: titleStyle,
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                l10n.accountProjectLine(
-                  ProjectTitleFormatter.normalize(project.displayName),
-                ),
-                style: labelStyle,
+    return AccountDialogShell(
+      title: editing == null
+          ? l10n.accountPaymentCreateTitle
+          : l10n.accountPaymentEditTitle,
+      cancelText: l10n.accountCancelAction,
+      confirmText: l10n.accountConfirmAction,
+      onCancel: () => _close(null),
+      onConfirm: _submit,
+      scrollable: true,
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              l10n.accountProjectLine(
+                ProjectTitleFormatter.normalize(project.displayName),
               ),
+              style: labelStyle,
             ),
-            const SizedBox(height: 10),
-            SheetDateField(controller: _dateController, onPickDate: _pickDate),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            SheetTextFieldPattern(
-              controller: _amountController,
-              labelText: l10n.accountPaymentAmountIntegerLabel,
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: SpaceTokens.sectionGap),
-            SheetTextFieldPattern(
-              controller: _noteController,
-              labelText: l10n.accountNoteOptionalLabel,
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                l10n.accountPaymentReceivableReceivedLine(
-                  FormatUtils.money(_receivable),
-                  FormatUtils.money(_received(excludePaymentId: editing?.id)),
-                ),
-                style: helperStyle,
-              ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _errorMessage!,
-                  style: AppTypography.caption(
-                    context,
-                    color: Colors.red.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        TextButton(
-          onPressed: () => _close(null),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brand.withValues(alpha: 0.8),
           ),
-          child: Text(l10n.accountCancelAction),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (editing != null &&
-                editing.effectiveProjectId != project.effectiveProjectId) {
-              _showError(formValidationMessage('编辑记录不属于当前项目'));
-              return;
-            }
-
-            final ymd = FormatUtils.parseDate(_dateController.text);
-            if (ymd == null) {
-              _showError(formValidationMessage(FormatUtils.ymdInvalidMsg));
-              return;
-            }
-
-            final amountInt = int.tryParse(_amountController.text.trim());
-            if (amountInt == null || amountInt <= 0) {
-              _showError(formValidationMessage('金额必须是 > 0 的整数'));
-              return;
-            }
-            final amount = amountInt.toDouble();
-
-            final receivedExcluding = _received(excludePaymentId: editing?.id);
-            final after = receivedExcluding + amount;
-
-            const eps = 0.05;
-            if (after > _receivable + eps) {
-              final remain = _receivable - receivedExcluding;
-              _showError(
-                formValidationMessage(
-                  '超出剩余应收（剩余约 ${FormatUtils.money(remain)}）',
-                ),
-              );
-              return;
-            }
-
-            if (_errorMessage != null) {
-              setState(() {
-                _errorMessage = null;
-              });
-            }
-
-            final editingProjectId = editing?.projectId.trim() ?? '';
-            _close(
-              AccountPayment(
-                id: editing?.id,
-                projectId: editingProjectId.isNotEmpty
-                    ? editingProjectId
-                    : project.effectiveProjectId,
-                projectKey: project.projectKey,
-                ymd: ymd,
-                amount: amount,
-                note: _noteController.text.trim().isEmpty
-                    ? null
-                    : _noteController.text.trim(),
+          const SizedBox(height: 10),
+          SheetDateField(controller: _dateController, onPickDate: _pickDate),
+          const SizedBox(height: SpaceTokens.sectionGap),
+          SheetTextFieldPattern(
+            controller: _amountController,
+            labelText: l10n.accountPaymentAmountIntegerLabel,
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: SpaceTokens.sectionGap),
+          SheetTextFieldPattern(
+            controller: _noteController,
+            labelText: l10n.accountNoteOptionalLabel,
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              l10n.accountPaymentReceivableReceivedLine(
+                FormatUtils.money(_receivable),
+                FormatUtils.money(_received(excludePaymentId: editing?.id)),
               ),
-            );
-          },
-          child: Text(l10n.accountConfirmAction),
-        ),
-      ],
+              style: helperStyle,
+            ),
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _errorMessage!,
+                style: AppTypography.caption(
+                  context,
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _submit() {
+    final project = widget.project;
+    final editing = widget.editing;
+    if (editing != null &&
+        editing.effectiveProjectId != project.effectiveProjectId) {
+      _showError(formValidationMessage('编辑记录不属于当前项目'));
+      return;
+    }
+
+    final ymd = FormatUtils.parseDate(_dateController.text);
+    if (ymd == null) {
+      _showError(formValidationMessage(FormatUtils.ymdInvalidMsg));
+      return;
+    }
+
+    final amountInt = int.tryParse(_amountController.text.trim());
+    if (amountInt == null || amountInt <= 0) {
+      _showError(formValidationMessage('金额必须是 > 0 的整数'));
+      return;
+    }
+    final amount = amountInt.toDouble();
+
+    final receivedExcluding = _received(excludePaymentId: editing?.id);
+    final after = receivedExcluding + amount;
+
+    const eps = 0.05;
+    if (after > _receivable + eps) {
+      final remain = _receivable - receivedExcluding;
+      _showError(
+        formValidationMessage('超出剩余应收（剩余约 ${FormatUtils.money(remain)}）'),
+      );
+      return;
+    }
+
+    if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
+
+    final editingProjectId = editing?.projectId.trim() ?? '';
+    _close(
+      AccountPayment(
+        id: editing?.id,
+        projectId: editingProjectId.isNotEmpty
+            ? editingProjectId
+            : project.effectiveProjectId,
+        projectKey: project.projectKey,
+        ymd: ymd,
+        amount: amount,
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
+      ),
     );
   }
 }

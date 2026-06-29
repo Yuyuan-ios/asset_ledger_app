@@ -160,8 +160,11 @@ mixin _AccountPageProjectSheetActions
     if (externalWorkStore == null) return;
     final result = await showDialog<ExternalCustomerRateResult>(
       context: context,
-      builder: (_) =>
-          ExternalCustomerRateDialog(initialFen: project.customerUnitPriceFen),
+      barrierDismissible: false,
+      builder: (_) => ExternalCustomerRateDialog(
+        itemLabel: project.displayName,
+        initialFen: project.customerUnitPriceFen,
+      ),
     );
     if (result == null || !mounted) return;
     await externalWorkStore.setBatchCustomerUnitPriceFen(

@@ -1622,6 +1622,12 @@ abstract class AppLocalizations {
   /// **'应收单价（元）'**
   String get accountExternalCustomerRateInputHint;
 
+  /// 账户模块:外协应收单价编辑说明
+  ///
+  /// In zh, this message translates to:
+  /// **'提示：该应收单价仅用于计算外协项目的应收项目款和毛利，不影响应付项目款。'**
+  String get accountExternalCustomerRateHelper;
+
   /// 账户模块:外协应收单价输入校验错误
   ///
   /// In zh, this message translates to:

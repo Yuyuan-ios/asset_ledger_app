@@ -72,12 +72,6 @@ class AccountPage extends StatefulWidget {
   State<AccountPage> createState() => _AccountPageState();
 }
 
-// =====================================================================
-// ============================== State：只做 UI 与交互 ==============================
-// =====================================================================
-
-enum _AccountProjectAreaSection { projects, externalWork }
-
 class _AccountPageState extends State<AccountPage>
     with
         SingleTickerProviderStateMixin,
@@ -85,7 +79,6 @@ class _AccountPageState extends State<AccountPage>
         _AccountPageProjectSheetActions {
   bool _isCompactProjectList = false;
   var _externalWorkLoadRequested = false;
-  var _projectAreaSection = _AccountProjectAreaSection.projects;
 
   late final TabController _projectAreaTabController;
 
@@ -96,21 +89,12 @@ class _AccountPageState extends State<AccountPage>
   void initState() {
     super.initState();
     _projectAreaTabController = TabController(length: 2, vsync: this);
-    _projectAreaTabController.addListener(_handleProjectAreaTabChanged);
   }
 
   @override
   void dispose() {
-    _projectAreaTabController.removeListener(_handleProjectAreaTabChanged);
     _projectAreaTabController.dispose();
     super.dispose();
-  }
-
-  void _handleProjectAreaTabChanged() {
-    final nextSection =
-        _AccountProjectAreaSection.values[_projectAreaTabController.index];
-    if (nextSection == _projectAreaSection) return;
-    setState(() => _projectAreaSection = nextSection);
   }
 
   @override
@@ -152,9 +136,10 @@ class _AccountPageState extends State<AccountPage>
     ]);
   }
 
-  Widget _buildProjectAreaHeader(AccountPageViewData viewData) {
-    final isExternalWork =
-        _projectAreaSection == _AccountProjectAreaSection.externalWork;
+  Widget _buildProjectAreaHeader(
+    AccountPageViewData viewData, {
+    required bool isExternalWork,
+  }) {
     return AccountProjectAreaHeader(
       isExternalWork: isExternalWork,
       projectCount: isExternalWork

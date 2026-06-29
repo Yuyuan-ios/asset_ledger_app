@@ -271,36 +271,48 @@ class _MaintenancePageState extends State<MaintenancePage> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: markerColor,
-                borderRadius: BorderRadius.circular(RadiusTokens.decoration),
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: markerColor,
+                      borderRadius: BorderRadius.circular(
+                        RadiusTokens.decoration,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Text(
+                      deviceSummary.deviceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: nameStyle,
+                    ),
+                  ),
+                  if (deviceSummary.maintenanceRateText != null) ...[
+                    const SizedBox(width: SummaryCardTokens.rowRateGap),
+                    Text(
+                      deviceSummary.maintenanceRateText!,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: nameStyle,
+                    ),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(width: 6),
-            Flexible(
-              fit: FlexFit.loose,
-              child: Text(
-                deviceSummary.deviceName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: nameStyle,
-              ),
+            const SizedBox(width: SummaryCardTokens.cardHorizontalPadding),
+            Text(
+              FormatUtils.money(deviceSummary.amount),
+              textAlign: TextAlign.right,
+              style: valueStyle,
             ),
-            if (deviceSummary.maintenanceRateText != null) ...[
-              const SizedBox(width: SummaryCardTokens.rowRateGap),
-              Text(
-                deviceSummary.maintenanceRateText!,
-                maxLines: 1,
-                overflow: TextOverflow.fade,
-                softWrap: false,
-                style: nameStyle,
-              ),
-            ],
-            const Spacer(),
-            Text(FormatUtils.money(deviceSummary.amount), style: valueStyle),
           ],
         ),
       );
