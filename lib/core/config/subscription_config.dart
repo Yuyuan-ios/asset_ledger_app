@@ -1,3 +1,5 @@
+import 'app_environment.dart';
+
 class SubscriptionConfig {
   const SubscriptionConfig({
     required this.appleVerificationBaseUrl,
@@ -15,31 +17,37 @@ class SubscriptionConfig {
   static const String defaultAppleVerificationBaseUrl =
       'https://api.yuyuan.net.cn/fleet-ledger';
 
-  static const bool _useReleaseDefaultAppleVerificationBaseUrl =
-      bool.fromEnvironment('dart.vm.product');
+  static const String _configuredAppleVerificationBaseUrl =
+      String.fromEnvironment('APPLE_IAP_VERIFICATION_BASE_URL');
 
-  static const SubscriptionConfig fromEnvironment = SubscriptionConfig(
-    appleVerificationBaseUrl: String.fromEnvironment(
-      'APPLE_IAP_VERIFICATION_BASE_URL',
-      defaultValue: _useReleaseDefaultAppleVerificationBaseUrl
+  static const String _verifyPurchasePath = String.fromEnvironment(
+    'APPLE_IAP_VERIFY_PURCHASE_PATH',
+    defaultValue: '/iap/apple/verify-purchase',
+  );
+
+  static const String _currentEntitlementPath = String.fromEnvironment(
+    'APPLE_IAP_CURRENT_ENTITLEMENT_PATH',
+    defaultValue: '/iap/apple/current-entitlement',
+  );
+
+  static const int _requestTimeoutSeconds = int.fromEnvironment(
+    'APPLE_IAP_REQUEST_TIMEOUT_SECONDS',
+    defaultValue: 10,
+  );
+
+  static SubscriptionConfig get fromEnvironment {
+    final configured = _configuredAppleVerificationBaseUrl.trim();
+    return SubscriptionConfig(
+      appleVerificationBaseUrl: configured.isNotEmpty
+          ? configured
+          : RuntimeGate.isProductionBuild
           ? defaultAppleVerificationBaseUrl
           : '',
-    ),
-    verifyPurchasePath: String.fromEnvironment(
-      'APPLE_IAP_VERIFY_PURCHASE_PATH',
-      defaultValue: '/iap/apple/verify-purchase',
-    ),
-    currentEntitlementPath: String.fromEnvironment(
-      'APPLE_IAP_CURRENT_ENTITLEMENT_PATH',
-      defaultValue: '/iap/apple/current-entitlement',
-    ),
-    requestTimeout: Duration(
-      seconds: int.fromEnvironment(
-        'APPLE_IAP_REQUEST_TIMEOUT_SECONDS',
-        defaultValue: 10,
-      ),
-    ),
-  );
+      verifyPurchasePath: _verifyPurchasePath,
+      currentEntitlementPath: _currentEntitlementPath,
+      requestTimeout: const Duration(seconds: _requestTimeoutSeconds),
+    );
+  }
 
   final String appleVerificationBaseUrl;
   final String verifyPurchasePath;

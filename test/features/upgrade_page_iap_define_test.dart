@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:asset_ledger/core/config/app_environment.dart';
 import 'package:asset_ledger/core/config/subscription_config.dart';
 import 'package:asset_ledger/data/services/subscription_entitlement_cache.dart';
 import 'package:asset_ledger/data/services/subscription_identity_store.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
 import 'package:asset_ledger/data/services/subscription_store_gateway.dart';
 import 'package:asset_ledger/data/services/subscription_verification_repository.dart';
-import 'package:asset_ledger/data/services/subscription_verification_repository_factory.dart';
 import 'package:asset_ledger/features/device/application/controllers/subscription_controller.dart';
 import 'package:asset_ledger/features/device/view/upgrade_page.dart';
 import 'package:asset_ledger/l10n/gen/app_localizations.dart';
@@ -19,39 +19,52 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 void main() {
   tearDown(() {
+    RuntimeGate.resetForTest();
     SubscriptionService.resetForTest();
   });
 
-  test(
-    'local review define enables the purchase flow',
-    () {
-      expect(
-        SubscriptionController.isPurchaseFlowAvailable(
-          config: const SubscriptionConfig(appleVerificationBaseUrl: ''),
-          useLocalIapVerification: true,
-        ),
-        isTrue,
-      );
-      expect(kUseLocalIapVerification, isTrue);
-    },
-    skip: !kUseLocalIapVerification,
-  );
-
-  test('production base URL enables the purchase flow when configured', () {
+  test('sandbox and demo access do not expose a purchase flow', () {
     expect(
       SubscriptionController.isPurchaseFlowAvailable(
         config: const SubscriptionConfig(
           appleVerificationBaseUrl:
               SubscriptionConfig.defaultAppleVerificationBaseUrl,
         ),
-        useLocalIapVerification: false,
+        buildEnvironment: BuildEnvironment.production,
+        accessMode: RuntimeAccessMode.sandbox,
+      ),
+      isFalse,
+    );
+    expect(
+      SubscriptionController.isPurchaseFlowAvailable(
+        config: const SubscriptionConfig(
+          appleVerificationBaseUrl:
+              SubscriptionConfig.defaultAppleVerificationBaseUrl,
+        ),
+        buildEnvironment: BuildEnvironment.local,
+        accessMode: RuntimeAccessMode.demo,
+      ),
+      isFalse,
+    );
+  });
+
+  test('production normal enables the purchase flow when configured', () {
+    expect(
+      SubscriptionController.isPurchaseFlowAvailable(
+        config: const SubscriptionConfig(
+          appleVerificationBaseUrl:
+              SubscriptionConfig.defaultAppleVerificationBaseUrl,
+        ),
+        buildEnvironment: BuildEnvironment.production,
+        accessMode: RuntimeAccessMode.normal,
       ),
       isTrue,
     );
     expect(
       SubscriptionController.isPurchaseFlowAvailable(
         config: const SubscriptionConfig(appleVerificationBaseUrl: ''),
-        useLocalIapVerification: false,
+        buildEnvironment: BuildEnvironment.production,
+        accessMode: RuntimeAccessMode.normal,
       ),
       isFalse,
     );
@@ -78,7 +91,10 @@ void main() {
       expect(SubscriptionConfig.fromEnvironment.isConfigured, isTrue);
       expect(const SubscriptionController().canUsePurchaseFlow, isTrue);
     },
-    skip: !SubscriptionConfig.fromEnvironment.isConfigured,
+    skip:
+        !RuntimeGate.isProductionBuild ||
+        !RuntimeGate.isNormalAccess ||
+        !SubscriptionConfig.fromEnvironment.isConfigured,
   );
 
   testWidgets(
@@ -136,8 +152,9 @@ void main() {
       );
     },
     skip:
-        !(kUseLocalIapVerification ||
-            SubscriptionConfig.fromEnvironment.isConfigured),
+        !RuntimeGate.isProductionBuild ||
+        !RuntimeGate.isNormalAccess ||
+        !SubscriptionConfig.fromEnvironment.isConfigured,
   );
 }
 

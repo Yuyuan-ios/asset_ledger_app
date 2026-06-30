@@ -2,23 +2,30 @@
 
 This document is the Flutter app contract for Apple subscription verification.
 
-## Build-Time Modes
+## Release Access Modes
 
-- `USE_LOCAL_IAP_VERIFICATION=true` enables local subscription verification for
-  App Review or sandbox smoke tests only. It is defined only in
-  `dart_defines/app_store_review.json`.
-- `APPLE_IAP_VERIFICATION_BASE_URL` enables HTTP server verification. Production
-  App Store builds should use `dart_defines/production.json` after the backend
-  passes sandbox verification.
+- `FLEET_LEDGER_BUILD_ENV=production` with `RuntimeAccessMode.normal` enables
+  production IAP behavior: StoreKit purchase flow plus HTTP server verification.
+- `RuntimeAccessMode.sandbox` is the unified platform test/review/internal
+  access mode. It bypasses client IAP verification and forces a verified Max
+  entitlement; it does not call this backend.
+- `RuntimeAccessMode.demo` is the offline showcase access mode. It bypasses
+  client IAP verification and does not call this backend.
+- A production build defaults to normal access. A configured review account may
+  resolve to sandbox access after successful login; this is still the same
+  production build that will be released.
+- `APPLE_IAP_VERIFICATION_BASE_URL` enables HTTP server verification only in
+  production normal access. Production App Store builds should use
+  `dart_defines/production.json` after the backend passes sandbox verification.
 - Optional path and timeout defines:
   - `APPLE_IAP_VERIFY_PURCHASE_PATH`, default `/iap/apple/verify-purchase`
   - `APPLE_IAP_CURRENT_ENTITLEMENT_PATH`, default `/iap/apple/current-entitlement`
   - `APPLE_IAP_REQUEST_TIMEOUT_SECONDS`, default `10`
-- Release/product builds have a production default base URL matching
+- Production builds have a default base URL matching
   `dart_defines/production.json`. This prevents manual Xcode Archive / local
   release builds from silently falling back to
   `PendingServerSubscriptionVerificationRepository` and disabling purchases.
-  Debug/test builds, and tests that pass an explicit empty config, still cover
+  Tests that pass an explicit empty config still cover
   the fail-closed pending-server path without accidental network calls.
 
 The current expected production base URL is
@@ -67,8 +74,7 @@ verify Apple transaction data before returning an active entitlement.
 
 All endpoint paths are relative to `APPLE_IAP_VERIFICATION_BASE_URL`. Requests
 and responses are JSON. The backend must be reachable over public HTTPS and must
-support both Apple Sandbox and Production environments because App Review uses
-sandbox transactions.
+support both Apple Sandbox and Production transaction environments.
 
 ### POST `/iap/apple/verify-purchase`
 
@@ -230,7 +236,7 @@ GET /iap/apple/current-entitlement
            originalTransactionId, expiresAt, environment }
 ```
 
-## Sandbox Integration Checklist
+## Production Verification Checklist
 
 1. Configure App Store Connect with Pro yearly and Max yearly in the same
    subscription group, with Max at the higher subscription level.

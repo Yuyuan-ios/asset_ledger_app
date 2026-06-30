@@ -22,6 +22,7 @@ class _LoginFormPanel extends StatelessWidget {
     required this.codeController,
     required this.codeFocusNode,
     required this.busy,
+    required this.reviewAccessEnabled,
     required this.agreementAccepted,
     required this.canRequestCode,
     required this.canLogin,
@@ -41,6 +42,7 @@ class _LoginFormPanel extends StatelessWidget {
   final TextEditingController codeController;
   final FocusNode codeFocusNode;
   final bool busy;
+  final bool reviewAccessEnabled;
   final bool agreementAccepted;
   final bool canRequestCode;
   final bool canLogin;
@@ -91,6 +93,7 @@ class _LoginFormPanel extends StatelessWidget {
                   child: _PhoneNumberField(
                     scale: scale,
                     controller: phoneController,
+                    reviewAccessEnabled: reviewAccessEnabled,
                   ),
                 ),
                 Positioned(
@@ -102,6 +105,7 @@ class _LoginFormPanel extends StatelessWidget {
                     scale: scale,
                     controller: codeController,
                     focusNode: codeFocusNode,
+                    reviewAccessEnabled: reviewAccessEnabled,
                   ),
                 ),
                 Positioned(
@@ -280,10 +284,15 @@ class _AgreementRow extends StatelessWidget {
 }
 
 class _PhoneNumberField extends StatelessWidget {
-  const _PhoneNumberField({required this.scale, required this.controller});
+  const _PhoneNumberField({
+    required this.scale,
+    required this.controller,
+    required this.reviewAccessEnabled,
+  });
 
   final double scale;
   final TextEditingController controller;
+  final bool reviewAccessEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -332,12 +341,20 @@ class _PhoneNumberField extends StatelessWidget {
             height: 42 * scale,
             child: TextField(
               controller: controller,
-              keyboardType: TextInputType.phone,
-              autofillHints: const [AutofillHints.telephoneNumber],
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]')),
-                LengthLimitingTextInputFormatter(20),
-              ],
+              keyboardType: reviewAccessEnabled
+                  ? TextInputType.emailAddress
+                  : TextInputType.phone,
+              autofillHints: reviewAccessEnabled
+                  ? const [AutofillHints.username]
+                  : const [AutofillHints.telephoneNumber],
+              inputFormatters: reviewAccessEnabled
+                  ? [LengthLimitingTextInputFormatter(80)]
+                  : [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[0-9+\-\s()]'),
+                      ),
+                      LengthLimitingTextInputFormatter(20),
+                    ],
               cursorColor: _loginOutline,
               style: _loginTextStyle(
                 fontSize: 30,
@@ -369,11 +386,13 @@ class _CodeTextField extends StatelessWidget {
     required this.scale,
     required this.controller,
     required this.focusNode,
+    required this.reviewAccessEnabled,
   });
 
   final double scale;
   final TextEditingController controller;
   final FocusNode focusNode;
+  final bool reviewAccessEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -386,12 +405,18 @@ class _CodeTextField extends StatelessWidget {
           child: TextField(
             controller: controller,
             focusNode: focusNode,
-            keyboardType: TextInputType.number,
-            autofillHints: const [AutofillHints.oneTimeCode],
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
+            keyboardType: reviewAccessEnabled
+                ? TextInputType.visiblePassword
+                : TextInputType.number,
+            autofillHints: reviewAccessEnabled
+                ? const [AutofillHints.password]
+                : const [AutofillHints.oneTimeCode],
+            inputFormatters: reviewAccessEnabled
+                ? [LengthLimitingTextInputFormatter(80)]
+                : [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
             cursorColor: _loginOutline,
             style: _loginTextStyle(
               fontSize: 29,
@@ -402,7 +427,7 @@ class _CodeTextField extends StatelessWidget {
             decoration: InputDecoration(
               border: InputBorder.none,
               isCollapsed: true,
-              hintText: '验证码',
+              hintText: reviewAccessEnabled ? '验证码/密码' : '验证码',
               hintStyle: _loginTextStyle(
                 fontSize: 29,
                 lineHeight: 38,

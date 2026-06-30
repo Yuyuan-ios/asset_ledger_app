@@ -329,10 +329,10 @@ const Map<String, String> _registeredAccountPaymentWriteFiles = {
   'lib/features/account/use_cases/delete_merged_payment_batch_use_case.dart':
       'legacy fallback guarded by production writeUseCase injection',
 
-  // App Review demo account seed writes one local sample payment only after the
-  // fixed review phone has logged in. It intentionally does not enqueue cloud
-  // sync/outbox work or grant subscription state.
-  'lib/data/db/db_seed.dart': 'App Review demo seed exemption',
+  // Environment demo seed writes one local sample payment only for empty
+  // sandbox/demo databases. It intentionally does not enqueue cloud sync/outbox
+  // work or grant subscription state.
+  'lib/data/db/db_seed.dart': 'environment demo seed exemption',
 
   // Schema/migration account_payments writes are historical data movement and
   // intentionally outside row-level sync coverage.

@@ -55,7 +55,7 @@ void main() {
   );
 
   test(
-    'AppDatabase.seedAppReviewDemoData is idempotent and seeds review ledger',
+    'AppDatabase.seedDemoData is idempotent and seeds demo ledger',
     () async {
       final dbPath = await getDatabasesPath();
       final filePath = p.join(dbPath, 'asset_ledger.db');
@@ -66,8 +66,8 @@ void main() {
 
       final db = await AppDatabase.database;
 
-      await AppDatabase.seedAppReviewDemoData();
-      await AppDatabase.seedAppReviewDemoData();
+      await AppDatabase.seedDemoData();
+      await AppDatabase.seedDemoData();
 
       final devices = await db.query(
         'devices',
@@ -77,18 +77,18 @@ void main() {
       final projects = await db.query(
         'projects',
         where: 'id = ?',
-        whereArgs: [DbSeed.appReviewDemoProjectId],
+        whereArgs: [DbSeed.demoProjectId],
       );
       final timingCount = Sqflite.firstIntValue(
         await db.rawQuery(
           'SELECT COUNT(*) FROM timing_records WHERE project_id = ?',
-          [DbSeed.appReviewDemoProjectId],
+          [DbSeed.demoProjectId],
         ),
       );
       final paymentCount = Sqflite.firstIntValue(
         await db.rawQuery(
           'SELECT COUNT(*) FROM account_payments WHERE project_id = ?',
-          [DbSeed.appReviewDemoProjectId],
+          [DbSeed.demoProjectId],
         ),
       );
 

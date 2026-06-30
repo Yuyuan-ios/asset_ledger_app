@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../core/config/app_environment.dart';
 import '../../core/config/subscription_product_ids.dart';
 import 'subscription_entitlement_cache.dart';
 import 'subscription_identity_store.dart';
@@ -257,6 +258,11 @@ class SubscriptionService {
   static bool get canUseLocalRestore => snapshot.canUseLocalRestore;
 
   static Future<void> init() async {
+    if (RuntimeGate.shouldBypassIap) {
+      _forceUnlockedEntitlement();
+      return;
+    }
+
     if (!_initialized) {
       _purchaseSubscription = _storeGateway.purchaseStream.listen(
         handlePurchaseUpdates,
@@ -280,6 +286,11 @@ class SubscriptionService {
   }
 
   static Future<void> loadProducts() async {
+    if (RuntimeGate.shouldBypassIap) {
+      _forceUnlockedEntitlement();
+      return;
+    }
+
     _setSnapshot(snapshot.copyWith(isLoadingProducts: true, clearError: true));
 
     try {
@@ -343,6 +354,11 @@ class SubscriptionService {
   }
 
   static Future<void> buySelectedProduct(SubscriptionProductKind kind) async {
+    if (RuntimeGate.shouldBypassIap) {
+      _forceUnlockedEntitlement();
+      return;
+    }
+
     final product = snapshot.productFor(kind);
     if (product == null) {
       _setSnapshot(snapshot.copyWith(errorMessage: '当前订阅套餐不可购买，请稍后重试'));
@@ -381,6 +397,11 @@ class SubscriptionService {
   }
 
   static Future<SubscriptionRestoreOutcome> restorePurchases() async {
+    if (RuntimeGate.shouldBypassIap) {
+      _forceUnlockedEntitlement();
+      return const SubscriptionRestoreOutcome.restoredMax();
+    }
+
     _setSnapshot(
       snapshot.copyWith(
         status: SubscriptionStatus.pending,
@@ -483,6 +504,11 @@ class SubscriptionService {
   static Future<void> handlePurchaseUpdates(
     List<PurchaseDetails> purchases,
   ) async {
+    if (RuntimeGate.shouldBypassIap) {
+      _forceUnlockedEntitlement();
+      return;
+    }
+
     for (final purchase in purchases) {
       var shouldCompletePurchase = false;
       switch (purchase.status) {
@@ -557,6 +583,11 @@ class SubscriptionService {
   }
 
   static Future<void> syncSubscriptionStatus() async {
+    if (RuntimeGate.shouldBypassIap) {
+      _forceUnlockedEntitlement();
+      return;
+    }
+
     _setSnapshot(snapshot.copyWith(isSyncing: true, clearError: true));
 
     final cached = await _entitlementCache.read();
@@ -673,6 +704,24 @@ class SubscriptionService {
 
   static void _setSnapshot(SubscriptionSnapshot next) {
     notifier.value = next;
+  }
+
+  static void _forceUnlockedEntitlement() {
+    _setSnapshot(
+      snapshot.copyWith(
+        status: SubscriptionStatus.activeMax,
+        entitlementTier: SubscriptionEntitlementTier.max,
+        isEntitlementVerified: true,
+        isLoadingProducts: false,
+        isPurchasing: false,
+        isRestoring: false,
+        isSyncing: false,
+        productId: maxYearlyProductId,
+        expiryDate: DateTime.now().add(const Duration(days: 3650)),
+        lastSyncedAt: DateTime.now(),
+        clearError: true,
+      ),
+    );
   }
 
   @visibleForTesting

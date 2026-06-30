@@ -7,8 +7,14 @@ import '../features/maintenance/state/maintenance_store.dart';
 import '../features/account/state/project_rate_store.dart';
 import '../features/timing/state/timing_external_work_store.dart';
 import '../features/timing/state/timing_store.dart';
+import '../core/config/app_environment.dart';
 
 class AppBootstrap {
+  static Future<void> seedDemoDataForRuntimeAccessIfNeeded() async {
+    if (!RuntimeGate.shouldSeedDemoData) return;
+    await AppDatabase.seedDemoData();
+  }
+
   static Future<void> preload({
     required DeviceStore deviceStore,
     required TimingStore timingStore,
@@ -31,9 +37,7 @@ class AppBootstrap {
     );
   }
 
-  /// App Review demo account only: seed the review ledger, then refresh stores
-  /// that may have been preloaded before the reviewer completed login.
-  static Future<void> seedAppReviewDemoDataAndReload({
+  static Future<void> seedDemoDataAndReload({
     required DeviceStore deviceStore,
     required TimingStore timingStore,
     required FuelStore fuelStore,
@@ -43,7 +47,7 @@ class AppBootstrap {
     required AccountPaymentStore paymentStore,
     required TimingExternalWorkStore timingExternalWorkStore,
   }) async {
-    await AppDatabase.seedAppReviewDemoData();
+    await AppDatabase.seedDemoData();
     await Future.wait([
       deviceStore.loadAll(),
       timingStore.loadAll(),

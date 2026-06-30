@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/config/app_environment.dart';
 import '../../../../core/config/subscription_config.dart';
 import '../../../../data/services/support_feedback_service.dart';
 import '../../../../data/services/subscription_service.dart';
-import '../../../../data/services/subscription_verification_repository_factory.dart';
 
 class SubscriptionController {
   const SubscriptionController();
@@ -21,16 +21,20 @@ class SubscriptionController {
 
   bool get canUsePurchaseFlow => isPurchaseFlowAvailable(
     config: SubscriptionConfig.fromEnvironment,
-    useLocalIapVerification: kUseLocalIapVerification,
+    buildEnvironment: BuildEnvironment.current,
+    accessMode: RuntimeGate.accessMode,
   );
 
   /// Returns whether the current build has a configured IAP verification path.
   @visibleForTesting
   static bool isPurchaseFlowAvailable({
     required SubscriptionConfig config,
-    required bool useLocalIapVerification,
+    required BuildEnvironment buildEnvironment,
+    required RuntimeAccessMode accessMode,
   }) {
-    return config.isConfigured || useLocalIapVerification;
+    return buildEnvironment == BuildEnvironment.production &&
+        accessMode == RuntimeAccessMode.normal &&
+        config.isConfigured;
   }
 
   Future<void> init() => SubscriptionService.init();

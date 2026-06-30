@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asset_ledger/app/app.dart';
 import 'package:asset_ledger/app/app_navigator.dart';
+import 'package:asset_ledger/app/app_runtime_bootstrap.dart';
 import 'package:asset_ledger/app/inbound_share_file_gate.dart';
 import 'package:asset_ledger/app/phone_login_gate.dart';
 import 'package:asset_ledger/app/router.dart';
@@ -32,7 +33,10 @@ void main() {
     final loginGate = app.home;
     expect(loginGate, isA<PhoneLoginGate>());
 
-    final syncGate = (loginGate as PhoneLoginGate).child;
+    final bootstrap = (loginGate as PhoneLoginGate).child;
+    expect(bootstrap, isA<AppRuntimeBootstrap>());
+
+    final syncGate = (bootstrap as AppRuntimeBootstrap).child;
     expect(syncGate, isA<SyncLifecycleGate>());
 
     final shareGate = (syncGate as SyncLifecycleGate).child;

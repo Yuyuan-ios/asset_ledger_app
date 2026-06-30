@@ -13,6 +13,7 @@ import '../../features/app_update/infrastructure/prefs_version_policy_cache.dart
 import '../../features/app_update/presentation/forced_update_blocker.dart';
 import '../../features/app_update/presentation/optional_update_prompt.dart';
 import '../app_runtime_metadata.dart';
+import '../../core/config/app_environment.dart';
 import '../version_policy_config.dart';
 
 typedef VersionPolicySourceFactory =
@@ -41,7 +42,7 @@ class AppUpdateProviders {
   }) {
     final config = endpointConfig ?? VersionPolicyConfig.current;
     final UpdatePromptCoordinator coordinator;
-    if (!config.isAvailable) {
+    if (RuntimeGate.shouldDisableAppUpdateNetwork || !config.isAvailable) {
       coordinator = UpdatePromptCoordinator.noop();
     } else {
       final service = VersionCheckService(

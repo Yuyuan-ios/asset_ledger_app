@@ -1,5 +1,4 @@
 import 'package:asset_ledger/components/pickers/app_date_picker_dialog.dart';
-import 'package:asset_ledger/components/surfaces/app_glass_surface.dart';
 import 'package:asset_ledger/tokens/mapper/core_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,7 +51,15 @@ void main() {
   ) async {
     await _openPicker(tester, DateTime(2026, 6, 4));
 
-    expect(find.byType(AppGlassSurface), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Material &&
+            widget.color == SheetColors.shellBackground &&
+            widget.clipBehavior == Clip.antiAlias,
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('jzt-date-picker-calendar-panel')),
       findsNothing,

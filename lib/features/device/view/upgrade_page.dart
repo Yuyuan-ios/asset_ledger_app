@@ -202,9 +202,6 @@ class _UpgradePageState extends State<UpgradePage> {
         final selectedProduct = snapshot.productFor(_selectedPlan.productKind);
         final subscriptionVerificationConfigured =
             _subscriptionController.canUsePurchaseFlow;
-        // In TestFlight / sandbox smoke tests we allow the purchase flow to run
-        // with local entitlement verification. Production builds must keep
-        // server-side verification enabled.
         final canUsePurchaseFlow = subscriptionVerificationConfigured;
         final purchasing =
             snapshot.isPurchasing ||
@@ -220,12 +217,12 @@ class _UpgradePageState extends State<UpgradePage> {
             !entitlementCoversSelectedPlan;
         final buttonText = snapshot.isLoadingProducts
             ? l10n.deviceUpgradeButtonLoading
-            : !canUsePurchaseFlow
-            ? l10n.deviceUpgradeButtonUnavailable
             : purchasing
             ? l10n.deviceUpgradeButtonProcessing
             : entitlementCoversSelectedPlan
             ? l10n.deviceUpgradeButtonSubscribed
+            : !canUsePurchaseFlow
+            ? l10n.deviceUpgradeButtonUnavailable
             : selectedProduct == null
             ? l10n.deviceUpgradeButtonUnavailable
             : _selectedPlan == _UpgradePlan.max

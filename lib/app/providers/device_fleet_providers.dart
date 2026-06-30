@@ -1,6 +1,7 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../../core/config/app_environment.dart';
 import '../../core/operations/operation_access_control.dart';
 import '../../app/cloud_backup_config.dart';
 import '../../app/app_runtime_metadata.dart';
@@ -82,7 +83,11 @@ class DeviceFleetProviders {
     const localBackupController = LocalBackupController(localBackupRepository);
     final cloudBackupEndpoint = endpointConfig ?? CloudBackupConfig.current;
     final CloudBackupController cloudBackupController;
-    if (cloudBackupEndpoint.isAvailable) {
+    if (RuntimeGate.shouldDisableBackupNetwork) {
+      cloudBackupController = CloudBackupController.unavailable(
+        RuntimeGate.isDemoAccess ? '演示模式不连接云端备份' : '沙盒模式不连接云端备份',
+      );
+    } else if (cloudBackupEndpoint.isAvailable) {
       // 备份传输与账号密钥下发共用同一鉴权客户端(同 baseUrl + Bearer)。
       final cloudClient = cloudApiClientFactory(
         baseUrl: cloudBackupEndpoint.baseUrl!,

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'app_review_demo_account.dart';
+import '../core/config/app_environment.dart';
 
 class PhoneVerificationSendResult {
   const PhoneVerificationSendResult({required this.message});
@@ -40,56 +40,6 @@ class PhoneVerificationException implements Exception {
 
   @override
   String toString() => message;
-}
-
-class AppReviewDemoPhoneVerificationService
-    implements PhoneVerificationService {
-  const AppReviewDemoPhoneVerificationService({required this.delegate});
-
-  final PhoneVerificationService delegate;
-
-  @override
-  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) {
-    if (AppReviewDemoAccount.isDemoPhone(phoneNumber)) {
-      return Future.value(const PhoneVerificationSendResult(message: '验证码已发送'));
-    }
-    return delegate.sendCode(phoneNumber);
-  }
-
-  @override
-  Future<PhoneVerificationVerifyResult> verifyCode({
-    required String phoneNumber,
-    required String code,
-  }) {
-    final normalizedCode = code.trim();
-    final isDemoPhone = AppReviewDemoAccount.isDemoPhone(phoneNumber);
-
-    // App Review demo account only: 000000 is accepted for Apple's fixed
-    // review phone number and must fail closed for every other phone number.
-    if (isDemoPhone) {
-      return Future.value(
-        normalizedCode == AppReviewDemoAccount.verificationCode
-            ? const PhoneVerificationVerifyResult(
-                success: true,
-                token: AppReviewDemoAccount.authToken,
-                expiresAt: AppReviewDemoAccount.tokenExpiresAt,
-              )
-            : const PhoneVerificationVerifyResult(
-                success: false,
-                message: '验证码不正确或已过期',
-              ),
-      );
-    }
-    if (normalizedCode == AppReviewDemoAccount.verificationCode) {
-      return Future.value(
-        const PhoneVerificationVerifyResult(
-          success: false,
-          message: '验证码不正确或已过期',
-        ),
-      );
-    }
-    return delegate.verifyCode(phoneNumber: phoneNumber, code: code);
-  }
 }
 
 class HttpPhoneVerificationService implements PhoneVerificationService {
@@ -213,5 +163,57 @@ class HttpPhoneVerificationService implements PhoneVerificationService {
 
   bool _isUserFacingServerMessage(String message) {
     return RegExp('[\u4e00-\u9fff]').hasMatch(message);
+  }
+}
+
+class ReviewAccessPhoneVerificationService implements PhoneVerificationService {
+  const ReviewAccessPhoneVerificationService({
+    this.delegate = const HttpPhoneVerificationService(),
+    this.policy,
+  });
+
+  final PhoneVerificationService delegate;
+  final ReviewAccessPolicy? policy;
+
+  ReviewAccessPolicy get _policy =>
+      policy ?? ReviewAccessPolicy.fromEnvironment;
+
+  @override
+  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) {
+    if (_policy.isReviewIdentifier(phoneNumber)) {
+      return Future.value(
+        const PhoneVerificationSendResult(message: '审核账号无需验证码'),
+      );
+    }
+    return delegate.sendCode(phoneNumber);
+  }
+
+  @override
+  Future<PhoneVerificationVerifyResult> verifyCode({
+    required String phoneNumber,
+    required String code,
+  }) {
+    final resolvedPolicy = _policy;
+    if (resolvedPolicy.isReviewIdentifier(phoneNumber)) {
+      if (resolvedPolicy.matchesCredentials(
+        identifier: phoneNumber,
+        secret: code,
+      )) {
+        return Future.value(
+          PhoneVerificationVerifyResult(
+            success: true,
+            token:
+                'review-access:${ReviewAccessPolicy.normalizeIdentifier(phoneNumber)}',
+          ),
+        );
+      }
+      return Future.value(
+        const PhoneVerificationVerifyResult(
+          success: false,
+          message: '审核账号或密码不正确',
+        ),
+      );
+    }
+    return delegate.verifyCode(phoneNumber: phoneNumber, code: code);
   }
 }

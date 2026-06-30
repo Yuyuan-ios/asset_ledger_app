@@ -11,12 +11,12 @@ import 'subscription_verification_repository.dart';
 class HttpAppleSubscriptionVerificationRepository
     implements SubscriptionVerificationRepository {
   HttpAppleSubscriptionVerificationRepository({
-    SubscriptionConfig config = SubscriptionConfig.fromEnvironment,
+    SubscriptionConfig? config,
     SubscriptionVerificationHttpClient? httpClient,
     SubscriptionIdentityStore? identityStore,
     Future<String?> Function()? accessTokenProvider,
     String? bundleId,
-  }) : _config = config,
+  }) : _config = config ?? SubscriptionConfig.fromEnvironment,
        _httpClient = httpClient ?? DartIoSubscriptionVerificationHttpClient(),
        _identityStore =
            identityStore ?? SharedPreferencesSubscriptionIdentityStore(),

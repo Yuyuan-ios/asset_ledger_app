@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:asset_ledger/app/app_review_demo_account.dart';
 import 'package:asset_ledger/core/config/subscription_product_ids.dart';
 import 'package:asset_ledger/data/services/subscription_entitlement_cache.dart';
 import 'package:asset_ledger/data/services/subscription_identity_store.dart';
@@ -91,16 +90,6 @@ void main() {
       SubscriptionService.setStatusForTest(SubscriptionStatus.revoked);
 
       expect(SubscriptionService.canUseCustomAvatar, isFalse);
-    });
-
-    test('app review demo auth token does not unlock subscription', () {
-      SubscriptionService.setStatusForTest(SubscriptionStatus.free);
-
-      expect(AppReviewDemoAccount.authToken, isNotEmpty);
-      expect(SubscriptionService.snapshot.status, SubscriptionStatus.free);
-      expect(SubscriptionService.canUseCustomAvatar, isFalse);
-      expect(SubscriptionService.allowsProFeatures, isFalse);
-      expect(SubscriptionService.allowsMaxFeatures, isFalse);
     });
 
     test(

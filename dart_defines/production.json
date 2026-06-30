@@ -1,4 +1,6 @@
 {
+  "FLEET_LEDGER_BUILD_ENV": "production",
+  "FLEET_LEDGER_ACCESS_MODE": "normal",
   "APPLE_IAP_VERIFICATION_BASE_URL": "https://api.yuyuan.net.cn/fleet-ledger",
   "FLEET_LEDGER_CLOUD_BACKUP_BASE_URL": "https://backup-api.yuyuan.net.cn"
 }

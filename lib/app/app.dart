@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'app_runtime_bootstrap.dart';
 import 'app_navigator.dart';
 import 'inbound_share_file_gate.dart';
 import 'phone_login_gate.dart';
@@ -9,9 +10,7 @@ import '../core/theme/app_theme.dart';
 import '../l10n/gen/app_localizations.dart';
 
 class AssetLedgerApp extends StatelessWidget {
-  const AssetLedgerApp({super.key, this.onAppReviewDemoLogin});
-
-  final Future<void> Function()? onAppReviewDemoLogin;
+  const AssetLedgerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +28,11 @@ class AssetLedgerApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       theme: AppTheme.light(),
-      home: PhoneLoginGate(
-        onAppReviewDemoLogin: onAppReviewDemoLogin,
-        child: const SyncLifecycleGate(
-          child: InboundShareFileGate(child: AppRouterEntry()),
+      home: const PhoneLoginGate(
+        child: AppRuntimeBootstrap(
+          child: SyncLifecycleGate(
+            child: InboundShareFileGate(child: AppRouterEntry()),
+          ),
         ),
       ),
     );

@@ -8,11 +8,10 @@ import 'package:flutter/services.dart';
 import '../features/device/view/privacy_page.dart';
 import '../features/device/view/terms_page.dart';
 import '../tokens/mapper/color_tokens.dart';
-import 'app_review_demo_account.dart';
+import '../core/config/app_environment.dart';
 import 'phone_login_store.dart';
 import 'phone_verification_service.dart';
 
-export 'app_review_demo_account.dart';
 export 'phone_login_store.dart';
 export 'phone_verification_service.dart';
 
@@ -29,17 +28,17 @@ class PhoneLoginGate extends StatefulWidget {
     required this.child,
     this.store = const SharedPreferencesPhoneLoginStore(),
     this.verificationService,
+    this.reviewAccessPolicy,
     this.privacyPageBuilder,
     this.termsPageBuilder,
-    this.onAppReviewDemoLogin,
   });
 
   final Widget child;
   final PhoneLoginStore store;
   final PhoneVerificationService? verificationService;
+  final ReviewAccessPolicy? reviewAccessPolicy;
   final LegalPageBuilder? privacyPageBuilder;
   final LegalPageBuilder? termsPageBuilder;
-  final Future<void> Function()? onAppReviewDemoLogin;
 
   @override
   State<PhoneLoginGate> createState() => _PhoneLoginGateState();
@@ -47,22 +46,28 @@ class PhoneLoginGate extends StatefulWidget {
 
 class _PhoneLoginGateState extends State<PhoneLoginGate> {
   late final PhoneVerificationService _verificationService;
+  late final ReviewAccessPolicy _reviewAccessPolicy;
   PhoneLoginSession? _session;
 
   @override
   void initState() {
     super.initState();
+    _reviewAccessPolicy =
+        widget.reviewAccessPolicy ?? ReviewAccessPolicy.fromEnvironment;
     _verificationService =
         widget.verificationService ??
-        const AppReviewDemoPhoneVerificationService(
-          delegate: HttpPhoneVerificationService(),
-        );
+        ReviewAccessPhoneVerificationService(policy: _reviewAccessPolicy);
     _loadSession();
   }
 
   Future<void> _loadSession() async {
     final session = await widget.store.read();
-    if (!mounted) return;
+    if (!mounted || _session != null) return;
+    RuntimeGate.resolveAccessForAccount(
+      accountIdentifier: session.phoneNumber,
+      isAuthenticated: session.isAuthenticated,
+      reviewAccessPolicy: _reviewAccessPolicy,
+    );
     setState(() => _session = session);
   }
 
@@ -79,9 +84,11 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
       tokenExpiresAt: tokenExpiresAt,
     );
     await widget.store.save(session);
-    if (AppReviewDemoAccount.isDemoPhone(phoneNumber)) {
-      await widget.onAppReviewDemoLogin?.call();
-    }
+    RuntimeGate.resolveAccessForAccount(
+      accountIdentifier: phoneNumber,
+      isAuthenticated: true,
+      reviewAccessPolicy: _reviewAccessPolicy,
+    );
     if (!mounted) return;
     setState(() => _session = session);
   }
@@ -115,6 +122,10 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (RuntimeGate.shouldBypassAuth) {
+      return widget.child;
+    }
+
     final session = _session;
     if (session == null) {
       return const Scaffold(
@@ -130,6 +141,7 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
 
     return PhoneLoginPage(
       verificationService: _verificationService,
+      reviewAccessPolicy: _reviewAccessPolicy,
       initialAgreementAccepted: session.privacyAccepted,
       onLoggedIn: _handleLoggedIn,
       onLoginSkipped: _handleLoginSkipped,
@@ -143,6 +155,7 @@ class PhoneLoginPage extends StatefulWidget {
   const PhoneLoginPage({
     super.key,
     required this.verificationService,
+    this.reviewAccessPolicy = const ReviewAccessPolicy(enabled: false),
     required this.initialAgreementAccepted,
     required this.onLoggedIn,
     required this.onLoginSkipped,
@@ -151,6 +164,7 @@ class PhoneLoginPage extends StatefulWidget {
   });
 
   final PhoneVerificationService verificationService;
+  final ReviewAccessPolicy reviewAccessPolicy;
   final bool initialAgreementAccepted;
   final Future<void> Function({
     required String phoneNumber,
@@ -180,28 +194,46 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   String? _statusText;
   String? _requestedPhoneNumber;
 
-  bool get _phoneValid =>
-      AppReviewDemoAccount.isSupportedLoginPhone(_phoneController.text);
+  bool get _isReviewAccessInput =>
+      widget.reviewAccessPolicy.isReviewIdentifier(_phoneController.text);
 
-  bool get _codeValid =>
-      RegExp(r'^\d{6}$').hasMatch(_codeController.text.trim());
+  bool get _loginIdentifierValid =>
+      _isSupportedLoginPhone(_phoneController.text) || _isReviewAccessInput;
+
+  bool get _secretValid {
+    final value = _codeController.text.trim();
+    if (_isReviewAccessInput) return value.isNotEmpty;
+    return RegExp(r'^\d{6}$').hasMatch(value);
+  }
 
   bool get _isCodeCoolingDown => _codeCooldownRemainingSeconds > 0;
 
   bool get _canRequestCode =>
-      _phoneValid && _agreementAccepted && !_busy && !_isCodeCoolingDown;
-
-  bool get _canLogin =>
-      _phoneValid &&
+      !_isReviewAccessInput &&
+      _loginIdentifierValid &&
       _agreementAccepted &&
-      _codeRequested &&
-      _requestedPhoneNumber ==
-          AppReviewDemoAccount.normalizeForLogin(_phoneController.text) &&
-      _codeValid &&
-      !_busy;
+      !_busy &&
+      !_isCodeCoolingDown;
 
-  String get _requestCodeLabel =>
-      _isCodeCoolingDown ? '重新获取(${_codeCooldownRemainingSeconds}s)' : '获取验证码';
+  bool get _canLogin {
+    if (!_loginIdentifierValid ||
+        !_agreementAccepted ||
+        !_secretValid ||
+        _busy) {
+      return false;
+    }
+    if (_isReviewAccessInput) return true;
+    return _codeRequested &&
+        _requestedPhoneNumber ==
+            _normalizeLoginIdentifier(_phoneController.text);
+  }
+
+  String get _requestCodeLabel {
+    if (_isReviewAccessInput) return '无需验证码';
+    return _isCodeCoolingDown
+        ? '重新获取(${_codeCooldownRemainingSeconds}s)'
+        : '获取验证码';
+  }
 
   @override
   void initState() {
@@ -229,7 +261,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _errorText = null;
       if (_codeRequested &&
           _requestedPhoneNumber !=
-              AppReviewDemoAccount.normalizeForLogin(_phoneController.text)) {
+              _normalizeLoginIdentifier(_phoneController.text)) {
         _codeRequested = false;
         _requestedPhoneNumber = null;
         _statusText = null;
@@ -243,7 +275,11 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       setState(() => _errorText = '请先阅读并同意隐私政策和使用条款');
       return;
     }
-    if (!_phoneValid) {
+    if (_isReviewAccessInput) {
+      setState(() => _statusText = '审核账号无需验证码，请输入密码后登录');
+      return;
+    }
+    if (!_loginIdentifierValid) {
       setState(() => _errorText = '请输入有效的手机号');
       return;
     }
@@ -254,9 +290,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _statusText = null;
     });
     late final PhoneVerificationSendResult result;
-    final phoneNumber = AppReviewDemoAccount.normalizeForLogin(
-      _phoneController.text,
-    );
+    final phoneNumber = _normalizeLoginIdentifier(_phoneController.text);
     try {
       result = await widget.verificationService.sendCode(phoneNumber);
     } catch (error) {
@@ -320,9 +354,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       _busy = true;
       _errorText = null;
     });
-    final phoneNumber = AppReviewDemoAccount.normalizeForLogin(
-      _phoneController.text,
-    );
+    final phoneNumber = _normalizeLoginIdentifier(_phoneController.text);
     late final PhoneVerificationVerifyResult result;
     try {
       result = await widget.verificationService.verifyCode(
@@ -459,6 +491,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                       codeController: _codeController,
                       codeFocusNode: _codeFocusNode,
                       busy: _busy,
+                      reviewAccessEnabled: widget.reviewAccessPolicy.enabled,
                       agreementAccepted: _agreementAccepted,
                       canRequestCode: _canRequestCode,
                       canLogin: _canLogin,
@@ -486,4 +519,12 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       ),
     );
   }
+}
+
+bool _isSupportedLoginPhone(String value) {
+  return RegExp(r'^1[3-9]\d{9}$').hasMatch(_normalizeLoginIdentifier(value));
+}
+
+String _normalizeLoginIdentifier(String value) {
+  return ReviewAccessPolicy.normalizeIdentifier(value);
 }

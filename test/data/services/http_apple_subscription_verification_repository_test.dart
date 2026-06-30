@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:asset_ledger/core/config/subscription_config.dart';
+import 'package:asset_ledger/core/config/app_environment.dart';
 import 'package:asset_ledger/data/services/http_apple_subscription_verification_repository.dart';
 import 'package:asset_ledger/data/services/subscription_identity_store.dart';
 import 'package:asset_ledger/data/services/subscription_service.dart';
@@ -11,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 void main() {
+  tearDown(RuntimeGate.resetForTest);
+
   const configured = SubscriptionConfig(
     appleVerificationBaseUrl: 'https://example.test',
     requestTimeout: Duration(milliseconds: 20),
@@ -41,6 +44,7 @@ void main() {
     test(
       'default factory uses a safe repository when baseUrl is absent',
       () async {
+        RuntimeGate.setAccessModeForTest(RuntimeAccessMode.normal);
         final repository = createDefaultSubscriptionVerificationRepository(
           config: const SubscriptionConfig(appleVerificationBaseUrl: ''),
         );
@@ -49,11 +53,27 @@ void main() {
 
         expect(
           result.outcome,
-          kUseLocalIapVerification
-              ? SubscriptionVerificationOutcome.noActiveEntitlement
-              : SubscriptionVerificationOutcome.verificationUnavailable,
+          SubscriptionVerificationOutcome.verificationUnavailable,
         );
-        expect(result.isVerified, kUseLocalIapVerification ? isTrue : isFalse);
+        expect(result.isVerified, isFalse);
+      },
+    );
+
+    test(
+      'default factory unlocks only when runtime access bypasses IAP',
+      () async {
+        RuntimeGate.setAccessModeForTest(RuntimeAccessMode.sandbox);
+        final repository = createDefaultSubscriptionVerificationRepository(
+          config: const SubscriptionConfig(appleVerificationBaseUrl: ''),
+        );
+
+        final result = await repository.fetchCurrentEntitlement();
+
+        expect(
+          result.outcome,
+          SubscriptionVerificationOutcome.verifiedActiveMax,
+        );
+        expect(result.isVerified, isTrue);
       },
     );
 

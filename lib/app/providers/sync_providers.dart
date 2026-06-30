@@ -3,6 +3,7 @@ import 'package:provider/single_child_widget.dart';
 
 import '../../infrastructure/cloud/api_client.dart';
 import '../../infrastructure/cloud/http_cloud_api_client.dart';
+import '../../infrastructure/cloud/mock_cloud_api_client.dart';
 import '../../features/sync/sync_conflict_review_controller.dart';
 import '../../infrastructure/sync/sync_device_registration.dart';
 import '../../infrastructure/sync/local_timing_conflict_summary_reader.dart';
@@ -14,6 +15,7 @@ import '../../infrastructure/sync/sync_repositories.dart';
 import '../../infrastructure/sync/sync_state_repository.dart';
 import '../../infrastructure/sync/sync_telemetry.dart';
 import '../identity/app_identity_service.dart';
+import '../../core/config/app_environment.dart';
 import '../phone_login_store.dart';
 import '../app_runtime_metadata.dart';
 import '../sync_production_caller.dart';
@@ -68,6 +70,70 @@ class SyncProviders {
         value: conflictReviewController,
       ),
     ];
+
+    if (RuntimeGate.isDemoAccess) {
+      final runtime = SyncRuntime.unavailable('演示模式不连接同步服务');
+      final caller = SyncProductionCaller(
+        runtime: runtime,
+        liveReadinessGate: StaticSyncLiveReadinessGate.blockedForTest(
+          hardBlockers: const ['demo-offline'],
+        ),
+        telemetryStore: telemetryStore,
+      );
+      return SyncProviders._(
+        runtime: runtime,
+        caller: caller,
+        providers: [
+          Provider<SyncRuntime>.value(value: runtime),
+          Provider<SyncProductionCaller>.value(value: caller),
+          Provider<SyncTelemetryStore>.value(value: telemetryStore),
+          ...conflictReviewProviders,
+        ],
+      );
+    }
+
+    if (RuntimeGate.shouldUseMockSync) {
+      final gate =
+          liveReadinessGate ?? const StaticSyncLiveReadinessGate.readyForTest();
+      final currentDeviceId =
+          deviceIdProvider ?? () => AppIdentityService.instance.currentDeviceId;
+      final deviceId = currentDeviceId().trim();
+      const cloudClient = MockCloudApiClient();
+      final syncManager = SyncManager(
+        outboxRepository: const LocalSyncOutboxRepository(),
+        apiClient: cloudClient,
+        syncStateRepository: const LocalSyncStateRepository(),
+        liveReadinessGate: gate,
+        localDeviceId: deviceId.isEmpty ? null : deviceId,
+      );
+      final deviceRegistrar = SyncDeviceRegistrar(
+        apiClient: cloudClient,
+        registrationStore: registrationStore,
+        deviceIdProvider: () => deviceId,
+      );
+      final runtime = SyncRuntime.available(
+        baseUrl: 'mock://sandbox-sync',
+        syncManager: syncManager,
+        deviceRegistrar: deviceRegistrar,
+      );
+      final caller = SyncProductionCaller(
+        runtime: runtime,
+        liveReadinessGate: gate,
+        telemetryStore: telemetryStore,
+      );
+      return SyncProviders._(
+        runtime: runtime,
+        caller: caller,
+        providers: [
+          Provider<SyncRuntime>.value(value: runtime),
+          Provider<SyncProductionCaller>.value(value: caller),
+          Provider<SyncManager>.value(value: syncManager),
+          Provider<SyncDeviceRegistrar>.value(value: deviceRegistrar),
+          Provider<SyncTelemetryStore>.value(value: telemetryStore),
+          ...conflictReviewProviders,
+        ],
+      );
+    }
 
     final config = endpointConfig ?? SyncTransportConfig.current;
     final gate =

@@ -255,16 +255,10 @@ class AppDatabase {
     await DbMigrations.apply(db, oldVersion, newVersion);
   }
 
-  /// 显式演示数据入口：仅在开发/演示模式下由上层主动调用
+  /// 显式演示数据入口：仅在沙盒/演示模式下由上层主动调用。
   static Future<void> seedDemoData() async {
     final db = await database;
     await DbSeed.seedDemoDataIfEmpty(db);
-  }
-
-  /// App Review demo account seed入口:仅在审核专用账号登录成功后调用。
-  static Future<void> seedAppReviewDemoData() async {
-    final db = await database;
-    await DbSeed.seedAppReviewDemoData(db);
   }
 
   /// 测试辅助：清空单例缓存，避免测试之间复用打开的数据库句柄。

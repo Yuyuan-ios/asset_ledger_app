@@ -1,9 +1,12 @@
 import 'package:asset_ledger/app/phone_login_gate.dart';
+import 'package:asset_ledger/core/config/app_environment.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  tearDown(RuntimeGate.resetForTest);
+
   testWidgets('phone login requires agreement and persists session', (
     WidgetTester tester,
   ) async {
@@ -69,85 +72,80 @@ void main() {
     expect(store.savedSession?.tokenExpiresAt, 2000000000);
   });
 
-  testWidgets(
-    'app review demo account logs in and triggers demo data bootstrap',
-    (WidgetTester tester) async {
-      final store = _MemoryPhoneLoginStore();
-      var demoBootstrapCalls = 0;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PhoneLoginGate(
-            store: store,
-            onAppReviewDemoLogin: () async {
-              demoBootstrapCalls++;
-            },
-            child: const Text('home'),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      await tester.enterText(find.byType(TextField).at(0), '+1 650-555-0100');
-      await tester.tap(find.byType(Checkbox));
-      await tester.pump();
-      await tester.tap(find.text('获取验证码'));
-      await tester.pump();
-      await tester.enterText(find.byType(TextField).at(1), '000000');
-      await tester.pump();
-      await tester.ensureVisible(find.text('登录'));
-      await tester.tap(find.text('登录'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('home'), findsOneWidget);
-      expect(demoBootstrapCalls, 1);
-      expect(store.savedSession?.authState, PhoneLoginAuthState.authenticated);
-      expect(store.savedSession?.loginSkipped, isFalse);
-      expect(
-        store.savedSession?.phoneNumber,
-        AppReviewDemoAccount.canonicalPhoneNumber,
-      );
-      expect(store.savedSession?.authToken, AppReviewDemoAccount.authToken);
-    },
-  );
-
-  testWidgets('normal phone login does not trigger app review bootstrap', (
+  testWidgets('unsupported phone numbers cannot request a code', (
     WidgetTester tester,
   ) async {
     final store = _MemoryPhoneLoginStore();
     final verificationService = _FakePhoneVerificationService();
-    var demoBootstrapCalls = 0;
 
     await tester.pumpWidget(
       MaterialApp(
         home: PhoneLoginGate(
           store: store,
           verificationService: verificationService,
-          onAppReviewDemoLogin: () async {
-            demoBootstrapCalls++;
-          },
           child: const Text('home'),
         ),
       ),
     );
     await tester.pump();
 
-    await tester.enterText(find.byType(TextField).at(0), '13800138000');
+    await tester.enterText(find.byType(TextField).at(0), '+1 650-555-0100');
     await tester.tap(find.byType(Checkbox));
     await tester.pump();
-    await tester.tap(find.text('获取验证码'));
+
+    final requestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '获取验证码'),
+    );
+    expect(requestButton.onPressed, isNull);
+    expect(verificationService.sendCalls, 0);
+  });
+
+  testWidgets('review account enters sandbox access without requesting SMS', (
+    WidgetTester tester,
+  ) async {
+    const policy = ReviewAccessPolicy(
+      enabled: true,
+      identifiers: {'review@example.com'},
+      password: 'review-secret',
+    );
+    final store = _MemoryPhoneLoginStore();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneLoginGate(
+          store: store,
+          reviewAccessPolicy: policy,
+          child: const Text('home'),
+        ),
+      ),
+    );
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(1), '123456');
+
+    await tester.enterText(find.byType(TextField).at(0), 'review@example.com');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+
+    final requestButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '无需验证码'),
+    );
+    expect(requestButton.onPressed, isNull);
+
+    await tester.enterText(find.byType(TextField).at(1), 'review-secret');
     await tester.pump();
     await tester.ensureVisible(find.text('登录'));
+    final loginButton = tester.widget<ElevatedButton>(
+      find.widgetWithText(ElevatedButton, '登录'),
+    );
+    expect(loginButton.onPressed, isNotNull);
     await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
 
     expect(find.text('home'), findsOneWidget);
-    expect(demoBootstrapCalls, 0);
-    expect(store.savedSession?.authState, PhoneLoginAuthState.authenticated);
-    expect(store.savedSession?.phoneNumber, '13800138000');
-    expect(store.savedSession?.authToken, 'test-auth-token');
+    expect(RuntimeGate.isSandboxAccess, isTrue);
+    expect(RuntimeGate.shouldBypassAuth, isTrue);
+    expect(store.savedSession?.loggedIn, isTrue);
+    expect(store.savedSession?.phoneNumber, 'review@example.com');
+    expect(store.savedSession?.authToken, 'review-access:review@example.com');
   });
 
   testWidgets('login page can be skipped without authenticating', (

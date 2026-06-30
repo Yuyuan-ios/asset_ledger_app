@@ -1,42 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:asset_ledger/app/app_review_demo_account.dart';
 import 'package:asset_ledger/app/phone_verification_service.dart';
+import 'package:asset_ledger/core/config/app_environment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('app review demo phone accepts fixed verification code', () async {
-    final service = AppReviewDemoPhoneVerificationService(
-      delegate: _ThrowingPhoneVerificationService(),
-    );
-
-    final sendResult = await service.sendCode('+1 650-555-0100');
-    final verifyResult = await service.verifyCode(
-      phoneNumber: '+1 650-555-0100',
-      code: '000000',
-    );
-
-    expect(sendResult.message, '验证码已发送');
-    expect(verifyResult.success, isTrue);
-    expect(verifyResult.token, AppReviewDemoAccount.authToken);
-    expect(verifyResult.expiresAt, AppReviewDemoAccount.tokenExpiresAt);
-  });
-
-  test('non demo phone with app review code fails closed', () async {
-    final delegate = _CapturingPhoneVerificationService();
-    final service = AppReviewDemoPhoneVerificationService(delegate: delegate);
-
-    final result = await service.verifyCode(
-      phoneNumber: '13800138000',
-      code: '000000',
-    );
-
-    expect(result.success, isFalse);
-    expect(result.message, '验证码不正确或已过期');
-    expect(delegate.verifyCalls, 0);
-  });
-
   test('sendCode surfaces user-facing backend messages', () async {
     final error = await _captureSendCodeError(<String, Object?>{
       'ok': false,
@@ -76,39 +45,37 @@ void main() {
     expect(result.success, isFalse);
     expect(result.message, '验证码不正确或已过期');
   });
-}
 
-class _ThrowingPhoneVerificationService implements PhoneVerificationService {
-  @override
-  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) {
-    throw StateError('delegate should not be used');
-  }
+  test(
+    'review access service verifies configured credentials locally',
+    () async {
+      const policy = ReviewAccessPolicy(
+        enabled: true,
+        identifiers: {'review@example.com'},
+        password: 'review-secret',
+      );
+      final service = ReviewAccessPhoneVerificationService(
+        delegate: _ThrowingPhoneVerificationService(),
+        policy: policy,
+      );
 
-  @override
-  Future<PhoneVerificationVerifyResult> verifyCode({
-    required String phoneNumber,
-    required String code,
-  }) {
-    throw StateError('delegate should not be used');
-  }
-}
+      final sendResult = await service.sendCode('review@example.com');
+      final verifyResult = await service.verifyCode(
+        phoneNumber: 'review@example.com',
+        code: 'review-secret',
+      );
+      final failed = await service.verifyCode(
+        phoneNumber: 'review@example.com',
+        code: 'wrong',
+      );
 
-class _CapturingPhoneVerificationService implements PhoneVerificationService {
-  int verifyCalls = 0;
-
-  @override
-  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) async {
-    return const PhoneVerificationSendResult(message: 'delegate sent');
-  }
-
-  @override
-  Future<PhoneVerificationVerifyResult> verifyCode({
-    required String phoneNumber,
-    required String code,
-  }) async {
-    verifyCalls++;
-    return const PhoneVerificationVerifyResult(success: true);
-  }
+      expect(sendResult.message, '审核账号无需验证码');
+      expect(verifyResult.success, isTrue);
+      expect(verifyResult.token, 'review-access:review@example.com');
+      expect(failed.success, isFalse);
+      expect(failed.message, '审核账号或密码不正确');
+    },
+  );
 }
 
 Future<String> _captureSendCodeError(Map<String, Object?> response) async {
@@ -121,6 +88,21 @@ Future<String> _captureSendCodeError(Map<String, Object?> response) async {
     return error.message;
   }
   fail('Expected PhoneVerificationException');
+}
+
+class _ThrowingPhoneVerificationService implements PhoneVerificationService {
+  @override
+  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) {
+    throw StateError('delegate should not be called');
+  }
+
+  @override
+  Future<PhoneVerificationVerifyResult> verifyCode({
+    required String phoneNumber,
+    required String code,
+  }) {
+    throw StateError('delegate should not be called');
+  }
 }
 
 Future<T> _withJsonServer<T>(

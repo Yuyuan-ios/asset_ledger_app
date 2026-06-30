@@ -1,14 +1,14 @@
 import 'package:sqflite/sqflite.dart';
 
-/// 数据库演示数据写入逻辑（仅开发/演示模式使用）。
+/// 数据库演示数据写入逻辑（仅沙盒/演示模式使用）。
 class DbSeed {
-  static const String appReviewDemoProjectId = 'project:app-review-demo';
+  static const String demoProjectId = 'project:demo';
 
-  static const String _appReviewProjectContact = 'App Review Demo';
-  static const String _appReviewProjectSite = 'Sample Site';
-  static const String _appReviewProjectKey =
-      '$_appReviewProjectContact||$_appReviewProjectSite';
-  static const String _appReviewCreatedAt = '2026-06-01T00:00:00.000Z';
+  static const String _demoProjectContact = 'Demo Customer';
+  static const String _demoProjectSite = 'Sample Site';
+  static const String _demoProjectKey =
+      '$_demoProjectContact||$_demoProjectSite';
+  static const String _demoCreatedAt = '2026-06-01T00:00:00.000Z';
 
   /// 若设备表非空则跳过；仅在空库时写入最小演示数据。
   static Future<void> seedDemoDataIfEmpty(Database db) async {
@@ -19,19 +19,10 @@ class DbSeed {
         0;
     if (count > 0) return;
 
-    await db.transaction(_ensureAppReviewDemoData);
+    await db.transaction(_ensureDemoData);
   }
 
-  /// Ensures the App Review demo account has a complete sample ledger.
-  ///
-  /// This is invoked only after the fixed App Review demo account logs in. It
-  /// does not alter subscription/IAP state and writes current integer-fen
-  /// fields directly.
-  static Future<void> seedAppReviewDemoData(Database db) async {
-    await db.transaction(_ensureAppReviewDemoData);
-  }
-
-  static Future<void> _ensureAppReviewDemoData(Transaction txn) async {
+  static Future<void> _ensureDemoData(Transaction txn) async {
     final firstDeviceId = await _ensureDevice(
       txn,
       name: 'Demo Excavator 1',
@@ -49,15 +40,15 @@ class DbSeed {
     );
 
     await txn.insert('projects', {
-      'id': appReviewDemoProjectId,
-      'contact': _appReviewProjectContact,
-      'site': _appReviewProjectSite,
+      'id': demoProjectId,
+      'contact': _demoProjectContact,
+      'site': _demoProjectSite,
       'status': 'active',
       'settled_at': null,
       'settled_snapshot': null,
-      'created_at': _appReviewCreatedAt,
-      'updated_at': _appReviewCreatedAt,
-      'legacy_project_key': _appReviewProjectKey,
+      'created_at': _demoCreatedAt,
+      'updated_at': _demoCreatedAt,
+      'legacy_project_key': _demoProjectKey,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     await _ensureProjectDeviceRate(txn, firstDeviceId, 35000);
@@ -124,8 +115,8 @@ class DbSeed {
     int rateFen,
   ) async {
     await txn.insert('project_device_rates', {
-      'project_id': appReviewDemoProjectId,
-      'project_key': _appReviewProjectKey,
+      'project_id': demoProjectId,
+      'project_key': _demoProjectKey,
       'device_id': deviceId,
       'is_breaking': 0,
       'rate_fen': rateFen,
@@ -145,19 +136,19 @@ class DbSeed {
       'timing_records',
       columns: ['id'],
       where: 'project_id = ? AND device_id = ? AND start_date = ?',
-      whereArgs: [appReviewDemoProjectId, deviceId, startDate],
+      whereArgs: [demoProjectId, deviceId, startDate],
       limit: 1,
     );
     if (existing.isNotEmpty) return;
 
     await txn.insert('timing_records', {
-      'project_id': appReviewDemoProjectId,
+      'project_id': demoProjectId,
       'device_id': deviceId,
       'start_date': startDate,
       'allocation_cutoff_date': null,
       'display_end_date': null,
-      'contact': _appReviewProjectContact,
-      'site': _appReviewProjectSite,
+      'contact': _demoProjectContact,
+      'site': _demoProjectSite,
       'type': 'hours',
       'start_meter': startMeter,
       'end_meter': endMeter,
@@ -175,23 +166,23 @@ class DbSeed {
       'account_payments',
       columns: ['id'],
       where: 'project_id = ? AND ymd = ? AND amount_fen = ?',
-      whereArgs: [appReviewDemoProjectId, 20260615, 150000],
+      whereArgs: [demoProjectId, 20260615, 150000],
       limit: 1,
     );
     if (existing.isNotEmpty) return;
 
     await txn.insert('account_payments', {
-      'project_id': appReviewDemoProjectId,
-      'project_key': _appReviewProjectKey,
+      'project_id': demoProjectId,
+      'project_key': _demoProjectKey,
       'ymd': 20260615,
       'amount_fen': 150000,
-      'note': 'App Review demo payment',
+      'note': 'Demo payment',
       'source_type': 'manual',
       'merge_group_id': null,
       'merge_batch_id': null,
       'merge_batch_total_amount_fen': null,
       'merge_batch_note': null,
-      'created_at': _appReviewCreatedAt,
+      'created_at': _demoCreatedAt,
     });
   }
 }
