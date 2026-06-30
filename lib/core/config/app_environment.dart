@@ -51,14 +51,15 @@ class ReviewAccessPolicy {
   const ReviewAccessPolicy({
     required this.enabled,
     this.identifiers = const <String>{},
-    this.password = '',
+    this.emails = const <String>{},
+    this.userIds = const <String>{},
   });
 
   static const String enabledKey = 'REVIEW_ACCESS_MODE_ENABLED';
   static const String identifiersKey = 'REVIEW_ACCESS_IDENTIFIERS';
   static const String emailsKey = 'REVIEW_ACCESS_EMAILS';
   static const String phoneNumbersKey = 'REVIEW_ACCESS_PHONE_NUMBERS';
-  static const String passwordKey = 'REVIEW_ACCESS_PASSWORD';
+  static const String userIdsKey = 'REVIEW_ACCESS_USER_IDS';
 
   static const bool _enabledFromEnvironment = bool.fromEnvironment(enabledKey);
   static const String _identifiersFromEnvironment = String.fromEnvironment(
@@ -70,8 +71,8 @@ class ReviewAccessPolicy {
   static const String _phoneNumbersFromEnvironment = String.fromEnvironment(
     phoneNumbersKey,
   );
-  static const String _passwordFromEnvironment = String.fromEnvironment(
-    passwordKey,
+  static const String _userIdsFromEnvironment = String.fromEnvironment(
+    userIdsKey,
   );
 
   static ReviewAccessPolicy get fromEnvironment {
@@ -79,43 +80,50 @@ class ReviewAccessPolicy {
       enabled: _enabledFromEnvironment,
       identifiers: _parseIdentifiers(
         _identifiersFromEnvironment,
-        _emailsFromEnvironment,
         _phoneNumbersFromEnvironment,
       ),
-      password: _passwordFromEnvironment,
+      emails: _parseIdentifiers(_emailsFromEnvironment),
+      userIds: _parseUserIds(_userIdsFromEnvironment),
     );
   }
 
   final bool enabled;
   final Set<String> identifiers;
-  final String password;
-
-  bool get hasConfiguredCredential =>
-      enabled && identifiers.isNotEmpty && password.isNotEmpty;
+  final Set<String> emails;
+  final Set<String> userIds;
 
   bool isReviewIdentifier(String? value) {
     if (!enabled) return false;
     final normalized = _normalizeIdentifier(value);
-    return normalized.isNotEmpty && identifiers.contains(normalized);
+    return normalized.isNotEmpty &&
+        (identifiers.contains(normalized) || emails.contains(normalized));
   }
 
-  bool matchesCredentials({
-    required String identifier,
-    required String secret,
+  bool isAllowedAuthenticatedUser({
+    required String? identifier,
+    required String? email,
+    required String? userId,
   }) {
-    if (!hasConfiguredCredential) return false;
-    return isReviewIdentifier(identifier) && secret == password;
+    if (!enabled) return false;
+    return isReviewIdentifier(identifier) ||
+        _isAllowedEmail(email) ||
+        _isAllowedUserId(userId);
   }
 
-  static Set<String> _parseIdentifiers(
-    String primary,
-    String emails,
-    String phones,
-  ) {
+  bool _isAllowedEmail(String? value) {
+    final normalized = _normalizeIdentifier(value);
+    return normalized.isNotEmpty && emails.contains(normalized);
+  }
+
+  bool _isAllowedUserId(String? value) {
+    final normalized = _normalizeUserId(value);
+    return normalized.isNotEmpty && userIds.contains(normalized);
+  }
+
+  static Set<String> _parseIdentifiers(String primary, [String extra = '']) {
     return <String>{}
       ..addAll(_splitIdentifiers(primary))
-      ..addAll(_splitIdentifiers(emails))
-      ..addAll(_splitIdentifiers(phones));
+      ..addAll(_splitIdentifiers(extra));
   }
 
   static Iterable<String> _splitIdentifiers(String value) {
@@ -133,6 +141,18 @@ class ReviewAccessPolicy {
     if (trimmed.isEmpty) return '';
     if (trimmed.contains('@')) return trimmed;
     return trimmed.replaceAll(RegExp(r'[\s()\-]'), '');
+  }
+
+  static Set<String> _parseUserIds(String value) {
+    return value
+        .split(RegExp(r'[,;\s]+'))
+        .map(_normalizeUserId)
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
+  }
+
+  static String _normalizeUserId(String? value) {
+    return value?.trim().toLowerCase() ?? '';
   }
 }
 
@@ -167,10 +187,16 @@ class RuntimeAccessResolver {
 
   RuntimeAccessMode resolve({
     String? accountIdentifier,
+    String? email,
+    String? userId,
     bool isAuthenticated = false,
   }) {
     if (isAuthenticated &&
-        reviewAccessPolicy.isReviewIdentifier(accountIdentifier)) {
+        reviewAccessPolicy.isAllowedAuthenticatedUser(
+          identifier: accountIdentifier,
+          email: email,
+          userId: userId,
+        )) {
       return RuntimeAccessMode.sandbox;
     }
     return defaultAccessMode;
@@ -192,6 +218,8 @@ class RuntimeGate {
 
   static void resolveAccessForAccount({
     String? accountIdentifier,
+    String? email,
+    String? userId,
     bool isAuthenticated = false,
     ReviewAccessPolicy? reviewAccessPolicy,
   }) {
@@ -203,6 +231,8 @@ class RuntimeGate {
     );
     _accessMode = resolver.resolve(
       accountIdentifier: accountIdentifier,
+      email: email,
+      userId: userId,
       isAuthenticated: isAuthenticated,
     );
   }

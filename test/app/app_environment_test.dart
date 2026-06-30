@@ -13,7 +13,10 @@ void main() {
   test('unknown build environment fails closed to production', () {
     expect(BuildEnvironment.parse(''), BuildEnvironment.production);
     expect(BuildEnvironment.parse('review'), BuildEnvironment.production);
-    expect(BuildEnvironment.parse('unsupported_mode'), BuildEnvironment.production);
+    expect(
+      BuildEnvironment.parse('unsupported_mode'),
+      BuildEnvironment.production,
+    );
   });
 
   test('current build environment initializes runtime access default', () {
@@ -66,16 +69,74 @@ void main() {
     );
   });
 
+  test('review access policy allows only authenticated whitelisted users', () {
+    const policy = ReviewAccessPolicy(
+      enabled: true,
+      emails: {'review@example.com'},
+      userIds: {'review-user-id'},
+    );
+
+    expect(
+      policy.isAllowedAuthenticatedUser(
+        identifier: 'review@example.com',
+        email: null,
+        userId: null,
+      ),
+      isTrue,
+    );
+    expect(
+      policy.isAllowedAuthenticatedUser(
+        identifier: null,
+        email: 'review@example.com',
+        userId: null,
+      ),
+      isTrue,
+    );
+    expect(
+      policy.isAllowedAuthenticatedUser(
+        identifier: null,
+        email: null,
+        userId: 'review-user-id',
+      ),
+      isTrue,
+    );
+    expect(
+      policy.isAllowedAuthenticatedUser(
+        identifier: 'user@example.com',
+        email: 'user@example.com',
+        userId: 'normal-user-id',
+      ),
+      isFalse,
+    );
+    expect(
+      const ReviewAccessPolicy(
+        enabled: false,
+        emails: {'review@example.com'},
+      ).isAllowedAuthenticatedUser(
+        identifier: 'review@example.com',
+        email: null,
+        userId: null,
+      ),
+      isFalse,
+    );
+  });
+
   test('review account resolves production normal to sandbox access', () {
     const resolver = RuntimeAccessResolver(
       buildEnvironment: BuildEnvironment.production,
       reviewAccessPolicy: ReviewAccessPolicy(
         enabled: true,
-        identifiers: {'review@example.com'},
-        password: 'secret',
+        emails: {'review@example.com'},
       ),
     );
 
+    expect(
+      resolver.resolve(
+        accountIdentifier: 'review@example.com',
+        isAuthenticated: false,
+      ),
+      RuntimeAccessMode.normal,
+    );
     expect(
       resolver.resolve(
         accountIdentifier: 'user@example.com',

@@ -427,7 +427,7 @@ class _CodeTextField extends StatelessWidget {
             decoration: InputDecoration(
               border: InputBorder.none,
               isCollapsed: true,
-              hintText: reviewAccessEnabled ? '验证码/密码' : '验证码',
+              hintText: reviewAccessEnabled ? '验证码/凭证' : '验证码',
               hintStyle: _loginTextStyle(
                 fontSize: 29,
                 lineHeight: 38,

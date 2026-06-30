@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../core/config/app_environment.dart';
-
 class PhoneVerificationSendResult {
   const PhoneVerificationSendResult({required this.message});
 
@@ -169,22 +167,12 @@ class HttpPhoneVerificationService implements PhoneVerificationService {
 class ReviewAccessPhoneVerificationService implements PhoneVerificationService {
   const ReviewAccessPhoneVerificationService({
     this.delegate = const HttpPhoneVerificationService(),
-    this.policy,
   });
 
   final PhoneVerificationService delegate;
-  final ReviewAccessPolicy? policy;
-
-  ReviewAccessPolicy get _policy =>
-      policy ?? ReviewAccessPolicy.fromEnvironment;
 
   @override
   Future<PhoneVerificationSendResult> sendCode(String phoneNumber) {
-    if (_policy.isReviewIdentifier(phoneNumber)) {
-      return Future.value(
-        const PhoneVerificationSendResult(message: '审核账号无需验证码'),
-      );
-    }
     return delegate.sendCode(phoneNumber);
   }
 
@@ -193,27 +181,6 @@ class ReviewAccessPhoneVerificationService implements PhoneVerificationService {
     required String phoneNumber,
     required String code,
   }) {
-    final resolvedPolicy = _policy;
-    if (resolvedPolicy.isReviewIdentifier(phoneNumber)) {
-      if (resolvedPolicy.matchesCredentials(
-        identifier: phoneNumber,
-        secret: code,
-      )) {
-        return Future.value(
-          PhoneVerificationVerifyResult(
-            success: true,
-            token:
-                'review-access:${ReviewAccessPolicy.normalizeIdentifier(phoneNumber)}',
-          ),
-        );
-      }
-      return Future.value(
-        const PhoneVerificationVerifyResult(
-          success: false,
-          message: '审核账号或密码不正确',
-        ),
-      );
-    }
     return delegate.verifyCode(phoneNumber: phoneNumber, code: code);
   }
 }

@@ -56,7 +56,7 @@ class _PhoneLoginGateState extends State<PhoneLoginGate> {
         widget.reviewAccessPolicy ?? ReviewAccessPolicy.fromEnvironment;
     _verificationService =
         widget.verificationService ??
-        ReviewAccessPhoneVerificationService(policy: _reviewAccessPolicy);
+        const ReviewAccessPhoneVerificationService();
     _loadSession();
   }
 
@@ -276,7 +276,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       return;
     }
     if (_isReviewAccessInput) {
-      setState(() => _statusText = '审核账号无需验证码，请输入密码后登录');
+      setState(() => _statusText = '审核账号无需验证码，请输入登录凭证后登录');
       return;
     }
     if (!_loginIdentifierValid) {

@@ -61,8 +61,7 @@ void main() {
       isAuthenticated: true,
       reviewAccessPolicy: const ReviewAccessPolicy(
         enabled: true,
-        identifiers: {'review@example.com'},
-        password: 'secret',
+        emails: {'review@example.com'},
       ),
     );
     final storeGateway = _CountingSubscriptionStoreGateway();

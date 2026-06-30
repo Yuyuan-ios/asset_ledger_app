@@ -286,9 +286,7 @@ class _DevicePageState extends State<DevicePage> with _DeviceBackupDialogs {
     await navigator.push<void>(
       MaterialPageRoute<void>(
         builder: (_) => PhoneLoginPage(
-          verificationService: ReviewAccessPhoneVerificationService(
-            policy: RuntimeGate.reviewAccessPolicy,
-          ),
+          verificationService: const ReviewAccessPhoneVerificationService(),
           reviewAccessPolicy: RuntimeGate.reviewAccessPolicy,
           initialAgreementAccepted: initialSession.privacyAccepted,
           onLoggedIn:

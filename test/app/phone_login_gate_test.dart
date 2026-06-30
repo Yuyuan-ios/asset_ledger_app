@@ -100,13 +100,88 @@ void main() {
     expect(verificationService.sendCalls, 0);
   });
 
-  testWidgets('review account enters sandbox access without requesting SMS', (
+  testWidgets(
+    'review account enters sandbox only after delegate auth succeeds',
+    (WidgetTester tester) async {
+      const policy = ReviewAccessPolicy(
+        enabled: true,
+        emails: {'review@example.com'},
+      );
+      final verificationService = _FakePhoneVerificationService(
+        verifyResults: const {
+          'review@example.com': PhoneVerificationVerifyResult(
+            success: true,
+            token: 'delegate-auth-token',
+            expiresAt: 2000000000,
+          ),
+        },
+      );
+      final store = _MemoryPhoneLoginStore();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PhoneLoginGate(
+            store: store,
+            verificationService: verificationService,
+            reviewAccessPolicy: policy,
+            child: const Text('home'),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(
+        find.byType(TextField).at(0),
+        'review@example.com',
+      );
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+
+      final requestButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '无需验证码'),
+      );
+      expect(requestButton.onPressed, isNull);
+      expect(verificationService.sendCalls, 0);
+
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'user-entered-value',
+      );
+      await tester.pump();
+      await tester.ensureVisible(find.text('登录'));
+      final loginButton = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, '登录'),
+      );
+      expect(loginButton.onPressed, isNotNull);
+      await tester.tap(find.text('登录'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('home'), findsOneWidget);
+      expect(RuntimeGate.isSandboxAccess, isTrue);
+      expect(RuntimeGate.shouldBypassAuth, isTrue);
+      expect(store.savedSession?.loggedIn, isTrue);
+      expect(store.savedSession?.phoneNumber, 'review@example.com');
+      expect(store.savedSession?.authToken, 'delegate-auth-token');
+      expect(verificationService.verifyCalls, 1);
+      expect(verificationService.verifiedPhone, 'review@example.com');
+      expect(verificationService.verifiedCode, 'user-entered-value');
+    },
+  );
+
+  testWidgets('review account stays normal when delegate auth fails', (
     WidgetTester tester,
   ) async {
     const policy = ReviewAccessPolicy(
       enabled: true,
-      identifiers: {'review@example.com'},
-      password: 'review-secret',
+      emails: {'review@example.com'},
+    );
+    final verificationService = _FakePhoneVerificationService(
+      verifyResults: const {
+        'review@example.com': PhoneVerificationVerifyResult(
+          success: false,
+          message: '登录失败',
+        ),
+      },
     );
     final store = _MemoryPhoneLoginStore();
 
@@ -114,6 +189,7 @@ void main() {
       MaterialApp(
         home: PhoneLoginGate(
           store: store,
+          verificationService: verificationService,
           reviewAccessPolicy: policy,
           child: const Text('home'),
         ),
@@ -123,29 +199,17 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), 'review@example.com');
     await tester.tap(find.byType(Checkbox));
-    await tester.pump();
-
-    final requestButton = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, '无需验证码'),
-    );
-    expect(requestButton.onPressed, isNull);
-
-    await tester.enterText(find.byType(TextField).at(1), 'review-secret');
+    await tester.enterText(find.byType(TextField).at(1), 'user-entered-value');
     await tester.pump();
     await tester.ensureVisible(find.text('登录'));
-    final loginButton = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, '登录'),
-    );
-    expect(loginButton.onPressed, isNotNull);
     await tester.tap(find.text('登录'));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(find.text('home'), findsOneWidget);
-    expect(RuntimeGate.isSandboxAccess, isTrue);
-    expect(RuntimeGate.shouldBypassAuth, isTrue);
-    expect(store.savedSession?.loggedIn, isTrue);
-    expect(store.savedSession?.phoneNumber, 'review@example.com');
-    expect(store.savedSession?.authToken, 'review-access:review@example.com');
+    expect(find.text('home'), findsNothing);
+    expect(find.text('登录失败'), findsOneWidget);
+    expect(RuntimeGate.isNormalAccess, isTrue);
+    expect(store.savedSession, isNull);
+    expect(verificationService.verifyCalls, 1);
   });
 
   testWidgets('login page can be skipped without authenticating', (
@@ -621,11 +685,18 @@ class _MemoryPhoneLoginStore implements PhoneLoginStore {
 }
 
 class _FakePhoneVerificationService implements PhoneVerificationService {
-  _FakePhoneVerificationService({this.sendError});
+  _FakePhoneVerificationService({
+    this.sendError,
+    this.verifyResults = const <String, PhoneVerificationVerifyResult>{},
+  });
 
   final Object? sendError;
+  final Map<String, PhoneVerificationVerifyResult> verifyResults;
   int sendCalls = 0;
+  int verifyCalls = 0;
   String? sentPhone;
+  String? verifiedPhone;
+  String? verifiedCode;
 
   @override
   Future<PhoneVerificationSendResult> sendCode(String phoneNumber) async {
@@ -643,6 +714,13 @@ class _FakePhoneVerificationService implements PhoneVerificationService {
     required String phoneNumber,
     required String code,
   }) async {
+    verifyCalls++;
+    verifiedPhone = phoneNumber;
+    verifiedCode = code;
+    final configuredResult = verifyResults[phoneNumber];
+    if (configuredResult != null) {
+      return configuredResult;
+    }
     if (phoneNumber == sentPhone && code == '123456') {
       return const PhoneVerificationVerifyResult(
         success: true,

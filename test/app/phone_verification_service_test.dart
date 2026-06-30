@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:asset_ledger/app/phone_verification_service.dart';
-import 'package:asset_ledger/core/config/app_environment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -47,33 +46,49 @@ void main() {
   });
 
   test(
-    'review access service verifies configured credentials locally',
+    'review access service delegates review identifiers to real auth service',
     () async {
-      const policy = ReviewAccessPolicy(
-        enabled: true,
-        identifiers: {'review@example.com'},
-        password: 'review-secret',
+      final delegate = _RecordingPhoneVerificationService(
+        verifyResult: const PhoneVerificationVerifyResult(
+          success: true,
+          token: 'delegate-auth-token',
+        ),
       );
-      final service = ReviewAccessPhoneVerificationService(
-        delegate: _ThrowingPhoneVerificationService(),
-        policy: policy,
-      );
+      final service = ReviewAccessPhoneVerificationService(delegate: delegate);
 
       final sendResult = await service.sendCode('review@example.com');
       final verifyResult = await service.verifyCode(
         phoneNumber: 'review@example.com',
-        code: 'review-secret',
-      );
-      final failed = await service.verifyCode(
-        phoneNumber: 'review@example.com',
-        code: 'wrong',
+        code: 'user-entered-value',
       );
 
-      expect(sendResult.message, '审核账号无需验证码');
+      expect(sendResult.message, 'delegate sent');
       expect(verifyResult.success, isTrue);
-      expect(verifyResult.token, 'review-access:review@example.com');
-      expect(failed.success, isFalse);
-      expect(failed.message, '审核账号或密码不正确');
+      expect(verifyResult.token, 'delegate-auth-token');
+      expect(delegate.sendCalls, 1);
+      expect(delegate.sentIdentifier, 'review@example.com');
+      expect(delegate.verifyCalls, 1);
+      expect(delegate.verifiedIdentifier, 'review@example.com');
+      expect(delegate.verifiedCode, 'user-entered-value');
+    },
+  );
+
+  test(
+    'review access service does not synthesize success when delegate fails',
+    () async {
+      final delegate = _RecordingPhoneVerificationService(
+        verifyResult: const PhoneVerificationVerifyResult(success: false),
+      );
+      final service = ReviewAccessPhoneVerificationService(delegate: delegate);
+
+      final result = await service.verifyCode(
+        phoneNumber: 'review@example.com',
+        code: 'user-entered-value',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.token, isNull);
+      expect(delegate.verifyCalls, 1);
     },
   );
 }
@@ -90,18 +105,32 @@ Future<String> _captureSendCodeError(Map<String, Object?> response) async {
   fail('Expected PhoneVerificationException');
 }
 
-class _ThrowingPhoneVerificationService implements PhoneVerificationService {
+class _RecordingPhoneVerificationService implements PhoneVerificationService {
+  _RecordingPhoneVerificationService({required this.verifyResult});
+
+  final PhoneVerificationVerifyResult verifyResult;
+  int sendCalls = 0;
+  int verifyCalls = 0;
+  String? sentIdentifier;
+  String? verifiedIdentifier;
+  String? verifiedCode;
+
   @override
-  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) {
-    throw StateError('delegate should not be called');
+  Future<PhoneVerificationSendResult> sendCode(String phoneNumber) async {
+    sendCalls++;
+    sentIdentifier = phoneNumber;
+    return const PhoneVerificationSendResult(message: 'delegate sent');
   }
 
   @override
   Future<PhoneVerificationVerifyResult> verifyCode({
     required String phoneNumber,
     required String code,
-  }) {
-    throw StateError('delegate should not be called');
+  }) async {
+    verifyCalls++;
+    verifiedIdentifier = phoneNumber;
+    verifiedCode = code;
+    return verifyResult;
   }
 }
 
