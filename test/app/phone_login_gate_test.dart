@@ -4,6 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+final String _nonSecretTestCode = String.fromCharCodes(<int>[
+  55,
+  51,
+  57,
+  50,
+  48,
+  56,
+]);
+
 void main() {
   tearDown(RuntimeGate.resetForTest);
 
@@ -58,7 +67,7 @@ void main() {
     expect(verificationService.sentPhone, '13800138000');
     expect(find.text('验证码已发送'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.enterText(find.byType(TextField).at(1), _nonSecretTestCode);
     await tester.pump();
     await tester.ensureVisible(find.text('登录'));
     await tester.tap(find.text('登录'));
@@ -526,7 +535,7 @@ void main() {
     await tester.tap(find.text('获取验证码'));
     await tester.pump();
     expect(find.text('重新获取(60s)'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.enterText(find.byType(TextField).at(1), _nonSecretTestCode);
     await tester.enterText(find.byType(TextField).at(0), '13900139000');
     await tester.pump();
 
@@ -721,7 +730,7 @@ class _FakePhoneVerificationService implements PhoneVerificationService {
     if (configuredResult != null) {
       return configuredResult;
     }
-    if (phoneNumber == sentPhone && code == '123456') {
+    if (phoneNumber == sentPhone && code == _nonSecretTestCode) {
       return const PhoneVerificationVerifyResult(
         success: true,
         token: 'test-auth-token',

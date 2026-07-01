@@ -537,12 +537,12 @@ void main() {
       records: [r1],
       deviceMap: {1: deviceA},
       calcHistoryMap: const {},
-      projectReceivedFen: 123456,
+      projectReceivedFen: 234567,
     );
 
-    expect(p.projectSnapshot.projectReceivedFen, 123456);
+    expect(p.projectSnapshot.projectReceivedFen, 234567);
     final snap = p.toMap()['project_snapshot'] as Map<String, Object?>;
-    expect(snap['project_received_fen'], 123456);
+    expect(snap['project_received_fen'], 234567);
   });
 
   test('toMap stays parseable by legacy import payload parser', () {

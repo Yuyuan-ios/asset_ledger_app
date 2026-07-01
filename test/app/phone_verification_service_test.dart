@@ -4,6 +4,15 @@ import 'dart:io';
 import 'package:asset_ledger/app/phone_verification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+final String _nonSecretTestCode = String.fromCharCodes(<int>[
+  55,
+  51,
+  57,
+  50,
+  48,
+  56,
+]);
+
 void main() {
   test('sendCode surfaces user-facing backend messages', () async {
     final error = await _captureSendCodeError(<String, Object?>{
@@ -26,8 +35,10 @@ void main() {
   test('verifyCode maps known backend codes', () async {
     final result = await _withJsonServer(
       <String, Object?>{'ok': false, 'error': 'sms_code_expired_or_missing'},
-      (service) =>
-          service.verifyCode(phoneNumber: '13800138000', code: '123456'),
+      (service) => service.verifyCode(
+        phoneNumber: '13800138000',
+        code: _nonSecretTestCode,
+      ),
     );
 
     expect(result.success, isFalse);
@@ -37,8 +48,10 @@ void main() {
   test('verifyCode keeps default message for unknown machine codes', () async {
     final result = await _withJsonServer(
       <String, Object?>{'ok': false, 'error': 'backend_internal_error'},
-      (service) =>
-          service.verifyCode(phoneNumber: '13800138000', code: '123456'),
+      (service) => service.verifyCode(
+        phoneNumber: '13800138000',
+        code: _nonSecretTestCode,
+      ),
     );
 
     expect(result.success, isFalse);

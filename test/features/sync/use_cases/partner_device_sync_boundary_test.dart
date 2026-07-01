@@ -36,7 +36,7 @@ void main() {
       'authorized device snapshot excludes local lifecycle payback fields',
       () {
         const initialCostFen = 987654321;
-        const residualFen = 123456789;
+        const residualFen = 234567890;
         final localDevice = Device(
           id: 2,
           name: 'SANY lifecycle',

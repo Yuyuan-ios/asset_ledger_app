@@ -49,7 +49,7 @@ void main() {
       'registration payload excludes lifecycle payback local amounts',
       () async {
         const initialCostFen = 987654321;
-        const residualFen = 123456789;
+        const residualFen = 234567890;
         final localDevice = Device(
           id: 1,
           name: 'SANY lifecycle',

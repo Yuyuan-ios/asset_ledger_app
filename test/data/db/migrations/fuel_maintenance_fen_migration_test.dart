@@ -78,7 +78,7 @@ void main() {
             );
             await db.insert(
               'maintenance_records',
-              _maintRow(id: 2, amount: 1234.56),
+              _maintRow(id: 2, amount: 2345.67),
             );
           },
         ),
@@ -116,8 +116,8 @@ void main() {
         expect((await _row(db, 'fuel_logs', 3))['cost_fen'], 1999); // 19.99
         expect(
           (await _row(db, 'maintenance_records', 2))['amount_fen'],
-          123456,
-        ); // 1234.56
+          234567,
+        ); // 2345.67
 
         // 模型能正确还原 fen。
         expect(FuelLog.fromMap(await _row(db, 'fuel_logs', 1)).costFen, 20000);

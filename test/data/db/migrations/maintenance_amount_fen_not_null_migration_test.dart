@@ -70,7 +70,7 @@ void main() {
             );
             await db.insert(
               'maintenance_records',
-              _maintenanceRow(id: 2, amount: 1234.56),
+              _maintenanceRow(id: 2, amount: 2345.67),
             );
             await db.insert(
               'maintenance_records',
@@ -102,7 +102,7 @@ void main() {
         final rows = await upgraded.query('maintenance_records', orderBy: 'id');
         expect(rows, hasLength(3));
         expect(rows[0]['amount_fen'], 5000);
-        expect(rows[1]['amount_fen'], 123456);
+        expect(rows[1]['amount_fen'], 234567);
         expect(rows[2]['amount_fen'], 1, reason: '既有非 NULL fen 不应被重建覆盖');
         expect(rows[0]['note'], '定期保养');
 

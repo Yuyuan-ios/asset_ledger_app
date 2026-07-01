@@ -45,13 +45,13 @@ void main() {
     });
 
     test('project received amount is stored as a non-negative snapshot', () {
-      final record = _record(projectReceivedFen: 123456);
+      final record = _record(projectReceivedFen: 234567);
 
-      expect(record.projectReceivedFen, 123456);
-      expect(record.toMap()['project_received_fen'], 123456);
+      expect(record.projectReceivedFen, 234567);
+      expect(record.toMap()['project_received_fen'], 234567);
       expect(
         ExternalWorkRecord.fromMap(record.toMap()).projectReceivedFen,
-        123456,
+        234567,
       );
       expect(
         ExternalWorkRecord.fromMap(

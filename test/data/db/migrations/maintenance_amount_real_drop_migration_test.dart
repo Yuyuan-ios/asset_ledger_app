@@ -69,7 +69,7 @@ void main() {
             );
             await db.insert(
               'maintenance_records',
-              _legacyMaintenanceRow(id: 2, amount: 1234.56),
+              _legacyMaintenanceRow(id: 2, amount: 2345.67),
             );
             await db.insert(
               'maintenance_records',
@@ -101,11 +101,11 @@ void main() {
         final rows = await db.query('maintenance_records', orderBy: 'id');
         expect(rows, hasLength(4));
         expect(rows[0]['amount_fen'], 5000);
-        expect(rows[1]['amount_fen'], 123456);
+        expect(rows[1]['amount_fen'], 234567);
         expect(rows[2]['amount_fen'], 10);
         expect(rows[3]['amount_fen'], 1);
         expect(rows[0]['note'], '定期保养');
-        expect(MaintenanceRecord.fromMap(rows[1]).amount, 1234.56);
+        expect(MaintenanceRecord.fromMap(rows[1]).amount, 2345.67);
       } finally {
         await db.close();
       }

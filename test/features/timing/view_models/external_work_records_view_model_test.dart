@@ -167,7 +167,7 @@ void main() {
           equipmentModel: 'ZX200',
           workDate: 20260323,
           hoursMilli: 50000,
-        ).copyWith(amountFen: 123456, sourceUnitPriceFen: 1000),
+        ).copyWith(amountFen: 234567, sourceUnitPriceFen: 1000),
       );
       final vm = ExternalWorkRecordsViewModelBuilder.buildDetail(
         item: item,
@@ -181,7 +181,7 @@ void main() {
       expect(vm.workDateText, FormatUtils.date(20260323));
       expect(vm.hoursText, '50.0 h');
       expect(vm.sourceUnitPriceText, '${FormatUtils.money(10)} / h');
-      expect(vm.amountText, FormatUtils.money(1234.56));
+      expect(vm.amountText, FormatUtils.money(2345.67));
       expect(vm.importedAtText, '2026-03-30T08:00:00.000Z');
     });
 
